@@ -2,7 +2,14 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Divider, SizableText, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Divider,
+  Image,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
@@ -10,35 +17,35 @@ import PreSwapInfoItem from '../../components/PreSwapInfoItem';
 import PreSwapTokenItem from '../../components/PreSwapTokenItem';
 
 interface IPreSwapDialogContentProps {
-  onClose: () => void;
   quoteResult: IFetchQuoteResult;
+  onConfirm: () => void;
 }
 
 const PreSwapDialogContent = ({
-  onClose,
+  onConfirm,
   quoteResult,
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
 
   // 模拟数据
-  const fromToken = quoteResult.fromTokenInfo;
-  const toToken = quoteResult.toTokenInfo;
-  const fromAmount = quoteResult.fromAmount || '0';
-  const toAmount = quoteResult.toAmount || '0';
+  const fromToken = quoteResult?.fromTokenInfo;
+  const toToken = quoteResult?.toTokenInfo;
+  const fromAmount = quoteResult?.fromAmount || '0';
+  const toAmount = quoteResult?.toAmount || '0';
 
   // 模拟 slippage 和 fee 数据
-  const slippage = '0.5%';
+  const slippage = quoteResult?.slippage ?? '-';
   const fee = useMemo(() => {
-    if (quoteResult.fee?.percentageFee) {
-      return `${quoteResult.fee.percentageFee}%`;
+    if (quoteResult?.fee?.percentageFee) {
+      return `${quoteResult?.fee?.percentageFee ?? '-'}%`;
     }
-    return '0.1%';
-  }, [quoteResult.fee?.percentageFee]);
+    return '-';
+  }, [quoteResult?.fee?.percentageFee]);
 
   const handleConfirm = () => {
     // 处理确认逻辑
     console.log('Confirm swap');
-    onClose();
+    onConfirm();
   };
 
   return (
@@ -66,13 +73,32 @@ const PreSwapDialogContent = ({
       <YStack gap="$3">
         <PreSwapInfoItem
           title={intl.formatMessage({
+            id: ETranslations.swap_page_provider_provider,
+          })}
+          value={
+            <XStack gap="$1">
+              <Image
+                source={{ uri: quoteResult?.info.providerLogo ?? '' }}
+                size="$5"
+                borderRadius="$1"
+              />
+              <SizableText size="$bodyMd">
+                {intl.formatMessage({
+                  id: ETranslations.fee_fee,
+                })}
+              </SizableText>
+            </XStack>
+          }
+        />
+        <PreSwapInfoItem
+          title={intl.formatMessage({
             id: ETranslations.swap_page_provider_slippage_tolerance,
           })}
           value={slippage}
         />
         <PreSwapInfoItem
           title={intl.formatMessage({
-            id: ETranslations.swap_page_provider_fee_amount,
+            id: ETranslations.fee_fee,
           })}
           value={fee}
         />

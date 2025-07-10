@@ -2,7 +2,7 @@ import { SizableText, XStack } from '@onekeyhq/components';
 
 interface IPreSwapInfoItemProps {
   title: string;
-  value: string;
+  value: string | React.ReactNode;
 }
 
 const PreSwapInfoItem = ({ title, value }: IPreSwapInfoItemProps) => {
@@ -11,7 +11,11 @@ const PreSwapInfoItem = ({ title, value }: IPreSwapInfoItemProps) => {
       <SizableText size="$bodyMd" color="$textSubdued">
         {title}
       </SizableText>
-      <SizableText size="$bodyMd">{value}</SizableText>
+      {typeof value === 'string' ? (
+        <SizableText size="$bodyMd">{value}</SizableText>
+      ) : (
+        value
+      )}
     </XStack>
   );
 };

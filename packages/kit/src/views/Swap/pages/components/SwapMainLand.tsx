@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -53,6 +53,7 @@ import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import LimitInfoContainer from './LimitInfoContainer';
 import LimitOrderOpenItem from './LimitOrderOpenItem';
+import PreSwapDialogContainer from './PreSwapDialogContainer';
 import SwapActionsState from './SwapActionsState';
 import SwapAlertContainer from './SwapAlertContainer';
 import SwapHeaderContainer from './SwapHeaderContainer';
@@ -234,6 +235,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       }),
     [fromSelectToken, toSelectToken],
   );
+  const [preSwapDialogOpen, setPreSwapDialogOpen] = useState(false);
+  const onPreSwap = useCallback(() => {
+    setPreSwapDialogOpen(true);
+  }, []);
   return (
     <ScrollView>
       <YStack
@@ -269,9 +274,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             <LimitInfoContainer />
           ) : null}
           <SwapActionsState
-            onBuildTx={onBuildTx}
-            onApprove={onApprove}
-            onWrapped={onWrapped}
+            onPreSwap={onPreSwap}
             onOpenRecipientAddress={onToAnotherAddressModal}
             onSelectPercentageStage={onSelectPercentageStage}
           />
@@ -291,6 +294,15 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             onSelectTokenPairs={onSelectRecentTokenPairs}
             tokenPairs={swapRecentTokenPairs}
             fromTokenAmount={fromTokenAmount.value}
+          />
+          <PreSwapDialogContainer
+            onClose={() => {
+              setPreSwapDialogOpen(false);
+            }}
+            open={preSwapDialogOpen}
+            onBuildTx={onBuildTx}
+            onApprove={onApprove}
+            onWrapped={onWrapped}
           />
         </YStack>
       </YStack>

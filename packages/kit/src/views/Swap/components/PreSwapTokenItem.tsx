@@ -20,15 +20,17 @@ interface IPreSwapTokenItemProps {
 
 const PreSwapTokenItem = ({ token, amount }: IPreSwapTokenItemProps) => {
   const fiatValue = useMemo(() => {
-    return token.price && amount
-      ? new BigNumber(token.price).multipliedBy(amount).toFixed()
+    return token?.price && amount
+      ? new BigNumber(token?.price ?? 0).multipliedBy(amount).toFixed()
       : '0';
-  }, [token.price, amount]);
+  }, [token?.price, amount]);
   const [settings] = useSettingsPersistAtom();
   return (
     <XStack alignItems="center" justifyContent="space-between">
       <YStack gap="$2">
-        <SizableText size="$heading3xl">{`${amount} ${token.symbol}`}</SizableText>
+        <SizableText size="$heading3xl">{`${amount} ${
+          token?.symbol ?? '-'
+        }`}</SizableText>
         <NumberSizeableText
           size="$bodyMd"
           color="$textSubdued"
@@ -41,8 +43,8 @@ const PreSwapTokenItem = ({ token, amount }: IPreSwapTokenItemProps) => {
         </NumberSizeableText>
       </YStack>
       <Token
-        tokenImageUri={token.logoURI}
-        networkImageUri={token.networkLogoURI}
+        tokenImageUri={token?.logoURI}
+        networkImageUri={token?.networkLogoURI}
         size="lg"
       />
     </XStack>
