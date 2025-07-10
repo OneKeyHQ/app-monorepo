@@ -120,8 +120,8 @@ export function TokenDetailHeaderRight({
         )}
       />
 
-      {shareButton}
       {marketStar}
+      {shareButton}
     </XStack>
   );
 }
