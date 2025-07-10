@@ -15,6 +15,7 @@ function TransactionsHeaderSmallBase() {
 
   return (
     <XStack
+      flex={1}
       px="$4"
       py="$3"
       alignItems="center"
@@ -25,11 +26,11 @@ function TransactionsHeaderSmallBase() {
       <YStack>
         <SizableText {...commonTextProps} {...styles.time}>
           {intl.formatMessage({
-            id: ETranslations.dexmarket_details_history_time,
-          })}
-          /
-          {intl.formatMessage({
             id: ETranslations.dexmarket_details_history_type,
+          })}
+          {' / '}
+          {intl.formatMessage({
+            id: ETranslations.dexmarket_details_history_time,
           })}
         </SizableText>
       </YStack>
@@ -42,11 +43,11 @@ function TransactionsHeaderSmallBase() {
 
       <SizableText {...commonTextProps} {...styles.price}>
         {intl.formatMessage({
-          id: ETranslations.global_price,
-        })}
-        /
-        {intl.formatMessage({
           id: ETranslations.dexmarket_details_history_value,
+        })}
+        {' / '}
+        {intl.formatMessage({
+          id: ETranslations.global_price,
         })}
       </SizableText>
     </XStack>

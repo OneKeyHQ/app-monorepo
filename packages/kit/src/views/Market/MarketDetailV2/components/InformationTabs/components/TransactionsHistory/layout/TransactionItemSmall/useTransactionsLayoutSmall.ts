@@ -9,7 +9,7 @@ export const useTransactionsLayoutSmall = () => {
     },
     price: {
       textAlign: 'right' as const,
-      width: '$30',
+      width: '$32',
     },
   };
 
