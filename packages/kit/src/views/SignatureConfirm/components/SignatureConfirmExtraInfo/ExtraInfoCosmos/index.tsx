@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import type { IYStackProps } from '@onekeyhq/components';
+import type { IStackProps, IYStackProps } from '@onekeyhq/components';
 import type { IDecodedTxExtraCosmos } from '@onekeyhq/core/src/chains/cosmos/types';
 import { useDecodedTxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 

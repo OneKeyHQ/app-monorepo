@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import type { IYStackProps } from '@onekeyhq/components';
+import type { IStackProps, IYStackProps } from '@onekeyhq/components';
 import type { IDecodedTxExtraAlgo } from '@onekeyhq/core/src/chains/algo/types';
 import { useDecodedTxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 

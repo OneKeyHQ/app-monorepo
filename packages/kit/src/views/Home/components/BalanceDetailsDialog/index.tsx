@@ -3,13 +3,13 @@ import { type ComponentProps, useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 import { isUndefined } from 'lodash';
 
+import type { IYStackProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
   Divider,
   ESwitchSize,
   Icon,
-  IYStackProps,
   SizableText,
   Skeleton,
   Stack,

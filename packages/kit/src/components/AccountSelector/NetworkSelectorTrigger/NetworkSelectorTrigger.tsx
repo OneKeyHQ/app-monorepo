@@ -2,9 +2,9 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IXStackProps } from '@onekeyhq/components';
 import {
   Icon,
-  IXStackProps,
   NATIVE_HIT_SLOP,
   Select,
   SizableText,
