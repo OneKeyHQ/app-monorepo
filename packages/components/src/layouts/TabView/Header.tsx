@@ -175,7 +175,7 @@ const HeaderComponent = (
   rawCursorStyle.right = reloadWebPxNumber(rawCursorStyle?.right);
   rawCursorStyle.width = reloadWebPxNumber(rawCursorStyle?.width);
 
-  const headerViewRef = useRef<any>();
+  const headerViewRef = useRef<any>(null);
 
   useImperativeHandle(
     ref,

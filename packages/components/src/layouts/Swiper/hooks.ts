@@ -59,10 +59,12 @@ export const useScrollEvent = ({
   autoplayLoopKeepAnimation: ISwiperProps<any>['autoplayLoopKeepAnimation'];
   dataLength: number;
 }) => {
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   const clearTimer = useCallback(() => {
-    clearTimeout(timeoutRef.current);
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
   }, []);
 
   const swiperRef = useRef<IListViewRef<any> | null>(null);
