@@ -241,7 +241,7 @@ function TableRow<T>({
             name={dataIndex}
             align={align}
             width={columnWidth}
-            {...columnProps}
+            {...(columnProps as any)}
           >
             {showSkeleton
               ? renderSkeleton?.()
@@ -609,7 +609,7 @@ function BasicTable<T>({
         />
       ) : (
         <ListView
-          ref={listViewRef}
+          ref={listViewRef as any}
           contentContainerStyle={contentContainerStyle}
           stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
           estimatedItemSize={estimatedItemSize}
