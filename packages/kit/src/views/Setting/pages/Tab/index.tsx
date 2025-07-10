@@ -173,10 +173,9 @@ function SettingsTabNavigator() {
           key={title}
           name={name}
           options={{
-            ...options,
+            ...(options as any),
             tabBarLabel: title,
             tabBarIcon: () => icon,
-            // @ts-expect-error BottomTabBar V7
             tabBarPosition: 'left',
           }}
         >
