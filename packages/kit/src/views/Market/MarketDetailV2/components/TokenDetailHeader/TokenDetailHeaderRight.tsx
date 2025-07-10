@@ -5,7 +5,11 @@ import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/Mark
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  formatDisplayNumber,
+  formatMarketCap,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketStarV2 } from '../../../components/MarketStarV2';
@@ -95,8 +99,10 @@ export function TokenDetailHeaderRight({
 
       <StatItem
         label={intl.formatMessage({ id: ETranslations.dexmarket_market_cap })}
-        value={`$${String(
-          numberFormat(marketCap, { formatter: 'marketCap' }),
+        value={`$${formatDisplayNumber(
+          formatMarketCap(marketCap, {
+            capAtMaxT: true,
+          }),
         )}`}
       />
 
