@@ -1,4 +1,5 @@
 import { Divider, Stack, XStack, YStack } from '@onekeyhq/components';
+import { useLeftColumnWidthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
 import {
   InformationTabs,
@@ -9,8 +10,17 @@ import {
 } from '../components';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
+import type { LayoutChangeEvent } from 'react-native';
+
 export function DesktopLayout() {
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
+  const [, setLeftColumnWidth] = useLeftColumnWidthAtom();
+
+  const handleLayout = (event: LayoutChangeEvent) => {
+    const { width } = event.nativeEvent.layout;
+    console.log('Left column width:', width);
+    setLeftColumnWidth(width);
+  };
 
   return (
     <>
@@ -20,7 +30,7 @@ export function DesktopLayout() {
       {/* Main Content */}
       <XStack flex={1}>
         {/* Left column */}
-        <YStack flex={1}>
+        <YStack flex={1} onLayout={handleLayout}>
           {/* Trading view */}
           <Stack flex={1}>
             <MarketTradingView

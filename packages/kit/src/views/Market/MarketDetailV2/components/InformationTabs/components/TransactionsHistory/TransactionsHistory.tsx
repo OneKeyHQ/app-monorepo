@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,6 +10,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { IListViewProps } from '@onekeyhq/components';
+import { useLeftColumnWidthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketTransactions } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketTransactions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
@@ -30,22 +31,25 @@ export function TransactionsHistory({
   networkId,
 }: ITransactionsHistoryProps) {
   const intl = useIntl();
-  const { gtXl } = useMedia();
+  const { gtLg } = useMedia();
+  const [leftColumnWidth] = useLeftColumnWidthAtom();
   const { transactions, isRefreshing } = useMarketTransactions({
     tokenAddress,
     networkId,
   });
 
+  const shouldEnableScroll = leftColumnWidth < 930;
+
   const renderItem: IListViewProps<IMarketTokenTransaction>['renderItem'] =
     useCallback(
       ({ item }: { item: IMarketTokenTransaction }) => {
-        return gtXl ? (
+        return gtLg ? (
           <TransactionItemNormal item={item} networkId={networkId} />
         ) : (
           <TransactionItemSmall item={item} networkId={networkId} />
         );
       },
-      [networkId, gtXl],
+      [networkId, gtLg],
     );
 
   if (isRefreshing && transactions.length === 0) {
@@ -72,7 +76,7 @@ export function TransactionsHistory({
       estimatedItemSize={40}
       showsVerticalScrollIndicator
       ListHeaderComponent={
-        gtXl ? TransactionsHeaderNormal : TransactionsHeaderSmall
+        gtLg ? TransactionsHeaderNormal : TransactionsHeaderSmall
       }
       stickyHeaderIndices={[0]}
       contentContainerStyle={{
@@ -81,15 +85,9 @@ export function TransactionsHistory({
     />
   );
 
-  if (gtXl) {
+  if (gtLg && shouldEnableScroll) {
     return (
-      <ScrollView
-        contentContainerStyle={{
-          flexDirection: 'column',
-        }}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-      >
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         {list}
       </ScrollView>
     );
