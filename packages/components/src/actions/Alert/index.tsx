@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { PropsWithChildren, ReactElement } from 'react';
 import { cloneElement, useCallback, useContext, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -37,15 +37,17 @@ type IAlertActionProps = {
   isSecondaryLoading?: boolean;
 };
 
-const AlertContext = createStyledContext<{
+interface IAlertContext {
   type: IAlertType;
   fullBleed?: boolean;
-}>({
+}
+
+const AlertContext = createStyledContext<IAlertContext>({
   type: 'default',
   fullBleed: false,
 });
 
-export type IAlertProps = {
+export type IAlertProps = PropsWithChildren<{
   type?: IAlertType;
   fullBleed?: boolean;
   title?: string;
@@ -57,7 +59,7 @@ export type IAlertProps = {
   onClose?: () => void;
   icon?: IKeyOfIcons;
   action?: IAlertActionProps;
-};
+}>;
 
 const AlertFrame = styled(XStack, {
   name: 'Alert',
@@ -110,7 +112,8 @@ const AlertFrame = styled(XStack, {
 });
 
 const AlertIcon = (props: { children: any }) => {
-  const { type } = useContext(AlertContext);
+  const styleContext = useContext(AlertContext as any);
+  const { type } = styleContext as IAlertContext;
   const colorMapping: Record<IAlertType, ColorTokens> = {
     default: '$iconSubdued',
     info: '$iconInfo',
@@ -124,109 +127,111 @@ const AlertIcon = (props: { children: any }) => {
   });
 };
 
-export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
-  const {
-    icon,
-    title,
-    renderTitle,
-    description,
-    descriptionComponent,
-    closable,
-    type,
-    fullBleed,
-    titleNumberOfLines,
-    action,
-    onClose: onCloseProp,
-    children,
-    ...rest
-  } = props;
+export const Alert = AlertFrame.styleable<IAlertProps, any, any>(
+  (props: IAlertProps, ref: any) => {
+    const {
+      icon,
+      title,
+      renderTitle,
+      description,
+      descriptionComponent,
+      closable,
+      type,
+      fullBleed,
+      titleNumberOfLines,
+      action,
+      onClose: onCloseProp,
+      children,
+      ...rest
+    } = props;
 
-  const [show, setShow] = useState(true);
-  const onClose = useCallback(() => {
-    setShow(false);
-    onCloseProp?.();
-  }, [onCloseProp]);
+    const [show, setShow] = useState(true);
+    const onClose = useCallback(() => {
+      setShow(false);
+      onCloseProp?.();
+    }, [onCloseProp]);
 
-  const intl = useIntl();
-  const isDanger = type === 'danger';
-  const themeName = useThemeName() as 'light' | 'dark';
-  const dangerTextColor =
-    themeName === 'light' ? '$textOnBrightColor' : '$textOnColor';
+    const intl = useIntl();
+    const isDanger = type === 'danger';
+    const themeName = useThemeName() as 'light' | 'dark';
+    const dangerTextColor =
+      themeName === 'light' ? '$textOnBrightColor' : '$textOnColor';
 
-  if (!show) return null;
+    if (!show) return null;
 
-  return (
-    <AlertFrame ref={ref} type={type} fullBleed={fullBleed} {...rest}>
-      {icon ? (
-        <Stack>
-          <AlertIcon>
-            <Icon name={icon} size="$5" />
-          </AlertIcon>
-        </Stack>
-      ) : null}
-      <YStack flex={1} gap="$1">
-        {title ? (
-          <SizableText
-            size="$bodyMdMedium"
-            color={isDanger ? dangerTextColor : undefined}
-            {...(titleNumberOfLines
-              ? { numberOfLines: titleNumberOfLines }
-              : {})}
-          >
-            {title}
-          </SizableText>
+    return (
+      <AlertFrame ref={ref} type={type} fullBleed={fullBleed} {...rest}>
+        {icon ? (
+          <Stack>
+            <AlertIcon>
+              <Icon name={icon} size="$5" />
+            </AlertIcon>
+          </Stack>
         ) : null}
-        {renderTitle
-          ? renderTitle({
-              size: '$bodyMdMedium',
-              color: isDanger ? dangerTextColor : undefined,
-              ...(titleNumberOfLines
+        <YStack flex={1} gap="$1">
+          {title ? (
+            <SizableText
+              size="$bodyMdMedium"
+              color={isDanger ? dangerTextColor : undefined}
+              {...(titleNumberOfLines
                 ? { numberOfLines: titleNumberOfLines }
-                : {}),
-            })
-          : null}
-        {description ? (
-          <SizableText
-            size="$bodyMd"
-            color={isDanger ? dangerTextColor : '$textSubdued'}
-          >
-            {description}
-          </SizableText>
-        ) : null}
-        {descriptionComponent || null}
+                : {})}
+            >
+              {title}
+            </SizableText>
+          ) : null}
+          {renderTitle
+            ? renderTitle({
+                size: '$bodyMdMedium',
+                color: isDanger ? dangerTextColor : undefined,
+                ...(titleNumberOfLines
+                  ? { numberOfLines: titleNumberOfLines }
+                  : {}),
+              })
+            : null}
+          {description ? (
+            <SizableText
+              size="$bodyMd"
+              color={isDanger ? dangerTextColor : '$textSubdued'}
+            >
+              {description}
+            </SizableText>
+          ) : null}
+          {descriptionComponent || null}
 
-        {children || null}
-      </YStack>
-      {action ? (
-        <XStack gap="$4" alignItems="center">
-          <Button
-            size="small"
-            onPress={action.onPrimaryPress}
-            loading={action.isPrimaryLoading}
-          >
-            {action.primary}
-          </Button>
-          {action.secondary ? (
+          {children || null}
+        </YStack>
+        {action ? (
+          <XStack gap="$4" alignItems="center">
             <Button
               size="small"
-              variant="tertiary"
-              onPress={action.onSecondaryPress}
-              loading={action.isSecondaryLoading}
+              onPress={action.onPrimaryPress}
+              loading={action.isPrimaryLoading}
             >
-              {action.secondary}
+              {action.primary}
             </Button>
-          ) : null}
-        </XStack>
-      ) : null}
-      {closable ? (
-        <IconButton
-          title={intl.formatMessage({ id: ETranslations.explore_dismiss })}
-          icon="CrossedSmallSolid"
-          size="small"
-          variant="tertiary"
-          onPress={onClose}
-        />
-      ) : null}
-    </AlertFrame>
-  );
-});
+            {action.secondary ? (
+              <Button
+                size="small"
+                variant="tertiary"
+                onPress={action.onSecondaryPress}
+                loading={action.isSecondaryLoading}
+              >
+                {action.secondary}
+              </Button>
+            ) : null}
+          </XStack>
+        ) : null}
+        {closable ? (
+          <IconButton
+            title={intl.formatMessage({ id: ETranslations.explore_dismiss })}
+            icon="CrossedSmallSolid"
+            size="small"
+            variant="tertiary"
+            onPress={onClose}
+          />
+        ) : null}
+      </AlertFrame>
+    );
+  },
+);

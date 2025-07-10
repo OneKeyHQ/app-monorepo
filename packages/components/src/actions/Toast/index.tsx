@@ -262,13 +262,10 @@ export const Toast = {
     ...others
   }: IShowToasterProps): IToastShowResult => {
     dismissKeyboard();
-    let instanceRef: RefObject<IShowToasterInstance> | undefined =
-      createRef<IShowToasterInstance>();
-    let portalRef:
-      | {
-          current: IPortalManager;
-        }
-      | undefined;
+    let instanceRef: RefObject<IShowToasterInstance | null> | undefined;
+    let portalRef: {
+      current: IPortalManager;
+    } | null;
 
     const handleClose = (extra?: { flag?: string }) =>
       new Promise<void>((resolve) => {
