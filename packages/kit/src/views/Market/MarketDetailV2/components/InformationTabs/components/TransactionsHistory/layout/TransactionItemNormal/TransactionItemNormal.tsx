@@ -64,9 +64,15 @@ function TransactionItemNormalBase({
         {price}
       </NumberSizeableText>
 
-      <SizableText size="$bodyMd" color="$text" {...styles.value}>
-        ${value}
-      </SizableText>
+      <NumberSizeableText
+        size="$bodyMd"
+        color="$text"
+        formatter={BigNumber(value).gt(1_000_000) ? 'marketCap' : 'price'}
+        formatterOptions={{ currency: '$', capAtMaxT: true }}
+        {...styles.value}
+      >
+        {value}
+      </NumberSizeableText>
 
       <TransactionAddress
         address={item.owner}
