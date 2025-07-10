@@ -534,14 +534,11 @@ export default function HardwareHomeScreenModal({
     const deviceType: IDeviceType = device?.deviceType || 'unknown';
     let dataList: IHardwareHomeScreenData[] = [];
     let canUpload = false;
-    if (
-      [
-        EDeviceType.Classic,
-        EDeviceType.Mini,
-        EDeviceType.Classic1s,
-        EDeviceType.ClassicPure,
-      ].includes(deviceType)
-    ) {
+    if ([EDeviceType.Classic1s, EDeviceType.ClassicPure].includes(deviceType)) {
+      dataList = hardwareHomeScreenData.classic1s;
+      canUpload = true;
+    }
+    if ([EDeviceType.Classic, EDeviceType.Mini].includes(deviceType)) {
       dataList = hardwareHomeScreenData.classicMini;
       canUpload = true;
     }
@@ -577,12 +574,17 @@ export default function HardwareHomeScreenModal({
   >();
 
   const wallpaperCategories = useMemo((): IWallpaperCategory[] => {
-    const filteredDataList = (result?.dataList || []).filter((item) =>
-      result?.config?.names?.includes?.(item.name),
-    );
+    const filteredDataList = result?.dataList || [];
+    // .filter((item) =>
+    //   result?.config?.names?.includes?.(item.name),
+    // );
 
-    const defaultWallpapers = filteredDataList;
-    const cobrandingWallpapers = filteredDataList;
+    const defaultWallpapers = filteredDataList.filter(
+      (item) => item.wallpaperType === 'default',
+    );
+    const cobrandingWallpapers = filteredDataList.filter(
+      (item) => item.wallpaperType === 'cobranding',
+    );
 
     const categories = [
       {
@@ -593,10 +595,7 @@ export default function HardwareHomeScreenModal({
       },
     ];
 
-    if (
-      device.deviceType === EDeviceType.Classic1s ||
-      device.deviceType === EDeviceType.ClassicPure
-    ) {
+    if (cobrandingWallpapers.length > 0) {
       categories.push({
         title: appLocale.intl.formatMessage({
           id: ETranslations.global_wallpaper_cobranding,
@@ -606,7 +605,7 @@ export default function HardwareHomeScreenModal({
     }
 
     return categories;
-  }, [result?.dataList, result?.config?.names, device.deviceType]);
+  }, [result?.dataList]);
 
   const buildItemCustomHex = useCallback(
     async (item: IHardwareHomeScreenData) => {
