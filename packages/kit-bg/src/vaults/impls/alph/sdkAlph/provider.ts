@@ -29,6 +29,7 @@ export class Provider extends NodeProvider {
     this.networkId = networkId;
 
     this.transactions.postTransactionsBuild = async (data: BuildTransaction) =>
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       this.request({
         path: 'transactions',
         method: 'postTransactionsBuild',
@@ -38,6 +39,7 @@ export class Provider extends NodeProvider {
     this.contracts.postContractsUnsignedTxDeployContract = async (
       data: BuildDeployContractTx,
     ) =>
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       this.request({
         path: 'contracts',
         method: 'postContractsUnsignedTxDeployContract',
@@ -47,6 +49,7 @@ export class Provider extends NodeProvider {
     this.transactions.postTransactionsDecodeUnsignedTx = async (
       data: DecodeUnsignedTx,
     ) =>
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       this.request({
         path: 'transactions',
         method: 'postTransactionsDecodeUnsignedTx',
@@ -56,6 +59,7 @@ export class Provider extends NodeProvider {
     this.contracts.postContractsUnsignedTxExecuteScript = async (
       data: BuildDeployContractTx,
     ) =>
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       this.request({
         path: 'contracts',
         method: 'postContractsUnsignedTxExecuteScript',
