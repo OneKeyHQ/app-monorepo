@@ -6,7 +6,7 @@
 import { useIntl } from 'react-intl';
 
 import type {
-  IImageProps,
+  IImageV2Props,
   IKeyOfIcons,
   ISizableTextProps,
   IXStackProps,
@@ -38,7 +38,7 @@ export type ITokenProps = {
   networkImageUri?: ImageURISource['uri'];
   showNetworkIcon?: boolean;
   networkId?: string;
-} & Omit<IImageProps, 'size'>;
+} & Omit<IImageV2Props, 'size'>;
 
 const sizeMap: Record<
   ITokenSize,

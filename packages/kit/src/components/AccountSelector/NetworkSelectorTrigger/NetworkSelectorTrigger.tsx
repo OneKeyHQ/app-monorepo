@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Icon,
+  IXStackProps,
   NATIVE_HIT_SLOP,
   Select,
   SizableText,
@@ -296,7 +297,7 @@ export function ControlledNetworkSelectorIconTrigger({
       hitSlop={NATIVE_HIT_SLOP}
       userSelect="none"
       onPress={onPress}
-      {...rest}
+      {...(rest as IXStackProps)}
     >
       <NetworkAvatar networkId={current?.id} size="$6" />
     </XStack>

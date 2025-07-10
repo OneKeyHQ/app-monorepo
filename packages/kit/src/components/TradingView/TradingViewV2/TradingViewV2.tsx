@@ -12,6 +12,7 @@ import { fetchTradingViewV2DataWithSlicing } from './useTradingViewV2';
 
 // import { useTradingViewV2WebSocket } from './useTradingViewV2WebSocket';
 
+import type { ICustomReceiveHandlerData } from './types';
 import type { IWebViewRef } from '../../WebView/types';
 import type { WebViewProps } from 'react-native-webview';
 

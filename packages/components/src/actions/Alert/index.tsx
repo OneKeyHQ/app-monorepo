@@ -17,7 +17,11 @@ import {
 } from '../../primitives';
 import { IconButton } from '../IconButton';
 
-import type { IKeyOfIcons, ISizableTextProps } from '../../primitives';
+import type {
+  IKeyOfIcons,
+  ISizableTextProps,
+  IStackProps,
+} from '../../primitives';
 import type { ColorTokens } from 'tamagui';
 
 export type IAlertType =
@@ -47,19 +51,21 @@ const AlertContext = createStyledContext<IAlertContext>({
   fullBleed: false,
 });
 
-export type IAlertProps = PropsWithChildren<{
-  type?: IAlertType;
-  fullBleed?: boolean;
-  title?: string;
-  renderTitle?: (props: ISizableTextProps) => ReactElement;
-  titleNumberOfLines?: number;
-  description?: string;
-  descriptionComponent?: React.ReactNode;
-  closable?: boolean;
-  onClose?: () => void;
-  icon?: IKeyOfIcons;
-  action?: IAlertActionProps;
-}>;
+export type IAlertProps = PropsWithChildren<
+  {
+    type?: IAlertType;
+    fullBleed?: boolean;
+    title?: string;
+    renderTitle?: (props: ISizableTextProps) => ReactElement;
+    titleNumberOfLines?: number;
+    description?: string;
+    descriptionComponent?: React.ReactNode;
+    closable?: boolean;
+    onClose?: () => void;
+    icon?: IKeyOfIcons;
+    action?: IAlertActionProps;
+  } & IStackProps
+>;
 
 const AlertFrame = styled(XStack, {
   name: 'Alert',
