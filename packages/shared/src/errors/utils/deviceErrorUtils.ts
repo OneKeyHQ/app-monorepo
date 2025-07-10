@@ -157,6 +157,8 @@ export function convertDeviceError(
       });
     case HardwareErrorCode.DeviceCheckPassphraseStateError:
       return new HardwareErrors.InvalidPassphrase({ payload });
+    case HardwareErrorCode.DeviceCheckUnlockTypeError:
+      return new HardwareErrors.InvalidAttachPin({ payload });
     case HardwareErrorCode.DeviceOpenedPassphrase:
       return new HardwareErrors.DeviceOpenedPassphrase({ payload });
     case HardwareErrorCode.DeviceNotOpenedPassphrase: {

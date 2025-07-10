@@ -116,6 +116,21 @@ class ServiceHardwareUI extends ServiceBase {
       payload: {
         value: '',
         passphraseOnDevice: true,
+        attachPinOnDevice: false,
+        save: false,
+      },
+    });
+  }
+
+  @backgroundMethod()
+  async showEnterAttachPinOnDeviceDialog() {
+    const { UI_RESPONSE } = await CoreSDKLoader();
+    await this.sendUiResponse({
+      type: UI_RESPONSE.RECEIVE_PASSPHRASE,
+      payload: {
+        value: '',
+        passphraseOnDevice: false,
+        attachPinOnDevice: true,
         save: false,
       },
     });
