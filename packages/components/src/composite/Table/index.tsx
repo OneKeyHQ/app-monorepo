@@ -19,7 +19,11 @@ import type {
   IRenderItemParams,
   ISortableListViewProps,
 } from '../../layouts/SortableListView';
-import type { ISizableTextProps, IStackProps } from '../../primitives';
+import type {
+  ISizableTextProps,
+  IStackProps,
+  IXStackProps,
+} from '../../primitives';
 import type {
   ListRenderItemInfo,
   NativeScrollEvent,
@@ -45,7 +49,7 @@ function Column<T>({
     order?: 'asc' | 'desc' | undefined;
     align?: ITableColumn<T>['align'];
     onPress?: () => void;
-  } & Omit<IStackProps, 'onPress'>
+  } & Omit<IXStackProps, 'onPress'>
 >) {
   const jc = useMemo(() => {
     if (align === 'left') {
@@ -198,7 +202,7 @@ function TableRow<T>({
     }
   }, [drag, draggable, getTimeDiff, scrollAtRef, onRowEvents]);
 
-  const nativeScaleAnimationProps: IStackProps = platformEnv.isNativeIOS
+  const nativeScaleAnimationProps: IXStackProps = platformEnv.isNativeIOS
     ? {
         scale: isDragging ? 0.9 : 1,
         animateOnly: ['transform'],
@@ -216,8 +220,8 @@ function TableRow<T>({
       onPress={handlePress}
       onLongPress={md ? handleLongPress : undefined}
       {...nativeScaleAnimationProps}
-      {...itemPressStyle}
-      {...rowProps}
+      {...(itemPressStyle as IXStackProps)}
+      {...(rowProps as IXStackProps)}
     >
       {columns.map((column) => {
         if (!column) {
@@ -237,7 +241,7 @@ function TableRow<T>({
             name={dataIndex}
             align={align}
             width={columnWidth}
-            {...columnProps}
+            {...(columnProps as any)}
           >
             {showSkeleton
               ? renderSkeleton?.()
@@ -395,9 +399,9 @@ function HeaderColumn<T>({
       name={dataIndex}
       width={columnWidth}
       order={currentSortOrder}
-      onPress={handleColumnPress}
+      onPress={handleColumnPress as any}
       cursor={cursor}
-      {...columnProps}
+      {...(columnProps as IXStackProps)}
     >
       <SizableText
         color="$textSubdued"
@@ -426,7 +430,10 @@ function TableHeaderRow<T>({
 }) {
   const [selectedColumnName, setSelectedColumnName] = useState('');
   return (
-    <XStack {...rowProps} {...headerRowProps}>
+    <XStack
+      {...(rowProps as IXStackProps)}
+      {...(headerRowProps as IXStackProps)}
+    >
       {columns.map((column, index) =>
         column ? (
           <MemoHeaderColumn
@@ -602,7 +609,7 @@ function BasicTable<T>({
         />
       ) : (
         <ListView
-          ref={listViewRef}
+          ref={listViewRef as any}
           contentContainerStyle={contentContainerStyle}
           stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
           estimatedItemSize={estimatedItemSize}

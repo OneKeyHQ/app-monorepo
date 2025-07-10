@@ -42,9 +42,7 @@ function PageFirmwareUpdateChangeLog() {
   const navigation = useAppNavigation();
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
 
-  const confirmUpdateResult = useRef<
-    ICheckAllFirmwareReleaseResult | undefined
-  >();
+  const confirmUpdateResult = useRef<ICheckAllFirmwareReleaseResult>(undefined);
 
   /*
      await backgroundApiProxy.serviceFirmwareUpdate.startFirmwareUpdateWorkflow(

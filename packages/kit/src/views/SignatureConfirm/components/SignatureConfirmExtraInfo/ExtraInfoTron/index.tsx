@@ -2,7 +2,11 @@ import { memo, useCallback, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IDialogInstance, IStackProps } from '@onekeyhq/components';
+import type {
+  IDialogInstance,
+  IStackProps,
+  IYStackProps,
+} from '@onekeyhq/components';
 import { Icon, XStack } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { showResourceDetailsDialog } from '@onekeyhq/kit/src/components/Resource';
@@ -52,7 +56,7 @@ function ExtraInfoTron({
   }
 
   return (
-    <SignatureConfirmItem {...style}>
+    <SignatureConfirmItem {...(style as IYStackProps)}>
       <XStack
         {...listItemPressStyle}
         alignSelf="flex-start"

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 
 import makeBlockie from 'ethereum-blockies-base64';
-import RNFS from 'react-native-fs';
+
+import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 
 import {
   BLOCKIE_IMAGE_BASE64_PREFIX,
@@ -13,6 +14,9 @@ import type { IUseBlockieImageUri } from './type';
 const caches: Record<string, string> = {};
 
 const writeBlockieImage = async (id: string, filepath: string) => {
+  if (!RNFS) {
+    return;
+  }
   const data = makeBlockie(id);
   await RNFS.write(
     filepath,
@@ -23,6 +27,9 @@ const writeBlockieImage = async (id: string, filepath: string) => {
   );
 };
 async function makeBlockieImageUri(id: string) {
+  if (!RNFS) {
+    return '';
+  }
   if (caches[id]) {
     return caches[id];
   }

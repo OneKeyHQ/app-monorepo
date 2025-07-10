@@ -7,6 +7,9 @@ import { useVisible } from './useVisible';
 
 import type { IImageLoadingProps } from './type';
 
+/**
+ * @deprecated Use Image.V2 instead. example: packages/kit/src/views/Developer/pages/Gallery/Components/stories/Image.tsx
+ */
 export function ImageLoading({
   children,
   delayMs = 0,
@@ -15,7 +18,7 @@ export function ImageLoading({
   const { loading } = useContext(ImageContext);
   const visible = useVisible(delayMs);
 
-  return loading && visible ? (
+  return loading && !visible ? (
     <Stack
       bg="$bgApp"
       position="absolute"

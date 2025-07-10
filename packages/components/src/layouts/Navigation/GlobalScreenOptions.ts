@@ -14,7 +14,6 @@ import type {
   StackNavigationOptions,
   TransitionPreset,
 } from '@react-navigation/stack';
-import type { StackCardInterpolationProps } from '@react-navigation/stack/lib/typescript/src/types';
 import type { VariableVal } from '@tamagui/core';
 
 const NULL_ANIMATION_DURATION_PRESET: TransitionPreset = {
@@ -48,7 +47,7 @@ export function clearStackNavigatorOptions(options?: {
     */
     detachPreviousScreen: false,
     headerShown: false,
-    animationEnabled: false,
+    // animationEnabled: false,
     // fix https://onekeyhq.atlassian.net/browse/OK-28686, you can use 100vh instead
     headerMode: 'float',
   };
@@ -71,7 +70,7 @@ export function makeModalOpenAnimationOptions(info: {
   optionsInfo: IScreenOptionsInfo<any>;
 }): StackNavigationOptions {
   return {
-    animationEnabled: true,
+    // animationEnabled: true,
     ...NULL_ANIMATION_DURATION_PRESET,
   };
 }
@@ -101,9 +100,9 @@ export function makeModalStackNavigatorOptions({
   } as any;
 
   // Disable modal first screen navigation.replace() animation
-  if (optionsInfo?.route?.params?._disabledAnimationOfNavigate) {
-    options.animationEnabled = false;
-  }
+  // if (optionsInfo?.route?.params?._disabledAnimationOfNavigate) {
+  //   options.animationEnabled = false;
+  // }
   return options;
 }
 
@@ -156,7 +155,7 @@ export function makeFullScreenOptions(): StackNavigationOptions {
   return {
     detachPreviousScreen: false,
     headerShown: false,
-    animationEnabled: true,
+    // animationEnabled: true,
     presentation: 'modal', // containedModal card fullScreenModal
     ...TransitionPresets.FadeFromBottomAndroid,
   };

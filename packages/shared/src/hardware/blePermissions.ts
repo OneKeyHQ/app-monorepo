@@ -1,4 +1,4 @@
-import { Linking, PermissionsAndroid, Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 import {
   PERMISSIONS,
@@ -36,6 +36,8 @@ export async function checkBLEPermissions() {
 
   if (platformEnv.isNativeAndroid) {
     if ((Platform.Version as number) < 31) {
+      // use PermissionsAndroid to avoid webpack errors in react-native-web
+      const { PermissionsAndroid } = await import('react-native');
       const status = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
       );

@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from 'react';
 
-import type { StackStyle } from '@tamagui/web/types/types';
+import type { StackStyle } from '@tamagui/web';
 import type { Image, ImageProps, ImageSourcePropType } from 'react-native';
 
 export type IImageContext = {
@@ -42,6 +42,8 @@ export type IUseImageComponent = (
   imageSource?: ImageSourcePropType,
 ) => typeof Image;
 
-export type IPreloadImagesFunc = (sources: { uri?: string }[]) => Promise<void>;
+export type IPreloadImagesFunc = (
+  sources: { uri?: string }[],
+) => Promise<boolean>;
 
-export type IPreloadImageFunc = (source: { uri?: string }) => Promise<void>;
+export type IPreloadImageFunc = (source: { uri?: string }) => Promise<boolean>;

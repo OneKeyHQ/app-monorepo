@@ -111,7 +111,7 @@ export function DesktopTabItem(
 
   const intl = useIntl();
   const stackRef = useRef<TamaguiElement>(null);
-  const openActionList = useRef<() => void | undefined>();
+  const openActionList = useRef<() => void | undefined>(undefined);
   const [isHovered, setIsHovered] = useState(false);
   const [isContextMenuOpened, setIsContextMenuOpened] = useState(false);
   const onOpenContextMenu = useCallback((e: Event) => {
@@ -153,21 +153,23 @@ export function DesktopTabItem(
         {...tabBarItemStyle}
         alignItems="center"
         py={size === 'small' ? '$1.5' : '$2'}
-        $gtMd={{
-          flexDirection: 'row',
-          px: '$2',
-          bg: selected ? '$bgActive' : undefined,
-          borderRadius: '$2',
-        }}
+        $gtMd={
+          {
+            flexDirection: 'row',
+            px: '$2',
+            bg: selected ? '$bgActive' : undefined,
+            borderRadius: '$2',
+          } as any
+        }
         userSelect="none"
-        {...(!selected && {
+        {...((!selected && {
           pressStyle: {
             bg: '$bgActive',
           },
-        })}
-        {...((isContextMenuOpened || isHovered) && {
+        }) as any)}
+        {...(((isContextMenuOpened || isHovered) && {
           bg: '$bgHover',
-        })}
+        }) as any)}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
         onPress={reloadOnPress}

@@ -2,7 +2,11 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IActionListItemProps, IStackProps } from '@onekeyhq/components';
+import type {
+  IActionListItemProps,
+  IStackProps,
+  IXStackProps,
+} from '@onekeyhq/components';
 import { ActionList, IconButton } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -84,7 +88,7 @@ function BasicMarketMore({
           variant="tertiary"
           iconSize="$5"
           disabled={sections.length === 0}
-          {...props}
+          {...(props as IXStackProps)}
         />
       }
       sections={sections}

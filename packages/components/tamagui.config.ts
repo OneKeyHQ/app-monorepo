@@ -29,7 +29,7 @@ import {
   successDark,
 } from './colors';
 
-import type { Variable } from '@tamagui/web/types/createVariable';
+import type { Variable } from '@tamagui/web';
 
 const isTamaguiNative = process.env.TAMAGUI_TARGET === 'native';
 

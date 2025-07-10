@@ -53,7 +53,7 @@ export const Slider = ({
   return (
     <TMSlider
       h="$1"
-      {...props}
+      {...(props as any)}
       max={max}
       min={min}
       opacity={disabled ? 0.5 : 1}

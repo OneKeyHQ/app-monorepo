@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { ComponentType, PropsWithChildren, ReactElement } from 'react';
 import { cloneElement, useCallback, useContext, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -17,7 +17,12 @@ import {
 } from '../../primitives';
 import { IconButton } from '../IconButton';
 
-import type { IKeyOfIcons, ISizableTextProps } from '../../primitives';
+import type {
+  IKeyOfIcons,
+  ISizableTextProps,
+  IStackProps,
+  IYStackProps,
+} from '../../primitives';
 import type { ColorTokens } from 'tamagui';
 
 export type IAlertType =
@@ -37,27 +42,31 @@ type IAlertActionProps = {
   isSecondaryLoading?: boolean;
 };
 
-const AlertContext = createStyledContext<{
+interface IAlertContext {
   type: IAlertType;
   fullBleed?: boolean;
-}>({
+}
+
+const AlertContext = createStyledContext<IAlertContext>({
   type: 'default',
   fullBleed: false,
 });
 
-export type IAlertProps = {
-  type?: IAlertType;
-  fullBleed?: boolean;
-  title?: string;
-  renderTitle?: (props: ISizableTextProps) => ReactElement;
-  titleNumberOfLines?: number;
-  description?: string;
-  descriptionComponent?: React.ReactNode;
-  closable?: boolean;
-  onClose?: () => void;
-  icon?: IKeyOfIcons;
-  action?: IAlertActionProps;
-};
+export type IAlertProps = PropsWithChildren<
+  {
+    type?: IAlertType;
+    fullBleed?: boolean;
+    title?: string;
+    renderTitle?: (props: ISizableTextProps) => ReactElement;
+    titleNumberOfLines?: number;
+    description?: string;
+    descriptionComponent?: React.ReactNode;
+    closable?: boolean;
+    onClose?: () => void;
+    icon?: IKeyOfIcons;
+    action?: IAlertActionProps;
+  } & IStackProps
+>;
 
 const AlertFrame = styled(XStack, {
   name: 'Alert',
@@ -110,7 +119,8 @@ const AlertFrame = styled(XStack, {
 });
 
 const AlertIcon = (props: { children: any }) => {
-  const { type } = useContext(AlertContext);
+  const styleContext = useContext(AlertContext as any);
+  const { type } = styleContext as IAlertContext;
   const colorMapping: Record<IAlertType, ColorTokens> = {
     default: '$iconSubdued',
     info: '$iconInfo',
@@ -124,7 +134,11 @@ const AlertIcon = (props: { children: any }) => {
   });
 };
 
-export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
+export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
+  IAlertProps,
+  any,
+  any
+>((props: IAlertProps, ref: any) => {
   const {
     icon,
     title,
@@ -156,7 +170,12 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
   if (!show) return null;
 
   return (
-    <AlertFrame ref={ref} type={type} fullBleed={fullBleed} {...rest}>
+    <AlertFrame
+      ref={ref}
+      type={type}
+      fullBleed={fullBleed}
+      {...(rest as IYStackProps)}
+    >
       {icon ? (
         <Stack>
           <AlertIcon>

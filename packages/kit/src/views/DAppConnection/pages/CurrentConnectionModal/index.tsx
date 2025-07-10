@@ -174,7 +174,7 @@ function CurrentConnectionModal() {
                   <DAppAccountListItem
                     key={account.num}
                     num={account.num}
-                    compressionUiMode
+                    // compressionUiMode
                     handleAccountChanged={async (accountChangedParams) => {
                       await handleAccountInfoChanged({
                         origin: memoizedResult?.origin ?? '',

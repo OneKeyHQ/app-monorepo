@@ -14,8 +14,8 @@ const InputGallery = () => (
             <Input
               size="small"
               placeholder="Placeholder"
-              onPaste={() => {
-                alert('onPaste');
+              onPaste={(event) => {
+                alert(JSON.stringify(event.nativeEvent.items));
               }}
             />
             <Input size="medium" placeholder="Placeholder" />
