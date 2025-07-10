@@ -6,7 +6,7 @@ import {
   ZStack as TMZStack,
 } from 'tamagui';
 
-import type { StackStyle } from '@tamagui/web/types/types';
+import type { StackStyle } from '@tamagui/web';
 import type {
   StackProps,
   ThemeableStackProps,

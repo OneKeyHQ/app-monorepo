@@ -15,7 +15,7 @@ import { Dimensions, ScrollView as ScrollViewNative } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { StackProps } from '@tamagui/web/types';
+import type { StackProps } from '@tamagui/web';
 import type {
   NativeScrollEvent,
   NativeScrollPoint,

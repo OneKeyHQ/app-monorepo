@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from 'react';
 
-import type { StackStyle } from '@tamagui/web/types/types';
+import type { StackStyle } from '@tamagui/web';
 import type { Image, ImageProps, ImageSourcePropType } from 'react-native';
 
 export type IImageContext = {

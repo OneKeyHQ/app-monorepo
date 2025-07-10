@@ -14,7 +14,7 @@ import { Pressable, StyleSheet } from 'react-native';
 import { useThemeValue } from '../../hooks';
 import { Icon } from '../../primitives';
 
-import type { StackStyle, TextStyle } from '@tamagui/web/types/types';
+import type { StackStyle, TextStyle } from '@tamagui/web';
 import type { NativeScrollEvent, View } from 'react-native';
 import type { GetProps } from 'tamagui';
 

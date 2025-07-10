@@ -16,7 +16,7 @@ import { ListView } from '../ListView/list';
 
 import type { ISizableTextProps, IStackProps } from '../../primitives';
 import type { IListViewProps, IListViewRef } from '../ListView/list';
-import type { Tokens } from '@tamagui/web/types/types';
+import type { Tokens } from '@tamagui/web';
 import type { ListRenderItem } from 'react-native';
 
 type ISectionRenderInfo = (info: {

@@ -7,7 +7,7 @@ import { getTokenValue } from 'tamagui';
 
 import { DebugRenderTracker } from '../../utils';
 
-import type { StackStyle, Tokens } from '@tamagui/web/types/types';
+import type { StackStyle, Tokens } from '@tamagui/web';
 import type {
   FlatListProps,
   ListRenderItem,
