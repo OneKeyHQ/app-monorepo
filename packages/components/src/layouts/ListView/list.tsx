@@ -143,4 +143,6 @@ function BaseListView<T>(
 }
 
 // forwardRef cannot cast typescript generic
-export const ListView = forwardRef(BaseListView) as typeof BaseListView;
+export const ListView = forwardRef(BaseListView) as <T>(
+  props: IListViewProps<T> & { ref?: React.Ref<FlatList<T>> },
+) => React.ReactElement | null;

@@ -261,6 +261,8 @@ export type IListItemProps = PropsWithChildren<{
   checkMark?: boolean;
   onPress?: () => void | Promise<void>;
   childrenBefore?: ComponentType | ReactNode;
+  disabled?: boolean;
+  testID?: string;
 }>;
 
 const renderWithFallback = (
@@ -282,98 +284,100 @@ const renderWithFallback = (
   return <Component {...props} />;
 };
 
-const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
-  const {
-    avatarProps,
-    icon,
-    title,
-    titleProps,
-    subtitle,
-    subtitleProps,
-    drillIn,
-    isLoading,
-    iconProps,
-    checkMark,
-    onPress,
-    childrenBefore,
-    children,
-    renderAvatar,
-    renderIcon,
-    renderItemText,
-    titleMatch,
-    subTitleMatch,
-    ...rest
-  } = props;
+const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
+  (props: IListItemProps, ref: any) => {
+    const {
+      avatarProps,
+      icon,
+      title,
+      titleProps,
+      subtitle,
+      subtitleProps,
+      drillIn,
+      isLoading,
+      iconProps,
+      checkMark,
+      onPress,
+      childrenBefore,
+      children,
+      renderAvatar,
+      renderIcon,
+      renderItemText,
+      titleMatch,
+      subTitleMatch,
+      ...rest
+    } = props;
 
-  return (
-    <Stack
-      ref={ref}
-      flexDirection="row"
-      alignItems="center"
-      minHeight="$11"
-      gap="$3"
-      py="$2"
-      px="$3"
-      mx="$2"
-      borderRadius="$3"
-      borderCurve="continuous"
-      onPress={onPress}
-      {...(props.disabled && {
-        opacity: 0.5,
-      })}
-      {...(onPress && !props.disabled && listItemPressStyle)}
-      {...rest}
-    >
-      {childrenBefore}
-      {renderWithFallback(
-        ListItemAvatar,
-        avatarProps && {
-          ...(!avatarProps.circular && { borderRadius: '$2' }),
-          ...avatarProps,
-        },
-        renderAvatar,
-      )}
-      {renderWithFallback(
-        Icon,
-        icon && {
-          name: icon,
-          color: '$iconSubdued',
-          flexShrink: 0,
-          ...iconProps,
-        },
-        renderIcon,
-      )}
+    return (
+      <Stack
+        ref={ref}
+        flexDirection="row"
+        alignItems="center"
+        minHeight="$11"
+        gap="$3"
+        py="$2"
+        px="$3"
+        mx="$2"
+        borderRadius="$3"
+        borderCurve="continuous"
+        onPress={onPress}
+        {...(props.disabled && {
+          opacity: 0.5,
+        })}
+        {...(onPress && !props.disabled && listItemPressStyle)}
+        {...rest}
+      >
+        {childrenBefore}
+        {renderWithFallback(
+          ListItemAvatar,
+          avatarProps && {
+            ...(!avatarProps.circular && { borderRadius: '$2' }),
+            ...avatarProps,
+          },
+          renderAvatar,
+        )}
+        {renderWithFallback(
+          Icon,
+          icon && {
+            name: icon,
+            color: '$iconSubdued',
+            flexShrink: 0,
+            ...iconProps,
+          },
+          renderIcon,
+        )}
 
-      {renderWithFallback(
-        ListItemText,
-        (title || subtitle) && {
-          flex: 1,
-          primary: title,
-          primaryMatch: titleMatch,
-          primaryTextProps: {
-            ...(props.onPress && { userSelect: 'none' }),
-            ...titleProps,
-            testID: `select-item-${rest.testID || ''}`,
+        {renderWithFallback(
+          ListItemText,
+          (title || subtitle) && {
+            flex: 1,
+            primary: title,
+            primaryMatch: titleMatch,
+            primaryTextProps: {
+              ...(props.onPress && { userSelect: 'none' }),
+              ...titleProps,
+              testID: `select-item-${rest.testID || ''}`,
+            },
+            secondary: subtitle,
+            secondaryMatch: subTitleMatch,
+            secondaryTextProps: {
+              ...(props.onPress && { userSelect: 'none' }),
+              ...subtitleProps,
+              testID: `select-item-subtitle-${rest.testID || ''}`,
+            },
           },
-          secondary: subtitle,
-          secondaryMatch: subTitleMatch,
-          secondaryTextProps: {
-            ...(props.onPress && { userSelect: 'none' }),
-            ...subtitleProps,
-            testID: `select-item-subtitle-${rest.testID || ''}`,
-          },
-        },
-        renderItemText,
-      )}
-      {children}
-      {drillIn && !isLoading ? <ListItemDrillIn /> : null}
-      {isLoading ? <Spinner /> : null}
-      <Unspaced>
-        {checkMark ? <ListItemCheckMark key="checkmark" /> : null}
-      </Unspaced>
-    </Stack>
-  );
-});
+          renderItemText,
+        )}
+        {children}
+        {drillIn && !isLoading ? <ListItemDrillIn /> : null}
+        {isLoading ? <Spinner /> : null}
+        <Unspaced>
+          {checkMark ? <ListItemCheckMark key="checkmark" /> : null}
+        </Unspaced>
+      </Stack>
+    );
+  },
+);
 
 export const ListItem = withStaticProperties(ListItemComponent, {
   Text: ListItemText,
