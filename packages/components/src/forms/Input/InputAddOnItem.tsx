@@ -25,87 +25,89 @@ type IExtraProps = {
 
 export type IInputAddOnProps = IExtraProps & IXStackProps;
 
-export const InputAddOnItem = XStack.styleable<IExtraProps>((props, ref) => {
-  const {
-    label,
-    size,
-    loading,
-    iconName,
-    iconColor,
-    disabled,
-    error,
-    onPress,
-    tooltipProps,
-    ...rest
-  } = props;
-
-  const sharedStyles = getSharedInputStyles({ disabled, error });
-
-  const trigger = useMemo(
-    () => (
-      <XStack
-        ref={ref}
-        flex={tooltipProps ? 1 : undefined}
-        alignItems="center"
-        px={size === 'large' ? '$2.5' : '$2'}
-        onPress={onPress}
-        borderCurve="continuous"
-        {...(onPress &&
-          !disabled &&
-          !loading && {
-            userSelect: 'none',
-            hoverStyle: {
-              bg: '$bgHover',
-            },
-            pressStyle: {
-              bg: '$bgActive',
-            },
-            focusable: !(disabled || loading),
-            focusVisibleStyle: sharedStyles.focusVisibleStyle,
-          })}
-        {...rest}
-      >
-        {loading ? (
-          <YStack {...(size !== 'small' && { p: '$0.5' })}>
-            <Spinner size="small" />
-          </YStack>
-        ) : (
-          iconName && (
-            <Icon
-              name={iconName}
-              color={iconColor}
-              size={size === 'small' ? '$5' : '$6'}
-            />
-          )
-        )}
-        {label ? (
-          <SizableText
-            size={size === 'small' ? '$bodyMd' : '$bodyLg'}
-            ml={iconName ? '$2' : '$0'}
-            color={disabled ? '$textDisabled' : '$textSubdued'}
-          >
-            {label}
-          </SizableText>
-        ) : null}
-      </XStack>
-    ),
-    [
-      disabled,
-      iconColor,
-      iconName,
+export const InputAddOnItem = XStack.styleable<IExtraProps, any, any>(
+  (props: IInputAddOnProps, ref: any) => {
+    const {
       label,
-      loading,
-      onPress,
-      ref,
-      rest,
-      sharedStyles.focusVisibleStyle,
       size,
+      loading,
+      iconName,
+      iconColor,
+      disabled,
+      error,
+      onPress,
       tooltipProps,
-    ],
-  );
-  return tooltipProps ? (
-    <Tooltip renderTrigger={trigger} {...tooltipProps} />
-  ) : (
-    trigger
-  );
-});
+      ...rest
+    } = props;
+
+    const sharedStyles = getSharedInputStyles({ disabled, error });
+
+    const trigger = useMemo(
+      () => (
+        <XStack
+          ref={ref}
+          flex={tooltipProps ? 1 : undefined}
+          alignItems="center"
+          px={size === 'large' ? '$2.5' : '$2'}
+          onPress={onPress}
+          borderCurve="continuous"
+          {...(onPress &&
+            !disabled &&
+            !loading && {
+              userSelect: 'none',
+              hoverStyle: {
+                bg: '$bgHover',
+              },
+              pressStyle: {
+                bg: '$bgActive',
+              },
+              focusable: !(disabled || loading),
+              focusVisibleStyle: sharedStyles.focusVisibleStyle,
+            })}
+          {...rest}
+        >
+          {loading ? (
+            <YStack {...(size !== 'small' && { p: '$0.5' })}>
+              <Spinner size="small" />
+            </YStack>
+          ) : (
+            iconName && (
+              <Icon
+                name={iconName}
+                color={iconColor}
+                size={size === 'small' ? '$5' : '$6'}
+              />
+            )
+          )}
+          {label ? (
+            <SizableText
+              size={size === 'small' ? '$bodyMd' : '$bodyLg'}
+              ml={iconName ? '$2' : '$0'}
+              color={disabled ? '$textDisabled' : '$textSubdued'}
+            >
+              {label}
+            </SizableText>
+          ) : null}
+        </XStack>
+      ),
+      [
+        disabled,
+        iconColor,
+        iconName,
+        label,
+        loading,
+        onPress,
+        ref,
+        rest,
+        sharedStyles.focusVisibleStyle,
+        size,
+        tooltipProps,
+      ],
+    );
+    return tooltipProps ? (
+      <Tooltip renderTrigger={trigger} {...tooltipProps} />
+    ) : (
+      trigger
+    );
+  },
+);
