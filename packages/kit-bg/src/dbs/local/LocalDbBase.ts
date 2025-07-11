@@ -78,6 +78,7 @@ import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
   INetworkAccount,
   IQrWalletAirGapAccountsInfo,
@@ -2103,6 +2104,34 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  async updateDeviceConnectId({
+    dbDeviceId,
+    usbConnectId,
+    bleConnectId,
+  }: {
+    dbDeviceId: string;
+    usbConnectId?: string;
+    bleConnectId?: string;
+  }) {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: async (item) => {
+          if (usbConnectId !== undefined) {
+            item.usbConnectId = usbConnectId;
+          }
+          if (bleConnectId !== undefined) {
+            item.bleConnectId = bleConnectId;
+          }
+          item.updatedAt = await this.timeNow();
+          return item;
+        },
+      });
+    });
+  }
+
   async fixHiddenWalletName({
     dbDeviceId,
     dbWalletId,
@@ -2601,6 +2630,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       isFirmwareVerified,
       defaultIsTemp,
       isMockedStandardHwWallet,
+      transportType,
     } = params;
     console.log('createHwWallet', features);
     const { connectId } = device;
@@ -2655,10 +2685,40 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     let addedHdAccountIndex = -1;
     const now = await this.timeNow();
 
+    // Set appropriate connectId fields based on transport type
+    let usbConnectId: string | undefined;
+    let bleConnectId: string | undefined;
+    let compatibleConnectId: string | undefined;
+
+    if (transportType) {
+      switch (transportType) {
+        case EHardwareTransportType.WEBUSB:
+        case EHardwareTransportType.Bridge:
+          // Bridge and WEBUSB are both USB-based connections
+          usbConnectId = connectId;
+          compatibleConnectId = connectId;
+          break;
+        case EHardwareTransportType.BLE:
+        case EHardwareTransportType.DesktopWebBle:
+          // BLE connections - set bleConnectId but don't override connectId
+          bleConnectId = connectId;
+          // If connectId is empty, get it from getDeviceUUID for compatibility
+          if (!compatibleConnectId) {
+            const { getDeviceUUID } = await CoreSDKLoader();
+            const uuid = getDeviceUUID(features);
+            compatibleConnectId = uuid;
+            usbConnectId = uuid;
+          }
+          break;
+        default:
+          break;
+      }
+    }
+
     const deviceToAdd: IDBDevice = {
       id: dbDeviceId,
       name: deviceName,
-      connectId: connectId || '',
+      connectId: compatibleConnectId || '',
       uuid: deviceUUID,
       deviceId: rawDeviceId,
       deviceType,
@@ -2668,6 +2728,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       } as IDBDeviceSettings),
       createdAt: now,
       updatedAt: now,
+      usbConnectId,
+      bleConnectId,
     };
 
     const walletToAdd: IDBWallet = {
@@ -2756,10 +2818,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               item.features = featuresStr;
               item.updatedAt = now;
 
-              item.connectId = connectId || '';
+              // Use compatibleConnectId which includes getDeviceUUID fallback for BLE
+              item.connectId = compatibleConnectId || item.connectId || '';
               item.uuid = deviceUUID;
               item.deviceId = rawDeviceId;
               item.deviceType = deviceType;
+
+              // Update USB/BLE connectId fields
+              if (!item.usbConnectId && usbConnectId !== undefined) {
+                item.usbConnectId = usbConnectId;
+              }
+              if (bleConnectId !== undefined) {
+                item.bleConnectId = bleConnectId;
+              }
 
               item.settingsRaw =
                 item.settingsRaw ||
@@ -4543,7 +4614,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         }
       };
       if (connectId) {
-        mergePredicate(item.connectId === connectId);
+        // Match any of the connectId fields (legacy behavior + new fields)
+        mergePredicate(
+          item.connectId === connectId ||
+            item.usbConnectId === connectId ||
+            item.bleConnectId === connectId,
+        );
       }
       if (featuresDeviceId) {
         mergePredicate(item.deviceId === featuresDeviceId);

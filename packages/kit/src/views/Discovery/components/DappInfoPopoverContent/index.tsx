@@ -103,33 +103,20 @@ export function DappInfoPopoverContent({
       <XStack alignItems="center" userSelect="none" gap="$3">
         {/* logomark */}
         <Image
-          w="$10"
-          h="$10"
+          size="$10"
           borderRadius="$2"
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
           borderCurve="continuous"
-        >
-          {hostSecurity?.dapp?.logo ? (
-            <Image.Source
-              source={{
-                uri: hostSecurity?.dapp?.logo,
-              }}
-            />
-          ) : null}
-          <Image.Fallback
-            alignItems="center"
-            justifyContent="center"
-            bg="$bgSubdued"
-          >
-            <Icon name="GlobusOutline" width="$6" height="$6" />
-          </Image.Fallback>
-          {hostSecurity?.dapp?.logo ? (
-            <Image.Loading>
-              <Skeleton width="100%" height="100%" />
-            </Image.Loading>
-          ) : null}
-        </Image>
+          source={{
+            uri: hostSecurity?.dapp?.logo,
+          }}
+          fallback={
+            <Image.Fallback>
+              <Icon name="GlobusOutline" size="$10" />
+            </Image.Fallback>
+          }
+        />
         {/* title, badge and description */}
         <Stack flex={1} gap="$0.5">
           <XStack alignItems="center" gap="$2">

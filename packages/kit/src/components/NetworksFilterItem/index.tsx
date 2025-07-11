@@ -9,7 +9,7 @@ import {
   Tooltip,
   XStack,
 } from '@onekeyhq/components';
-import type { IXStackProps } from '@onekeyhq/components';
+import type { IImageProps, IXStackProps } from '@onekeyhq/components';
 
 export type INetworksFilterItemProps = {
   networkImageUri?: string;
@@ -42,20 +42,17 @@ export function NetworksFilterItem({
     }
     return networkImageUri ? (
       <Image
-        height="$6"
-        width="$6"
+        size="$6"
         borderRadius="$full"
-        $gtMd={{
-          height: '$5',
-          width: '$5',
+        $gtMd={
+          {
+            size: '$5',
+          } as any
+        }
+        source={{
+          uri: networkImageUri,
         }}
-      >
-        <Image.Source
-          source={{
-            uri: networkImageUri,
-          }}
-        />
-      </Image>
+      />
     ) : null;
   }, [isAllNetworks, networkImageUri]);
 

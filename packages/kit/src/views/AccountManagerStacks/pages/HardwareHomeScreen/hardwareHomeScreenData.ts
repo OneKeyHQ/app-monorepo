@@ -1,4 +1,4 @@
-import type { IImageSourcePropType } from '@onekeyhq/components/src/primitives/Image/type';
+import type { IImageProps } from '@onekeyhq/components/src/primitives/Image/type';
 
 import classicMiniHomeScreenCustomHex from './classicMiniHomeScreenCustomHex';
 
@@ -31,7 +31,7 @@ export type IHardwareHomeScreenName =
 
 export type IHardwareHomeScreenData = {
   name: IHardwareHomeScreenName;
-  source?: IImageSourcePropType; // image source by require('')
+  source?: IImageProps['source']; // image source by require('')
   uri?: string; // image base64 by upload & crop
   hex?: string; // image hex by resize
   thumbnailHex?: string; // thumb image hex by resize

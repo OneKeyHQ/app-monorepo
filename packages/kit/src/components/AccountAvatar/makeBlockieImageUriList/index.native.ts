@@ -43,10 +43,13 @@ async function makeBlockieImageUri(id: string) {
   return filepath;
 }
 
-export const useBlockieImageUri: IUseBlockieImageUri = (id: string) => {
-  const [uri, setUri] = useState(caches[id]);
+export const useBlockieImageUri: IUseBlockieImageUri = (id?: string) => {
+  const [uri, setUri] = useState(id ? caches[id] : '');
 
   useEffect(() => {
+    if (!id) {
+      return;
+    }
     makeBlockieImageUri(id)
       .then((imageUri: string) => {
         setUri(imageUri);

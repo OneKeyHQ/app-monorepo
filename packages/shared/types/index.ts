@@ -111,4 +111,5 @@ export enum EHardwareTransportType {
   BLE = 'ble',
   WEBUSB = 'webusb',
   Bridge = 'bridge',
+  DesktopWebBle = 'desktop-web-ble',
 }

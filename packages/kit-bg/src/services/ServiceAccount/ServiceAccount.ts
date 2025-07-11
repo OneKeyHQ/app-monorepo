@@ -2363,6 +2363,23 @@ class ServiceAccount extends ServiceBase {
 
     const wallet = await this.getWallet({ walletId });
     const dbDevice = await this.getWalletDevice({ walletId });
+
+    // Ensure connectId is compatible for the current transport type
+    if (dbDevice.connectId) {
+      try {
+        dbDevice.connectId =
+          await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+            connectId: dbDevice.connectId,
+            featuresDeviceId: dbDevice.deviceId,
+            features: dbDevice.featuresInfo,
+          });
+      } catch (error) {
+        // If getCompatibleConnectId fails, use the original connectId
+        console.warn('Failed to get compatible connectId:', error);
+        throw error;
+      }
+    }
+
     return {
       confirmOnDevice: EConfirmOnDeviceType.LastItem,
       dbDevice,
@@ -2470,9 +2487,17 @@ class ServiceAccount extends ServiceBase {
   @toastIfError()
   async createHWWallet(params: IDBCreateHwWalletParamsBase) {
     // createHWWallet
+    // Get current transport type to set correct connectId fields
+    const transportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
-        this.createHWWalletBase({ ...params, fillingXfpByCallingSdk: true }),
+        this.createHWWalletBase({
+          ...params,
+          fillingXfpByCallingSdk: true,
+          transportType,
+        }),
       {
         deviceParams: {
           dbDevice: params.device as IDBDevice,

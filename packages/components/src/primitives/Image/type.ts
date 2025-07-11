@@ -1,7 +1,14 @@
 import type { PropsWithChildren } from 'react';
 
+import type { IStackStyle } from '../Stack';
 import type { StackStyle } from '@tamagui/web';
-import type { Image, ImageProps, ImageSourcePropType } from 'react-native';
+import type {
+  ImageErrorEventData,
+  ImageLoadEventData,
+  ImageProgressEventData,
+  ImageProps,
+} from 'expo-image';
+import type { Image, ImageSourcePropType } from 'react-native';
 
 export type IImageContext = {
   loading?: boolean;
@@ -31,7 +38,6 @@ export type IImageSourceProps = Omit<
   source?: IImageSourcePropType;
   size?: StackStyle['width'];
 } & StackStyle;
-export type IImageProps = PropsWithChildren<IImageSourceProps>;
 
 export type IUseSource = (
   source?: ImageSourcePropType,
@@ -47,3 +53,34 @@ export type IPreloadImagesFunc = (
 ) => Promise<boolean>;
 
 export type IPreloadImageFunc = (source: { uri?: string }) => Promise<boolean>;
+
+export type IImageV2Props = Omit<
+  ImageProps,
+  | 'source'
+  | 'src'
+  | 'pointerEvents'
+  | 'onError'
+  | 'onLoad'
+  | 'resizeMode'
+  | 'tintColor'
+  | 'onProgress'
+> &
+  IStackStyle & {
+    size?: IStackStyle['height'];
+    source?: ImageSourcePropType | string | number;
+    skeleton?: React.ReactNode;
+    fallback?: React.ReactNode;
+    src?: string;
+    /** Retry times when image loading fails, default is 5 */
+    retryTimes?: number;
+    onError?: (event: ImageErrorEventData) => void;
+    onLoad?: (event: ImageLoadEventData) => void;
+    onLoadEnd?: () => void;
+    onLoadStart?: () => void;
+    onDisplay?: () => void;
+    resizeMode?: ImageProps['resizeMode'];
+    tintColor?: ImageProps['tintColor'];
+    onProgress?: (event: ImageProgressEventData) => void;
+  };
+
+export type IImageProps = IImageV2Props;

@@ -47,8 +47,7 @@ export function ChunkedItem({
       testID={`dapp-${item.dappId}`}
     >
       <Image
-        w="$14"
-        h="$14"
+        size="$14"
         borderRadius="$3"
         $group-card-hover={{
           opacity: 0.75,
@@ -56,19 +55,15 @@ export function ChunkedItem({
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         borderCurve="continuous"
-      >
-        <Image.Source
-          source={{
-            uri: item.logo,
-          }}
-        />
-        <Image.Fallback>
-          <Icon name="GlobusOutline" width="100%" height="100%" />
-        </Image.Fallback>
-        <Image.Loading>
-          <Skeleton width="100%" height="100%" />
-        </Image.Loading>
-      </Image>
+        source={{
+          uri: item.logo,
+        }}
+        fallback={
+          <Image.Fallback>
+            <Icon name="GlobusOutline" size="$14" />
+          </Image.Fallback>
+        }
+      />
       <Stack flex={1} ml="$3">
         <XStack alignItems="center">
           <SizableText

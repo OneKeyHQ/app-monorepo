@@ -272,19 +272,16 @@ function DAppConnectExtensionFloatingTrigger() {
             borderRadius="$2"
             borderColor="$border"
             borderWidth="$px"
-          >
-            <Image.Source
-              src={
-                memoizedResult?.faviconUrl || memoizedResult?.originFaviconUrl
-              }
-            />
-            <Image.Fallback>
-              <Icon size="$10" name="GlobusOutline" />
-            </Image.Fallback>
-            <Image.Loading>
-              <Skeleton width="100%" height="100%" />
-            </Image.Loading>
-          </Image>
+            source={{
+              uri:
+                memoizedResult?.faviconUrl || memoizedResult?.originFaviconUrl,
+            }}
+            fallback={
+              <Image.Fallback>
+                <Icon size="$9" name="GlobusOutline" />
+              </Image.Fallback>
+            }
+          />
           <Stack
             position="absolute"
             bottom={-2}

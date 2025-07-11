@@ -47,20 +47,19 @@ export function NetworksFilterItem({
     >
       {networkImageUri ? (
         <Image
-          height="$6"
+          size="$6"
           width="$6"
           borderRadius="$full"
-          $gtMd={{
-            height: '$5',
-            width: '$5',
+          $gtMd={
+            {
+              height: '$5',
+              width: '$5',
+            } as any
+          }
+          source={{
+            uri: networkImageUri,
           }}
-        >
-          <Image.Source
-            source={{
-              uri: networkImageUri,
-            }}
-          />
-        </Image>
+        />
       ) : null}
       {networkName ? (
         <SizableText

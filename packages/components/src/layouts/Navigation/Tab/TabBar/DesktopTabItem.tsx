@@ -64,21 +64,21 @@ function BasicDesktopTabItemImage({
   selected?: boolean;
 }) {
   return (
-    <Image borderRadius="$1" size="$4.5" m="$px">
-      {avatarSrc ? <Image.Source src={avatarSrc} /> : null}
-      <Image.Fallback bg="$bgSidebar" delayMs={180}>
-        <Icon
-          size="$4.5"
-          name="GlobusOutline"
-          color={selected ? '$iconActive' : '$iconSubdued'}
-        />
-      </Image.Fallback>
-      {avatarSrc ? (
-        <Image.Loading delayMs={180}>
-          <Skeleton width="100%" height="100%" />
-        </Image.Loading>
-      ) : null}
-    </Image>
+    <Image
+      borderRadius="$1"
+      size="$4.5"
+      m="$px"
+      source={avatarSrc}
+      fallback={
+        <Image.Fallback bg="$bgSidebar" delayMs={180}>
+          <Icon
+            size="$4.5"
+            name="GlobusOutline"
+            color={selected ? '$iconActive' : '$iconSubdued'}
+          />
+        </Image.Fallback>
+      }
+    />
   );
 }
 
