@@ -270,6 +270,17 @@ export function SearchResultContent({
   );
 
   const openSelectedItem = useCallback(() => {
+    // Priority: Check if first item is exact URL match when no item is manually selected
+    if (
+      displaySearchList &&
+      searchList.length > 0 &&
+      searchList[0].isExactUrl &&
+      selectedIndex === -1
+    ) {
+      handleSearchItemClick(searchList[0]);
+      return { type: 'exactUrl' };
+    }
+
     if (
       selectedSection === 'search' &&
       displaySearchList &&
