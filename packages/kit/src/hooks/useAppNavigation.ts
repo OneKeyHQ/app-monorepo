@@ -16,6 +16,17 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
+const getModalRoute = () => {
+  const state = rootNavigationRef.current?.getState();
+  const currentIndex = state?.index || 0;
+  const routes = state?.routes || [];
+  const currentRoute = routes[currentIndex];
+  if (currentRoute?.name === ERootRoutes.Modal) {
+    return currentRoute;
+  }
+  return null;
+};
+
 export type IAppNavigation = ReturnType<typeof useAppNavigation>;
 
 /*
@@ -190,6 +201,26 @@ function useAppNavigation<
   );
 
   const push: typeof navigationRef.current.push = useCallback((...args) => {
+    const modalRoute = getModalRoute();
+    if (modalRoute) {
+      const screenModal =
+        (
+          modalRoute?.params as {
+            screen: string;
+          }
+        )?.screen ||
+        modalRoute.state?.routes?.[modalRoute.state?.index || 0]?.name;
+      if (screenModal) {
+        navigationRef.current.navigate(ERootRoutes.Modal, {
+          screen: screenModal,
+          params: {
+            screen: args[0],
+            params: args[1],
+          },
+        });
+      }
+      return;
+    }
     navigationRef.current.push(...args);
   }, []);
 
