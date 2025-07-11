@@ -2,15 +2,24 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ListView, SizableText, Stack } from '@onekeyhq/components';
+import {
+  ListView,
+  ScrollView,
+  SizableText,
+  Stack,
+  useMedia,
+} from '@onekeyhq/components';
 import type { IListViewProps } from '@onekeyhq/components';
+import { useLeftColumnWidthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketTransactions } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketTransactions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
-import { TransactionItem } from './TransactionItem';
-import { TransactionsHeader } from './TransactionsHeader';
-import { TransactionsSkeleton } from './TransactionsSkeleton';
+import { TransactionsSkeleton } from './components/TransactionsSkeleton';
+import { TransactionItemNormal } from './layout/TransactionItemNormal/TransactionItemNormal';
+import { TransactionsHeaderNormal } from './layout/TransactionItemNormal/TransactionsHeaderNormal';
+import { TransactionItemSmall } from './layout/TransactionItemSmall/TransactionItemSmall';
+import { TransactionsHeaderSmall } from './layout/TransactionItemSmall/TransactionsHeaderSmall';
 
 interface ITransactionsHistoryProps {
   tokenAddress: string;
@@ -22,17 +31,25 @@ export function TransactionsHistory({
   networkId,
 }: ITransactionsHistoryProps) {
   const intl = useIntl();
+  const { gtLg } = useMedia();
+  const [leftColumnWidth] = useLeftColumnWidthAtom();
   const { transactions, isRefreshing } = useMarketTransactions({
     tokenAddress,
     networkId,
   });
 
+  const shouldEnableScroll = leftColumnWidth < 930;
+
   const renderItem: IListViewProps<IMarketTokenTransaction>['renderItem'] =
     useCallback(
       ({ item }: { item: IMarketTokenTransaction }) => {
-        return <TransactionItem item={item} networkId={networkId} />;
+        return gtLg ? (
+          <TransactionItemNormal item={item} networkId={networkId} />
+        ) : (
+          <TransactionItemSmall item={item} networkId={networkId} />
+        );
       },
-      [networkId],
+      [networkId, gtLg],
     );
 
   if (isRefreshing && transactions.length === 0) {
@@ -51,18 +68,30 @@ export function TransactionsHistory({
     );
   }
 
-  return (
+  const list = (
     <ListView<IMarketTokenTransaction>
       data={transactions}
       renderItem={renderItem}
       keyExtractor={(item) => item.hash}
       estimatedItemSize={40}
       showsVerticalScrollIndicator
-      ListHeaderComponent={TransactionsHeader}
+      ListHeaderComponent={
+        gtLg ? TransactionsHeaderNormal : TransactionsHeaderSmall
+      }
       stickyHeaderIndices={[0]}
       contentContainerStyle={{
         paddingBottom: '$4',
       }}
     />
   );
+
+  if (gtLg && shouldEnableScroll) {
+    return (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {list}
+      </ScrollView>
+    );
+  }
+
+  return list;
 }

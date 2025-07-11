@@ -113,27 +113,6 @@ function BasicTokenListItem(props: ITokenListItemProps) {
   }, [token, isAllNetworks, withNetwork, tableLayout, isTokenSelector]);
 
   const renderSecondColumn = useCallback(() => {
-    if (isTokenSelector || !tableLayout) {
-      return null;
-    }
-
-    return (
-      <YStack alignItems="flex-end" flexGrow={1} flexBasis={0} maxWidth="$36">
-        <TokenPriceView
-          $key={token.$key ?? ''}
-          size="$bodyMdMedium"
-          numberOfLines={1}
-        />
-        <TokenPriceChangeView
-          $key={token.$key ?? ''}
-          size="$bodyMd"
-          numberOfLines={1}
-        />
-      </YStack>
-    );
-  }, [isTokenSelector, tableLayout, token.$key]);
-
-  const renderThirdColumn = useCallback(() => {
     if (isTokenSelector) {
       return (
         <YStack
@@ -142,6 +121,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             flexGrow: 1,
             flexBasis: 0,
           })}
+          maxWidth="$36"
         >
           <TokenBalanceView
             hideValue={hideValue}
@@ -169,6 +149,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
           ? {
               flexGrow: 1,
               flexBasis: 0,
+              maxWidth: '$36',
             }
           : { flex: 1 })}
       >
@@ -189,6 +170,27 @@ function BasicTokenListItem(props: ITokenListItemProps) {
       </YStack>
     );
   }, [hideValue, tableLayout, token.$key, isTokenSelector]);
+
+  const renderThirdColumn = useCallback(() => {
+    if (isTokenSelector || !tableLayout) {
+      return null;
+    }
+
+    return (
+      <YStack alignItems="flex-end" flexGrow={1} flexBasis={0}>
+        <TokenPriceView
+          $key={token.$key ?? ''}
+          size="$bodyMdMedium"
+          numberOfLines={1}
+        />
+        <TokenPriceChangeView
+          $key={token.$key ?? ''}
+          size="$bodyMd"
+          numberOfLines={1}
+        />
+      </YStack>
+    );
+  }, [isTokenSelector, tableLayout, token.$key]);
 
   const renderFourthColumn = useCallback(() => {
     if (withSwapAction && tableLayout) {
