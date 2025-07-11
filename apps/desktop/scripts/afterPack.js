@@ -41,6 +41,7 @@ exports.default = async function fileOperation(context) {
       console.log('Copying @abandonware modules...');
       fs.cpSync(sourceAbandonwarePath, targetAbandonwarePath, {
         recursive: true,
+        dereference: true, // Resolve symbolic links to their targets
       });
       console.log('@abandonware modules copied successfully');
     } else {
