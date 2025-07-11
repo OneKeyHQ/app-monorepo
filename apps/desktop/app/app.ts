@@ -778,7 +778,6 @@ function createMainWindow() {
     }
   });
 
-  // TODO: Re-enable after implementing BLE message handlers
   void initNobleBleSupport(browserWindow.webContents);
 
   return browserWindow;
