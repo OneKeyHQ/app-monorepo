@@ -8,7 +8,6 @@ import type {
   UseFormReturn,
 } from '@onekeyhq/components';
 import {
-  Checkbox,
   Form,
   IconButton,
   Input,
@@ -101,7 +100,6 @@ export function CreateOrEditContent({
         networkId: item.networkId,
         name: item.name,
         address: { raw: item.address, resolved: '' } as IAddressInputValue,
-        isAllowListed: item.isAllowListed,
       },
       mode: 'onChange' as IFormMode,
       reValidateMode: 'onChange' as IReValidateMode,
@@ -112,18 +110,11 @@ export function CreateOrEditContent({
           name: values.name,
           networkId: values.networkId,
           address: values.address.resolved ?? '',
-          isAllowListed: values.isAllowListed ?? false,
+          isAllowListed: true,
         });
       },
     }),
-    [
-      item.address,
-      item.id,
-      item.isAllowListed,
-      item.name,
-      item.networkId,
-      onSubmit,
-    ],
+    [item.address, item.id, item.name, item.networkId, onSubmit],
   );
   const form = useForm<IFormValues>(formOption);
   const networkId = form.watch('networkId');
@@ -296,26 +287,6 @@ export function CreateOrEditContent({
           flexDirection="column"
           $gtMd={{ flexDirection: 'row', alignItems: 'center' }}
         >
-          <Form form={form}>
-            <XStack px="$5">
-              <Form.Field name="isAllowListed">
-                <Checkbox
-                  containerProps={{
-                    flex: platformEnv.isNative ? undefined : 1,
-                  }}
-                  label={intl.formatMessage({
-                    id: ETranslations.address_book_add_address_add_to_allowlist,
-                  })}
-                  labelProps={
-                    {
-                      size: '$bodyLgMedium',
-                    } as const
-                  }
-                />
-              </Form.Field>
-            </XStack>
-          </Form>
-          <XStack mx="$5" />
           <Page.FooterActions
             flex={platformEnv.isNative ? undefined : 1}
             onConfirmText={intl.formatMessage({
