@@ -49,6 +49,5 @@ const baseElectronBuilderConfig = {
   },
   'afterSign': getPath('scripts/afterSign.js'),
   'afterPack': getPath('scripts/afterPack.js'),
-  'asarUnpack': ['**/node_modules/@abandonware/**/*', '**/*.node'],
 };
 module.exports = baseElectronBuilderConfig;
