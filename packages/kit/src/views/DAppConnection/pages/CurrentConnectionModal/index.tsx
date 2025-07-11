@@ -131,15 +131,16 @@ function CurrentConnectionModal() {
       />
       <Page.Body>
         <XStack p="$5" gap="$3">
-          <Image size="$10" borderRadius="$2">
-            <Image.Source src={memoizedResult?.faviconUrl} />
-            <Image.Fallback>
-              <Icon size="$10" name="GlobusOutline" />
-            </Image.Fallback>
-            <Image.Loading>
-              <Skeleton width="100%" height="100%" />
-            </Image.Loading>
-          </Image>
+          <Image
+            size="$10"
+            borderRadius="$2"
+            source={{ uri: memoizedResult?.faviconUrl }}
+            fallback={
+              <Image.Fallback>
+                <Icon size="$10" name="GlobusOutline" />
+              </Image.Fallback>
+            }
+          />
           <YStack>
             <SizableText size="$bodyLgMedium">
               {memoizedResult?.origin

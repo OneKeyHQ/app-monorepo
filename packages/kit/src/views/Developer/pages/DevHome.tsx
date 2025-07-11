@@ -128,12 +128,11 @@ function HomePage() {
               onPress={navigateAccountManagerStacks}
               maxWidth="$40"
             >
-              <Image size="$6" borderRadius="$1">
-                <Image.Source src="https://placehold.co/120x120?text=A" />
-                <Image.Fallback>
-                  <Skeleton w="$6" h="$6" />
-                </Image.Fallback>
-              </Image>
+              <Image
+                size="$6"
+                borderRadius="$1"
+                source={{ uri: 'https://placehold.co/120x120?text=A' }}
+              />
               <SizableText
                 flex={1}
                 size="$bodyMdMedium"

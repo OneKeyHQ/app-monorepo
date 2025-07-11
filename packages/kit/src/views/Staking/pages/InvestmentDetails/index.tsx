@@ -414,21 +414,22 @@ function BasicInvestmentDetails() {
             };
           }) => (
             <XStack px="$5" gap="$3" py="$3" alignItems="center">
-              <Image height="$6" width="$6" borderRadius="$1">
-                <Image.Source
-                  source={{
-                    uri: logoURI,
-                  }}
-                />
-                <Image.Fallback
-                  alignItems="center"
-                  justifyContent="center"
-                  bg="$bgStrong"
-                  delayMs={1000}
-                >
-                  <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
-                </Image.Fallback>
-              </Image>
+              <Image
+                size="$6"
+                borderRadius="$1"
+                source={{ uri: logoURI }}
+                fallback={
+                  <Image.Fallback
+                    w="$6"
+                    h="$6"
+                    alignItems="center"
+                    justifyContent="center"
+                    bg="$bgStrong"
+                  >
+                    <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
+                  </Image.Fallback>
+                }
+              />
               <Heading color="$textSubdued" size="$headingSm">
                 {`${title.charAt(0).toUpperCase()}${title.slice(1)}`}
               </Heading>
