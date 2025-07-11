@@ -49,5 +49,10 @@ const baseElectronBuilderConfig = {
   },
   'afterSign': getPath('scripts/afterSign.js'),
   'afterPack': getPath('scripts/afterPack.js'),
+  'asarUnpack': [
+    '**/node_modules/@abandonware/noble/**/*',
+    '**/node_modules/@abandonware/bluetooth-hci-socket/**/*',
+    '**/*.node',
+  ],
 };
 module.exports = baseElectronBuilderConfig;
