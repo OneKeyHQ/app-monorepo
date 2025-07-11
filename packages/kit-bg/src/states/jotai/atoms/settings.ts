@@ -1,7 +1,8 @@
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import { EHardwareTransportType, EOnekeyDomain } from '@onekeyhq/shared/types';
+import type { EHardwareTransportType } from '@onekeyhq/shared/types';
+import { EOnekeyDomain } from '@onekeyhq/shared/types';
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
@@ -79,9 +80,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   isFloatingIconAlwaysDisplay: false,
   isFilterScamHistoryEnabled: true,
   isFilterLowValueHistoryEnabled: false,
-  hardwareTransportType: platformEnv.isNative
-    ? EHardwareTransportType.BLE
-    : EHardwareTransportType.Bridge,
+  hardwareTransportType: deviceUtils.getDefaultHardwareTransportType(),
   hiddenWalletImmediately: true,
   showAddHiddenInWalletSidebar: true,
 };
