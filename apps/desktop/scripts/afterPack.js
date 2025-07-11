@@ -116,6 +116,40 @@ exports.default = async function fileOperation(context) {
           } else {
             console.error('Main target directory was not created!');
           }
+
+          // Copy noble's dependencies (debug, napi-thread-safe-callback, etc.)
+          console.log('Copying noble dependencies...');
+          const nobleDependencies = [
+            'debug',
+            'napi-thread-safe-callback',
+            'node-addon-api',
+            'node-gyp-build',
+          ];
+
+          const sourceRootNodeModules = path.join(
+            __dirname,
+            '../../../node_modules',
+          );
+
+          for (const dep of nobleDependencies) {
+            const depSourcePath = path.join(sourceRootNodeModules, dep);
+            const depTargetPath = path.join(mainNodeModulesPath, dep);
+
+            if (fs.existsSync(depSourcePath)) {
+              try {
+                console.log(`Copying ${dep}...`);
+                fs.cpSync(depSourcePath, depTargetPath, {
+                  recursive: true,
+                  dereference: true,
+                });
+                console.log(`${dep} copied successfully`);
+              } catch (depError) {
+                console.error(`Error copying ${dep}:`, depError);
+              }
+            } else {
+              console.warn(`Dependency ${dep} not found at ${depSourcePath}`);
+            }
+          }
         } catch (mainCopyError) {
           console.error(
             'Error copying @abandonware modules to main node_modules:',
