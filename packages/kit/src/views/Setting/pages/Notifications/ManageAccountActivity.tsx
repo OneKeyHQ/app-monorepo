@@ -707,7 +707,7 @@ function ManageAccountActivityContent({ wallets }: { wallets: IDBWallet[] }) {
     [totalEnabledAccountsCount, maxAccountCount],
   );
 
-  const defaultExpandWalletIdRef = useRef<string | undefined>();
+  const defaultExpandWalletIdRef = useRef<string>(undefined);
   if (!defaultExpandWalletIdRef.current && accountNotificationSettings) {
     defaultExpandWalletIdRef.current = getDefaultExpandWalletId({
       wallets,

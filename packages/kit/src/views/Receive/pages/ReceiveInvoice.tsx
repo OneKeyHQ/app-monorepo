@@ -42,7 +42,7 @@ function ReceiveInvoice() {
   const navigation = useAppNavigation();
 
   // polling check for invoice status
-  const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
   useEffect(() => {
     if (!paymentHash || !networkId || !accountId) return;
     const { serviceLightning } = backgroundApiProxy;

@@ -409,7 +409,7 @@ export function AddressInput(props: IAddressInputProps) {
 
   // When focus state changes, re-query address validation
   // Store previous focus state for comparison
-  const prevIsFocused = useRef<boolean | undefined>();
+  const prevIsFocused = useRef<boolean | undefined>(undefined);
   const isFocused = useIsFocused();
   useEffect(() => {
     if (

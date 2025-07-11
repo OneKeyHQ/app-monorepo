@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import {
-  getPermissionsAsync,
-  requestPermissionsAsync,
-} from 'expo-barcode-scanner';
+import { Camera } from 'expo-camera';
 import { PermissionStatus } from 'expo-modules-core';
 import { useIntl } from 'react-intl';
 
-import type { IStackProps } from '@onekeyhq/components';
+import type { IStackProps, IYStackProps } from '@onekeyhq/components';
 import {
   BlurView,
   Dialog,
@@ -79,7 +76,7 @@ function ScanCorner({
 function Corner(props: IStackProps) {
   return (
     <YStack
-      {...props}
+      {...(props as IYStackProps)}
       w="$5"
       h="$5"
       borderColor="$bg"
@@ -151,12 +148,12 @@ export function ScanQrCode({
         ? await globalThis.desktopApiProxy?.system?.getMediaAccessStatus?.(
             'camera',
           )
-        : (await getPermissionsAsync())?.status;
+        : (await Camera.getCameraPermissionsAsync())?.status;
     if (readSilentStatus === PermissionStatus.GRANTED) {
       setCurrentPermission(PermissionStatus.GRANTED);
       return;
     }
-    const { status } = await requestPermissionsAsync();
+    const { status } = await Camera.requestCameraPermissionsAsync();
     setCurrentPermission(status);
 
     if (status === PermissionStatus.GRANTED) {

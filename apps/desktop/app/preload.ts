@@ -2,34 +2,20 @@
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/require-await */
 import path from 'path';
 
+import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
 import { Titlebar, TitlebarColor } from 'custom-electron-titlebar';
 import { ipcRenderer, nativeImage } from 'electron';
 
 import type { DesktopApiProxy } from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
 import desktopApiProxy from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
 import type {
-  EDesktopStoreKeys,
   IDesktopAppState,
-  IDesktopMainProcessDevOnlyApiParams,
-  IDesktopStoreMap,
   IDesktopStoreUpdateSettings,
-  IMediaType,
-  IPrefType,
 } from '@onekeyhq/shared/types/desktop';
-import type {
-  INotificationPermissionDetail,
-  INotificationSetBadgeParams,
-  INotificationShowParams,
-} from '@onekeyhq/shared/types/notification';
 
 import { ipcMessageKeys } from './config';
 
-import type {
-  IDesktopIAPGetProductsParams,
-  IDesktopIAPGetProductsResult,
-  IDesktopSystemInfo,
-} from './config';
-import type { IMacBundleInfo } from './libs/utils';
+import type { NobleBleAPI } from '@onekeyfe/hd-transport-electron';
 
 export interface IVerifyUpdateParams {
   downloadedFile?: string;
@@ -102,6 +88,7 @@ type IDesktopAPILegacy = {
   stopServer: () => void;
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
   testCrash: () => void;
+  nobleBle: NobleBleAPI;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -325,6 +312,58 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
       cb?.();
     });
     ipcRenderer.send(ipcMessageKeys.APP_SET_IDLE_TIME, idleTime);
+  },
+  // Desktop Bluetooth
+  nobleBle: {
+    enumerate: () =>
+      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_ENUMERATE),
+    getDevice: (uuid: string) =>
+      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_GET_DEVICE, uuid),
+    connect: (uuid: string) =>
+      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_CONNECT, uuid),
+    disconnect: (uuid: string) =>
+      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_DISCONNECT, uuid),
+    subscribe: (uuid: string) =>
+      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_SUBSCRIBE, uuid),
+    unsubscribe: (uuid: string) =>
+      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_UNSUBSCRIBE, uuid),
+    write: (uuid: string, data: string) =>
+      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_WRITE, uuid, data),
+    onNotification: (callback: (deviceId: string, data: string) => void) => {
+      const subscription = (_: unknown, deviceId: string, data: string) => {
+        callback(deviceId, data);
+      };
+      ipcRenderer.on(
+        EOneKeyBleMessageKeys.NOBLE_BLE_NOTIFICATION,
+        subscription,
+      );
+      return () => {
+        ipcRenderer.removeListener(
+          EOneKeyBleMessageKeys.NOBLE_BLE_NOTIFICATION,
+          subscription,
+        );
+      };
+    },
+    onDeviceDisconnected: (
+      callback: (device: { id: string; name: string }) => void,
+    ) => {
+      const subscription = (
+        _: unknown,
+        device: { id: string; name: string },
+      ) => {
+        callback(device);
+      };
+      ipcRenderer.on(
+        EOneKeyBleMessageKeys.BLE_DEVICE_DISCONNECTED,
+        subscription,
+      );
+      return () => {
+        ipcRenderer.removeListener(
+          EOneKeyBleMessageKeys.BLE_DEVICE_DISCONNECTED,
+          subscription,
+        );
+      };
+    },
   },
 });
 

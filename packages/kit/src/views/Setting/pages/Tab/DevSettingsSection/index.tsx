@@ -69,7 +69,6 @@ import { NotificationDevSettings } from './NotificationDevSettings';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
-import { StartTimePanel } from './StartTimePanel';
 
 let correctDevOnlyPwd = '';
 
@@ -349,6 +348,17 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+      <SectionFieldItem
+        name="enableDesktopBluetooth"
+        title="启用桌面端蓝牙功能"
+        subtitle={
+          devSettings.settings?.enableDesktopBluetooth
+            ? '已启用桌面蓝牙功能'
+            : '桌面蓝牙功能已禁用'
+        }
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
 
       <ListItem
         title="Bg Api 可序列化检测"
@@ -622,15 +632,6 @@ export const DevSettingsSection = () => {
                 ),
               });
             },
-          });
-        }}
-      />
-      <SectionPressItem
-        title="Startup Time(ms)"
-        onPress={() => {
-          Dialog.cancel({
-            title: 'Startup Time(ms)',
-            renderContent: <StartTimePanel />,
           });
         }}
       />

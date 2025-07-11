@@ -55,30 +55,37 @@ function BasicNFTListItem(props: IProps) {
         }}
       >
         <Stack position="absolute" left={0} top={0} right={0} bottom={0}>
-          <Image w="100%" h="100%" borderRadius="$2.5">
-            {isVideo ? (
-              <Video
-                source={{ uri: nft.metadata?.image }}
-                onError={() => setIsVideo(false)}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  position: 'absolute',
-                  zIndex: 1,
-                }}
-                autoPlay={false}
-              />
-            ) : (
-              <Image.Source src={nft.metadata?.image} />
-            )}
-            <Image.Fallback
-              bg="$bgStrong"
-              justifyContent="center"
-              alignItems="center"
-            >
-              <Icon name="ImageSquareWavesOutline" color="$iconDisabled" />
-            </Image.Fallback>
-          </Image>
+          {isVideo ? (
+            <Video
+              source={{ uri: nft.metadata?.image }}
+              onError={() => setIsVideo(false)}
+              style={{
+                width: '100%',
+                height: '100%',
+                position: 'absolute',
+                zIndex: 1,
+              }}
+              autoPlay={false}
+            />
+          ) : (
+            <Image
+              w="100%"
+              h="100%"
+              borderRadius="$2.5"
+              source={{ uri: nft.metadata?.image }}
+              fallback={
+                <Image.Fallback
+                  w="100%"
+                  h="100%"
+                  bg="$bgStrong"
+                  justifyContent="center"
+                  alignItems="center"
+                >
+                  <Icon name="ImageSquareWavesOutline" color="$iconDisabled" />
+                </Image.Fallback>
+              }
+            />
+          )}
           {nft.collectionType === ENFTType.ERC1155 &&
           new BigNumber(nft.amount ?? 1).gt(1) ? (
             <Stack

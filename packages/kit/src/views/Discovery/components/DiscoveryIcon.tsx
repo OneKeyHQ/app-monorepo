@@ -24,23 +24,15 @@ function BasicDiscoveryIcon({
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
       borderCurve="continuous"
-    >
-      <Image.Source source={{ uri: decodeURIComponent(uri) }} />
-      <Image.Fallback>
-        <Stack
-          bg="$bgStrong"
-          ai="center"
-          jc="center"
-          width="100%"
-          height="100%"
-        >
-          <Icon name="GlobusOutline" width="100%" height="100%" />
-        </Stack>
-      </Image.Fallback>
-      <Image.Loading>
-        <Skeleton width="100%" height="100%" />
-      </Image.Loading>
-    </Image>
+      source={{ uri: decodeURIComponent(uri) }}
+      fallback={
+        <Image.Fallback>
+          <Stack bg="$bgStrong" alignItems="center" justifyContent="center">
+            <Icon name="GlobusOutline" w={size} h={size} />
+          </Stack>
+        </Image.Fallback>
+      }
+    />
   );
 }
 

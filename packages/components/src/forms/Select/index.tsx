@@ -295,10 +295,7 @@ function SelectContent() {
         <SectionList
           sections={sections}
           renderSectionHeader={renderSectionHeader}
-          {...(listProps as Omit<
-            ISectionListProps<any>,
-            'sections' | 'renderSectionHeader'
-          >)}
+          {...(listProps as any)}
         />
       ) : (
         <ListView

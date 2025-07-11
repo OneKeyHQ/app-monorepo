@@ -235,21 +235,21 @@ function RecommendedItem({
       <YStack alignItems="flex-start">
         <XStack gap="$3" ai="center" width="100%">
           <YStack>
-            <Image size="$8">
-              <Image.Source
-                source={{
-                  uri: token.logoURI,
-                }}
-              />
-              <Image.Fallback
-                alignItems="center"
-                justifyContent="center"
-                bg="$bgStrong"
-                delayMs={1000}
-              >
-                <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
-              </Image.Fallback>
-            </Image>
+            <Image
+              size="$8"
+              source={{ uri: token.logoURI }}
+              fallback={
+                <Image.Fallback
+                  w="$8"
+                  h="$8"
+                  alignItems="center"
+                  justifyContent="center"
+                  bg="$bgStrong"
+                >
+                  <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
+                </Image.Fallback>
+              }
+            />
           </YStack>
           <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
         </XStack>

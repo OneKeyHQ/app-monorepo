@@ -33,3 +33,10 @@ appGlobals.$$cryptoNode = nodeCrypto;
 if (process.env.NODE_ENV !== 'production') {
   console.log('cross-crypto verify success!');
 }
+
+// eslint-disable-next-line unicorn/prefer-global-this
+if (typeof globalThis.global === 'undefined') {
+  // eslint-disable-next-line no-undef
+  console.log('global is undefined');
+  globalThis.global = globalThis;
+}

@@ -98,7 +98,6 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
               key={key}
               name={name}
               component={PageTypeHOC(key, EPageType.modal, component)}
-              // @ts-expect-error
               options={customOptions}
             />
           );

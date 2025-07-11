@@ -16,7 +16,7 @@ import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 import { MobileTabItem } from './MobileTabItem';
 
 import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import type { StyleProp, ViewStyle } from 'react-native';
 
 export type IMobileBottomTabBarProps = BottomTabBarProps & {

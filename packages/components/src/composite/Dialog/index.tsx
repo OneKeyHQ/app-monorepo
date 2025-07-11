@@ -69,7 +69,8 @@ import type {
   IDialogShowProps,
 } from './type';
 import type { IPortalManager } from '../../hocs';
-import type { IStackProps } from '../../primitives';
+import type { UseFormReturn } from '../../hooks';
+import type { IYStackProps } from '../../primitives';
 import type { IColorTokens } from '../../types';
 import type { GestureResponderEvent } from 'react-native';
 
@@ -82,7 +83,7 @@ export type {
 } from './type';
 export * from './dialogInstances';
 
-export const FIX_SHEET_PROPS: IStackProps = {
+export const FIX_SHEET_PROPS: IYStackProps = {
   display: 'block',
 };
 
@@ -187,7 +188,7 @@ function DialogFrame({
         testID={testID}
         isAsync={isAsync}
         estimatedContentHeight={estimatedContentHeight}
-        {...contentContainerProps}
+        {...(contentContainerProps as any)}
       >
         {renderContent}
       </Content>
@@ -242,8 +243,8 @@ function DialogFrame({
         <Sheet.Overlay
           {...FIX_SHEET_PROPS}
           animation="quick"
-          enterStyle={{ opacity: 0 }}
-          exitStyle={{ opacity: 0 }}
+          enterStyle={{ opacity: 0 } as any}
+          exitStyle={{ opacity: 0 } as any}
           backgroundColor="$bgBackdrop"
           zIndex={sheetProps?.zIndex || zIndex}
           {...sheetOverlayProps}
@@ -369,7 +370,9 @@ function BaseDialogContainer(
     },
     [isControlled, onOpenChange],
   );
-  const formRef = useRef();
+  const formRef = useRef<UseFormReturn<any, any, any> | undefined | undefined>(
+    undefined,
+  );
   const handleClose = useCallback(
     (extra?: { flag?: string }) => {
       if (
@@ -475,7 +478,7 @@ export const DialogContainer = forwardRef<
 
 type IDialogShowFunctionProps = IDialogShowProps & {
   dialogContainer?: (o: {
-    ref: React.RefObject<IDialogInstance> | undefined;
+    ref: React.RefObject<IDialogInstance | null>;
   }) => JSX.Element;
 };
 function dialogShow({
@@ -486,8 +489,8 @@ function dialogShow({
   ...props
 }: IDialogShowFunctionProps): IDialogInstance {
   dismissKeyboard();
-  let instanceRef: React.RefObject<IDialogInstance> | undefined =
-    createRef<IDialogInstance>();
+  let instanceRef: React.RefObject<IDialogInstance | null> | undefined =
+    createRef();
 
   let portalRef:
     | {

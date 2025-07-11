@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { isNil } from 'lodash';
 
+import type { IYStackProps } from '@onekeyhq/components';
 import { Stack, XStack, YStack } from '@onekeyhq/components';
 import { DeriveTypeSelectorTriggerForDapp } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
@@ -57,7 +58,11 @@ export function WalletDetailsHeader({
   );
 
   return (
-    <YStack testID="account-selector-header" py="$1" {...rest}>
+    <YStack
+      testID="account-selector-header"
+      py="$1"
+      {...(rest as IYStackProps)}
+    >
       <ListItem gap="$1.5">
         <XStack gap="$1.5" alignItems="center" flex={1}>
           <Stack

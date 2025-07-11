@@ -143,20 +143,20 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             flexBasis: 0,
           })}
         >
-          <TokenValueView
-            hideValue={hideValue}
-            numberOfLines={1}
-            size="$bodyLgMedium"
-            $key={token.$key ?? ''}
-          />
           <TokenBalanceView
             hideValue={hideValue}
             numberOfLines={1}
             textAlign="right"
+            size="$bodyLgMedium"
+            $key={token.$key ?? ''}
+            symbol=""
+          />
+          <TokenValueView
+            hideValue={hideValue}
+            numberOfLines={1}
             size="$bodyMd"
             color="$textSubdued"
             $key={token.$key ?? ''}
-            symbol=""
           />
         </YStack>
       );
@@ -172,23 +172,23 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             }
           : { flex: 1 })}
       >
-        <TokenValueView
+        <TokenBalanceView
           hideValue={hideValue}
           numberOfLines={1}
           size={tableLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
           $key={token.$key ?? ''}
+          symbol=""
         />
-        <TokenBalanceView
+        <TokenValueView
           hideValue={hideValue}
           numberOfLines={1}
           size="$bodyMd"
           color="$textSubdued"
           $key={token.$key ?? ''}
-          symbol={token.symbol}
         />
       </YStack>
     );
-  }, [hideValue, tableLayout, token.$key, token.symbol, isTokenSelector]);
+  }, [hideValue, tableLayout, token.$key, isTokenSelector]);
 
   const renderFourthColumn = useCallback(() => {
     if (withSwapAction && tableLayout) {

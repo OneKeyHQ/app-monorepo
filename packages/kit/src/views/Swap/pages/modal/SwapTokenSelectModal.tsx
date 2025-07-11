@@ -575,7 +575,7 @@ const SwapTokenSelectPage = () => {
               fetchLoading ? (
                 <>
                   {Array.from({ length: 5 }).map((_, index) => (
-                    <ListItem key={index}>
+                    <ListItem key={String(index)}>
                       <Skeleton w="$10" h="$10" radius="round" />
                       <YStack>
                         <YStack py="$1">

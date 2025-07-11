@@ -14,7 +14,7 @@ import HeaderCollapseButton, {
 import HeaderIconButton from './HeaderIconButton';
 
 import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
-import type { HeaderBackButtonProps } from '@react-navigation/elements/src/types';
+import type { HeaderBackButtonProps } from '@react-navigation/elements';
 
 type INavButtonProps = Omit<IIconButtonProps, 'icon' | 'testID'>;
 
@@ -49,6 +49,7 @@ function HeaderBackButton({
 }: IOnekeyStackHeaderProps &
   HeaderBackButtonProps & {
     renderLeft?: (props: any) => ReactNode | undefined;
+    canGoBack?: boolean;
   }) {
   const isVerticalLayout = useMedia().md;
 

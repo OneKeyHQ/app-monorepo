@@ -103,7 +103,7 @@ class SystemTimeUtils {
     }
   }
 
-  _serverTimeInterval: NodeJS.Timeout | undefined;
+  _serverTimeInterval: ReturnType<typeof setInterval> | undefined;
 
   startServerTimeInterval() {
     if (this._serverTimeInterval) {

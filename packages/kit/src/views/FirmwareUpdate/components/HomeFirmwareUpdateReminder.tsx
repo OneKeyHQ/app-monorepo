@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IStackProps } from '@onekeyhq/components';
+import type { IStackProps, IXStackProps } from '@onekeyhq/components';
 import {
   Button,
   Icon,
@@ -46,7 +46,7 @@ export function FirmwareUpdateReminderAlert({
       alignItems="center"
       gap="$2"
       flex={1}
-      {...containerProps}
+      {...(containerProps as IXStackProps)}
     >
       <Icon size="$5" name="OnekeyDeviceCustom" color="$iconInfo" />
       <SizableText
