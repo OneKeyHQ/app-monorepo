@@ -14,6 +14,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
+  useSwapShouldRefreshQuoteAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
@@ -30,13 +31,17 @@ import {
 import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  IFetchQuoteResult,
   ISwapInitParams,
+  ISwapStep,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapDirectionType,
   ESwapQuoteKind,
   ESwapSelectTokenSource,
+  ESwapStepStatus,
+  ESwapStepType,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -45,6 +50,8 @@ import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
 import {
+  ESwapBatchTransferType,
+  useSwapBatchTransferType,
   useSwapQuoteEventFetching,
   useSwapQuoteLoading,
   useSwapSlippagePercentageModeInfo,
@@ -85,9 +92,11 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const { selectFromToken, selectToToken, quoteAction, cleanQuoteInterval } =
     useSwapActions().current;
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
+  const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [fromSelectToken] = useSwapSelectFromTokenAtom();
   const [toSelectToken] = useSwapSelectToTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
+  const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
   const swapSlippageRef = useRef(slippageItem);
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
@@ -236,10 +245,65 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     [fromSelectToken, toSelectToken],
   );
   const [preSwapDialogOpen, setPreSwapDialogOpen] = useState(false);
+  const swapBatchTransferType = useSwapBatchTransferType(
+    swapFromAddressInfo.networkId,
+    swapFromAddressInfo.accountInfo?.account?.id,
+    currentQuoteRes?.providerDisableBatchTransfer,
+  );
+  const parseQuoteResultToSteps = useCallback(
+    (quoteRes: IFetchQuoteResult) => {
+      let steps: ISwapStep[] = [];
+      if (
+        swapBatchTransferType === ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP
+      ) {
+        console.log('swap__pre batch approve and swap');
+      } else if (
+        swapBatchTransferType ===
+        ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP
+      ) {
+        console.log('swap__pre continuous approve and swap');
+      } else {
+        if (quoteRes.allowanceResult) {
+          steps = [
+            {
+              type: ESwapStepType.APPROVE_TX,
+              status: ESwapStepStatus.READY,
+              data: quoteRes,
+              canRetry: true,
+              shouldWaitApproved: true,
+            },
+          ];
+        }
+        steps = [
+          ...steps,
+          {
+            type: ESwapStepType.SEND_TX,
+            status: ESwapStepStatus.READY,
+            data: quoteRes,
+          },
+        ];
+      }
+
+      return steps;
+      // todo
+    },
+    [swapBatchTransferType],
+  );
+
   const onPreSwap = useCallback(() => {
+    if (!currentQuoteRes) {
+      return;
+    }
     cleanQuoteInterval();
+    setSwapShouldRefreshQuote(true);
     setPreSwapDialogOpen(true);
-  }, [cleanQuoteInterval]);
+    parseQuoteResultToSteps(currentQuoteRes);
+  }, [
+    cleanQuoteInterval,
+    setSwapShouldRefreshQuote,
+    parseQuoteResultToSteps,
+    currentQuoteRes,
+  ]);
   return (
     <ScrollView>
       <YStack

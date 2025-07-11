@@ -9,7 +9,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { Token } from '../../../components/Token';
 
 interface IPreSwapTokenItemProps {
-  token: ISwapToken;
+  token?: ISwapToken;
   amount: string;
 }
 

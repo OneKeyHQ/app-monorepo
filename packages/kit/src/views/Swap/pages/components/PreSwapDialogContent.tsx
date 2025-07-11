@@ -11,33 +11,44 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ESwapSlippageSegmentKey,
+  IFetchQuoteResult,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 import PreSwapInfoItem from '../../components/PreSwapInfoItem';
 import PreSwapTokenItem from '../../components/PreSwapTokenItem';
 
 interface IPreSwapDialogContentProps {
   quoteResult: IFetchQuoteResult;
+  fromTokenInfo?: ISwapToken;
+  toTokenInfo?: ISwapToken;
   onConfirm: () => void;
+  slippageItem: {
+    key: ESwapSlippageSegmentKey;
+    value: number;
+  };
 }
 
 const PreSwapDialogContent = ({
   onConfirm,
   quoteResult,
+  slippageItem,
+  fromTokenInfo,
+  toTokenInfo,
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
 
-  const fromToken = quoteResult?.fromTokenInfo;
-  const toToken = quoteResult?.toTokenInfo;
   const fromAmount = quoteResult?.fromAmount || '0';
   const toAmount = quoteResult?.toAmount || '0';
 
   const slippage = useMemo(() => {
     if (!quoteResult?.unSupportSlippage) {
-      return quoteResult?.slippage;
+      return slippageItem.value;
     }
     return undefined;
-  }, [quoteResult?.unSupportSlippage, quoteResult?.slippage]);
+  }, [quoteResult?.unSupportSlippage, slippageItem.value]);
   const fee = useMemo(() => {
     if (quoteResult?.fee?.percentageFee) {
       return `${quoteResult?.fee?.percentageFee ?? '-'}%`;
@@ -59,7 +70,7 @@ const PreSwapDialogContent = ({
       </SizableText>
 
       {/* From token item */}
-      <PreSwapTokenItem token={fromToken} amount={fromAmount} />
+      <PreSwapTokenItem token={fromTokenInfo} amount={fromAmount} />
 
       {/* You received */}
       <SizableText size="$bodyLg" color="$textSubdued">
@@ -67,7 +78,7 @@ const PreSwapDialogContent = ({
       </SizableText>
 
       {/* To token item */}
-      <PreSwapTokenItem token={toToken} amount={toAmount} />
+      <PreSwapTokenItem token={toTokenInfo} amount={toAmount} />
 
       {/* Divider */}
       <Divider />
@@ -86,9 +97,7 @@ const PreSwapDialogContent = ({
                 borderRadius="$1"
               />
               <SizableText size="$bodyMd">
-                {intl.formatMessage({
-                  id: ETranslations.fee_fee,
-                })}
+                {quoteResult?.info?.providerName ?? ''}
               </SizableText>
             </XStack>
           }
@@ -98,7 +107,7 @@ const PreSwapDialogContent = ({
             title={intl.formatMessage({
               id: ETranslations.swap_page_provider_slippage_tolerance,
             })}
-            value={slippage}
+            value={`${slippage.toFixed(2)}%`}
           />
         ) : null}
         <PreSwapInfoItem

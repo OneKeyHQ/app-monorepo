@@ -161,6 +161,39 @@ export function useSwapBatchTransfer(
   );
 }
 
+export enum ESwapBatchTransferType {
+  CONTINUOUS_APPROVE_AND_SWAP = 'continuous_approve_and_swap',
+  BATCH_APPROVE_AND_SWAP = 'batch_approve_and_swap',
+  NORMAL = 'normal',
+}
+
+export function useSwapBatchTransferType(
+  networkId?: string,
+  accountId?: string,
+  providerDisableBatchTransfer?: boolean,
+) {
+  let type = ESwapBatchTransferType.NORMAL;
+  const [settingsPersistAtom] = useSettingsPersistAtom();
+  if (settingsPersistAtom.swapBatchApproveAndSwap) {
+    type = ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP;
+  }
+  const isExternalAccount = accountUtils.isExternalAccount({
+    accountId: accountId ?? '',
+  });
+  const isHDAccount = accountUtils.isHwOrQrAccount({
+    accountId: accountId ?? '',
+  });
+  if (isExternalAccount || isHDAccount) {
+    type = ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP;
+  }
+  const isUnSupportBatchTransferNet =
+    SwapBuildUseMultiplePopoversNetworkIds.includes(networkId ?? '');
+  if (providerDisableBatchTransfer || isUnSupportBatchTransferNet) {
+    type = ESwapBatchTransferType.NORMAL;
+  }
+  return type;
+}
+
 export function useSwapActionState() {
   const intl = useIntl();
   const quoteLoading = useSwapQuoteLoading();

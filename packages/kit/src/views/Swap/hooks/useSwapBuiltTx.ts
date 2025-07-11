@@ -105,7 +105,6 @@ export function useSwapBuildTx() {
   const [swapLimitPriceFromAmount] = useSwapLimitPriceFromAmountAtom();
   const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
   const [swapLimitPartiallyFillObj] = useSwapLimitPartiallyFillAtom();
-  const [swapUseInstantRate] = useSwapLimitPriceUseRateAtom();
   const [{ isFirstTimeSwap }, setPersistSettings] = useSettingsPersistAtom();
   const [, setSettings] = useSettingsAtom();
   const { navigationToTxConfirm, navigationToMessageConfirm } =
@@ -360,7 +359,8 @@ export function useSwapBuildTx() {
       selectQuote?.toAmount &&
       swapFromAddressInfo.address &&
       swapToAddressInfo.address &&
-      swapFromAddressInfo.networkId
+      swapFromAddressInfo.networkId &&
+      swapFromAddressInfo.accountInfo?.account?.id
     ) {
       setSwapBuildTxFetching(true);
       const wrappedType = fromToken.isNative
@@ -397,13 +397,26 @@ export function useSwapBuildTx() {
         receivingAddress: swapToAddressInfo.address,
         swapBuildResData: { result: selectQuote },
       };
-      await navigationToTxConfirm({
+      const unsignedTx = await backgroundApiProxy.serviceSend.buildUnsignedTx({
+        networkId: fromToken.networkId,
+        accountId: swapFromAddressInfo.accountInfo?.account?.id,
         wrappedInfo,
         swapInfo,
-        isInternalSwap: true,
-        onSuccess: handleBuildTxSuccess,
-        onCancel: handleTxFail,
       });
+      const res = await backgroundApiProxy.serviceSend.signAndSendTransaction({
+        networkId: fromToken.networkId,
+        accountId: swapFromAddressInfo.accountInfo?.account?.id,
+        unsignedTx,
+        signOnly: false,
+      });
+      console.log('swap__pre wrapped res', res);
+      // await navigationToTxConfirm({
+      //   wrappedInfo,
+      //   swapInfo,
+      //   isInternalSwap: true,
+      //   onSuccess: handleBuildTxSuccess,
+      //   onCancel: handleTxFail,
+      // });
       void syncRecentTokenPairs({
         swapFromToken: fromToken,
         swapToToken: toToken,
@@ -419,9 +432,6 @@ export function useSwapBuildTx() {
     swapToAddressInfo.address,
     swapToAddressInfo.accountInfo?.account?.id,
     setSwapBuildTxFetching,
-    navigationToTxConfirm,
-    handleBuildTxSuccess,
-    handleTxFail,
     syncRecentTokenPairs,
   ]);
 
@@ -435,7 +445,8 @@ export function useSwapBuildTx() {
       selectQuoteRes?.toAmount &&
       swapFromAddressInfo.address &&
       swapToAddressInfo.address &&
-      swapFromAddressInfo.networkId
+      swapFromAddressInfo.networkId &&
+      swapFromAddressInfo.accountInfo?.account?.id
     ) {
       try {
         if (
@@ -537,88 +548,60 @@ export function useSwapBuildTx() {
               );
             }
             if (dataMessage) {
-              const swapInfo: ISwapTxInfo = {
-                protocol: selectQuoteRes.protocol ?? EProtocolOfExchange.SWAP,
-                sender: {
-                  amount: unSignedOrder.sellAmount,
-                  token: fromToken,
-                  accountInfo: {
-                    accountId: swapFromAddressInfo.accountInfo?.account?.id,
-                    networkId: fromToken.networkId,
+              // const swapInfo: ISwapTxInfo = {
+              //   protocol: selectQuoteRes.protocol ?? EProtocolOfExchange.SWAP,
+              //   sender: {
+              //     amount: unSignedOrder.sellAmount,
+              //     token: fromToken,
+              //     accountInfo: {
+              //       accountId: swapFromAddressInfo.accountInfo?.account?.id,
+              //       networkId: fromToken.networkId,
+              //     },
+              //   },
+              //   receiver: {
+              //     amount: unSignedOrder.buyAmount,
+              //     token: toToken,
+              //     accountInfo: {
+              //       accountId: swapToAddressInfo.accountInfo?.account?.id,
+              //       networkId: toToken.networkId,
+              //     },
+              //   },
+              //   accountAddress: swapFromAddressInfo.address,
+              //   receivingAddress: swapToAddressInfo.address,
+              //   swapBuildResData: {
+              //     result: {
+              //       ...selectQuoteRes,
+              //       ...(selectQuoteRes.protocol !== EProtocolOfExchange.LIMIT
+              //         ? {
+              //             slippage:
+              //               selectQuoteRes.slippage ?? slippageItem.value,
+              //           }
+              //         : {}),
+              //       ...(swapUseInstantRate.rate &&
+              //       selectQuoteRes.protocol === EProtocolOfExchange.LIMIT
+              //         ? {
+              //             instantRate: swapUseInstantRate.rate,
+              //           }
+              //         : {}),
+              //     },
+              //   },
+              // };
+
+              const signHash = await backgroundApiProxy.serviceSend.signMessage(
+                {
+                  unsignedMessage: {
+                    type:
+                      unSignedInfo.signedType ?? EMessageTypesEth.TYPED_DATA_V4,
+                    message: dataMessage,
+                    payload: [
+                      swapFromAddressInfo.address.toLowerCase(),
+                      dataMessage,
+                    ],
                   },
+                  networkId: swapFromAddressInfo.networkId,
+                  accountId: swapFromAddressInfo.accountInfo?.account?.id,
                 },
-                receiver: {
-                  amount: unSignedOrder.buyAmount,
-                  token: toToken,
-                  accountInfo: {
-                    accountId: swapToAddressInfo.accountInfo?.account?.id,
-                    networkId: toToken.networkId,
-                  },
-                },
-                accountAddress: swapFromAddressInfo.address,
-                receivingAddress: swapToAddressInfo.address,
-                swapBuildResData: {
-                  result: {
-                    ...selectQuoteRes,
-                    ...(selectQuoteRes.protocol !== EProtocolOfExchange.LIMIT
-                      ? {
-                          slippage:
-                            selectQuoteRes.slippage ?? slippageItem.value,
-                        }
-                      : {}),
-                    ...(swapUseInstantRate.rate &&
-                    selectQuoteRes.protocol === EProtocolOfExchange.LIMIT
-                      ? {
-                          instantRate: swapUseInstantRate.rate,
-                        }
-                      : {}),
-                  },
-                },
-              };
-              const signHash = await new Promise<string>((resolve, reject) => {
-                if (
-                  dataMessage &&
-                  swapFromAddressInfo.address &&
-                  swapFromAddressInfo.networkId
-                ) {
-                  navigationToMessageConfirm({
-                    accountId:
-                      swapFromAddressInfo.accountInfo?.account?.id ?? '',
-                    networkId: swapFromAddressInfo.networkId,
-                    swapInfo,
-                    unsignedMessage: {
-                      type:
-                        unSignedInfo.signedType ??
-                        EMessageTypesEth.TYPED_DATA_V4,
-                      message: dataMessage,
-                      payload: [
-                        swapFromAddressInfo.address.toLowerCase(),
-                        dataMessage,
-                      ],
-                    },
-                    walletInternalSign: true,
-                    onSuccess: (result: string) => {
-                      resolve(result);
-                    },
-                    onFail: (error: Error) => {
-                      reject(error);
-                    },
-                    onCancel: () => {
-                      reject(new Error('user cancel'));
-                    },
-                  });
-                } else {
-                  reject(
-                    new Error(
-                      `missing data: dataMessage: ${
-                        dataMessage ?? ''
-                      }, address: ${
-                        swapFromAddressInfo.address ?? ''
-                      }, networkId: ${swapFromAddressInfo.networkId ?? ''}`,
-                    ),
-                  );
-                }
-              });
+              );
               if (signHash) {
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 selectQuoteRes.quoteResultCtx.cowSwapUnSignedOrder =
@@ -630,6 +613,50 @@ export function useSwapBuildTx() {
                 };
               }
             }
+            // const signHash = await new Promise<string>((resolve, reject) => {
+            //   if (
+            //     dataMessage &&
+            //     swapFromAddressInfo.address &&
+            //     swapFromAddressInfo.networkId
+            //   ) {
+            //     navigationToMessageConfirm({
+            //       accountId:
+            //         swapFromAddressInfo.accountInfo?.account?.id ?? '',
+            //       networkId: swapFromAddressInfo.networkId,
+            //       swapInfo,
+            //       unsignedMessage: {
+            //         type:
+            //           unSignedInfo.signedType ??
+            //           EMessageTypesEth.TYPED_DATA_V4,
+            //         message: dataMessage,
+            //         payload: [
+            //           swapFromAddressInfo.address.toLowerCase(),
+            //           dataMessage,
+            //         ],
+            //       },
+            //       walletInternalSign: true,
+            //       onSuccess: (result: string) => {
+            //         resolve(result);
+            //       },
+            //       onFail: (error: Error) => {
+            //         reject(error);
+            //       },
+            //       onCancel: () => {
+            //         reject(new Error('user cancel'));
+            //       },
+            //     });
+            //   } else {
+            //     reject(
+            //       new Error(
+            //         `missing data: dataMessage: ${
+            //           dataMessage ?? ''
+            //         }, address: ${
+            //           swapFromAddressInfo.address ?? ''
+            //         }, networkId: ${swapFromAddressInfo.networkId ?? ''}`,
+            //       ),
+            //     );
+            //   }
+            // });
           } else if (oneInchFusionOrder) {
             const { makerAddress, typedData } = oneInchFusionOrder;
             const onInchFusionOrderInfo: {
@@ -907,7 +934,6 @@ export function useSwapBuildTx() {
     swapLimitPartiallyFillObj.value,
     toTokenAmount.value,
     fromTokenAmount.value,
-    swapUseInstantRate.rate,
     navigationToMessageConfirm,
     swapTypeSwitch,
     intl,
@@ -1104,23 +1130,42 @@ export function useSwapBuildTx() {
       selectQuote?.toAmount &&
       swapFromAddressInfo.address &&
       swapToAddressInfo.address &&
-      swapFromAddressInfo.networkId
+      swapFromAddressInfo.networkId &&
+      swapFromAddressInfo.accountInfo?.account?.id
     ) {
       setSwapBuildTxFetching(true);
       const createBuildTxRes = await createBuildTx();
       try {
         if (createBuildTxRes) {
           if (!createBuildTxRes.skipSendTransAction) {
-            await navigationToTxConfirm({
-              isInternalSwap: true,
-              transfersInfo: createBuildTxRes.transferInfo
-                ? [createBuildTxRes.transferInfo]
-                : undefined,
-              encodedTx: createBuildTxRes.encodedTx,
-              swapInfo: createBuildTxRes.swapInfo,
-              onSuccess: handleBuildTxSuccess,
-              onCancel: cancelBuildTx,
-            });
+            // await navigationToTxConfirm({
+            //   isInternalSwap: true,
+            //   transfersInfo: createBuildTxRes.transferInfo
+            //     ? [createBuildTxRes.transferInfo]
+            //     : undefined,
+            //   encodedTx: createBuildTxRes.encodedTx,
+            //   swapInfo: createBuildTxRes.swapInfo,
+            //   onSuccess: handleBuildTxSuccess,
+            //   onCancel: cancelBuildTx,
+            // });
+            const unsignedTx =
+              await backgroundApiProxy.serviceSend.buildUnsignedTx({
+                networkId: fromToken.networkId,
+                accountId: swapFromAddressInfo.accountInfo?.account?.id,
+                encodedTx: createBuildTxRes.encodedTx,
+                swapInfo: createBuildTxRes.swapInfo,
+                transfersInfo: createBuildTxRes.transferInfo
+                  ? [createBuildTxRes.transferInfo]
+                  : undefined,
+              });
+            const res =
+              await backgroundApiProxy.serviceSend.signAndSendTransaction({
+                networkId: fromToken.networkId,
+                accountId: swapFromAddressInfo.accountInfo?.account?.id,
+                unsignedTx,
+                signOnly: false,
+              });
+            console.log('swap__pre res', res);
           } else {
             void handleBuildTxSuccessWithSignedNoSend({
               swapInfo: createBuildTxRes.swapInfo,
@@ -1193,9 +1238,6 @@ export function useSwapBuildTx() {
     isFirstTimeSwap,
     pageType,
     setPersistSettings,
-    navigationToTxConfirm,
-    handleBuildTxSuccess,
-    cancelBuildTx,
     handleBuildTxSuccessWithSignedNoSend,
     syncRecentTokenPairs,
     setSwapShouldRefreshQuote,

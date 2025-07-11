@@ -6,10 +6,10 @@ import { useIntl } from 'react-intl';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Button, Dialog, DialogContainer } from '@onekeyhq/components';
 import {
-  useSwapActions,
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceUseRateAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -22,7 +22,10 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
-import { useSwapActionState } from '../../hooks/useSwapState';
+import {
+  useSwapActionState,
+  useSwapSlippagePercentageModeInfo,
+} from '../../hooks/useSwapState';
 
 import PreSwapDialogContent from './PreSwapDialogContent';
 
@@ -50,8 +53,11 @@ const PreSwapDialogContainer = ({
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
   const swapActionState = useSwapActionState();
+  const [fromToken] = useSwapSelectFromTokenAtom();
   const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
+  const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const intl = useIntl();
+  console.log('swap__pre currentQuoteRes', currentQuoteRes);
   const handleApprove = useCallback(() => {
     if (swapActionState.shoutResetApprove) {
       Dialog.confirm({
@@ -229,8 +235,11 @@ const PreSwapDialogContainer = ({
       showFooter={false}
       renderContent={
         <PreSwapDialogContent
+          fromTokenInfo={fromToken}
+          toTokenInfo={toToken}
           quoteResult={currentQuoteRes as IFetchQuoteResult}
           onConfirm={handleConfirm}
+          slippageItem={slippageItem}
         />
       }
     />
