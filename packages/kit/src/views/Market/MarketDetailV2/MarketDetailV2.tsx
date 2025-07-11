@@ -13,7 +13,9 @@ import {
 } from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { HeaderLeftCloseButton } from '../../../components/TabPageHeader/HeaderLeft';
-import { ProviderJotaiContextMarketV2 } from '../../../states/jotai/contexts/marketV2';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+
+import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
 import { useAutoRefreshTokenDetail } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
@@ -65,9 +67,9 @@ function MarketDetailV2(
       }}
       enabledNum={[0]}
     >
-      <ProviderJotaiContextMarketV2>
+      <MarketWatchListProviderMirrorV2 storeName={EJotaiContextStoreNames.marketWatchListV2}>
         <MarketDetail {...props} />
-      </ProviderJotaiContextMarketV2>
+      </MarketWatchListProviderMirrorV2>
     </AccountSelectorProviderMirror>
   );
 }
