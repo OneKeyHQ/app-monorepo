@@ -99,7 +99,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
 
   return (
     <YStack style={style}>
-      <ExpoImage
+      {/* <ExpoImage
         source={resolvedSource}
         style={style}
         onError={handleError}
@@ -108,7 +108,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
         onDisplay={onDisplay}
         onLoadStart={onLoadStart}
         {...(imageProps as any)}
-      />
+      /> */}
       {isLoading ? (
         <Skeleton
           position="absolute"

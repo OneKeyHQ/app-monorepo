@@ -201,6 +201,10 @@ export function HomePageView({
     [tabs],
   );
 
+  const renderHeader = useCallback(() => {
+    return <HomeHeaderContainer />;
+  }, []);
+
   const renderTabs = useCallback(
     () => (
       // <Tab
@@ -216,19 +220,19 @@ export function HomePageView({
       //   showsVerticalScrollIndicator={false}
       //   onRefresh={onRefresh}
       // />
-      <Tabs.Container
-        renderHeader={() => <HomeHeaderContainer />}
-        headerHeight={200} // optional
-      >
+      <Tabs.Container renderHeader={renderHeader}>
         <Tabs.Tab name="A">
           <TokenListContainerWithProvider />
         </Tabs.Tab>
-        <Tabs.Tab name="B">
+        {/* <Tabs.Tab name="B">
           <NFTListContainerWithProvider />
+        </Tabs.Tab> */}
+        <Tabs.Tab name="C">
+          <TxHistoryListContainerWithProvider />
         </Tabs.Tab>
       </Tabs.Container>
     ),
-    [],
+    [renderHeader],
   );
 
   useEffect(() => {
