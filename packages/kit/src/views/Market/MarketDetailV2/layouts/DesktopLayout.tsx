@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { Divider, Stack, XStack, YStack } from '@onekeyhq/components';
 import { useLeftColumnWidthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
@@ -16,10 +18,13 @@ export function DesktopLayout() {
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
   const [, setLeftColumnWidth] = useLeftColumnWidthAtom();
 
-  const handleLayout = (event: LayoutChangeEvent) => {
-    const { width } = event.nativeEvent.layout;
-    setLeftColumnWidth(width);
-  };
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const { width } = event.nativeEvent.layout;
+      setLeftColumnWidth(width);
+    },
+    [setLeftColumnWidth],
+  );
 
   return (
     <>
