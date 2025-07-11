@@ -14,8 +14,10 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
@@ -68,8 +70,10 @@ function PrimeBenefitsItem({
 
 export function PrimeBenefitsList({
   selectedSubscriptionPeriod,
+  networkId,
 }: {
   selectedSubscriptionPeriod: ISubscriptionPeriod;
+  networkId?: string;
 }) {
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -107,11 +111,24 @@ export function PrimeBenefitsList({
           id: ETranslations.prime_bulk_copy_addresses_desc,
         })}
         onPress={() => {
-          navigation.navigate(EPrimePages.PrimeFeatures, {
-            showAllFeatures: true,
-            selectedFeature: EPrimeFeatures.BulkCopyAddresses,
-            selectedSubscriptionPeriod,
-          });
+          if (isPrimeSubscriptionActive) {
+            const fallbackNetworkId = networkUtils.toNetworkIdFallback({
+              networkId,
+              allNetworkFallbackToBtc: true,
+            });
+            navigation.navigate(EModalRoutes.BulkCopyAddressesModal, {
+              screen: EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal,
+              params: {
+                networkId: fallbackNetworkId,
+              },
+            });
+          } else {
+            navigation.navigate(EPrimePages.PrimeFeatures, {
+              showAllFeatures: true,
+              selectedFeature: EPrimeFeatures.BulkCopyAddresses,
+              selectedSubscriptionPeriod,
+            });
+          }
         }}
       />
       <PrimeBenefitsItem

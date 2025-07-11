@@ -97,6 +97,9 @@ function MoreActionContentHeader() {
 
   const { closePopover } = usePopoverContext();
   const { isPrimeAvailable } = usePrimeAvailable();
+  const {
+    activeAccount: { network },
+  } = useActiveAccount({ num: 0 });
 
   const { loginOneKeyId } = useLoginOneKeyId();
 
@@ -145,6 +148,7 @@ function MoreActionContentHeader() {
             key="prime"
             visible
             onPress={closePopover}
+            networkId={network?.id}
           />
         ) : null}
       </XStack>
@@ -453,9 +457,12 @@ function MoreActionContentGrid() {
     }
     navigation.pushFullModal(EModalRoutes.PrimeModal, {
       screen: EPrimePages.PrimeDashboard,
+      params: {
+        networkId: network?.id,
+      },
     });
     return false;
-  }, [navigation, user]);
+  }, [navigation, user, network?.id]);
 
   const handleCustomerSupport = useCallback(() => {
     void showIntercom();
