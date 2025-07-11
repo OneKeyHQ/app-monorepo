@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Animated, Easing, Keyboard } from 'react-native';
+import { Tabs } from 'react-native-collapsible-tab-view';
 
 import { Icon, Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -202,21 +203,32 @@ export function HomePageView({
 
   const renderTabs = useCallback(
     () => (
-      <Tab
-        disableRefresh={!platformEnv.isNative}
-        data={tabs}
-        ToolBar={<TabHeaderSettings />}
-        ListHeaderComponent={<HomeHeaderContainer />}
-        onSelectedPageIndex={handleSelectPageIndexChange}
-        initialScrollIndex={0}
-        initialHeaderHeight={210}
-        contentItemWidth={CONTENT_ITEM_WIDTH}
-        contentWidth={screenWidth}
-        showsVerticalScrollIndicator={false}
-        onRefresh={onRefresh}
-      />
+      // <Tab
+      //   disableRefresh={!platformEnv.isNative}
+      //   data={tabs}
+      //   ToolBar={<TabHeaderSettings />}
+      //   ListHeaderComponent={<HomeHeaderContainer />}
+      //   onSelectedPageIndex={handleSelectPageIndexChange}
+      //   initialScrollIndex={0}
+      //   initialHeaderHeight={210}
+      //   contentItemWidth={CONTENT_ITEM_WIDTH}
+      //   contentWidth={screenWidth}
+      //   showsVerticalScrollIndicator={false}
+      //   onRefresh={onRefresh}
+      // />
+      <Tabs.Container
+        renderHeader={() => <HomeHeaderContainer />}
+        headerHeight={200} // optional
+      >
+        <Tabs.Tab name="A">
+          <TokenListContainerWithProvider />
+        </Tabs.Tab>
+        <Tabs.Tab name="B">
+          <NFTListContainerWithProvider />
+        </Tabs.Tab>
+      </Tabs.Container>
     ),
-    [tabs, handleSelectPageIndexChange, screenWidth, onRefresh],
+    [],
   );
 
   useEffect(() => {

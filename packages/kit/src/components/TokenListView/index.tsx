@@ -1,11 +1,14 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
 
+import { Tabs } from 'react-native-collapsible-tab-view';
+
+import type { ListView } from '@onekeyhq/components';
 import {
-  ListView,
   NestedScrollView,
   SizableText,
   Stack,
+  Tab,
   renderNestedScrollView,
 } from '@onekeyhq/components';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -293,10 +296,10 @@ function TokenListViewCmp(props: IProps) {
   }
 
   return (
-    <ListView
+    <Tabs.FlatList
       {...listViewProps}
       renderScrollComponent={renderNestedScrollView}
-      estimatedItemSize={tableLayout ? 48 : 60}
+      // estimatedItemSize={tableLayout ? 48 : 60}
       ref={listViewRef as any}
       onLayout={onLayout}
       data={filteredTokens}
