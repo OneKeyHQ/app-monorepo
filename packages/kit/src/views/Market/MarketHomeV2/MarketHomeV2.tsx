@@ -1,13 +1,12 @@
 import { useMemo, useState } from 'react';
 
 import { Page, useMedia } from '@onekeyhq/components';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
 import { DesktopLayout } from './layouts/DesktopLayout';
@@ -22,7 +21,9 @@ function MarketHome() {
 
   const [selectedNetworkId, setSelectedNetworkId] =
     useState<string>('sol--101');
-  const [liquidityFilter, setLiquidityFilter] = useState<ILiquidityFilter>({ min: '5K' });
+  const [liquidityFilter, setLiquidityFilter] = useState<ILiquidityFilter>({
+    min: '5K',
+  });
   const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('5m');
 
   const [activeTab, setActiveTab] = useState<IMarketHomeTabValue>(
@@ -44,12 +45,7 @@ function MarketHome() {
       activeTab,
       onTabChange: setActiveTab,
     }),
-    [
-      selectedNetworkId,
-      timeRange,
-      liquidityFilter,
-      activeTab,
-    ],
+    [selectedNetworkId, timeRange, liquidityFilter, activeTab],
   );
 
   return (
@@ -78,7 +74,9 @@ export function MarketHomeV2() {
       }}
       enabledNum={[0]}
     >
-      <MarketWatchListProviderMirrorV2 storeName={EJotaiContextStoreNames.marketWatchListV2}>
+      <MarketWatchListProviderMirrorV2
+        storeName={EJotaiContextStoreNames.marketWatchListV2}
+      >
         <MarketHome />
       </MarketWatchListProviderMirrorV2>
     </AccountSelectorProviderMirror>

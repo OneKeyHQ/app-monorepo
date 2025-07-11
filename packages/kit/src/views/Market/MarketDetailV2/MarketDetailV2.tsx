@@ -1,5 +1,6 @@
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Page, XStack, useMedia } from '@onekeyhq/components';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   type ETabMarketV2Routes,
   ETabRoutes,
@@ -13,8 +14,6 @@ import {
 } from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { HeaderLeftCloseButton } from '../../../components/TabPageHeader/HeaderLeft';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
 import { useAutoRefreshTokenDetail } from './hooks';
@@ -67,7 +66,9 @@ function MarketDetailV2(
       }}
       enabledNum={[0]}
     >
-      <MarketWatchListProviderMirrorV2 storeName={EJotaiContextStoreNames.marketWatchListV2}>
+      <MarketWatchListProviderMirrorV2
+        storeName={EJotaiContextStoreNames.marketWatchListV2}
+      >
         <MarketDetail {...props} />
       </MarketWatchListProviderMirrorV2>
     </AccountSelectorProviderMirror>
