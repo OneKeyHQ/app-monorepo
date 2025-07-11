@@ -36,7 +36,7 @@ function DialogContentWithState({ data }: { data: IDesktopBleRepairData }) {
   );
 
   const handleCancel = useCallback(() => {
-    actions.current.hideDesktopBleRepairDialog();
+    void actions.current.hideDesktopBleRepairDialog();
   }, [actions]);
 
   const getButtonText = () => {
@@ -119,7 +119,7 @@ export function DesktopBleRepairDialog() {
   }, [actions]);
 
   const handleCancel = useCallback(() => {
-    actions.current.hideDesktopBleRepairDialog();
+    void actions.current.hideDesktopBleRepairDialog();
     if (dialogInstanceRef.current) {
       void dialogInstanceRef.current.close();
       dialogInstanceRef.current = null;

@@ -2104,6 +2104,34 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  async updateDeviceConnectId({
+    dbDeviceId,
+    usbConnectId,
+    bleConnectId,
+  }: {
+    dbDeviceId: string;
+    usbConnectId?: string;
+    bleConnectId?: string;
+  }) {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: async (item) => {
+          if (usbConnectId !== undefined) {
+            item.usbConnectId = usbConnectId;
+          }
+          if (bleConnectId !== undefined) {
+            item.bleConnectId = bleConnectId;
+          }
+          item.updatedAt = await this.timeNow();
+          return item;
+        },
+      });
+    });
+  }
+
   async fixHiddenWalletName({
     dbDeviceId,
     dbWalletId,
