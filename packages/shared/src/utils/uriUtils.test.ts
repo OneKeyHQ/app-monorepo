@@ -69,7 +69,9 @@ describe('validateUrl', () => {
     ];
     invalidInputs.forEach((input) => {
       const result = validateUrl(input);
-      expect(result).toBe(`https://www.google.com/search?q=${input}`);
+      expect(result).toBe(
+        `https://www.google.com/search?q=${encodeURIComponent(input)}`,
+      );
     });
   });
 });
