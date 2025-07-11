@@ -103,11 +103,11 @@ function TokenListHeader({ tableLayout }: IProps) {
       </Stack>
       <Stack flexGrow={1} flexBasis={0} maxWidth="$36" alignItems="flex-end">
         <SortButton
-          label={intl.formatMessage({ id: ETranslations.global_price })}
-          iconName={renderSortButton(ETokenListSortType.Price)}
+          label={intl.formatMessage({ id: ETranslations.global_balance })}
+          iconName={renderSortButton(ETokenListSortType.Value)}
           onPress={() => {
             updateTokenListSort({
-              sortType: ETokenListSortType.Price,
+              sortType: ETokenListSortType.Value,
               sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
             });
           }}
@@ -115,11 +115,11 @@ function TokenListHeader({ tableLayout }: IProps) {
       </Stack>
       <Stack flexGrow={1} flexBasis={0} alignItems="flex-end">
         <SortButton
-          label={intl.formatMessage({ id: ETranslations.global_balance })}
-          iconName={renderSortButton(ETokenListSortType.Value)}
+          label={intl.formatMessage({ id: ETranslations.global_price })}
+          iconName={renderSortButton(ETokenListSortType.Price)}
           onPress={() => {
             updateTokenListSort({
-              sortType: ETokenListSortType.Value,
+              sortType: ETokenListSortType.Price,
               sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
             });
           }}
