@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -47,13 +47,17 @@ export function useTransactionItemData({
   const quoteSign = isBuy ? '-' : '+';
   const typeColor = isBuy ? '$textSuccess' : '$textCritical';
 
-  const typeText = isBuy
-    ? intl.formatMessage({
-        id: ETranslations.dexmarket_details_transactions_buy,
-      })
-    : intl.formatMessage({
-        id: ETranslations.dexmarket_details_transactions_sell,
-      });
+  const typeText = useMemo(
+    () =>
+      isBuy
+        ? intl.formatMessage({
+            id: ETranslations.dexmarket_details_transactions_buy,
+          })
+        : intl.formatMessage({
+            id: ETranslations.dexmarket_details_transactions_sell,
+          }),
+    [isBuy, intl],
+  );
 
   const price = isBuy ? item.to.price : item.from.price;
   const value = BigNumber(item.from.amount).times(item.from.price).toNumber();
