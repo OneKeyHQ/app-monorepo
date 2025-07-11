@@ -223,7 +223,7 @@ function useAppNavigation<
         });
         if (currentScreenModal !== screenModal) {
           navigationRef.current.navigate(ERootRoutes.Modal, {
-            screen: screenModal,
+            screen: currentScreenModal,
             params: {
               screen: args[0],
               params: args[1],
