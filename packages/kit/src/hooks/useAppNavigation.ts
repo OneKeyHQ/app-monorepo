@@ -212,9 +212,9 @@ function useAppNavigation<
 
   const push: typeof navigationRef.current.push = useCallback(
     (...args) => {
-      const parentState = navigation.getParent()?.getState();
       const modalRoute = getModalRoute();
       if (modalRoute) {
+        const parentState = navigation.getParent()?.getState();
         const currentScreenModal = getScreenName(modalRoute);
         const screenModal = getScreenName({
           state: parentState,
