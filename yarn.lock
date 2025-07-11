@@ -7447,13 +7447,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-lite-card@https://github.com/OneKeyHQ/react-native-lite-card.git#8107a74dbbae710e5ff0ca3cb39581ac862f8ef1":
+"@onekeyfe/react-native-lite-card@https://github.com/OneKeyHQ/react-native-lite-card.git#8168a69380fb45cb18b1e75c4cc7546a13528847":
   version: 1.0.13
-  resolution: "@onekeyfe/react-native-lite-card@https://github.com/OneKeyHQ/react-native-lite-card.git#commit=8107a74dbbae710e5ff0ca3cb39581ac862f8ef1"
+  resolution: "@onekeyfe/react-native-lite-card@https://github.com/OneKeyHQ/react-native-lite-card.git#commit=8168a69380fb45cb18b1e75c4cc7546a13528847"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/9ea6283e932fcfa4817613509cd9a0588db0eb138ed33fe6403ea53c14e190a1ac4803c29dd50a4af7e483f5e7a98c4111da998e50ab3e71aa153499a5d7d859
+  checksum: 10/fd50fe64f1919f21b619f32d60316fa737aba7f64c2bf6d979eba53181ec666bb2b982d94390c326f640f844a7f96b3956afc228de587f22029b7fbb63a8df36
   languageName: node
   linkType: hard
 
@@ -7875,7 +7875,7 @@ __metadata:
     "@notifee/react-native": "npm:9.0.0"
     "@onekeyfe/react-native-animated-charts": "npm:1.0.0"
     "@onekeyfe/react-native-ble-utils": "npm:0.1.4"
-    "@onekeyfe/react-native-lite-card": "https://github.com/OneKeyHQ/react-native-lite-card.git#8107a74dbbae710e5ff0ca3cb39581ac862f8ef1"
+    "@onekeyfe/react-native-lite-card": "https://github.com/OneKeyHQ/react-native-lite-card.git#8168a69380fb45cb18b1e75c4cc7546a13528847"
     "@onekeyfe/react-native-tab-page-view": "https://github.com/ByteZhang1024/react-native-tab-page-view.git#bf7f3caa31acd36a4fe05d0bd982f281239c4dd1"
     "@onekeyfe/react-native-text-input": "https://github.com/OneKeyHQ/react-native-text.git#70bd952083e13b75d71d5243d522c82aba1fbdc8"
     "@onekeyhq/components": "npm:*"

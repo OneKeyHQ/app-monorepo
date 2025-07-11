@@ -37,7 +37,7 @@
     "@notifee/react-native": "9.0.0",
     "@onekeyfe/react-native-animated-charts": "1.0.0",
     "@onekeyfe/react-native-ble-utils": "0.1.4",
-    "@onekeyfe/react-native-lite-card": "https://github.com/OneKeyHQ/react-native-lite-card.git#8107a74dbbae710e5ff0ca3cb39581ac862f8ef1",
+    "@onekeyfe/react-native-lite-card": "https://github.com/OneKeyHQ/react-native-lite-card.git#8168a69380fb45cb18b1e75c4cc7546a13528847",
     "@onekeyfe/react-native-tab-page-view": "https://github.com/ByteZhang1024/react-native-tab-page-view.git#bf7f3caa31acd36a4fe05d0bd982f281239c4dd1",
     "@onekeyfe/react-native-text-input": "https://github.com/OneKeyHQ/react-native-text.git#70bd952083e13b75d71d5243d522c82aba1fbdc8",
     "@onekeyhq/components": "*",
