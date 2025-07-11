@@ -4,6 +4,10 @@ import { cloneDeep } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
@@ -13,6 +17,7 @@ import {
   contextAtomMethod,
   marketWatchListV2Atom,
   networkIdAtom,
+  showWatchlistOnlyAtom,
   tokenAddressAtom,
   tokenDetailAtom,
   tokenDetailLoadingAtom,
@@ -38,6 +43,25 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
 
   setNetworkId = contextAtomMethod((_, set, payload: string) => {
     set(networkIdAtom(), payload);
+  });
+
+  // ShowWatchlistOnly Actions
+  setShowWatchlistOnly = contextAtomMethod((_, set, payload: boolean) => {
+    set(showWatchlistOnlyAtom(), payload);
+    // Emit app event when showWatchlistOnly changes
+    appEventBus.emit(EAppEventBusNames.MarketWatchlistOnlyChanged, {
+      showWatchlistOnly: payload,
+    });
+  });
+
+  toggleShowWatchlistOnly = contextAtomMethod((get, set) => {
+    const current = get(showWatchlistOnlyAtom());
+    const newValue = !current;
+    set(showWatchlistOnlyAtom(), newValue);
+    // Emit app event when showWatchlistOnly changes
+    appEventBus.emit(EAppEventBusNames.MarketWatchlistOnlyChanged, {
+      showWatchlistOnly: newValue,
+    });
   });
 
   fetchTokenDetail = contextAtomMethod(
@@ -237,5 +261,24 @@ export function useTokenDetailActions() {
     setTokenAddress,
     setNetworkId,
     fetchTokenDetail,
+  });
+}
+
+// Properly typed interface for showWatchlistOnly actions
+interface IShowWatchlistOnlyActions {
+  setShowWatchlistOnly: (value: boolean) => void;
+  toggleShowWatchlistOnly: () => void;
+}
+
+export function useShowWatchlistOnlyActions(): {
+  current: IShowWatchlistOnlyActions;
+} {
+  const actions = createActions();
+  const setShowWatchlistOnly = actions.setShowWatchlistOnly.use();
+  const toggleShowWatchlistOnly = actions.toggleShowWatchlistOnly.use();
+
+  return useRef({
+    setShowWatchlistOnly: setShowWatchlistOnly as (value: boolean) => void,
+    toggleShowWatchlistOnly: toggleShowWatchlistOnly as () => void,
   });
 }

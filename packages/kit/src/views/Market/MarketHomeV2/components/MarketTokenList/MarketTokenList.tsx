@@ -9,7 +9,14 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
-import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import {
+  useMarketWatchListV2Atom,
+  useShowWatchlistOnlyValue,
+} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import { parseValueToNumber } from '../../utils';
 
@@ -40,10 +47,6 @@ type IMarketTokenListProps = {
    * current list view (e.g. refresh button, export menu, etc.)
    */
   toolbar?: ReactNode;
-  /**
-   * Controls whether to show only watchlist tokens or all tokens
-   */
-  showWatchlistOnly?: boolean;
 };
 
 function MarketTokenList({
@@ -54,15 +57,13 @@ function MarketTokenList({
   pageSize = 20,
   liquidityFilter,
   toolbar,
-  showWatchlistOnly,
 }: IMarketTokenListProps) {
   const toDetailPage = useToDetailPage();
 
   // ---------------- WATCHLIST ------------------
   const [watchlistState] = useMarketWatchListV2Atom();
   const watchlistItems = watchlistState.data;
-
-  // Use showWatchlistOnly prop directly
+  const [showWatchlistOnly] = useShowWatchlistOnlyValue();
 
   const marketTokenColumns = useMarketTokenColumns(
     networkId,
@@ -94,16 +95,38 @@ function MarketTokenList({
     maxLiquidity,
   });
 
-  // useEffect(() => {
-  //   console.log('showWatchlistOnly', showWatchlistOnly);
-  //   if (showWatchlistOnly) {
-  //     watchlistResult.setSortBy(undefined);
-  //     watchlistResult.setSortType(undefined);
-  //   } else {
-  //     normalResult.setSortBy('v24hUSD');
-  //     normalResult.setSortType('desc');
-  //   }
-  // }, [showWatchlistOnly, watchlistResult, normalResult]);
+  // Listen to MarketWatchlistOnlyChanged event to update sort settings
+  useEffect(() => {
+    const handleWatchlistOnlyChanged = (payload: {
+      showWatchlistOnly: boolean;
+    }) => {
+      console.log(
+        'MarketWatchlistOnlyChanged event received:',
+        payload.showWatchlistOnly,
+      );
+      if (payload.showWatchlistOnly) {
+        watchlistResult.setSortBy(undefined);
+        watchlistResult.setSortType(undefined);
+      } else {
+        normalResult.setSortBy('v24hUSD');
+        normalResult.setSortType('desc');
+      }
+    };
+
+    // Register event listener
+    appEventBus.on(
+      EAppEventBusNames.MarketWatchlistOnlyChanged,
+      handleWatchlistOnlyChanged,
+    );
+
+    // Cleanup event listener on unmount
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.MarketWatchlistOnlyChanged,
+        handleWatchlistOnlyChanged,
+      );
+    };
+  }, [watchlistResult, normalResult]);
 
   const handleSortChange = useCallback(
     (sortBy: string, sortType: 'asc' | 'desc' | undefined) => {

@@ -24,7 +24,6 @@ function MarketHome() {
     useState<string>('sol--101');
   const [liquidityFilter, setLiquidityFilter] = useState<ILiquidityFilter>({ min: '5K' });
   const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('5m');
-  const [showWatchlistOnly, setShowWatchlistOnly] = useState(false);
 
   const [activeTab, setActiveTab] = useState<IMarketHomeTabValue>(
     EMarketHomeTab.Trending,
@@ -36,11 +35,9 @@ function MarketHome() {
         selectedNetworkId,
         timeRange,
         liquidityFilter,
-        showWatchlistOnly,
         onNetworkIdChange: setSelectedNetworkId,
         onTimeRangeChange: setTimeRange,
         onLiquidityFilterChange: setLiquidityFilter,
-        onWatchlistToggle: () => setShowWatchlistOnly((prev) => !prev),
       },
       selectedNetworkId,
       liquidityFilter,
@@ -51,7 +48,6 @@ function MarketHome() {
       selectedNetworkId,
       timeRange,
       liquidityFilter,
-      showWatchlistOnly,
       activeTab,
     ],
   );

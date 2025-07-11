@@ -2,7 +2,6 @@ import { Stack } from '@onekeyhq/components';
 
 import { MarketFilterBar } from '../components/MarketFilterBar';
 import { MarketTokenList } from '../components/MarketTokenList';
-import { EMarketHomeTab } from '../types';
 
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketHomeTabValue } from '../types';
@@ -12,11 +11,9 @@ interface IDesktopLayoutProps {
     selectedNetworkId: string;
     timeRange: ITimeRangeSelectorValue;
     liquidityFilter: ILiquidityFilter;
-    showWatchlistOnly: boolean;
     onNetworkIdChange: (networkId: string) => void;
     onTimeRangeChange: (timeRange: ITimeRangeSelectorValue) => void;
     onLiquidityFilterChange: (filter: ILiquidityFilter) => void;
-    onWatchlistToggle: () => void;
   };
   selectedNetworkId: string;
   liquidityFilter: ILiquidityFilter;
@@ -39,7 +36,6 @@ export function DesktopLayout({
         <MarketTokenList
           networkId={selectedNetworkId}
           liquidityFilter={liquidityFilter}
-          showWatchlistOnly={filterBarProps.showWatchlistOnly}
           key={`${selectedNetworkId}-${activeTab}`} // Force re-render when tab changes
         />
       </Stack>
