@@ -23,7 +23,6 @@ const baseElectronBuilderConfig = {
     'build/**/*',
     '!build/static/bin/**/*',
     'package.json',
-    'node_modules/@abandonware/**/*',
   ],
   'protocols': {
     'name': 'electron-deep-linking',
