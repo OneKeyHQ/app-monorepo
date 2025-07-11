@@ -85,6 +85,11 @@ const restrictedImportsPatterns = [
     group: ['**/v4localDBStoreNames.native'],
     message: 'import v4localDBStoreNames instead ',
   },
+  {
+    group: ['**/e2ee-server/**', '@onekeyhq/e2ee-server/**'],
+    message:
+      'Import from e2ee-server is not allowed because e2ee-server is not client-side code',
+  },
   //
 ];
 const tsRules = {
@@ -106,6 +111,7 @@ const tsRules = {
       'argsIgnorePattern': '^_',
       'varsIgnorePattern': '^_',
       'caughtErrorsIgnorePattern': '^_',
+      'ignoreRestSiblings': true,
     },
   ],
   '@typescript-eslint/no-use-before-define': ['error'],

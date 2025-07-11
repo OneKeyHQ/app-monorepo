@@ -43,7 +43,7 @@ const SettingProtectionModal = () => {
 
   const useIsFocused = useRouteIsFocused();
 
-  const lockTimer = useRef<NodeJS.Timeout | null>(null);
+  const lockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearLockTimer = useCallback(() => {
     if (lockTimer.current) {

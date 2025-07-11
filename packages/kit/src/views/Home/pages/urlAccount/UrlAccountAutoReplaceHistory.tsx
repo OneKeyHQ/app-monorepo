@@ -32,7 +32,7 @@ export function UrlAccountAutoReplaceHistory({ num }: { num: number }) {
     shouldReplaceUrlInDelay.current = false;
   }
 
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const replaceUrl = useCallback(
     ({ delay }: { delay: number }) => {

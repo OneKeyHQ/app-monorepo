@@ -16,6 +16,7 @@ import type {
   IndexedDBPromised,
 } from '@onekeyhq/shared/src/IndexedDBPromised';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
+import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
   INetworkAccount,
   IQrWalletAirGapAccount,
@@ -184,6 +185,7 @@ export type IDBCreateHwWalletParams = IDBCreateHwWalletParamsBase & {
   xfp?: string;
   getFirstEvmAddressFn?: () => Promise<string | null>;
   fillingXfpByCallingSdk?: boolean;
+  transportType?: EHardwareTransportType; // Transport type used for this connection
 };
 
 export type IDBCreateQRWalletParams = {
@@ -352,6 +354,10 @@ export type IDBDevice = IDBBaseObjectWithName & {
   createdAt: number;
   updatedAt: number;
   verifiedAtVersion?: string;
+
+  // New fields for USB/BLE connection support
+  usbConnectId?: string; // USB connection ID (serial number)
+  bleConnectId?: string; // BLE connection ID (MAC address)
 };
 export type IDBUpdateDeviceSettingsParams = {
   dbDeviceId: string;

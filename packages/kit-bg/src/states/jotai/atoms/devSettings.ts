@@ -35,6 +35,8 @@ export interface IDevSettings {
     enabled: boolean;
     selectedTab: ETabRoutes | null;
   };
+  // enable desktop bluetooth functionality
+  enableDesktopBluetooth?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -66,6 +68,7 @@ export const {
         enabled: false,
         selectedTab: ETabRoutes.Discovery,
       },
+      enableDesktopBluetooth: false,
     },
   },
 });

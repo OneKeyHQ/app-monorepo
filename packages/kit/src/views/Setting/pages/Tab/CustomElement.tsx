@@ -36,6 +36,7 @@ import {
   usePasswordWebAuthInfoAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   GITHUB_URL,
   ONEKEY_URL,
@@ -310,6 +311,18 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
       ];
     }
     if (platformEnv.isDesktop) {
+      if (platformEnv.isDesktopMac) {
+        return [
+          {
+            label: 'Bridge',
+            value: EHardwareTransportType.Bridge,
+          },
+          {
+            label: 'Bluetooth',
+            value: EHardwareTransportType.DesktopWebBle,
+          },
+        ];
+      }
       return [
         {
           label: 'Bridge',
@@ -333,14 +346,21 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
     return [];
   }, []);
   const onChange = useCallback(async (value: string) => {
+    const newTransportType = value as EHardwareTransportType;
+
     if (platformEnv.isWeb || platformEnv.isExtension) {
       await backgroundApiProxy.serviceHardware.switchTransport({
-        transportType: value as EHardwareTransportType,
+        transportType: newTransportType,
+      });
+      await backgroundApiProxy.serviceSetting.setHardwareTransportType(
+        newTransportType,
+      );
+    } else if (platformEnv.isDesktop) {
+      // Desktop now supports runtime switching without restart
+      await backgroundApiProxy.serviceHardware.switchHardwareTransportType({
+        transportType: newTransportType,
       });
     }
-    await backgroundApiProxy.serviceSetting.setHardwareTransportType(
-      value as EHardwareTransportType,
-    );
   }, []);
 
   return (

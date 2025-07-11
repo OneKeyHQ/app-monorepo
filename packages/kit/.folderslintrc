@@ -5,6 +5,7 @@
     "components/**",
     "hooks/**",
     "provider/Container/**",
+    "provider/KeyboardProvider/**",
     "provider/demo/**",
     "routes/config/**",
     "routes/Modal/*",

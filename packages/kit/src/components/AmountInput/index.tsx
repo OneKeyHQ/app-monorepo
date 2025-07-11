@@ -207,21 +207,27 @@ export function AmountInput({
         onPress={tokenSelectorTriggerProps?.onPress}
       >
         <Stack mr="$2">
-          <Image height="$7" width="$7" borderRadius="$full">
-            <Image.Source
-              source={{
-                uri: tokenSelectorTriggerProps?.selectedTokenImageUri,
-              }}
-            />
-            <Image.Fallback
-              alignItems="center"
-              justifyContent="center"
-              bg="$gray5"
-              delayMs={1000}
-            >
-              <Icon size="$6" name="CryptoCoinOutline" color="$iconSubdued" />
-            </Image.Fallback>
-          </Image>
+          <Image
+            size="$7"
+            borderRadius="$full"
+            source={{
+              uri: tokenSelectorTriggerProps?.selectedTokenImageUri,
+            }}
+            fallback={
+              <Image.Fallback
+                alignItems="center"
+                justifyContent="center"
+                bg="$gray5"
+              >
+                <Icon
+                  size="$6"
+                  m="$1"
+                  name="CryptoCoinOutline"
+                  color="$iconSubdued"
+                />
+              </Image.Fallback>
+            }
+          />
           {tokenSelectorTriggerProps?.selectedNetworkImageUri ? (
             <Stack
               position="absolute"
@@ -232,20 +238,22 @@ export function AmountInput({
               flexShrink={1}
               bg="$bgApp"
             >
-              <Image height="$3" width="$3" borderRadius="$full">
-                <Image.Source
-                  source={{
-                    uri: tokenSelectorTriggerProps?.selectedNetworkImageUri,
-                  }}
-                />
-                <Image.Fallback bg="$gray5" delayMs={1000}>
-                  <Icon
-                    size="$3"
-                    name="QuestionmarkSolid"
-                    color="$iconSubdued"
-                  />
-                </Image.Fallback>
-              </Image>
+              <Image
+                size="$3"
+                borderRadius="$full"
+                source={{
+                  uri: tokenSelectorTriggerProps?.selectedNetworkImageUri,
+                }}
+                fallback={
+                  <Image.Fallback bg="$gray5" delayMs={1000}>
+                    <Icon
+                      size="$3"
+                      name="QuestionmarkSolid"
+                      color="$iconSubdued"
+                    />
+                  </Image.Fallback>
+                }
+              />
             </Stack>
           ) : null}
           {tokenSelectorTriggerProps?.isCustomNetwork &&

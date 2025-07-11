@@ -7,6 +7,7 @@ import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
+import { EHardwareTransportType } from '../../types';
 import {
   EFirmwareUpdateTipMessages,
   EFirmwareVerifyType,
@@ -444,6 +445,30 @@ function getRawDeviceId({
   return rawDeviceId;
 }
 
+/**
+ * Get the appropriate connectId based on transport type
+ * @param device - The device object
+ * @param transportType - The transport type (USB, BLE, etc.)
+ * @returns The appropriate connectId for the transport type
+ */
+function getDeviceConnectId(
+  device: IDBDevice,
+  transportType: EHardwareTransportType,
+): string {
+  switch (transportType) {
+    case EHardwareTransportType.WEBUSB:
+    case EHardwareTransportType.Bridge:
+      return device.usbConnectId || device.connectId;
+
+    case EHardwareTransportType.BLE:
+    case EHardwareTransportType.DesktopWebBle:
+      return device.bleConnectId || device.connectId;
+
+    default:
+      return device.connectId;
+  }
+}
+
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
@@ -468,4 +493,5 @@ export default {
   compareDeviceVersions,
   shouldUseV2FirmwareUpdateFlow,
   getRawDeviceId,
+  getDeviceConnectId,
 };

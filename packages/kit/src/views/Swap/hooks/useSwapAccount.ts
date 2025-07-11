@@ -41,9 +41,11 @@ export function useSwapFromAccountNetworkSync() {
     useSwapProviderSupportReceiveAddressAtom();
   const [, setSettings] = useSettingsAtom();
   const [toToken] = useSwapSelectToTokenAtom();
-  const fromTokenRef = useRef<ISwapToken | undefined>();
-  const toTokenRef = useRef<ISwapToken | undefined>();
-  const swapProviderSupportReceiveAddressRef = useRef<boolean | undefined>();
+  const fromTokenRef = useRef<ISwapToken | undefined>(undefined);
+  const toTokenRef = useRef<ISwapToken | undefined>(undefined);
+  const swapProviderSupportReceiveAddressRef = useRef<boolean | undefined>(
+    undefined,
+  );
   const swapToAnotherAccountRef = useRef(swapToAnotherAccount);
   const swapToAccountRef = useRef(toActiveAccount);
   const swapFromAccountRef = useRef(fromActiveAccount);

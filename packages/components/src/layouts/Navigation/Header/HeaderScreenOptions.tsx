@@ -67,13 +67,7 @@ export function makeHeaderScreenOptions({
 
   return {
     headerTitleAlign: 'left',
-    // @ts-expect-error
-    header: ({
-      back: headerBack,
-      options,
-      route,
-      navigation,
-    }: IStackHeaderProps) => (
+    header: ({ back: headerBack, options, route, navigation }: any) => (
       <HeaderView
         back={headerBack}
         options={options}

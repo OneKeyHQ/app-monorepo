@@ -1,5 +1,5 @@
 import { Fragment, forwardRef, useCallback, useMemo } from 'react';
-import type { ForwardedRef, PropsWithChildren } from 'react';
+import type { ForwardedRef, PropsWithChildren, ReactElement } from 'react';
 
 import { useStyle } from '@tamagui/core';
 // eslint-disable-next-line spellcheck/spell-checker
@@ -250,12 +250,12 @@ function BaseSortableListView<T>(
               // @ts-ignore
               ref={(_ref) => {
                 if (typeof ref === 'function') {
-                  ref(_ref);
+                  ref(_ref as any);
                 } else if (ref && 'current' in ref) {
-                  ref.current = _ref;
+                  ref.current = _ref as any;
                 }
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                provided.innerRef(_ref?._listRef?._scrollRef);
+                provided.innerRef((_ref as any)?._listRef?._scrollRef);
               }}
               data={data}
               contentContainerStyle={{
@@ -278,7 +278,11 @@ function BaseSortableListView<T>(
 }
 
 export const SortableListView = withStaticProperties(
-  forwardRef(BaseSortableListView) as typeof BaseSortableListView,
+  forwardRef(BaseSortableListView) as <T>(
+    props: ISortableListViewProps<T> & {
+      ref?: ForwardedRef<ISortableListViewRef<T>>;
+    },
+  ) => ReactElement | null,
   {
     OpacityDecorator,
     ScaleDecorator,

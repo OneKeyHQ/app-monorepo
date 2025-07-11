@@ -3,6 +3,7 @@ import { type ComponentProps, useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 import { isUndefined } from 'lodash';
 
+import type { IYStackProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -227,7 +228,7 @@ function BalanceDetailsContent({
       }
     }
     return (
-      <YStack {...detailsBlockStyles}>
+      <YStack {...(detailsBlockStyles as IYStackProps)}>
         <XStack justifyContent="space-between" alignItems="center">
           <XStack>
             <Button
@@ -367,7 +368,7 @@ function BalanceDetailsContent({
         </Dialog.Description>
       </Dialog.Header>
       <YStack gap="$3">
-        <YStack {...detailsBlockStyles}>
+        <YStack {...(detailsBlockStyles as IYStackProps)}>
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyLgMedium" color="$textSubdued">
               {appLocale.intl.formatMessage({

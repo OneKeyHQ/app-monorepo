@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { memo, useMemo } from 'react';
+import { isValidElement, useMemo } from 'react';
 
 import { isString } from 'lodash';
 
@@ -71,14 +71,12 @@ export interface IAccountAvatarProps extends IImageProps {
   wallet?: IDBWallet;
 }
 
-function HashImageSource({ id }: { id: string }) {
-  // native ethereum-blockies-base64 can't parse ':' in address
-  const idFixed = id.replaceAll(':', '');
-  const uri = useBlockieImageUri(idFixed);
-  return uri ? <Image.Source src={uri} /> : null;
-}
-
-const MemoHashImageSource = memo(HashImageSource);
+const getBlockieImageId = (id?: string) => {
+  if (!id) {
+    return '';
+  }
+  return id.replaceAll(':', '');
+};
 
 function DefaultImageLoading({
   delayMs = 150,
@@ -137,16 +135,22 @@ function BasicAccountAvatar({
           containerSize: size || VARIANT_SIZE.default.containerSize,
         };
 
-  const renderContent = useMemo(() => {
+  const accountSourceUri = useBlockieImageUri(
+    getBlockieImageId(
+      address ||
+        indexedAccount?.idHash ||
+        indexedAccount?.id ||
+        (account || dbAccount)?.address,
+    ),
+  );
+
+  const uriSource = useMemo(() => {
     const emptyAccountAvatar = <DefaultEmptyAccount />;
 
-    if (address) {
-      return <MemoHashImageSource id={address} />;
-    }
-    if (indexedAccount) {
-      return (
-        <MemoHashImageSource id={indexedAccount.idHash || indexedAccount.id} />
-      );
+    if (address || indexedAccount) {
+      return {
+        uri: accountSourceUri,
+      };
     }
     // dbAccount exists, but network not compatible, so account is undefined
     const finalAccount = account || dbAccount;
@@ -157,9 +161,9 @@ function BasicAccountAvatar({
             return null;
           }
           if (isString(logo)) {
-            return <Image.Source src={logo} />;
+            return { uri: logo };
           }
-          return <Image.Source source={logo as any} />;
+          return logo;
         };
         const externalAccount = finalAccount as IDBExternalAccount;
 
@@ -193,18 +197,27 @@ function BasicAccountAvatar({
           return renderExternalAvatar(walletConnectIcon);
         }
       }
-      return finalAccount.address ? (
-        <MemoHashImageSource id={finalAccount.address} />
-      ) : (
-        emptyAccountAvatar
-      );
+      return finalAccount.address
+        ? {
+            uri: accountSourceUri,
+          }
+        : emptyAccountAvatar;
     }
     if (source || src || fallbackProps) {
-      return <Image.Source src={src} source={source} />;
+      return src ? { uri: src } : source;
     }
 
     return emptyAccountAvatar;
-  }, [account, address, dbAccount, fallbackProps, indexedAccount, source, src]);
+  }, [
+    account,
+    accountSourceUri,
+    address,
+    dbAccount,
+    fallbackProps,
+    indexedAccount,
+    source,
+    src,
+  ]);
 
   const renderLoading = useMemo(
     () =>
@@ -265,20 +278,23 @@ function BasicAccountAvatar({
       justifyContent="center"
       alignItems="center"
     >
-      <Image
-        size={containerSize}
-        style={
-          {
-            borderCurve: 'continuous',
-          } as ImageStyle
-        }
-        borderRadius={size === 'small' ? '$1' : '$2'}
-        {...restProps}
-      >
-        {renderContent}
-        {renderFallback}
-        {renderLoading}
-      </Image>
+      {isValidElement(uriSource) ? (
+        uriSource
+      ) : (
+        <Image
+          size={containerSize}
+          source={uriSource as IImageProps['source']}
+          style={
+            {
+              borderCurve: 'continuous',
+            } as ImageStyle
+          }
+          borderRadius={size === 'small' ? '$1' : '$2'}
+          {...restProps}
+          skeleton={renderLoading}
+          fallback={renderFallback}
+        />
+      )}
 
       {wallet ? (
         <Stack

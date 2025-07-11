@@ -5,7 +5,7 @@ import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.e
 
 import type { IActionListSection } from '../../../actions';
 import type { IKeyOfIcons } from '../../../primitives';
-import type { RouteProp } from '@react-navigation/core/lib/typescript/src/types';
+import type { RouteProp } from '@react-navigation/core';
 import type { ParamListBase } from '@react-navigation/routers';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
 

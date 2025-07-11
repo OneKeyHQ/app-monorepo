@@ -56,7 +56,7 @@ const NativeWebView = forwardRef(
     }: INativeWebViewProps,
     ref,
   ) => {
-    const webviewRef = useRef<WebView>();
+    const webviewRef = useRef<WebView>(undefined);
     const refreshControlRef = useMemo(() => createRef<RefreshControl>(), []);
     const [isRefresh] = useState(false);
     const onRefresh = useCallback(() => {

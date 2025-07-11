@@ -12,7 +12,6 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
-import { ImageSource } from '@onekeyhq/components/src/primitives/Image/ImageSource';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -194,13 +193,7 @@ export function ExploreView({
             });
           }}
         >
-          <Image w="$5" h="$5">
-            <ImageSource
-              source={{
-                uri: selectedNetwork?.logoURI ?? '',
-              }}
-            />
-          </Image>
+          <Image size="$5" source={{ uri: selectedNetwork?.logoURI ?? '' }} />
           <XStack maxWidth={119}>
             <SizableText size="$bodyMdMedium" px="$1" numberOfLines={1}>
               {selectedNetwork?.name ?? ''}

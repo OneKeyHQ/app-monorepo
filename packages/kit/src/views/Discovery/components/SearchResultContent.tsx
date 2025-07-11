@@ -349,9 +349,12 @@ export function SearchResultContent({
       list.map((item, index) => (
         <ListItem
           key={index}
-          ref={(el) => {
-            searchItemsRef.current[index] = el;
-          }}
+          // @ts-expect-error
+          ref={
+            ((el: any) => {
+              searchItemsRef.current[index] = el;
+            }) as any
+          }
           avatarProps={{
             src: item.logo || item.originLogo,
             loading: LoadingSkeleton,
@@ -461,7 +464,8 @@ export function SearchResultContent({
           {localData?.historyData.map((item, index) => (
             <ListItem
               key={index}
-              ref={(el) => {
+              // @ts-expect-error
+              ref={(el: any) => {
                 historyItemsRef.current[index] = el;
               }}
               avatarProps={{

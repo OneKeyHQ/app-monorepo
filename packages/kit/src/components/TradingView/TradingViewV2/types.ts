@@ -13,6 +13,6 @@ interface ITradingViewMessage {
   data: ITradingViewHistoryData;
 }
 
-interface ICustomReceiveHandlerData {
+export interface ICustomReceiveHandlerData {
   data: ITradingViewMessage;
 }
