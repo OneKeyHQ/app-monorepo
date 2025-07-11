@@ -120,11 +120,11 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
-      // 立即更新本地状态
+      // Immediately update local state
       const newData = [...prev.data, ...params];
       set(marketWatchListV2Atom(), { ...prev, data: newData });
 
-      // 异步调用 API，不等待结果
+      // Asynchronously call API without waiting for result
       void backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
         watchList: params,
       });
@@ -138,7 +138,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
-      // 立即更新本地状态
+      // Immediately update local state
       const newData = prev.data.filter(
         (item) =>
           !(
@@ -147,7 +147,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       );
       set(marketWatchListV2Atom(), { ...prev, data: newData });
 
-      // 异步调用 API，不等待结果
+      // Asynchronously call API without waiting for result
       void backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
         items: [{ chainId, contractAddress }],
       });

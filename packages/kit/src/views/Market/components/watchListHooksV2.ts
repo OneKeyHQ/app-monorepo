@@ -40,7 +40,6 @@ export const useWatchListV2Action = () => {
       );
 
       try {
-        console.log('watchListItems', watchListItems);
         actions.current.addIntoWatchListV2(watchListItems);
 
         Toast.success({

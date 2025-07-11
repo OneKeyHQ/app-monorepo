@@ -100,10 +100,6 @@ function MarketTokenList({
     const handleWatchlistOnlyChanged = (payload: {
       showWatchlistOnly: boolean;
     }) => {
-      console.log(
-        'MarketWatchlistOnlyChanged event received:',
-        payload.showWatchlistOnly,
-      );
       if (payload.showWatchlistOnly) {
         watchlistResult.setSortBy(undefined);
         watchlistResult.setSortType(undefined);
