@@ -5,7 +5,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SizableText, XStack } from '../../primitives';
 
-import type { GetProps } from 'tamagui';
+import type { IXStackProps } from '../../primitives';
 
 export type IBadgeType =
   | 'success'
@@ -91,29 +91,34 @@ const BadgeText = styled(SizableText, {
   } as const,
 });
 
-const BadgeComponent = BadgeFrame.styleable((props, ref) => {
-  const { children } = props;
+export type IBadgeProps = IXStackProps & {
+  badgeType?: IBadgeType;
+  badgeSize?: 'lg' | 'sm';
+};
 
-  const isString = typeof children === 'string';
+const BadgeComponent = BadgeFrame.styleable<IBadgeProps, any, any>(
+  (props: IBadgeProps, ref: any) => {
+    const { children } = props;
 
-  return (
-    <BadgeFrame
-      ref={ref}
-      {...props}
-      role={!platformEnv.isNative && props.onPress ? 'button' : undefined}
-    >
-      {!isString ? (
-        children
-      ) : (
-        <BadgeText userSelect="none">{children}</BadgeText>
-      )}
-    </BadgeFrame>
-  );
-});
+    const isString = typeof children === 'string';
+
+    return (
+      <BadgeFrame
+        ref={ref}
+        {...props}
+        role={!platformEnv.isNative && props.onPress ? 'button' : undefined}
+      >
+        {!isString ? (
+          children
+        ) : (
+          <BadgeText userSelect="none">{children}</BadgeText>
+        )}
+      </BadgeFrame>
+    );
+  },
+);
 
 export const Badge = withStaticProperties(BadgeComponent, {
   props: BadgeContext.Provider,
   Text: BadgeText,
 });
-
-export type IBadgeProps = GetProps<typeof Badge>;

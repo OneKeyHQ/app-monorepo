@@ -1,5 +1,5 @@
 module.exports = {
-  moduleName: 'react-native-keyboard-manager-mock',
+  moduleName: 'react-native-keyboard-controller-mock',
   Platform: {
     OS: 'web',
   },

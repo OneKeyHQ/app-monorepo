@@ -188,10 +188,7 @@ function DAppConnectExtensionFloatingTrigger() {
             borderColor={index === 1 ? '$bgApp' : undefined}
             borderWidth={index === 1 ? 2 : undefined}
             borderStyle={index === 1 ? 'solid' : undefined}
-            style={
-              // @ts-expect-error
-              index === 1 ? { boxSizing: 'content-box' } : undefined
-            }
+            style={index === 1 ? { boxSizing: 'content-box' } : undefined}
           />
         ))}
         <SizableText pl="$1" size="$bodySm" numberOfLines={1}>

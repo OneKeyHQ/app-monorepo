@@ -9,14 +9,10 @@ import { ListView } from '../../layouts';
 import { Icon, Label, SizableText, XStack, YStack } from '../../primitives';
 import { NATIVE_HIT_SLOP } from '../../utils';
 
-import type { ILabelProps } from '../../primitives';
+import type { ILabelProps, IXStackProps, IYStackProps } from '../../primitives';
 import type { IFormFieldProps } from '../types';
 import type { ViewStyle } from 'react-native';
-import type {
-  CheckedState,
-  StackProps,
-  CheckboxProps as TMCheckboxProps,
-} from 'tamagui';
+import type { CheckedState, CheckboxProps as TMCheckboxProps } from 'tamagui';
 
 export type ICheckedState = CheckedState;
 
@@ -26,8 +22,8 @@ export type ICheckboxProps = IFormFieldProps<
     label?: string;
     description?: string;
     labelProps?: ILabelProps;
-    containerProps?: StackProps;
-    labelContainerProps?: StackProps;
+    containerProps?: IXStackProps;
+    labelContainerProps?: IYStackProps;
   }
 > & {
   isUncontrolled?: boolean;
@@ -65,6 +61,7 @@ function RawCheckbox({
     >
       <YStack
         // Warning: Received `true` for a non-boolean attribute `unstyled`.
+        // @ts-ignore
         unstyled="true"
         p="$0"
         my="$0.5"
@@ -74,13 +71,15 @@ function RawCheckbox({
         borderRadius="$1"
         alignItems="center"
         justifyContent="center"
-        focusVisibleStyle={{
-          outlineOffset: 2,
-          outlineColor: '$focusRing',
-        }}
+        focusVisibleStyle={
+          {
+            outlineOffset: 2,
+            outlineColor: '$focusRing',
+          } as any
+        }
         hitSlop={NATIVE_HIT_SLOP}
         maxHeight="$5"
-        {...checkboxProps}
+        {...(checkboxProps as IYStackProps)}
       >
         <Icon
           name={

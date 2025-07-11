@@ -118,7 +118,7 @@ const SparkLineChart = ({
     ],
   );
 
-  return <Canvas width={width} height={height} ref={draw} />;
+  return <Canvas width={width} height={height} ref={draw as any} />;
 };
 
 export default memo(SparkLineChart);

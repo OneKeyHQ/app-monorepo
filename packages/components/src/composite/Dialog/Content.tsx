@@ -1,14 +1,14 @@
 import { YStack } from '../../primitives';
 
 import type { IDialogContentProps } from './type';
-import type { IStackProps } from '../../primitives';
+import type { IYStackProps } from '../../primitives';
 
 export function Content({
   children,
   estimatedContentHeight,
   isAsync = false,
   ...others
-}: IDialogContentProps & Omit<IStackProps, 'children'>) {
+}: IDialogContentProps & Omit<IYStackProps, 'children'>) {
   if (!children) {
     return null;
   }

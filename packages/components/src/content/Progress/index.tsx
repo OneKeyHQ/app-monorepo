@@ -74,7 +74,7 @@ export function Progress({
       value={progressValue}
       onLayout={onLayout}
       max={DEFAULT_MAX}
-      {...props}
+      {...(props as any)}
     >
       {showIndicator ? (
         <TMProgress.Indicator

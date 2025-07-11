@@ -50,18 +50,13 @@ export const NetworkAvatarBase = ({
     );
   }
   return (
-    <Image size={size} src={logoURI} borderRadius="$full">
-      <Image.Source bg="$gray5" source={{ uri: logoURI }} />
-      <Image.Fallback
-        delayMs={1000}
-        alignItems="center"
-        justifyContent="center"
-        bg="$gray5"
-        padding="$1"
-      >
-        <Icon name="GlobusOutline" color="$iconSubdued" />
-      </Image.Fallback>
-    </Image>
+    <Image.V2
+      size={size}
+      src={logoURI}
+      borderRadius="$full"
+      source={{ uri: logoURI }}
+      fallback={<Icon name="GlobusOutline" color="$iconSubdued" />}
+    />
   );
 };
 

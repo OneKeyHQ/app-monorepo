@@ -62,7 +62,7 @@ export function RichSizeableText({
                   }, {} as Record<string, string | ((value: any) => React.JSX.Element)>)
                 : {}),
               ...i18NValues,
-            } as Record<string, React.ReactNode>
+            } as Record<string, any>
           }
         />
       ) : (

@@ -16,11 +16,11 @@ import HeaderSearchBar from './HeaderSearchBar';
 
 import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
 import type { IStackHeaderProps } from '../ScreenProps';
-import type { Layout } from '@react-navigation/elements';
 import type {
   HeaderBackButtonProps,
   HeaderOptions,
-} from '@react-navigation/elements/src/types';
+  Layout,
+} from '@react-navigation/elements';
 
 function getHeaderTitle(
   options: { title?: string; headerTitle?: HeaderOptions['headerTitle'] },

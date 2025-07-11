@@ -23,6 +23,7 @@ import { PrivyProviderLazy } from '../views/Prime/components/PrivyProviderLazy';
 import { ColdStartByNotification, Container } from './Container';
 import { NetworkReachabilityTracker } from './Container/NetworkReachabilityTracker';
 import { StateActiveContainer } from './Container/StateActiveContainer';
+import { KeyboardProvider } from './KeyboardProvider';
 import { SplashProvider } from './SplashProvider';
 import { ThemeProvider } from './ThemeProvider';
 import { WebViewWebEmbedProvider } from './WebViewWebEmbedProvider';
@@ -61,20 +62,22 @@ export function KitProvider(props: any = {}) {
     <SafeAreaProvider>
       <GlobalJotaiReady>
         <PrivyProviderLazy>
-          <GestureHandlerRootView style={flexStyle}>
-            <ThemeProvider>
-              <NetworkReachabilityTracker />
-              <SplashProvider>
-                <Container />
-              </SplashProvider>
-              <PasswordVerifyPromptMount />
-              <WebViewWebEmbedProvider />
-              <LastActivityTracker />
-              <SystemLocaleTracker />
-              <StateActiveContainer />
-              <SyncHomeAccountToDappAccountProvider />
-            </ThemeProvider>
-          </GestureHandlerRootView>
+          <KeyboardProvider>
+            <GestureHandlerRootView style={flexStyle}>
+              <ThemeProvider>
+                <NetworkReachabilityTracker />
+                <SplashProvider>
+                  <Container />
+                </SplashProvider>
+                <PasswordVerifyPromptMount />
+                <WebViewWebEmbedProvider />
+                <LastActivityTracker />
+                <SystemLocaleTracker />
+                <StateActiveContainer />
+                <SyncHomeAccountToDappAccountProvider />
+              </ThemeProvider>
+            </GestureHandlerRootView>
+          </KeyboardProvider>
         </PrivyProviderLazy>
       </GlobalJotaiReady>
     </SafeAreaProvider>

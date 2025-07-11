@@ -38,11 +38,13 @@ export function ConfirmHighlighter({
             opacity: 1,
             shadowOpacity: platformEnv.isNative ? undefined : 1,
           }}
-          transition={{
-            type: 'timing',
-            duration: 1000,
-            loop: true,
-          }}
+          transition={
+            {
+              type: 'timing',
+              duration: 1000,
+              loop: true,
+            } as any
+          }
           style={{
             position: 'absolute',
             left: -2,

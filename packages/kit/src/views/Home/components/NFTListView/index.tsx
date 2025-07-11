@@ -159,7 +159,7 @@ function NFTListView(props: IProps) {
   return (
     <ListView
       {...listViewProps}
-      ref={listViewRef}
+      ref={listViewRef as any}
       renderScrollComponent={renderNestedScrollView}
       // Changing numColumns on the fly is not supported.
       //  Change the key prop in FlatList when changing the number of columns to force a fresh render of the component.

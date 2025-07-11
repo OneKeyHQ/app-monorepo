@@ -47,7 +47,7 @@ function NotificationSectionFieldItem({
   );
   const field = child
     ? cloneElement(child, {
-        ...child.props,
+        ...(child.props as any),
         value,
         onChange: handleChange,
       })

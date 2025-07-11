@@ -5,7 +5,7 @@
     "allowSyntheticDefaultImports": true,
     "jsx": "preserve",
     "lib": ["dom", "esnext", "webworker"],
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "noEmit": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,

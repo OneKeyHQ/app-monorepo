@@ -8,7 +8,7 @@ export const useHandleAppStateActive: IUseHandleAppStateActive = (
   onHandler,
   handlers,
 ) => {
-  const appState = useRef<IDesktopAppState>();
+  const appState = useRef<IDesktopAppState>(undefined);
   useEffect(() => {
     if (!onHandler) return;
     const handleAppStateChange = (nextState: IDesktopAppState) => {

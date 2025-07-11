@@ -6,7 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SHEET_AND_DIALOG_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 import type { VariableVal } from '@tamagui/core';
-import type { UseThemeResult } from '@tamagui/web/types/hooks/useTheme';
+import type { UseThemeResult } from '@tamagui/web';
 
 export {
   getTokens,

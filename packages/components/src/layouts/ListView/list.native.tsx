@@ -9,7 +9,7 @@ import { getTokenValue } from 'tamagui';
 import { OptimizationView } from '../../optimization';
 
 import type { FlashListProps, ListRenderItem } from '@shopify/flash-list';
-import type { StackStyle, Tokens } from '@tamagui/web/types/types';
+import type { StackStyle, Tokens } from '@tamagui/web';
 
 type IListViewRef<T> = FlashList<T>;
 

@@ -46,7 +46,8 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [networkListFetching, setNetworkListFetching] = useState<boolean>(true);
   const [skipSyncDefaultSelectedToken, setSkipSyncDefaultSelectedToken] =
     useState<boolean>(false);
-  const swapAddressInfoRef = useRef<ReturnType<typeof useSwapAddressInfo>>();
+  const swapAddressInfoRef =
+    useRef<ReturnType<typeof useSwapAddressInfo>>(undefined);
   const [, setInAppNotification] = useInAppNotificationAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
@@ -59,11 +60,11 @@ export function useSwapInit(params?: ISwapInitParams) {
   if (swapNetworksRef.current !== swapNetworks) {
     swapNetworksRef.current = swapNetworks;
   }
-  const fromTokenRef = useRef<ISwapToken>();
+  const fromTokenRef = useRef<ISwapToken>(undefined);
   if (fromTokenRef.current !== fromToken) {
     fromTokenRef.current = fromToken;
   }
-  const toTokenRef = useRef<ISwapToken>();
+  const toTokenRef = useRef<ISwapToken>(undefined);
   if (toTokenRef.current !== toToken) {
     toTokenRef.current = toToken;
   }

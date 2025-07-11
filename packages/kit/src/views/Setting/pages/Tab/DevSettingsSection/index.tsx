@@ -69,7 +69,6 @@ import { NotificationDevSettings } from './NotificationDevSettings';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
-import { StartTimePanel } from './StartTimePanel';
 
 let correctDevOnlyPwd = '';
 
@@ -622,15 +621,6 @@ export const DevSettingsSection = () => {
                 ),
               });
             },
-          });
-        }}
-      />
-      <SectionPressItem
-        title="Startup Time(ms)"
-        onPress={() => {
-          Dialog.cancel({
-            title: 'Startup Time(ms)',
-            renderContent: <StartTimePanel />,
           });
         }}
       />

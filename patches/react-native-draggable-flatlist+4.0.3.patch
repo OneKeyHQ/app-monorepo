@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-draggable-flatlist/lib/module/components/CellRendererComponent.js b/node_modules/react-native-draggable-flatlist/lib/module/components/CellRendererComponent.js
-index 730171f..71cfcb1 100644
+index 7e32214..05edf51 100644
 --- a/node_modules/react-native-draggable-flatlist/lib/module/components/CellRendererComponent.js
 +++ b/node_modules/react-native-draggable-flatlist/lib/module/components/CellRendererComponent.js
 @@ -66,7 +66,14 @@ function CellRendererComponent(props) {
@@ -14,26 +14,12 @@ index 730171f..71cfcb1 100644
 +        } else {
 +          y += scrollOffset.value
 +        }
-+      };
++      }
        const cellOffset = horizontal ? x : y;
        const cellSize = horizontal ? w : h;
        cellDataRef.current.set(key, {
-diff --git a/node_modules/react-native-draggable-flatlist/lib/module/components/DraggableFlatList.js b/node_modules/react-native-draggable-flatlist/lib/module/components/DraggableFlatList.js
-index 50b1d13..b6d9317 100644
---- a/node_modules/react-native-draggable-flatlist/lib/module/components/DraggableFlatList.js
-+++ b/node_modules/react-native-draggable-flatlist/lib/module/components/DraggableFlatList.js
-@@ -203,7 +203,8 @@ function DraggableFlatListInner(props) {
-       to,
-       data: newData
-     });
--    reset();
-+    // Fix the problem of flicker cells after dragging
-+    setTimeout(reset)
-   });
-   const onPlaceholderIndexChange = useStableCallback(index => {
-     var _props$onPlaceholderI;
 diff --git a/node_modules/react-native-draggable-flatlist/lib/module/context/animatedValueContext.js b/node_modules/react-native-draggable-flatlist/lib/module/context/animatedValueContext.js
-index e4e558f..99a21f0 100644
+index 06747c6..7fee357 100644
 --- a/node_modules/react-native-draggable-flatlist/lib/module/context/animatedValueContext.js
 +++ b/node_modules/react-native-draggable-flatlist/lib/module/context/animatedValueContext.js
 @@ -56,6 +56,17 @@ function useSetupAnimatedValues() {
@@ -54,32 +40,41 @@ index e4e558f..99a21f0 100644
    const placeholderOffset = useSharedValue(0);
    const isDraggingCell = useDerivedValue(() => {
      return isTouchActiveNative.value && activeIndexAnim.value >= 0;
-@@ -77,7 +88,7 @@ function useSetupAnimatedValues() {
+@@ -77,7 +88,8 @@ function useSetupAnimatedValues() {
      const offsetRelativeToScrollTop = touchPositionDiff.value + activeCellOffset.value;
      const constrained = Math.min(containerMinusActiveCell, Math.max(scrollOffset.value, offsetRelativeToScrollTop));
      const maxTranslateNegative = -activeCellOffset.value;
 -    const maxTranslatePositive = scrollViewSize.value - (activeCellOffset.value + activeCellSize.value); // Only constrain the touch position while the finger is on the screen. This allows the active cell
++    // const maxTranslatePositive = scrollViewSize.value - (activeCellOffset.value + activeCellSize.value); // Only constrain the touch position while the finger is on the screen. This allows the active cell
 +    const maxTranslatePositive = (dragItemOverflowHitSlopValue.value?.bottom ?? scrollViewSize.value) - (activeCellOffset.value + activeCellSize.value); // Only constrain the touch position while the finger is on the screen. This allows the active cell
      // to snap above/below the fold once let go, if the drag ends at the top/bottom of the screen.
  
      const constrainedBase = isTouchActiveNative.value ? constrained - activeCellOffset.value : touchPositionDiff.value; // Make sure item is constrained to the boundaries of the scrollview
 diff --git a/node_modules/react-native-draggable-flatlist/lib/typescript/types.d.ts b/node_modules/react-native-draggable-flatlist/lib/typescript/types.d.ts
-index 2abb4a2..def5fad 100644
+index 2abb4a2..0b0ad47 100644
 --- a/node_modules/react-native-draggable-flatlist/lib/typescript/types.d.ts
 +++ b/node_modules/react-native-draggable-flatlist/lib/typescript/types.d.ts
-@@ -20,6 +20,7 @@ export declare type DraggableFlatListProps<T> = Modify<FlatListProps<T>, {
+@@ -2,6 +2,7 @@ import React from "react";
+ import { FlatListProps, LayoutChangeEvent, StyleProp, ViewStyle } from "react-native";
+ import { useAnimatedValues } from "./context/animatedValueContext";
+ import { FlatList } from "react-native-gesture-handler";
++import type { Insets } from 'react-native'
+ import Animated, { AnimateProps, WithSpringConfig } from "react-native-reanimated";
+ import { DEFAULT_PROPS } from "./constants";
+ export declare type DragEndParams<T> = {
+@@ -19,6 +20,7 @@ export declare type DraggableFlatListProps<T> = Modify<FlatListProps<T>, {
+     autoscrollThreshold?: number;
      containerStyle?: StyleProp<ViewStyle>;
      debug?: boolean;
-     dragItemOverflow?: boolean;
 +    dragItemOverflowHitSlop?: Insets;
+     dragItemOverflow?: boolean;
      keyExtractor: (item: T, index: number) => string;
      onDragBegin?: (index: number) => void;
-     onDragEnd?: (params: DragEndParams<T>) => void;
 diff --git a/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx b/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
-index d7d98c2..d1695d9 100644
+index 7c88afc..576c536 100644
 --- a/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
 +++ b/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
-@@ -34,6 +34,7 @@ import { useAutoScroll } from "../hooks/useAutoScroll";
+@@ -39,6 +39,7 @@ import { useAutoScroll } from "../hooks/useAutoScroll";
  import { useStableCallback } from "../hooks/useStableCallback";
  import ScrollOffsetListener from "./ScrollOffsetListener";
  import { typedMemo } from "../utils";
@@ -87,7 +82,7 @@ index d7d98c2..d1695d9 100644
  
  type RNGHFlatListProps<T> = Animated.AnimateProps<
    FlatListProps<T> & {
-@@ -208,6 +209,7 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+@@ -216,6 +217,7 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
  
    const onRelease = useStableCallback((index: number) => {
      props.onRelease?.(index);
@@ -95,7 +90,7 @@ index d7d98c2..d1695d9 100644
    });
  
    const onDragEnd = useStableCallback(
-@@ -263,6 +265,11 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+@@ -272,6 +274,11 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
  
    const gestureDisabled = useSharedValue(false);
  
@@ -107,7 +102,7 @@ index d7d98c2..d1695d9 100644
    const panGesture = Gesture.Pan()
      .onBegin((evt) => {
        gestureDisabled.value = disabled.value;
-@@ -276,6 +283,7 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+@@ -285,6 +292,7 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
          ? evt.translationX
          : evt.translationY;
        touchTranslate.value = translation;
@@ -116,14 +111,14 @@ index d7d98c2..d1695d9 100644
      .onEnd((evt) => {
        if (gestureDisabled.value) return;
 diff --git a/node_modules/react-native-draggable-flatlist/src/context/animatedValueContext.tsx b/node_modules/react-native-draggable-flatlist/src/context/animatedValueContext.tsx
-index 6ff1ed5..3e06756 100644
+index c62360d..5e6ac79 100644
 --- a/node_modules/react-native-draggable-flatlist/src/context/animatedValueContext.tsx
 +++ b/node_modules/react-native-draggable-flatlist/src/context/animatedValueContext.tsx
 @@ -83,6 +83,18 @@ function useSetupAnimatedValues<T>() {
      [outerScrollOffset]
    );
  
-+  const dragItemOverflowHitSlop = props?.dragItemOverflowHitSlop
++  const dragItemOverflowHitSlop = props?.dragItemOverflowHitSlop;
 +  const dragItemOverflowHitSlopValue = useSharedValue(dragItemOverflowHitSlop);
 +  useAnimatedReaction(
 +    () => {
