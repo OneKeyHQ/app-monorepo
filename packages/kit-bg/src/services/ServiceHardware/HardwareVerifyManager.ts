@@ -58,9 +58,13 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     connectId: string;
     dataHex: string;
   }): Promise<DeviceVerifySignature> {
+    const compatibleConnectId =
+      await this.serviceHardware.getCompatibleConnectId({
+        connectId,
+      });
     const hardwareSDK = await this.getSDKInstance();
     return convertDeviceResponse(() =>
-      hardwareSDK?.deviceVerify(connectId, { dataHex }),
+      hardwareSDK?.deviceVerify(compatibleConnectId, { dataHex }),
     );
   }
 

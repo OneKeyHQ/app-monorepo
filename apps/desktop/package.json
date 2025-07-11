@@ -33,6 +33,7 @@
     "_folderslint": "yarn folderslint"
   },
   "dependencies": {
+    "@abandonware/noble": "^1.9.2-26",
     "@sentry/electron": "5.8.0",
     "adm-zip": "^0.5.10",
     "electron-check-biometric-auth-changed": "0.0.6",

@@ -58,7 +58,14 @@ build({
       '../../../node_modules/axios/dist/esm/axios.js',
     ),
   },
-  external: ['electron', ...Object.keys(pkg.dependencies)],
+  external: [
+    'electron',
+    '@abandonware/noble',
+    '@abandonware/bluetooth-hci-socket',
+    'bufferutil',
+    'utf-8-validate',
+    ...Object.keys(pkg.dependencies),
+  ],
   tsconfig: path.join(electronSource, 'tsconfig.json'),
   outdir: path.join(__dirname, '..', 'app/dist'),
   define: {
