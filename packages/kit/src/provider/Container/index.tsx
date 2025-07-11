@@ -15,9 +15,9 @@ import { Bootstrap } from '../Bootstrap';
 
 import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
 import { AppStateLockContainer } from './AppStateLockContainer';
-import { DesktopBleRepairContainer } from './DesktopBleRepairContainer';
 import { CloudBackupContainer } from './CloudBackupContainer';
 import { CreateAddressContainer } from './CreateAddressContainer';
+import { DesktopBleRepairContainer } from './DesktopBleRepairContainer';
 import { DialogLoadingContainer } from './DialogLoadingContainer';
 import { DiskFullWarningDialogContainer } from './DiskFullWarningDialogContainer';
 import { ErrorToastContainer } from './ErrorToastContainer';
