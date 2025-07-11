@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // eslint-disable-next-line max-classes-per-file
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import {
   isEmpty,
   isNil,
@@ -78,7 +77,7 @@ import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { EHardwareTransportType } from '@onekeyhq/shared/types';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
   INetworkAccount,
   IQrWalletAirGapAccountsInfo,
@@ -2663,9 +2662,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     let compatibleConnectId: string | undefined;
 
     if (transportType) {
-      // Import the enum values to use
-      const { EHardwareTransportType } = await import('@onekeyhq/shared/types');
-
       switch (transportType) {
         case EHardwareTransportType.WEBUSB:
         case EHardwareTransportType.Bridge:
