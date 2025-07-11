@@ -56,7 +56,9 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     ...imageProps
   } = restProps;
   const [hasError, setHasError] = useState(false);
-  const resolvedSource = resolveSource((source as ImageSource) || src);
+  const resolvedSource = useMemo(() => {
+    return resolveSource((source as ImageSource) || src);
+  }, [source, src]);
 
   const skeletonTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
