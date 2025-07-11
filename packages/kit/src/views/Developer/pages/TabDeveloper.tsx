@@ -25,7 +25,6 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useCookie from '../../../hooks/useCookie';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { StartTimePanel } from '../../Setting/pages/Tab/DevSettingsSection/StartTimePanel';
 
 const useStorage = platformEnv.isNative
   ? (key: EAppSyncStorageKeys, initialValue?: boolean) => {
@@ -63,14 +62,6 @@ function PartContainer({
         {children}
       </YStack>
     </YStack>
-  );
-}
-
-function StartTimePanelContainer() {
-  return (
-    <PartContainer title="Startup Time(ms)">
-      <StartTimePanel />
-    </PartContainer>
   );
 }
 
@@ -222,7 +213,6 @@ const TabDeveloper = () => {
                 Async Import Test
               </Button>
             </PartContainer>
-            <StartTimePanelContainer />
             <ConnectWalletConnectDapp />
             <TestRefresh />
             {/* <WalletConnectModalNative2 /> */}

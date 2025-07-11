@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IStackStyle } from '@onekeyhq/components';
+import type { IStackStyle, IXStackProps } from '@onekeyhq/components';
 import {
   IconButton,
   SearchBar,
@@ -47,7 +47,11 @@ export function UniversalSearchInput({
     );
   }
   return (
-    <XStack $gtLg={{ maxWidth: 320 }} width="100%" {...containerProps}>
+    <XStack
+      $gtLg={{ maxWidth: 320 } as any}
+      width="100%"
+      {...(containerProps as IXStackProps)}
+    >
       <SearchBar
         size={isLarge ? 'small' : 'medium'}
         key="searchInput"

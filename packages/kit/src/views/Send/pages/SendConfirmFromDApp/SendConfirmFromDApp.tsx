@@ -24,7 +24,7 @@ import type {
 
 function SendConfirmFromDApp() {
   const navigation = useNavigation();
-  const pendingAction = useRef<StackActionType>();
+  const pendingAction = useRef<StackActionType>(undefined);
   const {
     $sourceInfo,
     encodedTx,

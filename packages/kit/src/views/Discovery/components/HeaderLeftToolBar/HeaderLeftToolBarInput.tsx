@@ -95,7 +95,7 @@ function HeaderLeftToolBarInput({
     setIsPopoverOpen,
   } = useSearchPopover({
     refreshLocalData,
-    scrollViewRef,
+    scrollViewRef: scrollViewRef as any,
     totalItems,
     searchValue,
     displaySearchList,
@@ -239,7 +239,7 @@ function HeaderLeftToolBarInput({
               displayHistoryList={displayHistoryList}
               SEARCH_ITEM_ID={SEARCH_ITEM_ID}
               selectedIndex={selectedIndex}
-              innerRef={searchResultRef}
+              innerRef={searchResultRef as any}
               onItemClick={() => {
                 setIsPopoverOpen(false);
               }}

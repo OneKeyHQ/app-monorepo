@@ -227,7 +227,7 @@ function CustomRPC() {
   const [rpcSpeedMap, setRpcSpeedMap] = useState<
     Record<string, IMeasureRpcItem>
   >({});
-  const previousRpcInfosRef = useRef<ICustomRpcItem[] | undefined>();
+  const previousRpcInfosRef = useRef<ICustomRpcItem[] | undefined>(undefined);
   const measureRpcSpeed = useCallback(async (rpcInfo: ICustomRpcItem) => {
     try {
       const { responseTime } =

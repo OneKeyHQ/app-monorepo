@@ -76,36 +76,24 @@ export function Token({
   if (fallbackIcon) {
     fallbackIconName = fallbackIcon;
   }
-
   const tokenImage = (
     <Image
-      width={tokenImageSize}
-      height={tokenImageSize}
+      size={tokenImageSize}
       borderRadius={isNFT ? '$2' : '$full'}
-      {...rest}
-    >
-      <Image.Source
-        bg="$gray5"
-        source={{
-          uri: tokenImageUri,
-        }}
-      />
-      <Image.Fallback
-        alignItems="center"
-        justifyContent="center"
-        bg="$gray5"
-        delayMs={1000}
-      >
+      bg="$gray5"
+      source={tokenImageUri ? { uri: tokenImageUri } : undefined}
+      fallback={
         <Icon
           size={fallbackIconSize}
           name={fallbackIconName}
           color="$iconSubdued"
         />
-      </Image.Fallback>
-      <Image.Loading>
-        <Skeleton width="100%" height="100%" radius="round" />
-      </Image.Loading>
-    </Image>
+      }
+      skeleton={
+        <Skeleton w={tokenImageSize} h={tokenImageSize} radius="round" />
+      }
+      {...rest}
+    />
   );
 
   if (networkImageUri) {

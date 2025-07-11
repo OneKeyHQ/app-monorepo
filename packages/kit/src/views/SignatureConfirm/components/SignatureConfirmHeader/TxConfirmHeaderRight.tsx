@@ -91,8 +91,13 @@ function TxConfirmHeaderRight(props: {
 
   useEffect(() => {
     if (imageUri) {
-      void RNImage.getSize(imageUri, (width: number, height: number) => {
-        setProviderImageSize({ width, height });
+      void Image.loadImage({ uri: imageUri }).then((imageRef) => {
+        if (imageRef) {
+          setProviderImageSize({
+            width: imageRef.width,
+            height: imageRef.height,
+          });
+        }
       });
     }
   }, [imageUri]);
@@ -138,17 +143,11 @@ function TxConfirmHeaderRight(props: {
                   <Image
                     width={providerImageSize.width * ratio}
                     height={DEFAULT_IMAGE_HEIGHT}
-                  >
-                    <Image.Source
-                      resizeMode="contain"
-                      source={{
-                        uri: imageUri,
-                      }}
-                    />
-                    <Image.Loading>
-                      <Skeleton width="100%" height="100%" />
-                    </Image.Loading>
-                  </Image>
+                    resizeMode="contain"
+                    source={{
+                      uri: imageUri,
+                    }}
+                  />
                 ) : (
                   <Skeleton height={DEFAULT_IMAGE_HEIGHT} width="100%" />
                 )}

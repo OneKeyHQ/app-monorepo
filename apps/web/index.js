@@ -1,15 +1,5 @@
-/* eslint-disable import/first */
-/* eslint-disable import/order */
-const {
-  markJsBundleLoadedTime,
-} = require('@onekeyhq/shared/src/modules3rdParty/metrics');
-
-markJsBundleLoadedTime();
-
 import '@onekeyhq/shared/src/polyfills';
 import { registerRootComponent } from 'expo';
-
-import App from './App';
 
 import {
   initSentry,
@@ -17,6 +7,7 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import App from './App';
 
 initSentry();
 

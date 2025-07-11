@@ -33,7 +33,7 @@ import type {
   ISwapToken,
   ISwapTokenBase,
 } from '../../types/swap/types';
-import type { IAccountToken, IToken, ITokenFiat } from '../../types/token';
+import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { FuseResult } from 'fuse.js';
 
@@ -306,6 +306,17 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.CheckEndpointPrefix]: {
     cleanAppClientCache?: boolean;
+  };
+  [EAppEventBusNames.DesktopBleRepairRequired]: {
+    connectId: string;
+    deviceId?: string;
+    deviceName?: string;
+    features?: any;
+    promiseId?: number;
+  };
+  [EAppEventBusNames.DesktopBleRepairProgress]: {
+    stage: 'searching' | 'matching' | 'connecting' | 'success' | 'failed';
+    message: string;
   };
 }
 

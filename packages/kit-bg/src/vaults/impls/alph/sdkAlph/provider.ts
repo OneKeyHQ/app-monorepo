@@ -2,15 +2,7 @@ import { NodeProvider } from '@alephium/web3';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 
-import type { ApiRequestArguments } from '@alephium/web3';
-import type {
-  BuildDeployContractTx,
-  BuildDeployContractTxResult,
-  BuildTransaction,
-  BuildTransactionResult,
-  DecodeUnsignedTx,
-  DecodeUnsignedTxResult,
-} from '@alephium/web3/dist/src/api/api-alephium';
+import type { ApiRequestArguments, node } from '@alephium/web3';
 
 export class Provider extends NodeProvider {
   backgroundApi: IBackgroundApi;
@@ -28,39 +20,45 @@ export class Provider extends NodeProvider {
     this.backgroundApi = backgroundApi;
     this.networkId = networkId;
 
-    this.transactions.postTransactionsBuild = async (data: BuildTransaction) =>
+    this.transactions.postTransactionsBuild = async (
+      data: node.BuildTransaction,
+    ) =>
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       this.request({
         path: 'transactions',
         method: 'postTransactionsBuild',
         params: [data],
-      }) as Promise<BuildTransactionResult>;
+      }) as Promise<node.BuildTransactionResult>;
 
     this.contracts.postContractsUnsignedTxDeployContract = async (
-      data: BuildDeployContractTx,
+      data: node.BuildDeployContractTx,
     ) =>
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       this.request({
         path: 'contracts',
         method: 'postContractsUnsignedTxDeployContract',
         params: [data],
-      }) as Promise<BuildDeployContractTxResult>;
+      }) as Promise<node.BuildDeployContractTxResult>;
 
     this.transactions.postTransactionsDecodeUnsignedTx = async (
-      data: DecodeUnsignedTx,
+      data: node.DecodeUnsignedTx,
     ) =>
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       this.request({
         path: 'transactions',
         method: 'postTransactionsDecodeUnsignedTx',
         params: [data],
-      }) as Promise<DecodeUnsignedTxResult>;
+      }) as Promise<node.DecodeUnsignedTxResult>;
 
     this.contracts.postContractsUnsignedTxExecuteScript = async (
-      data: BuildDeployContractTx,
+      data: node.BuildDeployContractTx,
     ) =>
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       this.request({
         path: 'contracts',
         method: 'postContractsUnsignedTxExecuteScript',
         params: [data],
-      }) as Promise<BuildDeployContractTxResult>;
+      }) as Promise<node.BuildDeployContractTxResult>;
   }
 
   override request = async ({ path, method, params }: ApiRequestArguments) => {

@@ -298,7 +298,7 @@ export default function Detail() {
           }),
         });
         if (!isOnboardingDone) {
-          navigation.navigate(ERootRoutes.Main);
+          navigation.navigate(ERootRoutes.Main, undefined, { pop: true });
         } else {
           navigation.pop();
         }

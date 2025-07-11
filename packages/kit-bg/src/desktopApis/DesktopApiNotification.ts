@@ -306,6 +306,7 @@ class DesktopApiNotification {
 
       if (safelyMainWindow) {
         // TODO not working on Windows 11 (UTM)
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         const badge = new TaskBarBadgeWindows(safelyMainWindow, {
           fontColor: '#000000',
           font: '62px Microsoft Yahei',
@@ -317,7 +318,7 @@ class DesktopApiNotification {
           max: 99,
           fit: false,
           useSystemAccentTheme: true,
-          additionalFunc: (count) => {
+          additionalFunc: (count: number) => {
             console.log(`Received ${count} new notifications!`);
           },
         });

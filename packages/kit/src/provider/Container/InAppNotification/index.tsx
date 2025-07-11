@@ -118,7 +118,7 @@ const InAppNotification = () => {
     swapLimitOrdersFetchLoopReload,
   ]);
 
-  const toastRef = useRef<{ close: () => void } | undefined>();
+  const toastRef = useRef<{ close: () => void } | undefined>(undefined);
 
   const approvingSuccessActionConfirm = useCallback(async () => {
     toastRef.current?.close();

@@ -6,6 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 OneKey is an open-source multi-chain crypto wallet with a monorepo architecture supporting desktop, mobile, web, and browser extension platforms. The codebase uses Yarn workspaces with TypeScript and React/React Native.
 
+### Branch Management
+- **Main branch**: `x` - This is the primary development branch
+- **IMPORTANT**: Always create new feature branches from `x`, never work directly on the `x` branch
+- **Workflow**: `x` → create feature branch → develop → PR back to `x`
+- Do not use `onekey`, `master`, or `main` as the base branch - always use `x`
+
 ## Development Commands
 
 ### Application Development

@@ -472,13 +472,15 @@ function BasicPopover({
         {renderTrigger ? (
           <Trigger onPress={openPopover}>{renderTrigger}</Trigger>
         ) : null}
-        <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
-          <ModalNavigatorContext.Provider value={modalNavigatorContext}>
-            <PageContext.Provider value={pageContextValue}>
-              {memoPopover}
-            </PageContext.Provider>
-          </ModalNavigatorContext.Provider>
-        </Portal.Body>
+        {isOpen ? (
+          <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
+            <ModalNavigatorContext.Provider value={modalNavigatorContext}>
+              <PageContext.Provider value={pageContextValue}>
+                {memoPopover}
+              </PageContext.Provider>
+            </ModalNavigatorContext.Provider>
+          </Portal.Body>
+        ) : null}
       </>
     );
   }

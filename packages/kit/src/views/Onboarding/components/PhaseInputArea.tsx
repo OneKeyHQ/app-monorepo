@@ -130,7 +130,7 @@ function SuggestionList({
   suggestions: string[];
   onPressItem: (text: string) => void;
   isFocusable?: boolean;
-  firstButtonRef?: RefObject<IElement>;
+  firstButtonRef?: RefObject<IElement | null>;
 }) {
   const wordItems = suggestions
     .slice(0, 9)
@@ -236,7 +236,7 @@ function BasicPhaseInput(
   }>,
   ref: any,
 ) {
-  const inputRef: RefObject<TextInput> | null = useRef(null);
+  const inputRef: RefObject<TextInput | null> | null = useRef(null);
   const media = useMedia();
   const firstButtonRef = useRef<IElement>(null);
   const [tabFocusable, setTabFocusable] = useState(false);
@@ -351,7 +351,7 @@ function BasicPhaseInput(
   const suggestions = suggestionsRef.current ?? [];
 
   const keyLabel = handleGetReturnKeyLabel();
-  const inputProps: IInputProps & { ref: RefObject<TextInput> } = {
+  const inputProps: IInputProps & { ref: RefObject<TextInput | null> } = {
     value: displayValue,
     ref: inputRef,
     keyboardType: 'ascii-capable',

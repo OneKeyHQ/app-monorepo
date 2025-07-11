@@ -3,17 +3,15 @@ package so.onekey.app.wallet;
 import android.app.Application;
 import android.content.res.Configuration;
 import android.database.CursorWindow;
-import androidx.annotation.NonNull;
 import androidx.annotation.Keep;
 
 import com.facebook.react.PackageList;
 import com.facebook.react.ReactApplication;
 import com.facebook.react.ReactNativeHost;
 import com.facebook.react.ReactPackage;
-import com.facebook.react.config.ReactFeatureFlags;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
 import com.facebook.react.defaults.DefaultReactNativeHost;
-import com.facebook.react.flipper.ReactNativeFlipper;
+import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader;
 
 import cn.jiguang.plugins.push.JPushModule;
@@ -90,17 +88,18 @@ public class MainApplication extends Application implements ReactApplication {
       e.printStackTrace();
     }
 
-    SoLoader.init(this, /* native exopackage */ false);
-    if (!BuildConfig.REACT_NATIVE_UNSTABLE_USE_RUNTIME_SCHEDULER_ALWAYS) {
-      ReactFeatureFlags.unstable_useRuntimeSchedulerAlways = false;
-    }
+    // SoLoader.init(this, /* native exopackage */ false);
+    // if (!BuildConfig.REACT_NATIVE_UNSTABLE_USE_RUNTIME_SCHEDULER_ALWAYS) {
+    //   ReactFeatureFlags.unstable_useRuntimeSchedulerAlways = false;
+    // }
+    SoLoader.init(this, OpenSourceMergedSoMapping.get());
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       // If you opted-in for the New Architecture, we load the native entry point for this app.
       DefaultNewArchitectureEntryPoint.load();
     }
-    if (!BuildConfig.NO_FLIPPER) {
-      ReactNativeFlipper.initializeFlipper(this, getReactNativeHost().getReactInstanceManager());
-    }
+    // if (!BuildConfig.NO_FLIPPER) {
+    //   ReactNativeFlipper.initializeFlipper(this, getReactNativeHost().getReactInstanceManager());
+    // }
     ApplicationLifecycleDispatcher.onApplicationCreate(this);
     JPushModule.registerActivityLifecycle(this);
   }

@@ -34,7 +34,7 @@ function ListHeaderComponent({
         id: ETranslations.manage_token_custom_token_title,
       })}
       drillIn
-      onPress={onAddCustomToken}
+      onPress={onAddCustomToken as any}
     />
   );
 }

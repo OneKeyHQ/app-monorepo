@@ -10,7 +10,7 @@ import {
 } from 'react';
 import type { ForwardedRef, PropsWithChildren } from 'react';
 
-import useEventEmitter from '@react-navigation/core/src/useEventEmitter';
+import { useEventEmitter } from './useEventEmitter';
 
 type IRefreshingFocusedEventMapCore = {
   changeFocused: { data: boolean };
@@ -57,12 +57,16 @@ function RawRefreshingFocusedContainer(
   const setFocused = useCallback(
     (focused: boolean) => {
       tabRefreshingFocusedContext.initialFocused = focused;
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       emitter.emit({ type: 'changeFocused', data: focused });
     },
     [emitter, tabRefreshingFocusedContext],
   );
   const setIsRefreshing = useCallback(
     (isRefreshing: boolean, isHeader: boolean) => {
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       emitter.emit({
         type: 'changeIsRefreshing',
         data: { isRefreshing, isHeader },

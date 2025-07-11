@@ -189,100 +189,102 @@ type ISharedFrameStylesProps = {
   borderColor: string;
 };
 
-const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
-  const {
-    size = 'medium',
-    icon,
-    iconAfter,
-    disabled,
-    loading,
-    children,
-    color: outerColor,
-    iconColor: outerIconColor,
-    variant = 'secondary',
-    childrenAsText = true,
-    textEllipsis,
-    ...rest
-  } = useProps(props, {});
+const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
+  (props: IButtonProps, ref: any) => {
+    const {
+      size = 'medium',
+      icon,
+      iconAfter,
+      disabled,
+      loading,
+      children,
+      color: outerColor,
+      iconColor: outerIconColor,
+      variant = 'secondary',
+      childrenAsText = true,
+      textEllipsis,
+      ...rest
+    } = useProps(props, {});
 
-  const { py, px, borderRadius, textVariant } = useSizeStyles(size);
+    const { py, px, borderRadius, textVariant } = useSizeStyles(size);
 
-  const { sharedFrameStyles, iconColor, color } = getSharedButtonStyles({
-    variant,
-    disabled,
-    loading,
-  }) as {
-    sharedFrameStyles: ISharedFrameStylesProps;
-    iconColor: ColorTokens;
-    color: ColorTokens;
-  };
+    const { sharedFrameStyles, iconColor, color } = getSharedButtonStyles({
+      variant,
+      disabled,
+      loading,
+    }) as {
+      sharedFrameStyles: ISharedFrameStylesProps;
+      iconColor: ColorTokens;
+      color: ColorTokens;
+    };
 
-  const { onPress, onLongPress } = useSharedPress(rest);
+    const { onPress, onLongPress } = useSharedPress(rest);
 
-  return (
-    <ButtonFrame
-      ref={ref}
-      my={variant === 'tertiary' ? -5 : '$0'}
-      mx={variant === 'tertiary' ? -9 : '$0'}
-      py={variant === 'tertiary' ? '$1' : py}
-      px={variant === 'tertiary' ? '$2' : px}
-      borderRadius={borderRadius}
-      borderCurve="continuous"
-      disabled={!!disabled || !!loading}
-      aria-disabled={!!disabled || !!loading}
-      {...sharedFrameStyles}
-      hoverStyle={{
-        ...sharedFrameStyles.hoverStyle,
-        ...props.hoverStyle,
-      }}
-      focusVisibleStyle={{
-        ...sharedFrameStyles.focusVisibleStyle,
-        ...props.focusVisibleStyle,
-      }}
-      pressStyle={{
-        ...sharedFrameStyles.pressStyle,
-        ...props.pressStyle,
-      }}
-      {...rest}
-      onPress={onPress}
-      onLongPress={onLongPress}
-    >
-      {icon && !loading ? (
-        <ButtonIcon
-          name={icon}
-          size={size}
-          mr="$2"
-          color={outerIconColor || iconColor}
-        />
-      ) : null}
-      {loading ? (
-        <Spinner size="small" mr="$2" color={outerIconColor || iconColor} />
-      ) : null}
-      {childrenAsText ? (
-        <SizableText
-          // Fix text truncation issues and Chinese punctuation display by allowing text to wrap onto multiple lines
-          // https://www.cnblogs.com/fresh-bright/p/13685644.html
-          //
-          textBreakStrategy="simple"
-          size={textVariant as FontSizeTokens}
-          color={outerColor || color}
-          ellipse={textEllipsis}
-        >
-          {children}
-        </SizableText>
-      ) : (
-        children
-      )}
-      {iconAfter ? (
-        <ButtonIcon
-          name={iconAfter}
-          size={size}
-          ml="$2"
-          color={outerIconColor || iconColor}
-        />
-      ) : null}
-    </ButtonFrame>
-  );
-});
+    return (
+      <ButtonFrame
+        ref={ref}
+        my={variant === 'tertiary' ? -5 : '$0'}
+        mx={variant === 'tertiary' ? -9 : '$0'}
+        py={variant === 'tertiary' ? '$1' : py}
+        px={variant === 'tertiary' ? '$2' : px}
+        borderRadius={borderRadius}
+        borderCurve="continuous"
+        disabled={!!disabled || !!loading}
+        aria-disabled={!!disabled || !!loading}
+        {...sharedFrameStyles}
+        hoverStyle={{
+          ...sharedFrameStyles.hoverStyle,
+          ...props.hoverStyle,
+        }}
+        focusVisibleStyle={{
+          ...sharedFrameStyles.focusVisibleStyle,
+          ...props.focusVisibleStyle,
+        }}
+        pressStyle={{
+          ...sharedFrameStyles.pressStyle,
+          ...props.pressStyle,
+        }}
+        {...rest}
+        onPress={onPress}
+        onLongPress={onLongPress}
+      >
+        {icon && !loading ? (
+          <ButtonIcon
+            name={icon}
+            size={size}
+            mr="$2"
+            color={outerIconColor || iconColor}
+          />
+        ) : null}
+        {loading ? (
+          <Spinner size="small" mr="$2" color={outerIconColor || iconColor} />
+        ) : null}
+        {childrenAsText ? (
+          <SizableText
+            // Fix text truncation issues and Chinese punctuation display by allowing text to wrap onto multiple lines
+            // https://www.cnblogs.com/fresh-bright/p/13685644.html
+            //
+            textBreakStrategy="simple"
+            size={textVariant as FontSizeTokens}
+            color={outerColor || color}
+            ellipse={textEllipsis}
+          >
+            {children}
+          </SizableText>
+        ) : (
+          children
+        )}
+        {iconAfter ? (
+          <ButtonIcon
+            name={iconAfter}
+            size={size}
+            ml="$2"
+            color={outerIconColor || iconColor}
+          />
+        ) : null}
+      </ButtonFrame>
+    );
+  },
+);
 
 export const Button = withStaticProperties(ButtonComponent, {});

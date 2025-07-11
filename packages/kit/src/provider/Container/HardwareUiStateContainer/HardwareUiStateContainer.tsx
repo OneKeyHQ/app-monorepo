@@ -66,7 +66,7 @@ import {
 
 let globalShowDeviceProgressDialogEnabled = true;
 
-let autoEnabledTimer: NodeJS.Timeout | null = null;
+let autoEnabledTimer: ReturnType<typeof setTimeout> | null = null;
 export function setGlobalShowDeviceProgressDialogEnabled(enabled: boolean) {
   globalShowDeviceProgressDialogEnabled = enabled;
   if (autoEnabledTimer) {
