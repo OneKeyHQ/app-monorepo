@@ -542,6 +542,12 @@ function BulkCopyAddresses({
     void getDefaultDeriveType();
   }, [formRange, selectedNetworkId]);
 
+  useEffect(() => {
+    if (availableWallets?.length && !selectedWallet) {
+      form.setValue('selectedWalletId', availableWallets?.[0]?.id);
+    }
+  }, [availableWallets, selectedWallet, form]);
+
   return (
     <Page>
       <Page.Header
