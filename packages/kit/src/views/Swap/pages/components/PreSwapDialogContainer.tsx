@@ -225,6 +225,7 @@ const PreSwapDialogContainer = ({
     <DialogContainer
       open={open}
       onClose={handleClose}
+      title="Pre swap"
       showFooter={false}
       renderContent={
         <PreSwapDialogContent
@@ -232,7 +233,6 @@ const PreSwapDialogContainer = ({
           onConfirm={handleConfirm}
         />
       }
-      showExitButton={false}
     />
   );
 };

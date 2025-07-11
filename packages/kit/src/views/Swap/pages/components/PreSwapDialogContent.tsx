@@ -27,14 +27,17 @@ const PreSwapDialogContent = ({
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
 
-  // 模拟数据
   const fromToken = quoteResult?.fromTokenInfo;
   const toToken = quoteResult?.toTokenInfo;
   const fromAmount = quoteResult?.fromAmount || '0';
   const toAmount = quoteResult?.toAmount || '0';
 
-  // 模拟 slippage 和 fee 数据
-  const slippage = quoteResult?.slippage ?? '-';
+  const slippage = useMemo(() => {
+    if (!quoteResult?.unSupportSlippage) {
+      return quoteResult?.slippage;
+    }
+    return undefined;
+  }, [quoteResult?.unSupportSlippage, quoteResult?.slippage]);
   const fee = useMemo(() => {
     if (quoteResult?.fee?.percentageFee) {
       return `${quoteResult?.fee?.percentageFee ?? '-'}%`;
@@ -49,7 +52,7 @@ const PreSwapDialogContent = ({
   };
 
   return (
-    <YStack gap="$4" padding="$4">
+    <YStack gap="$4">
       {/* You pay */}
       <SizableText size="$bodyLg" color="$textSubdued">
         {intl.formatMessage({ id: ETranslations.swap_page_from })}
@@ -90,12 +93,14 @@ const PreSwapDialogContent = ({
             </XStack>
           }
         />
-        <PreSwapInfoItem
-          title={intl.formatMessage({
-            id: ETranslations.swap_page_provider_slippage_tolerance,
-          })}
-          value={slippage}
-        />
+        {slippage ? (
+          <PreSwapInfoItem
+            title={intl.formatMessage({
+              id: ETranslations.swap_page_provider_slippage_tolerance,
+            })}
+            value={slippage}
+          />
+        ) : null}
         <PreSwapInfoItem
           title={intl.formatMessage({
             id: ETranslations.fee_fee,
