@@ -48,7 +48,21 @@ describe('validateUrl', () => {
 
   test('adds https prefix for valid domain names', () => {
     const testCases = [
-      { input: 'http://test.com', expected: 'https://test.com' },
+      { input: 'http://a.com', expected: 'https://a.com' },
+      { input: 'https://a.com', expected: 'https://a.com' },
+      { input: 'https://a.com/path', expected: 'https://a.com/path' },
+      {
+        input: 'https://a.com/path?query=value',
+        expected: 'https://a.com/path?query=value',
+      },
+      {
+        input: 'https://a.com/path?query=value#hash',
+        expected: 'https://a.com/path?query=value#hash',
+      },
+      {
+        input: 'https://a.com/path?query=value#hash',
+        expected: 'https://a.com/path?query=value#hash',
+      },
       { input: 'google.com', expected: 'https://google.com' },
       { input: 'baidu.cn', expected: 'https://baidu.cn' },
       { input: 'example.co.uk', expected: 'https://example.co.uk' },

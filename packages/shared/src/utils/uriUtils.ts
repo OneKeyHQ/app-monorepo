@@ -162,8 +162,9 @@ export const validateUrl = (url: string): string => {
   if (url.includes('://')) {
     try {
       const parsedUrl = new URL(url);
+      const pathname = parsedUrl.pathname === '/' ? '' : parsedUrl.pathname;
       urlWithoutProtocol =
-        parsedUrl.host + parsedUrl.pathname + parsedUrl.search + parsedUrl.hash;
+        parsedUrl.host + pathname + parsedUrl.search + parsedUrl.hash;
     } catch {
       // If URL parsing fails, use the original URL
     }
