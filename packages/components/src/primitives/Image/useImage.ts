@@ -52,7 +52,14 @@ export function useImage(
   const isEffectValid = useRef(true);
 
   const loadImage = useCallback(() => {
-    if (!resolvedSource) {
+    if (
+      !resolvedSource ||
+      (resolvedSource &&
+        typeof resolvedSource === 'object' &&
+        (resolvedSource?.uri === '' ||
+          resolvedSource?.uri === null ||
+          resolvedSource?.uri === undefined))
+    ) {
       return;
     }
     Image.loadAsync(resolvedSource, optionsRef.current)
