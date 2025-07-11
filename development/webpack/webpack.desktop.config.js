@@ -16,12 +16,22 @@ module.exports = ({
   const configs = ENABLE_ANALYZER
     ? [analyzerConfig({ configName: platform })]
     : [];
+
+  // Renderer process externals - only exclude packages that shouldn't be bundled
+  const commonDesktopConfig = {
+    externals: {
+      // Exclude the entire BLE transport package to prevent Node.js modules from leaking to renderer
+      '@onekeyfe/hd-transport-electron': 'commonjs @onekeyfe/hd-transport-electron',
+    },
+  };
+
   switch (NODE_ENV) {
     case 'production': {
       return merge(
         baseConfig({ platform, basePath }),
         productionConfig({ platform, basePath }),
         ...configs,
+        commonDesktopConfig,
         {
           output: {
             crossOriginLoading: 'anonymous',
@@ -36,6 +46,7 @@ module.exports = ({
         baseConfig({ platform, basePath }),
         developmentConfig({ platform, basePath }),
         ...configs,
+        commonDesktopConfig,
         {
           // development/webpack/webpack.development.config.js 10L
           // Electron 30.x doesn't support cheap-module-source-map
