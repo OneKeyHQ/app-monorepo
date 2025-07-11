@@ -92,20 +92,24 @@ function SwapProviderItem({
         alignItems="center"
       >
         <Stack>
-          <Image size="$10" borderRadius="$2" delayMs={1000}>
-            <Image.Source
-              source={{
-                uri: providerLogoUri,
-              }}
-            />
-            <Image.Fallback
-              bg="$bgStrong"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <Icon name="Image2MountainsSolid" color="$iconSubdued" />
-            </Image.Fallback>
-          </Image>
+          <Image
+            size="$10"
+            borderRadius="$2"
+            source={{ uri: providerLogoUri }}
+            fallback={
+              <Image.Fallback
+                bg="$bgStrong"
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Icon
+                  name="Image2MountainsSolid"
+                  color="$iconSubdued"
+                  size="$10"
+                />
+              </Image.Fallback>
+            }
+          />
           {!approved ? (
             <Stack
               p="$0.5"

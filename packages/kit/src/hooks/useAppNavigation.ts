@@ -207,6 +207,17 @@ function useAppNavigation<
     [],
   );
 
+  const popToTop: typeof navigationRef.current.popToTop = useCallback(() => {
+    navigationRef.current.popToTop();
+  }, []);
+
+  const popTo: typeof navigationRef.current.popTo = useCallback(
+    (...args: any) => {
+      navigationRef.current.popTo(...args);
+    },
+    [],
+  );
+
   return useMemo(
     () => ({
       dispatch,
@@ -220,12 +231,16 @@ function useAppNavigation<
       reset,
       setOptions,
       switchTab,
+      popToTop,
+      popTo,
     }),
     [
       dispatch,
       navigate,
       pop,
       popStack,
+      popTo,
+      popToTop,
       push,
       pushFullModal,
       pushModal,

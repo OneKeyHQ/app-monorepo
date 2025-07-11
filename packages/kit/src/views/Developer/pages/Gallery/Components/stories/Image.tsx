@@ -13,12 +13,12 @@ const ImageGallery = () => (
         title: 'load Image via source',
         element: (
           <YStack gap={10}>
-            <Image.V2
+            <Image
               height="$10"
               width="$10"
               source={require('@onekeyhq/kit/assets/walletLogo/cosmos_keplr.png')}
             />
-            <Image.V2
+            <Image
               height="$10"
               width="$10"
               source={{
@@ -32,7 +32,7 @@ const ImageGallery = () => (
         title: 'load Image via src',
         element: (
           <YStack gap={10}>
-            <Image.V2
+            <Image
               height="$10"
               width="$10"
               src="https://uni.onekey-asset.com/static/chain/btc.png"
@@ -44,7 +44,7 @@ const ImageGallery = () => (
         title: 'uri is empty string',
         element: (
           <YStack gap={10}>
-            <Image.V2 w="$5" h="$5" source={{ uri: '' }} />
+            <Image w="$5" h="$5" source={{ uri: '' }} />
           </YStack>
         ),
       },
@@ -52,7 +52,7 @@ const ImageGallery = () => (
         title: 'base64 Image',
         element: (
           <YStack gap={10}>
-            <Image.V2 w="$10" h="$10" source={{ uri: base64Image }} />
+            <Image w="$10" h="$10" source={{ uri: base64Image }} />
           </YStack>
         ),
       },
@@ -60,7 +60,7 @@ const ImageGallery = () => (
         title: 'Loading Fallback',
         element: (
           <YStack gap={10}>
-            <Image.V2
+            <Image
               w="$10"
               h="$10"
               source={{
@@ -68,7 +68,7 @@ const ImageGallery = () => (
               }}
             />
 
-            <Image.V2
+            <Image
               w="$10"
               h="$10"
               source={{
@@ -77,7 +77,7 @@ const ImageGallery = () => (
               fallback={<Icon name="ImageMountainsOutline" size="$8" />}
             />
 
-            <Image.V2
+            <Image
               w="$10"
               h="$10"
               source={{
@@ -91,13 +91,13 @@ const ImageGallery = () => (
         title: 'Loading Fallback',
         element: (
           <YStack gap="$4">
-            <Image.V2
+            <Image
               size="$10"
               source={{
                 uri: 'https://uni.onekey-asset.com/static/chain/btc.png',
               }}
             />
-            <Image.V2
+            <Image
               size="$14"
               borderRadius="$3"
               $gtLg={{
@@ -115,7 +115,7 @@ const ImageGallery = () => (
         title: 'onError',
         element: (
           <YStack gap="$4">
-            <Image.V2
+            <Image
               size="$10"
               source={{
                 uri: 'https://uni.onekey-asset.com/static/chain/btc.pn',

@@ -72,15 +72,16 @@ function ConnectionListItem({
     <YStack gap="$5" p="$5">
       <XStack alignItems="center" justifyContent="space-between" gap="$3">
         <XStack flex={1} alignItems="center" gap="$3">
-          <Image size="$10" borderRadius="$full">
-            <Image.Source src={item.imageURL} />
-            <Image.Fallback>
-              <Icon size="$10" name="GlobusOutline" />
-            </Image.Fallback>
-            <Image.Loading>
-              <Skeleton width="100%" height="100%" />
-            </Image.Loading>
-          </Image>
+          <Image
+            size="$10"
+            borderRadius="$full"
+            source={{ uri: item.imageURL }}
+            fallback={
+              <Image.Fallback>
+                <Icon size="$10" name="GlobusOutline" />
+              </Image.Fallback>
+            }
+          />
           <SizableText
             size="$bodyLgMedium"
             color="$text"

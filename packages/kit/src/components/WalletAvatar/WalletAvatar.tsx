@@ -38,15 +38,20 @@ export function WalletAvatarBase({
   }
 
   return (
-    <Image size={size}>
-      <Image.Source
-        source={AllWalletAvatarImages[theImg] ?? AllWalletAvatarImages.bear}
-      />
-
-      <Image.Fallback delayMs={300} justifyContent="center" alignItems="center">
-        <SizableText>{wallet?.avatarInfo?.emoji ?? ''}</SizableText>
-      </Image.Fallback>
-    </Image>
+    <Image
+      size={size}
+      source={AllWalletAvatarImages[theImg] ?? AllWalletAvatarImages.bear}
+      fallback={
+        <Image.Fallback
+          w={size}
+          h={size}
+          justifyContent="center"
+          alignItems="center"
+        >
+          <SizableText>{wallet?.avatarInfo?.emoji ?? ''}</SizableText>
+        </Image.Fallback>
+      }
+    />
   );
 }
 

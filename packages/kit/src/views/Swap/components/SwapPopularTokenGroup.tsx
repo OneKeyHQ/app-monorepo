@@ -56,13 +56,13 @@ const SwapPopularTokenGroup = ({
           opacity: 0.5,
         }}
       >
-        <Image height="$4.5" width="$4.5" borderRadius="$full">
-          <Image.Source
-            source={{
-              uri: token.logoURI,
-            }}
-          />
-        </Image>
+        <Image
+          size="$4.5"
+          borderRadius="$full"
+          source={{
+            uri: token.logoURI,
+          }}
+        />
         <SizableText pl="$1" size="$bodyLgMedium">
           {token.symbol}
         </SizableText>
