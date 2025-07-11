@@ -37,6 +37,12 @@ export const { atom: tokenAddressAtom, use: useTokenAddressAtom } =
 export const { atom: networkIdAtom, use: useNetworkIdAtom } =
   contextAtom<string>('');
 
+export const { atom: leftColumnWidthAtom, use: useLeftColumnWidthAtom } =
+  contextAtom<number>(0);
+
+export const { atom: showWatchlistOnlyAtom, use: useShowWatchlistOnlyValue } =
+  contextAtom<boolean>(false);
+
 const INIT = Symbol('INIT');
 export const marketWatchListV2Atom = memoizee(() =>
   atom(

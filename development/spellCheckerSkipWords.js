@@ -1,5 +1,6 @@
 /* eslint-disable spellcheck/spell-checker */
 module.exports = [
+  'nodata',
   'tradingview',
   'ohlcv',
   '_j_msgid',

@@ -45,7 +45,7 @@ export const useStarV2Checked = ({
         removeWatchlistFrom: from,
       });
     } else {
-      await actions.addIntoWatchListV2([{ chainId, contractAddress }]);
+      actions.addIntoWatchListV2([{ chainId, contractAddress }]);
       defaultLogger.market.token.addToWatchList({
         tokenSymbol: `${chainId}:${contractAddress}`,
         addWatchlistFrom: from,

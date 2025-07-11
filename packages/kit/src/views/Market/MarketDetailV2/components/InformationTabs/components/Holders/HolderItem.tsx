@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 
 import { Icon, SizableText, XStack, useClipboard } from '@onekeyhq/components';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -16,9 +16,9 @@ function HolderItemBase({ item, index }: IHolderItemProps) {
   const { copyText } = useClipboard();
   const { layoutConfig } = useHoldersLayout();
 
-  const handleCopyAddress = () => {
+  const handleCopyAddress = useCallback(() => {
     copyText(item.accountAddress);
-  };
+  }, [copyText, item.accountAddress]);
 
   return (
     <XStack py="$3" px="$4" alignItems="center" gap="$3">

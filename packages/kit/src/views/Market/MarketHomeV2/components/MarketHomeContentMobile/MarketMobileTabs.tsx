@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { useShowWatchlistOnlyActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/actions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EMarketHomeTab } from '../../types';
@@ -90,6 +91,7 @@ export function MarketMobileTabs({
   liquidityFilter,
 }: IMarketMobileTabsProps) {
   const intl = useIntl();
+  const { current: showWatchlistOnlyActions } = useShowWatchlistOnlyActions();
 
   const [activeIndex, setActiveIndex] = useState(
     selectedTab === EMarketHomeTab.Watchlist ? 0 : 1,
@@ -130,9 +132,14 @@ export function MarketMobileTabs({
       if (tabId) {
         setActiveIndex(index);
         onTabChange?.(tabId);
+
+        // Update the showWatchlistOnly atom based on the selected tab
+        showWatchlistOnlyActions.setShowWatchlistOnly(
+          tabId === EMarketHomeTab.Watchlist,
+        );
       }
     },
-    [tabData, onTabChange],
+    [tabData, onTabChange, showWatchlistOnlyActions],
   );
 
   const currentTab = tabData[activeIndex]?.id;
@@ -154,7 +161,6 @@ export function MarketMobileTabs({
           <MarketTokenList
             networkId={selectedNetworkId}
             liquidityFilter={liquidityFilter}
-            defaultShowWatchlistOnly
           />
         </Stack>
 
@@ -167,7 +173,6 @@ export function MarketMobileTabs({
           <MarketTokenList
             networkId={selectedNetworkId}
             liquidityFilter={liquidityFilter}
-            defaultShowWatchlistOnly={false}
           />
         </Stack>
       </Stack>

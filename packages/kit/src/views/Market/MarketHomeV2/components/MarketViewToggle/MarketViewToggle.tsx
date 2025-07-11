@@ -7,11 +7,11 @@ import {
   SizableText,
   XStack,
 } from '@onekeyhq/components';
+import { useShowWatchlistOnlyValue } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { useShowWatchlistOnlyActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/actions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export interface IMarketViewToggleProps {
-  showWatchlistOnly: boolean;
-  onToggle: () => void;
   disabled?: boolean;
 }
 
@@ -61,11 +61,13 @@ function ToggleButton({
   );
 }
 
-export function MarketViewToggle({
-  showWatchlistOnly,
-  onToggle,
-  disabled = false,
-}: IMarketViewToggleProps) {
+export function MarketViewToggle({ disabled = false }: IMarketViewToggleProps) {
+  const [showWatchlistOnly] = useShowWatchlistOnlyValue();
+  const { current: showWatchlistOnlyActions } = useShowWatchlistOnlyActions();
+
+  const onToggle = () => {
+    showWatchlistOnlyActions.toggleShowWatchlistOnly();
+  };
   return (
     <XStack gap="$6">
       <ToggleButton

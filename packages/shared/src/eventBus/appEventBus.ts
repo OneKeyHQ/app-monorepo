@@ -295,6 +295,9 @@ export interface IAppEventBusPayload {
     tokenAddress: string;
     data: any;
   };
+  [EAppEventBusNames.MarketWatchlistOnlyChanged]: {
+    showWatchlistOnly: boolean;
+  };
   [EAppEventBusNames.ClearStorageOnExtension]: undefined;
   [EAppEventBusNames.SettingsSearchResult]: {
     list: {

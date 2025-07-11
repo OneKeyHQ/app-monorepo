@@ -22,6 +22,7 @@ import { EarnProvider } from '../../../views/Earn/EarnProvider';
 import { HomeTokenListRootProvider } from '../../../views/Home/components/HomeTokenListProvider/HomeTokenListRootProvider';
 import { UrlAccountHomeTokenListProvider } from '../../../views/Home/components/HomeTokenListProvider/UrlAccountHomeTokenListProvider';
 import { MarketWatchListProvider } from '../../../views/Market/MarketWatchListProvider';
+import { MarketWatchListProviderV2 } from '../../../views/Market/MarketWatchListProviderV2';
 import { SendConfirmRootProvider } from '../../../views/Send/components/SendConfirmProvider/SendConfirmRootProvider';
 import { SignatureConfirmRootProvider } from '../../../views/SignatureConfirm/components/SignatureConfirmProvider/SignatureConfirmRootProvider';
 import {
@@ -145,6 +146,9 @@ function JotaiContextRootProvidersAutoMountCmp() {
           }
           case EJotaiContextStoreNames.marketWatchList: {
             return <MarketWatchListProvider key={key} />;
+          }
+          case EJotaiContextStoreNames.marketWatchListV2: {
+            return <MarketWatchListProviderV2 key={key} />;
           }
           case EJotaiContextStoreNames.swap: {
             return <SwapRootProvider key={key} />;
