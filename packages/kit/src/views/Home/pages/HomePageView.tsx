@@ -224,9 +224,9 @@ export function HomePageView({
         <Tabs.Tab name="A">
           <TokenListContainerWithProvider />
         </Tabs.Tab>
-        {/* <Tabs.Tab name="B">
+        <Tabs.Tab name="B">
           <NFTListContainerWithProvider />
-        </Tabs.Tab> */}
+        </Tabs.Tab>
         <Tabs.Tab name="C">
           <TxHistoryListContainerWithProvider />
         </Tabs.Tab>
