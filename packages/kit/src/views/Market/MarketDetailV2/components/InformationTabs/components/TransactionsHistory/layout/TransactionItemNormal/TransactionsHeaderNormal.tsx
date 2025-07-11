@@ -5,16 +5,17 @@ import { useIntl } from 'react-intl';
 import { SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useTransactionsLayout } from './useTransactionsLayout';
+import { useTransactionsLayoutNormal } from './useTransactionsLayoutNormal';
 
 const commonTextProps = { size: '$bodySm', color: '$textSubdued' } as const;
 
-function TransactionsHeaderBase() {
+function TransactionsHeaderNormalBase() {
   const intl = useIntl();
-  const { layoutConfig } = useTransactionsLayout();
+  const { styles } = useTransactionsLayoutNormal();
 
   return (
     <XStack
+      width="100%"
       px="$4"
       py="$3"
       alignItems="center"
@@ -22,32 +23,32 @@ function TransactionsHeaderBase() {
       borderBottomColor="$borderSubdued"
       backgroundColor="$bgApp"
     >
-      <SizableText {...commonTextProps} {...layoutConfig.time}>
+      <SizableText {...commonTextProps} {...styles.time}>
         {intl.formatMessage({
           id: ETranslations.dexmarket_details_history_time,
         })}
       </SizableText>
-      <SizableText {...commonTextProps} {...layoutConfig.type}>
+      <SizableText {...commonTextProps} {...styles.type}>
         {intl.formatMessage({
           id: ETranslations.dexmarket_details_history_type,
         })}
       </SizableText>
-      <SizableText {...commonTextProps} {...layoutConfig.amount}>
+      <SizableText {...commonTextProps} {...styles.amount}>
         {intl.formatMessage({
           id: ETranslations.dexmarket_details_history_amount,
         })}
       </SizableText>
-      <SizableText {...commonTextProps} {...layoutConfig.price}>
+      <SizableText {...commonTextProps} {...styles.price}>
         {intl.formatMessage({
           id: ETranslations.global_price,
         })}
       </SizableText>
-      <SizableText {...commonTextProps} {...layoutConfig.value}>
+      <SizableText {...commonTextProps} {...styles.value}>
         {intl.formatMessage({
           id: ETranslations.dexmarket_details_history_value,
         })}
       </SizableText>
-      <SizableText {...commonTextProps} {...layoutConfig.address}>
+      <SizableText {...commonTextProps} {...styles.address}>
         {intl.formatMessage({
           id: ETranslations.global_address,
         })}
@@ -56,6 +57,6 @@ function TransactionsHeaderBase() {
   );
 }
 
-const TransactionsHeader = memo(TransactionsHeaderBase);
+const TransactionsHeaderNormal = memo(TransactionsHeaderNormalBase);
 
-export { TransactionsHeader };
+export { TransactionsHeaderNormal };

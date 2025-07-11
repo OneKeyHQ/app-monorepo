@@ -4,6 +4,10 @@ import { cloneDeep } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
@@ -13,6 +17,7 @@ import {
   contextAtomMethod,
   marketWatchListV2Atom,
   networkIdAtom,
+  showWatchlistOnlyAtom,
   tokenAddressAtom,
   tokenDetailAtom,
   tokenDetailLoadingAtom,
@@ -38,6 +43,25 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
 
   setNetworkId = contextAtomMethod((_, set, payload: string) => {
     set(networkIdAtom(), payload);
+  });
+
+  // ShowWatchlistOnly Actions
+  setShowWatchlistOnly = contextAtomMethod((_, set, payload: boolean) => {
+    set(showWatchlistOnlyAtom(), payload);
+    // Emit app event when showWatchlistOnly changes
+    appEventBus.emit(EAppEventBusNames.MarketWatchlistOnlyChanged, {
+      showWatchlistOnly: payload,
+    });
+  });
+
+  toggleShowWatchlistOnly = contextAtomMethod((get, set) => {
+    const current = get(showWatchlistOnlyAtom());
+    const newValue = !current;
+    set(showWatchlistOnlyAtom(), newValue);
+    // Emit app event when showWatchlistOnly changes
+    appEventBus.emit(EAppEventBusNames.MarketWatchlistOnlyChanged, {
+      showWatchlistOnly: newValue,
+    });
   });
 
   fetchTokenDetail = contextAtomMethod(
@@ -87,11 +111,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   );
 
   addIntoWatchListV2 = contextAtomMethod(
-    async (
-      get,
-      set,
-      payload: IMarketWatchListItemV2 | IMarketWatchListItemV2[],
-    ) => {
+    (get, set, payload: IMarketWatchListItemV2 | IMarketWatchListItemV2[]) => {
       const params: IMarketWatchListItemV2[] = !Array.isArray(payload)
         ? [payload]
         : payload;
@@ -99,23 +119,38 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       if (!prev.isMounted) {
         return;
       }
-      await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
-        watchList: params,
-      });
-      await this.refreshWatchListV2.call(set);
+
+      // Immediately update local state
+      const newData = [...prev.data, ...params];
+      set(marketWatchListV2Atom(), { ...prev, data: newData });
+
+      // Asynchronously call API without waiting for result
+      // void backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
+      //   watchList: params,
+      // });
     },
   );
 
   removeFromWatchListV2 = contextAtomMethod(
-    async (get, set, chainId: string, contractAddress: string) => {
+    (get, set, chainId: string, contractAddress: string) => {
       const prev = get(marketWatchListV2Atom());
       if (!prev.isMounted) {
         return;
       }
-      await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
-        items: [{ chainId, contractAddress }],
-      });
-      await this.refreshWatchListV2.call(set);
+
+      // Immediately update local state
+      const newData = prev.data.filter(
+        (item) =>
+          !(
+            item.chainId === chainId && item.contractAddress === contractAddress
+          ),
+      );
+      set(marketWatchListV2Atom(), { ...prev, data: newData });
+
+      // Asynchronously call API without waiting for result
+      // void backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
+      //   items: [{ chainId, contractAddress }],
+      // });
     },
   );
 
@@ -162,27 +197,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
-  moveToTopV2 = contextAtomMethod(
-    async (get, set, chainId: string, contractAddress: string) => {
-      const prev = get(marketWatchListV2Atom());
-      if (!prev.isMounted) {
-        return;
-      }
-      const target = prev.data.find(
-        (item) =>
-          item.chainId === chainId && item.contractAddress === contractAddress,
-      );
-      if (!target) {
-        return;
-      }
-      await this.sortWatchListV2Items.call(set, {
-        target,
-        prev: undefined,
-        next: prev?.data?.[0],
-      });
-    },
-  );
-
   saveWatchListV2 = contextAtomMethod(
     (get, set, payload: IMarketWatchListItemV2[]) => {
       void this.addIntoWatchListV2.call(set, payload);
@@ -196,7 +210,6 @@ export function useWatchListV2Actions() {
   const actions = createActions();
   const addIntoWatchListV2 = actions.addIntoWatchListV2.use();
   const removeFromWatchListV2 = actions.removeFromWatchListV2.use();
-  const moveToTopV2 = actions.moveToTopV2.use();
   const isInWatchListV2 = actions.isInWatchListV2.use();
   const saveWatchListV2 = actions.saveWatchListV2.use();
   const refreshWatchListV2 = actions.refreshWatchListV2.use();
@@ -205,7 +218,6 @@ export function useWatchListV2Actions() {
     isInWatchListV2,
     addIntoWatchListV2,
     removeFromWatchListV2,
-    moveToTopV2,
     saveWatchListV2,
     refreshWatchListV2,
     sortWatchListV2Items,
@@ -226,5 +238,16 @@ export function useTokenDetailActions() {
     setTokenAddress,
     setNetworkId,
     fetchTokenDetail,
+  });
+}
+
+export function useShowWatchlistOnlyActions() {
+  const actions = createActions();
+  const setShowWatchlistOnly = actions.setShowWatchlistOnly.use();
+  const toggleShowWatchlistOnly = actions.toggleShowWatchlistOnly.use();
+
+  return useRef({
+    setShowWatchlistOnly,
+    toggleShowWatchlistOnly,
   });
 }

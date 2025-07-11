@@ -1,5 +1,5 @@
-export const useTransactionsLayout = () => {
-  const layoutConfig = {
+export const useTransactionsLayoutNormal = () => {
+  const styles = {
     time: {
       width: '$16',
     },
@@ -17,9 +17,9 @@ export const useTransactionsLayout = () => {
       width: '$40',
     },
     address: {
-      width: '$40',
+      width: '$44',
     },
   };
 
-  return { layoutConfig };
+  return { styles };
 };

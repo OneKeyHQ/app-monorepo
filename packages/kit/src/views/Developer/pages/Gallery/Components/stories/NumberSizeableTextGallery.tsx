@@ -1,4 +1,9 @@
-import { NumberSizeableText, SizableText, YStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { Layout } from './utils/Layout';
@@ -347,6 +352,139 @@ const NumberSizeableTextGallery = () => (
                 },
               )}
             </SizableText>
+          </YStack>
+        ),
+      },
+      {
+        title: 'marketCap with capAtMaxT',
+        element: (
+          <YStack gap="$6">
+            <SizableText size="$bodyMd">
+              The capAtMaxT option caps very large numbers at 999T maximum for
+              better UI consistency.
+            </SizableText>
+
+            <XStack gap="$2">
+              <YStack gap="$2">
+                <SizableText size="$bodyMd">Without capAtMaxT:</SizableText>
+                <NumberSizeableText
+                  formatter="marketCap"
+                  formatterOptions={{ currency: '$' }}
+                >
+                  1200000000000000
+                </NumberSizeableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  Shows actual value: $1,200T
+                </SizableText>
+              </YStack>
+              <YStack gap="$2">
+                <SizableText size="$bodyMd">With capAtMaxT:</SizableText>
+                <NumberSizeableText
+                  formatter="marketCap"
+                  formatterOptions={{ currency: '$', capAtMaxT: true }}
+                >
+                  1200000000000000
+                </NumberSizeableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  Capped at maximum: $999T
+                </SizableText>
+              </YStack>
+            </XStack>
+            <YStack gap="$2">
+              <SizableText size="$bodyMd">
+                More examples with capAtMaxT:
+              </SizableText>
+              <XStack space="$4">
+                <YStack gap="$1">
+                  <SizableText size="$bodySm">500T (not capped):</SizableText>
+                  <NumberSizeableText
+                    formatter="marketCap"
+                    formatterOptions={{ currency: '$', capAtMaxT: true }}
+                  >
+                    500000000000000
+                  </NumberSizeableText>
+                </YStack>
+                <YStack gap="$1">
+                  <SizableText size="$bodySm">999T (not capped):</SizableText>
+                  <NumberSizeableText
+                    formatter="marketCap"
+                    formatterOptions={{ currency: '$', capAtMaxT: true }}
+                  >
+                    999000000000000
+                  </NumberSizeableText>
+                </YStack>
+                <YStack gap="$1">
+                  <SizableText size="$bodySm">1000T (capped):</SizableText>
+                  <NumberSizeableText
+                    formatter="marketCap"
+                    formatterOptions={{ currency: '$', capAtMaxT: true }}
+                  >
+                    1000000000000000
+                  </NumberSizeableText>
+                </YStack>
+              </XStack>
+            </YStack>
+          </YStack>
+        ),
+      },
+      {
+        title: 'autoFormatter',
+        element: (
+          <YStack gap="$3">
+            <YStack gap="$1">
+              <SizableText size="$bodySm">
+                Small value (uses price formatter):
+              </SizableText>
+              <NumberSizeableText
+                autoFormatter="price-marketCap"
+                formatterOptions={{ currency: '$', capAtMaxT: true }}
+              >
+                123.45
+              </NumberSizeableText>
+            </YStack>
+            <YStack gap="$1">
+              <SizableText size="$bodySm">
+                Large value (uses marketCap formatter):
+              </SizableText>
+              <NumberSizeableText
+                autoFormatter="price-marketCap"
+                formatterOptions={{ currency: '$', capAtMaxT: true }}
+              >
+                2500000
+              </NumberSizeableText>
+            </YStack>
+            <YStack gap="$1">
+              <SizableText size="$bodySm">
+                Balance autoFormatter (small):
+              </SizableText>
+              <NumberSizeableText
+                autoFormatter="balance-marketCap"
+                formatterOptions={{ tokenSymbol: 'ETH' }}
+              >
+                0.0045
+              </NumberSizeableText>
+            </YStack>
+            <YStack gap="$1">
+              <SizableText size="$bodySm">
+                Balance autoFormatter (large):
+              </SizableText>
+              <NumberSizeableText
+                autoFormatter="balance-marketCap"
+                formatterOptions={{ tokenSymbol: 'ETH' }}
+              >
+                5000000
+              </NumberSizeableText>
+            </YStack>
+            <YStack gap="$1">
+              <SizableText size="$bodySm">Custom threshold (500K):</SizableText>
+              <NumberSizeableText
+                autoFormatter="price-marketCap"
+                autoFormatterThreshold={500_000}
+                formatterOptions={{ currency: '$', capAtMaxT: true }}
+              >
+                750000
+              </NumberSizeableText>
+            </YStack>
           </YStack>
         ),
       },

@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { ITableColumn } from '@onekeyhq/components';
@@ -78,31 +79,35 @@ export const useColumnsDesktop = (
       title: intl.formatMessage({ id: ETranslations.global_price }),
       dataIndex: 'price',
       columnProps: { flex: 1 },
-      render: (text: number) => (
-        <NumberSizeableText
-          size="$bodyMd"
-          formatter="price"
-          formatterOptions={{ currency }}
-        >
-          {text}
-        </NumberSizeableText>
-      ),
+      render: (text: string) => {
+        return (
+          <NumberSizeableText
+            size="$bodyMd"
+            formatter={BigNumber(text).gt(1_000_000) ? 'marketCap' : 'price'}
+            formatterOptions={{ currency, capAtMaxT: true }}
+          >
+            {text}
+          </NumberSizeableText>
+        );
+      },
       renderSkeleton: () => <Skeleton width={70} height={16} />,
     },
     {
       title: intl.formatMessage({ id: ETranslations.dexmarket_token_change }),
       dataIndex: 'change24h',
       columnProps: { flex: 1 },
-      render: (text: number) => (
-        <NumberSizeableText
-          size="$bodyMd"
-          formatter="priceChange"
-          color={text >= 0 ? '$textSuccess' : '$textCritical'}
-          formatterOptions={{ showPlusMinusSigns: true }}
-        >
-          {text}
-        </NumberSizeableText>
-      ),
+      render: (text: number) => {
+        return (
+          <NumberSizeableText
+            size="$bodyMd"
+            formatter="priceChange"
+            color={text >= 0 ? '$textSuccess' : '$textCritical'}
+            formatterOptions={{ showPlusMinusSigns: true }}
+          >
+            {text}
+          </NumberSizeableText>
+        );
+      },
       renderSkeleton: () => <Skeleton width={60} height={16} />,
     },
     {
@@ -113,7 +118,7 @@ export const useColumnsDesktop = (
         <NumberSizeableText
           size="$bodyMd"
           formatter="marketCap"
-          formatterOptions={{ currency }}
+          formatterOptions={{ currency, capAtMaxT: true }}
         >
           {text}
         </NumberSizeableText>

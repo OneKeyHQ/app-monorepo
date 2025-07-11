@@ -22,6 +22,7 @@ import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
+  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   APP_STORE_LINK,
@@ -44,6 +45,7 @@ import {
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EModalShortcutsRoutes } from '@onekeyhq/shared/src/routes/shortcuts';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { usePrimeAuthV2 } from '../../../Prime/hooks/usePrimeAuthV2';
@@ -121,6 +123,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
   const { isPrimeAvailable } = usePrimeAvailable();
+  const [settings] = useSettingsPersistAtom();
   return useMemo(
     () => [
       {
@@ -481,7 +484,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   renderElement: <HardwareTransportTypeListItem />,
                 }
               : undefined,
-            platformEnv.isExtension || platformEnv.isWeb
+            (platformEnv.isExtension || platformEnv.isWeb) &&
+            settings.hardwareTransportType !== EHardwareTransportType.WEBUSB
               ? {
                   icon: 'ApiConnectionOutline',
                   title: intl.formatMessage({
@@ -719,6 +723,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       privacyPolicyUrl,
       copyText,
       devSettings.settings?.enableDesktopBluetooth,
+      settings.hardwareTransportType,
     ],
   );
 };

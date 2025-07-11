@@ -45,10 +45,12 @@ export function transformApiItemToToken(
     chainId,
     networkLogoUri,
     index,
+    sortIndex,
   }: {
     chainId: string;
     networkLogoUri: string;
     index?: number;
+    sortIndex?: number;
   },
 ): IMarketToken {
   return {
@@ -67,6 +69,7 @@ export function transformApiItemToToken(
     tokenImageUri: item.logoUrl || '',
     networkLogoUri,
     chainId,
+    sortIndex,
     walletInfo: {
       buy: safeNumber(item.buy24hCount),
       sell: safeNumber(item.sell24hCount),
