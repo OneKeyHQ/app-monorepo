@@ -157,14 +157,22 @@ export function isValidDeepLink(url: string) {
 }
 
 export const validateUrl = (url: string): string => {
-  // First try to validate as a complete URL
-  if (validator.isURL(url, { protocols: ['https'] })) {
-    return url;
+  // Extract host/path part from URL if it has a protocol
+  let urlWithoutProtocol = url;
+  if (url.includes('://')) {
+    try {
+      const parsedUrl = new URL(url);
+      urlWithoutProtocol =
+        parsedUrl.host + parsedUrl.pathname + parsedUrl.search + parsedUrl.hash;
+    } catch {
+      // If URL parsing fails, use the original URL
+    }
   }
 
-  // First try to validate as a complete URL
-  if (validator.isURL(`https://${url}`, { protocols: ['https'] })) {
-    return `https://${url}`;
+  // Try to validate with HTTPS protocol
+  const httpsUrl = `https://${urlWithoutProtocol}`;
+  if (validator.isURL(httpsUrl, { protocols: ['https'] })) {
+    return httpsUrl;
   }
 
   // If still not valid, return Google search URL
