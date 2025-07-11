@@ -56,8 +56,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
   // Add timezone and locale to the tradingViewUrl
   const tradingViewUrlWithParams = useMemo(() => {
     const timezone = getTradingViewTimezone(calendars);
-    const locale =
-      tradingViewLocaleMap[systemLocale as ILocaleJSONSymbol] || 'en-US';
+    const locale = systemLocale;
 
     const url = new URL(tradingViewUrl);
     url.searchParams.set('timezone', timezone);
