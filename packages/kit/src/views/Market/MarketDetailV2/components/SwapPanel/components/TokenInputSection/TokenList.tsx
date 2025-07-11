@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import BigNumber from 'bignumber.js';
 
 import { YStack } from '@onekeyhq/components';
@@ -100,19 +102,27 @@ export function TokenList({
     return Promise.all(promises);
   }, [tokens, networkAccount.result, currencySymbol]);
 
-  const displayTokens = tokens.map((token) => {
-    const tokenWithDetail = tokensWithDetails.result?.find(
-      (detailToken) =>
-        detailToken.networkId === token.networkId &&
-        detailToken.contractAddress === token.contractAddress,
-    );
-    return { ...token, ...tokenWithDetail };
-  });
+  const displayTokens = useMemo(() => {
+    return tokens
+      .map((token) => {
+        const tokenWithDetail = tokensWithDetails?.result?.find(
+          (detailToken) =>
+            detailToken.networkId === token.networkId &&
+            detailToken.contractAddress === token.contractAddress,
+        );
+        return { ...token, ...(tokenWithDetail ?? {}) };
+      })
+      .sort((a, b) => {
+        const valueA = parseFloat(a.valueProps?.value || '0');
+        const valueB = parseFloat(b.valueProps?.value || '0');
+        return valueB - valueA;
+      });
+  }, [tokensWithDetails?.result, tokens]);
 
   return (
     <YStack gap="$1">
       <YStack gap="$1" px="$1" py="$1">
-        {displayTokens.map((token: IEnhancedToken) => (
+        {displayTokens?.map((token: IEnhancedToken) => (
           <TokenListItem
             isLoading={!token.balance}
             key={`${token.networkId}-${token.contractAddress}`}
