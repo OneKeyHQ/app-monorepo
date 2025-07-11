@@ -23,6 +23,7 @@ const baseElectronBuilderConfig = {
     'build/**/*',
     '!build/static/bin/**/*',
     'package.json',
+    'node_modules/@abandonware/**/*',
   ],
   'protocols': {
     'name': 'electron-deep-linking',
@@ -49,9 +50,6 @@ const baseElectronBuilderConfig = {
   },
   'afterSign': getPath('scripts/afterSign.js'),
   'afterPack': getPath('scripts/afterPack.js'),
-  'asarUnpack': [
-    'node_modules/@abandonware/**/*',
-    '**/*.node',
-  ],
+  'asarUnpack': ['**/node_modules/@abandonware/**/*', '**/*.node'],
 };
 module.exports = baseElectronBuilderConfig;
