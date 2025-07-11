@@ -752,10 +752,17 @@ export function useSpeedSwapActions(props: {
           contractAddress: marketToken?.contractAddress,
         });
       if (tokenInfo?.length) {
-        setBaseToken(tokenInfo[0]);
+        setBaseToken({
+          ...tokenInfo[0],
+          symbol: marketToken.symbol,
+        });
       }
     })();
-  }, [marketToken?.contractAddress, marketToken?.networkId]);
+  }, [
+    marketToken?.contractAddress,
+    marketToken?.networkId,
+    marketToken?.symbol,
+  ]);
 
   useEffect(() => {
     void syncTokensBalance({

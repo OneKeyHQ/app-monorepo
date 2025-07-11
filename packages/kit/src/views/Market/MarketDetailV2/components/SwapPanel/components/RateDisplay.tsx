@@ -21,7 +21,7 @@ export function RateDisplay({
       })
     : '-';
   return (
-    <XStack alignItems="center" mb="$-3" mt="$-3">
+    <XStack alignItems="center" mb="$-2" mt="$-2">
       <SizableText size="$bodySm" userSelect="none" color="$textSubdued">
         {`1 ${fromTokenSymbol ?? '?'} = ${(rateFormatted as string) ?? '-'}`}
       </SizableText>
