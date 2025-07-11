@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
+import { Tabs } from 'react-native-collapsible-tab-view';
 
 import type { IListViewProps } from '@onekeyhq/components';
 import {
@@ -178,7 +179,7 @@ function BaseTxHistoryListView(props: IProps) {
   }
 
   return (
-    <SectionList
+    <Tabs.SectionList
       {...(listViewProps as any)}
       renderScrollComponent={renderNestedScrollView}
       ref={listViewRef}
