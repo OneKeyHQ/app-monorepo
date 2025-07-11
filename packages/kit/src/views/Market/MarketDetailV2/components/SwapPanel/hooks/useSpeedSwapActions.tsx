@@ -696,8 +696,10 @@ export function useSpeedSwapActions(props: {
   ]);
 
   useEffect(() => {
-    void fetchTokenPrice();
-  }, [fetchTokenPrice]);
+    if (fromToken.networkId && toToken.networkId) {
+      void fetchTokenPrice();
+    }
+  }, [fetchTokenPrice, fromToken.networkId, toToken.networkId]);
 
   useEffect(() => {
     appEventBus.off(
