@@ -470,7 +470,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 navigation?.push(EModalSettingRoutes.SettingCustomRPC);
               },
             },
-            platformEnv.isSupportWebUSB
+            platformEnv.isSupportWebUSB ||
+            (platformEnv.isDesktopMac &&
+              devSettings.settings?.enableDesktopBluetooth)
               ? {
                   icon: 'UsbOutline',
                   title: intl.formatMessage({
@@ -716,6 +718,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       userAgreementUrl,
       privacyPolicyUrl,
       copyText,
+      devSettings.settings?.enableDesktopBluetooth,
     ],
   );
 };

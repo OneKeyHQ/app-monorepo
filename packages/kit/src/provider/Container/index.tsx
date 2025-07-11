@@ -15,6 +15,7 @@ import { Bootstrap } from '../Bootstrap';
 
 import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
 import { AppStateLockContainer } from './AppStateLockContainer';
+import { DesktopBleRepairContainer } from './DesktopBleRepairContainer';
 import { CloudBackupContainer } from './CloudBackupContainer';
 import { CreateAddressContainer } from './CreateAddressContainer';
 import { DialogLoadingContainer } from './DialogLoadingContainer';
@@ -105,6 +106,7 @@ export function Container() {
           <PrevCheckBeforeSendingContainer />
           <WalletBackupPreCheckContainer />
           <HardwareUiStateContainer />
+          <DesktopBleRepairContainer />
           <PrimeLoginContainerLazy />
           <DialogLoadingContainer />
           <DiskFullWarningDialogContainer />
