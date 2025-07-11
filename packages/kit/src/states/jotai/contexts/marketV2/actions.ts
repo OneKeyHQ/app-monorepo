@@ -197,27 +197,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
-  moveToTopV2 = contextAtomMethod(
-    async (get, set, chainId: string, contractAddress: string) => {
-      const prev = get(marketWatchListV2Atom());
-      if (!prev.isMounted) {
-        return;
-      }
-      const target = prev.data.find(
-        (item) =>
-          item.chainId === chainId && item.contractAddress === contractAddress,
-      );
-      if (!target) {
-        return;
-      }
-      await this.sortWatchListV2Items.call(set, {
-        target,
-        prev: undefined,
-        next: prev?.data?.[0],
-      });
-    },
-  );
-
   saveWatchListV2 = contextAtomMethod(
     (get, set, payload: IMarketWatchListItemV2[]) => {
       void this.addIntoWatchListV2.call(set, payload);
@@ -231,7 +210,6 @@ export function useWatchListV2Actions() {
   const actions = createActions();
   const addIntoWatchListV2 = actions.addIntoWatchListV2.use();
   const removeFromWatchListV2 = actions.removeFromWatchListV2.use();
-  const moveToTopV2 = actions.moveToTopV2.use();
   const isInWatchListV2 = actions.isInWatchListV2.use();
   const saveWatchListV2 = actions.saveWatchListV2.use();
   const refreshWatchListV2 = actions.refreshWatchListV2.use();
@@ -240,7 +218,6 @@ export function useWatchListV2Actions() {
     isInWatchListV2,
     addIntoWatchListV2,
     removeFromWatchListV2,
-    moveToTopV2,
     saveWatchListV2,
     refreshWatchListV2,
     sortWatchListV2Items,
@@ -264,21 +241,13 @@ export function useTokenDetailActions() {
   });
 }
 
-// Properly typed interface for showWatchlistOnly actions
-interface IShowWatchlistOnlyActions {
-  setShowWatchlistOnly: (value: boolean) => void;
-  toggleShowWatchlistOnly: () => void;
-}
-
-export function useShowWatchlistOnlyActions(): {
-  current: IShowWatchlistOnlyActions;
-} {
+export function useShowWatchlistOnlyActions() {
   const actions = createActions();
   const setShowWatchlistOnly = actions.setShowWatchlistOnly.use();
   const toggleShowWatchlistOnly = actions.toggleShowWatchlistOnly.use();
 
   return useRef({
-    setShowWatchlistOnly: setShowWatchlistOnly as (value: boolean) => void,
-    toggleShowWatchlistOnly: toggleShowWatchlistOnly as () => void,
+    setShowWatchlistOnly,
+    toggleShowWatchlistOnly,
   });
 }
