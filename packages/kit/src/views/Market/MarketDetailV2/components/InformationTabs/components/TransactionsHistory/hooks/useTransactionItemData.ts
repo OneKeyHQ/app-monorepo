@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -19,23 +21,26 @@ export function useTransactionItemData({
   const intl = useIntl();
   const { copyText } = useClipboard();
 
-  const handleCopyAddress = () => {
+  const handleCopyAddress = useCallback(() => {
     copyText(item.owner);
-  };
+  }, [copyText, item.owner]);
 
-  const handleViewInBrowser = () => {
+  const handleViewInBrowser = useCallback(() => {
     void openTransactionDetailsUrl({
       networkId,
       txid: item.hash,
       openInExternal: true,
     });
-  };
+  }, [networkId, item.hash]);
 
-  const formatRelativeTime = (timestamp: number) =>
-    formatDistanceToNowStrict(timestamp * 1000, {
-      addSuffix: false,
-      roundingMethod: 'floor',
-    });
+  const formatRelativeTime = useCallback(
+    (timestamp: number) =>
+      formatDistanceToNowStrict(timestamp * 1000, {
+        addSuffix: false,
+        roundingMethod: 'floor',
+      }),
+    [],
+  );
 
   const isBuy = item.type === 'buy';
   const baseToken = isBuy ? item.to : item.from;

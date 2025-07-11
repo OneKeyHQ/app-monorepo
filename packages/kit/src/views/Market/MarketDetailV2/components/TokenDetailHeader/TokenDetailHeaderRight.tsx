@@ -1,15 +1,15 @@
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
-import {
-  formatDisplayNumber,
-  formatMarketCap,
-  numberFormat,
-} from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketStarV2 } from '../../../components/MarketStarV2';
@@ -18,7 +18,7 @@ import { ShareButton } from './ShareButton';
 
 interface IStatItemProps {
   label: string;
-  value: string;
+  value: React.ReactNode;
 }
 
 function StatItem({ label, value }: IStatItemProps) {
@@ -100,24 +100,42 @@ export function TokenDetailHeaderRight({
       <StatItem
         label={intl.formatMessage({ id: ETranslations.dexmarket_market_cap })}
         value={
-          formatDisplayNumber(
-            formatMarketCap(marketCap, {
-              capAtMaxT: true,
-            }),
-          ) as string
+          <NumberSizeableText
+            size="$bodySmMedium"
+            color="$text"
+            formatter="marketCap"
+            formatterOptions={{ capAtMaxT: true }}
+          >
+            {marketCap}
+          </NumberSizeableText>
         }
       />
 
       <StatItem
         label={intl.formatMessage({ id: ETranslations.dexmarket_liquidity })}
-        value={`$${String(numberFormat(tvl, { formatter: 'marketCap' }))}`}
+        value={
+          <NumberSizeableText
+            size="$bodySmMedium"
+            color="$text"
+            formatter="marketCap"
+            formatterOptions={{ currency: '$' }}
+          >
+            {tvl}
+          </NumberSizeableText>
+        }
       />
 
       <StatItem
         label={intl.formatMessage({ id: ETranslations.dexmarket_holders })}
-        value={String(
-          numberFormat(String(holders), { formatter: 'marketCap' }),
-        )}
+        value={
+          <NumberSizeableText
+            size="$bodySmMedium"
+            color="$text"
+            formatter="marketCap"
+          >
+            {holders}
+          </NumberSizeableText>
+        }
       />
 
       {marketStar}
