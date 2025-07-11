@@ -82,7 +82,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
   const [fromTokenAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapQuoteIntervalCount] = useSwapQuoteIntervalCountAtom();
-  const { selectFromToken, selectToToken, quoteAction } =
+  const { selectFromToken, selectToToken, quoteAction, cleanQuoteInterval } =
     useSwapActions().current;
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [fromSelectToken] = useSwapSelectFromTokenAtom();
@@ -237,8 +237,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   );
   const [preSwapDialogOpen, setPreSwapDialogOpen] = useState(false);
   const onPreSwap = useCallback(() => {
+    cleanQuoteInterval();
     setPreSwapDialogOpen(true);
-  }, []);
+  }, [cleanQuoteInterval]);
   return (
     <ScrollView>
       <YStack
@@ -297,6 +298,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           />
           <PreSwapDialogContainer
             onClose={() => {
+              console.log('swap__pre onClose');
               setPreSwapDialogOpen(false);
             }}
             open={preSwapDialogOpen}

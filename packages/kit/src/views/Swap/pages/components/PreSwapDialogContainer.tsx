@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -47,7 +47,6 @@ const PreSwapDialogContainer = ({
 }: IPreSwapDialogContainerProps) => {
   const [swapToAmount] = useSwapToTokenAmountAtom();
   const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
-  const { cleanQuoteInterval } = useSwapActions().current;
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
   const swapActionState = useSwapActionState();
@@ -82,7 +81,6 @@ const PreSwapDialogContainer = ({
     swapActionState.shoutResetApprove,
   ]);
   const onActionHandler = useCallback(() => {
-    cleanQuoteInterval();
     if (swapActionState.isApprove) {
       handleApprove();
       return;
@@ -94,7 +92,6 @@ const PreSwapDialogContainer = ({
     }
     onBuildTx();
   }, [
-    cleanQuoteInterval,
     handleApprove,
     onBuildTx,
     onWrapped,
