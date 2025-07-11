@@ -33,14 +33,11 @@ export function useTransactionItemData({
     });
   }, [networkId, item.hash]);
 
-  const formatRelativeTime = useCallback(
-    (timestamp: number) =>
-      formatDistanceToNowStrict(timestamp * 1000, {
-        addSuffix: false,
-        roundingMethod: 'floor',
-      }),
-    [],
-  );
+  const formatRelativeTime = (timestamp: number) =>
+    formatDistanceToNowStrict(timestamp * 1000, {
+      addSuffix: false,
+      roundingMethod: 'floor',
+    });
 
   const isBuy = item.type === 'buy';
   const baseToken = isBuy ? item.to : item.from;
