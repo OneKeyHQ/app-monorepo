@@ -27,6 +27,16 @@ const getModalRoute = () => {
   return null;
 };
 
+const getScreenName = (modalRoute: ReturnType<typeof getModalRoute>) => {
+  return (
+    (
+      modalRoute?.params as {
+        screen: string;
+      }
+    )?.screen || modalRoute?.state?.routes?.[modalRoute.state?.index || 0]?.name
+  );
+};
+
 export type IAppNavigation = ReturnType<typeof useAppNavigation>;
 
 /*
@@ -200,29 +210,32 @@ function useAppNavigation<
     [],
   );
 
-  const push: typeof navigationRef.current.push = useCallback((...args) => {
-    const modalRoute = getModalRoute();
-    if (modalRoute) {
-      const screenModal =
-        (
-          modalRoute?.params as {
-            screen: string;
-          }
-        )?.screen ||
-        modalRoute.state?.routes?.[modalRoute.state?.index || 0]?.name;
-      if (screenModal) {
-        navigationRef.current.navigate(ERootRoutes.Modal, {
-          screen: screenModal,
-          params: {
-            screen: args[0],
-            params: args[1],
-          },
+  const push: typeof navigationRef.current.push = useCallback(
+    (...args) => {
+      const parentState = navigation.getParent()?.getState();
+      const modalRoute = getModalRoute();
+      if (modalRoute) {
+        const currentScreenModal = getScreenName(modalRoute);
+        const screenModal = getScreenName({
+          state: parentState,
+          key: '',
+          name: '',
         });
+        if (currentScreenModal !== screenModal) {
+          navigationRef.current.navigate(ERootRoutes.Modal, {
+            screen: screenModal,
+            params: {
+              screen: args[0],
+              params: args[1],
+            },
+          });
+          return;
+        }
       }
-      return;
-    }
-    navigationRef.current.push(...args);
-  }, []);
+      navigationRef.current.push(...args);
+    },
+    [navigation],
+  );
 
   const replace: typeof navigationRef.current.replace = useCallback(
     (...args) => {
