@@ -383,8 +383,7 @@ const isRuntimeChrome = checkIsRuntimeChrome();
 const isRuntimeEdge = checkIsRuntimeEdge();
 const isRuntimeBrave = checkIsRuntimeBrave();
 const isRuntimeMacOSBrowser = isDesktopMac || checkIsRuntimeMacOSBrowser();
-const isSupportWebUSB =
-  (isWeb || isExtension) && (isRuntimeChrome || isRuntimeEdge);
+const isSupportWebUSB = isExtension || isWeb;
 
 // Ext manifest v2 background
 export const isExtensionBackgroundHtml: boolean =

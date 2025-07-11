@@ -1,8 +1,7 @@
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import type { EHardwareTransportType } from '@onekeyhq/shared/types';
-import { EOnekeyDomain } from '@onekeyhq/shared/types';
+import { EHardwareTransportType, EOnekeyDomain } from '@onekeyhq/shared/types';
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
@@ -11,6 +10,17 @@ import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
 export type IEndpointType = 'prod' | 'test';
+
+// don't use deviceUtils.getDefaultHardwareTransportType(), it will cause resource export order conflict
+function getDefaultHardwareTransportType(): EHardwareTransportType {
+  if (platformEnv.isNative) {
+    return EHardwareTransportType.BLE;
+  }
+  if (platformEnv.isSupportWebUSB) {
+    return EHardwareTransportType.WEBUSB;
+  }
+  return EHardwareTransportType.Bridge;
+}
 
 export type ISettingsPersistAtom = {
   theme: 'light' | 'dark' | 'system';
@@ -80,7 +90,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   isFloatingIconAlwaysDisplay: false,
   isFilterScamHistoryEnabled: true,
   isFilterLowValueHistoryEnabled: false,
-  hardwareTransportType: deviceUtils.getDefaultHardwareTransportType(),
+  hardwareTransportType: getDefaultHardwareTransportType(),
   hiddenWalletImmediately: true,
   showAddHiddenInWalletSidebar: true,
 };
