@@ -154,10 +154,7 @@ export function MarketMobileTabs({
           <MarketTokenList
             networkId={selectedNetworkId}
             liquidityFilter={liquidityFilter}
-            externalWatchlistControl={{
-              showWatchlistOnly: true,
-              onToggle: () => {}, // No toggle needed in watchlist tab
-            }}
+            showWatchlistOnly
           />
         </Stack>
 
@@ -170,10 +167,7 @@ export function MarketMobileTabs({
           <MarketTokenList
             networkId={selectedNetworkId}
             liquidityFilter={liquidityFilter}
-            externalWatchlistControl={{
-              showWatchlistOnly: false,
-              onToggle: () => {}, // No toggle needed in trending tab
-            }}
+            showWatchlistOnly={false}
           />
         </Stack>
       </Stack>

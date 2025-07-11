@@ -59,6 +59,9 @@ export function useMarketWatchlistTokenList({
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
       watchLoading: true,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      checkIsFocused: true,
     },
   );
 

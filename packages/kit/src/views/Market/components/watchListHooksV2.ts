@@ -24,7 +24,7 @@ export const useWatchListV2Action = () => {
   );
 
   const addIntoWatchListV2 = useCallback(
-    async (items: Array<{ chainId: string; contractAddress: string }>) => {
+    (items: Array<{ chainId: string; contractAddress: string }>) => {
       // Calculate sortIndex to make new items appear at the top
       const firstSortIndex =
         isMounted && watchListData.length > 0
@@ -40,7 +40,8 @@ export const useWatchListV2Action = () => {
       );
 
       try {
-        await actions.current.addIntoWatchListV2(watchListItems);
+        console.log('watchListItems', watchListItems);
+        actions.current.addIntoWatchListV2(watchListItems);
 
         Toast.success({
           title: intl.formatMessage({

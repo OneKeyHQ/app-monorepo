@@ -41,14 +41,9 @@ type IMarketTokenListProps = {
    */
   toolbar?: ReactNode;
   /**
-   * External control for watchlist display state. When provided, the star
-   * column header will no longer be clickable and the watchlist toggle
-   * is controlled externally.
+   * Controls whether to show only watchlist tokens or all tokens
    */
-  externalWatchlistControl?: {
-    showWatchlistOnly: boolean;
-    onToggle: () => void;
-  };
+  showWatchlistOnly?: boolean;
 };
 
 function MarketTokenList({
@@ -59,7 +54,7 @@ function MarketTokenList({
   pageSize = 20,
   liquidityFilter,
   toolbar,
-  externalWatchlistControl,
+  showWatchlistOnly,
 }: IMarketTokenListProps) {
   const toDetailPage = useToDetailPage();
 
@@ -67,8 +62,7 @@ function MarketTokenList({
   const [watchlistState] = useMarketWatchListV2Atom();
   const watchlistItems = watchlistState.data;
 
-  // Use external control if provided, otherwise use internal state
-  const showWatchlistOnly = externalWatchlistControl?.showWatchlistOnly;
+  // Use showWatchlistOnly prop directly
 
   const marketTokenColumns = useMarketTokenColumns(
     networkId,
@@ -100,6 +94,17 @@ function MarketTokenList({
     maxLiquidity,
   });
 
+  // useEffect(() => {
+  //   console.log('showWatchlistOnly', showWatchlistOnly);
+  //   if (showWatchlistOnly) {
+  //     watchlistResult.setSortBy(undefined);
+  //     watchlistResult.setSortType(undefined);
+  //   } else {
+  //     normalResult.setSortBy('v24hUSD');
+  //     normalResult.setSortType('desc');
+  //   }
+  // }, [showWatchlistOnly, watchlistResult, normalResult]);
+
   const handleSortChange = useCallback(
     (sortBy: string, sortType: 'asc' | 'desc' | undefined) => {
       const result: {
@@ -114,23 +119,11 @@ function MarketTokenList({
     [showWatchlistOnly, watchlistResult, normalResult],
   );
 
-  // useEffect(() => {
-  //   if (showWatchlistOnly) {
-  //     watchlistResult.setSortBy(undefined);
-  //     watchlistResult.setSortType(undefined);
-  //   } else {
-  //     normalResult.setSortBy('v24hUSD');
-  //     normalResult.setSortType('desc');
-  //   }
-  // }, [showWatchlistOnly, watchlistResult, normalResult]);
-
   const handleHeaderRow = useCallback(
     (column: ITableColumn<IMarketToken>) => {
       // Sorting logic
       const sortKey =
         SORTABLE_COLUMNS[column.dataIndex as keyof typeof SORTABLE_COLUMNS];
-
-      console.log('sortKey', sortKey);
 
       if (sortKey) {
         return {

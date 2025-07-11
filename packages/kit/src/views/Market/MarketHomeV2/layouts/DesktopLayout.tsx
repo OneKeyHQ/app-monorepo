@@ -39,10 +39,7 @@ export function DesktopLayout({
         <MarketTokenList
           networkId={selectedNetworkId}
           liquidityFilter={liquidityFilter}
-          externalWatchlistControl={{
-            showWatchlistOnly: filterBarProps.showWatchlistOnly,
-            onToggle: filterBarProps.onWatchlistToggle,
-          }}
+          showWatchlistOnly={filterBarProps.showWatchlistOnly}
           key={`${selectedNetworkId}-${activeTab}`} // Force re-render when tab changes
         />
       </Stack>
