@@ -48,6 +48,7 @@ describe('validateUrl', () => {
 
   test('adds https prefix for valid domain names', () => {
     const testCases = [
+      { input: 'http://test.com', expected: 'https://test.com' },
       { input: 'google.com', expected: 'https://google.com' },
       { input: 'baidu.cn', expected: 'https://baidu.cn' },
       { input: 'example.co.uk', expected: 'https://example.co.uk' },
@@ -65,7 +66,6 @@ describe('validateUrl', () => {
       'localhost',
       'just text',
       'test',
-      'http://test.com',
     ];
     invalidInputs.forEach((input) => {
       const result = validateUrl(input);
