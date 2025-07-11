@@ -21,7 +21,7 @@ const maxRecentCallsSize = 2000;
 const resetThreshold = 3000;
 
 const defaultSettings: IOneKeyDBPerfMonitorSettings = {
-  toastWarningEnabled: true,
+  toastWarningEnabled: false, // Default to false, controlled by dev settings
   toastWarningSize: 70,
   consoleLogEnabled: false,
   debuggerEnabled: false,
