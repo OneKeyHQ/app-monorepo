@@ -32,9 +32,13 @@ exports.default = async function fileOperation(context) {
     const unpackedPath = path.join(resourcesPath, 'app.asar.unpacked');
     const nodeModulesPath = path.join(unpackedPath, 'node_modules');
 
+    // Also copy to the main Resources/node_modules path where Node.js can find it
+    const mainNodeModulesPath = path.join(resourcesPath, 'node_modules');
+
     console.log('Resources path:', resourcesPath);
     console.log('Unpacked path:', unpackedPath);
     console.log('Node modules path:', nodeModulesPath);
+    console.log('Main node modules path:', mainNodeModulesPath);
 
     // Ensure the unpacked node_modules directory exists
     if (!fs.existsSync(nodeModulesPath)) {
@@ -44,15 +48,28 @@ exports.default = async function fileOperation(context) {
       console.log('Node modules directory already exists');
     }
 
+    // Ensure the main node_modules directory exists
+    if (!fs.existsSync(mainNodeModulesPath)) {
+      console.log('Creating main node_modules directory...');
+      fs.mkdirSync(mainNodeModulesPath, { recursive: true });
+    } else {
+      console.log('Main node_modules directory already exists');
+    }
+
     // Copy @abandonware modules
     const sourceAbandonwarePath = path.join(
       __dirname,
       '../../../node_modules/@abandonware',
     );
     const targetAbandonwarePath = path.join(nodeModulesPath, '@abandonware');
+    const mainTargetAbandonwarePath = path.join(
+      mainNodeModulesPath,
+      '@abandonware',
+    );
 
     console.log('Source @abandonware path:', sourceAbandonwarePath);
     console.log('Target @abandonware path:', targetAbandonwarePath);
+    console.log('Main target @abandonware path:', mainTargetAbandonwarePath);
     console.log('Source exists:', fs.existsSync(sourceAbandonwarePath));
 
     if (fs.existsSync(sourceAbandonwarePath)) {
@@ -67,7 +84,9 @@ exports.default = async function fileOperation(context) {
           recursive: true,
           dereference: true, // Resolve symbolic links to their targets
         });
-        console.log('@abandonware modules copied successfully');
+        console.log(
+          '@abandonware modules copied successfully to unpacked directory',
+        );
 
         // Verify the copy
         if (fs.existsSync(targetAbandonwarePath)) {
@@ -75,6 +94,33 @@ exports.default = async function fileOperation(context) {
           console.log('Target directory contents:', targetContents);
         } else {
           console.error('Target directory was not created!');
+        }
+
+        // Also copy to main node_modules for Node.js module resolution
+        console.log('Copying @abandonware modules to main node_modules...');
+        try {
+          fs.cpSync(sourceAbandonwarePath, mainTargetAbandonwarePath, {
+            recursive: true,
+            dereference: true,
+          });
+          console.log(
+            '@abandonware modules copied successfully to main node_modules',
+          );
+
+          // Verify the main copy
+          if (fs.existsSync(mainTargetAbandonwarePath)) {
+            const mainTargetContents = fs.readdirSync(
+              mainTargetAbandonwarePath,
+            );
+            console.log('Main target directory contents:', mainTargetContents);
+          } else {
+            console.error('Main target directory was not created!');
+          }
+        } catch (mainCopyError) {
+          console.error(
+            'Error copying @abandonware modules to main node_modules:',
+            mainCopyError,
+          );
         }
       } catch (error) {
         console.error('Error copying @abandonware modules:', error);
