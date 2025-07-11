@@ -165,7 +165,9 @@ function FinalizeWalletSetupPage({
 
   const closePage = useCallback(() => {
     closePageCalled.current = true;
-    navigation.navigate(ERootRoutes.Main);
+    navigation.navigate(ERootRoutes.Main, undefined, {
+      pop: true,
+    });
   }, [navigation]);
 
   const handleWalletSetupReadyInner = useCallback(async () => {
