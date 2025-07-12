@@ -72,10 +72,13 @@ function HeaderView({
   }, [canGoBack, navigation]);
 
   const headerLeftView = useCallback(
-    (props: HeaderBackButtonProps): ReactNode => {
+    ({
+      canGoBack: canGoBackNative,
+      ...props
+    }: HeaderBackButtonProps & { canGoBack: boolean }): ReactNode => {
       const headerBackButton = (
         <HeaderBackButton
-          canGoBack={!topStack}
+          canGoBack
           onPress={onBackCallback}
           isRootScreen={isRootScreen}
           isModelScreen={isModelScreen}
@@ -89,14 +92,7 @@ function HeaderView({
         <XStack className="app-region-no-drag">{headerBackButton}</XStack>
       ) : null;
     },
-    [
-      topStack,
-      onBackCallback,
-      isRootScreen,
-      isModelScreen,
-      disableClose,
-      headerLeft,
-    ],
+    [onBackCallback, isRootScreen, isModelScreen, disableClose, headerLeft],
   );
 
   const { gtMd } = useMedia();
@@ -153,7 +149,7 @@ function HeaderView({
             layout={layout}
             title={getHeaderTitle(options, route.name)}
             headerTintColor={theme.text.val}
-            headerLeft={headerLeftView}
+            headerLeft={headerLeftView as any}
             headerRightContainerStyle={headerRightContainerStyle}
             headerRight={
               typeof headerRight === 'function'
