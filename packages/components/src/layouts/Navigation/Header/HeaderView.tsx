@@ -79,7 +79,7 @@ function HeaderView({
     }: HeaderBackButtonProps & { canGoBack: boolean }): ReactNode => {
       const headerBackButton = (
         <HeaderBackButton
-          canGoBack={topStack}
+          canGoBack={!topStack}
           onPress={onBackCallback}
           isRootScreen={isRootScreen}
           isModelScreen={isModelScreen}
