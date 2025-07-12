@@ -44,7 +44,6 @@ jobs:
           echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
           artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
-          echo "BUILD_NUMBER=2025071122" >> $GITHUB_ENV
 
 
       - name: Setup Node
