@@ -1,13 +1,10 @@
 import type { ComponentProps } from 'react';
 import { useCallback, useMemo } from 'react';
 
-import type { IStackProps } from '@onekeyhq/components';
-import {
-  ListView,
-  Stack,
-  renderNestedScrollView,
-  useMedia,
-} from '@onekeyhq/components';
+import { Tabs } from 'react-native-collapsible-tab-view';
+
+import type { IStackProps, ListView } from '@onekeyhq/components';
+import { Stack, renderNestedScrollView, useMedia } from '@onekeyhq/components';
 import { EmptyNFT, EmptySearch } from '@onekeyhq/kit/src/components/Empty';
 import { NFTListLoadingView } from '@onekeyhq/kit/src/components/Loading';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -157,7 +154,7 @@ function NFTListView(props: IProps) {
   }
 
   return (
-    <ListView
+    <Tabs.FlatList
       {...listViewProps}
       ref={listViewRef as any}
       renderScrollComponent={renderNestedScrollView}
