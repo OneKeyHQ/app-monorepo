@@ -125,7 +125,7 @@ function HeaderView({
 
   return (
     <DesktopDragZoneBox
-      disabled={isModelScreen || pageType === EPageType.Modal}
+      disabled={isModelScreen || pageType === EPageType.modal}
     >
       <Stack
         alignItems="center"
