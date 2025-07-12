@@ -469,6 +469,16 @@ function getDeviceConnectId(
   }
 }
 
+function getDefaultHardwareTransportType(): EHardwareTransportType {
+  if (platformEnv.isNative) {
+    return EHardwareTransportType.BLE;
+  }
+  if (platformEnv.isSupportWebUSB) {
+    return EHardwareTransportType.WEBUSB;
+  }
+  return EHardwareTransportType.Bridge;
+}
+
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
@@ -494,4 +504,5 @@ export default {
   shouldUseV2FirmwareUpdateFlow,
   getRawDeviceId,
   getDeviceConnectId,
+  getDefaultHardwareTransportType,
 };
