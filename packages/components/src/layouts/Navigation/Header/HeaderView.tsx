@@ -8,6 +8,7 @@ import { useMedia, useTheme } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { EPageType, usePageType } from '../../../hocs';
 import { Stack, XStack } from '../../../primitives';
 import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
 
@@ -62,6 +63,7 @@ function HeaderView({
   const canGoBack = headerBack !== undefined;
   const topStack = (state?.index ?? 0) === 0;
   const disableClose = get(options, 'disableClose', false);
+  const pageType = usePageType();
 
   const onBackCallback = useCallback(() => {
     if (canGoBack) {
@@ -122,7 +124,9 @@ function HeaderView({
   }
 
   return (
-    <DesktopDragZoneBox disabled={isModelScreen}>
+    <DesktopDragZoneBox
+      disabled={isModelScreen || pageType === EPageType.Modal}
+    >
       <Stack
         alignItems="center"
         bg={headerTransparent ? 'transparent' : '$bgApp'}
