@@ -14,9 +14,11 @@ import {
   Page,
   SizableText,
   Stack,
+  TextArea,
   XStack,
   YStack,
   useForm,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -33,6 +35,7 @@ import type {
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { buildChangeHistoryInputAddon } from '../../../components/ChangeHistoryDialog/ChangeHistoryDialog';
+import { useAccountData } from '../../../hooks/useAccountData';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import type { IAddressItem } from '../type';
@@ -116,6 +119,7 @@ export function CreateOrEditContent({
     }),
     [item.address, item.id, item.name, item.networkId, onSubmit],
   );
+  const media = useMedia();
   const form = useForm<IFormValues>(formOption);
   const networkId = form.watch('networkId');
   const pending = form.watch('address.pending');
@@ -130,6 +134,98 @@ export function CreateOrEditContent({
     [],
     { initResult: [] },
   );
+
+  const { vaultSettings } = useAccountData({
+    networkId,
+  });
+
+  const renderNoteForm = useCallback(() => {
+    if (!vaultSettings?.withNote) return null;
+    const maxLength = vaultSettings?.noteMaxLength ?? 512;
+    return (
+      <Form.Field
+        label={intl.formatMessage({
+          id: ETranslations.global_Note,
+        })}
+        optional
+        name="note"
+        rules={{
+          maxLength: {
+            value: maxLength,
+            message: intl.formatMessage(
+              {
+                id: ETranslations.send_memo_up_to_length,
+              },
+              {
+                number: maxLength,
+              },
+            ),
+          },
+        }}
+      >
+        <TextArea
+          numberOfLines={2}
+          size={media.gtMd ? 'medium' : 'large'}
+          placeholder={intl.formatMessage({
+            id: ETranslations.global_Note,
+          })}
+        />
+      </Form.Field>
+    );
+  }, [intl, media.gtMd, vaultSettings?.noteMaxLength, vaultSettings?.withNote]);
+
+  const renderMemoForm = useCallback(() => {
+    if (!vaultSettings?.withMemo) return null;
+    const maxLength = vaultSettings?.memoMaxLength || 256;
+    const validateErrMsg = vaultSettings?.numericOnlyMemo
+      ? intl.formatMessage({
+          id: ETranslations.send_field_only_integer,
+        })
+      : undefined;
+    const memoRegExp = vaultSettings?.numericOnlyMemo ? /^[0-9]+$/ : undefined;
+
+    return (
+      <>
+        <Form.Field
+          label={intl.formatMessage({ id: ETranslations.send_tag })}
+          optional
+          name="memo"
+          rules={{
+            maxLength: {
+              value: maxLength,
+              message: intl.formatMessage(
+                {
+                  id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
+                },
+                {
+                  number: maxLength,
+                },
+              ),
+            },
+            validate: (value) => {
+              if (!value || !memoRegExp) return undefined;
+              const result = !memoRegExp.test(value);
+              return result ? validateErrMsg : undefined;
+            },
+          }}
+        >
+          <TextArea
+            numberOfLines={2}
+            size={media.gtMd ? 'medium' : 'large'}
+            placeholder={intl.formatMessage({
+              id: ETranslations.send_tag_placeholder,
+            })}
+          />
+        </Form.Field>
+      </>
+    );
+  }, [
+    intl,
+    media.gtMd,
+    vaultSettings?.memoMaxLength,
+    vaultSettings?.numericOnlyMemo,
+    vaultSettings?.withMemo,
+  ]);
 
   return (
     <Page scrollEnabled>
@@ -265,21 +361,23 @@ export function CreateOrEditContent({
               enableAddressContract
             />
           </Form.Field>
+          <YStack gap="$2.5" pt="$5">
+            <TimeRow
+              title={intl.formatMessage({
+                id: ETranslations.address_book_edit_added_on,
+              })}
+              time={item.createdAt}
+            />
+            <TimeRow
+              title={intl.formatMessage({
+                id: ETranslations.address_book_edit_last_edited,
+              })}
+              time={item.updatedAt}
+            />
+          </YStack>
+          {renderMemoForm()}
+          {renderNoteForm()}
         </Form>
-        <YStack gap="$2.5" pt="$5">
-          <TimeRow
-            title={intl.formatMessage({
-              id: ETranslations.address_book_edit_added_on,
-            })}
-            time={item.createdAt}
-          />
-          <TimeRow
-            title={intl.formatMessage({
-              id: ETranslations.address_book_edit_last_edited,
-            })}
-            time={item.updatedAt}
-          />
-        </YStack>
       </Page.Body>
       <Page.Footer>
         <Stack
