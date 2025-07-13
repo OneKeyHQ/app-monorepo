@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 
@@ -72,6 +72,13 @@ function DesktopBrowser() {
     [tabs],
   );
 
+  const renderHeaderRight = useCallback(() => {
+    if (isHomeType) {
+      return <HistoryIconButton />;
+    }
+    return <HeaderRightToolBar />;
+  }, [isHomeType]);
+
   return (
     <Page>
       <Page.Header
@@ -79,8 +86,7 @@ function DesktopBrowser() {
         headerTitle={
           !isHomeType ? DesktopBrowserNavigationContainer : undefined
         }
-        // @ts-expect-error
-        headerRight={!isHomeType ? HeaderRightToolBar : HistoryIconButton}
+        headerRight={renderHeaderRight}
         headerRightContainerStyle={{
           flexBasis: 'auto',
           flexGrow: 0,
