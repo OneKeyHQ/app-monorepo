@@ -102,6 +102,8 @@ export function CreateOrEditContent({
         id: item.id,
         networkId: item.networkId,
         name: item.name,
+        memo: item.memo,
+        note: item.note,
         address: { raw: item.address, resolved: '' } as IAddressInputValue,
       },
       mode: 'onChange' as IFormMode,
@@ -113,11 +115,21 @@ export function CreateOrEditContent({
           name: values.name,
           networkId: values.networkId,
           address: values.address.resolved ?? '',
+          memo: values.memo,
+          note: values.note,
           isAllowListed: true,
         });
       },
     }),
-    [item.address, item.id, item.name, item.networkId, onSubmit],
+    [
+      item.address,
+      item.id,
+      item.memo,
+      item.name,
+      item.networkId,
+      item.note,
+      onSubmit,
+    ],
   );
   const media = useMedia();
   const form = useForm<IFormValues>(formOption);
@@ -314,6 +326,7 @@ export function CreateOrEditContent({
               }
             />
           </Form.Field>
+
           <Form.Field
             label={intl.formatMessage({
               id: ETranslations.address_book_add_address_address,
@@ -361,23 +374,23 @@ export function CreateOrEditContent({
               enableAddressContract
             />
           </Form.Field>
-          <YStack gap="$2.5" pt="$5">
-            <TimeRow
-              title={intl.formatMessage({
-                id: ETranslations.address_book_edit_added_on,
-              })}
-              time={item.createdAt}
-            />
-            <TimeRow
-              title={intl.formatMessage({
-                id: ETranslations.address_book_edit_last_edited,
-              })}
-              time={item.updatedAt}
-            />
-          </YStack>
           {renderMemoForm()}
           {renderNoteForm()}
         </Form>
+        <YStack gap="$2.5" pt="$5">
+          <TimeRow
+            title={intl.formatMessage({
+              id: ETranslations.address_book_edit_added_on,
+            })}
+            time={item.createdAt}
+          />
+          <TimeRow
+            title={intl.formatMessage({
+              id: ETranslations.address_book_edit_last_edited,
+            })}
+            time={item.updatedAt}
+          />
+        </YStack>
       </Page.Body>
       <Page.Footer>
         <Stack
