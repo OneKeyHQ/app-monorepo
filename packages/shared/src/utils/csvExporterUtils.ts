@@ -77,10 +77,10 @@ function exportCSVWeb(data: any[], filename = 'export.csv') {
 }
 
 async function exportCSV(data: any[], filename = 'export.csv') {
-  if (platformEnv.isWeb) {
-    exportCSVWeb(data, filename);
-  } else {
+  if (platformEnv.isNative) {
     await exportCSVExpo(data, filename);
+  } else {
+    exportCSVWeb(data, filename);
   }
 }
 

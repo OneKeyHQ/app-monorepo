@@ -22,6 +22,7 @@ import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -38,6 +39,7 @@ import { PrimeTermsAndPrivacy } from './PrimeTermsAndPrivacy';
 import { PrimeUserInfo } from './PrimeUserInfo';
 
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
+import type { RouteProp } from '@react-navigation/core';
 
 function PrimeBanner() {
   const intl = useIntl();
@@ -62,7 +64,11 @@ function PrimeBanner() {
   );
 }
 
-export default function PrimeDashboard() {
+export default function PrimeDashboard({
+  route,
+}: {
+  route: RouteProp<IPrimeParamList, EPrimePages.PrimeDashboard>;
+}) {
   const intl = useIntl();
   // const isReady = false;
   const {
@@ -267,6 +273,7 @@ export default function PrimeDashboard() {
               <>
                 <PrimeBenefitsList
                   selectedSubscriptionPeriod={selectedSubscriptionPeriod}
+                  networkId={route.params?.networkId}
                 />
               </>
             ) : (

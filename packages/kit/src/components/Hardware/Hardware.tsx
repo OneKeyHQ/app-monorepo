@@ -467,13 +467,13 @@ interface IEnterPhaseFormValues {
 }
 
 export function EnterPhase({
-  isSingleInput,
+  isVerifyMode,
   allowUseAttachPin,
   onConfirm,
   switchOnDevice,
   switchOnDeviceAttachPin,
 }: {
-  isSingleInput?: boolean;
+  isVerifyMode?: boolean;
   allowUseAttachPin?: boolean;
   onConfirm: (p: {
     passphrase: string;
@@ -528,7 +528,9 @@ export function EnterPhase({
 
   // Watch passphrase input to control button state
   const passphraseValue = form.watch('passphrase');
-  const isButtonDisabled = !passphraseValue || passphraseValue === '';
+  const isButtonDisabled = isVerifyMode
+    ? false
+    : !passphraseValue || passphraseValue === '';
 
   return (
     <Stack>
@@ -643,7 +645,7 @@ export function EnterPhase({
             })}
           />
         </Form.Field>
-        {!isSingleInput ? (
+        {!isVerifyMode ? (
           <Form.Field
             horizontal
             name="hideImmediately"
