@@ -11,6 +11,17 @@ import { globalAtom } from '../utils';
 
 export type IEndpointType = 'prod' | 'test';
 
+// don't use deviceUtils.getDefaultHardwareTransportType(), it will cause resource export order conflict
+function getDefaultHardwareTransportType(): EHardwareTransportType {
+  if (platformEnv.isNative) {
+    return EHardwareTransportType.BLE;
+  }
+  if (platformEnv.isSupportWebUSB) {
+    return EHardwareTransportType.WEBUSB;
+  }
+  return EHardwareTransportType.Bridge;
+}
+
 export type ISettingsPersistAtom = {
   theme: 'light' | 'dark' | 'system';
   lastLocale: ILocaleSymbol;
@@ -79,9 +90,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   isFloatingIconAlwaysDisplay: false,
   isFilterScamHistoryEnabled: true,
   isFilterLowValueHistoryEnabled: false,
-  hardwareTransportType: platformEnv.isNative
-    ? EHardwareTransportType.BLE
-    : EHardwareTransportType.Bridge,
+  hardwareTransportType: getDefaultHardwareTransportType(),
   hiddenWalletImmediately: true,
   showAddHiddenInWalletSidebar: true,
 };

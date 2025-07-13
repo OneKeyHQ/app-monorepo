@@ -43,6 +43,9 @@ export const biologyAuthenticate = async () => {
     promptMessage: appLocale.intl.formatMessage({
       id: ETranslations.touch_id_unlock_desc,
     }),
+    cancelLabel: appLocale.intl.formatMessage({
+      id: ETranslations.global_cancel,
+    }),
   });
 };
 
