@@ -4,7 +4,6 @@ import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
-import { Tabs } from 'react-native-collapsible-tab-view';
 import { useThrottledCallback } from 'use-debounce';
 
 import type { ITabPageProps } from '@onekeyhq/components';
