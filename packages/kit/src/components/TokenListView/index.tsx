@@ -1,14 +1,12 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
 
-import { Tabs } from 'react-native-collapsible-tab-view';
-
 import type { ListView } from '@onekeyhq/components';
 import {
   NestedScrollView,
   SizableText,
   Stack,
-  Tab,
+  Tabs,
   renderNestedScrollView,
 } from '@onekeyhq/components';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';

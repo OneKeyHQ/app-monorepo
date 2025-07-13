@@ -2,9 +2,8 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Animated, Easing, Keyboard } from 'react-native';
-import { Tabs } from 'react-native-collapsible-tab-view';
 
-import { Icon, Page, Stack, Tab, YStack } from '@onekeyhq/components';
+import { Icon, Page, Stack, Tabs, YStack } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
