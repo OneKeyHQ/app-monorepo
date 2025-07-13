@@ -3,13 +3,13 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
-import { Tabs } from 'react-native-collapsible-tab-view';
 
 import type { IListViewProps } from '@onekeyhq/components';
 import {
   SectionList,
   SizableText,
   Stack,
+  Tabs,
   XStack,
   renderNestedScrollView,
 } from '@onekeyhq/components';
