@@ -1,7 +1,11 @@
 /* eslint-disable react/prop-types */
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
-import { List as VirtualizedList } from 'react-virtualized';
+import { useAnimatedReaction } from 'react-native-reanimated';
+import { AutoSizer, List as VirtualizedList } from 'react-virtualized';
+
+import { useTabsContext, useTabsScrollContext } from './context';
+import { useCurrentTabName } from './Tab';
 
 import type { FlashListProps } from '@shopify/flash-list';
 
@@ -12,6 +16,36 @@ export function List<Item>({
   data,
   estimatedItemSize,
 }: IListProps<Item>) {
+  const {
+    registerChild,
+    height,
+    width,
+    isScrolling,
+    onChildScroll,
+    scrollTop,
+  } = useTabsScrollContext();
+  const currentTabName = useCurrentTabName();
+  const { focusedTab } = useTabsContext();
+
+  const ref = useRef<Element>(null);
+  console.log('currentTabName', currentTabName, focusedTab.value);
+//   useAnimatedReaction(
+//     () => focusedTab.value,
+//     (focusedTabValue) => {
+//       console.log('registerChild', ref.current);
+//       if (focusedTabValue === currentTabName) {
+//         registerChild(ref.current);
+//       }
+//     },
+//     [currentTabName],
+//   );
+
+  useEffect(() => {
+    if (focusedTab.value === currentTabName) {
+      registerChild(ref.current);
+    }
+  }, [focusedTab.value, currentTabName, registerChild]);
+
   const rowRenderer = useCallback(
     ({
       index,
@@ -33,12 +67,23 @@ export function List<Item>({
     [renderItem, data],
   );
   return (
-    <VirtualizedList
-      height={400}
-      width={300}
-      rowCount={data?.length || 0}
-      rowHeight={estimatedItemSize || 50}
-      rowRenderer={rowRenderer}
-    />
+    <AutoSizer disableHeight>
+      {({ width: autoSizerWidth }) => (
+        <div ref={ref as React.RefObject<HTMLDivElement>}>
+          <VirtualizedList
+            autoHeight
+            width={autoSizerWidth}
+            data={data}
+            height={height || 400}
+            isScrolling={isScrolling}
+            onScroll={onChildScroll}
+            scrollTop={scrollTop}
+            rowCount={data?.length || 0}
+            rowHeight={estimatedItemSize || 50}
+            rowRenderer={rowRenderer}
+          />
+        </div>
+      )}
+    </AutoSizer>
   );
 }

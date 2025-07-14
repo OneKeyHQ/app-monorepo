@@ -1,12 +1,16 @@
+import { Container } from './Container';
+import { List } from './List';
+import { Tab } from './Tab';
+
 import type { Tabs as NativeTabs } from 'react-native-collapsible-tab-view';
 
 export const Tabs = {
-  Container: () => null,
-  Tab: () => null,
+  Container,
+  Tab,
   Lazy: () => null,
-  FlatList: () => null,
+  FlatList: List,
   ScrollView: () => null,
   SectionList: () => null,
-  FlashList: () => null,
+  FlashList: List,
   MasonryFlashList: () => null,
 } as unknown as typeof NativeTabs;
