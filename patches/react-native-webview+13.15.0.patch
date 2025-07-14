@@ -29,6 +29,70 @@ index 7f5c24d..5623f4a 100644
        [webView loadRequest:request];
      }
      else {
+diff --git a/node_modules/react-native-webview/apple/RNCWebViewManager.mm b/node_modules/react-native-webview/apple/RNCWebViewManager.mm
+index f8f375f..e7ec106 100644
+--- a/node_modules/react-native-webview/apple/RNCWebViewManager.mm
++++ b/node_modules/react-native-webview/apple/RNCWebViewManager.mm
+@@ -206,6 +206,19 @@ - (RNCView *)view
+   }];                                                                                                                                   \
+ }
+ 
++RCT_EXPORT_METHOD(loadUrl:(nonnull NSNumber *)reactTag url:(NSString *)url)
++{
++  [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, BASE_VIEW_PER_OS() *> *viewRegistry) {
++    RNCWebViewImpl *view = (RNCWebViewImpl *)viewRegistry[reactTag];
++    if (![view isKindOfClass:[RNCWebViewImpl class]]) {
++      RCTLogError(@"Invalid view returned from registry, expecting RNCWebViewImpl, got: %@", view);
++    } else {
++      NSDictionary *source = [NSDictionary dictionaryWithObjectsAndKeys:url,@"uri",nil];
++      [view setSource:source];
++    }
++  }];
++}
++
+ QUICK_RCT_EXPORT_COMMAND_METHOD(reload)
+ QUICK_RCT_EXPORT_COMMAND_METHOD(goBack)
+ QUICK_RCT_EXPORT_COMMAND_METHOD(goForward)
+diff --git a/node_modules/react-native-webview/index.d.ts b/node_modules/react-native-webview/index.d.ts
+index a85ac85..f0ca9a9 100644
+--- a/node_modules/react-native-webview/index.d.ts
++++ b/node_modules/react-native-webview/index.d.ts
+@@ -27,6 +27,11 @@ declare class WebView<P = {}> extends Component<WebViewProps & P> {
+      */
+     stopLoading(): void;
+ 
++    /**
++     * Loads the url.
++     */
++    loadUrl: (url: string) => void;
++
+     /**
+      * Executes the JavaScript string.
+      */
+diff --git a/node_modules/react-native-webview/src/WebView.android.tsx b/node_modules/react-native-webview/src/WebView.android.tsx
+index edf06fa..e6b08b0 100644
+--- a/node_modules/react-native-webview/src/WebView.android.tsx
++++ b/node_modules/react-native-webview/src/WebView.android.tsx
+@@ -165,6 +165,7 @@ const WebViewComponent = forwardRef<{}, AndroidWebViewProps>(
+         },
+         stopLoading: () =>
+           webViewRef.current && Commands.stopLoading(webViewRef.current),
++        loadUrl: (url: string) => Commands.loadUrl(webViewRef.current, url),
+         postMessage: (data: string) =>
+           webViewRef.current && Commands.postMessage(webViewRef.current, data),
+         injectJavaScript: (data: string) =>
+diff --git a/node_modules/react-native-webview/src/WebView.ios.tsx b/node_modules/react-native-webview/src/WebView.ios.tsx
+index deb179b..961fe20 100644
+--- a/node_modules/react-native-webview/src/WebView.ios.tsx
++++ b/node_modules/react-native-webview/src/WebView.ios.tsx
+@@ -149,6 +149,7 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
+         },
+         stopLoading: () =>
+           webViewRef.current && Commands.stopLoading(webViewRef.current),
++        loadUrl: (url: string) => Commands.loadUrl(webViewRef.current, url),
+         postMessage: (data: string) =>
+           webViewRef.current && Commands.postMessage(webViewRef.current, data),
+         injectJavaScript: (data: string) =>
 diff --git a/node_modules/react-native-webview/src/WebViewShared.tsx b/node_modules/react-native-webview/src/WebViewShared.tsx
 index 08905ea..4889a1f 100644
 --- a/node_modules/react-native-webview/src/WebViewShared.tsx
