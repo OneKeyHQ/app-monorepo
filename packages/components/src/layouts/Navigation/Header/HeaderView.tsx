@@ -8,6 +8,7 @@ import { useMedia, useTheme } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { EPageType, usePageType } from '../../../hocs';
 import { Stack, XStack } from '../../../primitives';
 import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
 
@@ -62,6 +63,7 @@ function HeaderView({
   const canGoBack = headerBack !== undefined;
   const topStack = (state?.index ?? 0) === 0;
   const disableClose = get(options, 'disableClose', false);
+  const pageType = usePageType();
 
   const onBackCallback = useCallback(() => {
     if (canGoBack) {
@@ -72,7 +74,11 @@ function HeaderView({
   }, [canGoBack, navigation]);
 
   const headerLeftView = useCallback(
-    (props: HeaderBackButtonProps): ReactNode => {
+    ({
+      canGoBack: canGoBackNative,
+      onPress,
+      ...props
+    }: HeaderBackButtonProps & { canGoBack: boolean }): ReactNode => {
       const headerBackButton = (
         <HeaderBackButton
           canGoBack={!topStack}
@@ -118,7 +124,9 @@ function HeaderView({
   }
 
   return (
-    <DesktopDragZoneBox disabled={isModelScreen}>
+    <DesktopDragZoneBox
+      disabled={isModelScreen || pageType === EPageType.modal}
+    >
       <Stack
         alignItems="center"
         bg={headerTransparent ? 'transparent' : '$bgApp'}
@@ -153,7 +161,7 @@ function HeaderView({
             layout={layout}
             title={getHeaderTitle(options, route.name)}
             headerTintColor={theme.text.val}
-            headerLeft={headerLeftView}
+            headerLeft={headerLeftView as any}
             headerRightContainerStyle={headerRightContainerStyle}
             headerRight={
               typeof headerRight === 'function'
