@@ -9,12 +9,11 @@ import type {
   IStackNavigationOptions,
 } from '@onekeyhq/components/src/layouts/Navigation';
 import type {
-  EModalRoutes,
   ETabRoutes,
   IModalParamList,
   ITabStackParamList,
 } from '@onekeyhq/shared/src/routes';
-import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 const getModalRoute = () => {
   const state = rootNavigationRef.current?.getState();
@@ -214,22 +213,27 @@ function useAppNavigation<
     (...args) => {
       const modalRoute = getModalRoute();
       if (modalRoute) {
-        const parentState = navigation.getParent()?.getState();
-        const currentScreenModal = getScreenName(modalRoute);
-        const screenModal = getScreenName({
-          state: parentState,
-          key: '',
-          name: '',
-        });
-        if (currentScreenModal !== screenModal) {
-          navigationRef.current.navigate(ERootRoutes.Modal, {
-            screen: currentScreenModal,
-            params: {
-              screen: args[0],
-              params: args[1],
-            },
+        const isSettingsModal =
+          modalRoute.state?.routes?.[modalRoute.state?.index || 0]?.name ===
+          EModalRoutes.SettingModal;
+        if (!isSettingsModal) {
+          const parentState = navigation.getParent()?.getState();
+          const currentScreenModal = getScreenName(modalRoute);
+          const screenModal = getScreenName({
+            state: parentState,
+            key: '',
+            name: '',
           });
-          return;
+          if (currentScreenModal !== screenModal) {
+            navigationRef.current.navigate(ERootRoutes.Modal, {
+              screen: currentScreenModal,
+              params: {
+                screen: args[0],
+                params: args[1],
+              },
+            });
+            return;
+          }
         }
       }
       navigationRef.current.push(...args);

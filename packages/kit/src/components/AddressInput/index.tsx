@@ -146,6 +146,13 @@ type IAddressInputProps = Omit<
   enableAllowListValidation?: boolean; // Check address if it is on the allow list.
 
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
+  onExtraDataChange?: ({
+    memo,
+    note,
+  }: {
+    memo?: string;
+    note?: string;
+  }) => void;
 
   hideNonBackedUpWallet?: boolean;
   onScanResult?: IScanPluginProps['onScanResult'];
@@ -319,6 +326,7 @@ export function AddressInput(props: IAddressInputProps) {
     enableVerifySendFundToSelf,
     enableAllowListValidation,
     onInputTypeChange,
+    onExtraDataChange,
     disabled: disabledFromProps,
     onScanResult,
     ...rest
@@ -547,6 +555,7 @@ export function AddressInput(props: IAddressInputProps) {
               onBeforeAccountSelectorOpen={
                 accountSelector?.onBeforeAccountSelectorOpen
               }
+              onExtraDataChange={onExtraDataChange}
               testID={rest.testID ? `${rest.testID}-selector` : undefined}
             />
           ) : null}
@@ -570,6 +579,7 @@ export function AddressInput(props: IAddressInputProps) {
       accountSelector,
       accountId,
       inputText,
+      onExtraDataChange,
     ],
   );
 
