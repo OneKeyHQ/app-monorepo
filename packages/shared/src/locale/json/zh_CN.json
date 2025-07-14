@@ -3013,6 +3013,7 @@
   "wallet.subsidy_label": "补贴",
   "wallet.subsidy_redeem_title": "补贴/兑换",
   "wallet.subsidy_remaining": "剩余 {remaining} / {total}",
+  "wallet.trx_free_credit": "免费能量",
   "wallet.unsupported_network_desc": "在左上角切换网络或使用支持的账户",
   "wallet.unsupported_network_desc_alt": "在上一页切换网络或使用支持的账户",
   "wallet.unsupported_network_title": "此账户不支持 {network}",

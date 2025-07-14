@@ -3013,6 +3013,7 @@
   "wallet.subsidy_label": "Crédito",
   "wallet.subsidy_redeem_title": "Crédito/Resgatar",
   "wallet.subsidy_remaining": "Restantes {remaining} / {total}",
+  "wallet.trx_free_credit": "Crédito",
   "wallet.unsupported_network_desc": "Altere as redes no canto superior esquerdo ou use uma conta suportada",
   "wallet.unsupported_network_desc_alt": "Mude de rede na página anterior ou use uma conta suportada",
   "wallet.unsupported_network_title": "Esta conta não suporta {network}",

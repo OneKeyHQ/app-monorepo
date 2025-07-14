@@ -3013,6 +3013,7 @@
   "wallet.subsidy_label": "Zuschuss",
   "wallet.subsidy_redeem_title": "Gutschrift/Einlösen",
   "wallet.subsidy_remaining": "Verbleibend {remaining} / {total}",
+  "wallet.trx_free_credit": "Gutschrift",
   "wallet.unsupported_network_desc": "Wechseln Sie in der oberen linken Ecke das Netzwerk oder verwenden Sie ein unterstütztes Konto",
   "wallet.unsupported_network_desc_alt": "Wechseln Sie auf der vorherigen Seite das Netzwerk oder verwenden Sie ein unterstütztes Konto",
   "wallet.unsupported_network_title": "Dieses Konto unterstützt {network} nicht",

@@ -3013,6 +3013,7 @@
   "wallet.subsidy_label": "Trợ cấp",
   "wallet.subsidy_redeem_title": "Tín dụng/Đổi thưởng",
   "wallet.subsidy_remaining": "Còn lại {remaining} / {total}",
+  "wallet.trx_free_credit": "Tín dụng",
   "wallet.unsupported_network_desc": "Chuyển mạng ở góc trên bên trái hoặc sử dụng một tài khoản được hỗ trợ",
   "wallet.unsupported_network_desc_alt": "Chuyển mạng trên trang trước hoặc sử dụng một tài khoản được hỗ trợ",
   "wallet.unsupported_network_title": "Tài khoản này không hỗ trợ {network}",
