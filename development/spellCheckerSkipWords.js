@@ -20,6 +20,8 @@ module.exports = [
   '419e9113cb852004f53b25d8d565b6a1c8c310fb61',
   'aamt',
   'Abi',
+  'e2ee',
+  'jsbridge',
   'Abis',
   'undef',
   'acc',

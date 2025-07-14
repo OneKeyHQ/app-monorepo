@@ -8,7 +8,11 @@ import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 export function buildCallRemoteApiMethod<T extends IJsonRpcRequest>(
   moduleGetter: (module: any) => Promise<any>,
-  remoteApiType: 'webEmbedApi' | 'offscreenApi' | 'desktopApi',
+  remoteApiType:
+    | 'webEmbedApi'
+    | 'offscreenApi'
+    | 'desktopApi'
+    | 'e2eeClientToClientApi',
 ) {
   return async function callRemoteApiMethod(message: T) {
     const { method, params = [] } = message;
