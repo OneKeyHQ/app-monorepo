@@ -197,7 +197,7 @@ export type IResourceUpdateInfo = {
 export type IDeviceHomeScreen = {
   deviceId: string;
   imgBase64: string;
-  imgThumbBase64: string;
+  imgThumbBase64?: string;
   name: string;
 };
 

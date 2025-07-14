@@ -1,8 +1,7 @@
-/* eslint-disable spellcheck/spell-checker */
-
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '../errors/errors/localError';
+import { defaultLogger } from '../logger/logger';
 
 import imageUtils from './imageUtils';
 
@@ -161,7 +160,32 @@ async function imagePathToHex(
   });
 }
 
+async function buildCustomScreenHex(
+  url: string | undefined,
+  deviceType: IDeviceType,
+) {
+  if (!HAS_MONOCHROME_SCREEN[deviceType]) {
+    return '';
+  }
+
+  let customHex = '';
+  if (isMonochromeScreen(deviceType)) {
+    const imgUri =
+      (await imageUtils.getBase64FromRequiredImageSource(url, (...args) => {
+        defaultLogger.hardware.homescreen.getBase64FromRequiredImageSource(
+          ...args,
+        );
+      })) || '';
+    if (!imgUri) {
+      throw new OneKeyLocalError('Error imgUri not defined');
+    }
+    customHex = await imagePathToHex(imgUri, deviceType);
+  }
+  return customHex;
+}
+
 export default {
   imagePathToHex,
   isMonochromeScreen,
+  buildCustomScreenHex,
 };

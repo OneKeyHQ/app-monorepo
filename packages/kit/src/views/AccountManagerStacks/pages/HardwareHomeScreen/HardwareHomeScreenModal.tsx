@@ -8,7 +8,6 @@ import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   ActionList,
   AnimatePresence,
-  Button,
   Icon,
   IconButton,
   Image,
@@ -30,28 +29,23 @@ import type {
 import type {
   IDeviceHomeScreenConfig,
   IDeviceHomeScreenSizeInfo,
+  IHardwareHomeScreenData,
 } from '@onekeyhq/kit-bg/src/services/ServiceHardware/DeviceSettingsManager';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EAccountManagerStacksRoutes,
   IAccountManagerStacksParamList,
 } from '@onekeyhq/shared/src/routes';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
+import type { IResizeImageResult } from '@onekeyhq/shared/src/utils/imageUtils';
 import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import hardwareHomeScreenData from './hardwareHomeScreenData';
 
-import type {
-  IHardwareHomeScreenData,
-  IHardwareHomeScreenDataWithId,
-  IHardwareHomeScreenName,
-} from './hardwareHomeScreenData';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { DimensionValue } from 'react-native';
 
@@ -108,7 +102,7 @@ function HomeScreenImageItem({
   aspectRatioInfo: IAspectRatioInfo;
   onItemSelected: (item: IHardwareHomeScreenData) => void;
   onImageLayout?: (params: { width: number; height: number }) => void;
-  onDelete?: (item: IHardwareHomeScreenDataWithId) => void;
+  onDelete?: (item: IHardwareHomeScreenData) => void;
 }) {
   const [showDelete, setShowDelete] = useState(false);
 
@@ -148,7 +142,7 @@ function HomeScreenImageItem({
           if (platformEnv.isNative) {
             ActionList.show({
               title: appLocale.intl.formatMessage({
-                id: ETranslations.global_delete,
+                id: ETranslations.explore_options,
               }),
               items: [
                 {
@@ -157,7 +151,7 @@ function HomeScreenImageItem({
                   }),
                   destructive: true,
                   onPress: () => {
-                    onDelete?.(item as IHardwareHomeScreenDataWithId);
+                    onDelete?.(item);
                   },
                 },
               ],
@@ -184,8 +178,8 @@ function HomeScreenImageItem({
               : undefined
           }
           source={
-            !isNil(item.source)
-              ? item.source
+            !isNil(item.url)
+              ? item.url
               : {
                   uri: item.uri,
                 }
@@ -228,10 +222,9 @@ function HomeScreenImageItem({
         {showDelete ? (
           <Stack
             position="absolute"
-            right="$1.5"
-            top="$1.5"
+            right="$-1"
+            top="$-1"
             zIndex={101}
-            padding="$1"
             borderRadius="$full"
             backgroundColor="$bg"
             animation="quick"
@@ -245,7 +238,7 @@ function HomeScreenImageItem({
             }
             onPress={(e) => {
               e?.stopPropagation?.();
-              onDelete?.(item as IHardwareHomeScreenDataWithId);
+              onDelete?.(item);
             }}
             exitStyle={
               platformEnv.isNativeAndroid
@@ -256,7 +249,7 @@ function HomeScreenImageItem({
                   }
             }
           >
-            <Icon size="$5" name="DeleteSolid" color="$iconCritical" />
+            <Icon size="$6" name="XCircleSolid" color="$icon" />
           </Stack>
         ) : null}
       </AnimatePresence>
@@ -283,7 +276,7 @@ function WallpaperCategorySection({
   imageLayout?: { width: number; height: number };
   onImageLayout?: (params: { width: number; height: number }) => void;
   onUpload?: () => void;
-  onDelete?: (item: IHardwareHomeScreenDataWithId) => void;
+  onDelete?: (item: IHardwareHomeScreenData) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -335,10 +328,10 @@ function WallpaperCategorySection({
 
         {displayData.map((item, index) => (
           <HomeScreenImageItem
-            key={`${item.name}-${index}`}
+            key={`${item.id}-${index}`}
             aspectRatioInfo={aspectRatioInfo}
             isLoading={isLoading}
-            isSelected={selectedItem?.name === item.name}
+            isSelected={selectedItem?.id === item.id}
             item={item}
             onItemSelected={onItemSelected}
             onImageLayout={
@@ -366,10 +359,7 @@ function WallpaperCustomCategorySection({
   device: IDBDevice;
   config: IDeviceHomeScreenConfig | undefined;
   canUpload: boolean;
-  selectedItem:
-    | IHardwareHomeScreenData
-    | IHardwareHomeScreenDataWithId
-    | undefined;
+  selectedItem: IHardwareHomeScreenData | undefined;
   onItemSelected: (item: IHardwareHomeScreenData | undefined) => void;
   isLoading: boolean;
   aspectRatioInfo: IAspectRatioInfo;
@@ -377,7 +367,7 @@ function WallpaperCustomCategorySection({
   onImageLayout?: (params: { width: number; height: number }) => void;
 }) {
   const { result: deviceHomeScreens, run: runGetDeviceHomeScreens } =
-    usePromiseResult<IHardwareHomeScreenDataWithId[]>(async () => {
+    usePromiseResult<IHardwareHomeScreenData[]>(async () => {
       const data = await backgroundApiProxy.serviceHardware.getDeviceHomeScreen(
         {
           deviceId: device.id,
@@ -388,10 +378,10 @@ function WallpaperCustomCategorySection({
           id: item.id,
           uri: imageUtils.prefixBase64Uri(item.imgBase64, 'image/jpeg'), // base64 data uri
           hex: Buffer.from(item.imgBase64, 'base64').toString('hex'),
-          thumbnailHex: Buffer.from(item.imgThumbBase64, 'base64').toString(
-            'hex',
-          ),
-          name: item.name as IHardwareHomeScreenName,
+          thumbnailHex: item.imgThumbBase64
+            ? Buffer.from(item.imgThumbBase64, 'base64').toString('hex')
+            : undefined,
+
           isUserUpload: true,
         })) ?? []
       );
@@ -429,24 +419,27 @@ function WallpaperCustomCategorySection({
       originH,
       isMonochrome,
     });
-    const imgThumb = await imageUtils.resizeImage({
-      uri: imgBase64,
 
-      width: config.thumbnailSize?.width ?? config.size?.width,
-      height: config.thumbnailSize?.height ?? config.size?.height,
+    let imgThumb: IResizeImageResult | undefined;
+    if (config.thumbnailSize) {
+      imgThumb = await imageUtils.resizeImage({
+        uri: imgBase64,
 
-      originW,
-      originH,
-      isMonochrome,
-    });
+        width: config.thumbnailSize?.width ?? config.size?.width,
+        height: config.thumbnailSize?.height ?? config.size?.height,
 
-    const name =
-      `${USER_UPLOAD_IMG_NAME_PREFIX}${generateUUID()}` as IHardwareHomeScreenName;
+        originW,
+        originH,
+        isMonochrome,
+      });
+    }
+
+    const name = `${USER_UPLOAD_IMG_NAME_PREFIX}${generateUUID()}`;
     const uploadItem: IHardwareHomeScreenData = {
       uri: imageUtils.prefixBase64Uri(img?.base64 || imgBase64, 'image/jpeg'), // base64 data uri
       hex: img?.hex,
       thumbnailHex: imgThumb?.hex,
-      name,
+      id: name,
       isUserUpload: true,
     };
 
@@ -476,7 +469,7 @@ function WallpaperCustomCategorySection({
   };
 
   const onDelete = useCallback(
-    async (item: IHardwareHomeScreenDataWithId) => {
+    async (item: IHardwareHomeScreenData) => {
       if (selectedItem && 'id' in selectedItem && selectedItem.id === item.id) {
         onItemSelected(undefined);
       }
@@ -510,7 +503,7 @@ export default function HardwareHomeScreenModal({
 >) {
   const { device } = route.params;
   const [selectedItem, setSelectedItem] = useState<
-    IHardwareHomeScreenData | IHardwareHomeScreenDataWithId | undefined
+    IHardwareHomeScreenData | undefined
   >();
   const [isLoading, setIsLoading] = useState(false);
   const [resizedImagePreview, _setResizedImagePreview] = useState<{
@@ -607,48 +600,6 @@ export default function HardwareHomeScreenModal({
     return categories;
   }, [result?.dataList]);
 
-  const buildItemCustomHex = useCallback(
-    async (item: IHardwareHomeScreenData) => {
-      let customHex = '';
-      if (deviceHomeScreenUtils.isMonochromeScreen(device.deviceType)) {
-        const imgUri =
-          (await imageUtils.getBase64FromRequiredImageSource(
-            item?.source,
-            (...args) => {
-              defaultLogger.hardware.homescreen.getBase64FromRequiredImageSource(
-                ...args,
-              );
-            },
-          )) ||
-          item?.uri ||
-          '';
-        console.log('imgUri >>>>>>>>>>>>>>>>>++++++++>>> ', imgUri, item);
-        if (!imgUri) {
-          throw new OneKeyLocalError('Error imgUri not defined');
-        }
-        customHex = await deviceHomeScreenUtils.imagePathToHex(
-          imgUri,
-          device.deviceType,
-        );
-      }
-      return customHex;
-    },
-    [device.deviceType],
-  );
-
-  const printAllItemsCustomHex = useCallback(async () => {
-    const data = await Promise.all(
-      (result?.dataList || []).map(async (item) => ({
-        name: item.name,
-        customHex: await buildItemCustomHex(item),
-        // hex: item.hex,
-      })),
-    );
-    console.log('printAllItemsCustomHex', data);
-    console.log('printAllItemsCustomHex string', JSON.stringify(data));
-    return data;
-  }, [result?.dataList, buildItemCustomHex]);
-
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header title="HomeScreen" />
@@ -696,9 +647,6 @@ export default function HardwareHomeScreenModal({
               }}
             />
           ) : null}
-          {platformEnv.isDev ? (
-            <Button onPress={printAllItemsCustomHex}>AllHex</Button>
-          ) : null}
         </YStack>
       </Page.Body>
       <Page.Footer
@@ -714,40 +662,10 @@ export default function HardwareHomeScreenModal({
             }
             setIsLoading(true);
 
-            let buildCustomHexError: string | undefined = '';
-            let customHex = '';
-            try {
-              customHex = await buildItemCustomHex(selectedItem);
-            } catch (error) {
-              buildCustomHexError = (error as Error | undefined)?.message;
-            }
-            const customHexPreDefined =
-              hardwareHomeScreenData.classicMiniHomeScreenCustomHex.find(
-                (item) => item.name === selectedItem.name,
-              )?.customHex;
-
-            const imgHex =
-              customHex || customHexPreDefined || selectedItem.hex || '';
-
-            defaultLogger.hardware.homescreen.setHomeScreen({
-              buildCustomHexError,
-              deviceId: device?.id,
-              deviceType: device.deviceType,
-              deviceName: device.name,
-              imgName: selectedItem.name,
-              imgHex,
-              customHex,
-              customHexPreDefined,
-              selectedItemHex: selectedItem.hex,
-              isUserUpload: selectedItem.isUserUpload,
-            });
-
             await backgroundApiProxy.serviceHardware.setDeviceHomeScreen({
               dbDeviceId: device?.id,
-              imgName: selectedItem.name,
-              imgHex,
-              thumbnailHex: selectedItem.thumbnailHex || '',
-              isUserUpload: selectedItem.isUserUpload,
+              deviceType: device.deviceType,
+              screenItem: selectedItem,
             });
             // setSelectedItem(undefined);
             Toast.success({

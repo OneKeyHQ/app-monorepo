@@ -11,7 +11,7 @@ class RealmSchemaHardwareHomeScreen extends RealmObjectBase<IDBHardwareHomeScree
 
   public imgBase64!: string;
 
-  public imgThumbBase64!: string;
+  public imgThumbBase64?: string;
 
   public name!: string;
 
@@ -24,7 +24,7 @@ class RealmSchemaHardwareHomeScreen extends RealmObjectBase<IDBHardwareHomeScree
       id: 'string',
       deviceId: 'string',
       imgBase64: 'string',
-      imgThumbBase64: 'string',
+      imgThumbBase64: { type: 'string', optional: true },
       name: 'string',
       createdAt: { type: 'int', indexed: true },
     },

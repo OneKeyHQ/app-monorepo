@@ -1,14 +1,13 @@
 import { ResourceType, type Success } from '@onekeyfe/hd-transport';
 import { isNil } from 'lodash';
 
-import type { IHardwareHomeScreenName } from '@onekeyhq/kit/src/views/AccountManagerStacks/pages/HardwareHomeScreen/hardwareHomeScreenData';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   FirmwareVersionTooLow,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
@@ -23,6 +22,7 @@ import type {
 import type {
   DeviceSettingsParams,
   DeviceUploadResourceParams,
+  IDeviceType,
 } from '@onekeyfe/hd-core';
 
 export type ISetInputPinOnSoftwareParams = {
@@ -40,13 +40,26 @@ export type ISetPassphraseEnabledParams = {
 export type IGetDeviceAdvanceSettingsParams = { walletId: string };
 export type IGetDeviceLabelParams = { walletId: string };
 export type ISetDeviceLabelParams = { walletId: string; label: string };
-export type ISetDeviceHomeScreenParams = {
-  // TODO use IHardwareHomeScreenData
-  dbDeviceId: string;
-  imgName: IHardwareHomeScreenName;
-  imgHex: string;
-  thumbnailHex: string;
+
+export type IHardwareHomeScreenData = {
+  id: string;
   isUserUpload?: boolean;
+
+  // user upload
+  uri?: string; // image base64 by upload & crop
+
+  // service image
+  url?: string; // image url by upload & crop
+
+  hex?: string; // image hex by resize
+  thumbnailHex?: string; // Pro、Touch：thumb image hex by resize
+  wallpaperType?: 'default' | 'cobranding';
+};
+
+export type ISetDeviceHomeScreenParams = {
+  dbDeviceId: string;
+  deviceType: IDeviceType;
+  screenItem: IHardwareHomeScreenData;
 };
 export type IDeviceHomeScreenSizeInfo = {
   width: number;
@@ -171,20 +184,51 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
   async setDeviceHomeScreen({
     dbDeviceId,
-    imgHex,
-    thumbnailHex,
-    isUserUpload,
-    imgName,
+    screenItem,
+    deviceType,
   }: ISetDeviceHomeScreenParams) {
     const device = await localDb.getDevice(dbDeviceId);
+
+    const { hex, thumbnailHex, isUserUpload } = screenItem;
+
+    let buildCustomHexError: string | undefined = '';
+    let customHex = '';
+    try {
+      customHex = await deviceHomeScreenUtils.buildCustomScreenHex(
+        screenItem.url,
+        deviceType,
+      );
+    } catch (error) {
+      buildCustomHexError = (error as Error | undefined)?.message;
+    }
+
+    const imgHex = hex || customHex || '';
+
+    defaultLogger.hardware.homescreen.setHomeScreen({
+      buildCustomHexError,
+      deviceId: device?.id,
+      deviceType: device.deviceType,
+      deviceName: device.name,
+      imgName: screenItem.id,
+      imgHex,
+      customHex,
+      selectedItemHex: hex,
+      isUserUpload,
+    });
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
         const isMonochrome = deviceHomeScreenUtils.isMonochromeScreen(
           device.deviceType,
         );
-        // pro touch upload image
+        // pro touch custom upload wallpaper
         if (isUserUpload && !isMonochrome) {
+          if (!thumbnailHex) {
+            throw new OneKeyLocalError(
+              'Upload screen item error: thumbnailHex not defined',
+            );
+          }
+
           const hardwareSDK = await this.getSDKInstance();
           const uploadResParams: DeviceUploadResourceParams = {
             resType: ResourceType.WallPaper,
@@ -206,18 +250,11 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             ),
           );
         } else {
-          const { getHomeScreenHex } = await CoreSDKLoader();
-          const deviceType = device.deviceType;
-          const internalHex = getHomeScreenHex(deviceType, imgName);
-          // eslint-disable-next-line no-param-reassign
-          imgHex = imgHex || internalHex;
-          if (imgName === 'blank') {
-            // eslint-disable-next-line no-param-reassign
-            imgHex = '';
-          }
+          // Pro、Touch: built-in wallpaper
+          // Classic、mini、1s、pure: custom upload and built-in wallpaper
           if (!imgHex) {
             // empty string will clear the home screen(classic,mini)
-            // throw new OneKeyLocalError('Invalid home screen hex');
+            throw new OneKeyLocalError('Invalid home screen hex');
           }
           await this.applySettingsToDevice(device.connectId, {
             homescreen: imgHex,

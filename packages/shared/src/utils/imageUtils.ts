@@ -122,6 +122,14 @@ function convertToBlackAndWhiteImageBase64(
   });
 }
 
+export type IResizeImageResult = {
+  hex: string;
+  uri: string;
+  width: number;
+  height: number;
+  base64?: string;
+};
+
 async function resizeImage(params: {
   uri: string;
   width: number;
@@ -129,9 +137,9 @@ async function resizeImage(params: {
   originW: number;
   originH: number;
   isMonochrome?: boolean;
-}) {
+}): Promise<IResizeImageResult> {
   const { uri, width, height, isMonochrome } = params;
-  if (!uri) return;
+  if (!uri) return { hex: '', uri: '', width: 0, height: 0 };
   const actions: ExpoImageManipulatorAction[] = [
     // resize first
     {

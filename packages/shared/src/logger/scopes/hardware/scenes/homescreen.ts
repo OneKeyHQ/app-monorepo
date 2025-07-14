@@ -13,8 +13,7 @@ export class HardwareHomeScreenScene extends BaseScene {
     deviceName: string;
     imgName: string;
     imgHex: string;
-    customHex: string | undefined;
-    customHexPreDefined: string | undefined;
+    customHex: string;
     selectedItemHex: string | undefined;
     buildCustomHexError: string | undefined;
     isUserUpload: boolean | undefined;
@@ -36,7 +35,6 @@ export class HardwareHomeScreenScene extends BaseScene {
       isUserUpload,
       imgHex: params.imgHex?.slice(0, 10),
       customHex: params.customHex?.slice(0, 10),
-      customHexPreDefined: params.customHexPreDefined?.slice(0, 10),
       selectedItemHex: params.selectedItemHex?.slice(0, 10),
     };
   }
