@@ -1467,6 +1467,24 @@ function SendDataInputContainer() {
     [],
   );
 
+  const handleAddressInputExtraDataChange = useCallback(
+    ({
+      memo: memoFromAddressBook,
+      note: noteFromAddressBook,
+    }: {
+      memo?: string;
+      note?: string;
+    }) => {
+      if (memoFromAddressBook) {
+        form.setValue('memo', memoFromAddressBook);
+      }
+      if (noteFromAddressBook) {
+        form.setValue('note', noteFromAddressBook);
+      }
+    },
+    [form],
+  );
+
   const enableAllowListValidation = useMemo(
     () => !networkUtils.isLightningNetworkByNetworkId(networkId),
     [networkId],
@@ -1597,6 +1615,7 @@ function SendDataInputContainer() {
               )}
               accountSelector={addressInputAccountSelectorArgs}
               onInputTypeChange={handleAddressInputChangeType}
+              onExtraDataChange={handleAddressInputExtraDataChange}
               hideNonBackedUpWallet
             />
             {shouldShowRecentRecipients ? (
