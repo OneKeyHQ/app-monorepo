@@ -7432,6 +7432,7 @@ __metadata:
     "@types/react": "npm:^19.0.0"
     "@types/react-beautiful-dnd": "npm:13.1.8"
     "@types/react-dom": "npm:~19.0.0"
+    "@types/react-virtualized": "npm:^9"
     "@types/text-encoding": "npm:^0"
     "@types/validator": "npm:^13"
     "@types/w3c-web-usb": "npm:^1.0.10"
@@ -7535,6 +7536,7 @@ __metadata:
     react-refresh: "npm:^0.14.0"
     react-render-tracker: "npm:^0.7.6"
     react-router-dom: "npm:^7.1.1"
+    react-virtualized: "npm:^9.22.6"
     rimraf: "npm:^5.0.5"
     rlp: "npm:^3.0.0"
     semver: "npm:7.5.4"
@@ -15371,6 +15373,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/react-virtualized@npm:^9":
+  version: 9.22.2
+  resolution: "@types/react-virtualized@npm:9.22.2"
+  dependencies:
+    "@types/prop-types": "npm:*"
+    "@types/react": "npm:*"
+  checksum: 10/3a95451cbedcf25da9db627239b7a61167c2fa44ec4bb19a8c5dce2560a207f5fb6a80fd2e44dda539fbe8f5ae67fe8a1b5094e901166f3ebfa85d79b98bb1fe
+  languageName: node
+  linkType: hard
+
 "@types/react@npm:*, @types/react@npm:16 || 17 || 18":
   version: 18.2.45
   resolution: "@types/react@npm:18.2.45"
@@ -20536,7 +20548,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"clsx@npm:^1.2.1":
+"clsx@npm:^1.0.4, clsx@npm:^1.2.1":
   version: 1.2.1
   resolution: "clsx@npm:1.2.1"
   checksum: 10/5ded6f61f15f1fa0350e691ccec43a28b12fb8e64c8e94715f2a937bc3722d4c3ed41d6e945c971fc4dcc2a7213a43323beaf2e1c28654af63ba70c9968a8643
@@ -22441,6 +22453,16 @@ __metadata:
   dependencies:
     utila: "npm:~0.4"
   checksum: 10/71b22f56bce6255a963694a72860a99f08763cf500f02ff38ce4c7489f95b07e7a0069f10b04c7d200e21375474abe01232833ca1600f104bdee7173e493a5b9
+  languageName: node
+  linkType: hard
+
+"dom-helpers@npm:^5.1.3":
+  version: 5.2.1
+  resolution: "dom-helpers@npm:5.2.1"
+  dependencies:
+    "@babel/runtime": "npm:^7.8.7"
+    csstype: "npm:^3.0.2"
+  checksum: 10/bed2341adf8864bf932b3289c24f35fdd99930af77df46688abf2d753ff291df49a15850c874d686d9be6ec4e1c6835673906e64dbd8b2839d227f117a11fd41
   languageName: node
   linkType: hard
 
@@ -35214,6 +35236,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-lifecycles-compat@npm:^3.0.4":
+  version: 3.0.4
+  resolution: "react-lifecycles-compat@npm:3.0.4"
+  checksum: 10/c66b9c98c15cd6b0d0a4402df5f665e8cc7562fb7033c34508865bea51fd7b623f7139b5b7e708515d3cd665f264a6a9403e1fa7e6d61a05759066f5e9f07783
+  languageName: node
+  linkType: hard
+
 "react-mobile-cropper@npm:^0.10.0":
   version: 0.10.0
   resolution: "react-mobile-cropper@npm:0.10.0"
@@ -36293,6 +36322,23 @@ __metadata:
   peerDependencies:
     react: ^19.0.0
   checksum: 10/b95a90331e1dedeff2bbdcdc57b9cd1cd8d7cd620f9b29a4efd31a961c8e5b660fe55129ffc72f2bbf0c21fec34e6a498b9f07b6c65c22bf10ae87b68e124f91
+  languageName: node
+  linkType: hard
+
+"react-virtualized@npm:^9.22.6":
+  version: 9.22.6
+  resolution: "react-virtualized@npm:9.22.6"
+  dependencies:
+    "@babel/runtime": "npm:^7.7.2"
+    clsx: "npm:^1.0.4"
+    dom-helpers: "npm:^5.1.3"
+    loose-envify: "npm:^1.4.0"
+    prop-types: "npm:^15.7.2"
+    react-lifecycles-compat: "npm:^3.0.4"
+  peerDependencies:
+    react: ^16.3.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+    react-dom: ^16.3.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+  checksum: 10/57c24aa6226e628d970dd57b5d20693aec1ebc456c33667833779d26b82addbcbf03b65d874ad25154fb65a070a6a52d3dbdc699932442f1862246ee5d7e328c
   languageName: node
   linkType: hard
 
