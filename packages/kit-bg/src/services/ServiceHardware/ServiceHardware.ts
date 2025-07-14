@@ -1526,10 +1526,30 @@ class ServiceHardware extends ServiceBase {
       features,
     });
 
-    if (platformEnv.isDesktop && !skipTransportDetection) {
-      const result = await this.connectionManager.shouldSwitchTransportType();
-      const optimalTransportType = result.targetType;
-      if (optimalTransportType === EHardwareTransportType.DesktopWebBle) {
+    if (platformEnv.isDesktop) {
+      // Determine the transport type to use
+      let targetTransportType: EHardwareTransportType;
+
+      if (skipTransportDetection) {
+        // Skip detection and use current transport type
+        const currentTransportType =
+          this.connectionManager.getCurrentTransportType();
+        if (!currentTransportType) {
+          // Fallback to detection if current transport type is null
+          const result =
+            await this.connectionManager.shouldSwitchTransportType();
+          targetTransportType = result.targetType;
+        } else {
+          targetTransportType = currentTransportType;
+        }
+      } else {
+        // Perform transport type detection
+        const result = await this.connectionManager.shouldSwitchTransportType();
+        targetTransportType = result.targetType;
+      }
+
+      // Handle connection logic based on transport type
+      if (targetTransportType === EHardwareTransportType.DesktopWebBle) {
         if (device?.bleConnectId) {
           // Device found in DB and has BLE connectId, use it
           return device.bleConnectId;
@@ -1557,26 +1577,7 @@ class ServiceHardware extends ServiceBase {
 
           return bleConnectId;
         }
-      } else if (optimalTransportType === EHardwareTransportType.Bridge) {
-        // For Bridge transport, always use the original USB connectId
-        // Don't use BLE connectId even if it exists in DB
-        console.log(
-          `🔗 CONNECT ID: Bridge transport, using USB connectId: ${connectId}`,
-        );
-        return connectId;
-      }
-    } else if (platformEnv.isDesktop && skipTransportDetection) {
-      // When skipping transport detection, use fallback logic for desktop
-      const currentTransportType =
-        this.connectionManager.getCurrentTransportType();
-
-      if (
-        currentTransportType === EHardwareTransportType.DesktopWebBle &&
-        device?.bleConnectId
-      ) {
-        return device.bleConnectId;
-      }
-      if (currentTransportType === EHardwareTransportType.Bridge) {
+      } else if (targetTransportType === EHardwareTransportType.Bridge) {
         return connectId;
       }
     }
