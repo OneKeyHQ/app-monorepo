@@ -283,13 +283,7 @@ export function SearchResultContent({
         return { type: 'exactUrl' };
       }
     } catch (error) {
-      console.error(
-        new OneKeyLocalError(
-          `SearchResultContent.openSelectedItem failed: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        ),
-      );
+      console.error('SearchResultContent.openSelectedItem failed:', error);
     }
 
     if (
