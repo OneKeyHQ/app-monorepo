@@ -3013,6 +3013,7 @@
   "wallet.subsidy_label": "เงินสนับสนุน",
   "wallet.subsidy_redeem_title": "เครดิต/แลกใช้",
   "wallet.subsidy_remaining": "เหลือ {remaining} / {total}",
+  "wallet.trx_free_credit": "เครดิต",
   "wallet.unsupported_network_desc": "เปลี่ยนเครือข่ายที่มุมบนซ้ายหรือใช้บัญชีที่ได้รับการสนับสนุน",
   "wallet.unsupported_network_desc_alt": "เปลี่ยนเครือข่ายในหน้าก่อนหน้าหรือใช้บัญชีที่ได้รับการสนับสนุน",
   "wallet.unsupported_network_title": "บัญชีนี้ไม่รองรับ {network}",

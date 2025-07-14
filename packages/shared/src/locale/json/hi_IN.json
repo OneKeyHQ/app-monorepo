@@ -3013,6 +3013,7 @@
   "wallet.subsidy_label": "सब्सिडी",
   "wallet.subsidy_redeem_title": "क्रेडिट/रिडीम",
   "wallet.subsidy_remaining": "शेष {remaining} / {total}",
+  "wallet.trx_free_credit": "क्रेडिट",
   "wallet.unsupported_network_desc": "ऊपर बाएं में नेटवर्क बदलें या समर्थित खाता का उपयोग करें",
   "wallet.unsupported_network_desc_alt": "पिछले पृष्ठ पर नेटवर्क बदलें या समर्थित खाता का उपयोग करें",
   "wallet.unsupported_network_title": "यह खाता {network} का समर्थन नहीं करता है",

@@ -3018,6 +3018,7 @@
   wallet_subsidy_label = 'wallet.subsidy_label',
   wallet_subsidy_redeem_title = 'wallet.subsidy_redeem_title',
   wallet_subsidy_remaining = 'wallet.subsidy_remaining',
+  wallet_trx_free_credit = 'wallet.trx_free_credit',
   wallet_unsupported_network_desc = 'wallet.unsupported_network_desc',
   wallet_unsupported_network_desc_alt = 'wallet.unsupported_network_desc_alt',
   wallet_unsupported_network_title = 'wallet.unsupported_network_title',
