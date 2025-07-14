@@ -1,5 +1,3 @@
-import type { FC } from 'react';
-
 import { Pressable } from 'react-native';
 
 import { Stack } from '../../primitives';
@@ -29,14 +27,15 @@ const toggleMaxWindow = () => {
   }
 };
 
-export const DesktopDragZoneBox: FC<IDesktopDragZoneBoxProps> = ({
+export function DesktopDragZoneBox({
   children,
   style,
   disabled,
   renderAs = 'Pressable',
   ...rest
-}) => {
+}: IDesktopDragZoneBoxProps) {
   const Component = renderAs === 'Pressable' ? Pressable : Stack;
+
   return (
     <Component
       {...rest}
@@ -55,7 +54,7 @@ export const DesktopDragZoneBox: FC<IDesktopDragZoneBoxProps> = ({
       {children}
     </Component>
   );
-};
+}
 
 export function DesktopDragZoneAbsoluteBar({
   w = '100%',
