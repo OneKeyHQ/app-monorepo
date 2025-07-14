@@ -102,7 +102,7 @@
     "react-native-fs": "npm:@dr.pogodin/react-native-fs@2.34.0",
     "react-native-gesture-handler": "2.27.1",
     "react-native-get-random-values": "1.9.0",
-    "react-native-image-colors": "^2.4.0",
+    "react-native-image-colors": "^2.5.0",
     "react-native-image-crop-picker": "0.50.0",
     "react-native-keyboard-controller": "1.17.5",
     "react-native-level-fs": "3.0.1",
