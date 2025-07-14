@@ -3013,6 +3013,7 @@
   "wallet.subsidy_label": "Субсидия",
   "wallet.subsidy_redeem_title": "Кредит/Погасить",
   "wallet.subsidy_remaining": "Осталось {remaining} из {total}",
+  "wallet.trx_free_credit": "Кредит",
   "wallet.unsupported_network_desc": "Переключайте сети в верхнем левом углу или используйте поддерживаемую учетную запись",
   "wallet.unsupported_network_desc_alt": "Переключитесь на другую сеть на предыдущей странице или используйте поддерживаемую учетную запись",
   "wallet.unsupported_network_title": "Этот аккаунт не поддерживает {network}",
