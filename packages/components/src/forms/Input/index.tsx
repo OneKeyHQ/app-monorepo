@@ -402,13 +402,8 @@ function BaseInput(
           https://github.com/facebook/react-native/issues/28012
         */
           h={height}
-          py={platformEnv.isNativeAndroid ? 0 : sharedStyles.py}
-          my={platformEnv.isNativeAndroid ? sharedStyles.py : undefined}
-          mt={
-            platformEnv.isNativeAndroid
-              ? Number(getToken(sharedStyles.py as Token, 'size')) + 6
-              : undefined
-          }
+          py={sharedStyles.py}
+          mt={platformEnv.isNativeAndroid ? 6 : undefined}
           pr={sharedStyles.px}
           pl={leftIconName ? paddingLeftWithIcon : sharedStyles.px}
           fontSize={
