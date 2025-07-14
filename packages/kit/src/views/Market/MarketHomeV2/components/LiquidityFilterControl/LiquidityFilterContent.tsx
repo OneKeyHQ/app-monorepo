@@ -50,9 +50,9 @@ function LiquidityFilterContent({
       if (minNum > maxNum) {
         return intl.formatMessage(
           {
-            id: ETranslations.send_field_too_small,
+            id: ETranslations.form_must_greater_then_value,
           },
-          { 0: maxValue.trim() },
+          { value: minValue.trim() },
         );
       }
     } catch {
