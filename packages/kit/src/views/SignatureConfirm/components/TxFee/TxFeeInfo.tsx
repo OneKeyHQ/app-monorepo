@@ -16,7 +16,10 @@ import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
-import { tronTokenAddress } from '@onekeyhq/core/src/chains/tron/constants';
+import {
+  tronTokenAddressMainnet,
+  tronTokenAddressTestnet,
+} from '@onekeyhq/core/src/chains/tron/constants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -296,7 +299,9 @@ function TxFeeInfo(props: IProps) {
               tokenPrices,
             } = r.feeTron[0];
 
-            const tokenAddress = tronTokenAddress[info.payCoinCode];
+            const tokenAddress = network?.isTestnet
+              ? tronTokenAddressTestnet[info.payCoinCode]
+              : tronTokenAddressMainnet[info.payCoinCode];
 
             updateTronResourceRentalInfo({
               isResourceRentalNeeded: true,
@@ -382,6 +387,7 @@ function TxFeeInfo(props: IProps) {
       isMultiTxs,
       isSecondApproveTxWithFeeInfo,
       isSingleTxWithFeesInfo,
+      network?.isTestnet,
       networkId,
       unsignedTxs,
       updatePayWithTokenInfo,
