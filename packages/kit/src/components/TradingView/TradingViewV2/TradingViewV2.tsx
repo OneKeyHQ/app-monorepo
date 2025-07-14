@@ -64,7 +64,6 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
 
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
-      console.log('customReceiveHandler', data);
       // {
       //     "scope": "$private",
       //     "method": "tradingview_getKLineData",
