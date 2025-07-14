@@ -11,7 +11,6 @@ import {
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { HARDWARE_SDK_VERSION } from '@onekeyhq/shared/src/config/appConfig';
 import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
-import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
@@ -58,6 +57,7 @@ import {
 import ServiceBase from '../ServiceBase';
 
 import { DeviceSettingsManager } from './DeviceSettingsManager';
+import { HardwareConnectionManager } from './HardwareConnectionManager';
 import { HardwareVerifyManager } from './HardwareVerifyManager';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
@@ -209,6 +209,10 @@ class ServiceHardware extends ServiceBase {
     backgroundApi: this.backgroundApi,
   });
 
+  connectionManager: HardwareConnectionManager = new HardwareConnectionManager({
+    backgroundApi: this.backgroundApi,
+  });
+
   private registeredEvents = false;
 
   checkSdkVersionValid() {
@@ -253,8 +257,30 @@ class ServiceHardware extends ServiceBase {
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'showDeviceDebugLogs',
       );
-    const hardwareTransportType =
-      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+
+    // Check if we should switch transport type based on optimal connection strategy
+    const { shouldSwitch, targetType } =
+      await this.connectionManager.shouldSwitchTransportType();
+
+    const hardwareTransportType = targetType;
+
+    // If transport type needs to be switched, update it
+    if (shouldSwitch) {
+      const currentType = this.connectionManager.getCurrentTransportType();
+      console.log(
+        `🔄 TRANSPORT SWITCH: ${currentType ?? 'null'} → ${targetType}`,
+      );
+
+      // Reset SDK instance to use new transport type
+      await resetHardwareSDKInstance();
+      this.registeredEvents = false;
+
+      console.log('✅ TRANSPORT SWITCH: SDK reset completed');
+    }
+
+    // Update the connection manager's current transport type AFTER switch logic
+    this.connectionManager.setCurrentTransportType(hardwareTransportType);
+
     try {
       const instance = await getHardwareSDKInstance({
         hardwareTransportType,
@@ -264,13 +290,33 @@ class ServiceHardware extends ServiceBase {
         hardwareConnectSrc,
         debugMode,
       });
+
       // TODO re-register events when hardwareConnectSrc or isPreRelease changed
       await this.checkBridgeAndFallbackToWebUSB({
         hardwareSDKInstance: instance,
       });
       await this.registerSdkEvents(instance);
+
       return instance;
     } catch (error) {
+      // If USB connection fails, attempt fallback to Bluetooth for desktop
+      if (
+        platformEnv.isDesktop &&
+        hardwareTransportType === EHardwareTransportType.Bridge
+      ) {
+        console.log('🔄 FALLBACK: Bridge failed, switching to Bluetooth');
+
+        try {
+          const fallbackInstance = await this.getSDKInstanceWithType(
+            EHardwareTransportType.DesktopWebBle,
+          );
+          console.log('✅ FALLBACK: Bluetooth connection successful');
+          return fallbackInstance;
+        } catch (fallbackError) {
+          console.log('❌ FALLBACK: Bluetooth also failed', fallbackError);
+        }
+      }
+
       // always show error toast when sdk init, so user can report to us
       void this.backgroundApi.serviceApp.showToast({
         method: 'error',
@@ -278,6 +324,34 @@ class ServiceHardware extends ServiceBase {
       });
       throw error;
     }
+  }
+
+  private async getSDKInstanceWithType(transportType: EHardwareTransportType) {
+    const { hardwareConnectSrc } = await settingsPersistAtom.get();
+    const isPreRelease =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'usePreReleaseConfig',
+      );
+    const debugMode =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'showDeviceDebugLogs',
+      );
+
+    const instance = await getHardwareSDKInstance({
+      hardwareTransportType: transportType,
+      isPreRelease: isPreRelease === true,
+      hardwareConnectSrc,
+      debugMode,
+    });
+
+    await this.checkBridgeAndFallbackToWebUSB({
+      hardwareSDKInstance: instance,
+    });
+    await this.registerSdkEvents(instance);
+
+    this.connectionManager.setCurrentTransportType(transportType);
+
+    return instance;
   }
 
   private async specialProcessingEvent({
@@ -1407,6 +1481,11 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getCurrentTransportType(): Promise<EHardwareTransportType | null> {
+    return this.connectionManager.getCurrentTransportType();
+  }
+
+  @backgroundMethod()
   async getCompatibleConnectId({
     connectId,
     featuresDeviceId,
@@ -1428,19 +1507,34 @@ class ServiceHardware extends ServiceBase {
     });
 
     if (platformEnv.isDesktop) {
-      const transportType =
-        await this.backgroundApi.serviceSetting.getHardwareTransportType();
+      // Get the optimal transport type to ensure we return the correct connectId
+      // This uses memoizee cache (500ms) to avoid repeated USB detection calls
+      console.log('🔍 CONNECT ID: Checking optimal transport type');
+      const { targetType: optimalTransportType } =
+        await this.connectionManager.shouldSwitchTransportType();
+      console.log(
+        `🔍 CONNECT ID: Optimal transport type: ${optimalTransportType}`,
+      );
 
-      if (transportType === EHardwareTransportType.DesktopWebBle) {
+      if (optimalTransportType === EHardwareTransportType.DesktopWebBle) {
         if (device?.bleConnectId) {
           // Device found in DB and has BLE connectId, use it
+          console.log(
+            `🔗 CONNECT ID: Using BLE connectId: ${device.bleConnectId}`,
+          );
           return device.bleConnectId;
         }
         if (!device) {
+          console.log(
+            `🔗 CONNECT ID: No device in DB, using original: ${connectId}`,
+          );
           return connectId;
         }
         if (device && !device.bleConnectId) {
           // Use servicePromise to wait for UI dialog to complete BLE pairing
+          console.log(
+            `🔗 CONNECT ID: Device found but no BLE connectId, prompting for pairing`,
+          );
           const bleConnectId = await new Promise<string>((resolve, reject) => {
             const promiseId = this.backgroundApi.servicePromise.createCallback({
               resolve,
@@ -1459,6 +1553,13 @@ class ServiceHardware extends ServiceBase {
 
           return bleConnectId;
         }
+      } else if (optimalTransportType === EHardwareTransportType.Bridge) {
+        // For Bridge transport, always use the original USB connectId
+        // Don't use BLE connectId even if it exists in DB
+        console.log(
+          `🔗 CONNECT ID: Bridge transport, using USB connectId: ${connectId}`,
+        );
+        return connectId;
       }
     }
 
