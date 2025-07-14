@@ -12,7 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPageType, usePageType } from '../../../hocs';
 import { Stack, XStack } from '../../../primitives';
 import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
-import { rootNavigationRef } from '../Navigator';
+import { rootNavigationRef } from '../Navigator/NavigationContainer';
 
 import HeaderBackButton from './HeaderBackButton';
 import HeaderSearchBar from './HeaderSearchBar';

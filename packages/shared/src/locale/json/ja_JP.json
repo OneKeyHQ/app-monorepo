@@ -3013,6 +3013,7 @@
   "wallet.subsidy_label": "補助金",
   "wallet.subsidy_redeem_title": "クレジット／引き換え",
   "wallet.subsidy_remaining": "残り {remaining} / {total}",
+  "wallet.trx_free_credit": "クレジット",
   "wallet.unsupported_network_desc": "左上でネットワークを切り替えるか、対応するアカウントを使用してください",
   "wallet.unsupported_network_desc_alt": "前のページでネットワークを切り替えるか、対応するアカウントを使用してください",
   "wallet.unsupported_network_title": "このアカウントは{network}をサポートしていません",
