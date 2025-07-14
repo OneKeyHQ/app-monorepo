@@ -5,12 +5,10 @@ import { useCalendars } from 'expo-localization';
 import { Stack, useOrientation } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import { TRADING_VIEW_URL } from '@onekeyhq/shared/src/config/appConfig';
-import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
 import WebView from '../../WebView';
-import { tradingViewLocaleMap } from '../utils/tradingViewLocaleMap';
 import { getTradingViewTimezone } from '../utils/tradingViewTimezone';
 
 import { useAutoKLineUpdate } from './useAutoKLineUpdate';
@@ -53,7 +51,6 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     networkId = '',
   } = props;
 
-  // Add timezone and locale to the tradingViewUrl
   const tradingViewUrlWithParams = useMemo(() => {
     const timezone = getTradingViewTimezone(calendars);
     const locale = systemLocale;
@@ -61,6 +58,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     const url = new URL(tradingViewUrl);
     url.searchParams.set('timezone', timezone);
     url.searchParams.set('locale', locale);
+    url.searchParams.set('platform', platformEnv.appPlatform ?? 'web');
     return url.toString();
   }, [tradingViewUrl, calendars, systemLocale]);
 

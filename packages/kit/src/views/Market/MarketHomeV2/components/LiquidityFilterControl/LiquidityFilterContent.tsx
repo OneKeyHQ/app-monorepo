@@ -13,7 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { parseValueToNumber } from '../../utils';
+import { parseValueToNumber, formatNumberToKM } from '../../utils';
 
 type ILiquidityFilterContentProps = {
   value?: { min?: string; max?: string };
@@ -83,7 +83,32 @@ function LiquidityFilterContent({
     if (validationError) {
       return;
     }
-    onApply?.({ min: minValue, max: maxValue });
+
+    // Convert minValue and maxValue to k/m units if they are numeric
+    let convertedMin = minValue;
+    let convertedMax = maxValue;
+
+    if (minValue?.trim()) {
+      try {
+        const minNum = parseValueToNumber(minValue.trim());
+        convertedMin = formatNumberToKM(minNum);
+      } catch (error) {
+        // Keep original value if parsing fails
+        convertedMin = minValue;
+      }
+    }
+
+    if (maxValue?.trim()) {
+      try {
+        const maxNum = parseValueToNumber(maxValue.trim());
+        convertedMax = formatNumberToKM(maxNum);
+      } catch (error) {
+        // Keep original value if parsing fails
+        convertedMax = maxValue;
+      }
+    }
+
+    onApply?.({ min: convertedMin, max: convertedMax });
     onClose?.();
   }, [minValue, maxValue, onApply, onClose, validationError]);
 
