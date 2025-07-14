@@ -151,7 +151,7 @@ function TxConfirmActions(props: IProps) {
       });
     try {
       if (
-        unsignedTx.isInternalTransfer &&
+        unsignedTx?.isInternalTransfer &&
         networkId &&
         accountAddress &&
         toAddress
@@ -386,7 +386,7 @@ function TxConfirmActions(props: IProps) {
     accountId,
     networkId,
     sendSelectedFeeInfo,
-    unsignedTx.isInternalTransfer,
+    unsignedTx?.isInternalTransfer,
     toAddress,
     unsignedTxs,
     nativeTokenTransferAmountToUpdate.isMaxSend,
