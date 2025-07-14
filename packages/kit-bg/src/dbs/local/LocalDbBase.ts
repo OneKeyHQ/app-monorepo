@@ -3148,22 +3148,26 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         wallet.associatedDevice &&
         !accountUtils.isHwHiddenWallet({ wallet })
       ) {
-        // remove device home screen
-        const deviceHomeScreenIds = await this.txGetRecordIds({
-          tx,
-          name: ELocalDBStoreNames.HardwareHomeScreen,
-        });
-        const needRemoveDeviceHomeScreenIds = deviceHomeScreenIds.filter(
-          (id) =>
-            wallet.associatedDevice && id.startsWith(wallet.associatedDevice),
-        );
-        if (needRemoveDeviceHomeScreenIds.length) {
-          await this.txRemoveRecords({
+        try {
+          // remove device home screen
+          const deviceHomeScreenIds = await this.txGetRecordIds({
             tx,
             name: ELocalDBStoreNames.HardwareHomeScreen,
-            ids: needRemoveDeviceHomeScreenIds,
-            ignoreNotFound: true,
           });
+          const needRemoveDeviceHomeScreenIds = deviceHomeScreenIds.filter(
+            (id) =>
+              wallet.associatedDevice && id.startsWith(wallet.associatedDevice),
+          );
+          if (needRemoveDeviceHomeScreenIds.length) {
+            await this.txRemoveRecords({
+              tx,
+              name: ELocalDBStoreNames.HardwareHomeScreen,
+              ids: needRemoveDeviceHomeScreenIds,
+              ignoreNotFound: true,
+            });
+          }
+        } catch (error) {
+          console.log('remove device, clean home screen error');
         }
       }
     });
@@ -4736,18 +4740,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }: {
     homeScreen: IDeviceHomeScreen;
   }) {
-    await this.withTransaction(EIndexedDBBucketNames.archive, async (tx) => {
+    return this.withTransaction(EIndexedDBBucketNames.archive, async (tx) => {
+      const id = `${homeScreen.deviceId}--${homeScreen.name}`;
       await this.txAddRecords({
         name: ELocalDBStoreNames.HardwareHomeScreen,
         tx,
         records: [
           {
             ...homeScreen,
-            id: `${homeScreen.deviceId}--${homeScreen.name}`,
+            id,
             createdAt: await this.timeNow(),
           },
         ],
       });
+
+      return id;
     });
   }
 

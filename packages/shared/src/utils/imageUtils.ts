@@ -162,7 +162,7 @@ async function resizeImage(params: {
     });
   }
   const imageResult: ImageResult = await manipulateAsync(uri, actions, {
-    compress: 0.7,
+    compress: 0.8,
     format: SaveFormat.JPEG,
     base64: true,
   });
@@ -548,6 +548,7 @@ async function getBase64ImageFromUrl(imageUrl: string) {
 export default {
   resizeImage,
   prefixBase64Uri,
+  stripBase64UriPrefix,
   convertToBlackAndWhiteImageBase64,
   getUriFromRequiredImageSource,
   getBase64FromRequiredImageSource,

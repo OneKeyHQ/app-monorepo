@@ -46,6 +46,7 @@ import type {
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import localDb from '../../dbs/local/localDb';
 import simpleDb from '../../dbs/simple/simpleDb';
@@ -66,6 +67,7 @@ import type {
   IDeviceHomeScreenConfig,
   IGetDeviceAdvanceSettingsParams,
   IGetDeviceLabelParams,
+  IHardwareHomeScreenData,
   ISetDeviceHomeScreenParams,
   ISetDeviceLabelParams,
   ISetInputPinOnSoftwareParams,
@@ -75,6 +77,7 @@ import type {
   IFirmwareAuthenticateParams,
   IShouldAuthenticateFirmwareParams,
 } from './HardwareVerifyManager';
+import type { IHardwareHomeScreenResponse } from './ServerType';
 import type {
   IHardwareUiPayload,
   IHardwareUiState,
@@ -998,7 +1001,7 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async saveDeviceHomeScreen(homeScreen: IDeviceHomeScreen) {
-    await localDb.addHardwareHomeScreen({ homeScreen });
+    return localDb.addHardwareHomeScreen({ homeScreen });
   }
 
   @backgroundMethod()
@@ -1557,6 +1560,50 @@ class ServiceHardware extends ServiceBase {
     } catch {
       return false;
     }
+  }
+
+  @backgroundMethod()
+  async fetchHardwareHomeScreen({
+    deviceType,
+    serialNumber,
+    firmwareVersion,
+  }: {
+    deviceType: IDeviceType;
+    serialNumber: string;
+    firmwareVersion: string;
+  }): Promise<IHardwareHomeScreenData[]> {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      data: IHardwareHomeScreenResponse[];
+    }>('/utility/v1/wallet-homescreen/list', {
+      params: {
+        deviceType,
+        serialNumber,
+        firmwareVersion,
+      },
+    });
+    const { data } = response.data;
+    return data
+      .filter((item) => item.deviceTypes.includes(deviceType))
+      .filter(
+        (item) =>
+          item.resType === 'system' ||
+          item.resType === 'prebuilt' ||
+          item.resType === 'custom',
+      )
+      .filter(
+        (item) =>
+          item.wallpaperType === 'default' ||
+          item.wallpaperType === 'cobranding',
+      )
+      .map((item) => ({
+        id: item.id,
+        wallpaperType: item.wallpaperType,
+        resType: item.resType,
+        url: item.url,
+        screenHex: item.screenHex,
+        nameHex: item.nameHex,
+      }));
   }
 }
 

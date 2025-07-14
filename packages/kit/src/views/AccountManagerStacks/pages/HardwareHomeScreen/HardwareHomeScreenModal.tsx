@@ -3,10 +3,12 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { isNil } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   ActionList,
+  Alert,
   AnimatePresence,
   Icon,
   IconButton,
@@ -14,6 +16,7 @@ import {
   ImageCrop,
   Page,
   SizableText,
+  Spinner,
   Stack,
   Toast,
   XStack,
@@ -32,6 +35,7 @@ import type {
   IHardwareHomeScreenData,
 } from '@onekeyhq/kit-bg/src/services/ServiceHardware/DeviceSettingsManager';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -40,11 +44,8 @@ import type {
   IAccountManagerStacksParamList,
 } from '@onekeyhq/shared/src/routes';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
-import type { IResizeImageResult } from '@onekeyhq/shared/src/utils/imageUtils';
 import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-
-import hardwareHomeScreenData from './hardwareHomeScreenData';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { DimensionValue } from 'react-native';
@@ -257,6 +258,43 @@ function HomeScreenImageItem({
   );
 }
 
+function UploadButton({
+  canUpload,
+  onUpload,
+  aspectRatioInfo,
+}: {
+  canUpload?: boolean;
+  onUpload?: () => void;
+  aspectRatioInfo: IAspectRatioInfo;
+}) {
+  if (canUpload && onUpload) {
+    return (
+      <Stack
+        position="relative"
+        flexBasis={aspectRatioInfo.flexBasis}
+        borderWidth={4}
+        borderRadius="$3"
+        borderColor="$transparent"
+      >
+        <Stack
+          flex={1}
+          justifyContent="center"
+          alignItems="center"
+          aspectRatio={aspectRatioInfo.ratio}
+          borderWidth={1}
+          borderRadius="$2"
+          borderColor="$borderSubdued"
+          onPress={onUpload}
+        >
+          <IconButton icon="PlusSmallOutline" onPress={onUpload} />
+        </Stack>
+      </Stack>
+    );
+  }
+
+  return null;
+}
+
 function WallpaperCategorySection({
   category,
   selectedItem,
@@ -309,22 +347,11 @@ function WallpaperCategorySection({
 
       <XStack flexWrap="wrap">
         {/* 自定义壁纸分类显示上传按钮 */}
-        {category.canUpload && imageLayout && onUpload ? (
-          <Stack borderWidth={4} borderColor="$transparent">
-            <Stack
-              justifyContent="center"
-              alignItems="center"
-              borderWidth={1}
-              borderRadius="$2"
-              borderColor="$borderSubdued"
-              w={imageLayout.width}
-              h={imageLayout.height}
-              onPress={onUpload}
-            >
-              <IconButton icon="PlusSmallOutline" onPress={onUpload} />
-            </Stack>
-          </Stack>
-        ) : null}
+        <UploadButton
+          canUpload={category.canUpload}
+          onUpload={onUpload}
+          aspectRatioInfo={aspectRatioInfo}
+        />
 
         {displayData.map((item, index) => (
           <HomeScreenImageItem
@@ -377,12 +404,10 @@ function WallpaperCustomCategorySection({
         data?.map((item: IDBHardwareHomeScreen) => ({
           id: item.id,
           uri: imageUtils.prefixBase64Uri(item.imgBase64, 'image/jpeg'), // base64 data uri
-          hex: Buffer.from(item.imgBase64, 'base64').toString('hex'),
-          thumbnailHex: item.imgThumbBase64
-            ? Buffer.from(item.imgThumbBase64, 'base64').toString('hex')
-            : undefined,
+          screenHex: Buffer.from(item.imgBase64, 'base64').toString('hex'),
 
           isUserUpload: true,
+          resType: 'custom',
         })) ?? []
       );
     }, [device.id]);
@@ -420,37 +445,24 @@ function WallpaperCustomCategorySection({
       isMonochrome,
     });
 
-    let imgThumb: IResizeImageResult | undefined;
-    if (config.thumbnailSize) {
-      imgThumb = await imageUtils.resizeImage({
-        uri: imgBase64,
-
-        width: config.thumbnailSize?.width ?? config.size?.width,
-        height: config.thumbnailSize?.height ?? config.size?.height,
-
-        originW,
-        originH,
-        isMonochrome,
-      });
-    }
-
     const name = `${USER_UPLOAD_IMG_NAME_PREFIX}${generateUUID()}`;
+
+    const id = await backgroundApiProxy.serviceHardware.saveDeviceHomeScreen({
+      deviceId: device.id,
+      imgBase64: img?.base64 ?? '',
+      name,
+    });
+
     const uploadItem: IHardwareHomeScreenData = {
+      id,
       uri: imageUtils.prefixBase64Uri(img?.base64 || imgBase64, 'image/jpeg'), // base64 data uri
-      hex: img?.hex,
-      thumbnailHex: imgThumb?.hex,
-      id: name,
+      screenHex: img?.hex,
       isUserUpload: true,
+      resType: 'custom',
     };
 
     onItemSelected(uploadItem);
 
-    await backgroundApiProxy.serviceHardware.saveDeviceHomeScreen({
-      deviceId: device.id,
-      imgBase64: img?.base64 ?? '',
-      imgThumbBase64: imgThumb?.base64 ?? '',
-      name,
-    });
     await runGetDeviceHomeScreens();
   }, [
     config,
@@ -494,6 +506,42 @@ function WallpaperCustomCategorySection({
   );
 }
 
+function LoadingStateView({
+  isLoading,
+  errorMessage,
+  onRetry,
+}: {
+  isLoading: boolean;
+  errorMessage?: string;
+  onRetry: () => void;
+}) {
+  const intl = useIntl();
+
+  if (isLoading) {
+    return <Spinner size="large" />;
+  }
+
+  if (errorMessage) {
+    return (
+      <Alert
+        icon="ErrorOutline"
+        type="critical"
+        title={errorMessage}
+        action={{
+          primary: intl.formatMessage({
+            id: ETranslations.global_retry,
+          }),
+          onPrimaryPress() {
+            onRetry();
+          },
+        }}
+      />
+    );
+  }
+
+  return null;
+}
+
 export default function HardwareHomeScreenModal({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   route,
@@ -505,14 +553,10 @@ export default function HardwareHomeScreenModal({
   const [selectedItem, setSelectedItem] = useState<
     IHardwareHomeScreenData | undefined
   >();
-  const [isLoading, setIsLoading] = useState(false);
-  const [resizedImagePreview, _setResizedImagePreview] = useState<{
-    base64Img: string | undefined;
-    base64ThumbnailImg: string | undefined;
-  }>();
+  const intl = useIntl();
+  const [isUploadLoading, setIsUploadLoading] = useState(false);
 
-  const { result } = usePromiseResult<{
-    dataList: IHardwareHomeScreenData[];
+  const { result: deviceInfo } = usePromiseResult<{
     deviceType: IDeviceType;
     canUpload: boolean;
     config: IDeviceHomeScreenConfig;
@@ -523,38 +567,68 @@ export default function HardwareHomeScreenModal({
         homeScreenType: 'WallPaper',
       });
 
-    // 'unknown' | 'classic' | 'classic1s' | 'classicPure' | 'mini' | 'touch' | 'pro';
     const deviceType: IDeviceType = device?.deviceType || 'unknown';
-    let dataList: IHardwareHomeScreenData[] = [];
+
     let canUpload = false;
     if ([EDeviceType.Classic1s, EDeviceType.ClassicPure].includes(deviceType)) {
-      dataList = hardwareHomeScreenData.classic1s;
       canUpload = true;
     }
     if ([EDeviceType.Classic, EDeviceType.Mini].includes(deviceType)) {
-      dataList = hardwareHomeScreenData.classicMini;
       canUpload = true;
     }
     if ([EDeviceType.Touch].includes(deviceType)) {
-      dataList = hardwareHomeScreenData.touch;
       canUpload = true;
     }
     if ([EDeviceType.Pro].includes(deviceType)) {
-      dataList = hardwareHomeScreenData.pro;
       canUpload = true;
     }
+
     return {
-      config,
-      dataList,
-      deviceType,
+      deviceType: device?.deviceType || 'unknown',
       canUpload,
+      config,
     };
   }, [device?.deviceType, device?.id]);
 
-  console.log('HardwareHomeScreenModal_____result', result);
+  const {
+    result,
+    isLoading: isHardwareHomeScreenLoading,
+    run: runFetchHardwareHomeScreen,
+  } = usePromiseResult<{
+    homeScreenList: IHardwareHomeScreenData[];
+    isLoadingError: boolean;
+  }>(async () => {
+    const { getDeviceFirmwareVersion, getDeviceUUID } = await CoreSDKLoader();
+
+    const serialNumber = device?.featuresInfo
+      ? getDeviceUUID(device.featuresInfo)
+      : '';
+
+    const firmwareVersion = device?.featuresInfo
+      ? getDeviceFirmwareVersion(device.featuresInfo)?.join('.')
+      : '';
+
+    // 'unknown' | 'classic' | 'classic1s' | 'classicPure' | 'mini' | 'touch' | 'pro';
+    const deviceType: IDeviceType = device?.deviceType || 'unknown';
+
+    try {
+      const dataList =
+        await backgroundApiProxy.serviceHardware.fetchHardwareHomeScreen({
+          deviceType,
+          serialNumber,
+          firmwareVersion,
+        });
+
+      return { homeScreenList: dataList, isLoadingError: false };
+    } catch (error) {
+      return { homeScreenList: [], isLoadingError: true };
+    }
+  }, [device?.deviceType, device.featuresInfo]);
+
+  console.log('HardwareHomeScreenModal_____result', result?.homeScreenList);
 
   const aspectRatioInfo = useAspectRatioInfo({
-    sizeInfo: result?.config?.size,
+    sizeInfo: deviceInfo?.config?.size,
     deviceType: device.deviceType,
   });
 
@@ -567,10 +641,7 @@ export default function HardwareHomeScreenModal({
   >();
 
   const wallpaperCategories = useMemo((): IWallpaperCategory[] => {
-    const filteredDataList = result?.dataList || [];
-    // .filter((item) =>
-    //   result?.config?.names?.includes?.(item.name),
-    // );
+    const filteredDataList = result?.homeScreenList || [];
 
     const defaultWallpapers = filteredDataList.filter(
       (item) => item.wallpaperType === 'default',
@@ -598,7 +669,47 @@ export default function HardwareHomeScreenModal({
     }
 
     return categories;
-  }, [result?.dataList]);
+  }, [result?.homeScreenList]);
+
+  const ScreenContent = useMemo(() => {
+    if (isHardwareHomeScreenLoading || result?.isLoadingError) {
+      return (
+        <LoadingStateView
+          isLoading={!!isHardwareHomeScreenLoading}
+          errorMessage={intl.formatMessage({
+            id: ETranslations.global_network_error_help_text,
+          })}
+          onRetry={runFetchHardwareHomeScreen}
+        />
+      );
+    }
+
+    return wallpaperCategories.map((category) => {
+      return (
+        <YStack key={category.title}>
+          <WallpaperCategorySection
+            category={category}
+            selectedItem={selectedItem}
+            onItemSelected={setSelectedItem}
+            isLoading={isUploadLoading}
+            aspectRatioInfo={aspectRatioInfo}
+            imageLayout={imageLayout}
+            onImageLayout={setImageLayout}
+          />
+        </YStack>
+      );
+    });
+  }, [
+    isHardwareHomeScreenLoading,
+    result?.isLoadingError,
+    wallpaperCategories,
+    intl,
+    runFetchHardwareHomeScreen,
+    selectedItem,
+    isUploadLoading,
+    aspectRatioInfo,
+    imageLayout,
+  ]);
 
   return (
     <Page scrollEnabled safeAreaEnabled>
@@ -607,60 +718,31 @@ export default function HardwareHomeScreenModal({
         <YStack gap="$2" py="$2">
           <WallpaperCustomCategorySection
             device={device}
-            config={result?.config}
-            canUpload={result?.canUpload ?? false}
+            config={deviceInfo?.config}
+            canUpload={deviceInfo?.canUpload ?? false}
             selectedItem={selectedItem}
             onItemSelected={setSelectedItem}
-            isLoading={isLoading}
+            isLoading={isUploadLoading}
             aspectRatioInfo={aspectRatioInfo}
             imageLayout={imageLayout}
             onImageLayout={setImageLayout}
           />
 
-          {wallpaperCategories.map((category) => {
-            return (
-              <YStack key={category.title}>
-                <WallpaperCategorySection
-                  category={category}
-                  selectedItem={selectedItem}
-                  onItemSelected={setSelectedItem}
-                  isLoading={isLoading}
-                  aspectRatioInfo={aspectRatioInfo}
-                  imageLayout={imageLayout}
-                  onImageLayout={setImageLayout}
-                />
-              </YStack>
-            );
-          })}
-
-          {resizedImagePreview?.base64Img ? (
-            <Image
-              source={{
-                uri: `${resizedImagePreview.base64Img}`,
-              }}
-            />
-          ) : null}
-          {resizedImagePreview?.base64ThumbnailImg ? (
-            <Image
-              source={{
-                uri: `${resizedImagePreview.base64ThumbnailImg}`,
-              }}
-            />
-          ) : null}
+          {ScreenContent}
         </YStack>
       </Page.Body>
       <Page.Footer
         onCancel={() => {}}
         confirmButtonProps={{
-          disabled: !selectedItem || isLoading,
-          loading: isLoading,
+          disabled: !selectedItem || isUploadLoading,
+          loading: isUploadLoading,
         }}
         onConfirm={async (_close) => {
           try {
             if (!device?.id || !selectedItem) {
               return;
             }
-            setIsLoading(true);
+            setIsUploadLoading(true);
 
             await backgroundApiProxy.serviceHardware.setDeviceHomeScreen({
               dbDeviceId: device?.id,
@@ -679,7 +761,7 @@ export default function HardwareHomeScreenModal({
             errorToastUtils.toastIfError(error);
             throw error;
           } finally {
-            setIsLoading(false);
+            setIsUploadLoading(false);
           }
         }}
       />

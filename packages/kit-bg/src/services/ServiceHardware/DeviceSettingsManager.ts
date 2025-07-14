@@ -8,8 +8,11 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import type { IResizeImageResult } from '@onekeyhq/shared/src/utils/imageUtils';
+import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
 
 import localDb from '../../dbs/local/localDb';
 
@@ -43,17 +46,20 @@ export type ISetDeviceLabelParams = { walletId: string; label: string };
 
 export type IHardwareHomeScreenData = {
   id: string;
-  isUserUpload?: boolean;
-
-  // user upload
-  uri?: string; // image base64 by upload & crop
-
-  // service image
-  url?: string; // image url by upload & crop
-
-  hex?: string; // image hex by resize
-  thumbnailHex?: string; // Pro、Touch：thumb image hex by resize
   wallpaperType?: 'default' | 'cobranding';
+  resType: 'system' | 'prebuilt' | 'custom'; // system: system image, prebuilt: prebuilt image, custom: user upload image
+
+  // Service image config
+  url?: string; // preview image url
+  nameHex?: string; // Pro、Touch: image name hex, only system res type
+  screenHex?: string; // Classic、mini、1s、pure: image hex, only prebuilt res type
+
+  // software generated image
+  thumbnailHex?: string; // Pro、Touch：thumb image hex by resize
+
+  // User upload config
+  uri?: string; // image base64 by upload & crop
+  isUserUpload?: boolean;
 };
 
 export type ISetDeviceHomeScreenParams = {
@@ -181,6 +187,86 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     );
   }
 
+  private async buildCustomScreenHex(
+    dbDeviceId: string,
+    url: string | undefined,
+    deviceType: IDeviceType,
+    isUserUpload?: boolean,
+  ) {
+    const imgUri =
+      (await imageUtils.getBase64FromRequiredImageSource(url, (...args) => {
+        defaultLogger.hardware.homescreen.getBase64FromRequiredImageSource(
+          ...args,
+        );
+      })) || '';
+    if (!imgUri) {
+      throw new OneKeyLocalError('Error imgUri not defined');
+    }
+
+    if (deviceHomeScreenUtils.isMonochromeScreen(deviceType)) {
+      const customHex = await deviceHomeScreenUtils.imagePathToHex(
+        imgUri,
+        deviceType,
+      );
+      return {
+        screenHex: customHex,
+        thumbnailHex: undefined,
+      };
+    }
+
+    const config =
+      await this.backgroundApi.serviceHardware.getDeviceHomeScreenConfig({
+        dbDeviceId,
+        homeScreenType: 'WallPaper',
+      });
+
+    if (!config || !config.size) {
+      return {
+        screenHex: '',
+        thumbnailHex: undefined,
+      };
+    }
+
+    let imgThumb: IResizeImageResult | undefined;
+    if (config.thumbnailSize) {
+      imgThumb = await imageUtils.resizeImage({
+        uri: imgUri,
+
+        width: config.thumbnailSize?.width ?? config.size?.width,
+        height: config.thumbnailSize?.height ?? config.size?.height,
+
+        originW: config.size?.width,
+        originH: config.size?.height,
+        isMonochrome: false,
+      });
+    }
+
+    let screenHex = '';
+    if (!isUserUpload) {
+      const imgScreen = await imageUtils.resizeImage({
+        uri: imgUri,
+
+        width: config.size?.width,
+        height: config.size?.height,
+
+        originW: config.size?.width,
+        originH: config.size?.height,
+        isMonochrome: false,
+      });
+      screenHex = imgScreen.hex;
+    } else {
+      screenHex = Buffer.from(
+        imageUtils.stripBase64UriPrefix(imgUri),
+        'base64',
+      ).toString('hex');
+    }
+
+    return {
+      screenHex,
+      thumbnailHex: imgThumb?.hex,
+    };
+  }
+
   @backgroundMethod()
   async setDeviceHomeScreen({
     dbDeviceId,
@@ -189,20 +275,43 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   }: ISetDeviceHomeScreenParams) {
     const device = await localDb.getDevice(dbDeviceId);
 
-    const { hex, thumbnailHex, isUserUpload } = screenItem;
+    const { nameHex, screenHex, thumbnailHex, resType, isUserUpload } =
+      screenItem;
+
+    const isMonochrome = deviceHomeScreenUtils.isMonochromeScreen(
+      device.deviceType,
+    );
+    const isCustomScreen = resType === 'custom' || isUserUpload;
+
+    // Pro、Touch: custom upload wallpaper
+    const needUploadResource = isCustomScreen && !isMonochrome;
 
     let buildCustomHexError: string | undefined = '';
-    let customHex = '';
+
+    let finallyScreenHex = '';
+    let finallyThumbnailHex: string | undefined;
+
     try {
-      customHex = await deviceHomeScreenUtils.buildCustomScreenHex(
-        screenItem.url,
-        deviceType,
-      );
+      if (isCustomScreen) {
+        // case 1: custom upload wallpaper from uri
+        // case 2: server custom wallpaper from url
+        const { screenHex: customScreenHex, thumbnailHex: customThumbnailHex } =
+          await this.buildCustomScreenHex(
+            dbDeviceId,
+            screenItem.uri || screenItem.url,
+            deviceType,
+            isUserUpload,
+          );
+
+        finallyScreenHex = customScreenHex || '';
+        finallyThumbnailHex = customThumbnailHex;
+      } else {
+        finallyScreenHex = screenHex || nameHex || '';
+        finallyThumbnailHex = thumbnailHex;
+      }
     } catch (error) {
       buildCustomHexError = (error as Error | undefined)?.message;
     }
-
-    const imgHex = hex || customHex || '';
 
     defaultLogger.hardware.homescreen.setHomeScreen({
       buildCustomHexError,
@@ -210,20 +319,17 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       deviceType: device.deviceType,
       deviceName: device.name,
       imgName: screenItem.id,
-      imgHex,
-      customHex,
-      selectedItemHex: hex,
+      imgResType: resType,
+      needUploadResource,
+      imgHex: finallyScreenHex,
       isUserUpload,
     });
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        const isMonochrome = deviceHomeScreenUtils.isMonochromeScreen(
-          device.deviceType,
-        );
         // pro touch custom upload wallpaper
-        if (isUserUpload && !isMonochrome) {
-          if (!thumbnailHex) {
+        if (needUploadResource) {
+          if (!finallyThumbnailHex) {
             throw new OneKeyLocalError(
               'Upload screen item error: thumbnailHex not defined',
             );
@@ -233,8 +339,8 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
           const uploadResParams: DeviceUploadResourceParams = {
             resType: ResourceType.WallPaper,
             suffix: 'jpeg',
-            dataHex: imgHex,
-            thumbnailDataHex: thumbnailHex,
+            dataHex: finallyScreenHex,
+            thumbnailDataHex: finallyThumbnailHex,
             nftMetaData: '',
           };
           // upload wallpaper resource will automatically set the home screen
@@ -252,12 +358,12 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         } else {
           // Pro、Touch: built-in wallpaper
           // Classic、mini、1s、pure: custom upload and built-in wallpaper
-          if (!imgHex) {
+          if (!finallyScreenHex) {
             // empty string will clear the home screen(classic,mini)
             throw new OneKeyLocalError('Invalid home screen hex');
           }
           await this.applySettingsToDevice(device.connectId, {
-            homescreen: imgHex,
+            homescreen: finallyScreenHex,
           });
         }
       },
