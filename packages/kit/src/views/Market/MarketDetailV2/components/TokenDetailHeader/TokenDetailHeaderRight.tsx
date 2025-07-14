@@ -118,7 +118,6 @@ export function TokenDetailHeaderRight({
             size="$bodySmMedium"
             color="$text"
             formatter="marketCap"
-            formatterOptions={{ currency: '$' }}
           >
             {tvl}
           </NumberSizeableText>
