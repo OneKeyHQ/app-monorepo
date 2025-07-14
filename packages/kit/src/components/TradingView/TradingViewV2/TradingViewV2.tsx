@@ -8,6 +8,7 @@ import { TRADING_VIEW_URL } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
+import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import { getTradingViewTimezone } from '../utils/tradingViewTimezone';
 
@@ -42,6 +43,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
   const webRef = useRef<IWebViewRef | null>(null);
   const calendars = useCalendars();
   const systemLocale = useLocaleVariant();
+  const theme = useThemeVariant();
 
   const {
     mode,
@@ -59,8 +61,9 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     url.searchParams.set('timezone', timezone);
     url.searchParams.set('locale', locale);
     url.searchParams.set('platform', platformEnv.appPlatform ?? 'web');
+    url.searchParams.set('theme', theme);
     return url.toString();
-  }, [tradingViewUrl, calendars, systemLocale]);
+  }, [tradingViewUrl, calendars, systemLocale, theme]);
 
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
