@@ -66,7 +66,7 @@ const SwapQuoteInput = ({
   const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
   useSwapQuote();
   useSwapFromAccountNetworkSync();
-  useSwapApproving();
+  // useSwapApproving();
 
   const getTransform = useCallback(() => {
     if (!platformEnv.isNative) {

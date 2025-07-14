@@ -76,7 +76,7 @@ interface ISwapMainLoadProps {
 }
 
 const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
-  const { buildTx, approveTx, wrappedTx } = useSwapBuildTx();
+  const { preSwapStepsStart } = useSwapBuildTx();
   const { fetchLoading } = useSwapInit(swapInitParams);
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -159,20 +159,20 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     });
   }, [navigation, storeName, toAddressInfo.address]);
 
-  const onBuildTx = useCallback(async () => {
-    await buildTx();
-  }, [buildTx]);
+  // const onBuildTx = useCallback(async () => {
+  //   await buildTx();
+  // }, [buildTx]);
 
-  const onApprove = useCallback(
-    async (amount: string, isMax?: boolean, shoutResetApprove?: boolean) => {
-      if (shoutResetApprove) {
-        await approveTx(swapApproveResetValue, isMax, amount);
-      } else {
-        await approveTx(amount, isMax);
-      }
-    },
-    [approveTx],
-  );
+  // const onApprove = useCallback(
+  //   async (amount: string, isMax?: boolean, shoutResetApprove?: boolean) => {
+  //     if (shoutResetApprove) {
+  //       await approveTx(swapApproveResetValue, isMax, amount);
+  //     } else {
+  //       await approveTx(amount, isMax);
+  //     }
+  //   },
+  //   [approveTx],
+  // );
 
   const refreshAction = useCallback(
     (manual?: boolean) => {
@@ -211,9 +211,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     ],
   );
 
-  const onWrapped = useCallback(async () => {
-    await wrappedTx();
-  }, [wrappedTx]);
+  // const onWrapped = useCallback(async () => {
+  //   await wrappedTx();
+  // }, [wrappedTx]);
 
   const onSelectPercentageStage = useCallback(
     (stage: number) => {
@@ -278,7 +278,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           },
         ];
       } else if (
-        swapBatchTransferType === ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP
+        swapBatchTransferType ===
+          ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP &&
+        quoteRes.allowanceResult
       ) {
         steps = [
           {
@@ -291,6 +293,20 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         console.log('swap__pre batch approve and swap');
       } else {
         if (quoteRes.allowanceResult) {
+          if (quoteRes.allowanceResult.shouldResetApprove) {
+            steps = [
+              {
+                type: ESwapStepType.APPROVE_TX,
+                status: ESwapStepStatus.READY,
+                data: quoteRes,
+                isResetApprove: true,
+                canRetry: true,
+                shouldWaitApproved:
+                  swapBatchTransferType !==
+                  ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP,
+              },
+            ];
+          }
           steps = [
             {
               type: ESwapStepType.APPROVE_TX,
@@ -395,9 +411,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               setSwapSteps([]);
             }}
             open={preSwapDialogOpen}
-            onBuildTx={onBuildTx}
-            onApprove={onApprove}
-            onWrapped={onWrapped}
+            onPreSwapStepsStart={preSwapStepsStart}
           />
         </YStack>
       </YStack>

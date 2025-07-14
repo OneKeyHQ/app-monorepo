@@ -378,6 +378,7 @@ export enum ESwapStepStatus {
   PENDING = 'pending',
   SUCCESS = 'success',
   FAILED = 'failed',
+  LOADING = 'loading',
   READY = 'ready',
 }
 
@@ -399,8 +400,11 @@ export interface ISwapStep {
   type: ESwapStepType;
   status: ESwapStepStatus;
   data?: IFetchQuoteResult;
+  txHash?: string;
+  errorMessage?: string;
   canRetry?: boolean;
   shouldWaitApproved?: boolean;
+  isResetApprove?: boolean;
   skipSendTransAction?: boolean;
 }
 

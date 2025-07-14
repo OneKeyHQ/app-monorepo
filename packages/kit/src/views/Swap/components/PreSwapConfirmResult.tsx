@@ -9,38 +9,30 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type { ISwapStep } from '@onekeyhq/shared/types/swap/types';
+import { ESwapStepStatus } from '@onekeyhq/shared/types/swap/types';
 
 interface IPreSwapConfirmResultProps {
-  status: 'success' | 'failed' | 'pending';
-  successTxHash?: string;
-  networkId?: string;
-  errorMessage?: string;
-  supportUrl?: string;
+  lastStep: ISwapStep;
 }
 
-const PreSwapConfirmResult = ({
-  status,
-  successTxHash,
-  networkId,
-  errorMessage,
-  supportUrl,
-}: IPreSwapConfirmResultProps) => {
+const PreSwapConfirmResult = ({ lastStep }: IPreSwapConfirmResultProps) => {
   const ref = useRef<any>(null);
   const [explorerUrl, setExplorerUrl] = useState<string>('');
 
   // 在组件渲染时获取 explorer URL
   useEffect(() => {
     const fetchExplorerUrl = async () => {
-      if (!successTxHash || !networkId) {
+      if (!lastStep.txHash || !lastStep.data?.fromTokenInfo.networkId) {
         setExplorerUrl('');
         return;
       }
 
       try {
         const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl({
-          networkId,
+          networkId: lastStep.data?.fromTokenInfo.networkId,
           type: 'transaction',
-          param: successTxHash,
+          param: lastStep.txHash,
         });
         setExplorerUrl(url || '');
       } catch (error) {
@@ -50,7 +42,7 @@ const PreSwapConfirmResult = ({
     };
 
     void fetchExplorerUrl();
-  }, [successTxHash, networkId]);
+  }, [lastStep.txHash, lastStep.data?.fromTokenInfo.networkId]);
 
   const handleViewOnExplorer = useCallback(() => {
     if (explorerUrl) {
@@ -59,18 +51,18 @@ const PreSwapConfirmResult = ({
   }, [explorerUrl]);
 
   const statusText = useMemo(() => {
-    if (status === 'success') {
+    if (lastStep.status === ESwapStepStatus.SUCCESS) {
       return 'Swap Success';
     }
-    if (status === 'failed') {
+    if (lastStep.status === ESwapStepStatus.FAILED) {
       return 'Transaction Failed';
     }
     return 'Transaction Success';
-  }, [status]);
+  }, [lastStep.status]);
 
   return (
     <YStack alignItems="center" justifyContent="center" gap="$4">
-      {status === 'success' ? (
+      {lastStep.status === ESwapStepStatus.SUCCESS ? (
         <LottieView
           ref={ref}
           width="$30"
@@ -81,7 +73,7 @@ const PreSwapConfirmResult = ({
         />
       ) : (
         <>
-          {status === 'failed' ? (
+          {lastStep.status === ESwapStepStatus.FAILED ? (
             <Image
               source={{
                 uri: require('@onekeyhq/kit/assets/images/preSwapStepFailed.png'),
@@ -103,12 +95,12 @@ const PreSwapConfirmResult = ({
       <SizableText size="$bodyMd" color="$textSubdued">
         {statusText}
       </SizableText>
-      {status === 'failed' ? (
+      {lastStep.status === ESwapStepStatus.FAILED ? (
         <SizableText size="$bodySm" color="$textSubdued">
-          {errorMessage ?? ''}
+          {lastStep.errorMessage ?? ''}
         </SizableText>
       ) : null}
-      {successTxHash ? (
+      {lastStep.txHash ? (
         <XStack
           onPress={handleViewOnExplorer}
           cursor="pointer"
@@ -125,11 +117,12 @@ const PreSwapConfirmResult = ({
             color="$textInteractive"
             textDecorationLine="underline"
           >
-            View On Explorer ({successTxHash})
+            View On Explorer ({lastStep.txHash})
           </SizableText>
         </XStack>
       ) : null}
-      {supportUrl && status === 'failed' ? (
+      {lastStep.data?.supportUrl &&
+      lastStep.status === ESwapStepStatus.FAILED ? (
         <XStack
           alignItems="center"
           justifyContent="center"
@@ -146,14 +139,14 @@ const PreSwapConfirmResult = ({
             size="$bodySm"
             color="$textInteractive"
             textDecorationLine="underline"
-            onPress={() => openUrlExternal(supportUrl)}
+            onPress={() => openUrlExternal(lastStep.data?.supportUrl ?? '')}
             cursor="pointer"
           >
             contact support
           </SizableText>
         </XStack>
       ) : null}
-      {status === 'pending' ? (
+      {lastStep.status === ESwapStepStatus.PENDING ? (
         <XStack alignItems="center" justifyContent="center" mt="$4">
           <SizableText size="$bodySm" color="$textInteractive">
             Leaving won’t stop the order. Check it in History.

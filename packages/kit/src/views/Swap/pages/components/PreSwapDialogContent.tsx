@@ -1,15 +1,20 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Button, Divider, SizableText, YStack } from '@onekeyhq/components';
 import { useSwapStepsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  ESwapSlippageSegmentKey,
-  IFetchQuoteResult,
-  ISwapToken,
+import {
+  type ESwapSlippageSegmentKey,
+  ESwapStepStatus,
+  type IFetchQuoteResult,
+  type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import PreSwapConfirmResult from '../../components/PreSwapConfirmResult';
 import PreSwapInfoGroup from '../../components/PreSwapInfoGroup';
+import PreSwapStep from '../../components/PreSwapStep';
 import PreSwapTokenItem from '../../components/PreSwapTokenItem';
 
 interface IPreSwapDialogContentProps {
@@ -36,11 +41,22 @@ const PreSwapDialogContent = ({
   const toAmount = quoteResult?.toAmount || '0';
   const [swapSteps] = useSwapStepsAtom();
   const handleConfirm = () => {
-    // 处理确认逻辑
-    console.log('Confirm swap');
     onConfirm();
   };
 
+  const showResultContent = useMemo(() => {
+    if (swapSteps.length > 0) {
+      const lastStep = swapSteps[swapSteps.length - 1];
+      return (
+        lastStep.status !== ESwapStepStatus.READY &&
+        lastStep.status !== ESwapStepStatus.LOADING
+      );
+    }
+  }, [swapSteps]);
+
+  if (showResultContent && swapSteps.length > 0) {
+    return <PreSwapConfirmResult lastStep={swapSteps[swapSteps.length - 1]} />;
+  }
   return (
     <YStack gap="$4">
       {/* You pay */}
@@ -59,16 +75,23 @@ const PreSwapDialogContent = ({
       {/* To token item */}
       <PreSwapTokenItem token={toTokenInfo} amount={toAmount} />
 
-      {/* Divider */}
       <Divider />
 
-      {/* Info items */}
-      <PreSwapInfoGroup quoteResult={quoteResult} slippageItem={slippageItem} />
-
-      {/* Primary button */}
-      <Button variant="primary" onPress={handleConfirm} size="large">
-        {intl.formatMessage({ id: ETranslations.transaction_confirm })}
-      </Button>
+      {swapSteps.length > 0 && swapSteps[0].status === ESwapStepStatus.READY ? (
+        <>
+          {/* Info items */}
+          <PreSwapInfoGroup
+            quoteResult={quoteResult}
+            slippageItem={slippageItem}
+          />
+          {/* Primary button */}
+          <Button variant="primary" onPress={handleConfirm} size="large">
+            {intl.formatMessage({ id: ETranslations.transaction_confirm })}
+          </Button>
+        </>
+      ) : (
+        <PreSwapStep steps={swapSteps} />
+      )}
     </YStack>
   );
 };

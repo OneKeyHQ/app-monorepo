@@ -11,6 +11,7 @@ import {
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapStepsAtom,
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -22,88 +23,55 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
-import {
-  useSwapActionState,
-  useSwapSlippagePercentageModeInfo,
-} from '../../hooks/useSwapState';
+import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
 
 import PreSwapDialogContent from './PreSwapDialogContent';
 
 interface IPreSwapDialogContainerProps {
+  onPreSwapStepsStart: () => void;
   onClose: () => void;
-  onBuildTx: () => void;
-  onWrapped: () => void;
-  onApprove: (
-    amount: string,
-    isMax?: boolean,
-    shoutResetApprove?: boolean,
-  ) => void;
   open: boolean;
 }
 
 const PreSwapDialogContainer = ({
-  onBuildTx,
-  onWrapped,
-  onApprove,
-  onClose,
+  onPreSwapStepsStart,
   open,
+  onClose,
 }: IPreSwapDialogContainerProps) => {
   const [swapToAmount] = useSwapToTokenAmountAtom();
   const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
-  const swapActionState = useSwapActionState();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
+  const [swapSteps] = useSwapStepsAtom();
   const intl = useIntl();
-  console.log('swap__pre currentQuoteRes', currentQuoteRes);
-  const handleApprove = useCallback(() => {
-    if (swapActionState.shoutResetApprove) {
-      Dialog.confirm({
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.global_continue,
-        }),
-        onConfirm: () => {
-          onApprove(fromAmount.value, swapActionState.approveUnLimit, true);
-        },
-        showCancelButton: true,
-        title: intl.formatMessage({
-          id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.swap_page_provider_approve_usdt_dialog_content,
-        }),
-        icon: 'ErrorOutline',
-      });
-    } else {
-      onApprove(fromAmount.value, swapActionState.approveUnLimit);
-    }
-  }, [
-    fromAmount,
-    intl,
-    onApprove,
-    swapActionState.approveUnLimit,
-    swapActionState.shoutResetApprove,
-  ]);
   const onActionHandler = useCallback(() => {
-    if (swapActionState.isApprove) {
-      handleApprove();
-      return;
+    if (swapSteps.length > 0) {
+      const firstStep = swapSteps[0];
+      if (firstStep.isResetApprove) {
+        Dialog.confirm({
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_continue,
+          }),
+          onConfirm: () => {
+            onPreSwapStepsStart();
+          },
+          showCancelButton: true,
+          title: intl.formatMessage({
+            id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.swap_page_provider_approve_usdt_dialog_content,
+          }),
+          icon: 'ErrorOutline',
+        });
+      } else {
+        onPreSwapStepsStart();
+      }
     }
-
-    if (swapActionState.isWrapped) {
-      onWrapped();
-      return;
-    }
-    onBuildTx();
-  }, [
-    handleApprove,
-    onBuildTx,
-    onWrapped,
-    swapActionState.isApprove,
-    swapActionState.isWrapped,
-  ]);
+  }, [intl, onPreSwapStepsStart, swapSteps]);
 
   const onActionHandlerBefore = useCallback(() => {
     if (currentQuoteRes?.quoteShowTip) {
@@ -231,7 +199,7 @@ const PreSwapDialogContainer = ({
     <DialogContainer
       open={open}
       onClose={handleClose}
-      title="Pre swap"
+      title="Review swap"
       showFooter={false}
       renderContent={
         <PreSwapDialogContent
