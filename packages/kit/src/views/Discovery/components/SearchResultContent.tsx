@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import {
@@ -271,14 +272,24 @@ export function SearchResultContent({
 
   const openSelectedItem = useCallback(() => {
     // Priority: Check if first item is exact URL match when no item is manually selected
-    if (
-      displaySearchList &&
-      searchList.length > 0 &&
-      searchList[0].isExactUrl &&
-      selectedIndex === -1
-    ) {
-      handleSearchItemClick(searchList[0]);
-      return { type: 'exactUrl' };
+    try {
+      if (
+        displaySearchList &&
+        searchList.length > 0 &&
+        searchList[0].isExactUrl &&
+        selectedIndex === -1
+      ) {
+        handleSearchItemClick(searchList[0]);
+        return { type: 'exactUrl' };
+      }
+    } catch (error) {
+      console.error(
+        new OneKeyLocalError(
+          `SearchResultContent.openSelectedItem failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        ),
+      );
     }
 
     if (
