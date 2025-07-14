@@ -17,7 +17,7 @@ import {
 import { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/src/enum';
 import noop from 'lodash/noop';
 import { InteractionManager } from 'react-native';
-import { Group, getFontSize, useProps, useThemeName } from 'tamagui';
+import { Group, getFontSize, getToken, useProps, useThemeName } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -47,7 +47,7 @@ import type {
   TextInput,
   TextInputFocusEventData,
 } from 'react-native';
-import type { GetProps } from 'tamagui';
+import type { GetProps, Token } from 'tamagui';
 
 type ITMInputProps = GetProps<typeof TMInput>;
 
@@ -402,7 +402,13 @@ function BaseInput(
           https://github.com/facebook/react-native/issues/28012
         */
           h={height}
-          py={sharedStyles.py}
+          py={platformEnv.isNativeAndroid ? 0 : sharedStyles.py}
+          my={platformEnv.isNativeAndroid ? sharedStyles.py : undefined}
+          mt={
+            platformEnv.isNativeAndroid
+              ? Number(getToken(sharedStyles.py as Token, 'size')) + 6
+              : undefined
+          }
           pr={sharedStyles.px}
           pl={leftIconName ? paddingLeftWithIcon : sharedStyles.px}
           fontSize={
