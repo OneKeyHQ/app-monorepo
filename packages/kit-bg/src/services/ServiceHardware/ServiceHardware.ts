@@ -245,7 +245,8 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
-  async getSDKInstance() {
+  async getSDKInstance(options?: { skipTransportDetection?: boolean }) {
+    const { skipTransportDetection = false } = options || {};
     this.checkSdkVersionValid();
 
     const { hardwareConnectSrc } = await settingsPersistAtom.get();
@@ -258,17 +259,27 @@ class ServiceHardware extends ServiceBase {
         'showDeviceDebugLogs',
       );
 
-    // Check if we should switch transport type based on optimal connection strategy
-    const { shouldSwitch, targetType } =
-      await this.connectionManager.shouldSwitchTransportType();
+    let hardwareTransportType: EHardwareTransportType;
+    let shouldSwitch = false;
 
-    const hardwareTransportType = targetType;
+    if (skipTransportDetection) {
+      // Use current transport type without detection
+      const currentType = this.connectionManager.getCurrentTransportType();
+      hardwareTransportType = currentType || EHardwareTransportType.Bridge;
+    } else {
+      // Check if we should switch transport type based on optimal connection strategy
+      const result = await this.connectionManager.shouldSwitchTransportType();
+      shouldSwitch = result.shouldSwitch;
+      hardwareTransportType = result.targetType;
+    }
 
     // If transport type needs to be switched, update it
     if (shouldSwitch) {
       const currentType = this.connectionManager.getCurrentTransportType();
       console.log(
-        `🔄 TRANSPORT SWITCH: ${currentType ?? 'null'} → ${targetType}`,
+        `🔄 TRANSPORT SWITCH: ${
+          currentType ?? 'null'
+        } → ${hardwareTransportType}`,
       );
 
       // Reset SDK instance to use new transport type
@@ -307,6 +318,7 @@ class ServiceHardware extends ServiceBase {
         console.log('🔄 FALLBACK: Bridge failed, switching to Bluetooth');
 
         try {
+          // TODO: only working for macos, and need detect bluetooth permission
           const fallbackInstance = await this.getSDKInstanceWithType(
             EHardwareTransportType.DesktopWebBle,
           );
@@ -736,15 +748,19 @@ class ServiceHardware extends ServiceBase {
     }
 
     const fn = async () => {
-      const sdk = await this.getSDKInstance();
+      // For cancel operations, skip transport detection to avoid unnecessary /enumerate calls
+      const sdk = await this.getSDKInstance({ skipTransportDetection: true });
       // sdk.cancel() always cause device re-emit UI_EVENT:  ui-close_window
 
       // cancel the hardware process
       // (cancel not working on enter pin on device mode, use getFeatures() later)
       try {
+        // For cancel operations, use getCompatibleConnectId but skip transport detection
+        // to avoid unnecessary /enumerate calls while still getting the correct connectId
         const compatibleConnectId = connectId
           ? await this.getCompatibleConnectId({
               connectId,
+              skipTransportDetection: true,
             })
           : undefined;
         sdk.cancel(compatibleConnectId);
@@ -1191,6 +1207,7 @@ class ServiceHardware extends ServiceBase {
       const compatibleConnectId = await this.getCompatibleConnectId({
         connectId: params.connectId,
         featuresDeviceId: params.deviceId,
+        skipTransportDetection: true, // Skip detection during EVM address retrieval
       });
       const hardwareSDK = await this.getSDKInstance();
       await timerUtils.wait(600);
@@ -1232,6 +1249,7 @@ class ServiceHardware extends ServiceBase {
       const compatibleConnectId = await this.getCompatibleConnectId({
         connectId,
         featuresDeviceId: deviceId,
+        skipTransportDetection: true, // Skip detection during XFP generation
       });
       const hardwareSDK = await this.getSDKInstance();
       await timerUtils.wait(600);
@@ -1490,10 +1508,12 @@ class ServiceHardware extends ServiceBase {
     connectId,
     featuresDeviceId,
     features,
+    skipTransportDetection = false,
   }: {
     connectId?: string;
     featuresDeviceId?: string | undefined | null; // rawDeviceId
     features?: IOneKeyDeviceFeatures;
+    skipTransportDetection?: boolean; // Skip transport type detection for performance
   }) {
     if (!connectId) {
       throw new OneKeyLocalError('connectId is required');
@@ -1506,35 +1526,19 @@ class ServiceHardware extends ServiceBase {
       features,
     });
 
-    if (platformEnv.isDesktop) {
-      // Get the optimal transport type to ensure we return the correct connectId
-      // This uses memoizee cache (500ms) to avoid repeated USB detection calls
-      console.log('🔍 CONNECT ID: Checking optimal transport type');
-      const { targetType: optimalTransportType } =
-        await this.connectionManager.shouldSwitchTransportType();
-      console.log(
-        `🔍 CONNECT ID: Optimal transport type: ${optimalTransportType}`,
-      );
-
+    if (platformEnv.isDesktop && !skipTransportDetection) {
+      const result = await this.connectionManager.shouldSwitchTransportType();
+      const optimalTransportType = result.targetType;
       if (optimalTransportType === EHardwareTransportType.DesktopWebBle) {
         if (device?.bleConnectId) {
           // Device found in DB and has BLE connectId, use it
-          console.log(
-            `🔗 CONNECT ID: Using BLE connectId: ${device.bleConnectId}`,
-          );
           return device.bleConnectId;
         }
         if (!device) {
-          console.log(
-            `🔗 CONNECT ID: No device in DB, using original: ${connectId}`,
-          );
           return connectId;
         }
         if (device && !device.bleConnectId) {
           // Use servicePromise to wait for UI dialog to complete BLE pairing
-          console.log(
-            `🔗 CONNECT ID: Device found but no BLE connectId, prompting for pairing`,
-          );
           const bleConnectId = await new Promise<string>((resolve, reject) => {
             const promiseId = this.backgroundApi.servicePromise.createCallback({
               resolve,
@@ -1559,6 +1563,20 @@ class ServiceHardware extends ServiceBase {
         console.log(
           `🔗 CONNECT ID: Bridge transport, using USB connectId: ${connectId}`,
         );
+        return connectId;
+      }
+    } else if (platformEnv.isDesktop && skipTransportDetection) {
+      // When skipping transport detection, use fallback logic for desktop
+      const currentTransportType =
+        this.connectionManager.getCurrentTransportType();
+
+      if (
+        currentTransportType === EHardwareTransportType.DesktopWebBle &&
+        device?.bleConnectId
+      ) {
+        return device.bleConnectId;
+      }
+      if (currentTransportType === EHardwareTransportType.Bridge) {
         return connectId;
       }
     }

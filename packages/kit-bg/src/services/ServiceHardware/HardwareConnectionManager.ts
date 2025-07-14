@@ -11,8 +11,6 @@ export class HardwareConnectionManager {
 
   private actualTransportType: EHardwareTransportType | null = null;
 
-  private lastWorkingTransportType: EHardwareTransportType | null = null;
-
   constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
     this.backgroundApi = backgroundApi;
   }
@@ -33,14 +31,8 @@ export class HardwareConnectionManager {
 
       const devices = response.data as unknown[];
       const isAvailable = Array.isArray(devices) && devices.length > 0;
-      console.log(
-        `🔍 USB DETECT: ${isAvailable ? 'YES' : 'NO'} (${
-          devices.length
-        } devices)`,
-      );
       return isAvailable;
     } catch (error) {
-      console.log('❌ USB DETECT: Failed', error);
       return false;
     }
   }
@@ -72,6 +64,11 @@ export class HardwareConnectionManager {
       const optimalType = await this.determineOptimalTransportType();
       const shouldSwitch = this.actualTransportType !== optimalType;
 
+      console.log(
+        `🔍 CACHE RESULT: shouldSwitch=${
+          shouldSwitch ? 'true' : 'false'
+        }, targetType=${optimalType}`,
+      );
       return {
         shouldSwitch,
         targetType: optimalType,
@@ -79,7 +76,7 @@ export class HardwareConnectionManager {
     },
     {
       promise: true,
-      maxAge: 500, // 500ms cache
+      maxAge: 5000,
       max: 1,
     },
   );
@@ -89,16 +86,15 @@ export class HardwareConnectionManager {
   }
 
   setCurrentTransportType(transportType: EHardwareTransportType): void {
-    this.actualTransportType = transportType;
-    // Clear cache when transport type changes to ensure fresh detection
-    try {
-      void this.shouldSwitchTransportType.clear();
-    } catch {
-      // Ignore cache clear errors
+    // Only clear cache when transport type actually changes
+    if (this.actualTransportType !== transportType) {
+      this.actualTransportType = transportType;
+      // Clear cache when transport type changes to ensure fresh detection
+      try {
+        void this.shouldSwitchTransportType.clear();
+      } catch {
+        // Ignore cache clear errors
+      }
     }
-  }
-
-  getLastWorkingTransportType(): EHardwareTransportType | null {
-    return this.lastWorkingTransportType;
   }
 }
