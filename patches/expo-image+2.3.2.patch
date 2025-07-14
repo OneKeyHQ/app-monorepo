@@ -9,6 +9,20 @@ index ce18dad..4043e77 100644
 +export { resolveSource, resolveSources } from './utils/resolveSources';
  //# sourceMappingURL=index.d.ts.map
 \ No newline at end of file
+diff --git a/node_modules/expo-image/ios/ImageModule.swift b/node_modules/expo-image/ios/ImageModule.swift
+index 361c806..d12d8e2 100644
+--- a/node_modules/expo-image/ios/ImageModule.swift
++++ b/node_modules/expo-image/ios/ImageModule.swift
+@@ -227,7 +227,8 @@ public final class ImageModule: Module {
+   static func registerCoders() {
+     SDImageCodersManager.shared.addCoder(WebPCoder.shared)
+     SDImageCodersManager.shared.addCoder(SDImageAVIFCoder.shared)
+-    SDImageCodersManager.shared.addCoder(SDImageSVGCoder.shared)
++    //  uncaught exception 'NSInternalInconsistencyException', reason: 'UIGraphicsBeginImageContext() failed to allocate CGBitampContext
++    // SDImageCodersManager.shared.addCoder(SDImageSVGCoder.shared)
+     SDImageCodersManager.shared.addCoder(SDImageHEICCoder.shared)
+   }
+ 
 diff --git a/node_modules/expo-image/src/index.ts b/node_modules/expo-image/src/index.ts
 index 6fa0066..858ae95 100644
 --- a/node_modules/expo-image/src/index.ts
