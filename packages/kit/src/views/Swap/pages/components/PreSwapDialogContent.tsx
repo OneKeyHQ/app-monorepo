@@ -1,15 +1,7 @@
-import { useMemo } from 'react';
-
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Divider,
-  Image,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, Divider, SizableText, YStack } from '@onekeyhq/components';
+import { useSwapStepsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   ESwapSlippageSegmentKey,
@@ -17,7 +9,7 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
-import PreSwapInfoItem from '../../components/PreSwapInfoItem';
+import PreSwapInfoGroup from '../../components/PreSwapInfoGroup';
 import PreSwapTokenItem from '../../components/PreSwapTokenItem';
 
 interface IPreSwapDialogContentProps {
@@ -42,20 +34,7 @@ const PreSwapDialogContent = ({
 
   const fromAmount = quoteResult?.fromAmount || '0';
   const toAmount = quoteResult?.toAmount || '0';
-
-  const slippage = useMemo(() => {
-    if (!quoteResult?.unSupportSlippage) {
-      return slippageItem.value;
-    }
-    return undefined;
-  }, [quoteResult?.unSupportSlippage, slippageItem.value]);
-  const fee = useMemo(() => {
-    if (quoteResult?.fee?.percentageFee) {
-      return `${quoteResult?.fee?.percentageFee ?? '-'}%`;
-    }
-    return '-';
-  }, [quoteResult?.fee?.percentageFee]);
-
+  const [swapSteps] = useSwapStepsAtom();
   const handleConfirm = () => {
     // 处理确认逻辑
     console.log('Confirm swap');
@@ -84,39 +63,7 @@ const PreSwapDialogContent = ({
       <Divider />
 
       {/* Info items */}
-      <YStack gap="$3">
-        <PreSwapInfoItem
-          title={intl.formatMessage({
-            id: ETranslations.swap_page_provider_provider,
-          })}
-          value={
-            <XStack gap="$1">
-              <Image
-                source={{ uri: quoteResult?.info.providerLogo ?? '' }}
-                size="$5"
-                borderRadius="$1"
-              />
-              <SizableText size="$bodyMd">
-                {quoteResult?.info?.providerName ?? ''}
-              </SizableText>
-            </XStack>
-          }
-        />
-        {slippage ? (
-          <PreSwapInfoItem
-            title={intl.formatMessage({
-              id: ETranslations.swap_page_provider_slippage_tolerance,
-            })}
-            value={`${slippage.toFixed(2)}%`}
-          />
-        ) : null}
-        <PreSwapInfoItem
-          title={intl.formatMessage({
-            id: ETranslations.fee_fee,
-          })}
-          value={fee}
-        />
-      </YStack>
+      <PreSwapInfoGroup quoteResult={quoteResult} slippageItem={slippageItem} />
 
       {/* Primary button */}
       <Button variant="primary" onPress={handleConfirm} size="large">

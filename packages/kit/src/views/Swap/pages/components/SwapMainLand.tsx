@@ -15,6 +15,7 @@ import {
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
   useSwapShouldRefreshQuoteAtom,
+  useSwapStepsAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
@@ -97,6 +98,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [toSelectToken] = useSwapSelectToTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
+  const [swapSteps, setSwapSteps] = useSwapStepsAtom();
   const swapSlippageRef = useRef(slippageItem);
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
@@ -253,15 +255,40 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const parseQuoteResultToSteps = useCallback(
     (quoteRes: IFetchQuoteResult) => {
       let steps: ISwapStep[] = [];
-      if (
+      if (quoteRes.isWrapped) {
+        steps = [
+          {
+            type: ESwapStepType.WRAP_TX,
+            status: ESwapStepStatus.READY,
+            data: quoteRes,
+          },
+        ];
+      } else if (quoteRes.swapShouldSignedData) {
+        steps = [
+          {
+            type: ESwapStepType.SIGN_MESSAGE,
+            status: ESwapStepStatus.READY,
+            data: quoteRes,
+          },
+          {
+            type: ESwapStepType.SEND_TX,
+            status: ESwapStepStatus.READY,
+            data: quoteRes,
+            skipSendTransAction: true,
+          },
+        ];
+      } else if (
         swapBatchTransferType === ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP
       ) {
+        steps = [
+          {
+            type: ESwapStepType.BATCH_APPROVE_SWAP,
+            status: ESwapStepStatus.READY,
+            data: quoteRes,
+          },
+        ];
+
         console.log('swap__pre batch approve and swap');
-      } else if (
-        swapBatchTransferType ===
-        ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP
-      ) {
-        console.log('swap__pre continuous approve and swap');
       } else {
         if (quoteRes.allowanceResult) {
           steps = [
@@ -270,7 +297,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               status: ESwapStepStatus.READY,
               data: quoteRes,
               canRetry: true,
-              shouldWaitApproved: true,
+              shouldWaitApproved:
+                swapBatchTransferType !==
+                ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP,
             },
           ];
         }
@@ -282,12 +311,11 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             data: quoteRes,
           },
         ];
+        console.log('swap__pre continuous approve and swap');
       }
-
-      return steps;
-      // todo
+      setSwapSteps([...steps]);
     },
-    [swapBatchTransferType],
+    [swapBatchTransferType, setSwapSteps],
   );
 
   const onPreSwap = useCallback(() => {
@@ -364,6 +392,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             onClose={() => {
               console.log('swap__pre onClose');
               setPreSwapDialogOpen(false);
+              setSwapSteps([]);
             }}
             open={preSwapDialogOpen}
             onBuildTx={onBuildTx}

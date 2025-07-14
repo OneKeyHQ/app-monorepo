@@ -398,9 +398,10 @@ export enum ESwapBatchTransferType {
 export interface ISwapStep {
   type: ESwapStepType;
   status: ESwapStepStatus;
-  data?: any;
+  data?: IFetchQuoteResult;
   canRetry?: boolean;
   shouldWaitApproved?: boolean;
+  skipSendTransAction?: boolean;
 }
 
 export interface IFetchQuoteResult {

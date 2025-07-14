@@ -625,11 +625,9 @@ export const {
   use: useSwapBuildTxFetchingAtom,
 } = contextAtom<boolean>(false);
 
-export const { atom: swapStepsAtom, use: useSwapStepsAtom } = contextAtom<{
-  steps: ISwapStep[];
-}>({
-  steps: [],
-});
+export const { atom: swapStepsAtom, use: useSwapStepsAtom } = contextAtom<
+  ISwapStep[]
+>([]);
 
 // swap tips
 export const { atom: swapTipsAtom, use: useSwapTipsAtom } = contextAtom<

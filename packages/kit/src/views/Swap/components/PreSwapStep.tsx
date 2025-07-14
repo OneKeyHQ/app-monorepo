@@ -10,10 +10,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { ISwapQuoteEventQuoteResult } from '@onekeyhq/shared/types/swap/types';
+import type { ISwapStep } from '@onekeyhq/shared/types/swap/types';
 
 interface IPreSwapStepProps {
-  step: ISwapQuoteEventQuoteResult;
+  steps: ISwapStep[];
 }
 
 interface IRoundLoadingItemProps {
@@ -126,10 +126,10 @@ const RoundLoadingItem = ({
   );
 };
 
-const PreSwapStep = ({ step }: IPreSwapStepProps) => {
+const PreSwapStep = ({ steps }: IPreSwapStepProps) => {
   //   const ref = useRef<any>(null);
 
-  const firstQuoteResult = step.data?.[0];
+  const firstQuoteResult = steps[0].data;
 
   return (
     <YStack>
