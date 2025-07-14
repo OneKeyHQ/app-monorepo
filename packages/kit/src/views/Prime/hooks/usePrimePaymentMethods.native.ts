@@ -154,33 +154,39 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       } = p.product;
 
       if (platformEnv.isNativeAndroid) {
-        pricePerYear = new BigNumber(pricePerYear).div(1_000_000).toNumber();
-        pricePerMonth = new BigNumber(pricePerMonth).div(1_000_000).toNumber();
+        pricePerYear = new BigNumber(pricePerYear || 0)
+          .div(1_000_000)
+          .toNumber();
+        pricePerMonth = new BigNumber(pricePerMonth || 0)
+          .div(1_000_000)
+          .toNumber();
       }
 
       const unit =
         primePaymentUtils.extractCurrencySymbol(priceString, {
           useShortUSSymbol: true,
         }) ||
-        primePaymentUtils.extractCurrencySymbol(pricePerYearString, {
+        primePaymentUtils.extractCurrencySymbol(pricePerYearString || '', {
           useShortUSSymbol: true,
         }) ||
-        primePaymentUtils.extractCurrencySymbol(pricePerMonthString, {
+        primePaymentUtils.extractCurrencySymbol(pricePerMonthString || '', {
           useShortUSSymbol: true,
         });
 
       packages.push({
         subscriptionPeriod: subscriptionPeriod as ISubscriptionPeriod,
-        pricePerYear,
-        pricePerYearString: `${unit}${new BigNumber(pricePerYear).toFixed(2)}`,
-        pricePerMonth,
-        pricePerMonthString: `${unit}${new BigNumber(pricePerMonth).toFixed(
+        pricePerYear: pricePerYear || 0,
+        pricePerYearString: `${unit}${new BigNumber(pricePerYear || 0).toFixed(
           2,
         )}`,
+        pricePerMonth: pricePerMonth || 0,
+        pricePerMonthString: `${unit}${new BigNumber(
+          pricePerMonth || 0,
+        ).toFixed(2)}`,
         priceTotalPerYearString:
           subscriptionPeriod === 'P1M'
-            ? `${unit}${new BigNumber(pricePerMonth).times(12).toFixed(2)}`
-            : `${unit}${new BigNumber(pricePerYear).toFixed(2)}`,
+            ? `${unit}${new BigNumber(pricePerMonth || 0).times(12).toFixed(2)}`
+            : `${unit}${new BigNumber(pricePerYear || 0).toFixed(2)}`,
       });
     });
 
