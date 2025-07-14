@@ -1,8 +1,14 @@
 import { memo, useCallback } from 'react';
 
-import { Icon, SizableText, XStack, useClipboard } from '@onekeyhq/components';
+import {
+  Icon,
+  NumberSizeableText,
+  SizableText,
+  XStack,
+  useClipboard,
+} from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
 
 import { useHoldersLayout } from './useHoldersLayout';
@@ -15,6 +21,7 @@ interface IHolderItemProps {
 function HolderItemBase({ item, index }: IHolderItemProps) {
   const { copyText } = useClipboard();
   const { layoutConfig } = useHoldersLayout();
+  const [settingsPersistAtom] = useSettingsPersistAtom();
 
   const handleCopyAddress = useCallback(() => {
     copyText(item.accountAddress);
@@ -58,14 +65,27 @@ function HolderItemBase({ item, index }: IHolderItemProps) {
       </XStack>
 
       {/* Amount */}
-      <SizableText size="$bodyMd" color="$text" {...layoutConfig.amount}>
-        {numberFormat(item.amount, { formatter: 'balance' })}
-      </SizableText>
+      <NumberSizeableText
+        size="$bodyMd"
+        color="$text"
+        {...layoutConfig.amount}
+        autoFormatter="balance-marketCap"
+      >
+        {item.amount}
+      </NumberSizeableText>
 
       {/* Fiat Value */}
-      <SizableText size="$bodyMd" color="$text" {...layoutConfig.value}>
-        ${numberFormat(item.fiatValue, { formatter: 'marketCap' })}
-      </SizableText>
+      <NumberSizeableText
+        size="$bodyMd"
+        color="$text"
+        {...layoutConfig.value}
+        formatter="marketCap"
+        formatterOptions={{
+          currency: settingsPersistAtom.currencyInfo.symbol,
+        }}
+      >
+        {item.fiatValue}
+      </NumberSizeableText>
     </XStack>
   );
 }

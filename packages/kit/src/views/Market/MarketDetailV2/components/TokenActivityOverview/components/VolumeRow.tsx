@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import { NumberSizeableText, SizableText, Stack } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { BuySellRatioBar } from './BuySellRatioBar';
@@ -15,13 +16,19 @@ export function VolumeRow({
 }: IVolumeRowProps) {
   const intl = useIntl();
   const buyPercentage = totalVolume > 0 ? (buyVolume / totalVolume) * 100 : 0;
-
+  const [settingsPersistAtom] = useSettingsPersistAtom();
   return (
     <Stack gap="$2">
       <Stack flexDirection="row" alignItems="center" gap="$2">
         <SizableText size="$bodyLgMedium">
           {label}:{' '}
-          <NumberSizeableText formatter="marketCap" size="$bodyLgMedium">
+          <NumberSizeableText
+            formatter="marketCap"
+            size="$bodyLgMedium"
+            formatterOptions={{
+              currency: settingsPersistAtom.currencyInfo.symbol,
+            }}
+          >
             {totalVolume}
           </NumberSizeableText>
         </SizableText>
@@ -34,6 +41,9 @@ export function VolumeRow({
             formatter="marketCap"
             size="$bodyMd"
             color="$textSubdued"
+            formatterOptions={{
+              currency: settingsPersistAtom.currencyInfo.symbol,
+            }}
           >
             {buyVolume}
           </NumberSizeableText>
@@ -45,6 +55,9 @@ export function VolumeRow({
             formatter="marketCap"
             size="$bodyMd"
             color="$textSubdued"
+            formatterOptions={{
+              currency: settingsPersistAtom.currencyInfo.symbol,
+            }}
           >
             {sellVolume}
           </NumberSizeableText>
