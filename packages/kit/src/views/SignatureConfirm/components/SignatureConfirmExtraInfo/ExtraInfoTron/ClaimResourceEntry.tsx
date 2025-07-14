@@ -6,10 +6,22 @@ import {
   SizableText,
   XStack,
 } from '@onekeyhq/components';
+import { showTronRewardCenter } from '@onekeyhq/kit/src/components/RewardCenter/TronRewardCenter';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-function ClaimResourceEntry() {
+function ClaimResourceEntry({
+  accountId,
+  networkId,
+}: {
+  accountId: string;
+  networkId: string;
+}) {
   const intl = useIntl();
   return (
     <LinearGradient
@@ -27,14 +39,26 @@ function ClaimResourceEntry() {
         py={2}
         backgroundColor="$bgApp"
         onPress={() => {
-          console.log('ClaimResourceEntry');
+          showTronRewardCenter({
+            accountId,
+            networkId,
+            onDialogClose: async ({ isResourceFetched }) => {
+              if (isResourceFetched) {
+                await timerUtils.wait(1000);
+                appEventBus.emit(
+                  EAppEventBusNames.EstimateTxFeeRetry,
+                  undefined,
+                );
+              }
+            },
+          });
         }}
         cursor="pointer"
       >
         <Icon name="GiftSolid" size="$3" color="$iconSubdued" />
         <SizableText size="$bodySmMedium" color="$textSubdued">
           {intl.formatMessage({
-            id: ETranslations.earn_claim_rewards,
+            id: ETranslations.wallet_trx_free_credit,
           })}
         </SizableText>
       </XStack>

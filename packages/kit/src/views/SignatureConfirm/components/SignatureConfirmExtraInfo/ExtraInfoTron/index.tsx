@@ -87,7 +87,7 @@ function ExtraInfoTron({
           <Icon name="InfoCircleOutline" size="$4.5" color="$iconSubdued" />
         </XStack>
         {resourceRentalInfo.isResourceRentalNeeded ? (
-          <ClaimResourceEntry />
+          <ClaimResourceEntry accountId={accountId} networkId={networkId} />
         ) : null}
       </XStack>
       <SignatureConfirmItem.Value>
