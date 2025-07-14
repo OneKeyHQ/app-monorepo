@@ -40,7 +40,11 @@ describe('Punycode detection', () => {
 
 describe('validateUrl', () => {
   test('returns original URL for complete URLs', () => {
-    const completeUrls = ['https://google.com', 'https://github.com/user/repo'];
+    const completeUrls = [
+      'https://google.com',
+      'https://github.com/user/repo',
+      'https://web3.okx.com/token/ethereum?cg=1&lmi=all&rb=6&vmi=all',
+    ];
     completeUrls.forEach((url) => {
       expect(validateUrl(url)).toBe(url);
     });
