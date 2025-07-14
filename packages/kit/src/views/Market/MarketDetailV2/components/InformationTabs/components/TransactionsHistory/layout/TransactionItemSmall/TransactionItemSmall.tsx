@@ -62,7 +62,7 @@ function TransactionItemSmallBase({
           size="$bodySmMedium"
           color="$text"
           autoFormatter="price-marketCap"
-          formatterOptions={{ currency: '$', capAtMaxT: true }}
+          formatterOptions={{ capAtMaxT: true }}
         >
           {value}
         </NumberSizeableText>
@@ -72,7 +72,7 @@ function TransactionItemSmallBase({
           size="$bodySm"
           color="$textSubdued"
           autoFormatter="price-marketCap"
-          formatterOptions={{ currency: '$', capAtMaxT: true }}
+          formatterOptions={{ capAtMaxT: true }}
         >
           {price}
         </NumberSizeableText>

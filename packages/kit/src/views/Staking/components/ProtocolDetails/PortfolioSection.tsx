@@ -170,7 +170,6 @@ export function TotalEarnedItem({
             size="$bodyMd"
             color="$textSubdued"
             formatter="balance"
-            formatterOptions={{ currency: '$' }}
           >
             {tokenFiatValue}
           </NumberSizeableText>

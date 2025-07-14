@@ -21,11 +21,7 @@ export function VolumeRow({
       <Stack flexDirection="row" alignItems="center" gap="$2">
         <SizableText size="$bodyLgMedium">
           {label}:{' '}
-          <NumberSizeableText
-            formatter="marketCap"
-            formatterOptions={{ currency: '$' }}
-            size="$bodyLgMedium"
-          >
+          <NumberSizeableText formatter="marketCap" size="$bodyLgMedium">
             {totalVolume}
           </NumberSizeableText>
         </SizableText>
@@ -36,7 +32,6 @@ export function VolumeRow({
           {intl.formatMessage({ id: ETranslations.global_buy })} (
           <NumberSizeableText
             formatter="marketCap"
-            formatterOptions={{ currency: '$' }}
             size="$bodyMd"
             color="$textSubdued"
           >
@@ -48,7 +43,6 @@ export function VolumeRow({
           {intl.formatMessage({ id: ETranslations.global_sell })} (
           <NumberSizeableText
             formatter="marketCap"
-            formatterOptions={{ currency: '$' }}
             size="$bodyMd"
             color="$textSubdued"
           >

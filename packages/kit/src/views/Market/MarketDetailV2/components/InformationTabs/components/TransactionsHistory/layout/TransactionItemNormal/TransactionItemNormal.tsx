@@ -56,7 +56,7 @@ function TransactionItemNormalBase({
         size="$bodyMd"
         color="$text"
         autoFormatter="price-marketCap"
-        formatterOptions={{ currency: '$', capAtMaxT: true }}
+        formatterOptions={{ capAtMaxT: true }}
         {...styles.price}
       >
         {price}
@@ -66,7 +66,7 @@ function TransactionItemNormalBase({
         size="$bodyMd"
         color="$text"
         autoFormatter="price-marketCap"
-        formatterOptions={{ currency: '$', capAtMaxT: true }}
+        formatterOptions={{ capAtMaxT: true }}
         {...styles.value}
       >
         {value}
