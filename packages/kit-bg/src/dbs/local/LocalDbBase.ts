@@ -2699,6 +2699,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           compatibleConnectId = connectId;
           break;
         case EHardwareTransportType.BLE:
+          bleConnectId = connectId;
+          compatibleConnectId = connectId;
+          break;
         case EHardwareTransportType.DesktopWebBle:
           // BLE connections - set bleConnectId but don't override connectId
           bleConnectId = connectId;
