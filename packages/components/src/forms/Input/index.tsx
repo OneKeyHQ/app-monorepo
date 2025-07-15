@@ -403,7 +403,6 @@ function BaseInput(
         */
           h={height}
           py={sharedStyles.py}
-          mt={platformEnv.isNativeAndroid ? 6 : undefined}
           pr={sharedStyles.px}
           pl={leftIconName ? paddingLeftWithIcon : sharedStyles.px}
           fontSize={
