@@ -19,23 +19,6 @@ export const parseValueToNumber = (value: string): number => {
 };
 
 /**
- * Format a number to k and m units
- * @param value - Number value to format
- * @returns Formatted string with k or m suffix
- */
-export const formatNumberToKM = (value: number): string => {
-  if (value >= 1_000_000) {
-    const millions = value / 1_000_000;
-    return millions % 1 === 0 ? `${millions}M` : `${millions.toFixed(1)}M`;
-  }
-  if (value >= 1000) {
-    const thousands = value / 1000;
-    return thousands % 1 === 0 ? `${thousands}K` : `${thousands.toFixed(1)}K`;
-  }
-  return value.toString();
-};
-
-/**
  * Format liquidity filter values for display
  * @param filter - Liquidity filter object with min and max values
  * @param liquidityText - Translated liquidity text

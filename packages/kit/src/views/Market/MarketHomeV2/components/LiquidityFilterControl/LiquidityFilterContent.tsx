@@ -12,8 +12,9 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { formatNumberToKM, parseValueToNumber } from '../../utils';
+import { parseValueToNumber } from '../../utils';
 
 type ILiquidityFilterContentProps = {
   value?: { min?: string; max?: string };
@@ -91,7 +92,9 @@ function LiquidityFilterContent({
     if (minValue?.trim()) {
       try {
         const minNum = parseValueToNumber(minValue.trim());
-        convertedMin = formatNumberToKM(minNum);
+        convertedMin = String(
+          numberFormat(String(minNum), { formatter: 'marketCap' }),
+        );
       } catch (error) {
         // Keep original value if parsing fails
         convertedMin = minValue;
@@ -101,7 +104,9 @@ function LiquidityFilterContent({
     if (maxValue?.trim()) {
       try {
         const maxNum = parseValueToNumber(maxValue.trim());
-        convertedMax = formatNumberToKM(maxNum);
+        convertedMax = String(
+          numberFormat(String(maxNum), { formatter: 'marketCap' }),
+        );
       } catch (error) {
         // Keep original value if parsing fails
         convertedMax = maxValue;

@@ -26,7 +26,9 @@ export function WebView({
 
   const handleLoadedEnd = useCallback(() => {
     const isIOS16 =
-      platformEnv.isNativeIOS && (Platform.Version as number) < 17;
+      platformEnv.isNativeIOS &&
+      typeof Platform.Version === 'number' &&
+      Platform.Version < 17;
 
     if (isIOS16) {
       const dynamicScript = `
