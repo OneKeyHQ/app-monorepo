@@ -183,12 +183,10 @@ function BaseTxHistoryListView(props: IProps) {
       }
       estimatedItemSize={platformEnv.isNative ? 60 : 56}
       renderItem={renderItem}
-      renderSectionHeader={renderSectionHeader}
+      renderSectionHeader={renderSectionHeader as any}
       ListFooterComponent={ListFooterComponent}
       ListHeaderComponent={ListHeaderComponent}
-      keyExtractor={(tx, index) =>
-        (tx as IAccountHistoryTx).id || index.toString(10)
-      }
+      keyExtractor={(tx, index) => tx.id || index.toString(10)}
       {...listViewStyleProps}
     />
   );

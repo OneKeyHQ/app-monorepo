@@ -286,29 +286,34 @@ export function List<Item>({
 
   return (
     <AutoSizer disableHeight>
-      {({ width: autoSizerWidth, height: autoSizerHeight }) => (
-        <div ref={ref as React.RefObject<HTMLDivElement>}>
-          <VirtualizedList
-            autoHeight
-            width={autoSizerWidth}
-            data={listData}
-            height={autoSizerHeight || height || 400}
-            isScrolling={isVisible ? isScrolling : false}
-            onScroll={isVisible ? onChildScroll : undefined}
-            overscanRowCount={30}
-            scrollTop={isVisible ? scrollTop : 0}
-            rowCount={listData.length}
-            rowHeight={({ index }) => {
-              const item = listData[index];
-              if (item.type === 'section-header') {
-                return 36;
-              }
-              return estimatedItemSize || 50;
-            }}
-            rowRenderer={rowRenderer as any}
-          />
-        </div>
-      )}
+      {({ width: autoSizerWidth, height: autoSizerHeight }) => {
+        return (
+          <div ref={ref as React.RefObject<HTMLDivElement>}>
+            <VirtualizedList
+              autoHeight
+              width={autoSizerWidth}
+              data={listData}
+              height={autoSizerHeight || height || 400}
+              isScrolling={isVisible ? isScrolling : false}
+              onScroll={isVisible ? onChildScroll : undefined}
+              overscanRowCount={30}
+              scrollTop={isVisible ? scrollTop : 0}
+              rowCount={listData.length}
+              rowHeight={({ index }) => {
+                const item = listData[index];
+                if (item.type === 'header') {
+                  return 44;
+                }
+                if (item.type === 'section-header') {
+                  return 36;
+                }
+                return estimatedItemSize || 60;
+              }}
+              rowRenderer={rowRenderer as any}
+            />
+          </div>
+        )
+      }}
     </AutoSizer>
   );
 }

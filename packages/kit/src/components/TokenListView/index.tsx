@@ -289,6 +289,7 @@ function TokenListViewCmp(props: IProps) {
 
   return (
     <Tabs.FlatList
+      // @ts-ignore
       // estimatedItemSize={tableLayout ? 48 : 60}
       data={filteredTokens}
       ListHeaderComponent={
