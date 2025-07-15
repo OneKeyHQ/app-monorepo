@@ -1,6 +1,12 @@
 import { useCallback } from 'react';
 
-import { Divider, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  Divider,
+  ScrollView,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { useLeftColumnWidthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
 import {
@@ -34,9 +40,9 @@ export function DesktopLayout() {
       {/* Main Content */}
       <XStack flex={1}>
         {/* Left column */}
-        <YStack flex={1} onLayout={handleLayout}>
+        <YStack flex={1}>
           {/* Trading view */}
-          <Stack flex={1}>
+          <Stack flex={1} onLayout={handleLayout}>
             <MarketTradingView
               tokenAddress={tokenAddress}
               networkId={networkId}
@@ -45,21 +51,25 @@ export function DesktopLayout() {
           </Stack>
 
           {/* Info tabs */}
-          <Stack h={320}>
+          <Stack h="30vh">
             <InformationTabs />
           </Stack>
         </YStack>
 
         {/* Right column */}
         <Stack w={320}>
-          <SwapPanel
-            networkId={networkId}
-            tokenAddress={tokenDetail?.address}
-          />
+          <ScrollView>
+            <Stack w={320}>
+              <SwapPanel
+                networkId={networkId}
+                tokenAddress={tokenDetail?.address}
+              />
 
-          <Divider mx="$4" my="$2" />
+              <Divider mx="$4" my="$2" />
 
-          <TokenActivityOverview />
+              <TokenActivityOverview />
+            </Stack>
+          </ScrollView>
         </Stack>
       </XStack>
     </>

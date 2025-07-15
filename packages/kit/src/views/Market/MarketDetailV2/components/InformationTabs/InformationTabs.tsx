@@ -45,28 +45,37 @@ export function InformationTabs() {
     [tokenAddress, networkId],
   );
 
-  const tabs = useMemo(
-    () =>
-      [
-        {
-          id: 'transactions',
-          title: intl.formatMessage({
-            id: ETranslations.dexmarket_details_transactions,
-          }),
-          page: TransactionsHistoryComponent,
-        },
-        networkId === 'sol--101'
-          ? {
-              id: 'holders',
-              title: intl.formatMessage({
-                id: ETranslations.dexmarket_holders,
-              }),
-              page: HoldersComponent,
-            }
-          : null,
-      ].filter(Boolean),
-    [TransactionsHistoryComponent, HoldersComponent, networkId, intl],
-  );
+  const tabs = useMemo(() => {
+    // Parameter validation: return empty array if parameters are empty
+    if (!tokenAddress || !networkId) {
+      return [];
+    }
+
+    return [
+      {
+        id: 'transactions',
+        title: intl.formatMessage({
+          id: ETranslations.dexmarket_details_transactions,
+        }),
+        page: TransactionsHistoryComponent,
+      },
+      networkId === 'sol--101'
+        ? {
+            id: 'holders',
+            title: intl.formatMessage({
+              id: ETranslations.dexmarket_holders,
+            }),
+            page: HoldersComponent,
+          }
+        : null,
+    ].filter(Boolean);
+  }, [
+    TransactionsHistoryComponent,
+    HoldersComponent,
+    tokenAddress,
+    networkId,
+    intl,
+  ]);
 
   return <Tab data={tabs} />;
 }
