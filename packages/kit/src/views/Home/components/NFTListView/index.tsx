@@ -177,7 +177,6 @@ function NFTListView(props: IProps) {
       ListFooterComponent={
         <>{addPaddingOnListFooter ? <Stack h="$16" /> : null}</>
       }
-      {...(listViewStyleProps as any)}
     />
   );
 }

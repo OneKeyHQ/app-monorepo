@@ -8,6 +8,7 @@ import {
   Stack,
   Tabs,
   renderNestedScrollView,
+  useStyle,
 } from '@onekeyhq/components';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
@@ -275,6 +276,30 @@ function TokenListViewCmp(props: IProps) {
     }
   }, [tokenListState.isRefreshing]);
 
+  const {
+    ListHeaderComponentStyle,
+    ListFooterComponentStyle,
+    contentContainerStyle,
+  } = listViewStyleProps || {};
+
+  const resolvedContentContainerStyle = useStyle(contentContainerStyle || {}, {
+    resolveValues: 'auto',
+  });
+
+  const resolvedListHeaderComponentStyle = useStyle(
+    ListHeaderComponentStyle || {},
+    {
+      resolveValues: 'auto',
+    },
+  );
+
+  const resolvedListFooterComponentStyle = useStyle(
+    ListFooterComponentStyle || {},
+    {
+      resolveValues: 'auto',
+    },
+  );
+
   if (showSkeleton) {
     return (
       <NestedScrollView style={{ flex: 1 }}>
@@ -292,6 +317,9 @@ function TokenListViewCmp(props: IProps) {
       // @ts-ignore
       // estimatedItemSize={tableLayout ? 48 : 60}
       data={filteredTokens}
+      contentContainerStyle={resolvedContentContainerStyle as any}
+      ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
+      ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       ListHeaderComponent={
         withHeader ? (
           <TokenListHeader
@@ -322,8 +350,8 @@ function TokenListViewCmp(props: IProps) {
       renderItem={({ item }) => (
         <TokenListItem
           hideValue={hideValue}
-          token={item as IAccountToken}
-          key={(item as IAccountToken).$key}
+          token={item}
+          key={item.$key}
           onPress={onPressToken}
           tableLayout={tableLayout}
           withPrice={withPrice}
@@ -346,7 +374,6 @@ function TokenListViewCmp(props: IProps) {
           {addPaddingOnListFooter ? <Stack h="$16" /> : null}
         </Stack>
       }
-      {...(listViewStyleProps as any)}
     />
   );
 }
