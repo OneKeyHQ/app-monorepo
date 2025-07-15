@@ -1,7 +1,7 @@
 import { type FC, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import { ERROR_CODE } from 'react-native-webview/lib/WebViewShared';
+import { ERROR_CODE } from 'react-native-webview/src/WebViewShared';
 
 import { Empty, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
