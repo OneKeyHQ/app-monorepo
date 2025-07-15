@@ -319,10 +319,7 @@ export function HomePageView({
     return (
       <>
         <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
-        <Page.Body
-          testID="HomePage"
-          style={{ position: 'relative', overflowY: 'scroll' }}
-        >
+        <Page.Body>
           <NetworkAlert />
           {/* {
             // The upgrade reminder does not need to be displayed on the Url Account page
