@@ -346,7 +346,7 @@ function TokenListViewCmp(props: IProps) {
           {addPaddingOnListFooter ? <Stack h="$16" /> : null}
         </Stack>
       }
-      {...listViewStyleProps}
+      {...(listViewStyleProps as any)}
     />
   );
 }

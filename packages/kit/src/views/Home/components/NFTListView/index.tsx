@@ -145,6 +145,21 @@ function NFTListView(props: IProps) {
     resolveValues: 'auto',
   });
 
+  const { ListHeaderComponentStyle, ListFooterComponentStyle } =
+    listViewStyleProps || {};
+  const resolvedListHeaderComponentStyle = useStyle(
+    ListHeaderComponentStyle || {},
+    {
+      resolveValues: 'auto',
+    },
+  );
+  const resolvedListFooterComponentStyle = useStyle(
+    ListFooterComponentStyle || {},
+    {
+      resolveValues: 'auto',
+    },
+  );
+
   if (!initialized && isLoading) {
     return <NFTListLoadingView />;
   }
@@ -153,6 +168,8 @@ function NFTListView(props: IProps) {
     <Tabs.FlatList
       key={numColumns}
       contentContainerStyle={style as any}
+      ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
+      ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       numColumns={numColumns}
       data={filteredNfts || []}
       renderItem={handleRenderItem}
@@ -160,7 +177,7 @@ function NFTListView(props: IProps) {
       ListFooterComponent={
         <>{addPaddingOnListFooter ? <Stack h="$16" /> : null}</>
       }
-      {...listViewStyleProps}
+      {...(listViewStyleProps as any)}
     />
   );
 }

@@ -61,6 +61,8 @@ export function List<Item>({
   estimatedItemSize,
   renderSectionHeader,
   renderSectionFooter,
+  ListHeaderComponentStyle,
+  ListFooterComponentStyle,
   numColumns = 1,
 }: IListProps<Item> & ISectionListProps<Item>) {
   const {
@@ -180,9 +182,17 @@ export function List<Item>({
       const item = listData[index];
       let element = null;
       if (item.type === 'header') {
-        element = ListHeaderComponent;
+        element = (
+          <div style={ListHeaderComponentStyle as any}>
+            {ListHeaderComponent as React.ReactNode}
+          </div>
+        );
       } else if (item.type === 'footer') {
-        element = ListFooterComponent;
+        element = (
+          <div style={ListFooterComponentStyle as any}>
+            {ListFooterComponent as React.ReactNode}
+          </div>
+        );
       } else if (item.type === 'section-header') {
         element = renderSectionHeader?.({
           section: item.data.section,
@@ -214,12 +224,13 @@ export function List<Item>({
     },
     [
       listData,
-      renderItem,
-      data,
+      ListHeaderComponentStyle,
       ListHeaderComponent,
       ListFooterComponent,
       renderSectionHeader,
       renderSectionFooter,
+      renderItem,
+      data,
     ],
   );
 
@@ -312,7 +323,7 @@ export function List<Item>({
               rowRenderer={rowRenderer as any}
             />
           </div>
-        )
+        );
       }}
     </AutoSizer>
   );

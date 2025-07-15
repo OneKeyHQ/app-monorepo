@@ -13,7 +13,7 @@ import {
   XStack,
   renderNestedScrollView,
 } from '@onekeyhq/components';
-import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
+import { useSafeAreaInsets, useStyle } from '@onekeyhq/components/src/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -163,6 +163,25 @@ function BaseTxHistoryListView(props: IProps) {
     [],
   );
 
+  const resolvedContentContainerStyle = useStyle(contentContainerStyle || {}, {
+    resolveValues: 'auto',
+  });
+
+  const { ListHeaderComponentStyle, ListFooterComponentStyle } =
+    listViewStyleProps || {};
+  const resolvedListHeaderComponentStyle = useStyle(
+    ListHeaderComponentStyle || {},
+    {
+      resolveValues: 'auto',
+    },
+  );
+  const resolvedListFooterComponentStyle = useStyle(
+    ListFooterComponentStyle || {},
+    {
+      resolveValues: 'auto',
+    },
+  );
+
   if (!initialized && isLoading) {
     return (
       <Stack {...contentContainerStyle}>
@@ -174,20 +193,21 @@ function BaseTxHistoryListView(props: IProps) {
 
   return (
     <Tabs.SectionList
+      // @ts-ignore
+      estimatedItemSize={platformEnv.isNative ? 60 : 56}
       renderScrollComponent={renderNestedScrollView}
-      contentContainerStyle={contentContainerStyle}
-      // h={platformEnv.isNative ? screenHeight - top - bottom - 90 : '100%'}
+      contentContainerStyle={resolvedContentContainerStyle as any}
       sections={sections}
       ListEmptyComponent={
         searchKey && data.length > 0 ? EmptySearch : EmptyHistory
       }
-      estimatedItemSize={platformEnv.isNative ? 60 : 56}
+      ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
+      ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader as any}
       ListFooterComponent={ListFooterComponent}
       ListHeaderComponent={ListHeaderComponent}
       keyExtractor={(tx, index) => tx.id || index.toString(10)}
-      {...listViewStyleProps}
     />
   );
 }
