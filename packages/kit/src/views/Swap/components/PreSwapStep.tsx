@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Divider,
   Image,
   LottieView,
   SizableText,
@@ -10,7 +11,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { ISwapStep } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapStepStatus,
+  type ISwapStep,
+} from '@onekeyhq/shared/types/swap/types';
 
 interface IPreSwapStepProps {
   steps: ISwapStep[];
@@ -127,19 +131,28 @@ const RoundLoadingItem = ({
 };
 
 const PreSwapStep = ({ steps }: IPreSwapStepProps) => {
-  //   const ref = useRef<any>(null);
-
-  const firstQuoteResult = steps[0].data;
-
   return (
-    <YStack>
-      <RoundLoadingItem
-        stepTitle={firstQuoteResult?.info?.providerName || ''}
-        isLoading
-        success={false}
-        failed={false}
-        estimatedTime={20}
-      />
+    <YStack gap="$1">
+      {steps.map((step, index) => {
+        return (
+          <>
+            <RoundLoadingItem
+              key={step.type}
+              stepTitle={step.type}
+              isLoading={
+                step.status === ESwapStepStatus.PENDING ||
+                step.status === ESwapStepStatus.LOADING
+              }
+              success={step.status === ESwapStepStatus.SUCCESS}
+              failed={step.status === ESwapStepStatus.FAILED}
+              estimatedTime={20}
+            />
+            {index > 1 && index < steps.length - 1 ? (
+              <Divider vertical />
+            ) : null}
+          </>
+        );
+      })}
     </YStack>
   );
 };

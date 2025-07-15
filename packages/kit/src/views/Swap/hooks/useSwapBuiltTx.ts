@@ -173,6 +173,27 @@ export function useSwapBuildTx() {
     setSwapToTokenAmount,
   ]);
 
+  const onBuildTxSuccess = useCallback(
+    async (txId: string, swapInfo: ISwapTxInfo) => {
+      clearQuoteData();
+      if (swapInfo) {
+        await generateSwapHistoryItem({
+          txId,
+          swapTxInfo: swapInfo,
+        });
+        if (
+          swapInfo.sender.token.networkId === swapInfo.receiver.token.networkId
+        ) {
+          void backgroundApiProxy.serviceNotification.blockNotificationForTxId({
+            networkId: swapInfo.sender.token.networkId,
+            tx: txId,
+          });
+        }
+      }
+    },
+    [clearQuoteData, generateSwapHistoryItem],
+  );
+
   const handleBuildTxSuccess = useCallback(
     async (data: ISendTxOnSuccessData[]) => {
       if (data?.[0]) {
@@ -1605,7 +1626,6 @@ export function useSwapBuildTx() {
             },
           };
           if (skipSendTransAction) {
-            // todo
             void handleBuildTxSuccessWithSignedNoSend({
               swapInfo,
             });
@@ -1621,8 +1641,45 @@ export function useSwapBuildTx() {
                 swapInfo,
               },
             );
-            return sendTxRes;
+            if (sendTxRes) {
+              void onBuildTxSuccess(sendTxRes.txid, swapInfo);
+            }
           }
+          if (buildSwapRes?.result?.protocol === EProtocolOfExchange.SWAP) {
+            void syncRecentTokenPairs({
+              swapFromToken: buildSwapRes.result.fromTokenInfo,
+              swapToToken: buildSwapRes.result.toTokenInfo,
+            });
+          } else if (
+            buildSwapRes?.result?.protocol === EProtocolOfExchange.LIMIT
+          ) {
+            void backgroundApiProxy.serviceSwap.swapLimitOrdersFetchLoop(
+              swapFromAddressInfo.accountInfo?.indexedAccount?.id,
+              !swapFromAddressInfo.accountInfo?.indexedAccount?.id
+                ? swapFromAddressInfo.accountInfo?.account?.id ??
+                    swapFromAddressInfo.accountInfo?.dbAccount?.id
+                : undefined,
+              true,
+            );
+          }
+          defaultLogger.swap.createSwapOrder.swapCreateOrder({
+            swapProvider: data?.info.provider ?? '',
+            swapProviderName: data?.info.providerName ?? '',
+            swapType: EProtocolOfExchange.SWAP,
+            slippage: slippageItem.value.toString(),
+            sourceChain: data.fromTokenInfo.networkId,
+            receivedChain: data.toTokenInfo.networkId,
+            sourceTokenSymbol: data.fromTokenInfo.symbol,
+            receivedTokenSymbol: data.toTokenInfo.symbol,
+            feeType: data?.fee?.percentageFee?.toString() ?? '0',
+            router: JSON.stringify(data?.routesData ?? ''),
+            isFirstTime: isFirstTimeSwap,
+            createFrom: pageType === EPageType.modal ? 'modal' : 'swapPage',
+          });
+          setPersistSettings((prev) => ({
+            ...prev,
+            isFirstTimeSwap: false,
+          }));
         }
       }
     },
@@ -1630,15 +1687,22 @@ export function useSwapBuildTx() {
       checkOtherFee,
       handleBuildTxSuccessWithSignedNoSend,
       intl,
+      isFirstTimeSwap,
+      onBuildTxSuccess,
+      pageType,
       sendTxActions,
+      setPersistSettings,
       slippageItem,
       swapFromAddressInfo.accountInfo?.account?.id,
+      swapFromAddressInfo.accountInfo?.dbAccount?.id,
+      swapFromAddressInfo.accountInfo?.indexedAccount?.id,
       swapFromAddressInfo.accountInfo?.wallet?.type,
       swapFromAddressInfo.address,
       swapFromAddressInfo.networkId,
       swapToAddressInfo.accountInfo?.account?.id,
       swapToAddressInfo.address,
       swapTypeSwitch,
+      syncRecentTokenPairs,
     ],
   );
 
@@ -1887,34 +1951,77 @@ export function useSwapBuildTx() {
           status === ESwapStepStatus.READY ||
           (canRetry && status === ESwapStepStatus.FAILED)
         ) {
-          if (type === ESwapStepType.APPROVE_TX) {
-            if (isResetApprove) {
-              await approveTxNew(
-                '0',
-                !!swapActionState.approveUnLimit,
-                step.data,
-              );
-            } else {
-              await approveTxNew(
-                data?.fromAmount ?? '0',
-                !!swapActionState.approveUnLimit,
-                step.data,
-              );
+          try {
+            // 设置步骤为加载状态
+            setSwapSteps((prevSteps) => {
+              const newSteps = [...prevSteps];
+              newSteps[i] = {
+                ...newSteps[i],
+                status: ESwapStepStatus.LOADING,
+                errorMessage: undefined,
+              };
+              return newSteps;
+            });
+
+            if (type === ESwapStepType.APPROVE_TX) {
+              if (isResetApprove) {
+                await approveTxNew(
+                  '0',
+                  !!swapActionState.approveUnLimit,
+                  step.data,
+                );
+              } else {
+                await approveTxNew(
+                  data?.fromAmount ?? '0',
+                  !!swapActionState.approveUnLimit,
+                  step.data,
+                );
+              }
+            } else if (type === ESwapStepType.WRAP_TX) {
+              await wrappedTx(step.data);
+            } else if (type === ESwapStepType.SEND_TX) {
+              await buildTxNew(step.data);
+            } else if (type === ESwapStepType.SIGN_MESSAGE) {
+              await signMessage(step.data);
+            } else if (type === ESwapStepType.BATCH_APPROVE_SWAP) {
+              await batchApproveSwap(step.data);
             }
-          } else if (type === ESwapStepType.WRAP_TX) {
-            await wrappedTx(step.data);
-          } else if (type === ESwapStepType.SEND_TX) {
-            await buildTxNew(step.data);
-          } else if (type === ESwapStepType.SIGN_MESSAGE) {
-            await signMessage(step.data);
-          } else if (type === ESwapStepType.BATCH_APPROVE_SWAP) {
-            await batchApproveSwap(step.data);
+
+            // 设置步骤为成功状态
+            setSwapSteps((prevSteps) => {
+              const newSteps = [...prevSteps];
+              newSteps[i] = {
+                ...newSteps[i],
+                status:
+                  newSteps[i].shouldWaitApproved &&
+                  newSteps[i].type === ESwapStepType.APPROVE_TX
+                    ? ESwapStepStatus.PENDING
+                    : ESwapStepStatus.SUCCESS,
+              };
+              return newSteps;
+            });
+          } catch (error) {
+            console.error(`Step ${i} failed:`, error);
+
+            // 设置步骤为失败状态
+            setSwapSteps((prevSteps) => {
+              const newSteps = [...prevSteps];
+              newSteps[i] = {
+                ...newSteps[i],
+                status: ESwapStepStatus.FAILED,
+                errorMessage:
+                  error instanceof Error ? error.message : 'Unknown error',
+              };
+              return newSteps;
+            });
+            break;
           }
         }
       }
     }
   }, [
     swapSteps,
+    setSwapSteps,
     approveTxNew,
     swapActionState.approveUnLimit,
     wrappedTx,
