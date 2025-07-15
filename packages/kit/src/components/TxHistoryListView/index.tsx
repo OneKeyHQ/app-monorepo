@@ -172,7 +172,6 @@ function BaseTxHistoryListView(props: IProps) {
     );
   }
 
-  console.log('TxHistoryListView', sections);
   return (
     <Tabs.SectionList
       renderScrollComponent={renderNestedScrollView}

@@ -1,5 +1,6 @@
 import { Container } from './Container';
 import { List } from './List';
+import { ScrollView } from './ScrollView';
 import { Tab } from './Tab';
 
 import type { Tabs as NativeTabs } from 'react-native-collapsible-tab-view';
@@ -7,10 +8,10 @@ import type { Tabs as NativeTabs } from 'react-native-collapsible-tab-view';
 export const Tabs = {
   Container,
   Tab,
-  Lazy: () => null,
+  Lazy: (children: React.ReactNode) => children,
   FlatList: List,
-  ScrollView: () => null,
-  SectionList: () => null,
+  ScrollView,
+  SectionList: List,
   FlashList: List,
-  MasonryFlashList: () => null,
+  MasonryFlashList: List,
 } as unknown as typeof NativeTabs;

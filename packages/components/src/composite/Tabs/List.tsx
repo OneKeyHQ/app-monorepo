@@ -11,20 +11,58 @@ import {
 import { useTabsContext, useTabsScrollContext } from './context';
 import { useCurrentTabName } from './Tab';
 
+import type { ISectionListProps } from '../../layouts';
 import type { FlashListProps } from '@shopify/flash-list';
 import type { CollectionCellRendererParams } from 'react-virtualized';
 
 type IListProps<Item> = FlashListProps<Item>;
 
+type IListData<Item> =
+  | {
+      type: 'header';
+    }
+  | {
+      type: 'footer';
+    }
+  | {
+      type: 'item';
+      data: Item;
+    }
+  | {
+      type: 'section-header';
+      data: {
+        section: ISectionListProps<Item>['sections'][number];
+        sectionIndex: number;
+      };
+    }
+  | {
+      type: 'section-footer';
+      data: {
+        section: ISectionListProps<Item>['sections'][number];
+        sectionIndex: number;
+      };
+    }
+  | {
+      type: 'section-item';
+      data: {
+        item: Item;
+        itemIndex: number;
+        sectionIndex: number;
+      };
+    };
+
 export function List<Item>({
   renderItem,
   data,
+  sections,
   ListHeaderComponent,
   ListFooterComponent,
   ListEmptyComponent,
   estimatedItemSize,
+  renderSectionHeader,
+  renderSectionFooter,
   numColumns = 1,
-}: IListProps<Item>) {
+}: IListProps<Item> & ISectionListProps<Item>) {
   const {
     registerChild,
     height,
@@ -37,17 +75,6 @@ export function List<Item>({
   const { focusedTab } = useTabsContext();
 
   const ref = useRef<Element>(null);
-  console.log('currentTabName', currentTabName, focusedTab.value);
-  //   useAnimatedReaction(
-  //     () => focusedTab.value,
-  //     (focusedTabValue) => {
-  //       console.log('registerChild', ref.current);
-  //       if (focusedTabValue === currentTabName) {
-  //         registerChild(ref.current);
-  //       }
-  //     },
-  //     [currentTabName],
-  //   );
 
   useEffect(() => {
     if (focusedTab.value === currentTabName) {
@@ -55,25 +82,65 @@ export function List<Item>({
     }
   }, [focusedTab.value, currentTabName, registerChild]);
 
-  const listData: {
-    data: Item | null;
-    type: 'header' | 'footer' | 'item';
-  }[] = useMemo(() => {
-    const list: {
-      data: Item | null;
-      type: 'header' | 'footer' | 'item';
-    }[] = [];
+  const listData: IListData<Item>[] = useMemo(() => {
+    const list: IListData<Item>[] = [];
     if (ListHeaderComponent) {
-      list.push({ data: null, type: 'header' });
+      list.push({ type: 'header' });
     }
-    if (data?.length) {
-      list.push(...data.map((item) => ({ data: item, type: 'item' as const })));
+
+    if (sections?.length) {
+      sections.forEach((section, sectionIndex) => {
+        if (renderSectionHeader) {
+          list.push({
+            data: {
+              section,
+              sectionIndex,
+            },
+            type: 'section-header',
+          });
+        }
+        if (section.data?.length) {
+          section.data.forEach((item, itemIndex) => {
+            list.push({
+              type: 'section-item',
+              data: {
+                item,
+                itemIndex,
+                sectionIndex,
+              },
+            });
+          });
+        }
+        if (renderSectionFooter) {
+          list.push({
+            data: {
+              section,
+              sectionIndex,
+            },
+            type: 'section-footer',
+          });
+        }
+      });
+    } else if (data?.length) {
+      data.forEach((item) => {
+        list.push({
+          data: item,
+          type: 'item' as const,
+        });
+      });
     }
     if (ListFooterComponent) {
-      list.push({ data: null, type: 'footer' });
+      list.push({ type: 'footer' });
     }
     return list;
-  }, [ListFooterComponent, ListHeaderComponent, data]);
+  }, [
+    ListFooterComponent,
+    ListHeaderComponent,
+    data,
+    renderSectionFooter,
+    renderSectionHeader,
+    sections,
+  ]);
 
   const rowRenderer = useCallback(
     ({
@@ -92,18 +159,46 @@ export function List<Item>({
       if (item.type === 'footer') {
         return ListFooterComponent;
       }
+      if (item.type === 'section-header') {
+        return renderSectionHeader?.({
+          section: item.data.section,
+          index: item.data.sectionIndex,
+        });
+      }
+      if (item.type === 'section-footer') {
+        return renderSectionFooter?.({
+          section: item.data.section,
+          index: item.data.sectionIndex,
+        });
+      }
+      if (item.type === 'section-item') {
+        return renderItem?.({
+          item: item.data.item,
+          index: item.data.itemIndex,
+          target: 'Cell',
+        });
+      }
+
       if (!item.data) {
         return null;
       }
       return (
         <div key={key} style={style}>
           {renderItem && data
-            ? renderItem({ item: item.data, index, target: 'Cell' })
+            ? renderItem({ item: item.data as Item, index, target: 'Cell' })
             : null}
         </div>
       );
     },
-    [listData, renderItem, data, ListHeaderComponent, ListFooterComponent],
+    [
+      listData,
+      renderItem,
+      data,
+      ListHeaderComponent,
+      ListFooterComponent,
+      renderSectionHeader,
+      renderSectionFooter,
+    ],
   );
 
   const cellSizeAndPositionGetter = useCallback(
@@ -137,7 +232,7 @@ export function List<Item>({
     [rowRenderer],
   );
 
-  if (!data?.length) {
+  if (!data?.length && !sections?.length) {
     return ListEmptyComponent;
   }
 
