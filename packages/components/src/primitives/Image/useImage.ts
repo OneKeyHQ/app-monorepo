@@ -14,6 +14,7 @@ import {
   type ImageSource,
 } from 'expo-image';
 import { resolveSource } from 'expo-image';
+import { isEmptyResolvedSource } from './utils';
 
 const IMAGE_CACHE_MAP = new Map<string, string>();
 
@@ -54,14 +55,7 @@ export function useImage(
   const isEffectValid = useRef(true);
 
   const loadImage = useCallback(() => {
-    if (
-      !resolvedSource ||
-      (resolvedSource &&
-        typeof resolvedSource === 'object' &&
-        (resolvedSource?.uri === '' ||
-          resolvedSource?.uri === null ||
-          resolvedSource?.uri === undefined))
-    ) {
+    if (!resolvedSource || isEmptyResolvedSource(resolvedSource)) {
       return;
     }
     Image.loadAsync(resolvedSource, optionsRef.current)
