@@ -1,5 +1,7 @@
 import punycode from 'punycode';
 
+import validator from 'validator';
+
 import type { IUrlValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 
 import { ONEKEY_APP_DEEP_LINK_NAME } from '../consts/deeplinkConsts';
@@ -154,23 +156,28 @@ export function isValidDeepLink(url: string) {
   );
 }
 
-export const isValidWebUrl = (url: string) =>
-  /^[^/\s]+\.(?:ai|app|art|ag|co|com|club|dev|ee|fi|finance|game|im|info|io|is|it|net|network|news|org|so|xyz)(?:\/[^/\s]*)*$/.test(
-    url,
-  );
-
 export const validateUrl = (url: string): string => {
-  let validatedUrl;
-  try {
-    validatedUrl = new URL(url);
-  } catch (e) {
-    if (isValidWebUrl(url)) {
-      return `https://${url}`;
+  // Extract host/path part from URL if it has a protocol
+  let urlWithoutProtocol = url;
+  if (url.includes('://')) {
+    try {
+      const parsedUrl = new URL(url);
+      const pathname = parsedUrl.pathname === '/' ? '' : parsedUrl.pathname;
+      urlWithoutProtocol =
+        parsedUrl.host + pathname + parsedUrl.search + parsedUrl.hash;
+    } catch {
+      // If URL parsing fails, use the original URL
     }
-    return `https://www.google.com/search?q=${url}`;
   }
 
-  return validatedUrl?.href ?? url;
+  // Try to validate with HTTPS protocol
+  const httpsUrl = `https://${urlWithoutProtocol}`;
+  if (validator.isURL(httpsUrl, { protocols: ['https'] })) {
+    return httpsUrl;
+  }
+
+  // If still not valid, return Google search URL
+  return `https://www.google.com/search?q=${encodeURIComponent(url)}`;
 };
 
 export const containsPunycode = (url: string) => {
