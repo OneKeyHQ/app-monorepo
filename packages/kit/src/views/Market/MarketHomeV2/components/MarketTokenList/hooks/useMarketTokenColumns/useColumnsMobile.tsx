@@ -24,7 +24,7 @@ export const useColumnsMobile = (
     {
       title: intl.formatMessage({ id: ETranslations.global_name }),
       dataIndex: 'tokenInfo',
-      columnWidth: '40%',
+      columnWidth: '45%',
       render: (_, record: IMarketToken) => {
         return (
           <XStack alignItems="center" paddingLeft="$5">
@@ -62,7 +62,7 @@ export const useColumnsMobile = (
     {
       title: intl.formatMessage({ id: ETranslations.dexmarket_token_change }),
       dataIndex: 'change',
-      columnWidth: '30%',
+      columnWidth: '25%',
       render: (_, record: IMarketToken) => {
         return (
           <XStack justifyContent="center" alignItems="center" paddingRight="$5">

@@ -4,7 +4,6 @@ import { XStack } from '@onekeyhq/components';
 
 import { LiquidityFilterControl } from '../LiquidityFilterControl';
 import { MarketTokenListNetworkSelector } from '../MarketTokenListNetworkSelector';
-import { MarketViewToggle } from '../MarketViewToggle';
 import { TimeRangeSelector } from '../TimeRangeSelector';
 
 import type { ILiquidityFilter } from '../../types';
