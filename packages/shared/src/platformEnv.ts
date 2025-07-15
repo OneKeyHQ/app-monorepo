@@ -131,6 +131,7 @@ export type IPlatformEnv = {
 
   isAppleStoreEnv?: boolean;
   isSupportWebUSB?: boolean;
+  isSupportDesktopBle?: boolean;
 };
 
 const {
@@ -385,6 +386,8 @@ const isRuntimeBrave = checkIsRuntimeBrave();
 const isRuntimeMacOSBrowser = isDesktopMac || checkIsRuntimeMacOSBrowser();
 const isSupportWebUSB = isExtension || isWeb;
 
+const isSupportDesktopBle = isDesktopMac;
+
 // Ext manifest v2 background
 export const isExtensionBackgroundHtml: boolean =
   isExtension &&
@@ -518,6 +521,7 @@ const platformEnv: IPlatformEnv = {
   supportAutoUpdate,
   isAppleStoreEnv,
   isSupportWebUSB,
+  isSupportDesktopBle,
 };
 
 if (isDev) {

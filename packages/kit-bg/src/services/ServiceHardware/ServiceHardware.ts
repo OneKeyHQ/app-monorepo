@@ -259,34 +259,34 @@ class ServiceHardware extends ServiceBase {
         'showDeviceDebugLogs',
       );
 
-    let hardwareTransportType: EHardwareTransportType;
+    let hardwareTransportType =
+      await this.connectionManager.getCurrentTransportType();
     let shouldSwitch = false;
 
-    if (skipTransportDetection) {
-      // Use current transport type without detection
-      const currentType = this.connectionManager.getCurrentTransportType();
-      hardwareTransportType = currentType || EHardwareTransportType.Bridge;
-    } else {
-      // Check if we should switch transport type based on optimal connection strategy
-      const result = await this.connectionManager.shouldSwitchTransportType();
-      shouldSwitch = result.shouldSwitch;
-      hardwareTransportType = result.targetType;
-    }
+    // Desktop Auto switch transport type
+    if (platformEnv.isSupportDesktopBle) {
+      if (!skipTransportDetection) {
+        // Check if we should switch transport type based on optimal connection strategy
+        const result = await this.connectionManager.shouldSwitchTransportType();
+        shouldSwitch = result.shouldSwitch;
+        hardwareTransportType = result.targetType;
+      }
+      // If transport type needs to be switched, update it
+      if (shouldSwitch) {
+        const currentTransportType =
+          await this.connectionManager.getCurrentTransportType();
+        console.log(
+          `🔄 TRANSPORT SWITCH: ${
+            currentTransportType ?? 'null'
+          } → ${hardwareTransportType}`,
+        );
 
-    // If transport type needs to be switched, update it
-    if (shouldSwitch) {
-      const currentType = this.connectionManager.getCurrentTransportType();
-      console.log(
-        `🔄 TRANSPORT SWITCH: ${
-          currentType ?? 'null'
-        } → ${hardwareTransportType}`,
-      );
+        // Reset SDK instance to use new transport type
+        await resetHardwareSDKInstance();
+        this.registeredEvents = false;
 
-      // Reset SDK instance to use new transport type
-      await resetHardwareSDKInstance();
-      this.registeredEvents = false;
-
-      console.log('✅ TRANSPORT SWITCH: SDK reset completed');
+        console.log('✅ TRANSPORT SWITCH: SDK reset completed');
+      }
     }
 
     // Update the connection manager's current transport type AFTER switch logic
@@ -310,25 +310,6 @@ class ServiceHardware extends ServiceBase {
 
       return instance;
     } catch (error) {
-      // If USB connection fails, attempt fallback to Bluetooth for desktop
-      if (
-        platformEnv.isDesktop &&
-        hardwareTransportType === EHardwareTransportType.Bridge
-      ) {
-        console.log('🔄 FALLBACK: Bridge failed, switching to Bluetooth');
-
-        try {
-          // TODO: only working for macos, and need detect bluetooth permission
-          const fallbackInstance = await this.getSDKInstanceWithType(
-            EHardwareTransportType.DesktopWebBle,
-          );
-          console.log('✅ FALLBACK: Bluetooth connection successful');
-          return fallbackInstance;
-        } catch (fallbackError) {
-          console.log('❌ FALLBACK: Bluetooth also failed', fallbackError);
-        }
-      }
-
       // always show error toast when sdk init, so user can report to us
       void this.backgroundApi.serviceApp.showToast({
         method: 'error',
@@ -336,34 +317,6 @@ class ServiceHardware extends ServiceBase {
       });
       throw error;
     }
-  }
-
-  private async getSDKInstanceWithType(transportType: EHardwareTransportType) {
-    const { hardwareConnectSrc } = await settingsPersistAtom.get();
-    const isPreRelease =
-      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-        'usePreReleaseConfig',
-      );
-    const debugMode =
-      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-        'showDeviceDebugLogs',
-      );
-
-    const instance = await getHardwareSDKInstance({
-      hardwareTransportType: transportType,
-      isPreRelease: isPreRelease === true,
-      hardwareConnectSrc,
-      debugMode,
-    });
-
-    await this.checkBridgeAndFallbackToWebUSB({
-      hardwareSDKInstance: instance,
-    });
-    await this.registerSdkEvents(instance);
-
-    this.connectionManager.setCurrentTransportType(transportType);
-
-    return instance;
   }
 
   private async specialProcessingEvent({
@@ -1499,11 +1452,6 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getCurrentTransportType(): Promise<EHardwareTransportType | null> {
-    return this.connectionManager.getCurrentTransportType();
-  }
-
-  @backgroundMethod()
   async getCompatibleConnectId({
     connectId,
     featuresDeviceId,
@@ -1526,59 +1474,52 @@ class ServiceHardware extends ServiceBase {
       features,
     });
 
-    if (platformEnv.isDesktop) {
-      // Determine the transport type to use
-      let targetTransportType: EHardwareTransportType;
+    if (!platformEnv.isSupportDesktopBle) {
+      return device?.connectId || connectId;
+    }
 
-      if (skipTransportDetection) {
-        // Skip detection and use current transport type
-        const currentTransportType =
-          this.connectionManager.getCurrentTransportType();
-        if (!currentTransportType) {
-          // Fallback to detection if current transport type is null
-          const result =
-            await this.connectionManager.shouldSwitchTransportType();
-          targetTransportType = result.targetType;
-        } else {
-          targetTransportType = currentTransportType;
-        }
-      } else {
-        // Perform transport type detection
-        const result = await this.connectionManager.shouldSwitchTransportType();
-        targetTransportType = result.targetType;
+    // Determine the transport type to use
+    let targetTransportType: EHardwareTransportType;
+
+    if (skipTransportDetection) {
+      // Skip detection and use current transport type
+      const currentTransportType =
+        await this.connectionManager.getCurrentTransportType();
+      targetTransportType = currentTransportType;
+    } else {
+      // Perform transport type detection
+      const result = await this.connectionManager.shouldSwitchTransportType();
+      targetTransportType = result.targetType;
+    }
+
+    // Handle connection logic based on transport type
+    if (targetTransportType === EHardwareTransportType.DesktopWebBle) {
+      if (device?.bleConnectId) {
+        // Device found in DB and has BLE connectId, use it
+        return device.bleConnectId;
       }
-
-      // Handle connection logic based on transport type
-      if (targetTransportType === EHardwareTransportType.DesktopWebBle) {
-        if (device?.bleConnectId) {
-          // Device found in DB and has BLE connectId, use it
-          return device.bleConnectId;
-        }
-        if (!device) {
-          return connectId;
-        }
-        if (device && !device.bleConnectId) {
-          // Use servicePromise to wait for UI dialog to complete BLE pairing
-          const bleConnectId = await new Promise<string>((resolve, reject) => {
-            const promiseId = this.backgroundApi.servicePromise.createCallback({
-              resolve,
-              reject,
-            });
-
-            // Emit event for UI dialog with promiseId
-            appEventBus.emit(EAppEventBusNames.DesktopBleRepairRequired, {
-              connectId,
-              deviceId: featuresDeviceId || undefined,
-              deviceName: features?.label || device.name,
-              features,
-              promiseId,
-            });
+      if (!device) {
+        return connectId;
+      }
+      if (device && !device.bleConnectId) {
+        // Use servicePromise to wait for UI dialog to complete BLE pairing
+        const bleConnectId = await new Promise<string>((resolve, reject) => {
+          const promiseId = this.backgroundApi.servicePromise.createCallback({
+            resolve,
+            reject,
           });
 
-          return bleConnectId;
-        }
-      } else if (targetTransportType === EHardwareTransportType.Bridge) {
-        return connectId;
+          // Emit event for UI dialog with promiseId
+          appEventBus.emit(EAppEventBusNames.DesktopBleRepairRequired, {
+            connectId,
+            deviceId: featuresDeviceId || undefined,
+            deviceName: features?.label || device.name,
+            features,
+            promiseId,
+          });
+        });
+
+        return bleConnectId;
       }
     }
 

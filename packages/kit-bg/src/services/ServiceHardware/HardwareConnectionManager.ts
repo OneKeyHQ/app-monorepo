@@ -2,6 +2,7 @@ import axios from 'axios';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -16,8 +17,8 @@ export class HardwareConnectionManager {
   }
 
   async detectUSBDeviceAvailability(): Promise<boolean> {
-    if (!platformEnv.isDesktop) {
-      return false;
+    if (!platformEnv.isSupportDesktopBle) {
+      return true;
     }
 
     try {
@@ -42,7 +43,7 @@ export class HardwareConnectionManager {
       await this.backgroundApi.serviceSetting.getHardwareTransportType();
 
     // For desktop, check if USB devices are available
-    if (platformEnv.isDesktop) {
+    if (platformEnv.isSupportDesktopBle) {
       const usbAvailable = await this.detectUSBDeviceAvailability();
 
       if (usbAvailable) {
@@ -76,13 +77,15 @@ export class HardwareConnectionManager {
     },
     {
       promise: true,
-      maxAge: 5000,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 2 }),
       max: 1,
     },
   );
 
-  getCurrentTransportType(): EHardwareTransportType | null {
-    return this.actualTransportType;
+  async getCurrentTransportType(): Promise<EHardwareTransportType> {
+    const currentTransportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+    return this.actualTransportType || currentTransportType;
   }
 
   setCurrentTransportType(transportType: EHardwareTransportType): void {
