@@ -3,7 +3,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   Divider,
+  Icon,
   Image,
   LottieView,
   SizableText,
@@ -25,7 +27,9 @@ interface IRoundLoadingItemProps {
   isLoading: boolean;
   success: boolean;
   failed: boolean;
+  canRetry: boolean;
   estimatedTime: number | string;
+  onRetry: () => void;
 }
 
 const RoundLoadingItem = ({
@@ -33,6 +37,8 @@ const RoundLoadingItem = ({
   isLoading,
   estimatedTime,
   success,
+  canRetry,
+  onRetry,
   failed,
 }: IRoundLoadingItemProps) => {
   const ref = useRef<any>(null);
@@ -74,40 +80,80 @@ const RoundLoadingItem = ({
     if (success) {
       return (
         <Image
-          width={20}
-          height={20}
-          source={{
-            uri: require('@onekeyhq/kit/assets/images/preSwapStepSuccess.png'),
-          }}
+          width={18}
+          height={18}
+          source={require('@onekeyhq/kit/assets/preSwapStepSuccess.png')}
         />
       );
     }
     if (failed) {
       return (
         <Image
-          width={20}
-          height={20}
-          source={{
-            uri: require('@onekeyhq/kit/assets/images/preSwapStepFailed.png'),
-          }}
+          width={18}
+          height={18}
+          source={require('@onekeyhq/kit/assets/preSwapStepFailed.png')}
+        />
+      );
+    }
+    if (isLoading) {
+      return (
+        <LottieView
+          ref={ref}
+          width="$5"
+          height="$5"
+          autoPlay={isLoading}
+          loop={isLoading}
+          source={require('@onekeyhq/kit/assets/animations/round-loading.json')}
         />
       );
     }
     return (
-      <LottieView
-        ref={ref}
-        width="$5"
-        height="$5"
-        autoPlay={isLoading}
-        loop={isLoading}
-        source={require('@onekeyhq/kit/assets/animations/round-loading.json')}
+      <Image
+        width={18}
+        height={18}
+        source={require('@onekeyhq/kit/assets/preSwapStepReady.png')}
       />
     );
   }, [success, failed, isLoading]);
 
+  const rightComponent = useMemo(() => {
+    if (isLoading && !success && !failed) {
+      return (
+        <SizableText size="$bodySm" color="$textSubdued">
+          {countdown > 0
+            ? intl.formatMessage(
+                { id: ETranslations.swap_approve_token_est_time },
+                { num: countdown },
+              )
+            : intl.formatMessage(
+                { id: ETranslations.swap_approve_token_est_time },
+                { num: countdown },
+              )}
+        </SizableText>
+      );
+    }
+    if (canRetry && failed) {
+      return (
+        <Button
+          size="sm"
+          type="plain"
+          onPress={() => {
+            onRetry();
+          }}
+        >
+          Retry
+        </Button>
+      );
+    }
+    if (success) {
+      return <Icon size="$6" name="CheckboxOutline" color="$iconSubdued" />;
+    }
+    return null;
+  }, [isLoading, success, failed, canRetry, countdown, intl, onRetry]);
+
   return (
-    <XStack justifyContent="space-between">
-      <XStack>
+    <XStack justifyContent="space-between" alignItems="center">
+      <XStack gap="$2" alignItems="center">
         {statusComponent}
         <SizableText size="$bodyMd" color="$textSubdued">
           {stepTitle}
@@ -135,10 +181,13 @@ const PreSwapStep = ({ steps }: IPreSwapStepProps) => {
     <YStack gap="$1">
       {steps.map((step, index) => {
         return (
-          <>
+          <YStack key={step.type} gap="$1">
             <RoundLoadingItem
-              key={step.type}
+              onRetry={() => {
+                console.log('retry');
+              }}
               stepTitle={step.type}
+              canRetry={!!step.canRetry}
               isLoading={
                 step.status === ESwapStepStatus.PENDING ||
                 step.status === ESwapStepStatus.LOADING
@@ -147,10 +196,16 @@ const PreSwapStep = ({ steps }: IPreSwapStepProps) => {
               failed={step.status === ESwapStepStatus.FAILED}
               estimatedTime={20}
             />
-            {index > 1 && index < steps.length - 1 ? (
-              <Divider vertical />
+            {steps.length > 1 && index < steps.length - 1 ? (
+              <Divider
+                bg="$borderSubdued"
+                vertical
+                ml={9}
+                height="$3"
+                width="$1"
+              />
             ) : null}
-          </>
+          </YStack>
         );
       })}
     </YStack>

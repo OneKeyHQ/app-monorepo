@@ -1,21 +1,27 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Button, Divider, SizableText, YStack } from '@onekeyhq/components';
 import { useSwapStepsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  ESwapSlippageSegmentKey,
+  IFetchQuoteResult,
+  ISwapStep,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 import {
-  type ESwapSlippageSegmentKey,
+  ESwapApproveTransactionStatus,
   ESwapStepStatus,
-  type IFetchQuoteResult,
-  type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
 import PreSwapConfirmResult from '../../components/PreSwapConfirmResult';
 import PreSwapInfoGroup from '../../components/PreSwapInfoGroup';
 import PreSwapStep from '../../components/PreSwapStep';
 import PreSwapTokenItem from '../../components/PreSwapTokenItem';
+import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 
 interface IPreSwapDialogContentProps {
   quoteResult: IFetchQuoteResult;
@@ -43,6 +49,45 @@ const PreSwapDialogContent = ({
   const handleConfirm = () => {
     onConfirm();
   };
+
+  const [inAppNotificationAtom] = useInAppNotificationAtom();
+  const [, setSwapSteps] = useSwapStepsAtom();
+  const { preSwapStepsStart } = useSwapBuildTx();
+
+  useEffect(() => {
+    if (
+      inAppNotificationAtom.swapApprovingTransaction &&
+      inAppNotificationAtom.swapApprovingTransaction.status !==
+        ESwapApproveTransactionStatus.PENDING
+    ) {
+      const approveStepStatus =
+        inAppNotificationAtom.swapApprovingTransaction.status ===
+        ESwapApproveTransactionStatus.SUCCESS
+          ? ESwapStepStatus.SUCCESS
+          : ESwapStepStatus.FAILED;
+
+      setSwapSteps((prevSteps: ISwapStep[]) => {
+        const newSteps = [...prevSteps];
+        const txId = inAppNotificationAtom.swapApprovingTransaction?.txId;
+
+        const stepIndex = newSteps.findIndex((step) => step.txHash === txId);
+
+        if (stepIndex !== -1) {
+          newSteps[stepIndex] = {
+            ...newSteps[stepIndex],
+            status: approveStepStatus,
+          };
+        }
+
+        return newSteps;
+      });
+      void preSwapStepsStart();
+    }
+  }, [
+    inAppNotificationAtom.swapApprovingTransaction,
+    setSwapSteps,
+    preSwapStepsStart,
+  ]);
 
   const showResultContent = useMemo(() => {
     if (swapSteps.length > 0) {

@@ -401,6 +401,7 @@ export interface ISwapStep {
   status: ESwapStepStatus;
   data?: IFetchQuoteResult;
   txHash?: string;
+  orderId?: string;
   errorMessage?: string;
   canRetry?: boolean;
   shouldWaitApproved?: boolean;

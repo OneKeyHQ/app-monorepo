@@ -59,7 +59,7 @@ const PreSwapConfirmResult = ({ lastStep }: IPreSwapConfirmResultProps) => {
     }
     return 'Transaction Success';
   }, [lastStep.status]);
-
+  console.log('swap__preSwapConfirmResult__lastStep.status', lastStep.status);
   return (
     <YStack alignItems="center" justifyContent="center" gap="$4">
       {lastStep.status === ESwapStepStatus.SUCCESS ? (
@@ -75,19 +75,15 @@ const PreSwapConfirmResult = ({ lastStep }: IPreSwapConfirmResultProps) => {
         <>
           {lastStep.status === ESwapStepStatus.FAILED ? (
             <Image
-              source={{
-                uri: require('@onekeyhq/kit/assets/images/preSwapStepFailed.png'),
-              }}
-              width="$30"
-              height="$30"
+              width={120}
+              height={120}
+              source={require('@onekeyhq/kit/assets/preSwapStepFailed.png')}
             />
           ) : (
             <Image
-              source={{
-                uri: require('@onekeyhq/kit/assets/images/preSwapPending.png'),
-              }}
-              width="$30"
-              height="$30"
+              source={require('@onekeyhq/kit/assets/preSwapPending.png')}
+              width={120}
+              height={120}
             />
           )}
         </>

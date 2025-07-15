@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import {
   OrderBalance,
@@ -12,7 +12,11 @@ import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { EPageType, Toast, usePageType } from '@onekeyhq/components';
-import type { IEncodedTx, IUnsignedMessage } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedMessage,
+} from '@onekeyhq/core/src/types';
 import {
   useInAppNotificationAtom,
   useSettingsAtom,
@@ -24,6 +28,7 @@ import type {
   ITransferInfo,
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -35,12 +40,14 @@ import {
   EMessageTypesEth,
   ESigningScheme,
 } from '@onekeyhq/shared/types/message';
+import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ESwapCancelLimitOrderSource,
   IFetchLimitOrderRes,
   IFetchQuoteResult,
   IOneInchOrderStruct,
+  ISwapStep,
   ISwapToken,
   ISwapTxInfo,
 } from '@onekeyhq/shared/types/swap/types';
@@ -177,6 +184,15 @@ export function useSwapBuildTx() {
     async (txId: string, swapInfo: ISwapTxInfo) => {
       clearQuoteData();
       if (swapInfo) {
+        setSwapSteps((prevSteps) => {
+          const newSteps = [...prevSteps];
+          newSteps[newSteps.length - 1] = {
+            ...newSteps[newSteps.length - 1],
+            status: ESwapStepStatus.PENDING,
+            txHash: txId,
+          };
+          return newSteps;
+        });
         await generateSwapHistoryItem({
           txId,
           swapTxInfo: swapInfo,
@@ -191,7 +207,7 @@ export function useSwapBuildTx() {
         }
       }
     },
-    [clearQuoteData, generateSwapHistoryItem],
+    [clearQuoteData, generateSwapHistoryItem, setSwapSteps],
   );
 
   const handleBuildTxSuccess = useCallback(
@@ -230,15 +246,30 @@ export function useSwapBuildTx() {
   );
 
   const handleBuildTxSuccessWithSignedNoSend = useCallback(
-    async ({ swapInfo }: { swapInfo: ISwapTxInfo }) => {
+    async ({
+      swapInfo,
+      orderId,
+    }: {
+      orderId?: string;
+      swapInfo: ISwapTxInfo;
+    }) => {
       clearQuoteData();
       if (swapInfo) {
+        setSwapSteps((prevSteps) => {
+          const newSteps = [...prevSteps];
+          newSteps[newSteps.length - 1] = {
+            ...newSteps[newSteps.length - 1],
+            status: ESwapStepStatus.PENDING,
+            orderId,
+          };
+          return newSteps;
+        });
         await generateSwapHistoryItem({
           swapTxInfo: swapInfo,
         });
       }
     },
-    [clearQuoteData, generateSwapHistoryItem],
+    [clearQuoteData, generateSwapHistoryItem, setSwapSteps],
   );
 
   const handleApproveTxSuccess = useCallback(
@@ -427,14 +458,14 @@ export function useSwapBuildTx() {
           receivingAddress: swapToAddressInfo.address ?? '',
           swapBuildResData: { result: data },
         };
-        const unsignedTx = await backgroundApiProxy.serviceSend.buildUnsignedTx(
-          {
+        const unsignedTx =
+          await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
             networkId: data.fromTokenInfo.networkId,
             accountId: swapFromAddressInfo.accountInfo?.account?.id,
             wrappedInfo,
             swapInfo,
-          },
-        );
+            isInternalSwap: true,
+          });
         const res = await backgroundApiProxy.serviceSend.signAndSendTransaction(
           {
             networkId: data.fromTokenInfo.networkId,
@@ -1182,15 +1213,17 @@ export function useSwapBuildTx() {
             //   onCancel: cancelBuildTx,
             // });
             const unsignedTx =
-              await backgroundApiProxy.serviceSend.buildUnsignedTx({
-                networkId: fromToken.networkId,
-                accountId: swapFromAddressInfo.accountInfo?.account?.id,
-                encodedTx: createBuildTxRes.encodedTx,
-                swapInfo: createBuildTxRes.swapInfo,
-                transfersInfo: createBuildTxRes.transferInfo
-                  ? [createBuildTxRes.transferInfo]
-                  : undefined,
-              });
+              await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx(
+                {
+                  networkId: fromToken.networkId,
+                  accountId: swapFromAddressInfo.accountInfo?.account?.id,
+                  encodedTx: createBuildTxRes.encodedTx,
+                  swapInfo: createBuildTxRes.swapInfo,
+                  transfersInfo: createBuildTxRes.transferInfo
+                    ? [createBuildTxRes.transferInfo]
+                    : undefined,
+                },
+              );
             const res =
               await backgroundApiProxy.serviceSend.signAndSendTransaction({
                 networkId: fromToken.networkId,
@@ -1376,37 +1409,79 @@ export function useSwapBuildTx() {
       accountId: string,
       buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams,
     ) => {
-      if (!fromToken || !swapFromAddressInfo.accountInfo?.account?.id) {
+      if (
+        !fromToken ||
+        !swapFromAddressInfo.accountInfo?.account?.id ||
+        !swapFromAddressInfo.address
+      ) {
         return;
       }
-      const unsignedTx = await backgroundApiProxy.serviceSend.buildUnsignedTx(
+      console.log(
+        'swap__sendTxActions__buildUnsignedParams',
         buildUnsignedParams,
       );
+      const unsignedTx =
+        await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+          ...buildUnsignedParams,
+          isInternalSwap: true,
+        });
+      console.log('swap__sendTxActions__unsignedTx', unsignedTx);
+
+      const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
+        networkId,
+        accountId,
+        accountAddress: swapFromAddressInfo.address,
+        encodedTx: unsignedTx.encodedTx,
+        transfersInfo: buildUnsignedParams.transfersInfo,
+      });
+      console.log('swap__sendTxActions__gasRes', gasRes);
+
+      const updatedUnsignedTx =
+        await backgroundApiProxy.serviceSend.updateUnsignedTx({
+          networkId,
+          accountId,
+          unsignedTx,
+          feeInfo: {
+            common: {
+              baseFee: gasRes.common.baseFee,
+              feeDecimals: gasRes.common.feeDecimals,
+              feeSymbol: gasRes.common.feeSymbol,
+              nativeDecimals: gasRes.common.nativeDecimals,
+              nativeSymbol: gasRes.common.nativeSymbol,
+              nativeTokenPrice: gasRes.common.nativeTokenPrice,
+            },
+            gas: gasRes.gas?.[1] ?? gasRes.gas?.[0],
+            gasEIP1559: gasRes.gasEIP1559?.[1] ?? gasRes.gasEIP1559?.[0],
+            feeUTXO: gasRes.feeUTXO?.[1] ?? gasRes.feeUTXO?.[0],
+            feeTron: gasRes.feeTron?.[1] ?? gasRes.feeTron?.[0],
+            feeSol: gasRes.feeSol?.[1] ?? gasRes.feeSol?.[0],
+            feeCkb: gasRes.feeCkb?.[1] ?? gasRes.feeCkb?.[0],
+            feeAlgo: gasRes.feeAlgo?.[1] ?? gasRes.feeAlgo?.[0],
+            feeDot: gasRes.feeDot?.[1] ?? gasRes.feeDot?.[0],
+            feeBudget: gasRes.feeBudget?.[1] ?? gasRes.feeBudget?.[0],
+          },
+        });
+
+      await backgroundApiProxy.serviceSend.precheckUnsignedTxs({
+        networkId,
+        accountId,
+        unsignedTxs: [updatedUnsignedTx],
+        precheckTiming: ESendPreCheckTimingEnum.Confirm,
+      });
+
       const res = await backgroundApiProxy.serviceSend.signAndSendTransaction({
         networkId,
         accountId,
-        unsignedTx,
+        unsignedTx: updatedUnsignedTx,
         signOnly: false,
       });
       return res;
     },
-    [fromToken, swapFromAddressInfo.accountInfo?.account?.id],
-  );
-
-  const signMessageActions = useCallback(
-    async (
-      networkId: string,
-      accountId: string,
-      unsignedMessage?: IUnsignedMessage,
-    ) => {
-      const res = await backgroundApiProxy.serviceSend.signMessage({
-        unsignedMessage,
-        networkId,
-        accountId,
-      });
-      return res;
-    },
-    [],
+    [
+      fromToken,
+      swapFromAddressInfo.accountInfo?.account?.id,
+      swapFromAddressInfo.address,
+    ],
   );
 
   const approveTxNew = useCallback(
@@ -1464,8 +1539,7 @@ export function useSwapBuildTx() {
       ) {
         const checkRes = await checkOtherFee(data);
         if (!checkRes) {
-          // todo: show error
-          return null;
+          throw new OneKeyError('checkOtherFee failed');
         }
         const buildSwapRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
           fromToken: data.fromTokenInfo,
@@ -1483,6 +1557,7 @@ export function useSwapBuildTx() {
           walletType: swapFromAddressInfo.accountInfo?.wallet?.type,
         });
         let skipSendTransAction = false;
+        console.log('swap__buildTxNew__buildSwapRes', buildSwapRes);
         if (buildSwapRes) {
           let transferInfo: ITransferInfo | undefined;
           let encodedTx: IEncodedTx | undefined;
@@ -1628,6 +1703,12 @@ export function useSwapBuildTx() {
           if (skipSendTransAction) {
             void handleBuildTxSuccessWithSignedNoSend({
               swapInfo,
+              orderId:
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                buildSwapRes?.ctx.cowSwapOrderId ??
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                buildSwapRes?.ctx.oneInchFusionOrderHash ??
+                '',
             });
           } else {
             const sendTxRes = await sendTxActions(
@@ -1846,8 +1927,7 @@ export function useSwapBuildTx() {
                 const buildTxRes = await buildTxNew(selectQuoteRes);
                 return buildTxRes;
               }
-              // todo: show error
-              return null;
+              throw new OneKeyError('sign message failed');
             }
           } else if (oneInchFusionOrder) {
             const { makerAddress, typedData } = oneInchFusionOrder;
@@ -1885,8 +1965,7 @@ export function useSwapBuildTx() {
                 const buildTxRes = await buildTxNew(selectQuoteRes);
                 return buildTxRes;
               }
-              // todo: show error
-              return null;
+              throw new OneKeyError('sign message failed');
             }
           }
         }
@@ -1952,7 +2031,6 @@ export function useSwapBuildTx() {
           (canRetry && status === ESwapStepStatus.FAILED)
         ) {
           try {
-            // 设置步骤为加载状态
             setSwapSteps((prevSteps) => {
               const newSteps = [...prevSteps];
               newSteps[i] = {
@@ -1962,20 +2040,59 @@ export function useSwapBuildTx() {
               };
               return newSteps;
             });
-
             if (type === ESwapStepType.APPROVE_TX) {
+              let approveAmount = data?.fromAmount ?? '0';
+              let approveSendTx: ISignedTxPro | undefined;
               if (isResetApprove) {
-                await approveTxNew(
-                  '0',
+                approveAmount = '0';
+                approveSendTx = await approveTxNew(
+                  approveAmount,
                   !!swapActionState.approveUnLimit,
                   step.data,
                 );
               } else {
-                await approveTxNew(
-                  data?.fromAmount ?? '0',
+                approveSendTx = await approveTxNew(
+                  approveAmount,
                   !!swapActionState.approveUnLimit,
                   step.data,
                 );
+              }
+              if (step.shouldWaitApproved && approveSendTx) {
+                setSwapSteps((prevSteps: ISwapStep[]) => {
+                  const newSteps = [...prevSteps];
+                  newSteps[i] = {
+                    ...newSteps[i],
+                    status: ESwapStepStatus.PENDING,
+                    txHash: approveSendTx.txid,
+                  };
+                  return newSteps;
+                });
+                if (data?.fromTokenInfo && data?.toTokenInfo) {
+                  setInAppNotificationAtom((pre) => ({
+                    ...pre,
+                    swapApprovingTransaction: {
+                      txId: approveSendTx.txid,
+                      swapType: swapTypeSwitch,
+                      protocol: data?.protocol ?? EProtocolOfExchange.SWAP,
+                      provider: data?.info.provider,
+                      providerName: data?.info.providerName,
+                      unSupportReceiveAddressDifferent:
+                        data?.unSupportReceiveAddressDifferent,
+                      fromToken: data?.fromTokenInfo,
+                      toToken: data?.toTokenInfo,
+                      quoteId: data?.quoteId ?? '',
+                      amount: approveAmount,
+                      toAmount: data?.toAmount ?? '',
+                      useAddress: swapFromAddressInfo.address ?? '',
+                      spenderAddress:
+                        data?.allowanceResult?.allowanceTarget ?? '',
+                      status: ESwapApproveTransactionStatus.PENDING,
+                      kind: selectQuote?.kind ?? ESwapQuoteKind.SELL,
+                      resetApproveIsMax: !!swapActionState.approveUnLimit,
+                    },
+                  }));
+                }
+                break;
               }
             } else if (type === ESwapStepType.WRAP_TX) {
               await wrappedTx(step.data);
@@ -1987,23 +2104,30 @@ export function useSwapBuildTx() {
               await batchApproveSwap(step.data);
             }
 
+            // todo  等待 approve 上链
             // 设置步骤为成功状态
-            setSwapSteps((prevSteps) => {
-              const newSteps = [...prevSteps];
-              newSteps[i] = {
-                ...newSteps[i],
-                status:
-                  newSteps[i].shouldWaitApproved &&
-                  newSteps[i].type === ESwapStepType.APPROVE_TX
-                    ? ESwapStepStatus.PENDING
-                    : ESwapStepStatus.SUCCESS,
-              };
-              return newSteps;
-            });
+            if (type === ESwapStepType.APPROVE_TX && step.shouldWaitApproved) {
+              setSwapSteps((prevSteps) => {
+                const newSteps = [...prevSteps];
+                newSteps[i] = {
+                  ...newSteps[i],
+                  status: ESwapStepStatus.PENDING,
+                };
+                return newSteps;
+              });
+            } else if (i !== swapSteps.length - 1) {
+              setSwapSteps((prevSteps) => {
+                const newSteps = [...prevSteps];
+                newSteps[i] = {
+                  ...newSteps[i],
+                  status: ESwapStepStatus.SUCCESS,
+                };
+                return newSteps;
+              });
+            }
           } catch (error) {
-            console.error(`Step ${i} failed:`, error);
+            console.error(`swap__Step ${i} failed:`, error);
 
-            // 设置步骤为失败状态
             setSwapSteps((prevSteps) => {
               const newSteps = [...prevSteps];
               newSteps[i] = {
@@ -2024,6 +2148,10 @@ export function useSwapBuildTx() {
     setSwapSteps,
     approveTxNew,
     swapActionState.approveUnLimit,
+    setInAppNotificationAtom,
+    swapTypeSwitch,
+    swapFromAddressInfo.address,
+    selectQuote?.kind,
     wrappedTx,
     buildTxNew,
     signMessage,
