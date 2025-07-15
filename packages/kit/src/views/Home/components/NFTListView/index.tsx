@@ -145,6 +145,7 @@ function NFTListView(props: IProps) {
     return <NFTListLoadingView />;
   }
 
+  console.log('NFTListView', filteredNfts);
   return (
     <Tabs.FlatList
       // renderScrollComponent={renderNestedScrollView}
@@ -156,9 +157,9 @@ function NFTListView(props: IProps) {
       data={filteredNfts || []}
       renderItem={handleRenderItem}
       ListEmptyComponent={searchKey ? <EmptySearch /> : <EmptyNFT />}
-      ListFooterComponent={
-        <>{addPaddingOnListFooter ? <Stack h="$16" /> : null}</>
-      }
+      // ListFooterComponent={
+      //   <>{addPaddingOnListFooter ? <Stack h="$16" /> : null}</>
+      // }
       {...listViewStyleProps}
     />
   );

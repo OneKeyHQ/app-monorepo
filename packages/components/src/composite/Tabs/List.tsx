@@ -2,12 +2,17 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useAnimatedReaction } from 'react-native-reanimated';
-import { AutoSizer, List as VirtualizedList } from 'react-virtualized';
+import {
+  AutoSizer,
+  Collection,
+  List as VirtualizedList,
+} from 'react-virtualized';
 
 import { useTabsContext, useTabsScrollContext } from './context';
 import { useCurrentTabName } from './Tab';
 
 import type { FlashListProps } from '@shopify/flash-list';
+import type { CollectionCellRendererParams } from 'react-virtualized';
 
 type IListProps<Item> = FlashListProps<Item>;
 
@@ -18,6 +23,7 @@ export function List<Item>({
   ListFooterComponent,
   ListEmptyComponent,
   estimatedItemSize,
+  numColumns = 1,
 }: IListProps<Item>) {
   const {
     registerChild,
@@ -99,7 +105,69 @@ export function List<Item>({
     },
     [listData, renderItem, data, ListHeaderComponent, ListFooterComponent],
   );
-  return data?.length ? (
+
+  const cellSizeAndPositionGetter = useCallback(
+    ({ index }: { index: number }) => {
+      const clientWidth = width / numColumns || 0;
+      const clientHeight = clientWidth + 40 + 20;
+      console.log('clientWidth', clientWidth, width, numColumns);
+      const row = Math.floor(index / numColumns);
+      const col = index % numColumns;
+      const x = col * clientWidth;
+      const y = row * clientHeight;
+
+      return {
+        height: clientHeight,
+        width: clientWidth,
+        x,
+        y,
+      };
+    },
+    [numColumns, width],
+  );
+
+  const cellRenderer = useCallback(
+    (params: CollectionCellRendererParams) => {
+      const { index, key, style } = params;
+      return rowRenderer({
+        index,
+        key: String(key),
+        style,
+      });
+    },
+    [rowRenderer],
+  );
+
+  if (!data?.length) {
+    return ListEmptyComponent;
+  }
+
+  if (numColumns > 1) {
+    return (
+      <AutoSizer disableHeight>
+        {({ width: autoSizerWidth }) => {
+          return (
+            <div ref={ref as React.RefObject<HTMLDivElement>}>
+              <Collection
+                autoHeight
+                data={listData}
+                isScrolling={isScrolling}
+                scrollTop={scrollTop}
+                width={autoSizerWidth}
+                height={height}
+                onScroll={onChildScroll}
+                cellCount={listData.length}
+                cellSizeAndPositionGetter={cellSizeAndPositionGetter}
+                cellRenderer={cellRenderer as any}
+              />
+            </div>
+          );
+        }}
+      </AutoSizer>
+    );
+  }
+
+  return (
     <AutoSizer disableHeight>
       {({ width: autoSizerWidth }) => (
         <div ref={ref as React.RefObject<HTMLDivElement>}>
@@ -111,14 +179,12 @@ export function List<Item>({
             isScrolling={isScrolling}
             onScroll={onChildScroll}
             scrollTop={scrollTop}
-            rowCount={data?.length || 0}
+            rowCount={listData.length}
             rowHeight={estimatedItemSize || 50}
-            rowRenderer={rowRenderer}
+            rowRenderer={rowRenderer as any}
           />
         </div>
       )}
     </AutoSizer>
-  ) : (
-    ListEmptyComponent
   );
 }

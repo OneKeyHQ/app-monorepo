@@ -29,11 +29,12 @@ function BasicNFTListItem(props: IProps) {
   const [isVideo, setIsVideo] = useState<boolean>(!!nft.metadata?.image);
   const { network } = useAccountData({ networkId: nft.networkId });
 
+  console.log('BasicNFTListItem', nft.metadata?.image);
   return (
     <Stack
       key={nft.itemId}
       group="nftItem"
-      flexBasis={platformEnv.isNative ? '100%' : flexBasis}
+      flex={1}
       focusable
       focusVisibleStyle={{
         outlineColor: '$focusRing',
@@ -58,9 +59,14 @@ function BasicNFTListItem(props: IProps) {
           {isVideo ? (
             <Stack bg="$bgApp" w="100%" h="100%">
               <Video
-                w="100%"
-                h="100%"
-                borderRadius="$2.5"
+                onError={() => setIsVideo(false)}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  position: 'absolute',
+                  zIndex: 1,
+                }}
+                autoPlay={false}
                 source={{ uri: nft.metadata?.image }}
               />
             </Stack>
