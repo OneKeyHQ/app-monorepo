@@ -1,5 +1,8 @@
 import { useCallback } from 'react';
 
+// load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
+// eslint-disable-next-line import/order
+import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
 import { LogLevel, Purchases } from '@revenuecat/purchases-js';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -53,7 +56,10 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
       // TODO how to configure another userId when user login with another account
       // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
 
-      Purchases.configure(apiKey, user?.privyUserId || '');
+      Purchases.configure(
+        apiKey,
+        user?.privyUserId || Purchases.generateRevenueCatAnonymousAppUserId(),
+      );
     },
     [isReady, user?.privyUserId],
   );
