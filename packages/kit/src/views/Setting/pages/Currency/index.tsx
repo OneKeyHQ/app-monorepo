@@ -133,8 +133,7 @@ export default function SettingCurrencyModal() {
         id: currency.id,
         symbol: currency.unit,
       });
-      await backgroundApiProxy.serviceToken.clearLocalTokens();
-      await backgroundApiProxy.serviceHistory.clearLocalHistory();
+
       setTimeout(() => {
         void backgroundApiProxy.serviceApp.restartApp();
       });

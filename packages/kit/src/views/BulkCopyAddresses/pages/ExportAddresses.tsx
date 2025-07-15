@@ -125,7 +125,8 @@ function ExportAddresses({
     copyText(
       addressesData
         .filter((item) => item.type === 'address')
-        .map((item) => item.address)
+        .map((item) => item.address?.trim() || '')
+        .filter((address) => address)
         .join('\n'),
     );
   }, [addressesData, copyText]);
@@ -146,22 +147,26 @@ function ExportAddresses({
           {addressesData.map((item, index) => {
             return (
               <XStack key={index} alignItems="flex-start">
-                <Stack width={32} justifyContent="flex-start">
+                <Stack width={32} justifyContent="flex-start" userSelect="none">
                   <SizableText
                     size="$bodyLgMedium"
                     color="$textDisabled"
                     numberOfLines={1}
                     userSelect="none"
+                    style={{
+                      userSelect: 'none',
+                    }}
                   >
                     {index + 1}
                   </SizableText>
                 </Stack>
-                <Stack flex={1}>
+                <Stack flex={1} mr="$0.5">
                   {item.type === 'address' ? (
                     <SizableText
                       size="$bodyLg"
                       style={{
                         wordBreak: 'break-all',
+                        userSelect: 'text',
                       }}
                     >
                       {item.address}

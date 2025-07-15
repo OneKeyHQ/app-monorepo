@@ -763,7 +763,7 @@ export const PortfolioSection = ({
   if (
     details.provider.name.toLowerCase() ===
       EEarnProviderEnum.Everstake.toLowerCase() &&
-    details.token.info.symbol.toLowerCase() === 'matic'
+    details.token.info.symbol.toLowerCase() === 'pol'
   ) {
     labelForClaimable = intl.formatMessage({
       id: ETranslations.earn_withdrawn,

@@ -2,7 +2,7 @@ import { getNetworkIdsMap } from '../../src/config/networkIds';
 import {
   EthereumCbBTC,
   EthereumDAI,
-  EthereumMatic,
+  EthereumPol,
   EthereumUSDC,
   EthereumUSDF,
   EthereumUSDT,
@@ -53,7 +53,7 @@ export const isSupportStaking = (symbol: string) =>
     'SOL',
     'APT',
     'ATOM',
-    'MATIC',
+    'POL',
     'USDC',
     'USDT',
     'DAI',
@@ -82,7 +82,7 @@ export function normalizeToEarnSymbol(
     'sol': 'SOL',
     'apt': 'APT',
     'atom': 'ATOM',
-    'matic': 'MATIC',
+    'pol': 'POL',
     'usdc': 'USDC',
     'usdt': 'USDT',
     'dai': 'DAI',
@@ -121,7 +121,7 @@ export function getImportFromToken({
     case networkIdsMap.sepolia: {
       if (
         [
-          EthereumMatic.toLowerCase(),
+          EthereumPol.toLowerCase(),
           EthereumUSDC.toLowerCase(),
           EthereumUSDT.toLowerCase(),
           EthereumDAI.toLowerCase(),
