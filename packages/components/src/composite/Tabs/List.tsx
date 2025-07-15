@@ -93,7 +93,11 @@ export function List<Item>({
   }, [focusedTabValue, currentTabName]);
 
   useEffect(() => {
-    if (!scrollTabElementsRef.current[currentTabName] && ref.current) {
+    if (
+      currentTabName &&
+      !scrollTabElementsRef.current[currentTabName] &&
+      ref.current
+    ) {
       scrollTabElementsRef.current[currentTabName] = {
         element: ref.current as HTMLElement,
       };
@@ -174,40 +178,37 @@ export function List<Item>({
       style: React.CSSProperties;
     }) => {
       const item = listData[index];
+      let element = null;
       if (item.type === 'header') {
-        return ListHeaderComponent;
-      }
-      if (item.type === 'footer') {
-        return ListFooterComponent;
-      }
-      if (item.type === 'section-header') {
-        return renderSectionHeader?.({
+        element = ListHeaderComponent;
+      } else if (item.type === 'footer') {
+        element = ListFooterComponent;
+      } else if (item.type === 'section-header') {
+        element = renderSectionHeader?.({
           section: item.data.section,
           index: item.data.sectionIndex,
         });
-      }
-      if (item.type === 'section-footer') {
-        return renderSectionFooter?.({
+      } else if (item.type === 'section-footer') {
+        element = renderSectionFooter?.({
           section: item.data.section,
           index: item.data.sectionIndex,
         });
-      }
-      if (item.type === 'section-item') {
-        return renderItem?.({
+      } else if (item.type === 'section-item') {
+        element = renderItem?.({
           item: item.data.item,
           index: item.data.itemIndex,
           target: 'Cell',
         });
+      } else if (item.type === 'item') {
+        element =
+          renderItem && data
+            ? renderItem({ item: item.data, index, target: 'Cell' })
+            : null;
       }
 
-      if (!item.data) {
-        return null;
-      }
       return (
         <div key={key} style={style}>
-          {renderItem && data
-            ? renderItem({ item: item.data as Item, index, target: 'Cell' })
-            : null}
+          {element as React.ReactNode}
         </div>
       );
     },
