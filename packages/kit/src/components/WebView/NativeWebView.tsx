@@ -22,10 +22,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 
 import ErrorView from './ErrorView';
-import {
-  createConsoleLogInjectedScript,
-  createMessageInjectedScript,
-} from './utils';
+import { createMessageInjectedScript } from './utils';
 
 import type { IInpageProviderWebViewProps, IWebViewRef } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
