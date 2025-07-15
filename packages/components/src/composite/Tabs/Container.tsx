@@ -102,13 +102,15 @@ export function Container({
         (
           listContainerRef.current as HTMLElement
         ).style.maxHeight = `${height}px`;
+      } else {
+        setTimeout(updateListContainerHeight, 250);
       }
     }
   }, [focusedTab]);
 
   useLayoutEffect(() => {
     setScrollElement(ref.current);
-    setTimeout(updateListContainerHeight, 100);
+    setTimeout(updateListContainerHeight, 250);
   }, [updateListContainerHeight]);
 
   const onTabPress = useCallback(
