@@ -30,6 +30,7 @@ import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/P
 import { PrimeSubscriptionPlans } from '../../components/PrimePurchaseDialog/PrimeSubscriptionPlans';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
+import { usePrimePaymentMethodsWeb } from '../../hooks/usePrimePaymentMethodsWeb';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 
 import { PrimeBenefitsList } from './PrimeBenefitsList';
@@ -82,6 +83,8 @@ export default function PrimeDashboard({
 
   const { isReady, getPackagesNative, restorePurchases, getPackagesWeb } =
     usePrimePayment();
+
+  const { getPackagesWeb: getPackagesWeb2 } = usePrimePaymentMethodsWeb();
 
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
     useState<ISubscriptionPeriod>('P1Y');
@@ -137,6 +140,13 @@ export default function PrimeDashboard({
     return true;
   }, [isPrimeSubscriptionActive, shouldShowConfirmButton, user?.privyUserId]);
 
+  usePromiseResult(async () => {
+    if (isReady) {
+      const pkgList2 = await getPackagesWeb2?.();
+      console.log('pkgList22222222', pkgList2);
+    }
+  }, [getPackagesWeb2, isReady]);
+
   const { result: packages, isLoading: isPackagesLoading } = usePromiseResult(
     async () => {
       if (!shouldShowSubscriptionPlans || !isReady) {
@@ -152,6 +162,7 @@ export default function PrimeDashboard({
         const pkgList = await (platformEnv.isNative
           ? getPackagesNative?.()
           : getPackagesWeb?.());
+        console.log('pkgList1111111', pkgList);
         return pkgList;
       });
     },
