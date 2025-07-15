@@ -226,6 +226,7 @@ export function List<Item>({
       listData,
       ListHeaderComponentStyle,
       ListHeaderComponent,
+      ListFooterComponentStyle,
       ListFooterComponent,
       renderSectionHeader,
       renderSectionFooter,
