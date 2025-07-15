@@ -7,21 +7,21 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { ContextType, PropsWithChildren, RefObject } from 'react';
+import type { PropsWithChildren, RefObject } from 'react';
 
-import { useDerivedValue, useSharedValue } from 'react-native-reanimated';
+import { useSharedValue } from 'react-native-reanimated';
 import { WindowScroller } from 'react-virtualized';
 
 import { XStack, YStack } from '../../primitives';
 
 import { TabsContext, TabsScrollContext } from './context';
 import { Header } from './Header';
+import { startViewTransition } from './utils';
 
 import type {
   CollapsibleProps,
   TabBarProps,
 } from 'react-native-collapsible-tab-view';
-import type { TabName } from 'react-native-collapsible-tab-view/lib/typescript/src/types';
 import type { WindowScrollerChildProps } from 'react-virtualized';
 
 export function ContainerChild({
@@ -59,6 +59,8 @@ export function Container({
   children,
   renderHeader,
   renderTabBar = renderDefaultHeader,
+  onIndexChange,
+  onTabChange,
   ...props
 }: PropsWithChildren<CollapsibleProps>) {
   // Get tab names from children props
@@ -76,8 +78,14 @@ export function Container({
   }, [children]);
   const sharedTabNames = useSharedValue<string[]>(tabNames);
   const focusedTab = useSharedValue<string>(tabNames[0] || '');
+  const scrollTabElementsRef = useRef<{
+    [key: string]: {
+      element: HTMLElement;
+      height?: string;
+    };
+  }>({});
   const contextValue = useMemo(
-    () => ({ focusedTab, tabNames: sharedTabNames }),
+    () => ({ focusedTab, tabNames: sharedTabNames, scrollTabElementsRef }),
     [focusedTab, sharedTabNames],
   );
   const ref = useRef<Element>(null);
@@ -93,10 +101,22 @@ export function Container({
       isSwitchingTabRef.current = true;
       // Header Height + tabBar height
       const headerHeight = 0;
-      focusedTab.set(tabName);
       const scrollTop = scrollTopRef.current[tabName] || 0;
       const index = tabNames.findIndex((name) => name === tabName);
-      document.startViewTransition(() => {
+      const prevTabName = focusedTab.value;
+      const prevIndex = tabNames.findIndex((name) => name === prevTabName);
+      const onTabChangeData = {
+        prevIndex,
+        index,
+        prevTabName,
+        tabName,
+      };
+      setTimeout(() => {
+        onIndexChange?.(index);
+        onTabChange?.(onTabChangeData);
+      }, 100);
+      focusedTab.set(tabName);
+      startViewTransition(() => {
         const width = scrollElement?.clientWidth || 0;
         listContainerRef.current?.scrollTo({
           left: width * index,
@@ -109,7 +129,7 @@ export function Container({
         isSwitchingTabRef.current = false;
       });
     },
-    [focusedTab, scrollElement, tabNames],
+    [focusedTab, onIndexChange, onTabChange, scrollElement, tabNames],
   );
   return (
     <YStack
@@ -122,7 +142,7 @@ export function Container({
       ref={ref as React.RefObject<HTMLDivElement>}
     >
       {scrollElement ? (
-        <TabsContext.Provider value={contextValue}>
+        <TabsContext.Provider value={contextValue as any}>
           <WindowScroller scrollElement={scrollElement}>
             {({
               height,
@@ -164,7 +184,7 @@ export function Container({
                     width={width}
                     onChildScroll={onChildScroll}
                     registerChild={registerChild}
-                    listContainerRef={listContainerRef}
+                    listContainerRef={listContainerRef as any}
                   >
                     {children}
                   </ContainerChild>

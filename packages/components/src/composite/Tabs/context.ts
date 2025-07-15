@@ -1,3 +1,4 @@
+import type { RefObject } from 'react';
 import { createContext, useContext } from 'react';
 
 import type {
@@ -132,7 +133,19 @@ export const useTabsContainerContext = () => {
   return useContext(TabsContainerContext);
 };
 
-export const TabsContext = createContext<ITabContextType<string>>({
+export const TabsContext = createContext<
+  ITabContextType<string> & {
+    scrollTabElementsRef: RefObject<
+      Record<
+        string,
+        {
+          element: HTMLElement;
+          height?: string;
+        }
+      >
+    >;
+  }
+>({
   headerHeight: 0,
   tabBarHeight: 0,
   containerHeight: 0,
@@ -162,6 +175,7 @@ export const TabsContext = createContext<ITabContextType<string>>({
   headerTranslateY: { value: 0 } as SharedValue<number>,
   width: 0,
   minHeaderHeight: 0,
+  scrollTabElementsRef: {},
 });
 
 export const useTabsContext = () => {

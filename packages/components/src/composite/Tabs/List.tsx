@@ -1,6 +1,7 @@
 /* eslint-disable react/prop-types */
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useAnimatedReaction } from 'react-native-reanimated';
 import {
   AutoSizer,
   Collection,
@@ -72,14 +73,35 @@ export function List<Item>({
   } = useTabsScrollContext();
   const currentTabName = useCurrentTabName();
   const { focusedTab } = useTabsContext();
+  const [focusedTabValue, setFocusedTabValue] = useState(focusedTab.value);
+
+  useAnimatedReaction(
+    () => focusedTab.value,
+    (result, previous) => {
+      if (result !== previous) {
+        setFocusedTabValue(result);
+      }
+    },
+  );
 
   const ref = useRef<Element>(null);
 
+  const scrollTabElementsRef = useTabsContext().scrollTabElementsRef;
+
+  const isVisible = useMemo(() => {
+    return focusedTabValue === currentTabName;
+  }, [focusedTabValue, currentTabName]);
+
   useEffect(() => {
-    if (focusedTab.value === currentTabName) {
+    if (!scrollTabElementsRef.current[currentTabName] && ref.current) {
+      scrollTabElementsRef.current[currentTabName] = {
+        element: ref.current as HTMLElement,
+      };
+    }
+    if (focusedTabValue === currentTabName) {
       registerChild(ref.current);
     }
-  }, [focusedTab.value, currentTabName, registerChild]);
+  }, [focusedTabValue, currentTabName, registerChild, scrollTabElementsRef]);
 
   const listData: IListData<Item>[] = useMemo(() => {
     const list: IListData<Item>[] = [];
@@ -244,11 +266,11 @@ export function List<Item>({
               <Collection
                 autoHeight
                 data={listData}
-                isScrolling={isScrolling}
-                scrollTop={scrollTop}
+                isScrolling={isVisible ? isScrolling : false}
+                scrollTop={isVisible ? scrollTop : 0}
+                onScroll={isVisible ? onChildScroll : undefined}
                 width={autoSizerWidth}
                 height={height}
-                onScroll={onChildScroll}
                 cellCount={listData.length}
                 cellSizeAndPositionGetter={cellSizeAndPositionGetter}
                 cellRenderer={cellRenderer as any}
@@ -270,10 +292,10 @@ export function List<Item>({
             width={autoSizerWidth}
             data={listData}
             height={autoSizerHeight || height || 400}
-            isScrolling={isScrolling}
+            isScrolling={isVisible ? isScrolling : false}
+            onScroll={isVisible ? onChildScroll : undefined}
             overscanRowCount={30}
-            onScroll={onChildScroll}
-            scrollTop={scrollTop}
+            scrollTop={isVisible ? scrollTop : 0}
             rowCount={listData.length}
             rowHeight={estimatedItemSize || 50}
             rowRenderer={rowRenderer as any}
