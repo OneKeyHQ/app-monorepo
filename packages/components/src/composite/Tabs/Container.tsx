@@ -95,7 +95,6 @@ export function Container({
       const headerHeight = 0;
       focusedTab.set(tabName);
       const scrollTop = scrollTopRef.current[tabName] || 0;
-      console.log('scrollTop----', scrollTopRef.current, scrollTop, tabName);
       const index = tabNames.findIndex((name) => name === tabName);
       document.startViewTransition(() => {
         const width = scrollElement?.clientWidth || 0;
