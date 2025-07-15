@@ -298,7 +298,13 @@ export function List<Item>({
             overscanRowCount={30}
             scrollTop={isVisible ? scrollTop : 0}
             rowCount={listData.length}
-            rowHeight={estimatedItemSize || 50}
+            rowHeight={({ index }) => {
+              const item = listData[index];
+              if (item.type === 'section-header') {
+                return 36;
+              }
+              return estimatedItemSize || 50;
+            }}
             rowRenderer={rowRenderer as any}
           />
         </div>

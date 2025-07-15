@@ -180,7 +180,17 @@ export function HomePageView({
 
   const tabs = useMemo(
     () => (
-      <Tabs.Container renderHeader={renderHeader}>
+      <Tabs.Container
+        renderHeader={renderHeader}
+        renderTabBar={(props) => (
+          <Tabs.TabBar
+            {...props}
+            renderToolbar={({ focusedTab }) => (
+              <TabHeaderSettings focusedTab={focusedTab} />
+            )}
+          />
+        )}
+      >
         <Tabs.Tab
           name={intl.formatMessage({
             id: ETranslations.global_crypto,

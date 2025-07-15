@@ -15,7 +15,7 @@ import { WindowScroller } from 'react-virtualized';
 import { XStack, YStack } from '../../primitives';
 
 import { TabsContext, TabsScrollContext } from './context';
-import { Header } from './Header';
+import { TabBar } from './TabBar';
 import { startViewTransition } from './utils';
 
 import type {
@@ -52,13 +52,13 @@ export function ContainerChild({
   );
 }
 
-const renderDefaultHeader = (props: TabBarProps<string>) => {
-  return <Header {...props} />;
+const renderDefaultTabBar = (props: TabBarProps<string>) => {
+  return <TabBar {...props} />;
 };
 export function Container({
   children,
   renderHeader,
-  renderTabBar = renderDefaultHeader,
+  renderTabBar = renderDefaultTabBar,
   onIndexChange,
   onTabChange,
   ...props

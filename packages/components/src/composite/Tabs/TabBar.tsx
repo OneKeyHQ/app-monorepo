@@ -1,18 +1,11 @@
 import { useState } from 'react';
 
-import {
-  useAnimatedReaction,
-  useAnimatedStyle,
-  useDerivedValue,
-} from 'react-native-reanimated';
+import { useAnimatedReaction } from 'react-native-reanimated';
 
 import { Divider } from '../../content';
 import { SizableText, XStack, YStack } from '../../primitives';
 
-import { useTabsContext } from './context';
-
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
-import type { SharedValue } from 'react-native-reanimated';
 
 export function TabItem({
   name,
@@ -40,11 +33,16 @@ export function TabItem({
   );
 }
 
-export function Header({
+export interface ITabBarProps extends TabBarProps<string> {
+  renderToolbar?: ({ focusedTab }: { focusedTab: string }) => React.ReactNode;
+}
+
+export function TabBar({
   onTabPress,
   tabNames,
   focusedTab,
-}: TabBarProps<string>) {
+  renderToolbar,
+}: ITabBarProps) {
   const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
   useAnimatedReaction(
     () => focusedTab.value,
@@ -62,15 +60,18 @@ export function Header({
       bg="$bg"
       zIndex={10}
     >
-      <XStack>
-        {tabNames.map((name) => (
-          <TabItem
-            key={name}
-            name={name}
-            focusedTab={currentTab}
-            onTabPress={onTabPress}
-          />
-        ))}
+      <XStack ai="center" jc="space-between">
+        <XStack>
+          {tabNames.map((name) => (
+            <TabItem
+              key={name}
+              name={name}
+              focusedTab={currentTab}
+              onTabPress={onTabPress}
+            />
+          ))}
+        </XStack>
+        {renderToolbar?.({ focusedTab: currentTab })}
       </XStack>
       <YStack
         position="absolute"

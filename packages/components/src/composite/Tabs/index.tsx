@@ -2,6 +2,7 @@ import { Container } from './Container';
 import { List } from './List';
 import { ScrollView } from './ScrollView';
 import { Tab } from './Tab';
+import { TabBar } from './TabBar';
 
 import type { Tabs as NativeTabs } from 'react-native-collapsible-tab-view';
 
@@ -14,4 +15,7 @@ export const Tabs = {
   SectionList: List,
   FlashList: List,
   MasonryFlashList: List,
-} as unknown as typeof NativeTabs;
+  TabBar,
+} as unknown as typeof NativeTabs & {
+  TabBar: typeof TabBar;
+};
