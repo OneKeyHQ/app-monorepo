@@ -4,7 +4,6 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Button, Dialog, useMedia } from '@onekeyhq/components';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
@@ -21,7 +20,6 @@ import type { IToken } from './types';
 export function SwapPanelWrap() {
   const intl = useIntl();
   const media = useMedia();
-  const { activeAccount } = useActiveAccount({ num: 0 });
   const { networkId, tokenDetail } = useTokenDetail();
 
   const swapPanel = useSwapPanel({
@@ -68,7 +66,6 @@ export function SwapPanelWrap() {
     defaultTradeTokens: defaultTokens,
     provider,
     tradeType: tradeType || ESwapDirection.BUY,
-    account: activeAccount,
     fromTokenAmount: paymentAmount.toFixed(),
     antiMEV: swapPanel.antiMEV,
   };
