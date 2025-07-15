@@ -1,12 +1,16 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
+import { Platform } from 'react-native';
 import { WebView as NativeWebView } from 'react-native-webview';
 
 import { Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { ViewStyle } from 'react-native';
-import type { ShouldStartLoadRequestEvent } from 'react-native-webview/lib/RNCWebViewNativeComponent';
+import type {
+  ShouldStartLoadRequestEvent,
+  WebViewNavigationEvent,
+} from 'react-native-webview/lib/RNCWebViewNativeComponent';
 
 export function WebView({
   tradingViewProps: { uri, injectedJavaScript },
@@ -21,11 +25,38 @@ export function WebView({
   style: ViewStyle;
   onLoadEnd: () => void;
 }) {
+  const webViewRef = useRef<NativeWebView>(null);
+
   const handleLoadedEnd = useCallback(() => {
+    const isIOS16 =
+      platformEnv.isNativeIOS && (Platform.Version as number) <= 17;
+
+    if (isIOS16) {
+      const dynamicScript = `
+        (function() {
+          try {
+            if (window.location.href !== '${uri}') {
+              window.location.href = '${uri}';
+            }
+
+            return true;
+          } catch (error) {
+            console.error('OneKey injection error:', error);
+          }
+        })();
+      `;
+
+      // 延迟一下确保 WebView 完全准备好
+      setTimeout(() => {
+        webViewRef.current?.injectJavaScript(dynamicScript);
+        webViewRef.current?.injectJavaScript(injectedJavaScript);
+      }, 550);
+    }
+
     setTimeout(() => {
       onLoadEnd();
     }, 500);
-  }, [onLoadEnd]);
+  }, [injectedJavaScript, onLoadEnd, uri]);
 
   // onMessage handler is required for injectedJavaScript to execute properly
   // Without onMessage, the injected JavaScript code will not run
@@ -40,6 +71,7 @@ export function WebView({
   return uri ? (
     <Stack style={style as any}>
       <NativeWebView
+        ref={webViewRef}
         originWhitelist={['*']}
         javaScriptEnabled
         domStorageEnabled

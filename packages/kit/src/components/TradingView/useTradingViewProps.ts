@@ -133,7 +133,7 @@ export const useTradingViewProps = ({
     `;
     return {
       uri,
-      injectedJavaScript: ` const styleNode = document.createElement('style'); 
+      injectedJavaScript: `const styleNode = document.createElement('style'); 
       styleNode.type = 'text/css'; 
       styleNode.textContent = \`${style}\`;
       document.documentElement.appendChild(styleNode);`,
