@@ -1,6 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
-import { Stack, Tab } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Button, ScrollView, Stack, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   InformationPanel,
@@ -20,7 +23,7 @@ const createChartPageComponent = (
   tokenSymbol?: string,
 ) => {
   const Component = () => (
-    <>
+    <ScrollView>
       {/* Information Panel */}
       <InformationPanel />
 
@@ -36,7 +39,7 @@ const createChartPageComponent = (
       <Stack h={300}>
         <InformationTabs />
       </Stack>
-    </>
+    </ScrollView>
   );
   Component.displayName = 'ChartPageComponent';
   return Component;
@@ -58,6 +61,8 @@ const createOverviewPageComponent = () => {
 
 export function MobileLayout() {
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
+  const [activeTab, setActiveTab] = useState<'chart' | 'overview'>('chart');
+  const intl = useIntl();
 
   // Memoize Chart and Overview components to avoid re-creation on each render
   const ChartPageComponent = useMemo(
@@ -71,21 +76,38 @@ export function MobileLayout() {
     [],
   );
 
-  const tabs = useMemo(
-    () => [
-      { id: 'chart', title: 'Chart', page: ChartPageComponent },
-      { id: 'overview', title: 'Overview', page: OverviewPageComponent },
-    ],
-    [ChartPageComponent, OverviewPageComponent],
-  );
+  const renderContent = () => {
+    if (activeTab === 'chart') {
+      return <ChartPageComponent />;
+    }
+    return <OverviewPageComponent />;
+  };
 
   return (
     <>
       {/* Header */}
       <TokenDetailHeader showStats={false} showMediaAndSecurity={false} />
 
-      {/* Main Content: Chart / Overview Tabs */}
-      <Tab data={tabs} />
+      {/* Switch Buttons */}
+      <XStack p="$4" gap="$2">
+        <Button
+          flex={1}
+          variant={activeTab === 'chart' ? 'primary' : 'secondary'}
+          onPress={() => setActiveTab('chart')}
+        >
+          {intl.formatMessage({ id: ETranslations.market_chart })}
+        </Button>
+        <Button
+          flex={1}
+          variant={activeTab === 'overview' ? 'primary' : 'secondary'}
+          onPress={() => setActiveTab('overview')}
+        >
+          {intl.formatMessage({ id: ETranslations.global_overview })}
+        </Button>
+      </XStack>
+
+      {/* Main Content */}
+      {renderContent()}
 
       {/* Swap panel placed outside the tabs for global visibility */}
       <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />
