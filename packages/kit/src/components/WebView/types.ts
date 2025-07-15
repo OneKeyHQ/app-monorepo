@@ -74,7 +74,6 @@ export interface IInpageProviderWebViewProps
 
 export type IWebViewRef = {
   sendMessageViaInjectedScript: (message: any) => void;
-  injectConsoleLog: (message: unknown, level?: 'log' | 'info' | 'warn' | 'error') => void;
 } & IWebViewWrapperRef;
 
 export type IElectronWebView = {
