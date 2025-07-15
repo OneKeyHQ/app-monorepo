@@ -47,18 +47,20 @@ export class HardwareConnectionManager {
 
     try {
       // Use desktop API to check Bluetooth availability
-      if (!globalThis?.desktopApi?.checkBluetoothAvailability) {
+      if (!globalThis?.desktopApi?.nobleBle?.checkAvailability) {
         console.log('❌ detectBluetoothAvailability: no desktopApi');
         return false;
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      const isAvailable =
-        await globalThis?.desktopApi?.checkBluetoothAvailability();
+      const bleAvailableState =
+        await globalThis?.desktopApi?.nobleBle?.checkAvailability();
 
-      console.log('🔍 detectBluetoothAvailability isAvailable: ', isAvailable);
+      console.log(
+        '🔍 detectBluetoothAvailability bleAvailableState: ',
+        bleAvailableState,
+      );
 
-      return Boolean(isAvailable);
+      return Boolean(bleAvailableState?.available);
     } catch (error) {
       console.log('❌ detectBluetoothAvailability error: ', error);
       return false;

@@ -46,82 +46,6 @@ import { resourcesPath, staticPath } from './resoucePath';
 import { initSentry } from './sentry';
 import { startServices } from './service';
 
-// Bluetooth state management
-const bluetoothState: {
-  available: boolean;
-  unsupported: boolean;
-  initialized: boolean;
-} = {
-  available: false,
-  unsupported: false,
-  initialized: false,
-};
-
-async function initBluetoothMonitoring(): Promise<void> {
-  if (bluetoothState.initialized) {
-    return;
-  }
-
-  try {
-    // Use require instead of dynamic import for noble
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const noble = require('@abandonware/noble');
-
-    logger.info('🔍 noble module loaded:', typeof noble);
-
-    const handleStateChange = (state: string) => {
-      logger.info('Bluetooth state changed:', state);
-
-      if (state === 'poweredOn') {
-        bluetoothState.available = true;
-        bluetoothState.unsupported = false;
-      } else if (state === 'unsupported') {
-        bluetoothState.available = false;
-        bluetoothState.unsupported = true;
-      } else {
-        // poweredOff, unauthorized, etc.
-        bluetoothState.available = false;
-        bluetoothState.unsupported = false;
-      }
-    };
-
-    logger.info('🔍 setting up noble.on stateChange');
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    noble.on('stateChange', handleStateChange);
-
-    // Initialize with current state
-    const currentState = noble.state || 'unknown';
-    logger.info('🔍 noble current state:', currentState);
-    if (currentState !== 'unknown') {
-      handleStateChange(currentState);
-    }
-
-    bluetoothState.initialized = true;
-    logger.info('Bluetooth monitoring initialized');
-  } catch (error) {
-    logger.error('Failed to initialize Bluetooth monitoring:', error);
-    bluetoothState.unsupported = true;
-    bluetoothState.initialized = true;
-  }
-}
-
-async function checkBluetoothAvailability(): Promise<boolean> {
-  logger.info('bluetoothState: ', JSON.stringify(bluetoothState));
-  if (!bluetoothState.initialized) {
-    logger.info(
-      '🔍 checkBluetoothAvailability: not initialized, initBluetoothMonitoring',
-    );
-    await initBluetoothMonitoring();
-    logger.info('🔍 checkBluetoothAvailability: after initBluetoothMonitoring');
-  }
-
-  logger.info(
-    '🔍 checkBluetoothAvailability: bluetoothState.available: ',
-    bluetoothState.available,
-  );
-  return bluetoothState.available;
-}
-
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
 
@@ -674,11 +598,6 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.APP_TEST_CRASH, () => {
     throw new OneKeyLocalError('Test Electron Native crash 996');
-  });
-
-  // Bluetooth availability check
-  ipcMain.handle(ipcMessageKeys.BLUETOOTH_CHECK_AVAILABILITY, async () => {
-    return checkBluetoothAvailability();
   });
 
   desktopApi.desktopApiSetup();
