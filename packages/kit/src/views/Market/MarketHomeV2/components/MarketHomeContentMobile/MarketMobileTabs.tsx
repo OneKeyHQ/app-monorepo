@@ -69,7 +69,7 @@ function SimpleTabHeader({
             {typeof renderTitle(item, isActive) === 'string' ? (
               <SizableText
                 size="$bodyMdMedium"
-                color={isActive ? '$textInteractive' : '$text'}
+                color={isActive ? '$textSubdued' : '$text'}
               >
                 {renderTitle(item, isActive)}
               </SizableText>
