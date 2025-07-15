@@ -1,7 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useAnimatedReaction } from 'react-native-reanimated';
 import {
   AutoSizer,
   Collection,
@@ -253,6 +252,7 @@ export function List<Item>({
                 cellCount={listData.length}
                 cellSizeAndPositionGetter={cellSizeAndPositionGetter}
                 cellRenderer={cellRenderer as any}
+                overscanRowCount={30}
               />
             </div>
           );
@@ -263,14 +263,15 @@ export function List<Item>({
 
   return (
     <AutoSizer disableHeight>
-      {({ width: autoSizerWidth }) => (
+      {({ width: autoSizerWidth, height: autoSizerHeight }) => (
         <div ref={ref as React.RefObject<HTMLDivElement>}>
           <VirtualizedList
             autoHeight
             width={autoSizerWidth}
             data={listData}
-            height={height || 400}
+            height={autoSizerHeight || height || 400}
             isScrolling={isScrolling}
+            overscanRowCount={30}
             onScroll={onChildScroll}
             scrollTop={scrollTop}
             rowCount={listData.length}
