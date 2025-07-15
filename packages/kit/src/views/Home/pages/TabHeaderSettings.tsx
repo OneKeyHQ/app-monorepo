@@ -204,15 +204,6 @@ function Container({ children }: PropsWithChildren) {
 
 function BasicTabHeaderSettings() {
   const [tabName, setTabName] = useState<string>('crypto');
-  useEffect(() => {
-    const callback = ({ tabId }: { tabId: string }) => {
-      setTabName(tabId);
-    };
-    appEventBus.on(EAppEventBusNames.HomeTabsChanged, callback);
-    return () => {
-      appEventBus.off(EAppEventBusNames.HomeTabsChanged, callback);
-    };
-  }, []);
 
   const content = useMemo(() => {
     switch (tabName) {

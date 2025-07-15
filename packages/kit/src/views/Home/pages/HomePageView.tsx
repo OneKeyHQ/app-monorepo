@@ -115,40 +115,40 @@ export function HomePageView({
   const supportedDeviceTypes = vaultSettings?.supportedDeviceTypes;
   const watchingAccountEnabled = vaultSettings?.watchingAccountEnabled;
 
-  const tabs = useMemo(
-    () =>
-      [
-        {
-          id: 'crypto',
-          title: intl.formatMessage({
-            id: ETranslations.global_crypto,
-          }),
-          page: memo(TokenListContainerWithProvider, () => true),
-        },
-        isNFTEnabled
-          ? {
-              id: 'nft',
-              title: intl.formatMessage({
-                id: ETranslations.global_nft,
-              }),
-              page: memo(NFTListContainerWithProvider, () => true),
-            }
-          : null,
-        // {
-        //   title: 'Defi',
-        //   page: memo(DefiListContainer, () => true),
-        // },
-        {
-          id: 'history',
-          title: intl.formatMessage({
-            id: ETranslations.global_history,
-          }),
-          page: memo(TxHistoryListContainerWithProvider, () => true),
-        },
-      ].filter(Boolean),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [intl, account?.id, network?.id, isNFTEnabled],
-  );
+  // const tabs = useMemo(
+  //   () =>
+  //     [
+  //       {
+  //         id: 'crypto',
+  //         title: intl.formatMessage({
+  //           id: ETranslations.global_crypto,
+  //         }),
+  //         page: memo(TokenListContainerWithProvider, () => true),
+  //       },
+  //       isNFTEnabled
+  //         ? {
+  //             id: 'nft',
+  //             title: intl.formatMessage({
+  //               id: ETranslations.global_nft,
+  //             }),
+  //             page: memo(NFTListContainerWithProvider, () => true),
+  //           }
+  //         : null,
+  //       // {
+  //       //   title: 'Defi',
+  //       //   page: memo(DefiListContainer, () => true),
+  //       // },
+  //       {
+  //         id: 'history',
+  //         title: intl.formatMessage({
+  //           id: ETranslations.global_history,
+  //         }),
+  //         page: memo(TxHistoryListContainerWithProvider, () => true),
+  //       },
+  //     ].filter(Boolean),
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  //   [intl, account?.id, network?.id, isNFTEnabled],
+  // );
 
   const onRefresh = useCallback(() => {
     appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
@@ -174,64 +174,37 @@ export function HomePageView({
     [accountName, deriveInfo?.label, deriveInfo?.labelKey, intl, network?.name],
   );
 
-  const prevPageIndex = useRef<number>(undefined);
-
-  // OK-38433
-  useMemo(() => {
-    appEventBus.emit(EAppEventBusNames.HomeTabsChanged, {
-      index: 0,
-      tabId: tabs[0].id,
-    });
-  }, [tabs]);
-  const handleSelectPageIndexChange = useCallback(
-    (pageIndex: number) => {
-      if (
-        prevPageIndex.current !== undefined &&
-        prevPageIndex.current !== pageIndex
-      ) {
-        Keyboard.dismiss();
-      }
-      prevPageIndex.current = pageIndex;
-      appEventBus.emit(EAppEventBusNames.HomeTabsChanged, {
-        index: pageIndex,
-        tabId: tabs[pageIndex].id,
-      });
-    },
-    [tabs],
-  );
-
   const renderHeader = useCallback(() => {
     return <HomeHeaderContainer />;
   }, []);
 
-  const renderTabs = useCallback(
+  const tabs = useMemo(
     () => (
-      // <Tab
-      //   disableRefresh={!platformEnv.isNative}
-      //   data={tabs}
-      //   ToolBar={<TabHeaderSettings />}
-      //   ListHeaderComponent={<HomeHeaderContainer />}
-      //   onSelectedPageIndex={handleSelectPageIndexChange}
-      //   initialScrollIndex={0}
-      //   initialHeaderHeight={210}
-      //   contentItemWidth={CONTENT_ITEM_WIDTH}
-      //   contentWidth={screenWidth}
-      //   showsVerticalScrollIndicator={false}
-      //   onRefresh={onRefresh}
-      // />
       <Tabs.Container renderHeader={renderHeader}>
-        <Tabs.Tab name="A">
+        <Tabs.Tab
+          name={intl.formatMessage({
+            id: ETranslations.global_crypto,
+          })}
+        >
           <TokenListContainerWithProvider />
         </Tabs.Tab>
-        <Tabs.Tab name="B">
+        <Tabs.Tab
+          name={intl.formatMessage({
+            id: ETranslations.global_nft,
+          })}
+        >
           <NFTListContainerWithProvider />
         </Tabs.Tab>
-        <Tabs.Tab name="C">
+        <Tabs.Tab
+          name={intl.formatMessage({
+            id: ETranslations.global_history,
+          })}
+        >
           <TxHistoryListContainerWithProvider />
         </Tabs.Tab>
       </Tabs.Container>
     ),
-    [renderHeader],
+    [intl, renderHeader],
   );
 
   useEffect(() => {
@@ -280,12 +253,12 @@ export function HomePageView({
           networkId={network?.id ?? ''}
           accountId={account?.id ?? ''}
         >
-          <>{renderTabs()}</>
+          <>{tabs}</>
         </WalletContentWithAuth>
       );
     }
 
-    return <>{renderTabs()}</>;
+    return tabs;
   }, [
     softwareAccountDisabled,
     wallet?.id,
@@ -295,10 +268,10 @@ export function HomePageView({
     vaultSettings?.mergeDeriveAssetsEnabled,
     networkAccounts,
     isRequiredValidation,
-    renderTabs,
     watchingAccountEnabled,
     emptyAccountView,
     network?.id,
+    tabs,
   ]);
 
   const renderHomePage = useCallback(() => {
