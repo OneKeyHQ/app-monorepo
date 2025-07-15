@@ -21,6 +21,7 @@ module.exports = [
   'aamt',
   'Abi',
   'Abis',
+  'undef',
   'acc',
   'beforeunload',
   'nobleRipemd160',

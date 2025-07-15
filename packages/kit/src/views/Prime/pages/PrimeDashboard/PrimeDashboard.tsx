@@ -24,6 +24,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
@@ -84,8 +85,6 @@ export default function PrimeDashboard({
   const { isReady, getPackagesNative, restorePurchases, getPackagesWeb } =
     usePrimePayment();
 
-  const { getPackagesWeb: getPackagesWeb2 } = usePrimePaymentMethodsWeb();
-
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
     useState<ISubscriptionPeriod>('P1Y');
 
@@ -140,43 +139,71 @@ export default function PrimeDashboard({
     return true;
   }, [isPrimeSubscriptionActive, shouldShowConfirmButton, user?.privyUserId]);
 
-  usePromiseResult(async () => {
+  const { getPackagesWeb: getPackagesWeb2 } = usePrimePaymentMethodsWeb();
+  const { result: webPackages } = usePromiseResult(async () => {
     if (isReady) {
-      const pkgList2 = await getPackagesWeb2?.();
-      console.log('pkgList22222222', pkgList2);
+      console.log('getPackagesWeb2__isReady', isReady);
+      const shouldPolyfillRandomUUIDTemporarily =
+        !globalThis?.crypto?.randomUUID && platformEnv.isNativeAndroid;
+      if (shouldPolyfillRandomUUIDTemporarily) {
+        // getPackagesWeb2() require randomUUID, so polyfill it temporarily
+        globalThis.crypto.randomUUID = () => {
+          return stringUtils.generateUUID() as `${string}-${string}-${string}-${string}-${string}`;
+        };
+      }
+      try {
+        if (platformEnv.isNativeAndroid) {
+          const pkgList2 = await getPackagesWeb2?.();
+          console.log('getPackagesWeb2__pkgList22222222', pkgList2);
+          return pkgList2;
+        }
+      } finally {
+        if (shouldPolyfillRandomUUIDTemporarily) {
+          // randomUUID may cause RevenueCat native SDK not ready, so reset it to undefined
+          globalThis.crypto.randomUUID = undefined as any;
+        }
+      }
     }
   }, [getPackagesWeb2, isReady]);
 
-  const { result: packages, isLoading: isPackagesLoading } = usePromiseResult(
-    async () => {
-      if (!shouldShowSubscriptionPlans || !isReady) {
-        return [];
-      }
+  const { result: sdkPackages, isLoading: isPackagesLoading } =
+    usePromiseResult(
+      async () => {
+        if (!shouldShowSubscriptionPlans || !isReady) {
+          return [];
+        }
 
-      if (!user?.privyUserId) {
-        return [];
-      }
+        if (!user?.privyUserId) {
+          return [];
+        }
 
-      // TODO There was a problem with the store.
-      return errorToastUtils.withErrorAutoToast(async () => {
-        const pkgList = await (platformEnv.isNative
-          ? getPackagesNative?.()
-          : getPackagesWeb?.());
-        console.log('pkgList1111111', pkgList);
-        return pkgList;
-      });
-    },
-    [
-      getPackagesNative,
-      getPackagesWeb,
-      isReady,
-      shouldShowSubscriptionPlans,
-      user?.privyUserId,
-    ],
-    {
-      watchLoading: true,
-    },
-  );
+        // TODO There was a problem with the store.
+        return errorToastUtils.withErrorAutoToast(async () => {
+          const pkgList = await (platformEnv.isNative
+            ? getPackagesNative?.()
+            : getPackagesWeb?.());
+          console.log('pkgList1111111', pkgList);
+          return pkgList;
+        });
+      },
+      [
+        getPackagesNative,
+        getPackagesWeb,
+        isReady,
+        shouldShowSubscriptionPlans,
+        user?.privyUserId,
+      ],
+      {
+        watchLoading: true,
+      },
+    );
+
+  const packages = useMemo(() => {
+    if (sdkPackages?.length) {
+      return sdkPackages;
+    }
+    return webPackages || [];
+  }, [sdkPackages, webPackages]);
 
   const selectedPackage = useMemo(() => {
     return packages?.find(
@@ -188,7 +215,7 @@ export default function PrimeDashboard({
   const isSubscribeLazyLoadingRef = useRef(isSubscribeLazyLoading);
   isSubscribeLazyLoadingRef.current = isSubscribeLazyLoading;
   const subscribe = useCallback(async () => {
-    if (isPackagesLoading) {
+    if (packages?.length === 0) {
       return;
     }
     if (isSubscribeLazyLoadingRef.current) {
@@ -208,7 +235,7 @@ export default function PrimeDashboard({
     });
   }, [
     ensurePrimeSubscriptionActive,
-    isPackagesLoading,
+    packages?.length,
     selectedSubscriptionPeriod,
   ]);
 
@@ -352,7 +379,7 @@ export default function PrimeDashboard({
                     shouldShowConfirmButton
                       ? {
                           loading: isSubscribeLazyLoading,
-                          disabled: isPackagesLoading,
+                          disabled: packages?.length === 0,
                         }
                       : undefined
                   }

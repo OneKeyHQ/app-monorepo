@@ -129,7 +129,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         };
       }) || [];
 
-    console.log('userPrimePaymentMethods >>>>>> packages', {
+    console.log('userPrimePaymentMethods >>>>>> webEmbedPackages', {
       packages,
       offerings,
     });

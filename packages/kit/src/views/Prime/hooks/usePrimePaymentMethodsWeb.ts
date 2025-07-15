@@ -1,8 +1,5 @@
 import { useCallback } from 'react';
 
-// load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
-// eslint-disable-next-line import/order
-import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
 import { LogLevel, Purchases } from '@revenuecat/purchases-js';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -134,7 +131,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
         };
       }) || [];
 
-    console.log('userPrimePaymentMethods >>>>>> packages', {
+    console.log('userPrimePaymentMethods >>>>>> WebPackages', {
       packages,
       offerings,
     });
