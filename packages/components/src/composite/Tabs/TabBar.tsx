@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { useAnimatedReaction } from 'react-native-reanimated';
+import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 
 import { Divider } from '../../content';
 import { SizableText, XStack, YStack } from '../../primitives';
@@ -48,16 +48,16 @@ export function TabBar({
     () => focusedTab.value,
     (result, previous) => {
       if (result !== previous) {
-        setCurrentTab(result);
+        runOnJS(setCurrentTab)(result);
       }
     },
   );
   return (
     <YStack
+      bg="$bgApp"
       className="onekey-tabs-header"
       position={'sticky' as any}
       top={0}
-      bg="$bg"
       zIndex={10}
     >
       <XStack ai="center" jc="space-between">
