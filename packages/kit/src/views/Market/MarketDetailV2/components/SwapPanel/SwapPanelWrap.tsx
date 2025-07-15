@@ -5,9 +5,11 @@ import { useIntl } from 'react-intl';
 
 import { Button, Dialog, View, useMedia } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
+import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProviderMirrorV2';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
 import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
@@ -157,7 +159,13 @@ export function SwapPanelWrap() {
 
     dialogRef.current = Dialog.show({
       title: intl.formatMessage({ id: ETranslations.global_swap }),
-      renderContent: swapPanelContent,
+      renderContent: (
+        <MarketWatchListProviderMirrorV2
+          storeName={EJotaiContextStoreNames.marketWatchListV2}
+        >
+          {swapPanelContent}
+        </MarketWatchListProviderMirrorV2>
+      ),
       showFooter: false,
     });
   };
