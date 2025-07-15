@@ -66,7 +66,6 @@ export function List<Item>({
     },
     [renderItem, data],
   );
-  console.log('renderList', scrollTop);
   return (
     <AutoSizer disableHeight>
       {({ width: autoSizerWidth }) => (
@@ -79,7 +78,6 @@ export function List<Item>({
             isScrolling={isScrolling}
             onScroll={onChildScroll}
             scrollTop={scrollTop}
-            scrollToIndex={20}
             rowCount={data?.length || 0}
             rowHeight={estimatedItemSize || 50}
             rowRenderer={rowRenderer}
