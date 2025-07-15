@@ -14,6 +14,7 @@ module.exports = [
   '0xxxxxxx',
   '100vw',
   '10xxxxxx',
+  'cors',
   '110xxxxx',
   '1110xxxx',
   '418d765ef87acee24ad4ff6f5e755f36c1ee557424',

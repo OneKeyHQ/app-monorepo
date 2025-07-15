@@ -53,7 +53,10 @@ class E2EEServer {
       roomConfig: {
         maxUsers: parseInt(process.env.MAX_USERS_PER_ROOM || '2', 10),
         roomTimeout: parseInt(process.env.ROOM_TIMEOUT || '3600000', 10), // 1 hour
-        maxMessageSize: parseInt(process.env.MAX_MESSAGE_SIZE || '1048576', 10), // 1MB
+        maxMessageSize: parseInt(
+          process.env.MAX_MESSAGE_SIZE || '10485760',
+          10,
+        ), // 10MB
       },
     };
 
