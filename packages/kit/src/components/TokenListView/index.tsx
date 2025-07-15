@@ -26,7 +26,6 @@ import {
   type IAccountToken,
 } from '@onekeyhq/shared/types/token';
 
-import { useTabListScroll } from '../../hooks/useTabListScroll';
 import {
   useActiveAccountTokenListAtom,
   useActiveAccountTokenListStateAtom,
@@ -202,11 +201,6 @@ function TokenListViewCmp(props: IProps) {
     tokenListMap,
   ]);
 
-  const { listViewProps, listViewRef, onLayout } =
-    useTabListScroll<IAccountToken>({
-      inTabList,
-    });
-
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
   const addPaddingOnListFooter = useMemo(
     () => !!extensionActiveTabDAppInfo?.showFloatingPanel,
@@ -295,10 +289,7 @@ function TokenListViewCmp(props: IProps) {
 
   return (
     <Tabs.FlatList
-      {...listViewProps}
       // estimatedItemSize={tableLayout ? 48 : 60}
-      ref={listViewRef as any}
-      onLayout={onLayout}
       data={filteredTokens}
       ListHeaderComponent={
         withHeader ? (

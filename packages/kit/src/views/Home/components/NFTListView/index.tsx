@@ -2,16 +2,10 @@ import type { ComponentProps } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import type { IStackProps, ListView } from '@onekeyhq/components';
-import {
-  Stack,
-  Tabs,
-  renderNestedScrollView,
-  useMedia,
-} from '@onekeyhq/components';
+import { Stack, Tabs, useMedia } from '@onekeyhq/components';
 import { EmptyNFT, EmptySearch } from '@onekeyhq/kit/src/components/Empty';
 import { NFTListLoadingView } from '@onekeyhq/kit/src/components/Loading';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useTabListScroll } from '@onekeyhq/kit/src/hooks/useTabListScroll';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSearchKeyAtom } from '@onekeyhq/kit/src/states/jotai/contexts/nftList';
 import useActiveTabDAppInfo from '@onekeyhq/kit/src/views/DAppConnection/hooks/useActiveTabDAppInfo';
@@ -132,11 +126,6 @@ function NFTListView(props: IProps) {
     ),
     [flexBasis, handleOnPressNFT, isAllNetworks],
   );
-
-  const { listViewProps, listViewRef, onLayout } =
-    useTabListScroll<IAccountNFT>({
-      inTabList,
-    });
   const contentContainerStyle = useMemo(
     () => ({
       pt: '$3',
@@ -158,16 +147,13 @@ function NFTListView(props: IProps) {
 
   return (
     <Tabs.FlatList
-      {...listViewProps}
-      ref={listViewRef as any}
       // renderScrollComponent={renderNestedScrollView}
       // Changing numColumns on the fly is not supported.
       //  Change the key prop in FlatList when changing the number of columns to force a fresh render of the component.
       key={numColumns}
-      onLayout={onLayout}
       contentContainerStyle={contentContainerStyle}
       numColumns={numColumns}
-      data={filteredNfts}
+      data={filteredNfts || []}
       renderItem={handleRenderItem}
       ListEmptyComponent={searchKey ? <EmptySearch /> : <EmptyNFT />}
       ListFooterComponent={
