@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, Dialog, useMedia } from '@onekeyhq/components';
+import { Button, Dialog, View, useMedia } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -164,12 +164,15 @@ export function SwapPanelWrap() {
 
   if (media.md) {
     return (
-      <Button
-        variant="primary"
-        onPress={() => showSwapDialog(ESwapDirection.BUY)}
-      >
-        {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
-      </Button>
+      <View p="$3">
+        <Button
+          size="large"
+          variant="primary"
+          onPress={() => showSwapDialog(ESwapDirection.BUY)}
+        >
+          {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
+        </Button>
+      </View>
     );
   }
 
