@@ -13,7 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { parseValueToNumber, formatNumberToKM } from '../../utils';
+import { formatNumberToKM, parseValueToNumber } from '../../utils';
 
 type ILiquidityFilterContentProps = {
   value?: { min?: string; max?: string };
