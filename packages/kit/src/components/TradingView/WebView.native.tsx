@@ -46,7 +46,7 @@ export function WebView({
       setTimeout(() => {
         webViewRef.current?.injectJavaScript(dynamicScript);
         webViewRef.current?.injectJavaScript(injectedJavaScript);
-      }, 550);
+      }, 500);
     } else {
       setTimeout(() => {
         onLoadEnd();
