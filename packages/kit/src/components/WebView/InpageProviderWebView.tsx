@@ -33,10 +33,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
         sendMessageViaInjectedScript: (message: any) => {
           if (iframeRef.current?.contentWindow) {
             try {
-              iframeRef.current.contentWindow.postMessage(
-                JSON.stringify(message),
-                '*',
-              );
+              iframeRef.current.contentWindow.postMessage(message, '*');
             } catch (error) {
               console.error(
                 'Failed to send message via injected script:',
@@ -64,7 +61,12 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           }
 
           if (receiveHandler) {
-            receiveHandler(payload as any, undefined);
+            receiveHandler(
+              {
+                data: payload,
+              } as any,
+              undefined,
+            );
           }
         } catch (error) {
           console.error('Failed to handle message from iframe:', error);

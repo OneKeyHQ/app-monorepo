@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/components';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
@@ -46,7 +47,7 @@ export function TokenDetailHeaderRight({
   showStats,
 }: ITokenDetailHeaderRightProps) {
   const intl = useIntl();
-
+  const [settingsPersistAtom] = useSettingsPersistAtom();
   const {
     name = '',
     symbol = '',
@@ -104,7 +105,10 @@ export function TokenDetailHeaderRight({
             size="$bodySmMedium"
             color="$text"
             formatter="marketCap"
-            formatterOptions={{ capAtMaxT: true }}
+            formatterOptions={{
+              capAtMaxT: true,
+              currency: settingsPersistAtom.currencyInfo.symbol,
+            }}
           >
             {marketCap}
           </NumberSizeableText>
@@ -118,7 +122,9 @@ export function TokenDetailHeaderRight({
             size="$bodySmMedium"
             color="$text"
             formatter="marketCap"
-            formatterOptions={{ currency: '$' }}
+            formatterOptions={{
+              currency: settingsPersistAtom.currencyInfo.symbol,
+            }}
           >
             {tvl}
           </NumberSizeableText>

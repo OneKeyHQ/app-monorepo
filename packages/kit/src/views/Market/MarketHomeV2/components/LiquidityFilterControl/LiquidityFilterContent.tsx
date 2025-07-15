@@ -1,11 +1,20 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { IStackProps } from '@onekeyhq/components';
-import { Button, Input, Stack, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Input,
+  SizableText,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+
+import { parseValueToNumber } from '../../utils';
 
 type ILiquidityFilterContentProps = {
   value?: { min?: string; max?: string };
@@ -29,6 +38,32 @@ function LiquidityFilterContent({
   const [maxValue, setMaxValue] = useState<string | undefined>(valueProp?.max);
   const intl = useIntl();
 
+  // Validation logic for min > max
+  const validationError = useMemo(() => {
+    if (!minValue?.trim() || !maxValue?.trim()) {
+      return null; // No error if either field is empty
+    }
+
+    try {
+      const minNum = parseValueToNumber(minValue.trim());
+      const maxNum = parseValueToNumber(maxValue.trim());
+
+      if (minNum > maxNum) {
+        return intl.formatMessage(
+          {
+            id: ETranslations.form_must_greater_then_value,
+          },
+          { value: minValue.trim() },
+        );
+      }
+    } catch {
+      // If parsing fails, don't show validation error
+      return null;
+    }
+
+    return null;
+  }, [minValue, maxValue, intl]);
+
   useEffect(() => {
     setMinValue(valueProp?.min);
     setMaxValue(valueProp?.max);
@@ -45,9 +80,42 @@ function LiquidityFilterContent({
   );
 
   const handleApply = useCallback(() => {
-    onApply?.({ min: minValue, max: maxValue });
+    // Don't apply if there's a validation error
+    if (validationError) {
+      return;
+    }
+
+    // Convert minValue and maxValue to k/m units if they are numeric
+    let convertedMin = minValue;
+    let convertedMax = maxValue;
+
+    if (minValue?.trim()) {
+      try {
+        const minNum = parseValueToNumber(minValue.trim());
+        convertedMin = String(
+          numberFormat(String(minNum), { formatter: 'marketCap' }),
+        );
+      } catch (error) {
+        // Keep original value if parsing fails
+        convertedMin = minValue;
+      }
+    }
+
+    if (maxValue?.trim()) {
+      try {
+        const maxNum = parseValueToNumber(maxValue.trim());
+        convertedMax = String(
+          numberFormat(String(maxNum), { formatter: 'marketCap' }),
+        );
+      } catch (error) {
+        // Keep original value if parsing fails
+        convertedMax = maxValue;
+      }
+    }
+
+    onApply?.({ min: convertedMin, max: convertedMax });
     onClose?.();
-  }, [minValue, maxValue, onApply, onClose]);
+  }, [minValue, maxValue, onApply, onClose, validationError]);
 
   const handleClear = useCallback(() => {
     // Clear values immediately without updating local state
@@ -100,6 +168,11 @@ function LiquidityFilterContent({
             />
           </Stack>
         </XStack>
+        {validationError ? (
+          <SizableText size="$bodyMd" color="$textCritical">
+            {validationError}
+          </SizableText>
+        ) : null}
       </Stack>
 
       <Stack gap="$6">
@@ -107,7 +180,12 @@ function LiquidityFilterContent({
           <Button variant="secondary" flex={1} onPress={handleClear}>
             {intl.formatMessage({ id: ETranslations.global_clear })}
           </Button>
-          <Button variant="primary" flex={1} onPress={handleApply}>
+          <Button
+            variant="primary"
+            flex={1}
+            onPress={handleApply}
+            disabled={!!validationError}
+          >
             {intl.formatMessage({
               id: ETranslations.dexmarket_custom_filters_apply,
             })}
