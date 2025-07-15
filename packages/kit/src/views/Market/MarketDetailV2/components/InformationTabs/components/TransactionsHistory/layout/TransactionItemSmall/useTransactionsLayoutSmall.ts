@@ -1,7 +1,7 @@
 export const useTransactionsLayoutSmall = () => {
   const styles = {
     time: {
-      width: '$14',
+      width: '$20',
     },
     amount: {
       flex: 1,
