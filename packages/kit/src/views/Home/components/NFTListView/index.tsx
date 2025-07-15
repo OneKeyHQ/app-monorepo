@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import type { IStackProps, ListView } from '@onekeyhq/components';
-import { Stack, Tabs, useMedia } from '@onekeyhq/components';
+import { Stack, Tabs, useMedia, useStyle } from '@onekeyhq/components';
 import { EmptyNFT, EmptySearch } from '@onekeyhq/kit/src/components/Empty';
 import { NFTListLoadingView } from '@onekeyhq/kit/src/components/Loading';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -18,7 +18,7 @@ import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 import { NFTListItem } from './NFTListItem';
 
-import type { ListRenderItemInfo } from 'react-native';
+import type { ListRenderItemInfo, StyleProp, ViewStyle } from 'react-native';
 
 type IProps = {
   data: IAccountNFT[];
@@ -141,24 +141,25 @@ function NFTListView(props: IProps) {
     [extensionActiveTabDAppInfo?.showFloatingPanel],
   );
 
+  const style = useStyle(contentContainerStyle, {
+    resolveValues: 'auto',
+  });
+
   if (!initialized && isLoading) {
     return <NFTListLoadingView />;
   }
 
   return (
     <Tabs.FlatList
-      // renderScrollComponent={renderNestedScrollView}
-      // Changing numColumns on the fly is not supported.
-      //  Change the key prop in FlatList when changing the number of columns to force a fresh render of the component.
       key={numColumns}
-      contentContainerStyle={contentContainerStyle}
+      contentContainerStyle={style as any}
       numColumns={numColumns}
       data={filteredNfts || []}
       renderItem={handleRenderItem}
       ListEmptyComponent={searchKey ? <EmptySearch /> : <EmptyNFT />}
-      // ListFooterComponent={
-      //   <>{addPaddingOnListFooter ? <Stack h="$16" /> : null}</>
-      // }
+      ListFooterComponent={
+        <>{addPaddingOnListFooter ? <Stack h="$16" /> : null}</>
+      }
       {...listViewStyleProps}
     />
   );
