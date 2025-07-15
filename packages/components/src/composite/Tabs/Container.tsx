@@ -94,14 +94,31 @@ export function Container({
   const [scrollElement, setScrollElement] = useState<Element | null>(null);
   const isSwitchingTabRef = useRef(false);
 
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const updateListContainerHeight = useCallback(() => {
     if (listContainerRef.current) {
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+      }
       const height =
         scrollTabElementsRef.current?.[focusedTab.value]?.element.clientHeight;
       if (height) {
         (
           listContainerRef.current as HTMLElement
         ).style.maxHeight = `${height}px`;
+        setTimeout(() => {
+          resizeObserverRef.current = new ResizeObserver((entries) => {
+            const entry = entries[0];
+            if (entry && entry.contentRect.height) {
+              (
+                listContainerRef.current as HTMLElement
+              ).style.maxHeight = `${entry.contentRect.height}px`;
+            }
+          });
+          resizeObserverRef.current.observe(
+            scrollTabElementsRef.current?.[focusedTab.value]?.element,
+          );
+        }, 100);
       } else {
         setTimeout(updateListContainerHeight, 250);
       }
@@ -111,6 +128,11 @@ export function Container({
   useLayoutEffect(() => {
     setScrollElement(ref.current);
     setTimeout(updateListContainerHeight, 250);
+    return () => {
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+      }
+    };
   }, [updateListContainerHeight]);
 
   const onTabPress = useCallback(
