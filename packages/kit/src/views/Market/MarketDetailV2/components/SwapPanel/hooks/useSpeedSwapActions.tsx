@@ -9,7 +9,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
-import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
@@ -48,7 +48,6 @@ export function useSpeedSwapActions(props: {
   marketToken: ISwapTokenBase;
   tradeToken: ISwapTokenBase;
   tradeType: ESwapDirection;
-  account?: IAccountSelectorActiveAccountInfo;
   fromTokenAmount: string;
   provider: string;
   spenderAddress: string;
@@ -58,7 +57,6 @@ export function useSpeedSwapActions(props: {
 }) {
   const {
     marketToken,
-    account,
     fromTokenAmount,
     tradeToken,
     tradeType,
@@ -73,6 +71,7 @@ export function useSpeedSwapActions(props: {
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();
   const [settingsAtom] = useSettingsPersistAtom();
+  const { activeAccount: account } = useActiveAccount({ num: 0 });
   const [shouldApprove, setShouldApprove] = useState(false);
   const [shouldResetApprove, setShouldResetApprove] = useState(false);
   const [speedSwapBuildTxLoading, setSpeedSwapBuildTxLoading] = useState(false);
@@ -681,7 +680,9 @@ export function useSpeedSwapActions(props: {
       const fromTokenPriceBN = new BigNumber(fromTokenPrice[0].price || 0);
       const toTokenPriceBN = new BigNumber(toTokenPrice[0].price || 0);
       setPriceRate({
-        rate: fromTokenPriceBN.dividedBy(toTokenPriceBN).toNumber(),
+        rate: toTokenPriceBN.isZero()
+          ? 0
+          : fromTokenPriceBN.dividedBy(toTokenPriceBN).toNumber(),
         fromTokenSymbol: fromToken.symbol,
         toTokenSymbol: toToken.symbol,
       });
@@ -715,6 +716,16 @@ export function useSpeedSwapActions(props: {
       EAppEventBusNames.SwapSpeedApprovingReset,
       handleSwapSpeedApprovingReset,
     );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.SwapSpeedBalanceUpdate,
+        syncTokensBalance,
+      );
+      appEventBus.off(
+        EAppEventBusNames.SwapSpeedApprovingReset,
+        handleSwapSpeedApprovingReset,
+      );
+    };
   }, [handleSwapSpeedApprovingReset, syncTokensBalance]);
 
   useEffect(() => {
@@ -726,7 +737,8 @@ export function useSpeedSwapActions(props: {
         fromTokenAmountDebouncedBN.gt(0) &&
         !fromToken.isNative &&
         spenderAddress &&
-        netAccountRes?.result?.address) ||
+        netAccountRes?.result?.address &&
+        balance?.gt(0)) ||
       inAppNotificationAtom.speedSwapApprovingTransaction?.status ===
         ESwapApproveTransactionStatus.SUCCESS
     ) {
@@ -736,6 +748,7 @@ export function useSpeedSwapActions(props: {
       setShouldResetApprove(false);
     }
   }, [
+    balance,
     fromToken.isNative,
     fromTokenAmountDebounced,
     spenderAddress,
@@ -754,12 +767,16 @@ export function useSpeedSwapActions(props: {
       if (tokenInfo?.length) {
         setBaseToken({
           ...tokenInfo[0],
-          symbol: marketToken.symbol,
+          symbol: marketToken?.symbol,
+          logoURI: tokenInfo[0]?.logoURI
+            ? tokenInfo[0]?.logoURI
+            : marketToken?.logoURI,
         });
       }
     })();
   }, [
     marketToken?.contractAddress,
+    marketToken?.logoURI,
     marketToken?.networkId,
     marketToken?.symbol,
   ]);
