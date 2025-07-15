@@ -1,17 +1,21 @@
 import {
   Children,
-  ContextType,
-  type PropsWithChildren,
+  isValidElement,
   useCallback,
+  useLayoutEffect,
   useMemo,
+  useRef,
+  useState,
 } from 'react';
+import type { ContextType, PropsWithChildren, RefObject } from 'react';
 
 import { useDerivedValue, useSharedValue } from 'react-native-reanimated';
 import { WindowScroller } from 'react-virtualized';
 
-import { XStack } from '../../primitives';
+import { XStack, YStack } from '../../primitives';
 
 import { TabsContext, TabsScrollContext } from './context';
+import { Header } from './Header';
 
 import type {
   CollapsibleProps,
@@ -22,107 +26,145 @@ import type { WindowScrollerChildProps } from 'react-virtualized';
 
 export function ContainerChild({
   children,
+  listContainerRef,
   ...props
-}: PropsWithChildren<WindowScrollerChildProps>) {
-  console.log('ContainerChild', props);
+}: PropsWithChildren<WindowScrollerChildProps> & {
+  listContainerRef: RefObject<Element>;
+}) {
   return (
     <TabsScrollContext.Provider value={props}>
-      <XStack w={props.width * 3 / 2}>
-        {Children.map(children, (child, index) => {
-          return (
-            <div style={{ flex: 1 }} key={index}>
-              {child}
-            </div>
-          );
-        })}
+      <XStack
+        ref={listContainerRef as any}
+        maxWidth={props.width}
+        overflow="hidden"
+      >
+        <XStack w={props.width * 3}>
+          {Children.map(children, (child, index) => {
+            return (
+              <div style={{ flex: 1 }} key={index}>
+                {child}
+              </div>
+            );
+          })}
+        </XStack>
       </XStack>
     </TabsScrollContext.Provider>
   );
 }
 
-const renderDefaultHeader = (props: TabBarProps<TabName>) => {
-  return (
-    <XStack>
-      {['A', 'B', 'C'].map((tab) => (
-        <XStack key={tab} onPress={() => props.onTabPress(tab)}>{tab}</XStack>
-      ))}
-    </XStack>
-  );
+const renderDefaultHeader = (props: TabBarProps<string>) => {
+  return <Header {...props} />;
 };
-
 export function Container({
   children,
   renderHeader,
   renderTabBar = renderDefaultHeader,
   ...props
 }: PropsWithChildren<CollapsibleProps>) {
-  const focusedTab = useSharedValue<string>('A');
-  const contextValue = useMemo(() => ({ focusedTab }), [focusedTab]);
+  // Get tab names from children props
+  const scrollTopRef = useRef<{ [key: string]: number }>({});
+  const tabNames = useMemo(() => {
+    return Children.map(children, (child) => {
+      if (
+        isValidElement(child) &&
+        'name' in (child.props as { name: string })
+      ) {
+        return (child.props as { name: string }).name;
+      }
+      return null;
+    }).filter(Boolean);
+  }, [children]);
+  const sharedTabNames = useSharedValue<string[]>(tabNames);
+  const focusedTab = useSharedValue<string>(tabNames[0] || '');
+  const contextValue = useMemo(
+    () => ({ focusedTab, tabNames: sharedTabNames }),
+    [focusedTab, sharedTabNames],
+  );
+  const ref = useRef<Element>(null);
+  const listContainerRef = useRef<Element>(null);
 
+  const [scrollElement, setScrollElement] = useState<Element | null>(null);
+  useLayoutEffect(() => {
+    setScrollElement(ref.current);
+  }, []);
   const onTabPress = useCallback(
     (tabName: string) => {
-      focusedTab.value = tabName;
-      console.log('onTabPress', tabName);
+      focusedTab.set(tabName);
+      document.startViewTransition(() => {
+        scrollElement?.scrollTo({
+          top: scrollTopRef.current[tabName] || 0,
+          behavior: 'instant',
+        });
+        const width = scrollElement?.clientWidth || 0;
+        listContainerRef.current?.scrollTo({
+          top: 0,
+          left: width * tabNames.findIndex((name) => name === tabName),
+          behavior: 'instant',
+        });
+      });
     },
-    [focusedTab],
+    [focusedTab, scrollElement, tabNames],
   );
   return (
-    <TabsContext.Provider value={contextValue}>
-      <WindowScroller
-        scrollElement={
-          document.querySelector('[data-testid="HomePage"]') || undefined
-        }
-      >
-        {({
-          height,
-          isScrolling,
-          scrollLeft,
-          scrollTop,
-          width,
-          onChildScroll,
-          registerChild,
-        }) => {
-          console.log('WindowScroller', {
-            height,
-            isScrolling,
-            scrollLeft,
-            scrollTop,
-            width,
-          });
-          return (
-            <>
-              {renderHeader?.({
-                indexDecimal: 0,
-                focusedTab: '',
-                tabNames: [],
-                index: 0,
-                containerRef: { current: null },
-                onTabPress,
-                tabProps: {},
-              })}
-              {renderTabBar?.({
-                indexDecimal: 0,
-                focusedTab: '',
-                tabNames: [],
-                index: 0,
-                onTabPress,
-                containerRef: { current: null },
-              })}
-              <ContainerChild
-                height={height}
-                isScrolling={isScrolling}
-                scrollLeft={scrollLeft}
-                scrollTop={scrollTop}
-                width={width}
-                onChildScroll={onChildScroll}
-                registerChild={registerChild}
-              >
-                {children}
-              </ContainerChild>
-            </>
-          );
-        }}
-      </WindowScroller>
-    </TabsContext.Provider>
+    <YStack
+      flex={1}
+      className="onekey-tabs-container"
+      position="relative"
+      style={{
+        overflowY: 'scroll',
+      }}
+      ref={ref as React.RefObject<HTMLDivElement>}
+    >
+      {scrollElement ? (
+        <TabsContext.Provider value={contextValue}>
+          <WindowScroller scrollElement={scrollElement}>
+            {({
+              height,
+              isScrolling,
+              scrollLeft,
+              scrollTop,
+              width,
+              onChildScroll,
+              registerChild,
+            }) => {
+              scrollTopRef.current[focusedTab.value] = scrollTop;
+              return (
+                <>
+                  {renderHeader?.({
+                    indexDecimal: 0,
+                    focusedTab,
+                    tabNames,
+                    index: 0,
+                    containerRef: { current: null },
+                    onTabPress,
+                    tabProps: {},
+                  })}
+                  {renderTabBar?.({
+                    indexDecimal: 0,
+                    focusedTab,
+                    tabNames,
+                    index: 0,
+                    onTabPress,
+                    containerRef: { current: null },
+                  })}
+                  <ContainerChild
+                    height={height}
+                    isScrolling={isScrolling}
+                    scrollLeft={scrollLeft}
+                    scrollTop={scrollTop}
+                    width={width}
+                    onChildScroll={onChildScroll}
+                    registerChild={registerChild}
+                    listContainerRef={listContainerRef}
+                  >
+                    {children}
+                  </ContainerChild>
+                </>
+              );
+            }}
+          </WindowScroller>
+        </TabsContext.Provider>
+      ) : null}
+    </YStack>
   );
 }

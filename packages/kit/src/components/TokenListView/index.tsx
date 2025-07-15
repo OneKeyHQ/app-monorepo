@@ -296,7 +296,6 @@ function TokenListViewCmp(props: IProps) {
   return (
     <Tabs.FlatList
       {...listViewProps}
-      renderScrollComponent={renderNestedScrollView}
       // estimatedItemSize={tableLayout ? 48 : 60}
       ref={listViewRef as any}
       onLayout={onLayout}

@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useAnimatedReaction } from 'react-native-reanimated';
 import { AutoSizer, List as VirtualizedList } from 'react-virtualized';
@@ -14,6 +14,9 @@ type IListProps<Item> = FlashListProps<Item>;
 export function List<Item>({
   renderItem,
   data,
+  ListHeaderComponent,
+  ListFooterComponent,
+  ListEmptyComponent,
   estimatedItemSize,
 }: IListProps<Item>) {
   const {
@@ -46,6 +49,26 @@ export function List<Item>({
     }
   }, [focusedTab.value, currentTabName, registerChild]);
 
+  const listData: {
+    data: Item | null;
+    type: 'header' | 'footer' | 'item';
+  }[] = useMemo(() => {
+    const list: {
+      data: Item | null;
+      type: 'header' | 'footer' | 'item';
+    }[] = [];
+    if (ListHeaderComponent) {
+      list.push({ data: null, type: 'header' });
+    }
+    if (data?.length) {
+      list.push(...data.map((item) => ({ data: item, type: 'item' as const })));
+    }
+    if (ListFooterComponent) {
+      list.push({ data: null, type: 'footer' });
+    }
+    return list;
+  }, [ListFooterComponent, ListHeaderComponent, data]);
+
   const rowRenderer = useCallback(
     ({
       index,
@@ -56,24 +79,34 @@ export function List<Item>({
       key: string;
       style: React.CSSProperties;
     }) => {
+      const item = listData[index];
+      if (item.type === 'header') {
+        return ListHeaderComponent;
+      }
+      if (item.type === 'footer') {
+        return ListFooterComponent;
+      }
+      if (!item.data) {
+        return null;
+      }
       return (
         <div key={key} style={style}>
           {renderItem && data
-            ? renderItem({ item: data[index], index, target: 'Cell' })
+            ? renderItem({ item: item.data, index, target: 'Cell' })
             : null}
         </div>
       );
     },
-    [renderItem, data],
+    [listData, renderItem, data, ListHeaderComponent, ListFooterComponent],
   );
-  return (
+  return data?.length ? (
     <AutoSizer disableHeight>
       {({ width: autoSizerWidth }) => (
         <div ref={ref as React.RefObject<HTMLDivElement>}>
           <VirtualizedList
             autoHeight
             width={autoSizerWidth}
-            data={data}
+            data={listData}
             height={height || 400}
             isScrolling={isScrolling}
             onScroll={onChildScroll}
@@ -85,5 +118,7 @@ export function List<Item>({
         </div>
       )}
     </AutoSizer>
+  ) : (
+    ListEmptyComponent
   );
 }
