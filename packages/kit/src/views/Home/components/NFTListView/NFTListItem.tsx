@@ -33,8 +33,7 @@ function BasicNFTListItem(props: IProps) {
     <Stack
       key={nft.itemId}
       group="nftItem"
-      flex={1}
-      // flexBasis={platformEnv.isNative ? '100%' : flexBasis}
+      flexBasis={platformEnv.isNative ? '100%' : flexBasis}
       focusable
       focusVisibleStyle={{
         outlineColor: '$focusRing',

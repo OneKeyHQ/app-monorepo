@@ -89,16 +89,20 @@ export function Container({
   }, []);
   const onTabPress = useCallback(
     (tabName: string) => {
+      // Header Height + tabBar height
+      const headerHeight = 166;
       focusedTab.set(tabName);
+      const scrollTop = scrollTopRef.current[tabName] || 0;
+      console.log('scrollTop', scrollTop, tabName);
+      const index = tabNames.findIndex((name) => name === tabName);
       document.startViewTransition(() => {
-        scrollElement?.scrollTo({
-          top: scrollTopRef.current[tabName] || 0,
-          behavior: 'instant',
-        });
         const width = scrollElement?.clientWidth || 0;
         listContainerRef.current?.scrollTo({
-          top: 0,
-          left: width * tabNames.findIndex((name) => name === tabName),
+          left: width * index,
+          behavior: 'instant',
+        });
+        scrollElement?.scrollTo({
+          top: scrollTop < headerHeight ? scrollTop : scrollTop + headerHeight,
           behavior: 'instant',
         });
       });
@@ -127,6 +131,7 @@ export function Container({
               onChildScroll,
               registerChild,
             }) => {
+              console.log('scrollTop', focusedTab.value, scrollTop);
               scrollTopRef.current[focusedTab.value] = scrollTop;
               return (
                 <>
