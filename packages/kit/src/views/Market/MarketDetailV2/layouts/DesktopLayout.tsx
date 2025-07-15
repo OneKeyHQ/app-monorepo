@@ -40,22 +40,20 @@ export function DesktopLayout() {
       {/* Main Content */}
       <XStack flex={1}>
         {/* Left column */}
-        <YStack flex={1} onLayout={handleLayout}>
-          <ScrollView flex={1}>
-            {/* Trading view */}
-            <Stack flex={1}>
-              <MarketTradingView
-                tokenAddress={tokenAddress}
-                networkId={networkId}
-                tokenSymbol={tokenDetail?.symbol}
-              />
-            </Stack>
+        <YStack flex={1}>
+          {/* Trading view */}
+          <Stack flex={1} onLayout={handleLayout}>
+            <MarketTradingView
+              tokenAddress={tokenAddress}
+              networkId={networkId}
+              tokenSymbol={tokenDetail?.symbol}
+            />
+          </Stack>
 
-            {/* Info tabs */}
-            <Stack h={320}>
-              <InformationTabs />
-            </Stack>
-          </ScrollView>
+          {/* Info tabs */}
+          <Stack h="30vh">
+            <InformationTabs />
+          </Stack>
         </YStack>
 
         {/* Right column */}
