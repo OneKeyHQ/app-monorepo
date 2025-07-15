@@ -17,7 +17,7 @@ import {
 import { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/src/enum';
 import noop from 'lodash/noop';
 import { InteractionManager } from 'react-native';
-import { Group, getFontSize, getToken, useProps, useThemeName } from 'tamagui';
+import { Group, getFontSize, useProps, useThemeName } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -47,7 +47,7 @@ import type {
   TextInput,
   TextInputFocusEventData,
 } from 'react-native';
-import type { GetProps, Token } from 'tamagui';
+import type { GetProps } from 'tamagui';
 
 type ITMInputProps = GetProps<typeof TMInput>;
 
