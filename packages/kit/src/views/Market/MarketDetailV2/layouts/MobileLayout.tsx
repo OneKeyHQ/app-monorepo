@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,71 +16,42 @@ import {
 } from '../components';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
-// Extract component definitions outside render to prevent re-creation on each render
-const createChartPageComponent = (
-  tokenAddress: string,
-  networkId: string,
-  tokenSymbol?: string,
-) => {
-  const Component = () => (
-    <ScrollView>
-      {/* Information Panel */}
-      <InformationPanel />
-
-      <Stack h={300}>
-        <MarketTradingView
-          tokenAddress={tokenAddress}
-          networkId={networkId}
-          tokenSymbol={tokenSymbol}
-        />
-      </Stack>
-
-      {/* Information tabs */}
-      <Stack h={300}>
-        <InformationTabs />
-      </Stack>
-    </ScrollView>
-  );
-  Component.displayName = 'ChartPageComponent';
-  return Component;
-};
-
-const createOverviewPageComponent = () => {
-  const Component = () => (
-    <>
-      {/* Token Stats */}
-      <TokenOverview />
-
-      {/* Activity overview (only in overview tab) */}
-      <TokenActivityOverview />
-    </>
-  );
-  Component.displayName = 'OverviewPageComponent';
-  return Component;
-};
-
 export function MobileLayout() {
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
   const [activeTab, setActiveTab] = useState<'chart' | 'overview'>('chart');
   const intl = useIntl();
 
-  // Memoize Chart and Overview components to avoid re-creation on each render
-  const ChartPageComponent = useMemo(
-    () =>
-      createChartPageComponent(tokenAddress, networkId, tokenDetail?.symbol),
-    [tokenAddress, networkId, tokenDetail?.symbol],
-  );
-
-  const OverviewPageComponent = useMemo(
-    () => createOverviewPageComponent(),
-    [],
-  );
-
   const renderContent = () => {
     if (activeTab === 'chart') {
-      return <ChartPageComponent />;
+      return (
+        <ScrollView>
+          {/* Information Panel */}
+          <InformationPanel />
+
+          <Stack h={300}>
+            <MarketTradingView
+              tokenAddress={tokenAddress}
+              networkId={networkId}
+              tokenSymbol={tokenDetail?.symbol}
+            />
+          </Stack>
+
+          {/* Information tabs */}
+          <Stack h={300}>
+            <InformationTabs />
+          </Stack>
+        </ScrollView>
+      );
     }
-    return <OverviewPageComponent />;
+    return (
+      <ScrollView>
+        {/* Token Stats */}
+        <TokenOverview />
+
+        {/* Activity overview (only in overview tab) */}
+        <TokenActivityOverview />
+      </ScrollView>
+    );
   };
 
   return (
