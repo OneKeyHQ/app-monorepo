@@ -7890,7 +7890,7 @@ __metadata:
     "@react-native-community/slider": "npm:4.5.7"
     "@react-native-google-signin/google-signin": "npm:^9.1.0"
     "@sentry/react-native": "npm:6.16.1"
-    "@shopify/flash-list": "npm:^1.6.3"
+    "@shopify/flash-list": "npm:2.0.0-rc.11"
     "@types/react-native-canvas": "npm:^0.1.13"
     "@walletconnect/modal-react-native": "npm:1.1.0"
     "@walletconnect/react-native-compat": "npm:2.11.2"
@@ -12031,17 +12031,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@shopify/flash-list@npm:^1.6.3":
-  version: 1.6.3
-  resolution: "@shopify/flash-list@npm:1.6.3"
+"@shopify/flash-list@npm:2.0.0-rc.11":
+  version: 2.0.0-rc.11
+  resolution: "@shopify/flash-list@npm:2.0.0-rc.11"
   dependencies:
-    recyclerlistview: "npm:4.2.0"
-    tslib: "npm:2.4.0"
+    recyclerlistview: "npm:4.2.3"
+    tslib: "npm:2.8.1"
   peerDependencies:
     "@babel/runtime": "*"
     react: "*"
     react-native: "*"
-  checksum: 10/b2c272b447cc528676eac0dfbcb9aead756bb00e9bfda93fc9e3886f93d4cb39fa9fa2d16a3077a86b18dfafc6a67a0e2c4b5917ea5b1efea9e63f485688cb51
+  checksum: 10/cc3187eb0137216116bbe0854912cc976589340f6cc393618696b18cb22ead160130e77115b1f8f38f76f7449b6a49f056d737364e0b8c224a8557d5d3fe11ef
   languageName: node
   linkType: hard
 
@@ -36663,21 +36663,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"recyclerlistview@npm:4.2.0":
-  version: 4.2.0
-  resolution: "recyclerlistview@npm:4.2.0"
-  dependencies:
-    lodash.debounce: "npm:4.0.8"
-    prop-types: "npm:15.8.1"
-    ts-object-utils: "npm:0.0.5"
-  peerDependencies:
-    react: ">= 15.2.1"
-    react-native: ">= 0.30.0"
-  checksum: 10/84c2fc1ee7d109e21ca30813f646a5d490a33fa789d1fb3f7f7854c191895de010109563ba1c67a35ec28340a872a039ceb6233a57053480098c48205fc147e9
-  languageName: node
-  linkType: hard
-
-"recyclerlistview@npm:^4.2.0":
+"recyclerlistview@npm:4.2.3, recyclerlistview@npm:^4.2.0":
   version: 4.2.3
   resolution: "recyclerlistview@npm:4.2.3"
   dependencies:
@@ -40277,17 +40263,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"tslib@npm:2.8.1, tslib@npm:^2.7.0, tslib@npm:^2.8.0":
+  version: 2.8.1
+  resolution: "tslib@npm:2.8.1"
+  checksum: 10/3e2e043d5c2316461cb54e5c7fe02c30ef6dccb3384717ca22ae5c6b5bc95232a6241df19c622d9c73b809bea33b187f6dbc73030963e29950c2141bc32a79f7
+  languageName: node
+  linkType: hard
+
 "tslib@npm:^2.6.1":
   version: 2.6.3
   resolution: "tslib@npm:2.6.3"
   checksum: 10/52109bb681f8133a2e58142f11a50e05476de4f075ca906d13b596ae5f7f12d30c482feb0bff167ae01cfc84c5803e575a307d47938999246f5a49d174fc558c
-  languageName: node
-  linkType: hard
-
-"tslib@npm:^2.7.0, tslib@npm:^2.8.0":
-  version: 2.8.1
-  resolution: "tslib@npm:2.8.1"
-  checksum: 10/3e2e043d5c2316461cb54e5c7fe02c30ef6dccb3384717ca22ae5c6b5bc95232a6241df19c622d9c73b809bea33b187f6dbc73030963e29950c2141bc32a79f7
   languageName: node
   linkType: hard
 
