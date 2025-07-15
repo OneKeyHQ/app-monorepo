@@ -16,8 +16,16 @@ import {
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 
+import {
+  normalizePrivateKey,
+  validatePrivateKey,
+} from '@onekeyhq/core/src/chains/aptos/privateHelper';
 import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import {
+  decodeSensitiveTextAsync,
+  encodeSensitiveTextAsync,
+} from '@onekeyhq/core/src/secret';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -758,10 +766,16 @@ export default class VaultAptos extends VaultBase {
     });
   }
 
-  override getPrivateKeyFromImported(
+  override async getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    return this.baseGetPrivateKeyFromImported(params);
+    const input = await decodeSensitiveTextAsync({
+      encodedText: params.input,
+    });
+    const privateKey = normalizePrivateKey(input, 'legacy');
+    return {
+      privateKey: await encodeSensitiveTextAsync({ text: privateKey }),
+    };
   }
 
   override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
@@ -773,7 +787,9 @@ export default class VaultAptos extends VaultBase {
   override validatePrivateKey(
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
-    return this.baseValidatePrivateKey(privateKey);
+    return Promise.resolve({
+      isValid: validatePrivateKey(privateKey),
+    });
   }
 
   override async validateGeneralInput(

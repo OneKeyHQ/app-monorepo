@@ -36,6 +36,8 @@ import {
   type IUnsignedMessageAptos,
 } from '../../types';
 
+import { normalizePrivateKey } from './privateHelper';
+
 const curveName: ICurveName = 'ed25519';
 
 async function buildSignedTx(
@@ -85,9 +87,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       throw new OneKeyLocalError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
-      return `0x${(
-        await decryptAsync({ password, data: privateKeyRaw })
-      ).toString('hex')}`;
+      const privateKey = (
+        await decryptAsync({
+          password,
+          data: privateKeyRaw,
+        })
+      ).toString('hex');
+      return normalizePrivateKey(privateKey, 'aip80', curveName);
     }
     throw new OneKeyLocalError(`SecretKey type not support: ${keyType}`);
   }
