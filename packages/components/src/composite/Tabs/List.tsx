@@ -29,16 +29,16 @@ export function List<Item>({
 
   const ref = useRef<Element>(null);
   console.log('currentTabName', currentTabName, focusedTab.value);
-//   useAnimatedReaction(
-//     () => focusedTab.value,
-//     (focusedTabValue) => {
-//       console.log('registerChild', ref.current);
-//       if (focusedTabValue === currentTabName) {
-//         registerChild(ref.current);
-//       }
-//     },
-//     [currentTabName],
-//   );
+  //   useAnimatedReaction(
+  //     () => focusedTab.value,
+  //     (focusedTabValue) => {
+  //       console.log('registerChild', ref.current);
+  //       if (focusedTabValue === currentTabName) {
+  //         registerChild(ref.current);
+  //       }
+  //     },
+  //     [currentTabName],
+  //   );
 
   useEffect(() => {
     if (focusedTab.value === currentTabName) {
@@ -66,6 +66,7 @@ export function List<Item>({
     },
     [renderItem, data],
   );
+  console.log('renderList', scrollTop);
   return (
     <AutoSizer disableHeight>
       {({ width: autoSizerWidth }) => (
@@ -78,6 +79,7 @@ export function List<Item>({
             isScrolling={isScrolling}
             onScroll={onChildScroll}
             scrollTop={scrollTop}
+            scrollToIndex={20}
             rowCount={data?.length || 0}
             rowHeight={estimatedItemSize || 50}
             rowRenderer={rowRenderer}
