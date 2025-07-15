@@ -109,6 +109,7 @@ export const Input = InputFrame.styleable<InputExtraProps, any, any>(
     const ref = useRef<typeof Input>(null);
     const composedRefs = useComposedRefs(forwardedRef, ref);
     const props = useInputProps(propsIn, composedRefs);
+
     return <InputFrame {...(props as any)} />;
   },
 );
