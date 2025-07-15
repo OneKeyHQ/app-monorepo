@@ -112,11 +112,15 @@ function TokenListFooter(props: IProps) {
   ]);
 
   const handleOnPressRiskyTokens = useCallback(() => {
-    if (!account || !network || !wallet || riskyTokens.length === 0) return;
+    if (!account || !network) return;
     navigation.pushModal(EModalRoutes.MainModal, {
-      screen: EModalAssetListRoutes.TokenList,
+      screen: EModalAssetListRoutes.RiskTokenManager,
+      params: {
+        accountId: account.id,
+        networkId: network.id,
+      },
     });
-  }, [account, navigation, network, wallet, riskyTokens]);
+  }, [account, navigation, network]);
   return (
     <Stack>
       {!isSearchMode && smallBalanceTokens.length > 0 ? (
