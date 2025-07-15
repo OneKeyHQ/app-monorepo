@@ -22,7 +22,10 @@ jobs:
         uses: actions/checkout@v3
         with:
           lfs: true
-      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev 
       - name: Run Shared Env Setup  
         uses: ./.github/actions/shared-env
         with:

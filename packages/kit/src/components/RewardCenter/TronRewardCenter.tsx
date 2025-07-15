@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { md5 } from 'js-md5';
@@ -17,6 +17,7 @@ import {
   Toast,
   XStack,
   YStack,
+  useDialogInstance,
   useForm,
 } from '@onekeyhq/components';
 import {
@@ -34,9 +35,15 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 function RewardCenterContent({
   accountId,
   networkId,
+  onDialogClose,
 }: {
   accountId: string;
   networkId: string;
+  onDialogClose?: ({
+    isResourceFetched,
+  }: {
+    isResourceFetched: boolean;
+  }) => void;
 }) {
   const intl = useIntl();
 
@@ -52,6 +59,10 @@ function RewardCenterContent({
     accountId,
     networkId,
   });
+
+  const dialogInstance = useDialogInstance();
+
+  const [isResourceFetched, setIsResourceFetched] = useState(false);
 
   const [isClaiming, setIsClaiming] = useState(false);
   const [isRedeeming, setIsRedeeming] = useState(false);
@@ -169,6 +180,7 @@ function RewardCenterContent({
 
       setIsClaimed(true);
       setRemaining((v) => new BigNumber(v).minus(1).toNumber());
+      setIsResourceFetched(true);
 
       Toast.success({
         title: intl.formatMessage({
@@ -230,11 +242,17 @@ function RewardCenterContent({
       });
 
       setIsRedeeming(false);
+      setIsResourceFetched(true);
       return resp;
     } catch (error) {
       setIsRedeeming(false);
     }
   }, [account, claimSource, form, intl, network, networkId]);
+
+  useEffect(
+    () => () => void onDialogClose?.({ isResourceFetched }),
+    [onDialogClose, isResourceFetched],
+  );
 
   return (
     <Form form={form}>
@@ -321,10 +339,16 @@ function RewardCenterContent({
 export const showTronRewardCenter = ({
   accountId,
   networkId,
+  onDialogClose,
   ...dialogProps
 }: IDialogShowProps & {
   accountId: string;
   networkId: string;
+  onDialogClose?: ({
+    isResourceFetched,
+  }: {
+    isResourceFetched: boolean;
+  }) => void;
 }) =>
   Dialog.show({
     title: appLocale.intl.formatMessage({
@@ -340,7 +364,11 @@ export const showTronRewardCenter = ({
     ),
     icon: 'GiftSolid',
     renderContent: (
-      <RewardCenterContent accountId={accountId} networkId={networkId} />
+      <RewardCenterContent
+        accountId={accountId}
+        networkId={networkId}
+        onDialogClose={onDialogClose}
+      />
     ),
     showCancelButton: false,
     showConfirmButton: false,

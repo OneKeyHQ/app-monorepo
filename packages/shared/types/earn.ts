@@ -15,7 +15,7 @@ export type ISupportedSymbol =
   | 'WETH'
   | 'cbBTC'
   | 'WBTC'
-  | 'MATIC'
+  | 'POL'
   | 'SOL'
   | 'ATOM'
   | 'APT'

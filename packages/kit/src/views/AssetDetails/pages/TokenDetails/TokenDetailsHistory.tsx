@@ -5,7 +5,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { ProviderJotaiContextHistoryList } from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
+import {
+  useHistoryListActions,
+  withHistoryListProvider,
+} from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
@@ -31,6 +34,7 @@ function TokenDetailsHistory(props: IProps) {
   const { isFocused } = useTabIsRefreshingFocused();
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
+  const { updateAddressesInfo } = useHistoryListActions().current;
 
   /**
    * since some tokens are slow to load history,
@@ -53,6 +57,9 @@ function TokenDetailsHistory(props: IProps) {
         currencyMap,
       });
       setHistoryInit(true);
+      updateAddressesInfo({
+        data: r.addressMap ?? {},
+      });
       return r.txs;
     },
     [
@@ -63,6 +70,7 @@ function TokenDetailsHistory(props: IProps) {
       settings.isFilterLowValueHistoryEnabled,
       settings.currencyInfo.id,
       currencyMap,
+      updateAddressesInfo,
     ],
     {
       watchLoading: true,
@@ -118,17 +126,19 @@ function TokenDetailsHistory(props: IProps) {
   }, [run]);
 
   return (
-    <ProviderJotaiContextHistoryList>
-      <TxHistoryListView
-        hideValue
-        initialized={historyInit}
-        isLoading={isLoadingTokenHistory}
-        data={tokenHistory ?? []}
-        onPressHistory={handleHistoryItemPress}
-        ListHeaderComponent={ListHeaderComponent as React.ReactElement}
-      />
-    </ProviderJotaiContextHistoryList>
+    <TxHistoryListView
+      hideValue
+      initialized={historyInit}
+      isLoading={isLoadingTokenHistory}
+      data={tokenHistory ?? []}
+      onPressHistory={handleHistoryItemPress}
+      ListHeaderComponent={ListHeaderComponent as React.ReactElement}
+    />
   );
 }
 
-export default memo(TokenDetailsHistory);
+const TokenDetailsHistoryWithProvider = memo(
+  withHistoryListProvider(TokenDetailsHistory),
+);
+
+export default memo(TokenDetailsHistoryWithProvider);
