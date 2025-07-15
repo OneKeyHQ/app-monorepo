@@ -7,10 +7,7 @@ import { Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { ViewStyle } from 'react-native';
-import type {
-  ShouldStartLoadRequestEvent,
-  WebViewNavigationEvent,
-} from 'react-native-webview/lib/RNCWebViewNativeComponent';
+import type { ShouldStartLoadRequestEvent } from 'react-native-webview/lib/RNCWebViewNativeComponent';
 
 export function WebView({
   tradingViewProps: { uri, injectedJavaScript },
@@ -46,16 +43,15 @@ export function WebView({
         })();
       `;
 
-      // 延迟一下确保 WebView 完全准备好
       setTimeout(() => {
         webViewRef.current?.injectJavaScript(dynamicScript);
         webViewRef.current?.injectJavaScript(injectedJavaScript);
       }, 550);
+    } else {
+      setTimeout(() => {
+        onLoadEnd();
+      }, 500);
     }
-
-    setTimeout(() => {
-      onLoadEnd();
-    }, 500);
   }, [injectedJavaScript, onLoadEnd, uri]);
 
   // onMessage handler is required for injectedJavaScript to execute properly
