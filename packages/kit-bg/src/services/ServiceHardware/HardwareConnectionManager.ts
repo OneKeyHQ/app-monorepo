@@ -38,6 +38,33 @@ export class HardwareConnectionManager {
     }
   }
 
+  async detectBluetoothAvailability(): Promise<boolean> {
+    if (!platformEnv.isSupportDesktopBle) {
+      return false;
+    }
+
+    console.log('🔍 detectBluetoothAvailability');
+
+    try {
+      // Use desktop API to check Bluetooth availability
+      if (!globalThis?.desktopApi?.checkBluetoothAvailability) {
+        console.log('❌ detectBluetoothAvailability: no desktopApi');
+        return false;
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      const isAvailable =
+        await globalThis?.desktopApi?.checkBluetoothAvailability();
+
+      console.log('🔍 detectBluetoothAvailability isAvailable: ', isAvailable);
+
+      return Boolean(isAvailable);
+    } catch (error) {
+      console.log('❌ detectBluetoothAvailability error: ', error);
+      return false;
+    }
+  }
+
   async determineOptimalTransportType(): Promise<EHardwareTransportType> {
     const currentSettingType =
       await this.backgroundApi.serviceSetting.getHardwareTransportType();
@@ -50,8 +77,17 @@ export class HardwareConnectionManager {
         return EHardwareTransportType.Bridge;
       }
 
-      // No USB devices, fallback to DesktopWebBle for seamless wireless connection
-      return EHardwareTransportType.DesktopWebBle;
+      // No USB devices, check if Bluetooth is available before fallback
+      const bluetoothAvailable = await this.detectBluetoothAvailability();
+
+      if (bluetoothAvailable) {
+        // Bluetooth is available, fallback to DesktopWebBle for seamless wireless connection
+        return EHardwareTransportType.DesktopWebBle;
+      }
+
+      // Neither USB nor Bluetooth available, return current setting (likely Bridge)
+      // This will let the user know they need to connect hardware or enable Bluetooth
+      return currentSettingType;
     }
 
     return currentSettingType;

@@ -19,12 +19,10 @@ import {
   powerMonitor,
   session,
   shell,
-  systemPreferences,
 } from 'electron';
 import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
-import si from 'systeminformation';
 
 import { getTemplatePhishingUrls } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
@@ -36,27 +34,93 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   IDesktopAppState,
-  IDesktopStoreMap,
   IDesktopSubModuleInitParams,
-  IMediaType,
 } from '@onekeyhq/shared/types/desktop';
 
 import { ipcMessageKeys } from './config';
 import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
-import { parseContentPList } from './libs/utils';
-import initProcess, { restartBridge } from './process';
+import initProcess from './process';
 import { resourcesPath, staticPath } from './resoucePath';
-import { Sentry, initSentry } from './sentry';
-import {
-  checkAvailabilityAsync,
-  checkBiometricAuthChanged,
-  requestVerificationAsync,
-  startServices,
-} from './service';
+import { initSentry } from './sentry';
+import { startServices } from './service';
 
-import type { IDesktopSystemInfo } from './config';
+// Bluetooth state management
+const bluetoothState: {
+  available: boolean;
+  unsupported: boolean;
+  initialized: boolean;
+} = {
+  available: false,
+  unsupported: false,
+  initialized: false,
+};
+
+async function initBluetoothMonitoring(): Promise<void> {
+  if (bluetoothState.initialized) {
+    return;
+  }
+
+  try {
+    // Use require instead of dynamic import for noble
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const noble = require('@abandonware/noble');
+
+    logger.info('🔍 noble module loaded:', typeof noble);
+
+    const handleStateChange = (state: string) => {
+      logger.info('Bluetooth state changed:', state);
+
+      if (state === 'poweredOn') {
+        bluetoothState.available = true;
+        bluetoothState.unsupported = false;
+      } else if (state === 'unsupported') {
+        bluetoothState.available = false;
+        bluetoothState.unsupported = true;
+      } else {
+        // poweredOff, unauthorized, etc.
+        bluetoothState.available = false;
+        bluetoothState.unsupported = false;
+      }
+    };
+
+    logger.info('🔍 setting up noble.on stateChange');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    noble.on('stateChange', handleStateChange);
+
+    // Initialize with current state
+    const currentState = noble.state || 'unknown';
+    logger.info('🔍 noble current state:', currentState);
+    if (currentState !== 'unknown') {
+      handleStateChange(currentState);
+    }
+
+    bluetoothState.initialized = true;
+    logger.info('Bluetooth monitoring initialized');
+  } catch (error) {
+    logger.error('Failed to initialize Bluetooth monitoring:', error);
+    bluetoothState.unsupported = true;
+    bluetoothState.initialized = true;
+  }
+}
+
+async function checkBluetoothAvailability(): Promise<boolean> {
+  logger.info('bluetoothState: ', JSON.stringify(bluetoothState));
+  if (!bluetoothState.initialized) {
+    logger.info(
+      '🔍 checkBluetoothAvailability: not initialized, initBluetoothMonitoring',
+    );
+    await initBluetoothMonitoring();
+    logger.info('🔍 checkBluetoothAvailability: after initBluetoothMonitoring');
+  }
+
+  logger.info(
+    '🔍 checkBluetoothAvailability: bluetoothState.available: ',
+    bluetoothState.available,
+  );
+  return bluetoothState.available;
+}
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
@@ -612,6 +676,11 @@ function createMainWindow() {
     throw new OneKeyLocalError('Test Electron Native crash 996');
   });
 
+  // Bluetooth availability check
+  ipcMain.handle(ipcMessageKeys.BLUETOOTH_CHECK_AVAILABILITY, async () => {
+    return checkBluetoothAvailability();
+  });
+
   desktopApi.desktopApiSetup();
 
   // reset appState to undefined  to avoid screen lock.
@@ -814,6 +883,7 @@ if (!singleInstance && !process.mas) {
     const locale = await initLocale();
     logger.info('locale >>>> ', locale);
     startServices();
+
     if (!mainWindow) {
       mainWindow = createMainWindow();
       initMenu();

@@ -89,6 +89,7 @@ type IDesktopAPILegacy = {
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
   testCrash: () => void;
   nobleBle: NobleBleAPI;
+  checkBluetoothAvailability: () => Promise<boolean>;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -365,6 +366,8 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
       };
     },
   },
+  checkBluetoothAvailability: () =>
+    ipcRenderer.invoke(ipcMessageKeys.BLUETOOTH_CHECK_AVAILABILITY),
 });
 
 globalThis.desktopApi = desktopApi;
