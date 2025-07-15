@@ -87,10 +87,9 @@ const WebView: FC<IWebViewProps> = ({
 }) => {
   const receiveHandler = useCallback<IJsBridgeReceiveHandler>(
     async (payload, hostBridge) => {
-      const result = await backgroundApiProxy.bridgeReceiveHandler(payload);
-
-      // return customReceiveHandler() response not supported yet
       await customReceiveHandler?.(payload, hostBridge);
+
+      const result = await backgroundApiProxy.bridgeReceiveHandler(payload);
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return result;

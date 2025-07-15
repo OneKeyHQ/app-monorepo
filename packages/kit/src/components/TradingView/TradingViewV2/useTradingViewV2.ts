@@ -29,7 +29,6 @@ export async function fetchTradingViewV2Data({
       },
     );
 
-    console.log('Kine data fetched:', data);
     return data;
   } catch (error) {
     console.error('Failed to fetch kine data:', error);

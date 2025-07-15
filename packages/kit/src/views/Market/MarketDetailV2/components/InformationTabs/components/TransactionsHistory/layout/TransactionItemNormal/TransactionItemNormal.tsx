@@ -1,6 +1,7 @@
 import { memo } from 'react';
 
 import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import { TransactionAddress } from '../../components/TransactionAddress';
@@ -32,6 +33,7 @@ function TransactionItemNormalBase({
     handleCopyAddress,
     handleViewInBrowser,
   } = useTransactionItemData({ item, networkId });
+  const [settingsPersistAtom] = useSettingsPersistAtom();
 
   return (
     <XStack py="$1" px="$4" alignItems="center">
@@ -56,7 +58,10 @@ function TransactionItemNormalBase({
         size="$bodyMd"
         color="$text"
         autoFormatter="price-marketCap"
-        formatterOptions={{ currency: '$', capAtMaxT: true }}
+        formatterOptions={{
+          capAtMaxT: true,
+          currency: settingsPersistAtom.currencyInfo.symbol,
+        }}
         {...styles.price}
       >
         {price}
@@ -66,7 +71,10 @@ function TransactionItemNormalBase({
         size="$bodyMd"
         color="$text"
         autoFormatter="price-marketCap"
-        formatterOptions={{ currency: '$', capAtMaxT: true }}
+        formatterOptions={{
+          capAtMaxT: true,
+          currency: settingsPersistAtom.currencyInfo.symbol,
+        }}
         {...styles.value}
       >
         {value}
