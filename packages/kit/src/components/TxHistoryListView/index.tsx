@@ -27,7 +27,6 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
-import { useTabListScroll } from '../../hooks/useTabListScroll';
 import { useSearchKeyAtom } from '../../states/jotai/contexts/historyList';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { withBrowserProvider } from '../../views/Discovery/pages/Browser/WithBrowserProvider';
@@ -164,11 +163,6 @@ function BaseTxHistoryListView(props: IProps) {
     [],
   );
 
-  const { listViewProps, listViewRef, onLayout } =
-    useTabListScroll<IAccountHistoryTx>({
-      inTabList,
-    });
-
   if (!initialized && isLoading) {
     return (
       <Stack {...contentContainerStyle}>
@@ -178,16 +172,12 @@ function BaseTxHistoryListView(props: IProps) {
     );
   }
 
+  console.log('TxHistoryListView', sections);
   return (
     <Tabs.SectionList
-      {...(listViewProps as any)}
       renderScrollComponent={renderNestedScrollView}
-      ref={listViewRef}
-      contentContainerStyle={{
-        ...contentContainerStyle,
-      }}
-      h={platformEnv.isNative ? screenHeight - top - bottom - 90 : '100%'}
-      onLayout={onLayout}
+      contentContainerStyle={contentContainerStyle}
+      // h={platformEnv.isNative ? screenHeight - top - bottom - 90 : '100%'}
       sections={sections}
       ListEmptyComponent={
         searchKey && data.length > 0 ? EmptySearch : EmptyHistory

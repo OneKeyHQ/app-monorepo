@@ -29,7 +29,6 @@ function BasicNFTListItem(props: IProps) {
   const [isVideo, setIsVideo] = useState<boolean>(!!nft.metadata?.image);
   const { network } = useAccountData({ networkId: nft.networkId });
 
-  console.log('BasicNFTListItem', nft.metadata?.image);
   return (
     <Stack
       key={nft.itemId}
@@ -81,6 +80,7 @@ function BasicNFTListItem(props: IProps) {
                   <Image.Fallback
                     w="100%"
                     h="100%"
+                    borderRadius="$2.5"
                     bg="$bgStrong"
                     justifyContent="center"
                     alignItems="center"

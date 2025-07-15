@@ -87,13 +87,15 @@ export function Container({
   useLayoutEffect(() => {
     setScrollElement(ref.current);
   }, []);
+  const isSwitchingTabRef = useRef(false);
   const onTabPress = useCallback(
     (tabName: string) => {
+      isSwitchingTabRef.current = true;
       // Header Height + tabBar height
-      const headerHeight = 166;
+      const headerHeight = 0;
       focusedTab.set(tabName);
       const scrollTop = scrollTopRef.current[tabName] || 0;
-      console.log('scrollTop', scrollTop, tabName);
+      console.log('scrollTop----', scrollTopRef.current, scrollTop, tabName);
       const index = tabNames.findIndex((name) => name === tabName);
       document.startViewTransition(() => {
         const width = scrollElement?.clientWidth || 0;
@@ -105,6 +107,7 @@ export function Container({
           top: scrollTop < headerHeight ? scrollTop : scrollTop + headerHeight,
           behavior: 'instant',
         });
+        isSwitchingTabRef.current = false;
       });
     },
     [focusedTab, scrollElement, tabNames],
@@ -131,8 +134,10 @@ export function Container({
               onChildScroll,
               registerChild,
             }) => {
-              console.log('scrollTop', focusedTab.value, scrollTop);
-              scrollTopRef.current[focusedTab.value] = scrollTop;
+              if (!isSwitchingTabRef.current) {
+                scrollTopRef.current[focusedTab.value] =
+                  scrollElement.scrollTop;
+              }
               return (
                 <>
                   {renderHeader?.({

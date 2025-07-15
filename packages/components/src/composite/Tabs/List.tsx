@@ -109,8 +109,7 @@ export function List<Item>({
   const cellSizeAndPositionGetter = useCallback(
     ({ index }: { index: number }) => {
       const clientWidth = width / numColumns || 0;
-      const clientHeight = clientWidth + 40 + 20;
-      console.log('clientWidth', clientWidth, width, numColumns);
+      const clientHeight = clientWidth + 60;
       const row = Math.floor(index / numColumns);
       const col = index % numColumns;
       const x = col * clientWidth;

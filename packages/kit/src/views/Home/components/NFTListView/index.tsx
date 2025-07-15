@@ -145,7 +145,6 @@ function NFTListView(props: IProps) {
     return <NFTListLoadingView />;
   }
 
-  console.log('NFTListView', filteredNfts);
   return (
     <Tabs.FlatList
       // renderScrollComponent={renderNestedScrollView}

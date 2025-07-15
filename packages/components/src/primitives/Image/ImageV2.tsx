@@ -93,7 +93,11 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     [onError],
   );
 
-  if (hasError) {
+  if (
+    hasError ||
+    !resolvedSource ||
+    (typeof resolvedSource === 'object' && !resolvedSource.uri)
+  ) {
     return fallback;
   }
 
