@@ -696,8 +696,10 @@ export function useSpeedSwapActions(props: {
   ]);
 
   useEffect(() => {
-    void fetchTokenPrice();
-  }, [fetchTokenPrice]);
+    if (fromToken.networkId && toToken.networkId) {
+      void fetchTokenPrice();
+    }
+  }, [fetchTokenPrice, fromToken.networkId, toToken.networkId]);
 
   useEffect(() => {
     appEventBus.off(
@@ -750,10 +752,17 @@ export function useSpeedSwapActions(props: {
           contractAddress: marketToken?.contractAddress,
         });
       if (tokenInfo?.length) {
-        setBaseToken(tokenInfo[0]);
+        setBaseToken({
+          ...tokenInfo[0],
+          symbol: marketToken.symbol,
+        });
       }
     })();
-  }, [marketToken?.contractAddress, marketToken?.networkId]);
+  }, [
+    marketToken?.contractAddress,
+    marketToken?.networkId,
+    marketToken?.symbol,
+  ]);
 
   useEffect(() => {
     void syncTokensBalance({

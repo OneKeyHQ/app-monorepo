@@ -9,12 +9,32 @@ import type {
   IStackNavigationOptions,
 } from '@onekeyhq/components/src/layouts/Navigation';
 import type {
-  EModalRoutes,
   ETabRoutes,
   IModalParamList,
   ITabStackParamList,
 } from '@onekeyhq/shared/src/routes';
-import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
+
+const getModalRoute = () => {
+  const state = rootNavigationRef.current?.getState();
+  const currentIndex = state?.index || 0;
+  const routes = state?.routes || [];
+  const currentRoute = routes[currentIndex];
+  if (currentRoute?.name === ERootRoutes.Modal) {
+    return currentRoute;
+  }
+  return null;
+};
+
+const getScreenName = (modalRoute: ReturnType<typeof getModalRoute>) => {
+  return (
+    (
+      modalRoute?.params as {
+        screen: string;
+      }
+    )?.screen || modalRoute?.state?.routes?.[modalRoute.state?.index || 0]?.name
+  );
+};
 
 export type IAppNavigation = ReturnType<typeof useAppNavigation>;
 
@@ -189,9 +209,37 @@ function useAppNavigation<
     [],
   );
 
-  const push: typeof navigationRef.current.push = useCallback((...args) => {
-    navigationRef.current.push(...args);
-  }, []);
+  const push: typeof navigationRef.current.push = useCallback(
+    (...args) => {
+      const modalRoute = getModalRoute();
+      if (modalRoute) {
+        const isSettingsModal =
+          modalRoute.state?.routes?.[modalRoute.state?.index || 0]?.name ===
+          EModalRoutes.SettingModal;
+        if (!isSettingsModal) {
+          const parentState = navigation.getParent()?.getState();
+          const currentScreenModal = getScreenName(modalRoute);
+          const screenModal = getScreenName({
+            state: parentState,
+            key: '',
+            name: '',
+          });
+          if (currentScreenModal !== screenModal) {
+            navigationRef.current.navigate(ERootRoutes.Modal, {
+              screen: currentScreenModal,
+              params: {
+                screen: args[0],
+                params: args[1],
+              },
+            });
+            return;
+          }
+        }
+      }
+      navigationRef.current.push(...args);
+    },
+    [navigation],
+  );
 
   const replace: typeof navigationRef.current.replace = useCallback(
     (...args) => {

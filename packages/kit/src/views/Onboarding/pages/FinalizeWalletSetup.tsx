@@ -8,6 +8,7 @@ import {
   AnimatePresence,
   Heading,
   Icon,
+  NavBackButton,
   NavCloseButton,
   Page,
   Spinner,
@@ -163,9 +164,15 @@ function FinalizeWalletSetupPage({
     isFirstCreateWallet.current = !isOnboardingDone;
   };
 
+  const popPage = useCallback(() => {
+    navigation.pop();
+  }, [navigation]);
+
   const closePage = useCallback(() => {
     closePageCalled.current = true;
-    navigation.navigate(ERootRoutes.Main);
+    navigation.navigate(ERootRoutes.Main, undefined, {
+      pop: true,
+    });
   }, [navigation]);
 
   const handleWalletSetupReadyInner = useCallback(async () => {
@@ -202,11 +209,12 @@ function FinalizeWalletSetupPage({
     }
   }, [currentStep, navigation, showStep, handleWalletSetupReady]);
 
-  const headerLeft = useCallback(() => {
+  const renderHeaderLeft = useCallback(() => {
     if (shouldBondReferralCode) {
       return <NavCloseButton onPress={closePage} />;
     }
-  }, [shouldBondReferralCode, closePage]);
+    return <NavBackButton onPress={popPage} />;
+  }, [shouldBondReferralCode, popPage, closePage]);
 
   return (
     <Page
@@ -223,7 +231,7 @@ function FinalizeWalletSetupPage({
         title={intl.formatMessage({
           id: ETranslations.onboarding_finalize_wallet_setup,
         })}
-        headerLeft={headerLeft}
+        headerLeft={renderHeaderLeft}
       />
       <Page.Body p="$5" justifyContent="center" alignItems="center">
         <Stack

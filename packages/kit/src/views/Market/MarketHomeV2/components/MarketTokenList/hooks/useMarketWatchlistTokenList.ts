@@ -15,8 +15,8 @@ import type { IMarketToken } from '../MarketTokenData';
 
 export interface IUseMarketWatchlistTokenListParams {
   watchlist: IMarketWatchListItemV2[];
-  sortBy?: string;
-  sortType?: 'asc' | 'desc';
+  initialSortBy?: string;
+  initialSortType?: 'asc' | 'desc';
   pageSize?: number;
   minLiquidity?: number;
   maxLiquidity?: number;
@@ -24,14 +24,18 @@ export interface IUseMarketWatchlistTokenListParams {
 
 export function useMarketWatchlistTokenList({
   watchlist,
-  sortBy,
-  sortType,
+  initialSortBy,
+  initialSortType,
   pageSize = 20,
   minLiquidity,
   maxLiquidity,
 }: IUseMarketWatchlistTokenListParams) {
   const [currentPage, setCurrentPage] = useState(1);
   const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
+  const [sortBy, setSortBy] = useState<string | undefined>(initialSortBy);
+  const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
+    initialSortType,
+  );
 
   const {
     result: apiResult,
@@ -55,28 +59,47 @@ export function useMarketWatchlistTokenList({
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
       watchLoading: true,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      checkIsFocused: true,
     },
   );
 
   useEffect(() => {
     if (!apiResult || !apiResult.list) return;
 
-    // Map contractAddress to chainId for quick lookup
+    // Map contractAddress to chainId and sortIndex for quick lookup
     const chainIdMap: Record<string, string> = {};
+    const sortIndexMap: Record<string, number> = {};
     watchlist.forEach((w) => {
-      chainIdMap[w.contractAddress.toLowerCase()] = w.chainId;
+      const key = w.contractAddress.toLowerCase();
+      chainIdMap[key] = w.chainId;
+      sortIndexMap[key] = w.sortIndex ?? 0;
     });
 
     const transformed: IMarketToken[] = apiResult.list.map((item) => {
-      const chainId = chainIdMap[item.address.toLowerCase()] || '';
+      const key = item.address.toLowerCase();
+      const chainId = chainIdMap[key] || '';
       const networkLogoUri = getNetworkLogoUri(chainId);
+      const sortIndex = sortIndexMap[key];
       return transformApiItemToToken(item, {
         chainId,
         networkLogoUri,
+        sortIndex,
       });
     });
 
-    setTransformedData(transformed);
+    // Filter transformed data based on current watchlist to ensure immediate UI updates
+    const filteredTransformed = transformed.filter((token) => {
+      const key = token.address.toLowerCase();
+      return watchlist.some(
+        (w) =>
+          w.contractAddress.toLowerCase() === key &&
+          w.chainId === token.chainId,
+      );
+    });
+
+    setTransformedData(filteredTransformed);
   }, [apiResult, watchlist]);
 
   // Apply liquidity filter
@@ -93,7 +116,16 @@ export function useMarketWatchlistTokenList({
 
   // Sorting
   const sortedData = useMemo(() => {
-    if (!sortBy || !sortType) return filteredData;
+    if (!sortBy || !sortType) {
+      // Default: use sortIndex for natural watchlist ordering (ascending)
+      return [...filteredData].sort((a, b) => {
+        const av = a.sortIndex ?? 0;
+        const bv = b.sortIndex ?? 0;
+        return av - bv;
+      });
+    }
+
+    // Custom sorting
     const key = SORT_MAP[sortBy] || sortBy;
     return [...filteredData].sort((a, b) => {
       const av = a[key] as number;
@@ -126,5 +158,9 @@ export function useMarketWatchlistTokenList({
     totalCount,
     setCurrentPage,
     refetch: refetchData,
+    sortBy,
+    sortType,
+    setSortBy,
+    setSortType,
   } as const;
 }

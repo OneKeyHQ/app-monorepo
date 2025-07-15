@@ -14,11 +14,9 @@ export interface IMarketFilterBarSmallProps {
   selectedNetworkId?: string;
   timeRange?: ITimeRangeSelectorValue;
   liquidityFilter?: ILiquidityFilter;
-  showWatchlistOnly?: boolean;
   onNetworkIdChange?: (networkId: string) => void;
   onTimeRangeChange?: (value: ITimeRangeSelectorValue) => void;
   onLiquidityFilterChange?: (filter: ILiquidityFilter) => void;
-  onWatchlistToggle?: () => void;
   isLoading?: boolean;
 }
 
@@ -26,11 +24,9 @@ function MarketFilterBarSmall({
   selectedNetworkId,
   timeRange = '5m',
   liquidityFilter,
-  showWatchlistOnly = false,
   onNetworkIdChange,
   onTimeRangeChange,
   onLiquidityFilterChange,
-  onWatchlistToggle,
   isLoading = false,
 }: IMarketFilterBarSmallProps) {
   const [currentTimeRange, setCurrentTimeRange] =
@@ -71,10 +67,7 @@ function MarketFilterBarSmall({
 
       <XStack gap="$4">
         {/* Market View Toggle - Trending and Watchlist buttons */}
-        <MarketViewToggle
-          showWatchlistOnly={showWatchlistOnly}
-          onToggle={onWatchlistToggle ?? (() => {})}
-        />
+        <MarketViewToggle />
       </XStack>
 
       {/* Time Range Selector */}

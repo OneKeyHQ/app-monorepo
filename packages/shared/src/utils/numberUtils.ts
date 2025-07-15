@@ -62,6 +62,7 @@ export type IFormatterOptions = {
   tokenSymbol?: string;
   showPlusMinusSigns?: boolean;
   disableThousandSeparator?: boolean;
+  capAtMaxT?: boolean;
 };
 
 export interface IDisplayNumber {
@@ -75,6 +76,7 @@ export interface IDisplayNumber {
     symbol?: string;
     roundValue?: string;
     isZero?: boolean;
+    isCapped?: boolean;
   } & IFormatterOptions;
 }
 
@@ -410,17 +412,33 @@ export const formatMarketCap: IFormatNumberFunc = (value, options) => {
   }
 
   if (val.gte(ENumberUnitValue.T)) {
+    const dividedValue = val.div(ENumberUnitValue.T);
+
+    // Cap at 999T max only if capAtMaxT option is enabled
+    const isOverMax = options?.capAtMaxT && dividedValue.gt(999);
+    const cappedValue = isOverMax ? new BigNumber(999) : dividedValue;
+
     const { value: formattedValue, decimalSymbol } = formatLocalNumber(
-      val.div(ENumberUnitValue.T),
+      cappedValue,
       {
         digits: 2,
         removeTrailingZeros: true,
         disableThousandSeparator: options?.disableThousandSeparator,
       },
     );
+
+    // Use formatted value directly (999 when capped)
+    const finalFormattedValue = formattedValue;
+
     return {
-      formattedValue,
-      meta: { value, unit: ENumberUnit.T, decimalSymbol, ...options },
+      formattedValue: finalFormattedValue,
+      meta: {
+        value,
+        unit: ENumberUnit.T,
+        decimalSymbol,
+        isCapped: isOverMax,
+        ...options,
+      },
     };
   }
   if (val.gte(ENumberUnitValue.B)) {
@@ -545,6 +563,12 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
   if (leading) {
     strings.push(leading);
   }
+
+  // Add ">" prefix for capped values
+  if (value.meta.isCapped) {
+    strings.push('> ');
+  }
+
   if (isNegativeNumber && !isZero) {
     strings.push('-');
   } else if (showPlusMinusSigns) {

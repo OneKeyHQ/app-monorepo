@@ -262,7 +262,10 @@ dependencies {
     }
 
     // Add BouncyCastle OpenPGP dependency
-    implementation("org.bouncycastle:bcpg-jdk18on:1.77")
+    implementation("org.bouncycastle:bcpg-jdk15to18:1.78.1")
+
+    // Google Play Services
+    implementation("com.google.android.gms:play-services-base:18.5.0")
 
     // geckoview
     // implementation("org.mozilla.geckoview:geckoview:133.0.20241209150345")

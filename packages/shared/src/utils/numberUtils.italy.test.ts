@@ -763,5 +763,62 @@ describe('numberUtils.italy.test', () => {
     ).toEqual(
       '32.551.169.648.428.747.600.528.316.797.038.958.441.150.665.382.888.568.684.348.849.999.999.999.999.999.999.999.999.999.999.999.999.999.999.999.123.123.038.958.441.150.665.382.888.568.684.303.895.844.115.066.538.288.856.868.430.389.584.411.506.653.828.885.686.843.038.958.441.150.665.382.888.568.684.303.895.844.115.066.538.288.856.868.430.389.584.411.506.653.828,89T',
     );
+
+    // Test capAtMaxT functionality with Italian locale
+    expect(
+      formatDisplayNumber(
+        formatMarketCap('1500000000000', { capAtMaxT: true }),
+      ),
+    ).toEqual('1,5T');
+
+    expect(
+      formatDisplayNumber(
+        formatMarketCap('999000000000000', { capAtMaxT: true }),
+      ),
+    ).toEqual('999T');
+
+    expect(
+      formatDisplayNumber(
+        formatMarketCap('999500000000000', { capAtMaxT: true }),
+      ),
+    ).toEqual('> 999T');
+
+    expect(
+      formatDisplayNumber(
+        formatMarketCap('1000000000000000', { capAtMaxT: true }),
+      ),
+    ).toEqual('> 999T');
+
+    expect(
+      formatDisplayNumber(
+        formatMarketCap('21953896250000000000000', { capAtMaxT: true }),
+      ),
+    ).toEqual('> 999T');
+
+    // Test without capAtMaxT (default behavior)
+    expect(
+      formatDisplayNumber(formatMarketCap('21953896250000000000000')),
+    ).toEqual('21.953.896.250T');
+
+    // Test with currency symbol
+    expect(
+      formatDisplayNumber(
+        formatMarketCap('21953896250000000000000', {
+          capAtMaxT: true,
+          currency: '$',
+        }),
+      ),
+    ).toEqual('> $999T');
+
+    // Test meta.isCapped flag
+    const cappedResult = formatMarketCap('21953896250000000000000', {
+      capAtMaxT: true,
+    });
+    expect(cappedResult.meta.isCapped).toBe(true);
+
+    const notCappedResult = formatMarketCap('500000000000000', {
+      capAtMaxT: true,
+    });
+    expect(notCappedResult.meta.isCapped).toBe(false);
   });
 });

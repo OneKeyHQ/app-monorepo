@@ -3,18 +3,22 @@ import { memo, useCallback, useMemo } from 'react';
 import * as React from 'react';
 
 import { Header } from '@react-navigation/elements';
+import { useIsFocused } from '@react-navigation/native';
 import { get } from 'lodash';
 import { useMedia, useTheme } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { EPageType, usePageType } from '../../../hocs';
 import { Stack, XStack } from '../../../primitives';
 import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
+import { rootNavigationRef } from '../Navigator/NavigationContainer';
 
 import HeaderBackButton from './HeaderBackButton';
 import HeaderSearchBar from './HeaderSearchBar';
 
 import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
+import type { IDesktopDragZoneBoxProps } from '../../DesktopDragZoneBox';
 import type { IStackHeaderProps } from '../ScreenProps';
 import type {
   HeaderBackButtonProps,
@@ -33,6 +37,29 @@ function getHeaderTitle(
     ? options?.title
     : fallback;
 }
+
+const useIsTabFocused = () => {
+  const isFocused = useIsFocused();
+
+  if ((rootNavigationRef.current?.getState().routes.length || 0) > 1) {
+    return true;
+  }
+  return isFocused;
+};
+
+const DesktopDragZoneBoxView = platformEnv.isDesktop
+  ? ({ disabled, children }: IDesktopDragZoneBoxProps) => {
+      const isPageFocus = useIsTabFocused();
+      const pageType = usePageType();
+      return (
+        <DesktopDragZoneBox
+          disabled={disabled || !isPageFocus || pageType === EPageType.modal}
+        >
+          {children}
+        </DesktopDragZoneBox>
+      );
+    }
+  : DesktopDragZoneBox;
 
 function HeaderView({
   back: headerBack,
@@ -72,7 +99,11 @@ function HeaderView({
   }, [canGoBack, navigation]);
 
   const headerLeftView = useCallback(
-    (props: HeaderBackButtonProps): ReactNode => {
+    ({
+      canGoBack: canGoBackNative,
+      onPress,
+      ...props
+    }: HeaderBackButtonProps & { canGoBack: boolean }): ReactNode => {
       const headerBackButton = (
         <HeaderBackButton
           canGoBack={!topStack}
@@ -118,7 +149,7 @@ function HeaderView({
   }
 
   return (
-    <DesktopDragZoneBox disabled={isModelScreen}>
+    <DesktopDragZoneBoxView disabled={isModelScreen}>
       <Stack
         alignItems="center"
         bg={headerTransparent ? 'transparent' : '$bgApp'}
@@ -153,7 +184,7 @@ function HeaderView({
             layout={layout}
             title={getHeaderTitle(options, route.name)}
             headerTintColor={theme.text.val}
-            headerLeft={headerLeftView}
+            headerLeft={headerLeftView as any}
             headerRightContainerStyle={headerRightContainerStyle}
             headerRight={
               typeof headerRight === 'function'
@@ -202,7 +233,7 @@ function HeaderView({
           />
         ) : null}
       </Stack>
-    </DesktopDragZoneBox>
+    </DesktopDragZoneBoxView>
   );
 }
 

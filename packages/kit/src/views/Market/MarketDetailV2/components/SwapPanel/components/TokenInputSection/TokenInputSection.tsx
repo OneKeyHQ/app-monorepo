@@ -134,7 +134,7 @@ function TokenInputSectionComponent(
   }, [selectedToken, onChange]);
 
   return (
-    <YStack gap="$0.5">
+    <YStack gap="$1">
       <Input
         size="medium"
         keyboardType="decimal-pad"

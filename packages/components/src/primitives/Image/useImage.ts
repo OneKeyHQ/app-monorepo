@@ -29,7 +29,10 @@ export function useImage(
   image: ImageRef | ImageSource | null;
   reFetchImage: () => void;
 } {
-  const resolvedSource = resolveSource(source);
+  const [image, setImage] = useState<ImageRef | null>(null);
+  const resolvedSource = useMemo(() => {
+    return resolveSource(source);
+  }, [source]);
   const cachedImage: ImageSource | null = useMemo(() => {
     const imageUri = resolvedSource?.uri;
     if (imageUri && IMAGE_CACHE_MAP.has(imageUri)) {
@@ -39,7 +42,6 @@ export function useImage(
     }
     return null;
   }, [resolvedSource?.uri]);
-  const [image, setImage] = useState<ImageRef | null>(null);
 
   // Since options are not dependencies of the below effect, we store them in a ref.
   // Once the image is asynchronously loaded, the effect will use the most recent options,

@@ -1,11 +1,17 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
+
+import { useCalendars } from 'expo-localization';
 
 import { Stack, useOrientation } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import { TRADING_VIEW_URL } from '@onekeyhq/shared/src/config/appConfig';
+import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
 import WebView from '../../WebView';
+import { tradingViewLocaleMap } from '../utils/tradingViewLocaleMap';
+import { getTradingViewTimezone } from '../utils/tradingViewTimezone';
 
 import { useAutoKLineUpdate } from './useAutoKLineUpdate';
 import { fetchTradingViewV2DataWithSlicing } from './useTradingViewV2';
@@ -36,6 +42,8 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
   const isLandscape = useOrientation();
   const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
   const webRef = useRef<IWebViewRef | null>(null);
+  const calendars = useCalendars();
+  const systemLocale = useLocaleVariant();
 
   const {
     mode,
@@ -44,6 +52,17 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     tokenAddress = '',
     networkId = '',
   } = props;
+
+  // Add timezone and locale to the tradingViewUrl
+  const tradingViewUrlWithParams = useMemo(() => {
+    const timezone = getTradingViewTimezone(calendars);
+    const locale = systemLocale;
+
+    const url = new URL(tradingViewUrl);
+    url.searchParams.set('timezone', timezone);
+    url.searchParams.set('locale', locale);
+    return url.toString();
+  }, [tradingViewUrl, calendars, systemLocale]);
 
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
@@ -121,7 +140,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
           webRef.current = ref;
         }}
         displayProgressBar={false}
-        src={tradingViewUrl}
+        src={tradingViewUrlWithParams}
       />
 
       {platformEnv.isNativeIOS || isIPadPortrait ? (

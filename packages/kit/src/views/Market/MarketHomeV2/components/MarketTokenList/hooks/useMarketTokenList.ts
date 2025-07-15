@@ -13,8 +13,8 @@ import type { IMarketToken } from '../MarketTokenData';
 
 interface IUseMarketTokenListParams {
   networkId: string;
-  sortBy?: string;
-  sortType?: 'asc' | 'desc';
+  initialSortBy?: string;
+  initialSortType?: 'asc' | 'desc';
   pageSize?: number;
   minLiquidity?: number;
   maxLiquidity?: number;
@@ -22,14 +22,20 @@ interface IUseMarketTokenListParams {
 
 export function useMarketTokenList({
   networkId,
-  sortBy,
-  sortType,
+  initialSortBy,
+  initialSortType,
   pageSize = 20,
   minLiquidity,
   maxLiquidity,
 }: IUseMarketTokenListParams) {
   const [currentPage, setCurrentPage] = useState(1);
   const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
+  const [sortBy, setSortBy] = useState<string | undefined>(
+    initialSortBy || 'v24hUSD',
+  );
+  const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
+    initialSortType || 'desc',
+  );
 
   const {
     result: apiResult,
@@ -94,5 +100,9 @@ export function useMarketTokenList({
     totalCount,
     setCurrentPage,
     refetch: fetchMarketTokenList,
-  };
+    sortBy,
+    sortType,
+    setSortBy,
+    setSortType,
+  } as const;
 }

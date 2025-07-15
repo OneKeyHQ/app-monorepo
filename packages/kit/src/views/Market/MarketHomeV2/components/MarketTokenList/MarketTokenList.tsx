@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
 
 import {
@@ -9,7 +9,14 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
-import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import {
+  useMarketWatchListV2Atom,
+  useShowWatchlistOnlyValue,
+} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import { parseValueToNumber } from '../../utils';
 
@@ -40,22 +47,6 @@ type IMarketTokenListProps = {
    * current list view (e.g. refresh button, export menu, etc.)
    */
   toolbar?: ReactNode;
-  /**
-   * If provided, the list will initially display only tokens in the user's
-   * watchlist. This prop controls the *initial* state only; users can still
-   * toggle between watchlist-only and full list by tapping the star column
-   * header.
-   */
-  defaultShowWatchlistOnly?: boolean;
-  /**
-   * External control for watchlist display state. When provided, the star
-   * column header will no longer be clickable and the watchlist toggle
-   * is controlled externally.
-   */
-  externalWatchlistControl?: {
-    showWatchlistOnly: boolean;
-    onToggle: () => void;
-  };
 };
 
 function MarketTokenList({
@@ -66,70 +57,13 @@ function MarketTokenList({
   pageSize = 20,
   liquidityFilter,
   toolbar,
-  defaultShowWatchlistOnly,
-  externalWatchlistControl,
 }: IMarketTokenListProps) {
   const toDetailPage = useToDetailPage();
 
-  const [currentSortBy, setCurrentSortBy] = useState<string | undefined>(
-    initialSortBy || 'v24hUSD',
-  );
-  const [currentSortType, setCurrentSortType] = useState<
-    'asc' | 'desc' | undefined
-  >(initialSortType || 'desc');
-
-  const handleSortChange = useCallback(
-    (sortBy: string, sortType: 'asc' | 'desc' | undefined) => {
-      // When sortType is undefined, reset to default sorting
-      if (sortType === undefined) {
-        setCurrentSortBy('v24hUSD');
-        setCurrentSortType('desc');
-      } else {
-        setCurrentSortBy(sortBy);
-        setCurrentSortType(sortType);
-      }
-    },
-    [],
-  );
-
   // ---------------- WATCHLIST ------------------
-  const [internalShowWatchlistOnly, setInternalShowWatchlistOnly] = useState(
-    defaultShowWatchlistOnly ?? false,
-  );
   const [watchlistState] = useMarketWatchListV2Atom();
   const watchlistItems = watchlistState.data;
-
-  // Use external control if provided, otherwise use internal state
-  const showWatchlistOnly =
-    externalWatchlistControl?.showWatchlistOnly ?? internalShowWatchlistOnly;
-
-  const handleHeaderRow = useCallback(
-    (column: ITableColumn<IMarketToken>) => {
-      // Star column toggle watchlist - only if not externally controlled
-      if (column.dataIndex === 'star' && !externalWatchlistControl) {
-        return {
-          onPress: () => {
-            setInternalShowWatchlistOnly((prev) => !prev);
-          },
-        };
-      }
-
-      // Sorting logic
-      const sortKey =
-        SORTABLE_COLUMNS[column.dataIndex as keyof typeof SORTABLE_COLUMNS];
-
-      if (sortKey) {
-        return {
-          onSortTypeChange: (order: 'asc' | 'desc' | undefined) => {
-            handleSortChange(sortKey, order);
-          },
-        };
-      }
-
-      return undefined;
-    },
-    [handleSortChange, externalWatchlistControl],
-  );
+  const [showWatchlistOnly] = useShowWatchlistOnlyValue();
 
   const marketTokenColumns = useMarketTokenColumns(
     networkId,
@@ -147,8 +81,6 @@ function MarketTokenList({
   // Call hooks unconditionally to follow React rules
   const watchlistResult = useMarketWatchlistTokenList({
     watchlist: watchlistItems || [],
-    sortBy: currentSortBy,
-    sortType: currentSortType,
     pageSize,
     minLiquidity,
     maxLiquidity,
@@ -156,12 +88,74 @@ function MarketTokenList({
 
   const normalResult = useMarketTokenList({
     networkId,
-    sortBy: currentSortBy,
-    sortType: currentSortType,
+    initialSortBy,
+    initialSortType,
     pageSize,
     minLiquidity,
     maxLiquidity,
   });
+
+  // Listen to MarketWatchlistOnlyChanged event to update sort settings
+  useEffect(() => {
+    const handleWatchlistOnlyChanged = (payload: {
+      showWatchlistOnly: boolean;
+    }) => {
+      if (payload.showWatchlistOnly) {
+        watchlistResult.setSortBy(undefined);
+        watchlistResult.setSortType(undefined);
+      } else {
+        normalResult.setSortBy('v24hUSD');
+        normalResult.setSortType('desc');
+      }
+    };
+
+    // Register event listener
+    appEventBus.on(
+      EAppEventBusNames.MarketWatchlistOnlyChanged,
+      handleWatchlistOnlyChanged,
+    );
+
+    // Cleanup event listener on unmount
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.MarketWatchlistOnlyChanged,
+        handleWatchlistOnlyChanged,
+      );
+    };
+  }, [watchlistResult, normalResult]);
+
+  const handleSortChange = useCallback(
+    (sortBy: string, sortType: 'asc' | 'desc' | undefined) => {
+      const result: {
+        setSortBy: (sortBy: string | undefined) => void;
+        setSortType: (sortType: 'asc' | 'desc' | undefined) => void;
+      } = showWatchlistOnly ? watchlistResult : normalResult;
+
+      result.setSortBy(sortBy);
+      result.setSortType(sortType);
+    },
+
+    [showWatchlistOnly, watchlistResult, normalResult],
+  );
+
+  const handleHeaderRow = useCallback(
+    (column: ITableColumn<IMarketToken>) => {
+      // Sorting logic
+      const sortKey =
+        SORTABLE_COLUMNS[column.dataIndex as keyof typeof SORTABLE_COLUMNS];
+
+      if (sortKey) {
+        return {
+          onSortTypeChange: (order: 'asc' | 'desc' | undefined) => {
+            handleSortChange(sortKey, order);
+          },
+        };
+      }
+
+      return undefined;
+    },
+    [handleSortChange],
+  );
 
   const { data, isLoading, currentPage, setCurrentPage, totalPages } =
     showWatchlistOnly ? watchlistResult : normalResult;
@@ -195,6 +189,7 @@ function MarketTokenList({
               <Table.Skeleton columns={marketTokenColumns} count={pageSize} />
             ) : (
               <Table<IMarketToken>
+                key={`table-${showWatchlistOnly ? 'watchlist' : 'normal'}`}
                 stickyHeader
                 columns={marketTokenColumns}
                 dataSource={data}

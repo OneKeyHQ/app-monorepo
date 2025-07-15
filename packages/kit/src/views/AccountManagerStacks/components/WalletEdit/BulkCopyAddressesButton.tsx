@@ -33,6 +33,9 @@ export function BulkCopyAddressesButton({
         if (!isPrimeUser) {
           navigation.pushFullModal(EModalRoutes.PrimeModal, {
             screen: EPrimePages.PrimeDashboard,
+            params: {
+              networkId,
+            },
           });
           return;
         }
