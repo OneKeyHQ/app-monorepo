@@ -322,8 +322,8 @@ function TokenListViewCmp(props: IProps) {
       renderItem={({ item }) => (
         <TokenListItem
           hideValue={hideValue}
-          token={item}
-          key={item.$key}
+          token={item as IAccountToken}
+          key={(item as IAccountToken).$key}
           onPress={onPressToken}
           tableLayout={tableLayout}
           withPrice={withPrice}

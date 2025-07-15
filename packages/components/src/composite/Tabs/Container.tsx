@@ -206,22 +206,15 @@ export function Container({
               return (
                 <>
                   {renderHeader?.({
-                    indexDecimal: 0,
                     focusedTab,
                     tabNames,
-                    index: 0,
-                    containerRef: { current: null },
                     onTabPress,
-                    tabProps: {},
-                  })}
+                  } as any)}
                   {renderTabBar?.({
-                    indexDecimal: 0,
                     focusedTab,
                     tabNames,
-                    index: 0,
                     onTabPress,
-                    containerRef: { current: null },
-                  })}
+                  } as any)}
                   <ContainerChild
                     height={height}
                     isScrolling={isScrolling}

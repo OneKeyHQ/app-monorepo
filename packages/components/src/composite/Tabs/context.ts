@@ -53,10 +53,10 @@ export type ITabContextType<T extends string> = {
   /**
    * Set the ref of the scrollable component.
    */
-  setRef: <T extends RefComponent>(
+  setRef: <RefType extends RefComponent>(
     key: string,
-    ref: AnimatedRef<T>,
-  ) => AnimatedRef<T>;
+    ref: AnimatedRef<RefType>,
+  ) => AnimatedRef<RefType>;
   /**
    * Max distance allowed to collapse the header.
    */
@@ -175,7 +175,7 @@ export const TabsContext = createContext<
   headerTranslateY: { value: 0 } as SharedValue<number>,
   width: 0,
   minHeaderHeight: 0,
-  scrollTabElementsRef: {},
+  scrollTabElementsRef: {} as any,
 });
 
 export const useTabsContext = () => {
