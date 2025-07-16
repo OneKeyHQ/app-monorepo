@@ -1,5 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import {
   Icon,
   NumberSizeableText,
@@ -7,13 +9,11 @@ import {
   XStack,
   useClipboard,
 } from '@onekeyhq/components';
+import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
 
-import BigNumber from 'bignumber.js';
-
-import { useTokenDetail } from '../../../../hooks/useTokenDetail';
 import { useHoldersLayout } from './useHoldersLayout';
 
 interface IHolderItemProps {
@@ -39,7 +39,7 @@ function HolderItemBase({ item, index }: IHolderItemProps) {
     try {
       const holderValue = new BigNumber(item.fiatValue);
       const totalMarketCap = new BigNumber(tokenDetail.marketCap);
-      
+
       if (totalMarketCap.isLessThanOrEqualTo(0)) {
         return null;
       }
