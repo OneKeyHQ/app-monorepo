@@ -302,7 +302,7 @@ export function HomePageView({
   ]);
 
   const [tabPageHeight, setTabPageHeight] = useState(
-    platformEnv.isNativeIOS ? 144 : 93,
+    platformEnv.isNativeIOS ? 143 : 92,
   );
   const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
     const height = e.nativeEvent.layout.height - 20;
