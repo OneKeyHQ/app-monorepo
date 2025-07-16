@@ -31,7 +31,7 @@ function TokenDetailsHistory(props: IProps) {
     props;
 
   const [historyInit, setHistoryInit] = useState(false);
-  // const { isFocused } = useTabIsRefreshingFocused();
+  const { isFocused } = useTabIsRefreshingFocused();
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const { updateAddressesInfo } = useHistoryListActions().current;

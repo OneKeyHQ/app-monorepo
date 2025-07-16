@@ -17,7 +17,7 @@ import {
   Page,
   Spinner,
   Stack,
-  Tab,
+  Tabs,
   getFontToken,
   useClipboard,
   useMedia,
@@ -190,24 +190,18 @@ function TokenDetailsView() {
     [fontColor],
   );
 
-  const { gtMd } = useMedia();
-  const { width } = useWindowDimensions();
-
-  const contentItemWidth = useMemo(() => {
-    if (platformEnv.isNative) {
-      return undefined;
-    }
-    return gtMd ? 640 : width;
-  }, [gtMd, width]);
-
   const listViewContentContainerStyle = useMemo(() => ({ pt: '$5' }), []);
   const tabs = useMemo(() => {
     if (networkId && walletId) {
-      return result?.networkAccounts.map((item) => ({
-        title: item.deriveInfo.labelKey
-          ? intl.formatMessage({ id: item.deriveInfo.labelKey })
-          : item.deriveInfo.label ?? '',
-        page: () => (
+      return result?.networkAccounts.map((item, index) => (
+        <Tabs.Tab
+          key={String(index)}
+          name={
+            item.deriveInfo.labelKey
+              ? intl.formatMessage({ id: item.deriveInfo.labelKey })
+              : item.deriveInfo.label ?? String(index)
+          }
+        >
           <TokenDetailsViews
             accountId={item.account?.id ?? ''}
             networkId={networkId}
@@ -220,8 +214,8 @@ function TokenDetailsView() {
             indexedAccountId={indexedAccountId}
             isTabView
           />
-        ),
-      }));
+        </Tabs.Tab>
+      ));
     }
 
     return [];
@@ -254,13 +248,9 @@ function TokenDetailsView() {
     ) {
       if (tabs && !isEmpty(tabs) && tabs.length > 1) {
         return (
-          <Tab
-            disableRefresh
-            data={tabs}
-            contentItemWidth={contentItemWidth as any}
-            initialScrollIndex={0}
-            showsVerticalScrollIndicator={false}
-          />
+          <Tabs.Container renderTabBar={(props) => <Tabs.TabBar {...props} />}>
+            {tabs}
+          </Tabs.Container>
         );
       }
       return null;
@@ -292,7 +282,6 @@ function TokenDetailsView() {
     indexedAccountId,
     listViewContentContainerStyle,
     tabs,
-    contentItemWidth,
   ]);
 
   return (
