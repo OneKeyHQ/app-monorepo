@@ -10,8 +10,10 @@ import {
   View,
   useMedia,
 } from '@onekeyhq/components';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProviderMirrorV2';
 
@@ -50,7 +52,21 @@ export function SwapPanel({
   const showSwapDialog = () => {
     dialogRef.current = Dialog.show({
       title: intl.formatMessage({ id: ETranslations.global_swap }),
-      renderContent: <SwapPanelWrap />,
+      renderContent: (
+        <AccountSelectorProviderMirror
+          config={{
+            sceneName: EAccountSelectorSceneName.home,
+            sceneUrl: '',
+          }}
+          enabledNum={[0]}
+        >
+          <MarketWatchListProviderMirrorV2
+            storeName={EJotaiContextStoreNames.marketWatchListV2}
+          >
+            <SwapPanelWrap />
+          </MarketWatchListProviderMirrorV2>
+        </AccountSelectorProviderMirror>
+      ),
       showFooter: false,
     });
   };
@@ -67,7 +83,19 @@ export function SwapPanel({
 
   return (
     <View>
-      <SwapPanelWrap />
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
+      >
+        <MarketWatchListProviderMirrorV2
+          storeName={EJotaiContextStoreNames.marketWatchListV2}
+        >
+          <SwapPanelWrap />
+        </MarketWatchListProviderMirrorV2>
+      </AccountSelectorProviderMirror>
     </View>
   );
 }
