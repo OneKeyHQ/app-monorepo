@@ -2,13 +2,7 @@ import { Fragment, useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import {
-  Button,
-  Divider,
-  SizableText,
-  Stack,
-  XStack,
-} from '@onekeyhq/components';
+import { Button, Divider, SizableText, XStack } from '@onekeyhq/components';
 
 import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
 
