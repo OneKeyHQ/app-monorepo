@@ -181,6 +181,9 @@ export function HomePageView({
   const tabs = useMemo(
     () => (
       <Tabs.Container
+        headerContainerStyle={{
+          shadowOpacity: 0,
+        }}
         renderHeader={renderHeader}
         renderTabBar={(props) => (
           <Tabs.TabBar
