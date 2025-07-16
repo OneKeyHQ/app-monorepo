@@ -73,6 +73,7 @@ export type IProps = {
   isTabView?: boolean;
   listViewContentContainerStyle?: IListViewProps<IAccountHistoryTx>['contentContainerStyle'];
   indexedAccountId?: string;
+  inTabList?: boolean;
   ListHeaderComponent?: ISectionListProps<any>['ListHeaderComponent'];
 } & IStackProps;
 function TokenDetailsView() {
@@ -203,6 +204,8 @@ function TokenDetailsView() {
           }
         >
           <TokenDetailsViews
+            inTabList
+            isTabView
             accountId={item.account?.id ?? ''}
             networkId={networkId}
             walletId={walletId}
@@ -212,7 +215,6 @@ function TokenDetailsView() {
             isAllNetworks={isAllNetworks}
             listViewContentContainerStyle={listViewContentContainerStyle}
             indexedAccountId={indexedAccountId}
-            isTabView
           />
         </Tabs.Tab>
       ));
