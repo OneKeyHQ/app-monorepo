@@ -19,9 +19,17 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 function CloudSyncDebugTest() {
+  const navigation = useAppNavigation();
   return (
     <XStack flexWrap="wrap">
       <SizableText>CloudSyncTest:</SizableText>
+      <Button
+        onPress={async () => {
+          navigation.navigate(EPrimePages.PrimeCloudSync);
+        }}
+      >
+        CloudSyncPage
+      </Button>
 
       <Button
         onPress={async () => {

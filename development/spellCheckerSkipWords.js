@@ -948,4 +948,6 @@ module.exports = [
   "xrp'",
   'sidepanel',
   'checkboxes',
+  'Scroller',
+  'scroller',
 ];
