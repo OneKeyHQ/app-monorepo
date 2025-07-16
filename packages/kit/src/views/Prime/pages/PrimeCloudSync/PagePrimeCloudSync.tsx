@@ -111,7 +111,9 @@ function EnableOneKeyCloudSwitchListItem() {
 
   return (
     <ListItem
-      title="OneKey Cloud"
+      title={intl.formatMessage({
+        id: ETranslations.global_onekey_cloud,
+      })}
       icon="CloudOutline"
       subtitle={`${intl.formatMessage({
         id: ETranslations.prime_last_update,
@@ -226,9 +228,13 @@ function WhatDataIncludedListItem() {
 
   return (
     <ListItem
-      title="About cloud sync"
+      title={intl.formatMessage({
+        id: ETranslations.prime_about_cloud_sync,
+      })}
       icon="QuestionmarkOutline"
-      subtitle="Learn what data is synced and how your privacy is protected."
+      subtitle={intl.formatMessage({
+        id: ETranslations.prime_about_cloud_sync_description,
+      })}
       drillIn
       onPress={() => {
         navigation.navigate(EPrimePages.PrimeCloudSyncInfo);
@@ -306,6 +312,7 @@ function WalletSection() {
 }
 
 export default function PagePrimeCloudSync() {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   useEffect(() => {
     void backgroundApiProxy.servicePrimeCloudSync.showAlertDialogIfLocalPasswordNotSet();
@@ -313,7 +320,11 @@ export default function PagePrimeCloudSync() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header title="OneKey Cloud" />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.global_onekey_cloud,
+        })}
+      />
       <Page.Body>
         <AppDataSection />
         <Divider mt="$5" mb="$2" />

@@ -157,7 +157,7 @@ function SourceCodeLink({
       }}
     >
       <Stack flex={1}>
-        <SizableText fontWeight="600">{title}</SizableText>
+        <SizableText>{title}</SizableText>
         <SizableText color="$textSubdued" size="$bodyMd">
           {description}
         </SizableText>
@@ -168,21 +168,28 @@ function SourceCodeLink({
 }
 
 function SecurityContent() {
+  const intl = useIntl();
+
   return (
     <Stack gap="$4">
-      <SizableText size="$headingMd" fontWeight="600">
-        End-to-end encryption protection
+      <SizableText size="$headingLg">
+        {intl.formatMessage({
+          id: ETranslations.prime_end_to_end_encryption_protection,
+        })}
       </SizableText>
 
       <SizableText color="$textSubdued">
-        Your data is encrypted locally with a OneKey ID password before being
-        uploaded to the cloud, only you can decrypt the data, not even OneKey.
+        {intl.formatMessage({
+          id: ETranslations.prime_end_to_end_encryption_protection_description,
+        })}
       </SizableText>
 
       <Alert
         type="warning"
         icon="MessageExclamationOutline"
-        description="The OneKey ID password is your encryption key. Forgetting the password will not recover data."
+        description={intl.formatMessage({
+          id: ETranslations.prime_password_as_key_warning,
+        })}
       />
 
       <UnOrderedList>
@@ -190,44 +197,62 @@ function SecurityContent() {
           icon="CheckRadioSolid"
           iconProps={{ color: '$iconSuccess' }}
         >
-          AES 256-bit encryption algorithm
+          {intl.formatMessage({
+            id: ETranslations.prime_cloud_sync_security_feature_one,
+          })}
         </UnOrderedList.Item>
         <UnOrderedList.Item
           icon="CheckRadioSolid"
           iconProps={{ color: '$iconSuccess' }}
         >
-          PBKDF2 key derivation (anti-brute force)
+          {intl.formatMessage({
+            id: ETranslations.prime_cloud_sync_security_feature_two,
+          })}
         </UnOrderedList.Item>
         <UnOrderedList.Item
           icon="CheckRadioSolid"
           iconProps={{ color: '$iconSuccess' }}
         >
-          Local encryption, server zero-knowledge
+          {intl.formatMessage({
+            id: ETranslations.prime_cloud_sync_security_feature_three,
+          })}
         </UnOrderedList.Item>
         <UnOrderedList.Item
           icon="CheckRadioSolid"
           iconProps={{ color: '$iconSuccess' }}
         >
-          12-character strong password constraint
+          {intl.formatMessage({
+            id: ETranslations.prime_cloud_sync_security_feature_four,
+          })}
         </UnOrderedList.Item>
         <UnOrderedList.Item
           icon="CheckRadioSolid"
           iconProps={{ color: '$iconSuccess' }}
         >
-          Completely open source, auditable
+          {intl.formatMessage({
+            id: ETranslations.prime_cloud_sync_security_feature_five,
+          })}
         </UnOrderedList.Item>
       </UnOrderedList>
 
       <Stack flexDirection="row" gap="$3" mt="$4">
         <SourceCodeLink
-          title="Client-side"
-          description="Source code"
+          title={intl.formatMessage({
+            id: ETranslations.global_client_side,
+          })}
+          description={intl.formatMessage({
+            id: ETranslations.global_source_code,
+          })}
           link="https://github.com/OneKeyHQ/app-monorepo"
         />
 
         <SourceCodeLink
-          title="Server-side"
-          description="Source code"
+          title={intl.formatMessage({
+            id: ETranslations.global_server_side,
+          })}
+          description={intl.formatMessage({
+            id: ETranslations.global_source_code,
+          })}
           link="https://github.com/OneKeyHQ/app-monorepo"
         />
       </Stack>
@@ -243,12 +268,14 @@ export default function PagePrimeCloudSyncInfo() {
 
   const options = [
     {
-      label: 'Included data',
+      label: intl.formatMessage({
+        id: ETranslations.prime_about_cloud_sync_included_data_title,
+      }),
       value: 'included',
     },
     {
       label: intl.formatMessage({
-        id: ETranslations.global_security,
+        id: ETranslations.prime_about_cloud_sync_security_title,
       }),
       value: 'security',
     },
@@ -266,8 +293,12 @@ export default function PagePrimeCloudSyncInfo() {
   };
 
   return (
-    <Page>
-      <Page.Header title="About cloud sync" />
+    <Page scrollEnabled>
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.prime_about_cloud_sync,
+        })}
+      />
       <Page.Body>
         <Stack p="$5" gap="$5">
           <SegmentControl
@@ -278,9 +309,7 @@ export default function PagePrimeCloudSyncInfo() {
             }
             options={options}
           />
-          <ScrollView flex={1} showsVerticalScrollIndicator={false}>
-            {renderContent()}
-          </ScrollView>
+          {renderContent()}
         </Stack>
       </Page.Body>
     </Page>
