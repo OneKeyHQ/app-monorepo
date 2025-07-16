@@ -15,7 +15,6 @@ function TransactionsHeaderSmallBase() {
 
   return (
     <XStack
-      flex={1}
       px="$4"
       py="$3"
       alignItems="center"
