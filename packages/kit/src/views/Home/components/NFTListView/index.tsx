@@ -81,7 +81,6 @@ function NFTListView(props: IProps) {
     data,
     isLoading,
     initialized,
-    inTabList = false,
     isAllNetworks,
     listViewStyleProps,
   } = props;

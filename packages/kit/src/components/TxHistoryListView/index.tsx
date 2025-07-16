@@ -182,6 +182,10 @@ function BaseTxHistoryListView(props: IProps) {
     },
   );
 
+  const ListComponent = useMemo(() => {
+    return inTabList ? Tabs.SectionList : SectionList;
+  }, [inTabList]);
+
   if (!initialized && isLoading) {
     return (
       <Stack {...contentContainerStyle}>
@@ -192,7 +196,7 @@ function BaseTxHistoryListView(props: IProps) {
   }
 
   return (
-    <Tabs.SectionList
+    <ListComponent
       // @ts-ignore
       estimatedItemSize={platformEnv.isNative ? 60 : 56}
       renderScrollComponent={renderNestedScrollView}
