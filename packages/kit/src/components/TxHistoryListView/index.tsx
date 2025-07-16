@@ -197,6 +197,7 @@ function BaseTxHistoryListView(props: IProps) {
       estimatedItemSize={platformEnv.isNative ? 60 : 56}
       renderScrollComponent={renderNestedScrollView}
       contentContainerStyle={resolvedContentContainerStyle as any}
+      stickySectionHeadersEnabled={false}
       sections={sections}
       ListEmptyComponent={
         searchKey && data.length > 0 ? EmptySearch : EmptyHistory
