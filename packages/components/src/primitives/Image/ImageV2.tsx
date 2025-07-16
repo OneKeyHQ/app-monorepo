@@ -7,6 +7,8 @@ import { usePropsAndStyle } from 'tamagui';
 import { Skeleton } from '../Skeleton';
 import { YStack } from '../Stack';
 
+import { isEmptyResolvedSource } from './utils';
+
 import type { IImageV2Props } from './type';
 import type {
   ImageErrorEventData,
@@ -14,7 +16,6 @@ import type {
   ImageSource,
   ImageStyle,
 } from 'expo-image';
-import { isEmptyResolvedSource } from './utils';
 
 export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
   const sizeProps = useMemo(() => {
