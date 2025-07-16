@@ -1,13 +1,11 @@
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Alert,
   Badge,
   Dialog,
   Page,
-  SizableText,
   Spinner,
   Stack,
 } from '@onekeyhq/components';
@@ -17,36 +15,16 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getAppDeviceIcon } from '@onekeyhq/shared/src/appDeviceInfo/utils/getAppDeviceIcon';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EPrimePages,
   IPrimeParamList,
 } from '@onekeyhq/shared/src/routes/prime';
-import type { IPrimeDeviceInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 
 import type { RouteProp } from '@react-navigation/native';
-
-function getDeviceIcon(device: IPrimeDeviceInfo): IKeyOfIcons {
-  if (device.platform.startsWith('ios')) {
-    return 'PhoneOutline';
-  }
-  if (device.platform.startsWith('android')) {
-    return 'PhoneOutline';
-  }
-  if (device.platform.startsWith('desktop')) {
-    return 'LaptopOutline';
-  }
-  if (device.platform.startsWith('web')) {
-    return 'ChromeBrand';
-  }
-  if (device.platform.startsWith('extension')) {
-    return 'ChromeBrand';
-  }
-  // iPad
-  return 'PlaceholderOutline';
-}
 
 export default function PrimeDeviceLimit() {
   const { getAccessToken } = usePrimeAuthV2();
@@ -164,7 +142,7 @@ export default function PrimeDeviceLimit() {
               return (
                 <ListItem
                   key={device.instanceId}
-                  icon={getDeviceIcon(device)}
+                  icon={getAppDeviceIcon(device)}
                   title={title}
                   subtitle={subtitle}
                 >

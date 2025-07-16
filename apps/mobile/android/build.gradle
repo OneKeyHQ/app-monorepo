@@ -101,7 +101,8 @@ allprojects {
         }
     }
 
-     // fix issue:
+    
+    // fix issue:
     // Execution failed for task ':react-native-image-colors:compileDebugKotlin'.
     // Inconsistent JVM-target compatibility detected for tasks 'compileDebugJavaWithJavac' (17) and 'compileDebugKotlin' (18).
     project(':react-native-image-colors') {
