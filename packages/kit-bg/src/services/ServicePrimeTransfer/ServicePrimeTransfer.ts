@@ -702,33 +702,6 @@ class ServicePrimeTransfer extends ServiceBase {
   }
 
   @backgroundMethod()
-  async validateTransferData(data: IPrimeTransferData): Promise<boolean> {
-    // TODO: Implement data validation
-    return true;
-  }
-
-  @backgroundMethod()
-  async encryptTransferData({
-    data,
-    pairingCode,
-    userInfo,
-  }: {
-    data: IPrimeTransferData;
-    pairingCode: string;
-    userInfo: IE2EESocketUserInfo;
-  }): Promise<string> {
-    return '';
-  }
-
-  @backgroundMethod()
-  async decryptTransferData(
-    encryptedData: string,
-  ): Promise<IPrimeTransferData> {
-    // TODO: Implement data decryption
-    return JSON.parse(encryptedData) as IPrimeTransferData;
-  }
-
-  @backgroundMethod()
   async getDataForTransfer(): Promise<IPrimeTransferData> {
     const { serviceAccount } = this.backgroundApi;
 
