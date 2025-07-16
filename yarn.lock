@@ -6834,7 +6834,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/cross-inpage-provider-core@npm:2.2.34":
+"@onekeyfe/cross-inpage-provider-core@npm:2.2.34, @onekeyfe/cross-inpage-provider-core@npm:^2.2.34":
   version: 2.2.34
   resolution: "@onekeyfe/cross-inpage-provider-core@npm:2.2.34"
   dependencies:
@@ -6913,7 +6913,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/cross-inpage-provider-types@npm:2.2.34":
+"@onekeyfe/cross-inpage-provider-types@npm:2.2.34, @onekeyfe/cross-inpage-provider-types@npm:^2.2.34":
   version: 2.2.34
   resolution: "@onekeyfe/cross-inpage-provider-types@npm:2.2.34"
   checksum: 10/ffe33d795535c72ea3213bb42b89a2d436efc4e8834b339833326d7b249d934d4c4fddc405e1c22738b4d7318ccec759eb3a448232abfa22e954156c38bba69b
@@ -7841,17 +7841,30 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/e2ee-server@workspace:apps/e2ee-server"
   dependencies:
+    "@noble/hashes": "npm:^1.8.0"
+    "@onekeyfe/cross-inpage-provider-core": "npm:^2.2.34"
+    "@onekeyfe/cross-inpage-provider-types": "npm:^2.2.34"
     "@types/cors": "npm:^2.8.17"
     "@types/crypto-js": "npm:^4.2.1"
     "@types/express": "npm:^4.17.21"
+    "@types/lodash": "npm:^4.14.202"
+    "@types/memoizee": "npm:^0.4.11"
     "@types/node": "npm:^20.0.0"
+    asmcrypto.js: "npm:^2.3.2"
+    buffer: "npm:^6.0.3"
     cors: "npm:^2.8.5"
+    crypto: "npm:^1.0.1"
     crypto-js: "npm:^4.2.0"
     express: "npm:^4.18.2"
+    fast-json-stable-stringify: "npm:^2.1.0"
+    lodash: "npm:^4.17.21"
+    lru-cache: "npm:^10.0.0"
+    memoizee: "npm:^0.4.15"
     nanoid: "npm:^5.0.4"
     nodemon: "npm:^3.0.0"
     rimraf: "npm:^5.0.5"
     socket.io: "npm:^4.7.5"
+    socket.io-client: "npm:^4.7.5"
     ts-node: "npm:^10.9.0"
     typescript: "npm:^5.3.0"
   languageName: unknown
@@ -15348,6 +15361,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/lodash@npm:^4.14.202":
+  version: 4.17.20
+  resolution: "@types/lodash@npm:4.17.20"
+  checksum: 10/8cd8ad3bd78d2e06a93ae8d6c9907981d5673655fec7cb274a4d9a59549aab5bb5b3017361280773b8990ddfccf363e14d1b37c97af8a9fe363de677f9a61524
+  languageName: node
+  linkType: hard
+
 "@types/lodash@npm:^4.17.7":
   version: 4.17.7
   resolution: "@types/lodash@npm:4.17.7"
@@ -15375,6 +15395,13 @@ __metadata:
   version: 0.4.11
   resolution: "@types/memoizee@npm:0.4.11"
   checksum: 10/1ecc8b617738a97d9063fbd9aa9bf366ec984d94100ba570392cd9fab632a2066b925d8c8b98139a51931fc081e5e893770b63a7678abe991f48d4f35d897c0b
+  languageName: node
+  linkType: hard
+
+"@types/memoizee@npm:^0.4.11":
+  version: 0.4.12
+  resolution: "@types/memoizee@npm:0.4.12"
+  checksum: 10/c8ea5ee009d2ac2a886b68429da746dfc57bbc247ae8e4d9dfb9577f9fa8ebb6b80be4f9ebc472a7d289fb06269c23358c303697d979f4b3da118d93462518c4
   languageName: node
   linkType: hard
 
@@ -21660,6 +21687,13 @@ __metadata:
   version: 2.0.0
   resolution: "crypto-random-string@npm:2.0.0"
   checksum: 10/0283879f55e7c16fdceacc181f87a0a65c53bc16ffe1d58b9d19a6277adcd71900d02bb2c4843dd55e78c51e30e89b0fec618a7f170ebcc95b33182c28f05fd6
+  languageName: node
+  linkType: hard
+
+"crypto@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "crypto@npm:1.0.1"
+  checksum: 10/087fe3165bd94c333a49e6ed66a0193911f63eac38a24f379b3001a5fe260a59c413646e53a0f67875ba13902b2686d81dc703cb2c147a4ec727dcdc04e5645e
   languageName: node
   linkType: hard
 
@@ -31070,6 +31104,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"lru-cache@npm:^10.0.0, lru-cache@npm:^10.4.3":
+  version: 10.4.3
+  resolution: "lru-cache@npm:10.4.3"
+  checksum: 10/e6e90267360476720fa8e83cc168aa2bf0311f3f2eea20a6ba78b90a885ae72071d9db132f40fda4129c803e7dcec3a6b6a6fbb44ca90b081630b810b5d6a41a
+  languageName: node
+  linkType: hard
+
 "lru-cache@npm:^10.0.1, lru-cache@npm:^10.0.2":
   version: 10.1.0
   resolution: "lru-cache@npm:10.1.0"
@@ -31081,13 +31122,6 @@ __metadata:
   version: 10.2.0
   resolution: "lru-cache@npm:10.2.0"
   checksum: 10/502ec42c3309c0eae1ce41afca471f831c278566d45a5273a0c51102dee31e0e250a62fa9029c3370988df33a14188a38e682c16143b794de78668de3643e302
-  languageName: node
-  linkType: hard
-
-"lru-cache@npm:^10.4.3":
-  version: 10.4.3
-  resolution: "lru-cache@npm:10.4.3"
-  checksum: 10/e6e90267360476720fa8e83cc168aa2bf0311f3f2eea20a6ba78b90a885ae72071d9db132f40fda4129c803e7dcec3a6b6a6fbb44ca90b081630b810b5d6a41a
   languageName: node
   linkType: hard
 
