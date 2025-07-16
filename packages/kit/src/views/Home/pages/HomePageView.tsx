@@ -171,6 +171,7 @@ export function HomePageView({
     return {
       headerContainerStyle: {
         shadowOpacity: 0,
+        elevation: 0,
       },
       renderHeader,
       renderTabBar: (props: any) => (
