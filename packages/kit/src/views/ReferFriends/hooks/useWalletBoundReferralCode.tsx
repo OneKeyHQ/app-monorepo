@@ -342,97 +342,100 @@ export function useWalletBoundReferralCode({
   >(undefined);
   const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
 
-  const getReferralCodeBondStatus = async ({
-    walletId,
-    skipIfTimeout = false,
-  }: {
-    walletId: string | undefined;
-    skipIfTimeout?: boolean;
-  }) => {
-    if (mnemonicType === EMnemonicType.TON) {
-      return false;
-    }
+  const getReferralCodeBondStatus = useCallback(
+    async ({
+      walletId,
+      skipIfTimeout = false,
+    }: {
+      walletId: string | undefined;
+      skipIfTimeout?: boolean;
+    }) => {
+      if (mnemonicType === EMnemonicType.TON) {
+        return false;
+      }
 
-    const walletInfo = await getReferralCodeWalletInfo(walletId);
-    if (!walletInfo) {
-      return false;
-    }
-    const { address, networkId } = walletInfo;
+      const walletInfo = await getReferralCodeWalletInfo(walletId);
+      if (!walletInfo) {
+        return false;
+      }
+      const { address, networkId } = walletInfo;
 
-    let alreadyBound = false;
-    let isTimeout = false;
+      let alreadyBound = false;
+      let isTimeout = false;
 
-    try {
-      if (skipIfTimeout) {
-        const timeoutMs = 3000;
-        let timeoutId: ReturnType<typeof setTimeout> | undefined;
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          timeoutId = setTimeout(() => {
-            isTimeout = true;
-            reject(new Error('Request timeout'));
-          }, timeoutMs);
-        });
+      try {
+        if (skipIfTimeout) {
+          const timeoutMs = 3000;
+          let timeoutId: ReturnType<typeof setTimeout> | undefined;
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            timeoutId = setTimeout(() => {
+              isTimeout = true;
+              reject(new Error('Request timeout'));
+            }, timeoutMs);
+          });
 
-        try {
-          // Race between the API call and timeout
-          alreadyBound = await Promise.race([
-            backgroundApiProxy.serviceReferralCode.checkWalletIsBoundReferralCode(
+          try {
+            // Race between the API call and timeout
+            alreadyBound = await Promise.race([
+              backgroundApiProxy.serviceReferralCode.checkWalletIsBoundReferralCode(
+                {
+                  address,
+                  networkId,
+                },
+              ),
+              timeoutPromise,
+            ]);
+          } finally {
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+            }
+          }
+        } else {
+          // No timeout, just make the request
+          alreadyBound =
+            await backgroundApiProxy.serviceReferralCode.checkWalletIsBoundReferralCode(
               {
                 address,
                 networkId,
               },
-            ),
-            timeoutPromise,
-          ]);
-        } finally {
-          if (timeoutId) {
-            clearTimeout(timeoutId);
-          }
+            );
         }
-      } else {
-        // No timeout, just make the request
-        alreadyBound =
-          await backgroundApiProxy.serviceReferralCode.checkWalletIsBoundReferralCode(
-            {
-              address,
-              networkId,
-            },
-          );
+      } catch (error) {
+        console.log(
+          '===>>> getReferralCodeBondStatus error, treating as not bound:',
+          error,
+        );
+        alreadyBound = false;
       }
-    } catch (error) {
-      console.log(
-        '===>>> getReferralCodeBondStatus error, treating as not bound:',
-        error,
-      );
-      alreadyBound = false;
-    }
 
-    // Always execute setWalletReferralCode regardless of timeout
-    try {
-      await backgroundApiProxy.serviceReferralCode.setWalletReferralCode({
-        walletId: walletInfo.walletId,
-        referralCodeInfo: {
+      // Always execute setWalletReferralCode regardless of timeout
+      try {
+        await backgroundApiProxy.serviceReferralCode.setWalletReferralCode({
           walletId: walletInfo.walletId,
-          address: walletInfo.address,
-          networkId: walletInfo.networkId,
-          pubkey: walletInfo.pubkey ?? '',
-          isBound: alreadyBound,
-        },
-      });
-    } catch (error) {
-      console.log('===>>> setWalletReferralCode error:', error);
-    }
+          referralCodeInfo: {
+            walletId: walletInfo.walletId,
+            address: walletInfo.address,
+            networkId: walletInfo.networkId,
+            pubkey: walletInfo.pubkey ?? '',
+            isBound: alreadyBound,
+          },
+        });
+      } catch (error) {
+        console.log('===>>> setWalletReferralCode error:', error);
+      }
 
-    if (isTimeout && skipIfTimeout) {
-      return false;
-    }
+      if (isTimeout && skipIfTimeout) {
+        return false;
+      }
 
-    if (alreadyBound) {
-      return false;
-    }
-    setShouldBondReferralCode(true);
-    return true;
-  };
+      if (alreadyBound) {
+        return false;
+      }
+      setShouldBondReferralCode(true);
+      return true;
+    },
+    [mnemonicType, getReferralCodeWalletInfo],
+  );
 
   const inModalDialog = useInModalDialog();
   const inTabDialog = useInTabDialog();

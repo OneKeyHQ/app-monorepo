@@ -33,7 +33,7 @@ function WalletBoundReferralCodeButtonView({
       }));
 
   const {
-    result: isNotBoundReferralCode,
+    result: shouldBoundReferralCode,
     run: refreshDisplayReferralCodeButton,
     isLoading: isLoadingReferralCodeButton,
   } = usePromiseResult(
@@ -46,14 +46,10 @@ function WalletBoundReferralCodeButtonView({
           walletId: wallet?.id || '',
         });
       if (!referralCodeInfo) {
-        console.log(
-          '===>>> REQUEST getReferralCodeBondStatus: ',
-          referralCodeInfo,
-        );
         const shouldBound = await getReferralCodeBondStatus({
           walletId: wallet?.id,
         });
-        return !shouldBound;
+        return shouldBound;
       }
       return referralCodeInfo?.walletId && !referralCodeInfo?.isBound;
     },
@@ -68,7 +64,7 @@ function WalletBoundReferralCodeButtonView({
     if (isLoading) {
       return;
     }
-    if (!isNotBoundReferralCode) {
+    if (!shouldBoundReferralCode) {
       return;
     }
     try {
@@ -89,7 +85,7 @@ function WalletBoundReferralCodeButtonView({
     }
   }, [
     isLoading,
-    isNotBoundReferralCode,
+    shouldBoundReferralCode,
     getReferralCodeBondStatus,
     wallet,
     bindWalletInviteCode,
@@ -112,7 +108,7 @@ function WalletBoundReferralCodeButtonView({
         id: ETranslations.referral_wallet_edit_code,
       })}
       extra={
-        isNotBoundReferralCode ? undefined : (
+        shouldBoundReferralCode ? undefined : (
           <Badge badgeSize="sm" badgeType="info">
             <Badge.Text>
               {intl.formatMessage({
@@ -125,7 +121,7 @@ function WalletBoundReferralCodeButtonView({
       onPress={handlePress}
       isLoading={isLoading}
       onClose={onClose}
-      disabled={Boolean(!isNotBoundReferralCode)}
+      disabled={Boolean(!shouldBoundReferralCode)}
     />
   );
 }
