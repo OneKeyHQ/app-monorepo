@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList } from '@onekeyhq/components';
+import { ActionList, Badge } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -80,10 +80,6 @@ function WalletBoundReferralCodeButtonView({
     return <ActionList.SkeletonItem />;
   }
 
-  if (!displayReferralCodeButton) {
-    return null;
-  }
-
   return (
     <ActionList.Item
       testID="wallet-bound-referral-code-button"
@@ -91,6 +87,17 @@ function WalletBoundReferralCodeButtonView({
       label={intl.formatMessage({
         id: ETranslations.referral_wallet_edit_code,
       })}
+      extra={
+        displayReferralCodeButton ? undefined : (
+          <Badge badgeSize="sm" badgeType="info">
+            <Badge.Text>
+              {intl.formatMessage({
+                id: ETranslations.referral_wallet_bind_code_finish,
+              })}
+            </Badge.Text>
+          </Badge>
+        )
+      }
       onPress={handlePress}
       isLoading={isLoading}
       onClose={onClose}
