@@ -61,8 +61,8 @@ function MarketDetailV2(
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: EAccountSelectorSceneName.market,
-        sceneUrl: ETabRoutes.Market,
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
       }}
       enabledNum={[0]}
     >
