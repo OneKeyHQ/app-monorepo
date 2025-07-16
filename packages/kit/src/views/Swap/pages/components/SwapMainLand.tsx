@@ -30,7 +30,6 @@ import {
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchQuoteResult,
   ISwapInitParams,
@@ -98,7 +97,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [toSelectToken] = useSwapSelectToTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
-  const [swapSteps, setSwapSteps] = useSwapStepsAtom();
+  const [, setSwapSteps] = useSwapStepsAtom();
   const swapSlippageRef = useRef(slippageItem);
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
@@ -255,12 +254,15 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const parseQuoteResultToSteps = useCallback(
     (quoteRes: IFetchQuoteResult) => {
       let steps: ISwapStep[] = [];
+      console.log('swap__pre parseQuoteResultToSteps_quoteRes:', quoteRes);
       if (quoteRes.isWrapped) {
         steps = [
           {
             type: ESwapStepType.WRAP_TX,
             status: ESwapStepStatus.READY,
             data: quoteRes,
+            fromToken: fromSelectToken,
+            toToken: toSelectToken,
           },
         ];
       } else if (quoteRes.swapShouldSignedData) {
@@ -269,12 +271,16 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             type: ESwapStepType.SIGN_MESSAGE,
             status: ESwapStepStatus.READY,
             data: quoteRes,
+            fromToken: fromSelectToken,
+            toToken: toSelectToken,
           },
           {
             type: ESwapStepType.SEND_TX,
             status: ESwapStepStatus.READY,
             data: quoteRes,
             skipSendTransAction: true,
+            fromToken: fromSelectToken,
+            toToken: toSelectToken,
           },
         ];
       } else if (
@@ -287,6 +293,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             type: ESwapStepType.BATCH_APPROVE_SWAP,
             status: ESwapStepStatus.READY,
             data: quoteRes,
+            fromToken: fromSelectToken,
+            toToken: toSelectToken,
           },
         ];
 
@@ -299,6 +307,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
                 type: ESwapStepType.APPROVE_TX,
                 status: ESwapStepStatus.READY,
                 data: quoteRes,
+                fromToken: fromSelectToken,
+                toToken: toSelectToken,
                 isResetApprove: true,
                 canRetry: true,
                 shouldWaitApproved:
@@ -313,6 +323,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               status: ESwapStepStatus.READY,
               data: quoteRes,
               canRetry: true,
+              fromToken: fromSelectToken,
+              toToken: toSelectToken,
               shouldWaitApproved:
                 swapBatchTransferType !==
                 ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP,
@@ -325,13 +337,15 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             type: ESwapStepType.SEND_TX,
             status: ESwapStepStatus.READY,
             data: quoteRes,
+            fromToken: fromSelectToken,
+            toToken: toSelectToken,
           },
         ];
         console.log('swap__pre continuous approve and swap');
       }
       setSwapSteps([...steps]);
     },
-    [swapBatchTransferType, setSwapSteps],
+    [swapBatchTransferType, setSwapSteps, fromSelectToken, toSelectToken],
   );
 
   const onPreSwap = useCallback(() => {

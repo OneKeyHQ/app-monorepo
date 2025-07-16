@@ -400,6 +400,8 @@ export interface ISwapStep {
   type: ESwapStepType;
   status: ESwapStepStatus;
   data?: IFetchQuoteResult;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
   txHash?: string;
   orderId?: string;
   errorMessage?: string;

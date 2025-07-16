@@ -15,6 +15,7 @@ import type {
 import {
   ESwapApproveTransactionStatus,
   ESwapStepStatus,
+  ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
 import PreSwapConfirmResult from '../../components/PreSwapConfirmResult';
@@ -50,7 +51,8 @@ const PreSwapDialogContent = ({
     onConfirm();
   };
 
-  const [inAppNotificationAtom] = useInAppNotificationAtom();
+  const [inAppNotificationAtom, setInAppNotificationAtom] =
+    useInAppNotificationAtom();
   const [, setSwapSteps] = useSwapStepsAtom();
   const { preSwapStepsStart } = useSwapBuildTx();
 
@@ -81,23 +83,69 @@ const PreSwapDialogContent = ({
 
         return newSteps;
       });
+      setInAppNotificationAtom((prev) => {
+        return {
+          ...prev,
+          swapApprovingTransaction: undefined,
+        };
+      });
       void preSwapStepsStart();
     }
   }, [
     inAppNotificationAtom.swapApprovingTransaction,
     setSwapSteps,
     preSwapStepsStart,
+    setInAppNotificationAtom,
+  ]);
+
+  const lastStep = useMemo(() => {
+    return swapSteps[swapSteps.length - 1];
+  }, [swapSteps]);
+
+  useEffect(() => {
+    if (lastStep?.txHash || lastStep?.orderId) {
+      const findStepItem = inAppNotificationAtom.swapHistoryPendingList.find(
+        (item) =>
+          item.txInfo.useOrderId
+            ? item.txInfo.orderId === lastStep?.orderId
+            : item.txInfo.txId === lastStep?.txHash,
+      );
+      if (
+        findStepItem &&
+        findStepItem.status !== ESwapTxHistoryStatus.PENDING
+      ) {
+        let stepStatus = ESwapStepStatus.PENDING;
+        if (findStepItem.status === ESwapTxHistoryStatus.SUCCESS) {
+          stepStatus = ESwapStepStatus.SUCCESS;
+        } else if (findStepItem.status === ESwapTxHistoryStatus.FAILED) {
+          stepStatus = ESwapStepStatus.FAILED;
+        }
+
+        setSwapSteps((prevSteps: ISwapStep[]) => {
+          const newSteps = [...prevSteps];
+          newSteps[newSteps.length - 1] = {
+            ...newSteps[newSteps.length - 1],
+            status: stepStatus,
+          };
+          return newSteps;
+        });
+      }
+    }
+  }, [
+    inAppNotificationAtom.swapHistoryPendingList,
+    lastStep?.orderId,
+    lastStep?.txHash,
+    setSwapSteps,
   ]);
 
   const showResultContent = useMemo(() => {
     if (swapSteps.length > 0) {
-      const lastStep = swapSteps[swapSteps.length - 1];
       return (
-        lastStep.status !== ESwapStepStatus.READY &&
-        lastStep.status !== ESwapStepStatus.LOADING
+        lastStep?.status !== ESwapStepStatus.READY &&
+        lastStep?.status !== ESwapStepStatus.LOADING
       );
     }
-  }, [swapSteps]);
+  }, [lastStep?.status, swapSteps.length]);
 
   if (showResultContent && swapSteps.length > 0) {
     return <PreSwapConfirmResult lastStep={swapSteps[swapSteps.length - 1]} />;

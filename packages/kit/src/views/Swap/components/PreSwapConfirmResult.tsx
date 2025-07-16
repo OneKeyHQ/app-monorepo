@@ -12,6 +12,8 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { ISwapStep } from '@onekeyhq/shared/types/swap/types';
 import { ESwapStepStatus } from '@onekeyhq/shared/types/swap/types';
 
+import { truncateMiddle } from '../utils/utils';
+
 interface IPreSwapConfirmResultProps {
   lastStep: ISwapStep;
 }
@@ -20,7 +22,6 @@ const PreSwapConfirmResult = ({ lastStep }: IPreSwapConfirmResultProps) => {
   const ref = useRef<any>(null);
   const [explorerUrl, setExplorerUrl] = useState<string>('');
 
-  // 在组件渲染时获取 explorer URL
   useEffect(() => {
     const fetchExplorerUrl = async () => {
       if (!lastStep.txHash || !lastStep.data?.fromTokenInfo.networkId) {
@@ -65,8 +66,8 @@ const PreSwapConfirmResult = ({ lastStep }: IPreSwapConfirmResultProps) => {
       {lastStep.status === ESwapStepStatus.SUCCESS ? (
         <LottieView
           ref={ref}
-          width="$30"
-          height="$30"
+          width="$26"
+          height="$26"
           autoPlay
           loop={false}
           source={require('@onekeyhq/kit/assets/animations/lottie_send_success_feedback.json')}
@@ -113,7 +114,7 @@ const PreSwapConfirmResult = ({ lastStep }: IPreSwapConfirmResultProps) => {
             color="$textInteractive"
             textDecorationLine="underline"
           >
-            View On Explorer ({lastStep.txHash})
+            View On Explorer ({truncateMiddle(lastStep.txHash)})
           </SizableText>
         </XStack>
       ) : null}

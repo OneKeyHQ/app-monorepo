@@ -413,92 +413,6 @@ export function useSwapBuildTx() {
     ],
   );
 
-  const wrappedTx = useCallback(
-    async (data?: IFetchQuoteResult) => {
-      if (
-        data?.fromTokenInfo &&
-        data?.toTokenInfo &&
-        swapFromAddressInfo.address &&
-        swapToAddressInfo.address &&
-        data.fromAmount &&
-        swapFromAddressInfo.accountInfo?.account?.id
-      ) {
-        setSwapBuildTxFetching(true);
-        const wrappedType = data.fromTokenInfo.isNative
-          ? EWrappedType.DEPOSIT
-          : EWrappedType.WITHDRAW;
-        const wrappedInfo: IWrappedInfo = {
-          from: swapFromAddressInfo.address,
-          type: wrappedType,
-          contract:
-            wrappedType === EWrappedType.WITHDRAW
-              ? data.fromTokenInfo.contractAddress
-              : data.toTokenInfo.contractAddress,
-          amount: data.fromAmount ?? '',
-        };
-        const swapInfo = {
-          protocol: data?.protocol ?? EProtocolOfExchange.SWAP,
-          sender: {
-            amount: data.fromAmount ?? '',
-            token: data.fromTokenInfo,
-            accountInfo: {
-              accountId: swapFromAddressInfo.accountInfo?.account?.id,
-              networkId: data.fromTokenInfo.networkId,
-            },
-          },
-          receiver: {
-            amount: data.toAmount ?? '',
-            token: data.toTokenInfo,
-            accountInfo: {
-              accountId: swapToAddressInfo.accountInfo?.account?.id,
-              networkId: data.toTokenInfo.networkId,
-            },
-          },
-          accountAddress: swapFromAddressInfo.address,
-          receivingAddress: swapToAddressInfo.address ?? '',
-          swapBuildResData: { result: data },
-        };
-        const unsignedTx =
-          await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
-            networkId: data.fromTokenInfo.networkId,
-            accountId: swapFromAddressInfo.accountInfo?.account?.id,
-            wrappedInfo,
-            swapInfo,
-            isInternalSwap: true,
-          });
-        const res = await backgroundApiProxy.serviceSend.signAndSendTransaction(
-          {
-            networkId: data.fromTokenInfo.networkId,
-            accountId: swapFromAddressInfo.accountInfo?.account?.id,
-            unsignedTx,
-            signOnly: false,
-          },
-        );
-        console.log('swap__pre wrapped res', res);
-        // await navigationToTxConfirm({
-        //   wrappedInfo,
-        //   swapInfo,
-        //   isInternalSwap: true,
-        //   onSuccess: handleBuildTxSuccess,
-        //   onCancel: handleTxFail,
-        // });
-        void syncRecentTokenPairs({
-          swapFromToken: data.fromTokenInfo,
-          swapToToken: data.toTokenInfo,
-        });
-        return res;
-      }
-    },
-    [
-      swapFromAddressInfo.address,
-      swapFromAddressInfo.accountInfo?.account?.id,
-      swapToAddressInfo.address,
-      swapToAddressInfo.accountInfo?.account?.id,
-      setSwapBuildTxFetching,
-      syncRecentTokenPairs,
-    ],
-  );
-
   const createBuildTx = useCallback(async () => {
     const selectQuoteRes = cloneDeep(selectQuote);
     if (
@@ -1673,21 +1587,21 @@ export function useSwapBuildTx() {
           }
 
           const swapInfo: ISwapTxInfo = {
-            protocol: data.protocol ?? EProtocolOfExchange.SWAP,
+            protocol: buildSwapRes.result.protocol ?? EProtocolOfExchange.SWAP,
             sender: {
-              amount: data.fromAmount ?? data.fromAmount,
-              token: data.fromTokenInfo,
+              amount: buildSwapRes.result.fromAmount ?? data.fromAmount,
+              token: buildSwapRes.result.fromTokenInfo,
               accountInfo: {
                 accountId: swapFromAddressInfo.accountInfo?.account?.id,
-                networkId: data.fromTokenInfo.networkId,
+                networkId: buildSwapRes.result.fromTokenInfo.networkId,
               },
             },
             receiver: {
               amount: buildSwapRes.result.toAmount ?? data.toAmount,
-              token: data.toTokenInfo,
+              token: buildSwapRes.result.toTokenInfo,
               accountInfo: {
                 accountId: swapToAddressInfo.accountInfo?.account?.id,
-                networkId: data.toTokenInfo.networkId,
+                networkId: buildSwapRes.result.toTokenInfo.networkId,
               },
             },
             accountAddress: swapFromAddressInfo.address,
@@ -1711,11 +1625,12 @@ export function useSwapBuildTx() {
                 '',
             });
           } else {
+            console.log('swap__buildTxNew__sendTxActions_swapInfo:', swapInfo);
             const sendTxRes = await sendTxActions(
-              data.fromTokenInfo.networkId,
+              buildSwapRes.result.fromTokenInfo.networkId,
               swapFromAddressInfo.accountInfo?.account?.id,
               {
-                networkId: data.fromTokenInfo.networkId,
+                networkId: buildSwapRes.result.fromTokenInfo.networkId,
                 accountId: swapFromAddressInfo.accountInfo?.account?.id,
                 transfersInfo: transferInfo ? [transferInfo] : undefined,
                 encodedTx,
@@ -1726,6 +1641,7 @@ export function useSwapBuildTx() {
               void onBuildTxSuccess(sendTxRes.txid, swapInfo);
             }
           }
+          let swapType = EProtocolOfExchange.SWAP;
           if (buildSwapRes?.result?.protocol === EProtocolOfExchange.SWAP) {
             void syncRecentTokenPairs({
               swapFromToken: buildSwapRes.result.fromTokenInfo,
@@ -1734,6 +1650,7 @@ export function useSwapBuildTx() {
           } else if (
             buildSwapRes?.result?.protocol === EProtocolOfExchange.LIMIT
           ) {
+            swapType = EProtocolOfExchange.LIMIT;
             void backgroundApiProxy.serviceSwap.swapLimitOrdersFetchLoop(
               swapFromAddressInfo.accountInfo?.indexedAccount?.id,
               !swapFromAddressInfo.accountInfo?.indexedAccount?.id
@@ -1744,16 +1661,16 @@ export function useSwapBuildTx() {
             );
           }
           defaultLogger.swap.createSwapOrder.swapCreateOrder({
-            swapProvider: data?.info.provider ?? '',
-            swapProviderName: data?.info.providerName ?? '',
-            swapType: EProtocolOfExchange.SWAP,
+            swapProvider: buildSwapRes.result?.info.provider ?? '',
+            swapProviderName: buildSwapRes.result?.info.providerName ?? '',
+            swapType,
             slippage: slippageItem.value.toString(),
-            sourceChain: data.fromTokenInfo.networkId,
-            receivedChain: data.toTokenInfo.networkId,
-            sourceTokenSymbol: data.fromTokenInfo.symbol,
-            receivedTokenSymbol: data.toTokenInfo.symbol,
-            feeType: data?.fee?.percentageFee?.toString() ?? '0',
-            router: JSON.stringify(data?.routesData ?? ''),
+            sourceChain: buildSwapRes.result.fromTokenInfo.networkId,
+            receivedChain: buildSwapRes.result.toTokenInfo.networkId,
+            sourceTokenSymbol: buildSwapRes.result.fromTokenInfo.symbol,
+            receivedTokenSymbol: buildSwapRes.result.toTokenInfo.symbol,
+            feeType: buildSwapRes.result?.fee?.percentageFee?.toString() ?? '0',
+            router: JSON.stringify(buildSwapRes.result?.routesData ?? ''),
             isFirstTime: isFirstTimeSwap,
             createFrom: pageType === EPageType.modal ? 'modal' : 'swapPage',
           });
@@ -1984,6 +1901,92 @@ export function useSwapBuildTx() {
       swapToAddressInfo.address,
     ],
   );
+
+  const wrappedTx = useCallback(
+    async (
+      data?: IFetchQuoteResult,
+      fromTokenInfo?: ISwapToken,
+      toTokenInfo?: ISwapToken,
+    ) => {
+      console.log('swap__buildTxNew__wrappedTx_data:', data);
+      if (
+        fromTokenInfo &&
+        toTokenInfo &&
+        swapFromAddressInfo.address &&
+        swapToAddressInfo.address &&
+        data?.fromAmount &&
+        swapFromAddressInfo.accountInfo?.account?.id
+      ) {
+        setSwapBuildTxFetching(true);
+        const wrappedType = fromTokenInfo.isNative
+          ? EWrappedType.DEPOSIT
+          : EWrappedType.WITHDRAW;
+        const wrappedInfo: IWrappedInfo = {
+          from: swapFromAddressInfo.address,
+          type: wrappedType,
+          contract:
+            wrappedType === EWrappedType.WITHDRAW
+              ? fromTokenInfo.contractAddress
+              : toTokenInfo.contractAddress,
+          amount: data.fromAmount ?? '',
+        };
+        const swapInfo = {
+          protocol: data?.protocol ?? EProtocolOfExchange.SWAP,
+          sender: {
+            amount: data.fromAmount ?? '',
+            token: fromTokenInfo,
+            accountInfo: {
+              accountId: swapFromAddressInfo.accountInfo?.account?.id,
+              networkId: fromTokenInfo.networkId,
+            },
+          },
+          receiver: {
+            amount: data.toAmount ?? '',
+            token: toTokenInfo,
+            accountInfo: {
+              accountId: swapToAddressInfo.accountInfo?.account?.id,
+              networkId: toTokenInfo.networkId,
+            },
+          },
+          accountAddress: swapFromAddressInfo.address,
+          receivingAddress: swapToAddressInfo.address ?? '',
+          swapBuildResData: { result: data },
+        };
+
+        const sendTxRes = await sendTxActions(
+          fromTokenInfo.networkId,
+          swapFromAddressInfo.accountInfo?.account?.id,
+          {
+            networkId: fromTokenInfo.networkId,
+            accountId: swapFromAddressInfo.accountInfo?.account?.id,
+            wrappedInfo,
+            swapInfo,
+          },
+        );
+
+        console.log('swap__pre wrapped res', sendTxRes);
+        if (sendTxRes) {
+          void syncRecentTokenPairs({
+            swapFromToken: data.fromTokenInfo,
+            swapToToken: data.toTokenInfo,
+          });
+          void onBuildTxSuccess(sendTxRes.txid, swapInfo);
+          return sendTxRes;
+        }
+      }
+    },
+    [
+      swapFromAddressInfo.address,
+      swapFromAddressInfo.accountInfo?.account?.id,
+      swapToAddressInfo.address,
+      swapToAddressInfo.accountInfo?.account?.id,
+      setSwapBuildTxFetching,
+      sendTxActions,
+      syncRecentTokenPairs,
+      onBuildTxSuccess,
+    ],
+  );
+
   const batchApproveSwap = useCallback(
     async (data?: IFetchQuoteResult) => {
       if (
@@ -2095,8 +2098,12 @@ export function useSwapBuildTx() {
                 break;
               }
             } else if (type === ESwapStepType.WRAP_TX) {
-              await wrappedTx(step.data);
+              await wrappedTx(step.data, step.fromToken, step.toToken);
             } else if (type === ESwapStepType.SEND_TX) {
+              console.log(
+                'swap__buildTxNew__sendTxActions_step.data:',
+                step.data,
+              );
               await buildTxNew(step.data);
             } else if (type === ESwapStepType.SIGN_MESSAGE) {
               await signMessage(step.data);
