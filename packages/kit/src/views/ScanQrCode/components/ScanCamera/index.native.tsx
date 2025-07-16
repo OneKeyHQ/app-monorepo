@@ -44,6 +44,7 @@ export function ScanCamera({
         <Camera
           style={{ flex: 1 }}
           resizeMode="cover"
+          showFrame={false}
           cameraType={CameraType.Back}
           scanBarcode
           onReadCode={({ nativeEvent: { codeStringValue } }) => {

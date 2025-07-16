@@ -65,7 +65,13 @@ let prevOverlayId = 0;
 const createNewZIndex = (id: number) => {
   const index = zIndexStack.findIndex((i) => i.id === id);
   if (index === -1) {
-    zIndexStack.push({ id, zIndex: 1 });
+    zIndexStack.push({
+      id,
+      zIndex:
+        zIndexStack.length === 0
+          ? SHEET_AND_DIALOG_Z_INDEX
+          : zIndexStack[zIndexStack.length - 1].zIndex + 1,
+    });
   }
 };
 const removeZIndexFromStack = (id: number) => {
@@ -87,14 +93,13 @@ const getZIndex = (id: number) => {
     return SHEET_AND_DIALOG_Z_INDEX;
   }
   const index = zIndexStack.findIndex((i) => i.id === id);
-  let zIndex = 0;
-  for (let i = 0; i < index; i += 1) {
-    zIndex += zIndexStack[i].zIndex;
+  if (index === -1) {
+    return SHEET_AND_DIALOG_Z_INDEX;
   }
-  return SHEET_AND_DIALOG_Z_INDEX + zIndex;
+  return zIndexStack[index].zIndex;
 };
 
-export const useOverlayZIndex = (open = false): number => {
+export const useOverlayZIndex = (open = false, debugName?: string): number => {
   const overlayIdRef = useRef(0);
   const prevOpenRef = useRef<boolean | undefined>(undefined);
   useMemo(() => {
@@ -123,5 +128,14 @@ export const useOverlayZIndex = (open = false): number => {
     [open],
   );
 
+  if (platformEnv.isDev && debugName) {
+    console.log(
+      `debugName: ${debugName}, id: ${
+        overlayIdRef.current
+      }, zIndex: ${zIndex}, open: ${String(
+        open,
+      )}, zIndexStack: ${JSON.stringify(zIndexStack)}`,
+    );
+  }
   return zIndex;
 };
