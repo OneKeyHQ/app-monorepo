@@ -1,7 +1,8 @@
 /* eslint-disable react/prop-types */
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import type { ComponentType, ReactNode } from 'react';
+import { isValidElement, useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { type LayoutChangeEvent, View } from 'react-native';
+import { View } from 'react-native';
 import {
   AutoSizer,
   CellMeasurer,
@@ -67,7 +68,10 @@ export function List<Item>({
   ListHeaderComponentStyle,
   ListFooterComponentStyle,
   numColumns = 1,
-}: IListProps<Item> & ISectionListProps<Item>) {
+}: Omit<IListProps<Item>, 'ListEmptyComponent'> &
+  Omit<ISectionListProps<Item>, 'ListEmptyComponent'> & {
+    ListEmptyComponent?: ReactNode | ComponentType<any>;
+  }) {
   const {
     registerChild,
     height,
@@ -175,6 +179,28 @@ export function List<Item>({
 
   const listRef = useRef<typeof VirtualizedList>(null);
 
+  const HeaderElement = useMemo(() => {
+    if (ListHeaderComponent) {
+      return (
+        <View style={ListHeaderComponentStyle as any}>
+          {ListHeaderComponent as React.ReactNode}
+        </View>
+      );
+    }
+    return null;
+  }, [ListHeaderComponent, ListHeaderComponentStyle]);
+
+  const FooterElement = useMemo(() => {
+    if (ListFooterComponent) {
+      return (
+        <View style={ListFooterComponentStyle as any}>
+          {ListFooterComponent as React.ReactNode}
+        </View>
+      );
+    }
+    return null;
+  }, [ListFooterComponent, ListFooterComponentStyle]);
+
   const rowRenderer = useCallback(
     ({
       index,
@@ -189,17 +215,9 @@ export function List<Item>({
       const item = listData[index];
       let element = null;
       if (item.type === 'header') {
-        element = (
-          <View style={ListHeaderComponentStyle as any}>
-            {ListHeaderComponent as React.ReactNode}
-          </View>
-        );
+        element = HeaderElement;
       } else if (item.type === 'footer') {
-        element = (
-          <View style={ListFooterComponentStyle as any}>
-            {ListFooterComponent as React.ReactNode}
-          </View>
-        );
+        element = FooterElement;
       } else if (item.type === 'section-header') {
         element = renderSectionHeader?.({
           section: item.data.section,
@@ -247,10 +265,8 @@ export function List<Item>({
     },
     [
       listData,
-      ListHeaderComponentStyle,
-      ListHeaderComponent,
-      ListFooterComponentStyle,
-      ListFooterComponent,
+      HeaderElement,
+      FooterElement,
       renderSectionHeader,
       renderSectionFooter,
       renderItem,
@@ -291,7 +307,18 @@ export function List<Item>({
   );
 
   if (!data?.length && !sections?.length) {
-    return ListEmptyComponent;
+    return (
+      <>
+        {HeaderElement}
+        {isValidElement(ListEmptyComponent) ? (
+          ListEmptyComponent
+        ) : (
+          // @ts-expect-error
+          <ListEmptyComponent />
+        )}
+        {FooterElement}
+      </>
+    );
   }
 
   if (numColumns > 1) {
