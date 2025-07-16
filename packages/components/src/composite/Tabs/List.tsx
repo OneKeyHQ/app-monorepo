@@ -313,6 +313,7 @@ export function List<Item>({
         {isValidElement(ListEmptyComponent) ? (
           ListEmptyComponent
         ) : (
+          // @ts-expect-error
           <ListEmptyComponent />
         )}
         {FooterElement}
