@@ -5,6 +5,7 @@
   "version": "1.0.0",
   "workspaces": [
     "apps/*",
+    "!apps/e2ee-server",
     "packages/*"
   ],
   "engines": {
@@ -29,7 +30,7 @@
     "app:web:build": "yarn workspace @onekeyhq/web build",
     "app:web-embed": "yarn workspace @onekeyhq/web-embed start",
     "app:web-embed:build": "yarn workspace @onekeyhq/web-embed build",
-    "app:e2ee-server": "yarn workspace @onekeyhq/e2ee-server dev",
+    "app:e2ee-server": "cd apps/e2ee-server && yarn && yarn dev",
     "app:native-bundle": "yarn workspace @onekeyhq/mobile native-bundle",
     "app:split-bundle": "yarn workspace @onekeyhq/mobile split-bundle",
     "app:ios": "yarn workspace @onekeyhq/mobile ios",
