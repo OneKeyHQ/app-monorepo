@@ -1,8 +1,8 @@
-import { useCurrentTabName } from './TabNameContext';
+import { useTabNameContext } from './TabNameContext';
 import { useFocusedTab } from './useFocusedTab';
 
 export const useIsFocusedTab = () => {
   const focusedTab = useFocusedTab();
-  const tabName = useCurrentTabName();
+  const tabName = useTabNameContext();
   return focusedTab === tabName;
 };

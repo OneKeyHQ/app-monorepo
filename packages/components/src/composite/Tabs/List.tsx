@@ -9,7 +9,7 @@ import {
 } from 'react-virtualized';
 
 import { useTabsContext, useTabsScrollContext } from './context';
-import { useCurrentTabName } from './TabNameContext';
+import { useTabNameContext } from './TabNameContext';
 import { useConvertAnimatedToValue } from './useFocusedTab';
 
 import type { ISectionListProps } from '../../layouts';
@@ -74,7 +74,7 @@ export function List<Item>({
     onChildScroll,
     scrollTop,
   } = useTabsScrollContext();
-  const currentTabName = useCurrentTabName();
+  const currentTabName = useTabNameContext();
   const { focusedTab } = useTabsContext();
 
   const focusedTabValue = useConvertAnimatedToValue(focusedTab, '');
