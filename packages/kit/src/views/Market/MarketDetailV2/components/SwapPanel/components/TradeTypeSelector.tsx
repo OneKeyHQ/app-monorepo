@@ -10,10 +10,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 
 const commonButtonStyleProps: IButtonProps = {
-  flex: 1,
+  // flex: 1,
+  height: '$10',
   borderRadius: '$2',
   borderWidth: 0,
-  height: '$8',
   hoverStyle: {
     opacity: 0.9,
   },
@@ -40,6 +40,10 @@ export function TradeTypeSelector({
       value: ESwapDirection.BUY,
       label: (
         <Button
+          onPress={() => {
+            console.log('onPress');
+            onChange(ESwapDirection.BUY);
+          }}
           {...commonButtonStyleProps}
           bg={isBuyActive ? '$iconSuccess' : '$transparent'}
           color={isBuyActive ? '$textOnColor' : '$textSubdued'}
@@ -52,6 +56,10 @@ export function TradeTypeSelector({
       value: ESwapDirection.SELL,
       label: (
         <Button
+          onPress={() => {
+            console.log('onPress');
+            onChange(ESwapDirection.SELL);
+          }}
           bg={isSellActive ? '$iconCritical' : '$transparent'}
           color={isSellActive ? '$textOnColor' : '$textSubdued'}
           {...commonButtonStyleProps}
@@ -66,6 +74,8 @@ export function TradeTypeSelector({
     <SegmentControl
       value={value as string}
       onChange={(newValue) => {
+        console.log('newValue', newValue);
+
         if (newValue === 'buy' || newValue === 'sell') {
           onChange(newValue as ITradeType);
         }

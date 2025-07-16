@@ -24,7 +24,7 @@ export function MobileLayout() {
   const renderContent = () => {
     if (activeTab === 'chart') {
       return (
-        <ScrollView>
+        <>
           {/* Information Panel */}
           <InformationPanel />
 
@@ -40,17 +40,17 @@ export function MobileLayout() {
           <Stack h={300}>
             <InformationTabs />
           </Stack>
-        </ScrollView>
+        </>
       );
     }
     return (
-      <ScrollView>
+      <>
         {/* Token Stats */}
         <TokenOverview />
 
         {/* Activity overview (only in overview tab) */}
         <TokenActivityOverview />
-      </ScrollView>
+      </>
     );
   };
 
@@ -77,11 +77,11 @@ export function MobileLayout() {
         </Button>
       </XStack>
 
-      {/* Main Content */}
-      {renderContent()}
-
       {/* Swap panel placed outside the tabs for global visibility */}
       <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />
+
+      {/* Main Content */}
+      {renderContent()}
     </>
   );
 }
