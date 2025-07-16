@@ -6,14 +6,16 @@ import type { WebViewProps } from 'react-native-webview';
 
 interface ITradingViewWithVersionProps extends ITradingViewProps {
   version?: 'v1' | 'v2';
+  symbol?: string;
 }
 
 export function TradingView({
   version = 'v1',
+  symbol,
   ...props
 }: ITradingViewWithVersionProps & WebViewProps) {
   if (version === 'v2') {
-    return <TradingViewV2 {...props} />;
+    return <TradingViewV2 {...props} symbol={symbol ?? ''} />;
   }
 
   return <TradingViewV1 {...props} />;
