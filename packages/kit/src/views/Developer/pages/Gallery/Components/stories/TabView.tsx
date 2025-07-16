@@ -149,22 +149,6 @@ const TabViewGallery = () => (
     ]}
     elements={[
       {
-        title: 'Header 自定义1',
-        element: (
-          <Tab.Header
-            data={[
-              { title: '标签1' },
-              { title: '标签2' },
-              { title: '标签标签3' },
-              { title: '标签4' },
-            ]}
-            onSelectedPageIndex={(index: number) => {
-              console.log('选中', index);
-            }}
-          />
-        ),
-      },
-      {
         title: 'Tab 需要吸顶使用',
         element: <TabViewScrollStickyDemo />,
       },
@@ -175,57 +159,6 @@ const TabViewGallery = () => (
             <TabViewScrollPageDemo />
           </Stack>
         ),
-      },
-      {
-        title: 'Custom tabview for swap',
-        element: () => {
-          const tabRef = useRef<ITabHeaderInstance>(null);
-          return (
-            <Stack>
-              <Tab.Header
-                ref={tabRef}
-                style={{
-                  height: '$8',
-                  borderBottomWidth: 0,
-                }}
-                data={[
-                  { title: 'Swap' },
-                  { title: 'Bridge' },
-                  { title: 'Limit' },
-                ]}
-                itemContainerStyle={{
-                  px: '$2.5',
-                  mr: '$3',
-                  cursor: 'default',
-                }}
-                itemTitleNormalStyle={{
-                  color: '$textSubdued',
-                  fontWeight: '600',
-                }}
-                itemTitleSelectedStyle={{ color: '$text' }}
-                cursorStyle={{
-                  height: '100%',
-                  bg: '$bgStrong',
-                  borderRadius: '$3',
-                  borderCurve: 'continuous',
-                }}
-                onSelectedPageIndex={(index: number) => {
-                  console.log('选中', index);
-                }}
-              />
-              <IconButton
-                onPress={() => {
-                  tabRef.current?.scrollToIndex(2);
-                }}
-                variant="tertiary"
-                icon="InfoCircleOutline"
-                position="absolute"
-                right="$0"
-                top="$1"
-              />
-            </Stack>
-          );
-        },
       },
     ]}
   />

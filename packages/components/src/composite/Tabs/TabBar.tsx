@@ -6,14 +6,15 @@ import { Divider } from '../../content';
 import { SizableText, XStack, YStack } from '../../primitives';
 
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
+import type { SharedValue } from 'react-native-reanimated';
 
 export function TabItem({
   name,
-  focusedTab,
+  isFocused,
   onTabPress,
 }: {
   name: string;
-  focusedTab: string;
+  isFocused: boolean;
   onTabPress: (name: string) => void;
 }) {
   return (
@@ -27,10 +28,10 @@ export function TabItem({
       onPress={() => onTabPress(name)}
       position="relative"
     >
-      <SizableText color={focusedTab === name ? '$text' : '$textSubdued'}>
+      <SizableText color={isFocused ? '$text' : '$textSubdued'}>
         {name}
       </SizableText>
-      {focusedTab === name ? (
+      {isFocused ? (
         <YStack
           position="absolute"
           bottom={0}
@@ -54,7 +55,21 @@ export function TabBar({
   tabNames,
   focusedTab,
   renderToolbar,
-}: ITabBarProps) {
+  renderItem,
+  divider = true,
+}: Omit<Partial<ITabBarProps>, 'focusedTab' | 'tabNames'> & {
+  focusedTab: SharedValue<string>;
+  tabNames: string[];
+  onTabPress: (name: string) => void;
+  divider?: boolean;
+  renderItem?: ({
+    name,
+    isFocused,
+  }: {
+    name: string;
+    isFocused: boolean;
+  }) => React.ReactNode;
+}) {
   const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
   useAnimatedReaction(
     () => focusedTab.value,
@@ -76,18 +91,24 @@ export function TabBar({
     >
       <XStack ai="center" jc="space-between">
         <XStack>
-          {tabNames.map((name) => (
-            <TabItem
-              key={name}
-              name={name}
-              focusedTab={currentTab}
-              onTabPress={onTabPress}
-            />
-          ))}
+          {tabNames.map((name) =>
+            renderItem ? (
+              <XStack key={name} onPress={() => onTabPress(name)}>
+                {renderItem({ name, isFocused: currentTab === name })}
+              </XStack>
+            ) : (
+              <TabItem
+                key={name}
+                name={name}
+                isFocused={currentTab === name}
+                onTabPress={onTabPress}
+              />
+            ),
+          )}
         </XStack>
         {renderToolbar?.({ focusedTab: currentTab })}
       </XStack>
-      <Divider />
+      {divider ? <Divider /> : null}
     </YStack>
   );
 }
