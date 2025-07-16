@@ -77,13 +77,8 @@ const useMumColumns: () => {
 };
 
 function NFTListView(props: IProps) {
-  const {
-    data,
-    isLoading,
-    initialized,
-    isAllNetworks,
-    listViewStyleProps,
-  } = props;
+  const { data, isLoading, initialized, isAllNetworks, listViewStyleProps } =
+    props;
 
   const [searchKey] = useSearchKeyAtom();
 
