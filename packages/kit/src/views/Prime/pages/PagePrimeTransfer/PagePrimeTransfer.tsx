@@ -45,11 +45,12 @@ export default function PagePrimeTransfer() {
     }
   }, [primeTransferAtom.status]);
 
-  const [endpoint] = useState(
-    platformEnv.isNative
-      ? 'ws://192.168.31.246:3868'
-      : 'ws://192.168.31.246:3868',
-  );
+  // const [endpoint] = useState(
+  //   platformEnv.isNative
+  //     ? 'http://192.168.31.246:3868'
+  //     : 'http://192.168.31.246:3868',
+  // );
+  const endpoint = 'https://app-monorepo.onrender.com';
 
   console.log('endpoint', endpoint);
 
@@ -60,7 +61,7 @@ export default function PagePrimeTransfer() {
     });
 
     void axios
-      .get('http://192.168.31.246:3868/health')
+      .get(`${endpoint}/health`)
       .then((res) => {
         console.log('health check', res.data);
       })
