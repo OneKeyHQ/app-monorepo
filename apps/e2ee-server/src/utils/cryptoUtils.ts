@@ -3,7 +3,7 @@ import crypto from 'crypto';
 
 // TODO use node native module
 import {
-  AES_CBC as AsmcryptoAesCbc,
+  AES_GCM as AsmcryptoAesGcm,
   Sha256 as AsmcryptoSha256,
 } from 'asmcrypto.js';
 import { nanoid } from 'nanoid';
@@ -11,12 +11,12 @@ import { nanoid } from 'nanoid';
 import bufferUtils from './bufferUtils';
 import stringUtils from './stringUtils';
 
-type IAesCbcInvokeParams = {
+type IAesGcmInvokeParams = {
   iv: Buffer;
   key: Buffer;
   data: Buffer;
 };
-function _aesCbcInvokeCheck({ iv, key, data }: IAesCbcInvokeParams) {
+function _aesGcmInvokeCheck({ iv, key, data }: IAesGcmInvokeParams) {
   if (!iv || iv.length <= 0) {
     throw new Error('Zero-length iv is not supported');
   }
@@ -28,25 +28,33 @@ function _aesCbcInvokeCheck({ iv, key, data }: IAesCbcInvokeParams) {
   }
 }
 
-function aesCbcEncryptByAsmcrypto({
-  iv,
-  key,
-  data,
-}: IAesCbcInvokeParams): Buffer {
-  _aesCbcInvokeCheck({ iv, key, data });
+function aesGcmEncryptByAsmcrypto({ iv, key, data }: IAesGcmInvokeParams): {
+  ciphertext: Buffer;
+  tag: Buffer;
+} {
+  _aesGcmInvokeCheck({ iv, key, data });
 
-  const r = Buffer.from(AsmcryptoAesCbc.encrypt(data, key, true, iv));
-  return r;
+  const result = AsmcryptoAesGcm.encrypt(data, key, iv);
+  const ciphertext = Buffer.from(result.slice(0, -16)); // All but last 16 bytes
+  const tag = Buffer.from(result.slice(-16)); // Last 16 bytes are the tag
+  return { ciphertext, tag };
 }
 
-function aesCbcDecryptByAsmcrypto({
+function aesGcmDecryptByAsmcrypto({
   iv,
   key,
   data,
-}: IAesCbcInvokeParams): Buffer {
-  _aesCbcInvokeCheck({ iv, key, data });
+  tag,
+}: IAesGcmInvokeParams & { tag: Buffer }): Buffer {
+  _aesGcmInvokeCheck({ iv, key, data });
 
-  const r: Buffer = Buffer.from(AsmcryptoAesCbc.decrypt(data, key, true, iv));
+  if (!tag || tag.length !== 16) {
+    throw new Error('Invalid authentication tag');
+  }
+
+  // Combine ciphertext and tag for asmcrypto
+  const combined = Buffer.concat([data, tag]);
+  const r: Buffer = Buffer.from(AsmcryptoAesGcm.decrypt(combined, key, iv));
   return r;
 }
 
@@ -100,20 +108,24 @@ export default class CryptoUtils {
    * Encrypt data using AES-256-GCM
    * @param data Data to encrypt
    * @param key Encryption key
-   * @returns Encrypted data object containing ciphertext and IV
+   * @returns Encrypted data object containing ciphertext, IV, and authentication tag
    */
-  static encrypt(data: string, key: string): { encrypted: string; iv: string } {
+  static encrypt(
+    data: string,
+    key: string,
+  ): { encrypted: string; iv: string; tag: string } {
     try {
-      const iv = crypto.randomBytes(12);
-      const encrypted = aesCbcEncryptByAsmcrypto({
+      const iv = crypto.randomBytes(12); // GCM mode uses 12-byte IV
+      const { ciphertext, tag } = aesGcmEncryptByAsmcrypto({
         data: bufferUtils.toBuffer(data, 'utf8'),
         key: bufferUtils.toBuffer(key),
         iv,
       });
 
       return {
-        encrypted: bufferUtils.bytesToHex(encrypted),
+        encrypted: bufferUtils.bytesToHex(ciphertext),
         iv: bufferUtils.bytesToHex(iv),
+        tag: bufferUtils.bytesToHex(tag),
       };
     } catch (error) {
       throw new Error(
@@ -126,22 +138,24 @@ export default class CryptoUtils {
 
   /**
    * Decrypt data using AES-256-GCM
-   * @param encryptedData Encrypted data object
+   * @param encryptedData Encrypted data object with ciphertext, IV, and authentication tag
    * @param key Decryption key
    * @returns Decrypted original data
    */
   static decrypt(
-    encryptedData: { encrypted: string; iv: string },
+    encryptedData: { encrypted: string; iv: string; tag: string },
     key: string,
   ): string {
     try {
       const iv = bufferUtils.toBuffer(encryptedData.iv);
+      const tag = bufferUtils.toBuffer(encryptedData.tag);
 
       // Decrypt using AES-256-GCM
-      const decrypted = aesCbcDecryptByAsmcrypto({
+      const decrypted = aesGcmDecryptByAsmcrypto({
         data: bufferUtils.toBuffer(encryptedData.encrypted),
         key: bufferUtils.toBuffer(key),
         iv,
+        tag,
       });
 
       const decryptedText = bufferUtils.bytesToUtf8(decrypted);
@@ -187,9 +201,10 @@ export default class CryptoUtils {
       return false;
     }
 
-    // Check length and character set (nanoid uses URL-safe characters by default)
-    const nanoidRegex = /^[a-zA-Z0-9_-]{11}$/;
-    return nanoidRegex.test(roomId);
+    // Room ID format: 5 alphanumeric chars + separator + 5 alphanumeric chars
+    // Example: ABC12-DEF34, 12345-ABCDE
+    const roomIdRegex = /^[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}$/;
+    return roomIdRegex.test(roomId);
   }
 
   /**

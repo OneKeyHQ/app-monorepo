@@ -9,12 +9,6 @@ import {
   encryptAsync,
   mnemonicFromEntropy,
 } from '@onekeyhq/core/src/secret';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import type { E2EEServerApiProxy } from '@onekeyhq/e2ee-server/src/e2eeServerApiProxy';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { createE2EEServerApiProxy } from '@onekeyhq/e2ee-server/src/e2eeServerApiProxy';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import type { IE2EESocketUserInfo } from '@onekeyhq/e2ee-server/src/types';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import appDeviceInfo from '@onekeyhq/shared/src/appDeviceInfo/appDeviceInfo';
 import {
@@ -77,6 +71,12 @@ import type {
 import type { IPrimeTransferAtomData } from '../../states/jotai/atoms/prime';
 import type { IAccountDeriveTypes } from '../../vaults/types';
 import type { Socket } from 'socket.io-client';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports, import/no-relative-packages, import-path/parent-depth, import/order
+import type { IE2EESocketUserInfo } from '../../../../../apps/e2ee-server/src/types';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports, import/no-relative-packages, import-path/parent-depth, import/order
+import type { E2EEServerApiProxy } from '../../../../../apps/e2ee-server/src/e2eeServerApiProxy';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports, import/no-relative-packages, import-path/parent-depth, import/order
+import { createE2EEServerApiProxy } from '../../../../../apps/e2ee-server/src/e2eeServerApiProxy';
 
 export interface ITransferProgress {
   current: number;
@@ -127,7 +127,7 @@ class ServicePrimeTransfer extends ServiceBase {
       });
       if (this.socket) {
         this.e2eeServerApiProxy = createE2EEServerApiProxy({
-          socket: this.socket,
+          socket: this.socket as any,
         });
 
         // Listen to socket connection events
