@@ -307,7 +307,6 @@ export function List<Item>({
   );
 
   if (!data?.length && !sections?.length) {
-    console.log('ListEmptyComponent', ListEmptyComponent);
     return (
       <>
         {HeaderElement}
