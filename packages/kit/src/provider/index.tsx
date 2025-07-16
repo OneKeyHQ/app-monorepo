@@ -23,6 +23,7 @@ import { PrivyProviderLazy } from '../views/Prime/components/PrivyProviderLazy';
 import { ColdStartByNotification, Container } from './Container';
 import { NetworkReachabilityTracker } from './Container/NetworkReachabilityTracker';
 import { StateActiveContainer } from './Container/StateActiveContainer';
+import { HardwareServiceProvider } from './HardwareServiceProvider';
 import { KeyboardProvider } from './KeyboardProvider';
 import { SplashProvider } from './SplashProvider';
 import { ThemeProvider } from './ThemeProvider';
@@ -75,6 +76,7 @@ export function KitProvider(props: any = {}) {
                 <SystemLocaleTracker />
                 <StateActiveContainer />
                 <SyncHomeAccountToDappAccountProvider />
+                <HardwareServiceProvider />
               </ThemeProvider>
             </GestureHandlerRootView>
           </KeyboardProvider>
