@@ -10,8 +10,9 @@ import {
 } from 'react';
 import type { ForwardedRef, PropsWithChildren } from 'react';
 
-import { useEventEmitter } from './useEventEmitter';
 import { useIsFocusedTab } from '../../composite/Tabs/hooks';
+
+import { useEventEmitter } from './useEventEmitter';
 
 type IRefreshingFocusedEventMapCore = {
   changeFocused: { data: boolean };
