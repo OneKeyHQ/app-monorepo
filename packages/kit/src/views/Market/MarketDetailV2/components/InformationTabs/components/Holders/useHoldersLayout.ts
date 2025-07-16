@@ -7,7 +7,7 @@ export const useHoldersLayout = () => {
       width: '$36',
     },
     amount: {
-      width: '$40',
+      width: '$20',
       textAlign: 'right' as const,
     },
     value: {

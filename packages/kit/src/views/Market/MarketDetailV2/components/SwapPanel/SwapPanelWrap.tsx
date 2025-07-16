@@ -1,10 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
 
-import { Button, Dialog, useMedia } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
@@ -12,14 +9,12 @@ import { useTokenDetail } from '../../hooks/useTokenDetail';
 import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
 import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
 import { useSwapPanel } from './hooks/useSwapPanel';
-import { ESwapDirection, type ITradeType } from './hooks/useTradeType';
+import { ESwapDirection } from './hooks/useTradeType';
 import { SwapPanelContent } from './SwapPanelContent';
 
 import type { IToken } from './types';
 
 export function SwapPanelWrap() {
-  const intl = useIntl();
-  const media = useMedia();
   const { networkId, tokenDetail } = useTokenDetail();
 
   const swapPanel = useSwapPanel({
@@ -30,7 +25,6 @@ export function SwapPanelWrap() {
     setPaymentToken,
     paymentToken,
     paymentAmount,
-    setTradeType,
     tradeType,
     setSlippage,
     slippage,
@@ -110,14 +104,6 @@ export function SwapPanelWrap() {
     }
   }, [speedConfig?.slippage, setSlippage]);
 
-  const dialogRef = useRef<ReturnType<typeof Dialog.show>>(undefined);
-
-  useEffect(() => {
-    if (!media.md) {
-      void dialogRef.current?.close();
-    }
-  }, [media.md]);
-
   const handleApprove = useCallback(() => {
     void speedSwapApproveHandler();
   }, [speedSwapApproveHandler]);
@@ -126,7 +112,7 @@ export function SwapPanelWrap() {
     void speedSwapBuildTx();
   }, [speedSwapBuildTx]);
 
-  const swapPanelContent = (
+  return (
     <SwapPanelContent
       priceRate={priceRate}
       swapMevNetConfig={swapMevNetConfig}
@@ -148,27 +134,4 @@ export function SwapPanelWrap() {
       onApprove={handleApprove}
     />
   );
-
-  const showSwapDialog = (tradeTypeValue: ITradeType) => {
-    setTradeType(tradeTypeValue);
-
-    dialogRef.current = Dialog.show({
-      title: intl.formatMessage({ id: ETranslations.global_swap }),
-      renderContent: swapPanelContent,
-      showFooter: false,
-    });
-  };
-
-  if (media.md) {
-    return (
-      <Button
-        variant="primary"
-        onPress={() => showSwapDialog(ESwapDirection.BUY)}
-      >
-        {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
-      </Button>
-    );
-  }
-
-  return <>{swapPanelContent}</>;
 }
