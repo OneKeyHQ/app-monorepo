@@ -7,4 +7,3 @@ export const useIsFocusedTab = () => {
   return focusedTab === tabName;
 };
 
-export * from './hooks';
