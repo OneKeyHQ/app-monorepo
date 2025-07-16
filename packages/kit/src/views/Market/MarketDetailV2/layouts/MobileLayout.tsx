@@ -1,91 +1,84 @@
-import { useMemo } from 'react';
+import { useState } from 'react';
 
-import { Stack, Tab } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Button, ScrollView, Stack, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   InformationPanel,
-  InformationTabs,
   MarketTradingView,
   SwapPanel,
   TokenActivityOverview,
   TokenDetailHeader,
   TokenOverview,
 } from '../components';
+import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
 import { useTokenDetail } from '../hooks/useTokenDetail';
-
-// Extract component definitions outside render to prevent re-creation on each render
-const createChartPageComponent = (
-  tokenAddress: string,
-  networkId: string,
-  tokenSymbol?: string,
-) => {
-  const Component = () => (
-    <>
-      {/* Information Panel */}
-      <InformationPanel />
-
-      <Stack h={300}>
-        <MarketTradingView
-          tokenAddress={tokenAddress}
-          networkId={networkId}
-          tokenSymbol={tokenSymbol}
-        />
-      </Stack>
-
-      {/* Information tabs */}
-      <Stack h={300}>
-        <InformationTabs />
-      </Stack>
-    </>
-  );
-  Component.displayName = 'ChartPageComponent';
-  return Component;
-};
-
-const createOverviewPageComponent = () => {
-  const Component = () => (
-    <>
-      {/* Token Stats */}
-      <TokenOverview />
-
-      {/* Activity overview (only in overview tab) */}
-      <TokenActivityOverview />
-    </>
-  );
-  Component.displayName = 'OverviewPageComponent';
-  return Component;
-};
 
 export function MobileLayout() {
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
+  const [activeTab, setActiveTab] = useState<'chart' | 'overview'>('chart');
+  const intl = useIntl();
 
-  // Memoize Chart and Overview components to avoid re-creation on each render
-  const ChartPageComponent = useMemo(
-    () =>
-      createChartPageComponent(tokenAddress, networkId, tokenDetail?.symbol),
-    [tokenAddress, networkId, tokenDetail?.symbol],
-  );
+  const renderContent = () => {
+    if (activeTab === 'chart') {
+      return (
+        <ScrollView>
+          {/* Information Panel */}
+          <InformationPanel />
 
-  const OverviewPageComponent = useMemo(
-    () => createOverviewPageComponent(),
-    [],
-  );
+          <Stack h={300}>
+            <MarketTradingView
+              tokenAddress={tokenAddress}
+              networkId={networkId}
+              tokenSymbol={tokenDetail?.symbol}
+            />
+          </Stack>
 
-  const tabs = useMemo(
-    () => [
-      { id: 'chart', title: 'Chart', page: ChartPageComponent },
-      { id: 'overview', title: 'Overview', page: OverviewPageComponent },
-    ],
-    [ChartPageComponent, OverviewPageComponent],
-  );
+          {/* Information tabs */}
+          <Stack h={300}>
+            <MobileInformationTabs />
+          </Stack>
+        </ScrollView>
+      );
+    }
+    return (
+      <ScrollView>
+        {/* Token Stats */}
+        <TokenOverview />
+
+        {/* Activity overview (only in overview tab) */}
+        <TokenActivityOverview />
+      </ScrollView>
+    );
+  };
 
   return (
     <>
       {/* Header */}
       <TokenDetailHeader showStats={false} showMediaAndSecurity={false} />
 
-      {/* Main Content: Chart / Overview Tabs */}
-      <Tab data={tabs} />
+      {/* Switch Buttons */}
+      <XStack p="$4" gap="$2">
+        <Button
+          flex={1}
+          variant={activeTab === 'chart' ? 'primary' : 'secondary'}
+          onPress={() => setActiveTab('chart')}
+        >
+          {intl.formatMessage({ id: ETranslations.market_chart })}
+        </Button>
+        <Button
+          flex={1}
+          variant={activeTab === 'overview' ? 'primary' : 'secondary'}
+          onPress={() => setActiveTab('overview')}
+        >
+          {intl.formatMessage({ id: ETranslations.global_overview })}
+        </Button>
+      </XStack>
+
+      {/* Main Content */}
+      {renderContent()}
 
       {/* Swap panel placed outside the tabs for global visibility */}
       <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />

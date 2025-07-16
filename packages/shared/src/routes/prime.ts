@@ -5,6 +5,7 @@ export enum EPrimePages {
   PrimeDeviceLimit = 'PrimeDeviceLimit',
   PrimeCloudSync = 'PrimeCloudSync',
   PrimeCloudSyncDebug = 'PrimeCloudSyncDebug',
+  PrimeCloudSyncInfo = 'PrimeCloudSyncInfo',
   PrimeFeatures = 'PrimeFeatures',
   PrimeDeleteAccount = 'PrimeDeleteAccount',
 }
@@ -24,6 +25,7 @@ export type IPrimeParamList = {
   };
   [EPrimePages.PrimeCloudSync]: undefined;
   [EPrimePages.PrimeCloudSyncDebug]: undefined;
+  [EPrimePages.PrimeCloudSyncInfo]: undefined;
   [EPrimePages.PrimeFeatures]: {
     selectedFeature?: EPrimeFeatures;
     selectedSubscriptionPeriod?: ISubscriptionPeriod;

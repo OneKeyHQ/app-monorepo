@@ -69,7 +69,7 @@ function SimpleTabHeader({
             {typeof renderTitle(item, isActive) === 'string' ? (
               <SizableText
                 size="$bodyMdMedium"
-                color={isActive ? '$textInteractive' : '$text'}
+                color={isActive ? '$textSubdued' : '$text'}
               >
                 {renderTitle(item, isActive)}
               </SizableText>
@@ -153,28 +153,14 @@ export function MarketMobileTabs({
         renderTitle={renderTitle}
       />
       <Stack flex={1} position="relative">
-        {/* Watchlist Tab Content */}
-        <Stack
-          flex={1}
-          display={currentTab === EMarketHomeTab.Watchlist ? 'flex' : 'none'}
-        >
-          <MarketTokenList
-            networkId={selectedNetworkId}
-            liquidityFilter={liquidityFilter}
-          />
-        </Stack>
-
-        {/* Trending Tab Content */}
-        <Stack
-          flex={1}
-          display={currentTab === EMarketHomeTab.Trending ? 'flex' : 'none'}
-        >
+        {currentTab === EMarketHomeTab.Trending ? (
           <MarketFilterBarSmall {...filterBarProps} />
-          <MarketTokenList
-            networkId={selectedNetworkId}
-            liquidityFilter={liquidityFilter}
-          />
-        </Stack>
+        ) : null}
+
+        <MarketTokenList
+          networkId={selectedNetworkId}
+          liquidityFilter={liquidityFilter}
+        />
       </Stack>
     </Stack>
   );
