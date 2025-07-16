@@ -230,7 +230,7 @@ function TokenDetailsView() {
     indexedAccountId,
   ]);
 
-  const renderTokenDetailsView = useCallback(() => {
+  const tokenDetailsViewElement = useMemo(() => {
     if (isLoading)
       return (
         <Stack
@@ -291,7 +291,7 @@ function TokenDetailsView() {
         headerTitleStyle={headerTitleStyle}
         headerRight={headerRight}
       />
-      <Page.Body>{renderTokenDetailsView()}</Page.Body>
+      <Page.Body>{tokenDetailsViewElement}</Page.Body>
       <TokenDetailsFooter networkId={networkId} />
     </Page>
   );
