@@ -1,32 +1,28 @@
 diff --git a/node_modules/react-beautiful-dnd/dist/react-beautiful-dnd.esm.js b/node_modules/react-beautiful-dnd/dist/react-beautiful-dnd.esm.js
-index ecced69..fed3f81 100644
+index ecced69..aea2e11 100644
 --- a/node_modules/react-beautiful-dnd/dist/react-beautiful-dnd.esm.js
 +++ b/node_modules/react-beautiful-dnd/dist/react-beautiful-dnd.esm.js
-@@ -8244,16 +8244,16 @@ function Droppable(props) {
-   var placeholderRef = useRef(null);
-   var children = props.children,
-       droppableId = props.droppableId,
--      type = props.type,
--      mode = props.mode,
--      direction = props.direction,
--      ignoreContainerClipping = props.ignoreContainerClipping,
--      isDropDisabled = props.isDropDisabled,
--      isCombineEnabled = props.isCombineEnabled,
-+      type = props.type || 'DEFAULT',
-+      mode = props.mode || 'standard',
-+      direction = props.direction || 'vertical',
-+      ignoreContainerClipping = props.ignoreContainerClipping || false,
-+      isDropDisabled = props.isDropDisabled || false,
-+      isCombineEnabled = props.isCombineEnabled || false,
-       snapshot = props.snapshot,
-       useClone = props.useClone,
-       updateViewportMaxScroll = props.updateViewportMaxScroll,
--      getContainerForClone = props.getContainerForClone;
-+      getContainerForClone = props.getContainerForClone || getBody;
-   var getDroppableRef = useCallback(function () {
-     return droppableRef.current;
-   }, []);
-@@ -8494,21 +8494,21 @@ function getBody() {
+@@ -8235,7 +8235,18 @@ function PublicDraggable(props) {
+   }));
+ }
+ 
+-function Droppable(props) {
++var defaultProps = {
++  mode: 'standard',
++  type: 'DEFAULT',
++  direction: 'vertical',
++  isDropDisabled: false,
++  isCombineEnabled: false,
++  ignoreContainerClipping: false,
++  renderClone: null,
++  getContainerForClone: getBody
++};
++function Droppable(passedProps) {
++  const props = _extends({}, defaultProps, passedProps);
+   var appContext = useContext(AppContext);
+   !appContext ? process.env.NODE_ENV !== "production" ? invariant(false, 'Could not find app context') : invariant(false) : void 0;
+   var contextId = appContext.contextId,
+@@ -8494,21 +8505,21 @@ function getBody() {
    return document.body;
  }
  
