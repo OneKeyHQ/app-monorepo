@@ -141,9 +141,12 @@ function NFTListView(props: IProps) {
     [extensionActiveTabDAppInfo?.showFloatingPanel],
   );
 
-  const style = useStyle(contentContainerStyle, {
-    resolveValues: 'auto',
-  });
+  const style = useStyle(
+    { ...contentContainerStyle, ...listViewStyleProps?.contentContainerStyle },
+    {
+      resolveValues: 'auto',
+    },
+  );
 
   const { ListHeaderComponentStyle, ListFooterComponentStyle } =
     listViewStyleProps || {};

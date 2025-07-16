@@ -6,4 +6,3 @@ export const useIsFocusedTab = () => {
   const tabName = useCurrentTabName();
   return focusedTab === tabName;
 };
-
