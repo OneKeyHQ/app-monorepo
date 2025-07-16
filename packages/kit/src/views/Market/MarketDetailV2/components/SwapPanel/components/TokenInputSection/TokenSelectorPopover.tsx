@@ -33,21 +33,13 @@ export function TokenSelectorPopover({
       open={isOpen}
       onOpenChange={onOpenChange}
       renderContent={
-        <AccountSelectorProviderMirror
-          config={{
-            sceneName: EAccountSelectorSceneName.home,
-            sceneUrl: '',
+        <TokenList
+          onTradePress={() => {
+            onOpenChange(false);
           }}
-          enabledNum={[0]}
-        >
-          <TokenList
-            onTradePress={() => {
-              onOpenChange(false);
-            }}
-            tokens={tokens}
-            onTokenPress={onTokenPress}
-          />
-        </AccountSelectorProviderMirror>
+          tokens={tokens}
+          onTokenPress={onTokenPress}
+        />
       }
       renderTrigger={<Stack />}
     />
