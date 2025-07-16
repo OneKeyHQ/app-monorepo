@@ -1,10 +1,9 @@
-import { memo, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { XStack } from '@onekeyhq/components';
 
 import { LiquidityFilterControl } from '../LiquidityFilterControl';
 import { MarketTokenListNetworkSelector } from '../MarketTokenListNetworkSelector';
-import { MarketViewToggle } from '../MarketViewToggle';
 import { TimeRangeSelector } from '../TimeRangeSelector';
 
 import type { ILiquidityFilter } from '../../types';
@@ -55,7 +54,7 @@ function MarketFilterBarSmall({
   }
 
   return (
-    <XStack alignItems="center" gap="$6" pl="$7" pr="$5" py="$3">
+    <XStack alignItems="center" gap="$6" pl="$5" pr="$5" py="$3">
       {/* Network Selector */}
       <MarketTokenListNetworkSelector
         selectedNetworkId={selectedNetworkId}
@@ -64,11 +63,6 @@ function MarketFilterBarSmall({
         forceLoading={isLoading}
         placement="bottom-start"
       />
-
-      <XStack gap="$4">
-        {/* Market View Toggle - Trending and Watchlist buttons */}
-        <MarketViewToggle />
-      </XStack>
 
       {/* Time Range Selector */}
       <TimeRangeSelector

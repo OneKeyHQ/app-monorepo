@@ -67,6 +67,8 @@ export function useMarketTokenList({
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
     },
   );
 
