@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
+import { useSharedValue } from 'react-native-reanimated';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -14,7 +15,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
-  Tab,
+  Tabs,
   View,
   XStack,
   YStack,
@@ -127,40 +128,27 @@ export function UniversalSearch({
 
   const tabTitles = useMemo(() => {
     return [
-      {
-        title: intl.formatMessage({
-          id: ETranslations.global_all,
-        }),
-      },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.global_universal_search_tabs_wallets,
-        }),
-      },
-
-      {
-        title: intl.formatMessage({
-          id: ETranslations.global_universal_search_tabs_tokens,
-        }),
-      },
-
-      {
-        title: intl.formatMessage({
-          id: ETranslations.global_universal_search_tabs_my_assets,
-        }),
-      },
-
-      {
-        title: intl.formatMessage({
-          id: ETranslations.global_universal_search_tabs_dapps,
-        }),
-      },
+      intl.formatMessage({
+        id: ETranslations.global_all,
+      }),
+      intl.formatMessage({
+        id: ETranslations.global_universal_search_tabs_wallets,
+      }),
+      intl.formatMessage({
+        id: ETranslations.global_universal_search_tabs_tokens,
+      }),
+      intl.formatMessage({
+        id: ETranslations.global_universal_search_tabs_my_assets,
+      }),
+      intl.formatMessage({
+        id: ETranslations.global_universal_search_tabs_dapps,
+      }),
     ];
   }, [intl]);
-  const [filterType, setFilterType] = useState(tabTitles[0].title);
+  const [filterType, setFilterType] = useState(tabTitles[0]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const isInAllTab = useMemo(() => {
-    return filterType === tabTitles[0].title;
+    return filterType === tabTitles[0];
   }, [filterType, tabTitles]);
 
   const shouldUseTokensCacheData = useMemo(() => {
@@ -421,12 +409,15 @@ export function UniversalSearch({
     },
     [activeAccount?.network?.id, searchStatus],
   );
-  const handleTabSelectedPageIndex = useCallback(
-    (index: number) => {
-      setFilterType(tabTitles[index].title);
-      setSelectedIndex(index);
+
+  const focusedTab = useSharedValue(tabTitles[0]);
+  const handleTabPress = useCallback(
+    (name: string) => {
+      setFilterType(name);
+      setSelectedIndex(tabTitles.findIndex((i) => i === name));
+      focusedTab.value = name;
     },
-    [tabTitles],
+    [focusedTab, tabTitles],
   );
 
   const filterSections = useMemo(() => {
@@ -488,22 +479,14 @@ export function UniversalSearch({
       case ESearchStatus.done:
         return (
           <>
-            <XStack
-              borderColor="$borderSubdued"
-              borderWidth={0}
-              borderBottomWidth={StyleSheet.hairlineWidth}
-              mb="$3"
-            >
-              <Tab.Header
-                ref={tabRef}
-                style={{
-                  height: 44,
-                  borderBottomWidth: 0,
-                }}
-                data={tabTitles}
-                onSelectedPageIndex={handleTabSelectedPageIndex}
-              />
-            </XStack>
+            <Tabs.TabBar
+              tabNames={tabTitles}
+              onTabPress={handleTabPress}
+              focusedTab={focusedTab}
+              tabItemStyle={{
+                h: 44,
+              }}
+            />
             <SectionList
               key={`search-results-${isInAllTab ? 'all' : filterType}`}
               stickySectionHeadersEnabled
@@ -532,19 +515,20 @@ export function UniversalSearch({
         break;
     }
   }, [
-    filterSections,
-    filterType,
-    filterTypes,
-    handleTabSelectedPageIndex,
-    handleSearchTextFill,
-    intl,
-    isInAllTab,
+    searchStatus,
+    renderSectionHeader,
     recommendSections,
     renderItem,
-    renderSectionHeader,
-    renderSectionFooter,
-    searchStatus,
+    filterTypes,
+    handleSearchTextFill,
     tabTitles,
+    handleTabPress,
+    focusedTab,
+    isInAllTab,
+    filterType,
+    filterSections,
+    renderSectionFooter,
+    intl,
   ]);
 
   return (
