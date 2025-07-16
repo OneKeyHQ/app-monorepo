@@ -79,7 +79,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     }
   }, [balance, setPaymentAmount]);
   return (
-    <YStack gap="$4" py="$4">
+    <YStack gap="$4">
       {/* Trade type selector */}
       <TradeTypeSelector value={tradeType} onChange={setTradeType} />
 

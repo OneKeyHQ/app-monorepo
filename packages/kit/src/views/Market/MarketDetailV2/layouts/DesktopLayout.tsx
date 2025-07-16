@@ -60,7 +60,7 @@ export function DesktopLayout() {
         <Stack w={320}>
           <ScrollView>
             <Stack w={320}>
-              <Stack px="$4">
+              <Stack p="$4">
                 <SwapPanel
                   networkId={networkId}
                   tokenAddress={tokenDetail?.address}
