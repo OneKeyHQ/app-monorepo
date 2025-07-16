@@ -1,5 +1,7 @@
 import { uniq, uniqBy } from 'lodash';
 
+import type { CoreChainScopeBase } from '@onekeyhq/core/src/base/CoreChainScopeBase';
+import { getCoreChainApiScopeByImpl } from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   type EAddressEncodings,
   ECoreApiExportedSecretKeyType,
@@ -394,13 +396,26 @@ class ServiceNetwork extends ServiceBase {
   }: {
     networkId: string;
     account: IDBAccount;
-  }) {
+  }): Promise<{
+    deriveType: IAccountDeriveTypes;
+    deriveInfo: IAccountDeriveInfo | undefined;
+  }> {
     const { template } = account;
     const deriveTypeData = await this.getDeriveTypeByTemplate({
       accountId: account.id,
       networkId,
       template,
     });
+    if (!deriveTypeData.deriveInfo && account.address) {
+      const deriveInfo = await this.getDeriveInfoByAddress({
+        networkId,
+        address: account.address,
+      });
+      if (deriveInfo?.item && deriveInfo?.value) {
+        deriveTypeData.deriveInfo = deriveInfo?.item;
+        deriveTypeData.deriveType = deriveInfo?.value as IAccountDeriveTypes;
+      }
+    }
     return deriveTypeData;
   }
 
@@ -603,6 +618,63 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getAddressEncodingByAddress({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }): Promise<EAddressEncodings | undefined> {
+    const vault = await vaultFactory.getChainOnlyVault({
+      networkId,
+    });
+    try {
+      // validateBtcAddress
+      const vaultSetting = await vault.validateAddress(address);
+      return vaultSetting?.encoding;
+    } catch (e) {
+      console.error('getAddressEncodingByAddress error', e);
+      return undefined;
+    }
+  }
+
+  @backgroundMethod()
+  async getDeriveInfoByAddress({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }): Promise<IAccountDeriveInfoItems | undefined> {
+    const encoding = await this.getAddressEncodingByAddress({
+      networkId,
+      address,
+    });
+    if (!encoding) {
+      return undefined;
+    }
+    return this.getDeriveInfoByAddressEncoding({
+      networkId,
+      encoding,
+    });
+  }
+
+  @backgroundMethod()
+  async getDeriveTypeByAddress({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }): Promise<IAccountDeriveTypes | undefined> {
+    const deriveInfo = await this.getDeriveInfoByAddress({
+      networkId,
+      address,
+    });
+    return (deriveInfo?.value as IAccountDeriveTypes | undefined) || undefined;
+  }
+
+  @backgroundMethod()
   async getDeriveTypeByAddressEncoding({
     networkId,
     encoding,
@@ -610,10 +682,10 @@ class ServiceNetwork extends ServiceBase {
     networkId: string;
     encoding: EAddressEncodings;
   }): Promise<IAccountDeriveTypes | undefined> {
-    const items = await this.getDeriveInfoItemsOfNetwork({ networkId });
-    const deriveInfo = items.find(
-      (item) => item.item.addressEncoding === encoding,
-    );
+    const deriveInfo = await this.getDeriveInfoByAddressEncoding({
+      networkId,
+      encoding,
+    });
     return deriveInfo?.value as IAccountDeriveTypes | undefined;
   }
 
@@ -623,7 +695,7 @@ class ServiceNetwork extends ServiceBase {
   }: {
     networkId: string;
     encoding: EAddressEncodings;
-  }) {
+  }): Promise<IAccountDeriveInfoItems | undefined> {
     const items = await this.getDeriveInfoItemsOfNetwork({ networkId });
     const deriveInfo = items.find(
       (item) => item.item.addressEncoding === encoding,
@@ -1177,6 +1249,19 @@ class ServiceNetwork extends ServiceBase {
     return this.backgroundApi.simpleDb.recentNetworks.deleteRecentNetwork({
       networkId,
     });
+  }
+
+  getCoreApiByNetwork({
+    networkId,
+  }: {
+    networkId: string;
+  }): CoreChainScopeBase {
+    const impl = networkUtils.getNetworkImpl({ networkId });
+    const coreApi = getCoreChainApiScopeByImpl({ impl });
+    if (!coreApi) {
+      throw new OneKeyLocalError(`No coreApi found for networkId ${networkId}`);
+    }
+    return coreApi;
   }
 }
 

@@ -11,7 +11,7 @@ import { NATIVE_HIT_SLOP } from '../../utils';
 
 import type { ILabelProps, IXStackProps, IYStackProps } from '../../primitives';
 import type { IFormFieldProps } from '../types';
-import type { ViewStyle } from 'react-native';
+import type { GestureResponderEvent, ViewStyle } from 'react-native';
 import type { CheckedState, CheckboxProps as TMCheckboxProps } from 'tamagui';
 
 export type ICheckedState = CheckedState;
@@ -27,6 +27,7 @@ export type ICheckboxProps = IFormFieldProps<
   }
 > & {
   isUncontrolled?: boolean;
+  shouldStopPropagation?: boolean;
 };
 
 function RawCheckbox({
@@ -39,16 +40,24 @@ function RawCheckbox({
   labelContainerProps,
   defaultChecked,
   isUncontrolled,
+  shouldStopPropagation,
   ...checkboxProps
 }: ICheckboxProps) {
   const [innerValue, setInnerValue] = useState(defaultChecked);
   const usedValue = isUncontrolled ? innerValue : value;
-  const onPress = useCallback(() => {
-    if (isUncontrolled) {
-      setInnerValue(!usedValue);
-    }
-    onChange?.(!usedValue);
-  }, [isUncontrolled, onChange, usedValue]);
+  const onPress = useCallback(
+    (event: GestureResponderEvent) => {
+      if (shouldStopPropagation) {
+        event.stopPropagation();
+        event.preventDefault();
+      }
+      if (isUncontrolled) {
+        setInnerValue(!usedValue);
+      }
+      onChange?.(!usedValue);
+    },
+    [isUncontrolled, onChange, usedValue, shouldStopPropagation],
+  );
   return (
     <XStack
       py="$2"

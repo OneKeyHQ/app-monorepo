@@ -80,7 +80,7 @@ export enum EVaultKeyringTypes {
 
 // AccountNameInfo
 export type IAccountDeriveInfoItems = {
-  value: string; // IAccountDeriveTypes
+  value: string; // should as IAccountDeriveTypes
   label: string;
   item: IAccountDeriveInfo;
   description: string | undefined;

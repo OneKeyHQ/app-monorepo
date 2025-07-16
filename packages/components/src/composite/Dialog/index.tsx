@@ -88,6 +88,7 @@ export const FIX_SHEET_PROPS: IYStackProps = {
 };
 
 function DialogFrame({
+  title,
   open,
   onHeaderCloseButtonPress,
   onClose,
@@ -179,7 +180,7 @@ function DialogFrame({
 
   const media = useMedia();
 
-  const zIndex = useOverlayZIndex(open);
+  const zIndex = useOverlayZIndex(open, title);
   const renderDialogContent = (
     <Stack>
       <DialogHeader trackID={trackID} onClose={handleHeaderCloseButtonPress} />
@@ -464,6 +465,7 @@ function BaseDialogContainer(
           onOpen={handleOpen}
           renderContent={renderContent}
           onClose={handleClose}
+          title={title}
           {...props}
         />
       </DialogHeaderContext.Provider>

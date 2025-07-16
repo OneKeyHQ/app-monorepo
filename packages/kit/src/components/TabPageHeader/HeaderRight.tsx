@@ -60,6 +60,7 @@ function NotificationsButton() {
         title={intl.formatMessage({
           id: ETranslations.global_notifications,
         })}
+        trackID="header-right-notifications"
         icon="BellOutline"
         onPress={openNotificationsModal}
       />

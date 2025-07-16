@@ -188,7 +188,10 @@ export default function PageDevUnitTests() {
   const handleKeyDerivationTest = useCallback(async () => {
     try {
       const salt = Buffer.from(saltHex, 'hex');
-      const result = await keyFromPasswordAndSalt(password, salt);
+      const result = await keyFromPasswordAndSalt({
+        password,
+        salt,
+      });
       const resultHex = result.toString('hex');
       setDerivedKeyOutput(resultHex);
 

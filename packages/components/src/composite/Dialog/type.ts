@@ -86,12 +86,13 @@ interface IBasicDialogProps extends TMDialogProps {
   /* estimatedContentHeight is a single numeric value that hints Dialog about the approximate size of the content before they're rendered.  */
   estimatedContentHeight?: number;
   renderContent?: ReactNode;
+  // close on overlay or backdrop press
   dismissOnOverlayPress?: TMSheetProps['dismissOnOverlayPress'];
   sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
   sheetOverlayProps?: IYStackProps;
   floatingPanelProps?: TMDialogContentProps;
   contextValue?: IDialogContextType;
-  disableDrag?: boolean;
+  disableDrag?: boolean; // disable drag gesture to close
   testID?: string;
   onConfirm?: IOnDialogConfirm;
   onCancel?: (close: () => Promise<void>) => void;

@@ -17,7 +17,7 @@ import {
   Page,
   Spinner,
   Stack,
-  Tab,
+  Tabs,
   getFontToken,
   useClipboard,
   useMedia,
@@ -73,6 +73,7 @@ export type IProps = {
   isTabView?: boolean;
   listViewContentContainerStyle?: IListViewProps<IAccountHistoryTx>['contentContainerStyle'];
   indexedAccountId?: string;
+  inTabList?: boolean;
   ListHeaderComponent?: ISectionListProps<any>['ListHeaderComponent'];
 } & IStackProps;
 function TokenDetailsView() {
@@ -190,25 +191,21 @@ function TokenDetailsView() {
     [fontColor],
   );
 
-  const { gtMd } = useMedia();
-  const { width } = useWindowDimensions();
-
-  const contentItemWidth = useMemo(() => {
-    if (platformEnv.isNative) {
-      return undefined;
-    }
-    return gtMd ? 640 : width;
-  }, [gtMd, width]);
-
   const listViewContentContainerStyle = useMemo(() => ({ pt: '$5' }), []);
   const tabs = useMemo(() => {
     if (networkId && walletId) {
-      return result?.networkAccounts.map((item) => ({
-        title: item.deriveInfo.labelKey
-          ? intl.formatMessage({ id: item.deriveInfo.labelKey })
-          : item.deriveInfo.label ?? '',
-        page: () => (
+      return result?.networkAccounts.map((item, index) => (
+        <Tabs.Tab
+          key={String(index)}
+          name={
+            item.deriveInfo.labelKey
+              ? intl.formatMessage({ id: item.deriveInfo.labelKey })
+              : item.deriveInfo.label ?? String(index)
+          }
+        >
           <TokenDetailsViews
+            inTabList
+            isTabView
             accountId={item.account?.id ?? ''}
             networkId={networkId}
             walletId={walletId}
@@ -218,10 +215,9 @@ function TokenDetailsView() {
             isAllNetworks={isAllNetworks}
             listViewContentContainerStyle={listViewContentContainerStyle}
             indexedAccountId={indexedAccountId}
-            isTabView
           />
-        ),
-      }));
+        </Tabs.Tab>
+      ));
     }
 
     return [];
@@ -236,7 +232,7 @@ function TokenDetailsView() {
     indexedAccountId,
   ]);
 
-  const renderTokenDetailsView = useCallback(() => {
+  const tokenDetailsViewElement = useMemo(() => {
     if (isLoading)
       return (
         <Stack
@@ -254,13 +250,9 @@ function TokenDetailsView() {
     ) {
       if (tabs && !isEmpty(tabs) && tabs.length > 1) {
         return (
-          <Tab
-            disableRefresh
-            data={tabs}
-            contentItemWidth={contentItemWidth as any}
-            initialScrollIndex={0}
-            showsVerticalScrollIndicator={false}
-          />
+          <Tabs.Container renderTabBar={(props) => <Tabs.TabBar {...props} />}>
+            {tabs}
+          </Tabs.Container>
         );
       }
       return null;
@@ -292,7 +284,6 @@ function TokenDetailsView() {
     indexedAccountId,
     listViewContentContainerStyle,
     tabs,
-    contentItemWidth,
   ]);
 
   return (
@@ -302,7 +293,7 @@ function TokenDetailsView() {
         headerTitleStyle={headerTitleStyle}
         headerRight={headerRight}
       />
-      <Page.Body>{renderTokenDetailsView()}</Page.Body>
+      <Page.Body>{tokenDetailsViewElement}</Page.Body>
       <TokenDetailsFooter networkId={networkId} />
     </Page>
   );

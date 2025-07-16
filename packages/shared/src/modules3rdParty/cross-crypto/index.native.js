@@ -31,13 +31,25 @@ if (process.env.NODE_ENV !== 'production') {
 const crypto = require('react-native-crypto');
 
 const { randomBytes } = require('@noble/hashes/utils');
+const uuid = require('react-native-uuid');
+
+// TODO polyfill randomUUID may cause RevenueCat not ready
+// const randomUUID = () => {
+//   const result = uuid.v4();
+//   console.log('randomUUID', result);
+//   return result;
+// };
+const randomUUID = undefined;
 
 // re-assign randomBytes from global.crypto.getRandomValues
 crypto.randomBytes = randomBytes;
+crypto.randomUUID = crypto.randomUUID || randomUUID;
 crypto.getRandomValues =
   crypto.getRandomValues || globalThis.crypto.getRandomValues;
 globalThis.crypto.randomBytes =
   globalThis.crypto.randomBytes || crypto.randomBytes;
+globalThis.crypto.randomUUID =
+  globalThis.crypto.randomUUID || crypto.randomUUID;
 
 crypto.$$isOneKeyShim = true;
 globalThis.crypto.$$isOneKeyShim = true;

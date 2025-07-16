@@ -69,20 +69,19 @@ export function TransactionsHistory({
   }
 
   const list = (
-    <ListView<IMarketTokenTransaction>
-      data={transactions}
-      renderItem={renderItem}
-      keyExtractor={(item) => item.hash}
-      estimatedItemSize={40}
-      showsVerticalScrollIndicator
-      ListHeaderComponent={
-        gtLg ? TransactionsHeaderNormal : TransactionsHeaderSmall
-      }
-      stickyHeaderIndices={[0]}
-      contentContainerStyle={{
-        paddingBottom: '$4',
-      }}
-    />
+    <>
+      {gtLg ? <TransactionsHeaderNormal /> : <TransactionsHeaderSmall />}
+      <ListView<IMarketTokenTransaction>
+        data={transactions}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.hash}
+        estimatedItemSize={40}
+        showsVerticalScrollIndicator
+        contentContainerStyle={{
+          paddingBottom: '$4',
+        }}
+      />
+    </>
   );
 
   if (gtLg && shouldEnableScroll) {

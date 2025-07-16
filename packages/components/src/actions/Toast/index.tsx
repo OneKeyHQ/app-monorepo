@@ -262,7 +262,8 @@ export const Toast = {
     ...others
   }: IShowToasterProps): IToastShowResult => {
     dismissKeyboard();
-    let instanceRef: RefObject<IShowToasterInstance | null> | undefined;
+    let instanceRef: RefObject<IShowToasterInstance | null> | undefined =
+      createRef();
     let portalRef:
       | {
           current: IPortalManager;

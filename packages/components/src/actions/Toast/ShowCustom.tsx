@@ -1,7 +1,6 @@
 import type { ForwardedRef, PropsWithChildren } from 'react';
 import {
   createContext,
-  forwardRef,
   useCallback,
   useContext,
   useImperativeHandle,
@@ -41,18 +40,16 @@ export type IContextType = {
 const CustomToasterContext = createContext({} as IContextType);
 const SHOW_TOAST_VIEWPORT_NAME = 'SHOW_TOAST_VIEWPORT_NAME';
 let toastNameIndex = 0;
-function BasicShowToaster(
-  {
-    children,
-    onClose,
-    duration = Infinity,
-    dismissOnOverlayPress = true,
-    open,
-    onOpenChange,
-    name,
-  }: IShowToasterProps,
-  ref: ForwardedRef<IShowToasterInstance>,
-) {
+function BasicShowToaster({
+  children,
+  onClose,
+  duration = Infinity,
+  dismissOnOverlayPress = true,
+  open,
+  onOpenChange,
+  name,
+  ref,
+}: IShowToasterProps & { ref?: ForwardedRef<IShowToasterInstance> }) {
   const containerName = useMemo(() => {
     if (name) {
       return name;
@@ -175,6 +172,4 @@ export function ShowToasterClose({ children }: PropsWithChildren) {
   return <Trigger onPress={handleClose}>{children}</Trigger>;
 }
 
-export const ShowCustom = forwardRef<IShowToasterInstance, IShowToasterProps>(
-  BasicShowToaster,
-);
+export const ShowCustom = BasicShowToaster;
