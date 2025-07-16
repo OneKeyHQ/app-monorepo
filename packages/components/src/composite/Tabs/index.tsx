@@ -19,3 +19,5 @@ export const Tabs = {
 } as unknown as typeof NativeTabs & {
   TabBar: typeof TabBar;
 };
+
+export * from './hooks';

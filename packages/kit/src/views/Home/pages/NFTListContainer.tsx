@@ -326,7 +326,6 @@ function NFTListContainer(_props: ITabPageProps) {
 
   return (
     <NFTListView
-      inTabList
       data={nftList ?? []}
       isLoading={nftListState.isRefreshing}
       initialized={nftListState.initialized}

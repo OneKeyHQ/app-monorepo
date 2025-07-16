@@ -38,7 +38,7 @@ export function ContainerChild({
         maxWidth={props.width}
         overflow="hidden"
       >
-        <XStack w={props.width * 3}>
+        <XStack w={props.width * Children.count(children)}>
           {Children.map(children, (child, index) => {
             return (
               <div style={{ flex: 1 }} key={index}>
@@ -95,6 +95,9 @@ export function Container({
   const isSwitchingTabRef = useRef(false);
 
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const updateListContainerHeightTimerId = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
   const updateListContainerHeight = useCallback(() => {
     if (listContainerRef.current) {
       if (resizeObserverRef.current) {
@@ -120,7 +123,10 @@ export function Container({
           );
         }, 100);
       } else {
-        setTimeout(updateListContainerHeight, 250);
+        updateListContainerHeightTimerId.current = setTimeout(
+          updateListContainerHeight,
+          250,
+        );
       }
     }
   }, [focusedTab]);
@@ -131,6 +137,9 @@ export function Container({
     return () => {
       if (resizeObserverRef.current) {
         resizeObserverRef.current.disconnect();
+      }
+      if (updateListContainerHeightTimerId.current) {
+        clearTimeout(updateListContainerHeightTimerId.current);
       }
     };
   }, [updateListContainerHeight]);
