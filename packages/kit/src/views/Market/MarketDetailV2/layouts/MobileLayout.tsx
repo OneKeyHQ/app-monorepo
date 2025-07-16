@@ -7,13 +7,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   InformationPanel,
-  InformationTabs,
   MarketTradingView,
   SwapPanel,
   TokenActivityOverview,
   TokenDetailHeader,
   TokenOverview,
 } from '../components';
+import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
 export function MobileLayout() {
@@ -24,7 +24,7 @@ export function MobileLayout() {
   const renderContent = () => {
     if (activeTab === 'chart') {
       return (
-        <>
+        <ScrollView>
           {/* Information Panel */}
           <InformationPanel />
 
@@ -38,19 +38,19 @@ export function MobileLayout() {
 
           {/* Information tabs */}
           <Stack h={300}>
-            <InformationTabs />
+            <MobileInformationTabs />
           </Stack>
-        </>
+        </ScrollView>
       );
     }
     return (
-      <>
+      <ScrollView>
         {/* Token Stats */}
         <TokenOverview />
 
         {/* Activity overview (only in overview tab) */}
         <TokenActivityOverview />
-      </>
+      </ScrollView>
     );
   };
 
@@ -77,11 +77,11 @@ export function MobileLayout() {
         </Button>
       </XStack>
 
-      {/* Swap panel placed outside the tabs for global visibility */}
-      <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />
-
       {/* Main Content */}
       {renderContent()}
+
+      {/* Swap panel placed outside the tabs for global visibility */}
+      <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />
     </>
   );
 }
