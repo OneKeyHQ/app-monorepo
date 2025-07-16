@@ -11,7 +11,6 @@ import {
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { HARDWARE_SDK_VERSION } from '@onekeyhq/shared/src/config/appConfig';
 import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
-import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
@@ -58,6 +57,7 @@ import {
 import ServiceBase from '../ServiceBase';
 
 import { DeviceSettingsManager } from './DeviceSettingsManager';
+import { HardwareConnectionManager } from './HardwareConnectionManager';
 import { HardwareVerifyManager } from './HardwareVerifyManager';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
@@ -209,6 +209,10 @@ class ServiceHardware extends ServiceBase {
     backgroundApi: this.backgroundApi,
   });
 
+  connectionManager: HardwareConnectionManager = new HardwareConnectionManager({
+    backgroundApi: this.backgroundApi,
+  });
+
   private registeredEvents = false;
 
   checkSdkVersionValid() {
@@ -241,7 +245,8 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
-  async getSDKInstance() {
+  async getSDKInstance(options?: { skipTransportDetection?: boolean }) {
+    const { skipTransportDetection = false } = options || {};
     this.checkSdkVersionValid();
 
     const { hardwareConnectSrc } = await settingsPersistAtom.get();
@@ -253,8 +258,40 @@ class ServiceHardware extends ServiceBase {
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'showDeviceDebugLogs',
       );
-    const hardwareTransportType =
-      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+
+    let hardwareTransportType =
+      await this.connectionManager.getCurrentTransportType();
+    let shouldSwitch = false;
+
+    // Desktop Auto switch transport type
+    if (platformEnv.isSupportDesktopBle) {
+      if (!skipTransportDetection) {
+        // Check if we should switch transport type based on optimal connection strategy
+        const result = await this.connectionManager.shouldSwitchTransportType();
+        shouldSwitch = result.shouldSwitch;
+        hardwareTransportType = result.targetType;
+      }
+      // If transport type needs to be switched, update it
+      if (shouldSwitch) {
+        const currentTransportType =
+          await this.connectionManager.getCurrentTransportType();
+        console.log(
+          `🔄 TRANSPORT SWITCH: ${
+            currentTransportType ?? 'null'
+          } → ${hardwareTransportType}`,
+        );
+
+        // Reset SDK instance to use new transport type
+        await resetHardwareSDKInstance();
+        this.registeredEvents = false;
+
+        console.log('✅ TRANSPORT SWITCH: SDK reset completed');
+      }
+    }
+
+    // Update the connection manager's current transport type AFTER switch logic
+    this.connectionManager.setCurrentTransportType(hardwareTransportType);
+
     try {
       const instance = await getHardwareSDKInstance({
         hardwareTransportType,
@@ -264,11 +301,13 @@ class ServiceHardware extends ServiceBase {
         hardwareConnectSrc,
         debugMode,
       });
+
       // TODO re-register events when hardwareConnectSrc or isPreRelease changed
       await this.checkBridgeAndFallbackToWebUSB({
         hardwareSDKInstance: instance,
       });
       await this.registerSdkEvents(instance);
+
       return instance;
     } catch (error) {
       // always show error toast when sdk init, so user can report to us
@@ -662,15 +701,19 @@ class ServiceHardware extends ServiceBase {
     }
 
     const fn = async () => {
-      const sdk = await this.getSDKInstance();
+      // For cancel operations, skip transport detection to avoid unnecessary /enumerate calls
+      const sdk = await this.getSDKInstance({ skipTransportDetection: true });
       // sdk.cancel() always cause device re-emit UI_EVENT:  ui-close_window
 
       // cancel the hardware process
       // (cancel not working on enter pin on device mode, use getFeatures() later)
       try {
+        // For cancel operations, use getCompatibleConnectId but skip transport detection
+        // to avoid unnecessary /enumerate calls while still getting the correct connectId
         const compatibleConnectId = connectId
           ? await this.getCompatibleConnectId({
               connectId,
+              skipTransportDetection: true,
             })
           : undefined;
         sdk.cancel(compatibleConnectId);
@@ -1117,6 +1160,7 @@ class ServiceHardware extends ServiceBase {
       const compatibleConnectId = await this.getCompatibleConnectId({
         connectId: params.connectId,
         featuresDeviceId: params.deviceId,
+        skipTransportDetection: true, // Skip detection during EVM address retrieval
       });
       const hardwareSDK = await this.getSDKInstance();
       await timerUtils.wait(600);
@@ -1158,6 +1202,7 @@ class ServiceHardware extends ServiceBase {
       const compatibleConnectId = await this.getCompatibleConnectId({
         connectId,
         featuresDeviceId: deviceId,
+        skipTransportDetection: true, // Skip detection during XFP generation
       });
       const hardwareSDK = await this.getSDKInstance();
       await timerUtils.wait(600);
@@ -1411,10 +1456,12 @@ class ServiceHardware extends ServiceBase {
     connectId,
     featuresDeviceId,
     features,
+    skipTransportDetection = false,
   }: {
     connectId?: string;
     featuresDeviceId?: string | undefined | null; // rawDeviceId
     features?: IOneKeyDeviceFeatures;
+    skipTransportDetection?: boolean; // Skip transport type detection for performance
   }) {
     if (!connectId) {
       throw new OneKeyLocalError('connectId is required');
@@ -1427,38 +1474,52 @@ class ServiceHardware extends ServiceBase {
       features,
     });
 
-    if (platformEnv.isDesktop) {
-      const transportType =
-        await this.backgroundApi.serviceSetting.getHardwareTransportType();
+    if (!platformEnv.isSupportDesktopBle) {
+      return device?.connectId || connectId;
+    }
 
-      if (transportType === EHardwareTransportType.DesktopWebBle) {
-        if (device?.bleConnectId) {
-          // Device found in DB and has BLE connectId, use it
-          return device.bleConnectId;
-        }
-        if (!device) {
-          return connectId;
-        }
-        if (device && !device.bleConnectId) {
-          // Use servicePromise to wait for UI dialog to complete BLE pairing
-          const bleConnectId = await new Promise<string>((resolve, reject) => {
-            const promiseId = this.backgroundApi.servicePromise.createCallback({
-              resolve,
-              reject,
-            });
+    // Determine the transport type to use
+    let targetTransportType: EHardwareTransportType;
 
-            // Emit event for UI dialog with promiseId
-            appEventBus.emit(EAppEventBusNames.DesktopBleRepairRequired, {
-              connectId,
-              deviceId: featuresDeviceId || undefined,
-              deviceName: features?.label || device.name,
-              features,
-              promiseId,
-            });
+    if (skipTransportDetection) {
+      // Skip detection and use current transport type
+      const currentTransportType =
+        await this.connectionManager.getCurrentTransportType();
+      targetTransportType = currentTransportType;
+    } else {
+      // Perform transport type detection
+      const result = await this.connectionManager.shouldSwitchTransportType();
+      targetTransportType = result.targetType;
+    }
+
+    // Handle connection logic based on transport type
+    if (targetTransportType === EHardwareTransportType.DesktopWebBle) {
+      if (device?.bleConnectId) {
+        // Device found in DB and has BLE connectId, use it
+        return device.bleConnectId;
+      }
+      if (!device) {
+        return connectId;
+      }
+      if (device && !device.bleConnectId) {
+        // Use servicePromise to wait for UI dialog to complete BLE pairing
+        const bleConnectId = await new Promise<string>((resolve, reject) => {
+          const promiseId = this.backgroundApi.servicePromise.createCallback({
+            resolve,
+            reject,
           });
 
-          return bleConnectId;
-        }
+          // Emit event for UI dialog with promiseId
+          appEventBus.emit(EAppEventBusNames.DesktopBleRepairRequired, {
+            connectId,
+            deviceId: featuresDeviceId || undefined,
+            deviceName: features?.label || device.name,
+            features,
+            promiseId,
+          });
+        });
+
+        return bleConnectId;
       }
     }
 
