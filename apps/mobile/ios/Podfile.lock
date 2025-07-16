@@ -1739,6 +1739,30 @@ PODS:
     - Yoga
   - react-native-netinfo (11.4.1):
     - React-Core
+  - react-native-pager-view (6.8.1):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.11.18.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - react-native-safe-area-context (5.4.1):
     - DoubleConversion
     - glog
@@ -2426,8 +2450,30 @@ PODS:
     - ReactCommon/turbomodule/core
     - SSZipArchive (~> 2.5.5)
     - Yoga
-  - RNFlashList (1.6.3):
+  - RNFlashList (2.0.0-rc.11):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.11.18.00)
+    - RCTRequired
+    - RCTTypeSafety
     - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - RNGestureHandler (2.27.1):
     - DoubleConversion
     - glog
@@ -2909,6 +2955,7 @@ DEPENDENCIES:
   - "react-native-lite-card (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
   - react-native-mmkv (from `../../../node_modules/react-native-mmkv`)
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
+  - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
   - "react-native-slider (from `../../../node_modules/@react-native-community/slider`)"
   - "react-native-tab-page-view (from `../../../node_modules/@onekeyfe/react-native-tab-page-view`)"
@@ -3168,6 +3215,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-mmkv"
   react-native-netinfo:
     :path: "../../../node_modules/@react-native-community/netinfo"
+  react-native-pager-view:
+    :path: "../../../node_modules/react-native-pager-view"
   react-native-safe-area-context:
     :path: "../../../node_modules/react-native-safe-area-context"
   react-native-slider:
@@ -3385,6 +3434,7 @@ SPEC CHECKSUMS:
   react-native-lite-card: 9542785a69b22ef0bdc3ed799d76e104a32d2de4
   react-native-mmkv: c8da06f2c3ed40726ac6b51ed4e3653d099f0b6a
   react-native-netinfo: cec9c4e86083cb5b6aba0e0711f563e2fbbff187
+  react-native-pager-view: 38d37b9c7dcddfacf97ad4a0a1ee7a6db7b85b76
   react-native-safe-area-context: 8cf8caf5fc0f5a5d3581b650579af9c85c16be04
   react-native-slider: 0c0125010b5299e647eb5d955b58133fb4eb34e4
   react-native-tab-page-view: 16a35c02cbc698f0b592c2c2da533eb893136bf5
@@ -3434,7 +3484,7 @@ SPEC CHECKSUMS:
   RNCAsyncStorage: b582a51d35079f9f2ae1c6e63ae39704a445627e
   RNDeviceInfo: d863506092aef7e7af3a1c350c913d867d795047
   RNFileLogger: 52442d388d36b29b1e7884b5ffbfa916ecfbc06b
-  RNFlashList: 1076a3fb7c4608a8cdf265f0783592b8fc41b6a7
+  RNFlashList: dfe8eb41445dadfa9178ed60fec3d9f37c3400c0
   RNGestureHandler: 6b48571964d1b4302f531bb07f8360399a02200a
   RNImageCropPicker: de6a16085ad4e4c67850b0c662d1d333d367cc59
   RNNotifee: 3978eab0eb24f9c2ee6ee0440ee7c50748803559

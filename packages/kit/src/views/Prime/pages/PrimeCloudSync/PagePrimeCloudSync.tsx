@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IIconProps } from '@onekeyhq/components';
 import {
   Badge,
   Button,
@@ -112,7 +111,9 @@ function EnableOneKeyCloudSwitchListItem() {
 
   return (
     <ListItem
-      title="OneKey Cloud"
+      title={intl.formatMessage({
+        id: ETranslations.global_onekey_cloud,
+      })}
       icon="CloudOutline"
       subtitle={`${intl.formatMessage({
         id: ETranslations.prime_last_update,
@@ -223,123 +224,20 @@ function EnableOneKeyCloudSwitchListItem() {
 
 function WhatDataIncludedListItem() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
+
   return (
     <ListItem
       title={intl.formatMessage({
-        id: ETranslations.prime_what_data_included,
+        id: ETranslations.prime_about_cloud_sync,
       })}
       icon="QuestionmarkOutline"
       subtitle={intl.formatMessage({
-        id: ETranslations.prime_what_data_included_description,
+        id: ETranslations.prime_about_cloud_sync_description,
       })}
       drillIn
       onPress={() => {
-        const sectionProps = {
-          titleProps: {
-            paddingHorizontal: 0,
-          },
-        };
-        const listItemProps: {
-          px: number;
-          mx: number;
-          icon: IIconProps['name'];
-          iconProps?: IIconProps;
-        } = {
-          px: 0,
-          mx: 0,
-          icon: 'CheckRadioSolid',
-          iconProps: {
-            color: '$iconSuccess',
-          },
-        };
-        Dialog.show({
-          title: intl.formatMessage({
-            id: ETranslations.prime_what_data_included,
-          }),
-          showCancelButton: false,
-          showConfirmButton: false,
-          renderContent: (
-            <Stack>
-              <SizableText>
-                {intl.formatMessage({
-                  id: ETranslations.prime_what_data_included_description_long,
-                })}
-              </SizableText>
-              <Stack mt="$2">
-                <Section
-                  title={intl.formatMessage({
-                    id: ETranslations.global_wallet,
-                  })}
-                  {...sectionProps}
-                >
-                  <ListItem
-                    {...listItemProps}
-                    title={intl.formatMessage({
-                      id: ETranslations.prime_wallet_list,
-                    })}
-                    subtitle={intl.formatMessage({
-                      id: ETranslations.prime_wallet_list_description,
-                    })}
-                  />
-                  <ListItem
-                    {...listItemProps}
-                    title={intl.formatMessage({
-                      id: ETranslations.prime_custom_token_n_network,
-                    })}
-                  />
-                </Section>
-
-                <Section
-                  title={intl.formatMessage({
-                    id: ETranslations.global_browser,
-                  })}
-                  {...sectionProps}
-                >
-                  <ListItem
-                    {...listItemProps}
-                    title={intl.formatMessage({
-                      id: ETranslations.explore_bookmarks,
-                    })}
-                  />
-                </Section>
-
-                <Section
-                  title={intl.formatMessage({
-                    id: ETranslations.global_market,
-                  })}
-                  {...sectionProps}
-                >
-                  <ListItem
-                    {...listItemProps}
-                    title={intl.formatMessage({
-                      id: ETranslations.global_watchlist,
-                    })}
-                  />
-                </Section>
-
-                <Section
-                  title={intl.formatMessage({
-                    id: ETranslations.global_settings,
-                  })}
-                  {...sectionProps}
-                >
-                  <ListItem
-                    {...listItemProps}
-                    title={intl.formatMessage({
-                      id: ETranslations.settings_address_book,
-                    })}
-                  />
-                  <ListItem
-                    {...listItemProps}
-                    title={intl.formatMessage({
-                      id: ETranslations.custom_rpc_title,
-                    })}
-                  />
-                </Section>
-              </Stack>
-            </Stack>
-          ),
-        });
+        navigation.navigate(EPrimePages.PrimeCloudSyncInfo);
       }}
     />
   );
@@ -414,6 +312,7 @@ function WalletSection() {
 }
 
 export default function PagePrimeCloudSync() {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   useEffect(() => {
     void backgroundApiProxy.servicePrimeCloudSync.showAlertDialogIfLocalPasswordNotSet();
@@ -421,7 +320,11 @@ export default function PagePrimeCloudSync() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header title="OneKey Cloud" />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.global_onekey_cloud,
+        })}
+      />
       <Page.Body>
         <AppDataSection />
         <Divider mt="$5" mb="$2" />

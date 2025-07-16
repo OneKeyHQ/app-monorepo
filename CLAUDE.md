@@ -181,6 +181,20 @@ The import hierarchy must be respected to prevent circular dependencies:
 - Always use translation keys instead of hardcoding text strings
 - Follow the established pattern for translation keys: `namespace__action_or_description`
 
+### Updating Translation Keys
+1. **Direct translation from design specs**: Update i18n directly based on design spec annotations without searching existing translation keys
+2. Run `yarn fetch:locale` to pull the latest translation keys from the remote system
+3. This command automatically updates `@onekeyhq/shared/src/locale/enum/translations.ts` with new translation enums
+4. For design spec translation keys like `prime::restore_purchases`, convert to code format:
+   - Replace `::` with `_` (underscore)
+   - Use the enum: `ETranslations.prime_restore_purchases`
+   - In component code:
+     ```tsx
+     {intl.formatMessage({
+       id: ETranslations.prime_restore_purchases,
+     })}
+     ```
+
 ### Locale Handling
 - The system uses automatic locale detection with fallbacks
 - Default locale fallback chain is implemented in `getDefaultLocale.ts`

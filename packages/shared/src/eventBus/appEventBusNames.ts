@@ -86,7 +86,6 @@ export enum EAppEventBusNames {
   RequestDeviceInBootloaderForWebDevice = 'RequestDeviceInBootloaderForWebDevice',
   EnabledNetworksChanged = 'EnabledNetworksChanged',
   CheckWalletBackupStatus = 'CheckWalletBackupStatus',
-  HomeTabsChanged = 'HomeTabsChanged',
   HardwareFeaturesUpdate = 'HardwareFeaturesUpdate',
   UnlockApp = 'UnlockApp',
   // AccountNameChanged = 'AccountNameChanged',
