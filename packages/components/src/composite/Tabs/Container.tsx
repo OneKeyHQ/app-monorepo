@@ -38,7 +38,7 @@ export function ContainerChild({
         maxWidth={props.width}
         overflow="hidden"
       >
-        <XStack w={props.width * 3}>
+        <XStack w={props.width * Children.count(children)}>
           {Children.map(children, (child, index) => {
             return (
               <div style={{ flex: 1 }} key={index}>
