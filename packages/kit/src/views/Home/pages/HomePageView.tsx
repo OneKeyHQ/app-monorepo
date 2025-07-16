@@ -303,7 +303,7 @@ export function HomePageView({
       <>
         <Page.Body>
           {platformEnv.isNative ? (
-            <Stack h={124} />
+            <Stack h={144} />
           ) : (
             <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
           )}
@@ -323,7 +323,7 @@ export function HomePageView({
           {platformEnv.isNative ? (
             <YStack
               position="absolute"
-              top={0}
+              top={-20}
               left={0}
               bg="$bgApp"
               pt="$5"
