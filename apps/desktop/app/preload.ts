@@ -364,6 +364,8 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
         );
       };
     },
+    checkAvailability: () =>
+      ipcRenderer.invoke(EOneKeyBleMessageKeys.BLE_AVAILABILITY_CHECK),
   },
 });
 

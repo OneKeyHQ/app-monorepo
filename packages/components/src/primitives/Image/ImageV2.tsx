@@ -14,6 +14,7 @@ import type {
   ImageSource,
   ImageStyle,
 } from 'expo-image';
+import { isEmptyResolvedSource } from './utils';
 
 export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
   const sizeProps = useMemo(() => {
@@ -93,7 +94,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     [onError],
   );
 
-  if (hasError) {
+  if (hasError || isEmptyResolvedSource(resolvedSource)) {
     return fallback;
   }
 

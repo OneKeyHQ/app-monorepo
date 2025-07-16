@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react';
 
+import type { ImageSource } from 'expo-image';
 import type { ImageSourcePropType, ImageURISource } from 'react-native';
 
 // re-run useEffect via sourceKey.
@@ -16,4 +17,14 @@ export const useSourceRef = (source?: ImageSourcePropType) => {
     sourceRef.current = source;
   }
   return sourceRef;
+};
+
+export const isEmptyResolvedSource = (source?: ImageSource | null) => {
+  return (
+    !source ||
+    (typeof source === 'object' &&
+      ((source as ImageURISource).uri === '' ||
+        source.uri === null ||
+        source.uri === undefined))
+  );
 };

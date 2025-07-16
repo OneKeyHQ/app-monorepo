@@ -9,10 +9,11 @@ import {
   SectionList,
   SizableText,
   Stack,
+  Tabs,
   XStack,
   renderNestedScrollView,
 } from '@onekeyhq/components';
-import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
+import { useSafeAreaInsets, useStyle } from '@onekeyhq/components/src/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -26,7 +27,6 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
-import { useTabListScroll } from '../../hooks/useTabListScroll';
 import { useSearchKeyAtom } from '../../states/jotai/contexts/historyList';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { withBrowserProvider } from '../../views/Discovery/pages/Browser/WithBrowserProvider';
@@ -163,10 +163,24 @@ function BaseTxHistoryListView(props: IProps) {
     [],
   );
 
-  const { listViewProps, listViewRef, onLayout } =
-    useTabListScroll<IAccountHistoryTx>({
-      inTabList,
-    });
+  const resolvedContentContainerStyle = useStyle(contentContainerStyle || {}, {
+    resolveValues: 'auto',
+  });
+
+  const { ListHeaderComponentStyle, ListFooterComponentStyle } =
+    listViewStyleProps || {};
+  const resolvedListHeaderComponentStyle = useStyle(
+    ListHeaderComponentStyle || {},
+    {
+      resolveValues: 'auto',
+    },
+  );
+  const resolvedListFooterComponentStyle = useStyle(
+    ListFooterComponentStyle || {},
+    {
+      resolveValues: 'auto',
+    },
+  );
 
   if (!initialized && isLoading) {
     return (
@@ -178,28 +192,22 @@ function BaseTxHistoryListView(props: IProps) {
   }
 
   return (
-    <SectionList
-      {...(listViewProps as any)}
+    <Tabs.SectionList
+      // @ts-ignore
+      estimatedItemSize={platformEnv.isNative ? 60 : 56}
       renderScrollComponent={renderNestedScrollView}
-      ref={listViewRef}
-      contentContainerStyle={{
-        ...contentContainerStyle,
-      }}
-      h={platformEnv.isNative ? screenHeight - top - bottom - 90 : '100%'}
-      onLayout={onLayout}
+      contentContainerStyle={resolvedContentContainerStyle as any}
       sections={sections}
       ListEmptyComponent={
         searchKey && data.length > 0 ? EmptySearch : EmptyHistory
       }
-      estimatedItemSize={platformEnv.isNative ? 60 : 56}
+      ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
+      ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       renderItem={renderItem}
-      renderSectionHeader={renderSectionHeader}
+      renderSectionHeader={renderSectionHeader as any}
       ListFooterComponent={ListFooterComponent}
       ListHeaderComponent={ListHeaderComponent}
-      keyExtractor={(tx, index) =>
-        (tx as IAccountHistoryTx).id || index.toString(10)
-      }
-      {...listViewStyleProps}
+      keyExtractor={(tx, index) => tx.id || index.toString(10)}
     />
   );
 }
