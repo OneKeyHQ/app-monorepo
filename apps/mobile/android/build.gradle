@@ -100,4 +100,27 @@ allprojects {
             }
         }
     }
+
+     // fix issue:
+    // Execution failed for task ':react-native-image-colors:compileDebugKotlin'.
+    // Inconsistent JVM-target compatibility detected for tasks 'compileDebugJavaWithJavac' (17) and 'compileDebugKotlin' (18).
+    project(':react-native-image-colors') {
+        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            kotlinOptions {
+                jvmTarget = "17"
+            }
+        }
+    }
+    
+    // fix issue:
+    // Execution failed for task ':react-native-passkeys:compileDebugKotlin'.
+    // Inconsistent JVM-target compatibility detected for tasks 'compileDebugJavaWithJavac' (17) and 'compileDebugKotlin' (18).
+    project(':react-native-passkeys') {
+        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            kotlinOptions {
+                jvmTarget = "17"
+            }
+        }
+    }
+    
 }
