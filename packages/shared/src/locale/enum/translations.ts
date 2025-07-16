@@ -443,6 +443,7 @@
   dexmarket_details_history_time = 'dexmarket.details_history_time',
   dexmarket_details_history_type = 'dexmarket.details_history_type',
   dexmarket_details_history_value = 'dexmarket.details_history_value',
+  dexmarket_details_holders_percentage = 'dexmarket.details_holders_percentage',
   dexmarket_details_holders_rank = 'dexmarket.details_holders_rank',
   dexmarket_details_liquidity_change = 'dexmarket.details_liquidity_change',
   dexmarket_details_liquidity_change_add = 'dexmarket.details_liquidity_change_add',

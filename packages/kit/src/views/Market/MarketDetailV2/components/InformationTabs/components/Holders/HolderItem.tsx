@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import {
   Icon,
@@ -11,6 +11,9 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
 
+import BigNumber from 'bignumber.js';
+
+import { useTokenDetail } from '../../../../hooks/useTokenDetail';
 import { useHoldersLayout } from './useHoldersLayout';
 
 interface IHolderItemProps {
@@ -22,10 +25,33 @@ function HolderItemBase({ item, index }: IHolderItemProps) {
   const { copyText } = useClipboard();
   const { layoutConfig } = useHoldersLayout();
   const [settingsPersistAtom] = useSettingsPersistAtom();
+  const { tokenDetail, isReady } = useTokenDetail();
 
   const handleCopyAddress = useCallback(() => {
     copyText(item.accountAddress);
   }, [copyText, item.accountAddress]);
+
+  const marketCapPercentage = useMemo(() => {
+    if (!isReady || !tokenDetail?.marketCap || !item.fiatValue) {
+      return null;
+    }
+
+    try {
+      const holderValue = new BigNumber(item.fiatValue);
+      const totalMarketCap = new BigNumber(tokenDetail.marketCap);
+      
+      if (totalMarketCap.isLessThanOrEqualTo(0)) {
+        return null;
+      }
+
+      const percentage = holderValue
+        .dividedBy(totalMarketCap)
+        .multipliedBy(100);
+      return percentage.toFixed(2);
+    } catch (error) {
+      return null;
+    }
+  }, [isReady, tokenDetail?.marketCap, item.fiatValue]);
 
   return (
     <XStack py="$3" px="$4" alignItems="center" gap="$3">
@@ -86,6 +112,11 @@ function HolderItemBase({ item, index }: IHolderItemProps) {
       >
         {item.fiatValue}
       </NumberSizeableText>
+
+      {/* Market Cap Percentage */}
+      <SizableText size="$bodyMd" color="$text" {...layoutConfig.percentage}>
+        {marketCapPercentage ? `${marketCapPercentage}%` : '-'}
+      </SizableText>
     </XStack>
   );
 }

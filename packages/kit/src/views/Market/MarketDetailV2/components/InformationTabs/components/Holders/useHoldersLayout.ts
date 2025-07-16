@@ -4,14 +4,18 @@ export const useHoldersLayout = () => {
       width: '$8',
     },
     address: {
-      width: '$36',
+      width: '$50',
     },
     amount: {
-      width: '$20',
+      width: '$18',
       textAlign: 'right' as const,
     },
     value: {
-      flex: 1,
+      width: '$16',
+      textAlign: 'right' as const,
+    },
+    percentage: {
+      width: '$16',
       textAlign: 'right' as const,
     },
   };

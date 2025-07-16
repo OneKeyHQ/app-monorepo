@@ -43,6 +43,9 @@ function HoldersHeaderBase() {
           id: ETranslations.dexmarket_details_history_value,
         })}
       </SizableText>
+      <SizableText {...commonTextProps} {...layoutConfig.percentage}>
+        %
+      </SizableText>
     </XStack>
   );
 }
