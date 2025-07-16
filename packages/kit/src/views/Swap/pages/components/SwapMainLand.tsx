@@ -422,7 +422,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             onClose={() => {
               console.log('swap__pre onClose');
               setPreSwapDialogOpen(false);
-              setSwapSteps([]);
+              setTimeout(() => {
+                setSwapSteps([]);
+              }, 500);
             }}
             open={preSwapDialogOpen}
             onPreSwapStepsStart={preSwapStepsStart}

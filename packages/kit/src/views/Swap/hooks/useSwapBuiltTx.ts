@@ -16,6 +16,7 @@ import type {
   IEncodedTx,
   ISignedTxPro,
   IUnsignedMessage,
+  IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import {
   useInAppNotificationAtom,
@@ -1322,6 +1323,7 @@ export function useSwapBuildTx() {
       networkId: string,
       accountId: string,
       buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams,
+      approveUnsignedTxArr?: IUnsignedTxPro[],
     ) => {
       if (
         !fromToken ||
@@ -1334,19 +1336,75 @@ export function useSwapBuildTx() {
         'swap__sendTxActions__buildUnsignedParams',
         buildUnsignedParams,
       );
+      const buildUnsignedParamsCheckNonce = { ...buildUnsignedParams };
+      if (approveUnsignedTxArr?.length && approveUnsignedTxArr.length > 0) {
+        buildUnsignedParamsCheckNonce.prevNonce =
+          approveUnsignedTxArr[approveUnsignedTxArr.length - 1].nonce;
+      }
       const unsignedTx =
         await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
-          ...buildUnsignedParams,
+          ...buildUnsignedParamsCheckNonce,
           isInternalSwap: true,
         });
       console.log('swap__sendTxActions__unsignedTx', unsignedTx);
+      if (approveUnsignedTxArr) {
+        const unsignedTxArr = [...approveUnsignedTxArr, unsignedTx];
+        const gasResArr = await backgroundApiProxy.serviceGas.batchEstimateFee({
+          networkId,
+          accountId,
+          encodedTxs: unsignedTxArr.map((o) => o.encodedTx),
+        });
+        console.log('swap__sendTxActions__gasResArr-----', gasResArr);
+        let lastRes: ISignedTxPro | undefined;
+        for (let i = 0; i < unsignedTxArr.length; i += 1) {
+          console.log('swap__sendTxActions__i', i);
+          const unsignedTxItem = unsignedTxArr[i];
+          console.log('swap__sendTxActions__unsignedTxItem', unsignedTxItem);
+          const gasRes = gasResArr.txFees[i];
+          const updatedUnsignedTxItem =
+            await backgroundApiProxy.serviceSend.updateUnsignedTx({
+              networkId,
+              accountId,
+              unsignedTx: unsignedTxItem,
+              feeInfo: {
+                common: {
+                  baseFee: gasResArr.common.baseFee,
+                  feeDecimals: gasResArr.common.feeDecimals,
+                  feeSymbol: gasResArr.common.feeSymbol,
+                  nativeDecimals: gasResArr.common.nativeDecimals,
+                  nativeSymbol: gasResArr.common.nativeSymbol,
+                  nativeTokenPrice: gasResArr.common.nativeTokenPrice,
+                },
+                gas: gasRes.gas?.[1] ?? gasRes.gas?.[0],
+                gasEIP1559: gasRes.gasEIP1559?.[1] ?? gasRes.gasEIP1559?.[0],
+              },
+            });
+          await backgroundApiProxy.serviceSend.precheckUnsignedTxs({
+            networkId,
+            accountId,
+            unsignedTxs: [updatedUnsignedTxItem],
+            precheckTiming: ESendPreCheckTimingEnum.Confirm,
+          });
 
+          const res =
+            await backgroundApiProxy.serviceSend.signAndSendTransaction({
+              networkId,
+              accountId,
+              unsignedTx: updatedUnsignedTxItem,
+              signOnly: false,
+            });
+          if (i === unsignedTxArr.length - 1) {
+            lastRes = res;
+          }
+        }
+        return lastRes;
+      }
       const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
         networkId,
         accountId,
         accountAddress: swapFromAddressInfo.address,
         encodedTx: unsignedTx.encodedTx,
-        transfersInfo: buildUnsignedParams.transfersInfo,
+        transfersInfo: buildUnsignedParamsCheckNonce.transfersInfo,
       });
       console.log('swap__sendTxActions__gasRes', gasRes);
 
@@ -1398,6 +1456,45 @@ export function useSwapBuildTx() {
     ],
   );
 
+  const getApproveUnsignedTx = useCallback(
+    async (
+      amount: string,
+      isMax: boolean,
+      data?: IFetchQuoteResult,
+      prevNonce?: number,
+    ) => {
+      if (
+        data?.allowanceResult?.allowanceTarget &&
+        swapFromAddressInfo.address
+      ) {
+        const approveInfo: IApproveInfo = {
+          owner: swapFromAddressInfo.address,
+          spender: data.allowanceResult.allowanceTarget,
+          amount,
+          isMax: amount === '0' ? false : isMax,
+          tokenInfo: {
+            ...data.fromTokenInfo,
+            isNative: !!data.fromTokenInfo.isNative,
+            address: data.fromTokenInfo.contractAddress,
+            name: data.fromTokenInfo.name ?? data.fromTokenInfo.symbol,
+          },
+          swapApproveRes: data,
+        };
+        if (swapFromAddressInfo.accountInfo?.account?.id) {
+          const unsignedTx =
+            await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+              networkId: data.fromTokenInfo.networkId,
+              accountId: swapFromAddressInfo.accountInfo?.account?.id,
+              approveInfo,
+              prevNonce,
+            });
+          return unsignedTx;
+        }
+      }
+    },
+    [swapFromAddressInfo.address, swapFromAddressInfo.accountInfo?.account?.id],
+  );
+
   const approveTxNew = useCallback(
     async (amount: string, isMax: boolean, data?: IFetchQuoteResult) => {
       if (
@@ -1439,7 +1536,10 @@ export function useSwapBuildTx() {
   );
 
   const buildTxNew = useCallback(
-    async (data?: IFetchQuoteResult) => {
+    async (
+      data?: IFetchQuoteResult,
+      approveUnsignedTxArr?: IUnsignedTxPro[],
+    ) => {
       if (
         data?.fromTokenInfo &&
         data?.toTokenInfo &&
@@ -1636,6 +1736,7 @@ export function useSwapBuildTx() {
                 encodedTx,
                 swapInfo,
               },
+              approveUnsignedTxArr,
             );
             if (sendTxRes) {
               void onBuildTxSuccess(sendTxRes.txid, swapInfo);
@@ -2000,17 +2101,31 @@ export function useSwapBuildTx() {
         swapFromAddressInfo.networkId &&
         swapFromAddressInfo.accountInfo?.account?.id
       ) {
+        let unsignedTxArr: IUnsignedTxPro[] = [];
+        let prevNonce: number | undefined;
         if (data.allowanceResult) {
           if (data.allowanceResult.shouldResetApprove) {
-            await approveTxNew('0', !!swapActionState.approveUnLimit, data);
+            const resetApproveUnsignedTx = await getApproveUnsignedTx(
+              '0',
+              !!swapActionState.approveUnLimit,
+              data,
+            );
+            if (resetApproveUnsignedTx) {
+              unsignedTxArr = [...unsignedTxArr, resetApproveUnsignedTx];
+              prevNonce = resetApproveUnsignedTx.nonce;
+            }
           }
-          await approveTxNew(
+          const approveUnsignedTx = await getApproveUnsignedTx(
             data.fromAmount,
             !!swapActionState.approveUnLimit,
             data,
+            prevNonce,
           );
+          if (approveUnsignedTx) {
+            unsignedTxArr = [...unsignedTxArr, approveUnsignedTx];
+          }
         }
-        await buildTxNew(data);
+        await buildTxNew(data, unsignedTxArr);
       }
     },
     [
@@ -2020,7 +2135,7 @@ export function useSwapBuildTx() {
       swapFromAddressInfo.accountInfo?.account?.id,
       swapToAddressInfo.address,
       buildTxNew,
-      approveTxNew,
+      getApproveUnsignedTx,
       swapActionState.approveUnLimit,
     ],
   );
