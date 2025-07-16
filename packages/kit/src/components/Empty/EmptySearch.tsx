@@ -15,7 +15,7 @@ function EmptySearch({
   const intl = useIntl();
   return (
     <Empty
-      {...props}
+      {...(props as any)}
       testID="Wallet-No-Search-Empty"
       icon="SearchOutline"
       title={intl.formatMessage({
