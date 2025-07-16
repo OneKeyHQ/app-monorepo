@@ -115,7 +115,7 @@ export default function PrimeDeviceLimit() {
     });
   };
 
-  console.log(devices);
+  console.log('PrimeDeviceLimit devices::: ', devices);
   return (
     <Page scrollEnabled>
       <Page.Header

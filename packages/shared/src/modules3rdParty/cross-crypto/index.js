@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 /* eslint-disable unicorn/prefer-global-this */
 console.log('================ cross-crypto (web)');
 
