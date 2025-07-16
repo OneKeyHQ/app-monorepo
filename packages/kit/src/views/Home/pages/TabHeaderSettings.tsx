@@ -9,6 +9,7 @@ import {
   Popover,
   Stack,
   Switch,
+  XStack,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworksSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -165,66 +166,33 @@ function TxHistorySettings() {
   );
 }
 
-function DelayedRender({
-  children,
-  delay = 1200,
-}: PropsWithChildren<{ delay?: number }>) {
-  const [shouldRender, setShouldRender] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShouldRender(true);
-    }, delay);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [delay]);
-
-  if (!shouldRender) {
-    return <Stack />;
-  }
-
-  return children;
-}
-
-function Container({ children }: PropsWithChildren) {
-  return platformEnv.isNativeAndroid ? (
-    <Stack position="absolute" x="$0" y="$4">
-      {children}
-    </Stack>
-  ) : (
-    <DelayedRender>
-      <Stack position="absolute" top="$3" right="$5">
-        {children}
-      </Stack>
-    </DelayedRender>
+function BasicTabHeaderSettings({ focusedTab }: { focusedTab: string }) {
+  const intl = useIntl();
+  const historyName = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.global_history,
+      }),
+    [intl],
   );
-}
-
-function BasicTabHeaderSettings() {
-  const [tabName, setTabName] = useState<string>('crypto');
-  useEffect(() => {
-    const callback = ({ tabId }: { tabId: string }) => {
-      setTabName(tabId);
-    };
-    appEventBus.on(EAppEventBusNames.HomeTabsChanged, callback);
-    return () => {
-      appEventBus.off(EAppEventBusNames.HomeTabsChanged, callback);
-    };
-  }, []);
-
+  const cryptoName = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.global_crypto,
+      }),
+    [intl],
+  );
   const content = useMemo(() => {
-    switch (tabName) {
-      case 'crypto':
+    switch (focusedTab) {
+      case cryptoName:
         return <TokenListSettings />;
-      case 'history':
+      case historyName:
         return <TxHistorySettings />;
       default:
         return null;
     }
-  }, [tabName]);
-  return <Container>{content}</Container>;
+  }, [cryptoName, focusedTab, historyName]);
+  return <XStack pr="$5">{content}</XStack>;
 }
 
 export const TabHeaderSettings = memo(BasicTabHeaderSettings);

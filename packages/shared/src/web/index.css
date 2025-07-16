@@ -233,3 +233,19 @@ body > div.cet-container {
   background: rgba(0, 0, 0, 0.27);
   border-radius: 100px;
 }
+
+.onekey-tabs-container {
+  view-transition-name: onekey-tabs-container;
+}
+
+.onekey-tabs-header {
+  view-transition-name: onekey-tabs-header;
+}
+
+::view-transition-old(.onekey-tabs-header) {
+  display: none;
+}
+
+::view-transition-new(.onekey-tabs-header) {
+  animation: none;
+}

@@ -45,18 +45,22 @@ function CommonAssetImage(props: IProps) {
             }}
           />
         ) : (
-          <Image
-            src={nft.metadata?.image}
-            fallback={
-              <Image.Fallback
-                bg="$bgStrong"
-                justifyContent="center"
-                alignItems="center"
-              >
-                <Icon name="ImageSquareWavesOutline" color="$iconDisabled" />
-              </Image.Fallback>
-            }
-          />
+          <Stack width="100%" height="100%">
+            <Image
+              src={nft.metadata?.image}
+              w="100%"
+              h="100%"
+              fallback={
+                <Image.Fallback
+                  bg="$bgStrong"
+                  justifyContent="center"
+                  alignItems="center"
+                >
+                  <Icon name="ImageSquareWavesOutline" color="$iconDisabled" />
+                </Image.Fallback>
+              }
+            />
+          </Stack>
         )}
       </Stack>
 
