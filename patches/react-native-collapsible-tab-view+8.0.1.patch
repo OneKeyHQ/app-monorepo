@@ -1,0 +1,19 @@
+diff --git a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
+index ba7dffa..ebf3262 100644
+--- a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
++++ b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
+@@ -66,10 +66,10 @@ export function useTabProps<T extends TabName>(
+       Children.forEach(children, (element, index) => {
+         if (!element) return
+ 
+-        if (element.type !== tabType)
+-          throw new Error(
+-            'Container children must be wrapped in a <Tabs.Tab ... /> component'
+-          )
++        // if (element.type !== tabType)
++        //   throw new Error(
++        //     'Container children must be wrapped in a <Tabs.Tab ... /> component'
++        //   )
+ 
+         // make sure children is excluded otherwise our props will mutate too much
+         const { name, children, ...options } = element.props
