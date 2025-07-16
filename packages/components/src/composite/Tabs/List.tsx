@@ -9,7 +9,8 @@ import {
 } from 'react-virtualized';
 
 import { useTabsContext, useTabsScrollContext } from './context';
-import { useCurrentTabName } from './Tab';
+import { useCurrentTabName } from './TabNameContext';
+import { useConvertAnimatedToValue } from './useFocusedTab';
 
 import type { ISectionListProps } from '../../layouts';
 import type { FlashListProps } from '@shopify/flash-list';
@@ -75,16 +76,8 @@ export function List<Item>({
   } = useTabsScrollContext();
   const currentTabName = useCurrentTabName();
   const { focusedTab } = useTabsContext();
-  const [focusedTabValue, setFocusedTabValue] = useState(focusedTab.value);
 
-  useAnimatedReaction(
-    () => focusedTab.value,
-    (result, previous) => {
-      if (result !== previous) {
-        setFocusedTabValue(result);
-      }
-    },
-  );
+  const focusedTabValue = useConvertAnimatedToValue(focusedTab, '');
 
   const ref = useRef<Element>(null);
 

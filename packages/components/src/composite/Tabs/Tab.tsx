@@ -1,11 +1,6 @@
-import { createContext, useContext } from 'react';
+import { TabNameContext } from './TabNameContext';
 
 import type { TabProps } from 'react-native-collapsible-tab-view';
-
-export const TabNameContext = createContext<string>('');
-export const useCurrentTabName = () => {
-  return useContext(TabNameContext);
-};
 
 export function Tab<TabName extends string>({
   name,
