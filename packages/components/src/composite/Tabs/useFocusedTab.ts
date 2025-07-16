@@ -10,11 +10,11 @@ export function useConvertAnimatedToValue<T>(
   animatedValue: Animated.SharedValue<T>,
   defaultValue?: T,
 ) {
-  const [value, setValue] = useState<T>(animatedValue.value);
+  const [value, setValue] = useState<T>(animatedValue?.value);
 
   useAnimatedReaction(
     () => {
-      return animatedValue.value;
+      return animatedValue?.value;
     },
     (animValue) => {
       if (animValue !== value) {

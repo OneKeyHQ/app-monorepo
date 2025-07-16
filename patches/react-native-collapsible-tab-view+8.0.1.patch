@@ -12,7 +12,7 @@ index 83c5549..aaeca52 100644
  export { MaterialTabBar } from './MaterialTabBar/TabBar';
  export { MaterialTabItem } from './MaterialTabBar/TabItem';
 diff --git a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
-index ba7dffa..c9a0a24 100644
+index ba7dffa..e12c0c2 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 @@ -101,7 +101,11 @@ export function useTabProps<T extends TabName>(
@@ -41,6 +41,20 @@ index ba7dffa..c9a0a24 100644
    return c
  }
  
+@@ -579,11 +587,11 @@ export function useAfterMountEffect(
+ export function useConvertAnimatedToValue<T>(
+   animatedValue: Animated.SharedValue<T>
+ ) {
+-  const [value, setValue] = useState<T>(animatedValue.value)
++  const [value, setValue] = useState<T>(animatedValue?.value)
+ 
+   useAnimatedReaction(
+     () => {
+-      return animatedValue.value
++      return animatedValue?.value
+     },
+     (animValue) => {
+       if (animValue !== value) {
 diff --git a/node_modules/react-native-collapsible-tab-view/src/index.tsx b/node_modules/react-native-collapsible-tab-view/src/index.tsx
 index 3d0be9d..94c928f 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/index.tsx

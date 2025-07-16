@@ -1,7 +1,6 @@
 /* eslint-disable react/prop-types */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useAnimatedReaction } from 'react-native-reanimated';
 import {
   AutoSizer,
   Collection,
