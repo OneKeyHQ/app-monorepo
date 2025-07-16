@@ -20,6 +20,7 @@ export function MarketTradingView({
       identifier={identifier}
       baseToken={tokenSymbol}
       targetToken="USDT"
+      symbol={tokenSymbol}
       tokenAddress={tokenAddress}
       networkId={networkId}
       onLoadEnd={() => {}}

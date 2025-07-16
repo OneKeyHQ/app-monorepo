@@ -24,7 +24,7 @@ import type { WebViewProps } from 'react-native-webview';
 interface IBaseTradingViewV2Props {
   mode: 'overview' | 'realtime';
   identifier: string;
-  baseToken: string;
+  symbol: string;
   targetToken: string;
   onLoadEnd: () => void;
   tradingViewUrl?: string;
@@ -51,6 +51,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     tradingViewUrl = TRADING_VIEW_URL,
     tokenAddress = '',
     networkId = '',
+    symbol,
   } = props;
 
   const tradingViewUrlWithParams = useMemo(() => {
@@ -62,8 +63,9 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     url.searchParams.set('locale', locale);
     url.searchParams.set('platform', platformEnv.appPlatform ?? 'web');
     url.searchParams.set('theme', theme);
+    url.searchParams.set('symbol', symbol);
     return url.toString();
-  }, [tradingViewUrl, calendars, systemLocale, theme]);
+  }, [tradingViewUrl, calendars, systemLocale, theme, symbol]);
 
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
