@@ -8,6 +8,7 @@ __generated__
 .vscode/
 .chat/
 .claude/
+apps/e2ee-server/dist/
 
 dist
 build-electron

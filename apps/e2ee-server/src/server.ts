@@ -244,7 +244,7 @@ class E2EEServer {
 
     // Close Socket.IO server
     if (this.socketServer) {
-      this.socketServer.close(() => {
+      void this.socketServer.close(() => {
         console.log('[Server] Socket.IO server closed');
       });
     }

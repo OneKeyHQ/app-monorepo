@@ -1,5 +1,4 @@
 /* eslint-disable no-restricted-syntax */
-import { Buffer } from 'buffer';
 
 import {
   bytesToHex as bytesToHex0,
