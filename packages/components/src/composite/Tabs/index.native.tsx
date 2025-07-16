@@ -5,17 +5,21 @@ import { TabNameContext } from './TabNameContext';
 
 import type { TabProps } from 'react-native-collapsible-tab-view';
 
-export const Tab = (props: TabProps<string>) => {
+
+const Tab = ({children,name,...props}: TabProps<string>) => {
   return (
-    // eslint-disable-next-line react/destructuring-assignment
-    <TabNameContext.Provider value={props.name}>
-      <NativeTabs.Tab {...props} />
-    </TabNameContext.Provider>
+      <NativeTabs.Tab {...props} name={name}>
+        <TabNameContext.Provider {...props} value={name}>
+          {children}
+        </TabNameContext.Provider>
+      </NativeTabs.Tab>
   );
 };
 
 export const Tabs = {
   ...NativeTabs,
-  Tab: NativeTabs.Tab,
+  Tab,
   TabBar,
 };
+
+export * from './hooks';
