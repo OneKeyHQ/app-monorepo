@@ -7,6 +7,7 @@ import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
 import {
   EMnemonicType,
   decodeSensitiveTextAsync,
+  decryptImportedCredential,
   decryptRevealableSeed,
   encryptImportedCredential,
   ensureSensitiveTextEncoded,
@@ -21,6 +22,7 @@ import {
 } from '@onekeyhq/core/src/secret';
 import type {
   EAddressEncodings,
+  ICoreCredentialsInfo,
   IExportKeyType,
 } from '@onekeyhq/core/src/types';
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
@@ -41,6 +43,7 @@ import {
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   COINTYPE_ALLNETWORKS,
+  COINTYPE_STC,
   FIRST_EVM_ADDRESS_PATH,
   IMPL_ALLNETWORKS,
   IMPL_EVM,
@@ -82,6 +85,7 @@ import perfUtils, {
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -124,6 +128,8 @@ import {
   type IDBWalletIdSingleton,
 } from '../../dbs/local/types';
 import simpleDb from '../../dbs/simple/simpleDb';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { v4CoinTypeToNetworkId } from '../../migrations/v4ToV5Migration/v4CoinTypeToNetworkId';
 import {
   devSettingsPersistAtom,
   hardwareWalletXfpStatusAtom,
@@ -2075,6 +2081,22 @@ class ServiceAccount extends ServiceBase {
     };
   }
 
+  @backgroundMethod()
+  async getAccountCreatedNetworkId({ account }: { account: IDBAccount }) {
+    let networkId = account?.createAtNetwork || account?.networks?.[0];
+    if (!networkId && account.impl) {
+      const { networkIds } =
+        await this.backgroundApi.serviceNetwork.getNetworkIdsByImpls({
+          impls: [account.impl],
+        });
+      networkId = networkIds?.[0];
+    }
+    if (!networkId && account?.coinType) {
+      networkId = v4CoinTypeToNetworkId[account.coinType];
+    }
+    return networkId;
+  }
+
   async getAllWallets(params: { refillWalletInfo?: boolean } = {}) {
     let { wallets } = await localDb.getAllWallets();
     let allDevices: IDBDevice[] | undefined;
@@ -2594,10 +2616,12 @@ class ServiceAccount extends ServiceBase {
     name,
     mnemonic,
     isWalletBackedUp,
+    avatarInfo,
   }: {
     mnemonic: string;
     name?: string;
     isWalletBackedUp?: boolean;
+    avatarInfo?: IAvatarInfo;
   }) {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
@@ -2637,6 +2661,7 @@ class ServiceAccount extends ServiceBase {
       walletHash: walletHashAndXfp.hash,
       walletXfp: walletHashAndXfp.xfp,
       isWalletBackedUp,
+      avatarInfo,
     });
   }
 
@@ -4467,6 +4492,199 @@ class ServiceAccount extends ServiceBase {
         fixHardwareLtcXPubMigrated: true,
       }),
     );
+  }
+
+  async getExportedPrivateKeyOfImportedAccount({
+    importedAccount,
+    encryptedCredential,
+    password,
+    networkId,
+  }: {
+    importedAccount: IDBAccount;
+    password: string;
+    encryptedCredential: string;
+    networkId: string | undefined;
+  }) {
+    if (!networkId) {
+      throw new OneKeyLocalError('NetworkId is required');
+    }
+    const { privateKey } = await decryptImportedCredential({
+      credential: encryptedCredential,
+      password,
+      allowRawPassword: true,
+    });
+    const coreApi = this.backgroundApi.serviceNetwork.getCoreApiByNetwork({
+      networkId,
+    });
+    const chainId = networkUtils.getNetworkChainId({
+      networkId,
+      hex: false,
+    });
+    const credentials: ICoreCredentialsInfo = {
+      imported: await encryptImportedCredential({
+        credential: {
+          privateKey,
+        },
+        password,
+      }),
+    };
+    // TODO try catch
+    let exportedPrivateKey = await coreApi.imported.getExportedSecretKey({
+      networkInfo: { chainId } as any, // only works for HD
+
+      password,
+      credentials,
+
+      account: importedAccount,
+
+      keyType:
+        importedAccount.type === EDBAccountType.UTXO
+          ? ECoreApiExportedSecretKeyType.xprvt
+          : ECoreApiExportedSecretKeyType.privateKey,
+      addressEncoding: undefined,
+    });
+    if (
+      !exportedPrivateKey &&
+      privateKey &&
+      importedAccount?.coinType === COINTYPE_STC
+    ) {
+      exportedPrivateKey = hexUtils.addHexPrefix(privateKey);
+    }
+    return { exportedPrivateKey, privateKey };
+  }
+
+  async restoreImportedAccountByInput({
+    importedAccount,
+    input,
+    privateKey,
+    networkId,
+  }: {
+    importedAccount: IDBAccount;
+    input: string;
+    privateKey: string;
+    networkId: string;
+  }) {
+    let addedAccounts: IDBAccount[] = [];
+    try {
+      const { serviceAccount, serviceNetwork, servicePassword } =
+        this.backgroundApi;
+
+      let deriveTypes: IAccountDeriveTypes[] = [];
+      if (importedAccount?.address) {
+        try {
+          const deriveType = await serviceNetwork.getDeriveTypeByAddress({
+            networkId,
+            address: importedAccount.address,
+          });
+          if (deriveType) {
+            deriveTypes.push(deriveType);
+          }
+        } catch (e) {
+          console.error('getDeriveTypeByAddress error', e);
+        }
+      }
+
+      if (!deriveTypes?.length) {
+        deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
+          accountId: importedAccount.id,
+          networkId,
+          input: await servicePassword.encodeSensitiveText({
+            text: input,
+          }),
+          validatePrivateKey: true,
+          validateXprvt: true,
+          template: importedAccount.template,
+        });
+      }
+
+      for (const deriveType of deriveTypes) {
+        try {
+          const { accounts } =
+            await serviceAccount.addImportedAccountWithCredential({
+              credential: await servicePassword.encodeSensitiveText({
+                text: privateKey,
+              }),
+              fallbackName: importedAccount.name,
+              networkId,
+              name: importedAccount.name,
+              deriveType,
+              skipAddIfNotEqualToAddress: importedAccount.address,
+            });
+          addedAccounts = [...addedAccounts, ...(accounts || [])];
+        } catch (e) {
+          console.error('addImportedAccountByInput error', e);
+        }
+      }
+    } catch (e) {
+      console.error('addImportedAccountByInput error', e);
+    }
+    return { addedAccounts };
+  }
+
+  async restoreWatchingAccountByInput({
+    watchingAccount,
+    input,
+    networkId,
+  }: {
+    watchingAccount: IDBAccount;
+    input: string;
+    networkId: string;
+  }): Promise<{
+    addedAccounts: IDBAccount[];
+  }> {
+    let addedAccounts: IDBAccount[] = [];
+    try {
+      const { serviceAccount, serviceNetwork, servicePassword } =
+        this.backgroundApi;
+
+      let deriveTypes: IAccountDeriveTypes[] = [];
+      if (watchingAccount?.address) {
+        try {
+          const deriveType = await serviceNetwork.getDeriveTypeByAddress({
+            networkId,
+            address: watchingAccount.address,
+          });
+          if (deriveType) {
+            deriveTypes.push(deriveType);
+          }
+        } catch (e) {
+          console.error('getDeriveTypeByAddress error', e);
+        }
+      }
+
+      if (!deriveTypes?.length) {
+        deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
+          accountId: watchingAccount.id,
+          networkId: networkId || '',
+          input: await servicePassword.encodeSensitiveText({
+            text: input,
+          }),
+          validateAddress: true,
+          validateXpub: true,
+          template: watchingAccount.template,
+        });
+      }
+
+      for (const deriveType of deriveTypes) {
+        try {
+          const { accounts } = await serviceAccount.addWatchingAccount({
+            input,
+            fallbackName: watchingAccount.name,
+            networkId: networkId || '',
+            name: watchingAccount.name,
+            deriveType,
+            isUrlAccount: false,
+            skipAddIfNotEqualToAddress: watchingAccount.address,
+          });
+          addedAccounts = [...addedAccounts, ...(accounts || [])];
+        } catch (e) {
+          console.error('addWatchingAccountByInput error', e);
+        }
+      }
+    } catch (e) {
+      console.error('addWatchingAccountByInput error', e);
+    }
+    return { addedAccounts };
   }
 }
 

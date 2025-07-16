@@ -3,9 +3,7 @@ import { keyBy, merge } from 'lodash';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
-import accountUtils, {
-  buildAccountLocalAssetsKey,
-} from '@onekeyhq/shared/src/utils/accountUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
@@ -155,7 +153,11 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     });
 
     perf.markStart('buildAccountLocalAssetsKey');
-    const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
+    const key = accountUtils.buildAccountLocalAssetsKey({
+      networkId,
+      accountAddress,
+      xpub,
+    });
     perf.markEnd('buildAccountLocalAssetsKey');
 
     perf.markStart('setRawData');
@@ -244,7 +246,11 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     });
 
     perf.markStart('buildAccountLocalAssetsKey');
-    const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
+    const key = accountUtils.buildAccountLocalAssetsKey({
+      networkId,
+      accountAddress,
+      xpub,
+    });
     perf.markEnd('buildAccountLocalAssetsKey');
 
     perf.markStart('getRawData', {

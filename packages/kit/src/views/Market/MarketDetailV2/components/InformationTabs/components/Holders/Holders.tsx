@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -51,18 +51,19 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
   }
 
   return (
-    <ListView<IMarketTokenHolder>
-      data={holders}
-      renderItem={renderItem}
-      keyExtractor={(item) => item.accountAddress}
-      estimatedItemSize={70}
-      showsVerticalScrollIndicator
-      ListHeaderComponent={HoldersHeader}
-      stickyHeaderIndices={[0]}
-      contentContainerStyle={{
-        paddingBottom: '$4',
-      }}
-    />
+    <>
+      <HoldersHeader />
+      <ListView<IMarketTokenHolder>
+        data={holders}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.accountAddress + item.fiatValue}
+        estimatedItemSize={70}
+        showsVerticalScrollIndicator
+        contentContainerStyle={{
+          paddingBottom: '$4',
+        }}
+      />
+    </>
   );
 }
 

@@ -10,12 +10,12 @@ import {
 import { useLeftColumnWidthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
 import {
-  InformationTabs,
   MarketTradingView,
   SwapPanel,
   TokenActivityOverview,
   TokenDetailHeader,
 } from '../components';
+import { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
 import type { LayoutChangeEvent } from 'react-native';
@@ -52,7 +52,7 @@ export function DesktopLayout() {
 
           {/* Info tabs */}
           <Stack h="30vh">
-            <InformationTabs />
+            <DesktopInformationTabs />
           </Stack>
         </YStack>
 
@@ -60,10 +60,12 @@ export function DesktopLayout() {
         <Stack w={320}>
           <ScrollView>
             <Stack w={320}>
-              <SwapPanel
-                networkId={networkId}
-                tokenAddress={tokenDetail?.address}
-              />
+              <Stack p="$4">
+                <SwapPanel
+                  networkId={networkId}
+                  tokenAddress={tokenDetail?.address}
+                />
+              </Stack>
 
               <Divider mx="$4" my="$2" />
 

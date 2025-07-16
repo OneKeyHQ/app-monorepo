@@ -208,11 +208,14 @@ async function encryptVerifyString({
 async function decryptRevealableSeed({
   rs,
   password,
+  allowRawPassword,
 }: {
   rs: IBip39RevealableSeedEncryptHex;
   password: string;
+  allowRawPassword?: boolean;
 }): Promise<IBip39RevealableSeed> {
   const decrypted = await decryptAsync({
+    allowRawPassword,
     password,
     data: rs.replace(EncryptPrefixHdCredential, ''),
   });
@@ -241,11 +244,14 @@ async function encryptRevealableSeed({
 async function decryptImportedCredential({
   credential,
   password,
+  allowRawPassword,
 }: {
   credential: ICoreImportedCredentialEncryptHex;
   password: string;
+  allowRawPassword?: boolean;
 }): Promise<ICoreImportedCredential> {
   const decrypted = await decryptAsync({
+    allowRawPassword,
     password,
     data:
       typeof credential === 'string'

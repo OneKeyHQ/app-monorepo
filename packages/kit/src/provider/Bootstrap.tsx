@@ -34,6 +34,7 @@ import {
   EMultiTabBrowserRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
@@ -533,6 +534,9 @@ export function Bootstrap() {
     ) {
       const timer = setTimeout(() => {
         navigation.switchTab(autoNavigation.selectedTab as ETabRoutes);
+        navigation.pushModal(EModalRoutes.PrimeModal, {
+          screen: EPrimePages.PrimeTransfer,
+        });
       }, 1000);
 
       return () => clearTimeout(timer);

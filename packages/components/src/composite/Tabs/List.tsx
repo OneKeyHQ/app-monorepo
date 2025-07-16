@@ -1,5 +1,6 @@
 /* eslint-disable react/prop-types */
-import { ComponentType, isValidElement, useCallback, useEffect, useMemo, useRef } from 'react';
+import type { ComponentType } from 'react';
+import { isValidElement, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { View } from 'react-native';
 import {

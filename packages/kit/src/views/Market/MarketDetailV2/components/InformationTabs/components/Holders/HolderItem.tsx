@@ -69,7 +69,7 @@ function HolderItemBase({ item, index }: IHolderItemProps) {
         size="$bodyMd"
         color="$text"
         {...layoutConfig.amount}
-        autoFormatter="balance-marketCap"
+        formatter="marketCap"
       >
         {item.amount}
       </NumberSizeableText>
