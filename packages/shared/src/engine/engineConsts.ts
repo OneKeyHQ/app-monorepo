@@ -316,3 +316,4 @@ export const UNIQUE_TOKEN_SYMBOLS: Record<string, Array<string>> = {
 };
 
 export const FIRST_EVM_ADDRESS_PATH = "m/44'/60'/0'/0/0";
+export const FIRST_BTC_TAPROOT_ADDRESS_PATH = "m/86'/0'/0'";
