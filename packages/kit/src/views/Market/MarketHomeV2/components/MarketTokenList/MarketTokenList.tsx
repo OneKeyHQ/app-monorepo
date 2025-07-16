@@ -64,6 +64,7 @@ function MarketTokenList({
   const [watchlistState] = useMarketWatchListV2Atom();
   const watchlistItems = watchlistState.data;
   const [showWatchlistOnly] = useShowWatchlistOnlyValue();
+  const { md } = useMedia();
 
   const marketTokenColumns = useMarketTokenColumns(
     networkId,
@@ -164,7 +165,7 @@ function MarketTokenList({
   // This provides better UX by avoiding skeleton flash during pagination
   const showSkeleton = isLoading && data.length === 0;
 
-  const { md } = useMedia();
+  console.log('data', data);
 
   return (
     <>
@@ -184,17 +185,26 @@ function MarketTokenList({
             overflowX: 'auto',
           }}
         >
-          <Stack minWidth={md ? '100%' : 1466} height="100%">
+          <Stack minWidth={md ? '100%' : 1466} flex={1} minHeight={100}>
             {showSkeleton ? (
-              <Table.Skeleton columns={marketTokenColumns} count={pageSize} />
+              <Table.Skeleton
+                columns={marketTokenColumns}
+                count={pageSize}
+                rowProps={{
+                  minHeight: '$14',
+                }}
+              />
             ) : (
               <Table<IMarketToken>
-                key={`table-${showWatchlistOnly ? 'watchlist' : 'normal'}`}
                 stickyHeader
                 columns={marketTokenColumns}
                 dataSource={data}
                 keyExtractor={(item) => item.address + item.symbol}
                 onHeaderRow={handleHeaderRow}
+                rowProps={{
+                  minHeight: '$14',
+                }}
+                estimatedItemSize="$14"
                 onRow={
                   onItemPress
                     ? (item) => ({
