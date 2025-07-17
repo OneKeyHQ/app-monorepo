@@ -7,6 +7,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { showTronRewardCenter } from '@onekeyhq/kit/src/components/RewardCenter/TronRewardCenter';
+import { useSignatureConfirmActions } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -14,8 +15,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-
-import { useSignatureConfirmActions } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 
 function ClaimResourceEntry({
   accountId,
