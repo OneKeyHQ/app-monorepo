@@ -303,10 +303,12 @@ export function HomePageView({
     tabs,
   ]);
 
+  // Initial heights based on typical header sizes on each platform
   const [tabPageHeight, setTabPageHeight] = useState(
     platformEnv.isNativeIOS ? 143 : 92,
   );
   const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
+    // Use the actual measured height without arbitrary adjustments
     const height = e.nativeEvent.layout.height - 20;
     setTabPageHeight(height);
   }, []);
