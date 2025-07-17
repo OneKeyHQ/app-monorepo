@@ -50,7 +50,7 @@ function FragmentComponent({
 let lastIndexHeight: undefined | number;
 
 const getBody = () => {
-  return document.body;
+  return typeof document !== 'undefined' ? document.body : null;
 };
 
 function BaseSortableListView<T>(
