@@ -52,11 +52,6 @@ const CarouselGallery = () => (
             onScrollEnd={() => {
               console.log('Scroll end');
             }}
-            onConfigurePanGesture={(g: { enabled: (arg0: boolean) => any }) => {
-              'worklet';
-
-              g.enabled(false);
-            }}
             onSnapToItem={(index: number) =>
               console.log('current index:', index)
             }
