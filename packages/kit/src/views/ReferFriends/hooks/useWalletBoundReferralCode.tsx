@@ -20,12 +20,19 @@ import { EMnemonicType } from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { FIRST_EVM_ADDRESS_PATH } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  FIRST_BTC_TAPROOT_ADDRESS_PATH,
+  FIRST_EVM_ADDRESS_PATH,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  EMessageTypesBtc,
+  EMessageTypesEth,
+} from '@onekeyhq/shared/types/message';
 
 import { WalletAvatar } from '../../../components/WalletAvatar/WalletAvatar';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -68,6 +75,34 @@ function useGetReferralCodeWalletInfo() {
       return null;
     }
 
+    const isBtcOnlyWallet =
+      await backgroundApiProxy.serviceHardware.isBtcOnlyWallet({ walletId });
+
+    if (isBtcOnlyWallet) {
+      const firstBtcTaprootAccountId = `${walletId}--${FIRST_BTC_TAPROOT_ADDRESS_PATH}`;
+      try {
+        const networkId = getNetworkIdsMap().btc;
+        const account = await backgroundApiProxy.serviceAccount.getAccount({
+          accountId: firstBtcTaprootAccountId,
+          networkId,
+        });
+        if (!account) {
+          return null;
+        }
+        return {
+          wallet,
+          walletId,
+          networkId,
+          accountId: firstBtcTaprootAccountId,
+          address: account.address,
+          pubkey: account.pub,
+          isBtcOnlyWallet,
+        };
+      } catch {
+        return null;
+      }
+    }
+
     // get first evm account, if btc only firmware, get first btc taproot account
     const firstEvmAccountId = `${walletId}--${FIRST_EVM_ADDRESS_PATH}`;
     try {
@@ -86,6 +121,7 @@ function useGetReferralCodeWalletInfo() {
         accountId: firstEvmAccountId,
         address: account.address,
         pubkey: account.pub,
+        isBtcOnlyWallet,
       };
     } catch {
       return null;
@@ -163,14 +199,29 @@ function InviteCode({
           });
         }
 
+        const isBtcOnlyWallet =
+          walletInfo.isBtcOnlyWallet &&
+          networkUtils.isBTCNetwork(walletInfo.networkId);
+
         const signedMessage = await navigationToMessageConfirmAsync({
           accountId: walletInfo.accountId,
           networkId: walletInfo.networkId,
-          unsignedMessage: {
-            type: EMessageTypesEth.PERSONAL_SIGN,
-            message: unsignedMessage,
-            payload: [unsignedMessage, walletInfo.address],
-          },
+          unsignedMessage: isBtcOnlyWallet
+            ? {
+                type: EMessageTypesBtc.ECDSA,
+                message: unsignedMessage,
+                sigOptions: {
+                  noScriptType: true,
+                },
+                payload: {
+                  isFromDApp: false,
+                },
+              }
+            : {
+                type: EMessageTypesEth.PERSONAL_SIGN,
+                message: unsignedMessage,
+                payload: [unsignedMessage, walletInfo.address],
+              },
           walletInternalSign: true,
           sameModal: false,
           skipBackupCheck: true,
@@ -183,7 +234,9 @@ function InviteCode({
               networkId: walletInfo.networkId,
               pubkey: walletInfo.pubkey || undefined,
               referralCode,
-              signature: signedMessage,
+              signature: isBtcOnlyWallet
+                ? Buffer.from(signedMessage, 'hex').toString('base64')
+                : signedMessage,
             },
           );
         console.log('===>>> signedMessage: ', signedMessage);
@@ -289,97 +342,100 @@ export function useWalletBoundReferralCode({
   >(undefined);
   const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
 
-  const getReferralCodeBondStatus = async ({
-    walletId,
-    skipIfTimeout = false,
-  }: {
-    walletId: string | undefined;
-    skipIfTimeout?: boolean;
-  }) => {
-    if (mnemonicType === EMnemonicType.TON) {
-      return false;
-    }
+  const getReferralCodeBondStatus = useCallback(
+    async ({
+      walletId,
+      skipIfTimeout = false,
+    }: {
+      walletId: string | undefined;
+      skipIfTimeout?: boolean;
+    }) => {
+      if (mnemonicType === EMnemonicType.TON) {
+        return false;
+      }
 
-    const walletInfo = await getReferralCodeWalletInfo(walletId);
-    if (!walletInfo) {
-      return false;
-    }
-    const { address, networkId } = walletInfo;
+      const walletInfo = await getReferralCodeWalletInfo(walletId);
+      if (!walletInfo) {
+        return false;
+      }
+      const { address, networkId } = walletInfo;
 
-    let alreadyBound = false;
-    let isTimeout = false;
+      let alreadyBound = false;
+      let isTimeout = false;
 
-    try {
-      if (skipIfTimeout) {
-        const timeoutMs = 3000;
-        let timeoutId: ReturnType<typeof setTimeout> | undefined;
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          timeoutId = setTimeout(() => {
-            isTimeout = true;
-            reject(new Error('Request timeout'));
-          }, timeoutMs);
-        });
+      try {
+        if (skipIfTimeout) {
+          const timeoutMs = 3000;
+          let timeoutId: ReturnType<typeof setTimeout> | undefined;
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            timeoutId = setTimeout(() => {
+              isTimeout = true;
+              reject(new Error('Request timeout'));
+            }, timeoutMs);
+          });
 
-        try {
-          // Race between the API call and timeout
-          alreadyBound = await Promise.race([
-            backgroundApiProxy.serviceReferralCode.checkWalletIsBoundReferralCode(
+          try {
+            // Race between the API call and timeout
+            alreadyBound = await Promise.race([
+              backgroundApiProxy.serviceReferralCode.checkWalletIsBoundReferralCode(
+                {
+                  address,
+                  networkId,
+                },
+              ),
+              timeoutPromise,
+            ]);
+          } finally {
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+            }
+          }
+        } else {
+          // No timeout, just make the request
+          alreadyBound =
+            await backgroundApiProxy.serviceReferralCode.checkWalletIsBoundReferralCode(
               {
                 address,
                 networkId,
               },
-            ),
-            timeoutPromise,
-          ]);
-        } finally {
-          if (timeoutId) {
-            clearTimeout(timeoutId);
-          }
+            );
         }
-      } else {
-        // No timeout, just make the request
-        alreadyBound =
-          await backgroundApiProxy.serviceReferralCode.checkWalletIsBoundReferralCode(
-            {
-              address,
-              networkId,
-            },
-          );
+      } catch (error) {
+        console.log(
+          '===>>> getReferralCodeBondStatus error, treating as not bound:',
+          error,
+        );
+        alreadyBound = false;
       }
-    } catch (error) {
-      console.log(
-        '===>>> getReferralCodeBondStatus error, treating as not bound:',
-        error,
-      );
-      alreadyBound = false;
-    }
 
-    // Always execute setWalletReferralCode regardless of timeout
-    try {
-      await backgroundApiProxy.serviceReferralCode.setWalletReferralCode({
-        walletId: walletInfo.walletId,
-        referralCodeInfo: {
+      // Always execute setWalletReferralCode regardless of timeout
+      try {
+        await backgroundApiProxy.serviceReferralCode.setWalletReferralCode({
           walletId: walletInfo.walletId,
-          address: walletInfo.address,
-          networkId: walletInfo.networkId,
-          pubkey: walletInfo.pubkey ?? '',
-          isBound: alreadyBound,
-        },
-      });
-    } catch (error) {
-      console.log('===>>> setWalletReferralCode error:', error);
-    }
+          referralCodeInfo: {
+            walletId: walletInfo.walletId,
+            address: walletInfo.address,
+            networkId: walletInfo.networkId,
+            pubkey: walletInfo.pubkey ?? '',
+            isBound: alreadyBound,
+          },
+        });
+      } catch (error) {
+        console.log('===>>> setWalletReferralCode error:', error);
+      }
 
-    if (isTimeout && skipIfTimeout) {
-      return false;
-    }
+      if (isTimeout && skipIfTimeout) {
+        return false;
+      }
 
-    if (alreadyBound) {
-      return false;
-    }
-    setShouldBondReferralCode(true);
-    return true;
-  };
+      if (alreadyBound) {
+        return false;
+      }
+      setShouldBondReferralCode(true);
+      return true;
+    },
+    [mnemonicType, getReferralCodeWalletInfo],
+  );
 
   const inModalDialog = useInModalDialog();
   const inTabDialog = useInTabDialog();
