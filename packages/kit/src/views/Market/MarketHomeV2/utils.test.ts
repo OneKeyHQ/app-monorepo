@@ -37,6 +37,26 @@ const validationTests = [
     should: true,
   },
   {
+    description: 'valid number with lowercase b',
+    input: '2b',
+    should: true,
+  },
+  {
+    description: 'valid number with uppercase B',
+    input: '3B',
+    should: true,
+  },
+  {
+    description: 'valid number with lowercase t',
+    input: '1t',
+    should: true,
+  },
+  {
+    description: 'valid number with uppercase T',
+    input: '2T',
+    should: true,
+  },
+  {
     description: 'invalid decimal with k suffix (decimal not allowed)',
     input: '10.5k',
     should: false,
@@ -92,13 +112,13 @@ const validationTests = [
     should: false,
   },
   {
-    description: 'valid multiple k/m characters',
-    input: 'kMKm123',
+    description: 'valid multiple k/m/b/t characters',
+    input: 'kMBtKmBT123',
     should: true,
   },
   {
     description: 'valid only letters',
-    input: 'kmKM',
+    input: 'kmbtKMBT',
     should: true,
   },
 ];
@@ -130,6 +150,26 @@ const parseValueTests = [
     expected: 5_000_000,
   },
   {
+    description: 'parse number with lowercase b',
+    input: '2b',
+    expected: 2_000_000_000,
+  },
+  {
+    description: 'parse number with uppercase B',
+    input: '3B',
+    expected: 3_000_000_000,
+  },
+  {
+    description: 'parse number with lowercase t',
+    input: '1t',
+    expected: 1_000_000_000_000,
+  },
+  {
+    description: 'parse number with uppercase T',
+    input: '2T',
+    expected: 2_000_000_000_000,
+  },
+  {
     description: 'parse with special characters removed',
     input: '10$k',
     expected: 10_000,
@@ -138,6 +178,36 @@ const parseValueTests = [
     description: 'parse with spaces removed',
     input: '10 k',
     expected: 10_000,
+  },
+  {
+    description: 'parse large number with special chars and b suffix',
+    input: '5$b',
+    expected: 5_000_000_000,
+  },
+  {
+    description: 'parse large number with special chars and t suffix',
+    input: '1@t',
+    expected: 1_000_000_000_000,
+  },
+  {
+    description: 'parse empty string after cleaning',
+    input: '@#$',
+    expected: 0,
+  },
+  {
+    description: 'parse only unit letters',
+    input: 'kMBT',
+    expected: 0,
+  },
+  {
+    description: 'parse very large number with t suffix',
+    input: '999t',
+    expected: 999_000_000_000_000,
+  },
+  {
+    description: 'parse very large number with b suffix',
+    input: '999b',
+    expected: 999_000_000_000,
   },
 ];
 

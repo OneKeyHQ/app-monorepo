@@ -1,33 +1,49 @@
 // Shared utility functions for MarketHomeV2 components
 
+import BigNumber from 'bignumber.js';
+
 /**
- * Validate liquidity input to only allow numbers and k/m/K/M characters
+ * Validate liquidity input to only allow numbers and k/m/b/t/K/M/B/T characters
  * @param value - Input string to validate
  * @returns True if valid, false otherwise
  */
 export const validateLiquidityInput = (value: string): boolean => {
-  // Only allow numbers and k/m/K/M characters (no decimal point)
-  const validPattern = /^[0-9kmKM]*$/;
+  // Only allow numbers and k/m/b/t/K/M/B/T characters (no decimal point)
+  const validPattern = /^[0-9kmbtKMBT]*$/;
   return validPattern.test(value);
 };
 
 /**
- * Parse a string value to number, supporting K (thousands) and M (millions) suffixes
- * @param value - String value like "10K", "5M", "1000"
- * @returns Parsed number value
+ * Parse a string value to number, supporting K/k (thousands), M/m (millions), B/b (billions), T/t (trillions) suffixes
+ * @param value - String value like "10K", "5M", "2B", "1T", "1000"
+ * @returns Parsed number value using BigNumber for precision
  */
 export const parseValueToNumber = (value: string): number => {
-  // Only remove characters that are not numbers or k/m letters (no decimal points)
-  const cleanValue = value.replace(/[^0-9kmKM]/g, '').replace(/[kmKM]/g, '');
-  const numValue = parseInt(cleanValue, 10);
+  // Only remove characters that are not numbers or unit letters (no decimal points)
+  const cleanValue = value
+    .replace(/[^0-9kmbtKMBT]/g, '')
+    .replace(/[kmbtKMBT]/g, '');
 
-  if (value.toLowerCase().includes('k')) {
-    return numValue * 1000;
+  if (!cleanValue || cleanValue === '') {
+    return 0;
   }
-  if (value.toLowerCase().includes('m')) {
-    return numValue * 1_000_000;
+
+  const numValue = new BigNumber(cleanValue);
+  const lowerValue = value.toLowerCase();
+
+  if (lowerValue.includes('t')) {
+    return numValue.multipliedBy(new BigNumber('1000000000000')).toNumber(); // trillion
   }
-  return numValue;
+  if (lowerValue.includes('b')) {
+    return numValue.multipliedBy(new BigNumber('1000000000')).toNumber(); // billion
+  }
+  if (lowerValue.includes('m')) {
+    return numValue.multipliedBy(new BigNumber('1000000')).toNumber(); // million
+  }
+  if (lowerValue.includes('k')) {
+    return numValue.multipliedBy(new BigNumber('1000')).toNumber(); // thousand
+  }
+  return numValue.toNumber();
 };
 
 /**
