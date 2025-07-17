@@ -24,7 +24,7 @@ export function useMarketTokenList({
   networkId,
   initialSortBy,
   initialSortType,
-  pageSize = 20,
+  pageSize = 50,
   minLiquidity,
   maxLiquidity,
 }: IUseMarketTokenListParams) {
