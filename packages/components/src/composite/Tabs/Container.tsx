@@ -89,6 +89,7 @@ export function Container({
     () => ({ focusedTab, tabNames: sharedTabNames, scrollTabElementsRef }),
     [focusedTab, sharedTabNames],
   );
+  const isEffectValid = useRef(true);
   const ref = useRef<Element>(null);
   const listContainerRef = useRef<Element>(null);
 
@@ -141,6 +142,7 @@ export function Container({
     setScrollElement(ref.current);
     setTimeout(updateListContainerHeight, 250);
     return () => {
+      isEffectValid.current = false;
       if (resizeObserverRef.current) {
         resizeObserverRef.current.disconnect();
       }
@@ -152,6 +154,9 @@ export function Container({
 
   const onTabPress = useCallback(
     (tabName: string) => {
+      if (!isEffectValid.current) {
+        return;
+      }
       isSwitchingTabRef.current = true;
       // Header Height + tabBar height
       let scrollTop = scrollTopRef.current[tabName] || 0;
@@ -220,6 +225,9 @@ export function Container({
               onChildScroll,
               registerChild,
             }) => {
+              if (!isEffectValid.current || !width) {
+                return null;
+              }
               if (!isSwitchingTabRef.current) {
                 scrollTopRef.current[focusedTab.value] =
                   scrollElement.scrollTop;
