@@ -10,7 +10,6 @@ import {
 
 import { View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
-import { Pagination } from 'react-native-reanimated-carousel';
 import { useStyle } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -18,11 +17,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { XStack, YStack } from '../../primitives';
 
 import { PagerView } from './pager';
+import { Pagination } from './Pagination';
 
+import type { IDotStyle } from './PaginationItem';
 import type { ICarouselProps } from './type';
 import type { LayoutChangeEvent, NativeSyntheticEvent } from 'react-native';
 import type NativePagerView from 'react-native-pager-view';
-import type { DotStyle } from 'react-native-reanimated-carousel/lib/typescript/components/Pagination/Basic/PaginationItem';
 
 export function Carousel<T>({
   data = [],
@@ -139,7 +139,7 @@ export function Carousel<T>({
       overflow: 'hidden',
       backgroundColor: 'rgba(0, 0, 0, 0.88)',
       ...resolvedActiveDotStyle,
-    } as DotStyle;
+    } as IDotStyle;
   }, [resolvedActiveDotStyle]);
 
   const resolvedDotStyle = useStyle(
@@ -153,7 +153,7 @@ export function Carousel<T>({
       borderRadius: 100,
       backgroundColor: 'rgba(0, 0, 0, 0.11)',
       ...resolvedDotStyle,
-    } as DotStyle;
+    } as IDotStyle;
   }, [resolvedDotStyle]);
 
   const handleHoverIn = useCallback(() => {
@@ -199,7 +199,7 @@ export function Carousel<T>({
           </View>
         ) : null}
       </XStack>
-      <Pagination.Basic
+      <Pagination
         horizontal
         progress={paginationProgress}
         data={data as any}

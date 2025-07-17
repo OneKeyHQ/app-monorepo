@@ -7651,7 +7651,6 @@ __metadata:
     react-native-draggable-flatlist: "npm:4.0.3"
     react-native-get-random-values: "npm:1.9.0"
     react-native-reanimated: "npm:3.18.0"
-    react-native-reanimated-carousel: "npm:^4.0.2"
     react-native-screens: "npm:4.11.0"
     react-native-web: "npm:0.20.0"
     react-refresh: "npm:^0.14.0"
@@ -35868,18 +35867,6 @@ __metadata:
     react-native: "*"
     react-native-svg: "*"
   checksum: 10/d6965e2a24975c9dd93d2ad1deade64c21d1b1b29d8a0051e7f2aa2f132c661deb8a8b4aae5539de76967501dda6d02884a47d31bd44844415da5ead5b169456
-  languageName: node
-  linkType: hard
-
-"react-native-reanimated-carousel@npm:^4.0.2":
-  version: 4.0.2
-  resolution: "react-native-reanimated-carousel@npm:4.0.2"
-  peerDependencies:
-    react: ">=18.0.0"
-    react-native: ">=0.70.3"
-    react-native-gesture-handler: ">=2.9.0"
-    react-native-reanimated: ">=3.0.0"
-  checksum: 10/28361fd408f91b68ff1accf9c0aec934295a0dacab24395d848925dd5076ac59c78e3f0eac24fe53f18cd05c3a2b0cba9a2cb3297e90bf205a9e803bd6dfd76c
   languageName: node
   linkType: hard
 
