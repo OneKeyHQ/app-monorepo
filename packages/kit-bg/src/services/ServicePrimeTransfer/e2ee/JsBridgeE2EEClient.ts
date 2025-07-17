@@ -1,10 +1,8 @@
 import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 
-import type { RoomManager } from './roomManager';
 import type {
   IJsBridgeConfig,
   IJsBridgeMessagePayload,
-  IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { Socket } from 'socket.io-client';
 

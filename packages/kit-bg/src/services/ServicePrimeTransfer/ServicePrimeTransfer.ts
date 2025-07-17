@@ -33,6 +33,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
+  IE2EESocketUserInfo,
   IPrimeTransferData,
   IPrimeTransferHDWallet,
   IPrimeTransferPrivateData,
@@ -55,14 +56,16 @@ import {
 
 import e2eeClientToClientApi, {
   generateEncryptedKey,
-} from './e2eeClientToClientApi';
-import { createE2EEClientToClientApiProxy } from './e2eeClientToClientApiProxy';
+} from './e2ee/e2eeClientToClientApi';
+import { createE2EEClientToClientApiProxy } from './e2ee/e2eeClientToClientApiProxy';
+import { createE2EEServerApiProxy } from './e2ee/e2eeServerApiProxy';
 
 import type {
   IECDHEKeyExchangeRequest,
   IECDHEKeyExchangeResponse,
-} from './e2eeClientToClientApi';
-import type { E2EEClientToClientApiProxy } from './e2eeClientToClientApiProxy';
+} from './e2ee/e2eeClientToClientApi';
+import type { E2EEClientToClientApiProxy } from './e2ee/e2eeClientToClientApiProxy';
+import type { E2EEServerApiProxy } from './e2ee/e2eeServerApiProxy';
 import type {
   IDBAccount,
   IDBUtxoAccount,
@@ -71,12 +74,6 @@ import type {
 import type { IPrimeTransferAtomData } from '../../states/jotai/atoms/prime';
 import type { IAccountDeriveTypes } from '../../vaults/types';
 import type { Socket } from 'socket.io-client';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports, import/no-relative-packages, import-path/parent-depth, import/order
-import type { IE2EESocketUserInfo } from '../../../../../apps/e2ee-server/src/types';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports, import/no-relative-packages, import-path/parent-depth, import/order
-import type { E2EEServerApiProxy } from '../../../../../apps/e2ee-server/src/e2eeServerApiProxy';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports, import/no-relative-packages, import-path/parent-depth, import/order
-import { createE2EEServerApiProxy } from '../../../../../apps/e2ee-server/src/e2eeServerApiProxy';
 
 export interface ITransferProgress {
   current: number;

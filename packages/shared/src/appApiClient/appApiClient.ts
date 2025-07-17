@@ -19,6 +19,7 @@ const clients: Record<EServiceEndpointEnum, AxiosInstance | null> = {
   [EServiceEndpointEnum.Notification]: null,
   [EServiceEndpointEnum.NotificationWebSocket]: null,
   [EServiceEndpointEnum.Prime]: null,
+  [EServiceEndpointEnum.Transfer]: null,
   [EServiceEndpointEnum.Rebate]: null,
 };
 
@@ -31,6 +32,7 @@ const rawDataClients: Record<EServiceEndpointEnum, AxiosInstance | null> = {
   [EServiceEndpointEnum.Notification]: null,
   [EServiceEndpointEnum.NotificationWebSocket]: null,
   [EServiceEndpointEnum.Prime]: null,
+  [EServiceEndpointEnum.Transfer]: null,
   [EServiceEndpointEnum.Rebate]: null,
 };
 
@@ -45,6 +47,7 @@ const oneKeyIdAuthClients: Record<EServiceEndpointEnum, AxiosInstance | null> =
     [EServiceEndpointEnum.Earn]: null,
     [EServiceEndpointEnum.Notification]: null,
     [EServiceEndpointEnum.NotificationWebSocket]: null,
+    [EServiceEndpointEnum.Transfer]: null,
   };
 
 const getBasicClient = async ({
