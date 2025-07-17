@@ -320,6 +320,7 @@ function TokenListViewCmp(props: IProps) {
     <ListComponent
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
+      extraData={filteredTokens.length}
       data={filteredTokens}
       contentContainerStyle={resolvedContentContainerStyle as any}
       ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
