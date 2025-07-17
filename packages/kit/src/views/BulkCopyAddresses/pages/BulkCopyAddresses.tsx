@@ -145,11 +145,13 @@ function BulkCopyAddresses({
         !accountUtils.isOthersWallet({ walletId: wallet.id }) &&
         !wallet.deprecated
       ) {
-        availableWalletsTemp.push(wallet);
+        if (!wallet.isMocked) {
+          availableWalletsTemp.push(wallet);
+        }
         walletsMap.current[wallet.id] = wallet;
         if (wallet.hiddenWallets?.length) {
           wallet.hiddenWallets.forEach((hiddenWallet) => {
-            if (!hiddenWallet.deprecated) {
+            if (!hiddenWallet.deprecated && !hiddenWallet.isMocked) {
               availableWalletsTemp.push({
                 ...hiddenWallet,
                 parentWalletName: wallet.name,

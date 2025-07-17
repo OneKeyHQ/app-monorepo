@@ -236,7 +236,7 @@ function ExportAddresses({
             }
           >
             {intl.formatMessage({
-              id: ETranslations.global_export,
+              id: ETranslations.global_bulk_copy_addresses_export_csv,
             })}
           </Button>
         </XStack>
