@@ -80,13 +80,17 @@ const CarouselGallery = () => (
                           source={require('@onekeyhq/kit/assets/sidebar-banner.png')}
                         />
                         <YStack gap="$0.5">
-                          <SizableText size="$bodyLgMedium">
+                          <SizableText
+                            size="$bodyLgMedium"
+                            $md={{ maxWidth: 0, width: 0 }}
+                          >
                             OneKey Pro
                           </SizableText>
                           <SizableText
                             size="$bodyMd"
                             color="$textSubdued"
                             maxWidth="$40"
+                            $md={{ maxWidth: 0, width: 0 }}
                             numberOfLines={2}
                             flexShrink={1}
                           >
