@@ -348,6 +348,7 @@ export function List<Item>({
                 cellSizeAndPositionGetter={cellSizeAndPositionGetter}
                 cellRenderer={cellRenderer as any}
                 overscanRowCount={30}
+                rowCount={Math.ceil(listData.length / numColumns)}
               />
             </div>
           );
