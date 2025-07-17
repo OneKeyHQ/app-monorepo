@@ -96,3 +96,19 @@ export const formatLiquidityFilterDisplay = (
 
   return liquidityText;
 };
+
+/**
+ * Validate if the liquidity minimum value does not exceed maximum allowed (1t = 1 trillion)
+ * @param value - String value to validate
+ * @returns True if value is <= 1t or empty, false otherwise
+ */
+export const validateMaximumMinLiquidity = (value: string): boolean => {
+  if (!value || value.trim() === '') {
+    return true; // Empty values are allowed
+  }
+
+  const numValue = parseValueToNumber(value.trim());
+  const maximumMinValue = 1_000_000_000_000; // 1 trillion
+
+  return numValue <= maximumMinValue;
+};

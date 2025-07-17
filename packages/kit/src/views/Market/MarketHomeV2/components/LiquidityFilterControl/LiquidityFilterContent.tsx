@@ -86,7 +86,18 @@ function LiquidityFilterContent({
     (preset: string) => {
       // Apply preset values immediately without updating local state
       // to avoid state inconsistency during rapid closure
-      onApply?.({ min: preset, max: undefined });
+      // If preset value is greater than 1t, set to 1t (minimum value cannot exceed 1t)
+      const presetNum = parseValueToNumber(preset);
+      const maximumMinValue = 1_000_000_000_000; // 1 trillion
+
+      let finalPreset = preset;
+      if (presetNum > maximumMinValue) {
+        finalPreset = String(
+          numberFormat(String(maximumMinValue), { formatter: 'marketCap' }),
+        );
+      }
+
+      onApply?.({ min: finalPreset, max: undefined });
       onClose?.();
     },
     [onApply, onClose],
@@ -105,8 +116,10 @@ function LiquidityFilterContent({
     if (minValue?.trim()) {
       try {
         const minNum = parseValueToNumber(minValue.trim());
+        // Enforce maximum minimum value of 1t (minimum value cannot exceed 1t)
+        const finalMinNum = Math.min(minNum, 1_000_000_000_000);
         convertedMin = String(
-          numberFormat(String(minNum), { formatter: 'marketCap' }),
+          numberFormat(String(finalMinNum), { formatter: 'marketCap' }),
         );
       } catch (error) {
         // Keep original value if parsing fails
@@ -117,6 +130,7 @@ function LiquidityFilterContent({
     if (maxValue?.trim()) {
       try {
         const maxNum = parseValueToNumber(maxValue.trim());
+        // No restriction on maximum value
         convertedMax = String(
           numberFormat(String(maxNum), { formatter: 'marketCap' }),
         );

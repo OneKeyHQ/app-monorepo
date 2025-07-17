@@ -1,4 +1,8 @@
-import { parseValueToNumber, validateLiquidityInput } from './utils';
+import {
+  parseValueToNumber,
+  validateLiquidityInput,
+  validateMaximumMinLiquidity,
+} from './utils';
 
 const validationTests = [
   {
@@ -227,6 +231,69 @@ const parseValueTests = [
   },
 ];
 
+const maximumMinLiquidityTests = [
+  {
+    description: 'empty string should be valid',
+    input: '',
+    should: true,
+  },
+  {
+    description: 'whitespace only should be valid',
+    input: '   ',
+    should: true,
+  },
+  {
+    description: 'exactly 1t should be valid',
+    input: '1t',
+    should: true,
+  },
+  {
+    description: 'exactly 1T should be valid',
+    input: '1T',
+    should: true,
+  },
+  {
+    description: 'greater than 1t should be invalid',
+    input: '5t',
+    should: false,
+  },
+  {
+    description: 'much greater than 1t should be invalid',
+    input: '100t',
+    should: false,
+  },
+  {
+    description: 'less than 1t (999b) should be valid',
+    input: '999b',
+    should: true,
+  },
+  {
+    description: 'much less than 1t (1b) should be valid',
+    input: '1b',
+    should: true,
+  },
+  {
+    description: 'less than 1t (999999999999) should be valid',
+    input: '999999999999',
+    should: true,
+  },
+  {
+    description: 'exactly 1 trillion as number should be valid',
+    input: '1000000000000',
+    should: true,
+  },
+  {
+    description: 'small numbers should be valid',
+    input: '100k',
+    should: true,
+  },
+  {
+    description: 'medium numbers should be valid',
+    input: '500m',
+    should: true,
+  },
+];
+
 describe('Liquidity Input Validation Tests', () => {
   validationTests.forEach((data) => {
     test(data.description, () => {
@@ -243,6 +310,16 @@ describe('Parse Value to Number Tests', () => {
       const { input, expected } = data;
       const result = parseValueToNumber(input);
       expect(result).toBe(expected);
+    });
+  });
+});
+
+describe('Maximum Minimum Liquidity Validation Tests', () => {
+  maximumMinLiquidityTests.forEach((data) => {
+    test(data.description, () => {
+      const { input, should } = data;
+      const result = validateMaximumMinLiquidity(input);
+      expect(result).toBe(should);
     });
   });
 });
