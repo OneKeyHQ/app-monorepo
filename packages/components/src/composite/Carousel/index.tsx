@@ -1,5 +1,7 @@
+import type { RefObject } from 'react';
 import {
   useCallback,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -8,17 +10,18 @@ import {
 
 import { View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
-import ReanimatedCarousel, {
-  Pagination,
-} from 'react-native-reanimated-carousel';
+import { Pagination } from 'react-native-reanimated-carousel';
 import { useStyle } from 'tamagui';
 
 import { XStack, YStack } from '../../primitives';
 
+import { PagerView } from './pager';
+
 import type { ICarouselProps } from './type';
-import type { LayoutChangeEvent, ViewStyle } from 'react-native';
-import type { ICarouselInstance } from 'react-native-reanimated-carousel';
+import type { LayoutChangeEvent, NativeSyntheticEvent } from 'react-native';
+import type NativePagerView from 'react-native-pager-view';
 import type { DotStyle } from 'react-native-reanimated-carousel/lib/typescript/components/Pagination/Basic/PaginationItem';
+import type { TCarouselActionOptions } from 'react-native-reanimated-carousel/lib/typescript/types';
 
 export function Carousel({
   data = [],
@@ -35,24 +38,70 @@ export function Carousel({
   dotStyle,
   ...props
 }: ICarouselProps) {
+  const pagerRef = useRef<NativePagerView>(undefined);
+  const currentPage = useRef<number>(0);
+
+  const scrollToPreviousPage = useCallback(() => {
+    const previousPage =
+      currentPage.current > 0 ? currentPage.current - 1 : data.length - 1;
+    pagerRef.current?.setPage(previousPage);
+    currentPage.current = previousPage;
+  }, [currentPage, data.length]);
+  const scrollToNextPage = useCallback(() => {
+    console.log('scrollToNextPage', currentPage.current);
+    const nextPage =
+      currentPage.current < data.length ? currentPage.current + 1 : 0;
+    pagerRef.current?.setPage(nextPage);
+    currentPage.current = nextPage;
+  }, [data.length, currentPage]);
+
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const startAutoPlay = useCallback(() => {
+    if (autoPlay) {
+      timerRef.current = setTimeout(() => {
+        scrollToNextPage();
+        startAutoPlay();
+      }, autoPlayInterval);
+    }
+  }, [autoPlay, autoPlayInterval, scrollToNextPage]);
+
+  useEffect(() => {
+    startAutoPlay();
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, [autoPlay, autoPlayInterval, scrollToNextPage, startAutoPlay]);
+
+  useImperativeHandle(instanceRef, () => {
+    return {
+      prev: scrollToPreviousPage,
+      next: scrollToNextPage,
+      getCurrentIndex: () => {
+        return currentPage.current || 0;
+      },
+      scrollTo: (params: TCarouselActionOptions | undefined) => {
+        pagerRef.current?.setPage(params?.index || 0);
+      },
+    };
+  });
+
   const paginationProgress = useSharedValue<number>(0);
-  const scrollOffsetValue = useSharedValue<number>(0);
-
-  const ref = useRef<ICarouselInstance>(null);
-
-  useImperativeHandle(instanceRef, () => ref.current as ICarouselInstance);
 
   const onPressPagination = (index: number) => {
-    ref.current?.scrollTo({
-      /**
-       * Calculate the difference between the current index and the target index
-       * to ensure that the carousel scrolls to the nearest index
-       */
-      count: index - paginationProgress.value,
-      animated: true,
-    });
+    pagerRef.current?.setPage(index);
+    paginationProgress.value = index;
   };
 
+  const onPageSelected = useCallback(
+    (e: NativeSyntheticEvent<Readonly<{ position: number }>>) => {
+      currentPage.current = e.nativeEvent.position;
+      paginationProgress.value = currentPage.current;
+    },
+    [paginationProgress],
+  );
   const [layout, setLayout] = useState<{ width: number; height: number }>({
     width: 0,
     height: 0,
@@ -108,30 +157,44 @@ export function Carousel({
     } as DotStyle;
   }, [resolvedDotStyle]);
 
+  const handleHoverIn = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+  }, []);
+  const handleHoverOut = useCallback(() => {
+    startAutoPlay();
+  }, [startAutoPlay]);
+
   return (
     <YStack gap="$4">
-      <XStack {...(containerStyle as any)} onLayout={handleLayout}>
+      <XStack
+        {...(containerStyle as any)}
+        onLayout={handleLayout}
+        onHoverIn={handleHoverIn}
+        onHoverOut={handleHoverOut}
+      >
         {layout.width > 0 && layout.height > 0 ? (
           <View
             style={{ width: layout.width, height: layout.height }}
             key={`${layout.width}-${layout.height}`}
           >
-            <ReanimatedCarousel
-              loop={loop}
-              autoPlay={autoPlay}
-              width={layout.width}
-              height={layout.height}
-              ref={ref}
-              data={data}
-              snapEnabled={snapEnabled}
-              pagingEnabled={pagingEnabled}
-              autoPlayInterval={autoPlayInterval}
-              defaultScrollOffsetValue={scrollOffsetValue}
-              style={{ width: '100%' }}
-              renderItem={renderItem}
-              onProgressChange={paginationProgress}
-              {...(props as any)}
-            />
+            <PagerView
+              ref={pagerRef as RefObject<NativePagerView>}
+              style={{ width: layout.width, height: layout.height }}
+              initialPage={0}
+              onPageSelected={onPageSelected}
+              keyboardDismissMode="on-drag"
+            >
+              {data.map((item, index) => (
+                <View
+                  key={index}
+                  style={{ width: layout.width, height: layout.height }}
+                >
+                  {renderItem({ item, index } as any)}
+                </View>
+              ))}
+            </PagerView>
           </View>
         ) : null}
       </XStack>

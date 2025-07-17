@@ -69,7 +69,6 @@ const CarouselGallery = () => (
                     >
                       <XStack gap="$5" ai="center">
                         <Image
-                          animated
                           size="$16"
                           resizeMode="cover"
                           source={require('@onekeyhq/kit/assets/sidebar-banner.png')}
@@ -104,7 +103,6 @@ const CarouselGallery = () => (
                   return (
                     <YStack flex={1}>
                       <Image
-                        animated
                         w="100%"
                         h="100%"
                         resizeMode="cover"
