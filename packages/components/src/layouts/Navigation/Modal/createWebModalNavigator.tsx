@@ -57,7 +57,8 @@ type IProps = DefaultNavigatorOptions<
   StackRouterOptions &
   IModalNavigationConfig;
 
-function ModalNavigator({
+const backdropId = 'app-modal-stacks-backdrop';
+function WebModalNavigator({
   initialRouteName,
   children,
   screenOptions,
@@ -252,6 +253,7 @@ function ModalNavigator({
     [],
   );
 
+  const isExistBackdrop = document.getElementById(backdropId);
   return (
     <NavigationContent>
       <ModalNavigatorContext.Provider value={contextValue}>
@@ -270,8 +272,9 @@ function ModalNavigator({
               platformEnv.isNative ? undefined : onPageContainerPressOut
             }
           >
-            {currentRouteIndex <= 1 ? (
+            {currentRouteIndex <= 1 && !isExistBackdrop ? (
               <YStack
+                id={backdropId}
                 ref={(ref) => {
                   if (ref) {
                     MODAL_ANIMATED_BACKDROP_VIEW_REF = ref;
@@ -334,4 +337,6 @@ function ModalNavigator({
   );
 }
 
-export default createNavigatorFactory(ModalNavigator);
+const createWebModalNavigator = createNavigatorFactory(WebModalNavigator);
+
+export default createWebModalNavigator;
