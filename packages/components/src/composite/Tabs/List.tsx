@@ -328,7 +328,6 @@ export function List<Item>({
     );
   }
 
-  console.log('numColumns', numColumns, width);
   if (numColumns > 1) {
     return (
       <AutoSizer disableHeight>
