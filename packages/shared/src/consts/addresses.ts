@@ -1,5 +1,4 @@
-export const EthereumPol = '0x7d1afa7b718fb893db30a3abc0cfc608aacfebb0';
-export const SepoliaPol = '0x3fd0a53f4bf853985a95f4eb3f9c9fde1f8e2b53';
+export const EthereumPol = '0x455e53cbb86018ac2b8092fdcd39d8444affc3f6';
 export const EthereumUSDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
 export const EthereumUSDT = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
 export const EthereumDAI = '0x6B175474E89094C44Da98b954EedeAC495271d0F';
