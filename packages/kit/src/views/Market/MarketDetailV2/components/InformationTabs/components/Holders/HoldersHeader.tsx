@@ -33,6 +33,9 @@ function HoldersHeaderBase() {
           id: ETranslations.global_address,
         })}
       </SizableText>
+      <SizableText {...commonTextProps} {...layoutConfig.percentage}>
+        %
+      </SizableText>
       <SizableText {...commonTextProps} {...layoutConfig.amount}>
         {intl.formatMessage({
           id: ETranslations.dexmarket_details_history_amount,
@@ -42,9 +45,6 @@ function HoldersHeaderBase() {
         {intl.formatMessage({
           id: ETranslations.dexmarket_details_history_value,
         })}
-      </SizableText>
-      <SizableText {...commonTextProps} {...layoutConfig.percentage}>
-        %
       </SizableText>
     </XStack>
   );

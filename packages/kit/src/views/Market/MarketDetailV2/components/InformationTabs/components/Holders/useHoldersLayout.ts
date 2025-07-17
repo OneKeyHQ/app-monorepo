@@ -1,7 +1,7 @@
 export const useHoldersLayout = () => {
   const layoutConfig = {
     rank: {
-      width: '$8',
+      width: '$10',
     },
     address: {
       width: '$40',
