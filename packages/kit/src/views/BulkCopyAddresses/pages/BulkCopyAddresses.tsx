@@ -280,6 +280,9 @@ function BulkCopyAddresses({
               progressTotal={amount}
             />
           ),
+          onDialogClose: () => {
+            setIsGeneratingAddresses(false);
+          },
         });
 
         await timerUtils.wait(600);
