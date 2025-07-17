@@ -37,9 +37,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports, import/no-relative-packages, import-path/parent-depth, import/order
-import type { IE2EESocketUserInfo } from '../../../../../../../../apps/e2ee-server/src/types';
+import type { IE2EESocketUserInfo } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 interface IDeviceItemProps {
   userInfo: IE2EESocketUserInfo | undefined;
