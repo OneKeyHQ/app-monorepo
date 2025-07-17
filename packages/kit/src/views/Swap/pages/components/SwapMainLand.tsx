@@ -266,19 +266,44 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           },
         ];
       } else if (quoteRes.swapShouldSignedData) {
+        if (quoteRes.allowanceResult) {
+          if (quoteRes.allowanceResult.shouldResetApprove) {
+            steps = [
+              {
+                type: ESwapStepType.APPROVE_TX,
+                status: ESwapStepStatus.READY,
+                data: quoteRes,
+                fromToken: fromSelectToken,
+                toToken: toSelectToken,
+                isResetApprove: true,
+                canRetry: true,
+                shouldWaitApproved:
+                  swapBatchTransferType !==
+                  ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP,
+              },
+            ];
+          }
+          steps = [
+            ...steps,
+            {
+              type: ESwapStepType.APPROVE_TX,
+              status: ESwapStepStatus.READY,
+              data: quoteRes,
+              canRetry: true,
+              fromToken: fromSelectToken,
+              toToken: toSelectToken,
+              shouldWaitApproved:
+                swapBatchTransferType !==
+                ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP,
+            },
+          ];
+        }
         steps = [
+          ...steps,
           {
             type: ESwapStepType.SIGN_MESSAGE,
             status: ESwapStepStatus.READY,
             data: quoteRes,
-            fromToken: fromSelectToken,
-            toToken: toSelectToken,
-          },
-          {
-            type: ESwapStepType.SEND_TX,
-            status: ESwapStepStatus.READY,
-            data: quoteRes,
-            skipSendTransAction: true,
             fromToken: fromSelectToken,
             toToken: toSelectToken,
           },
@@ -318,6 +343,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             ];
           }
           steps = [
+            ...steps,
             {
               type: ESwapStepType.APPROVE_TX,
               status: ESwapStepStatus.READY,
