@@ -1,12 +1,24 @@
 // Shared utility functions for MarketHomeV2 components
 
 /**
+ * Validate liquidity input to only allow numbers and k/m/K/M characters
+ * @param value - Input string to validate
+ * @returns True if valid, false otherwise
+ */
+export const validateLiquidityInput = (value: string): boolean => {
+  // Only allow numbers, decimal point, and k/m/K/M characters
+  const validPattern = /^[0-9.kmKM]*$/;
+  return validPattern.test(value);
+};
+
+/**
  * Parse a string value to number, supporting K (thousands) and M (millions) suffixes
  * @param value - String value like "10K", "5M", "1000"
  * @returns Parsed number value
  */
 export const parseValueToNumber = (value: string): number => {
-  const cleanValue = value.replace(/[^0-9.]/g, '');
+  // Only remove characters that are not numbers, decimal points, or k/m letters
+  const cleanValue = value.replace(/[^0-9.kmKM]/g, '').replace(/[kmKM]/g, '');
   const numValue = parseFloat(cleanValue);
 
   if (value.toLowerCase().includes('k')) {

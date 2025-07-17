@@ -14,7 +14,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { parseValueToNumber } from '../../utils';
+import { parseValueToNumber, validateLiquidityInput } from '../../utils';
 
 type ILiquidityFilterContentProps = {
   value?: { min?: string; max?: string };
@@ -36,6 +36,19 @@ function LiquidityFilterContent({
     : undefined;
   const [minValue, setMinValue] = useState<string | undefined>(valueProp?.min);
   const [maxValue, setMaxValue] = useState<string | undefined>(valueProp?.max);
+
+  // Validated input handlers
+  const handleMinValueChange = useCallback((value: string) => {
+    if (validateLiquidityInput(value)) {
+      setMinValue(value);
+    }
+  }, []);
+
+  const handleMaxValueChange = useCallback((value: string) => {
+    if (validateLiquidityInput(value)) {
+      setMaxValue(value);
+    }
+  }, []);
   const intl = useIntl();
 
   // Validation logic for min > max
@@ -155,7 +168,7 @@ function LiquidityFilterContent({
                 id: ETranslations.dexmarket_custom_filters_min,
               })}
               value={minValue}
-              onChangeText={setMinValue}
+              onChangeText={handleMinValueChange}
             />
           </Stack>
           <Stack flex={1} gap="$2">
@@ -164,7 +177,7 @@ function LiquidityFilterContent({
                 id: ETranslations.dexmarket_custom_filters_max,
               })}
               value={maxValue}
-              onChangeText={setMaxValue}
+              onChangeText={handleMaxValueChange}
             />
           </Stack>
         </XStack>
