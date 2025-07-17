@@ -15,6 +15,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { useSignatureConfirmActions } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+
 function ClaimResourceEntry({
   accountId,
   networkId,
@@ -23,6 +25,7 @@ function ClaimResourceEntry({
   networkId: string;
 }) {
   const intl = useIntl();
+  const { updateTronResourceRentalInfo } = useSignatureConfirmActions().current;
   return (
     <LinearGradient
       colors={['#63c811', '#00a3ff']}
@@ -42,9 +45,16 @@ function ClaimResourceEntry({
           showTronRewardCenter({
             accountId,
             networkId,
-            onDialogClose: async ({ isResourceFetched }) => {
-              if (isResourceFetched) {
+            onDialogClose: async ({
+              isResourceClaimed,
+              isResourceRedeemed,
+            }) => {
+              if (isResourceClaimed || isResourceRedeemed) {
                 await timerUtils.wait(1000);
+                updateTronResourceRentalInfo({
+                  isResourceClaimed,
+                  isResourceRedeemed,
+                });
                 appEventBus.emit(
                   EAppEventBusNames.EstimateTxFeeRetry,
                   undefined,
