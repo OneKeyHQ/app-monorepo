@@ -67,7 +67,7 @@ function BulkCopyAddressesProcessingInfo({
   const intl = useIntl();
   return (
     <Stack justifyContent="center" alignItems="center" flex={1}>
-      <SizableText size="$headingLg">
+      <SizableText size="$bodyLg">
         {intl.formatMessage(
           {
             id: ETranslations.global_fetching_addresses,
