@@ -1,6 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
-
-import BigNumber from 'bignumber.js';
+import { memo, useCallback } from 'react';
 
 import {
   Icon,
@@ -9,7 +7,6 @@ import {
   XStack,
   useClipboard,
 } from '@onekeyhq/components';
-import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
@@ -17,7 +14,7 @@ import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
 import { useHoldersLayout } from './useHoldersLayout';
 
 interface IHolderItemProps {
-  item: IMarketTokenHolder;
+  item: IMarketTokenHolder & { marketCapPercentage?: string | null };
   index: number;
 }
 
@@ -25,33 +22,10 @@ function HolderItemBase({ item, index }: IHolderItemProps) {
   const { copyText } = useClipboard();
   const { layoutConfig } = useHoldersLayout();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const { tokenDetail, isReady } = useTokenDetail();
 
   const handleCopyAddress = useCallback(() => {
     copyText(item.accountAddress);
   }, [copyText, item.accountAddress]);
-
-  const marketCapPercentage = useMemo(() => {
-    if (!isReady || !tokenDetail?.marketCap || !item.fiatValue) {
-      return null;
-    }
-
-    try {
-      const holderValue = new BigNumber(item.fiatValue);
-      const totalMarketCap = new BigNumber(tokenDetail.marketCap);
-
-      if (totalMarketCap.isLessThanOrEqualTo(0)) {
-        return null;
-      }
-
-      const percentage = holderValue
-        .dividedBy(totalMarketCap)
-        .multipliedBy(100);
-      return percentage.toFixed(2);
-    } catch (error) {
-      return null;
-    }
-  }, [isReady, tokenDetail?.marketCap, item.fiatValue]);
 
   return (
     <XStack h={40} px="$4" alignItems="center" gap="$3">
@@ -89,7 +63,7 @@ function HolderItemBase({ item, index }: IHolderItemProps) {
 
       {/* Market Cap Percentage */}
       <SizableText size="$bodyMd" color="$text" {...layoutConfig.percentage}>
-        {marketCapPercentage ? `${marketCapPercentage}%` : '-'}
+        {item.marketCapPercentage ? `${item.marketCapPercentage}%` : '-'}
       </SizableText>
 
       {/* Amount */}
