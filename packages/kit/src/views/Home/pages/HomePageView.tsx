@@ -36,7 +36,8 @@ import { TabHeaderSettings } from './TabHeaderSettings';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
-import { LayoutChangeEvent } from 'react-native';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -362,7 +363,14 @@ export function HomePageView({
         </Page.Body>
       </>
     );
-  }, [ready, wallet, sceneName, handleTabPageLayout, renderHomePageContent]);
+  }, [
+    ready,
+    wallet,
+    tabPageHeight,
+    sceneName,
+    handleTabPageLayout,
+    renderHomePageContent,
+  ]);
 
   return useMemo(
     () => <Page fullPage>{renderHomePage()}</Page>,
