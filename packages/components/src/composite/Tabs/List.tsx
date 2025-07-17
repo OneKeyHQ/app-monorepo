@@ -294,6 +294,13 @@ export function List<Item>({
     [numColumns, width],
   );
 
+  useEffect(() => {
+    if (numColumns > 1 && width) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      (listRef.current as any)?.recomputeCellSizesAndPositions();
+    }
+  }, [numColumns, width]);
+
   const cellRenderer = useCallback(
     (params: CollectionCellRendererParams) => {
       const { index, key, style } = params;
@@ -321,6 +328,7 @@ export function List<Item>({
     );
   }
 
+  console.log('numColumns', numColumns, width);
   if (numColumns > 1) {
     return (
       <AutoSizer disableHeight>
