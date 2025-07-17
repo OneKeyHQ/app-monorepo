@@ -227,7 +227,6 @@ function BaseSortableListView<T>(
         renderClone={(provided, snapshot, rubric) => {
           return (
             <div
-              style={{ backgroundColor: 'red', width: 200, height: 200 }}
               ref={provided.innerRef}
               {...provided.draggableProps}
               {...provided.dragHandleProps}
