@@ -3,18 +3,11 @@ import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Dialog,
-  Page,
-  SizableText,
-  Spinner,
-  Toast,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, Dialog, Page, Spinner } from '@onekeyhq/components';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   EPrimeTransferStatus,
   usePrimeTransferAtom,
@@ -24,10 +17,9 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { PrimeTransferDirection } from './components/PrimeTransferDirection';
 import { PrimeTransferHome } from './components/PrimeTransferHome';
@@ -45,16 +37,22 @@ export default function PagePrimeTransfer() {
     }
   }, [primeTransferAtom.status]);
 
-  // const [endpoint] = useState(
-  //   platformEnv.isNative
-  //     ? 'http://192.168.31.246:3868'
-  //     : 'http://192.168.31.246:3868',
-  // );
-  const endpoint = 'https://app-monorepo.onrender.com';
+  const { result: endpoint } = usePromiseResult(async () => {
+    const endpointInfo = await backgroundApiProxy.serviceApp.getEndpointInfo({
+      name: EServiceEndpointEnum.Transfer,
+    });
+    // return 'http://localhost:3868';
+    // return 'https://app-monorepo.onrender.com';
+    // return 'https://transfer.onekey-test.com';
+    return endpointInfo.endpoint;
+  }, []);
 
   console.log('endpoint', endpoint);
 
   useEffect(() => {
+    if (!endpoint) {
+      return;
+    }
     // TODO show websocket connection status by global atom
     void backgroundApiProxy.servicePrimeTransfer.initWebSocket({
       endpoint,

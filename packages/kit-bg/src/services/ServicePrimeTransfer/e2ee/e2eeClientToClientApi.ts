@@ -13,7 +13,7 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { buildCallRemoteApiMethod } from '../../apis/RemoteApiProxyBase';
+import { buildCallRemoteApiMethod } from '../../../apis/RemoteApiProxyBase';
 
 import { JsBridgeE2EEClientToClient } from './JsBridgeE2EEClientToClient';
 
@@ -28,12 +28,14 @@ let isVerifiedRoomId: string | null = null;
 export interface IECDHEKeyExchangeRequest {
   userId: string;
   encryptedData: string;
-  clientPublicKey: string; // Client's ephemeral public key (hex)
+  // Client's ephemeral public key (hex)
+  clientPublicKey: string;
 }
 
 export interface IECDHEKeyExchangeResponse {
   success: boolean;
-  serverPublicKey?: string; // Server's ephemeral public key (hex)
+  // Server's ephemeral public key (hex)
+  serverPublicKey?: string;
 }
 
 export interface IE2EEClientToClientApi {
