@@ -22,6 +22,7 @@ import type { LayoutChangeEvent, NativeSyntheticEvent } from 'react-native';
 import type NativePagerView from 'react-native-pager-view';
 import type { DotStyle } from 'react-native-reanimated-carousel/lib/typescript/components/Pagination/Basic/PaginationItem';
 import type { TCarouselActionOptions } from 'react-native-reanimated-carousel/lib/typescript/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function Carousel({
   data = [],
@@ -173,6 +174,8 @@ export function Carousel({
         onLayout={handleLayout}
         onHoverIn={handleHoverIn}
         onHoverOut={handleHoverOut}
+        onPressIn={platformEnv.isNative ? handleHoverIn : undefined}
+        onPressOut={platformEnv.isNative ? handleHoverOut : undefined}
       >
         {layout.width > 0 && layout.height > 0 ? (
           <View
