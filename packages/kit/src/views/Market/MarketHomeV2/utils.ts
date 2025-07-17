@@ -6,8 +6,8 @@
  * @returns True if valid, false otherwise
  */
 export const validateLiquidityInput = (value: string): boolean => {
-  // Only allow numbers, decimal point, and k/m/K/M characters
-  const validPattern = /^[0-9.kmKM]*$/;
+  // Only allow numbers and k/m/K/M characters (no decimal point)
+  const validPattern = /^[0-9kmKM]*$/;
   return validPattern.test(value);
 };
 
@@ -17,9 +17,9 @@ export const validateLiquidityInput = (value: string): boolean => {
  * @returns Parsed number value
  */
 export const parseValueToNumber = (value: string): number => {
-  // Only remove characters that are not numbers, decimal points, or k/m letters
-  const cleanValue = value.replace(/[^0-9.kmKM]/g, '').replace(/[kmKM]/g, '');
-  const numValue = parseFloat(cleanValue);
+  // Only remove characters that are not numbers or k/m letters (no decimal points)
+  const cleanValue = value.replace(/[^0-9kmKM]/g, '').replace(/[kmKM]/g, '');
+  const numValue = parseInt(cleanValue, 10);
 
   if (value.toLowerCase().includes('k')) {
     return numValue * 1000;

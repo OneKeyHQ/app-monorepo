@@ -12,9 +12,9 @@ const validationTests = [
     should: true,
   },
   {
-    description: 'valid decimal number',
+    description: 'invalid decimal number (decimal not allowed)',
     input: '12.5',
-    should: true,
+    should: false,
   },
   {
     description: 'valid number with lowercase k',
@@ -37,14 +37,14 @@ const validationTests = [
     should: true,
   },
   {
-    description: 'valid decimal with k suffix',
+    description: 'invalid decimal with k suffix (decimal not allowed)',
     input: '10.5k',
-    should: true,
+    should: false,
   },
   {
-    description: 'valid decimal with M suffix',
+    description: 'invalid decimal with M suffix (decimal not allowed)',
     input: '2.5M',
-    should: true,
+    should: false,
   },
   {
     description: 'invalid with special character $',
@@ -110,11 +110,6 @@ const parseValueTests = [
     expected: 123,
   },
   {
-    description: 'parse decimal number',
-    input: '12.5',
-    expected: 12.5,
-  },
-  {
     description: 'parse number with lowercase k',
     input: '10k',
     expected: 10_000,
@@ -133,16 +128,6 @@ const parseValueTests = [
     description: 'parse number with uppercase M',
     input: '5M',
     expected: 5_000_000,
-  },
-  {
-    description: 'parse decimal with k suffix',
-    input: '10.5k',
-    expected: 10_500,
-  },
-  {
-    description: 'parse decimal with M suffix',
-    input: '2.5M',
-    expected: 2_500_000,
   },
   {
     description: 'parse with special characters removed',
