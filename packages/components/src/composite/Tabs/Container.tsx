@@ -24,6 +24,7 @@ import type {
   TabBarProps,
 } from 'react-native-collapsible-tab-view';
 import type { WindowScrollerChildProps } from 'react-virtualized';
+import { debounce } from 'lodash';
 
 export function ContainerChild({
   children,
@@ -149,6 +150,24 @@ export function Container({
       }
     };
   }, [updateListContainerHeight]);
+
+  useLayoutEffect(() => {
+    const callback = debounce(() => {
+      if (listContainerRef.current) {
+        const tabIndex = tabNames.findIndex(
+          (name) => name === focusedTab.value,
+        );
+        listContainerRef.current.scrollTo({
+          left: (scrollElement?.clientWidth || 0) * tabIndex,
+          behavior: 'smooth',
+        });
+      }
+    }, 150);
+    window.addEventListener('resize', callback);
+    return () => {
+      window.removeEventListener('resize', callback);
+    };
+  }, [focusedTab.value, scrollElement, tabNames]);
 
   const onTabPress = useCallback(
     (tabName: string) => {
