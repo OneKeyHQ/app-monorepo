@@ -283,10 +283,7 @@ export function useSwapActionState() {
     const infoRes = {
       disable: !(!hasError && !!quoteCurrentSelect),
       noConnectWallet: alerts.states.some((item) => item.noConnectWallet),
-      label:
-        swapTypeSwitchValue === ESwapTabSwitchType.LIMIT
-          ? intl.formatMessage({ id: ETranslations.limit_place_order })
-          : intl.formatMessage({ id: ETranslations.swap_page_swap_button }),
+      label: intl.formatMessage({ id: ETranslations.global_review }),
     };
     if (
       !swapFromAddressInfo.address ||
@@ -332,23 +329,23 @@ export function useSwapActionState() {
         });
       }
     } else {
-      if (isCrossChain && fromToken && toToken) {
-        infoRes.label = intl.formatMessage({
-          id: ETranslations.swap_page_button_cross_chain,
-        });
-      }
-      if (quoteCurrentSelect && quoteCurrentSelect.isWrapped) {
-        infoRes.label = intl.formatMessage({
-          id: ETranslations.swap_page_button_wrap,
-        });
-      }
-      if (quoteCurrentSelect && quoteCurrentSelect.allowanceResult) {
-        infoRes.label = intl.formatMessage({
-          id: isBatchTransfer
-            ? ETranslations.swap_page_approve_and_swap
-            : ETranslations.global_approve,
-        });
-      }
+      // if (isCrossChain && fromToken && toToken) {
+      //   infoRes.label = intl.formatMessage({
+      //     id: ETranslations.swap_page_button_cross_chain,
+      //   });
+      // }
+      // if (quoteCurrentSelect && quoteCurrentSelect.isWrapped) {
+      //   infoRes.label = intl.formatMessage({
+      //     id: ETranslations.swap_page_button_wrap,
+      //   });
+      // }
+      // if (quoteCurrentSelect && quoteCurrentSelect.allowanceResult) {
+      //   infoRes.label = intl.formatMessage({
+      //     id: isBatchTransfer
+      //       ? ETranslations.swap_page_approve_and_swap
+      //       : ETranslations.global_approve,
+      //   });
+      // }
       if (
         quoteCurrentSelect &&
         !quoteCurrentSelect.toAmount &&
@@ -440,12 +437,10 @@ export function useSwapActionState() {
     quoteLoading,
     quoteEventFetching,
     swapApprovingMatchLoading,
-    isCrossChain,
     fromToken,
     toToken,
     selectedFromTokenBalance,
     quoteResultNoMatchDebounce,
-    isBatchTransfer,
     swapUseLimitPrice.rate,
   ]);
   const stepState: ISwapState = {

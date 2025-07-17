@@ -154,7 +154,7 @@ const PreSwapDialogContent = ({
     <YStack gap="$4">
       {/* You pay */}
       <SizableText size="$bodyLg" color="$textSubdued">
-        {intl.formatMessage({ id: ETranslations.swap_page_from })}
+        {intl.formatMessage({ id: ETranslations.swap_review_you_pay })}
       </SizableText>
 
       {/* From token item */}
@@ -162,7 +162,7 @@ const PreSwapDialogContent = ({
 
       {/* You received */}
       <SizableText size="$bodyLg" color="$textSubdued">
-        {intl.formatMessage({ id: ETranslations.swap_page_to })}
+        {intl.formatMessage({ id: ETranslations.swap_review_you_receive })}
       </SizableText>
 
       {/* To token item */}
@@ -179,11 +179,12 @@ const PreSwapDialogContent = ({
           />
           {/* Primary button */}
           <Button variant="primary" onPress={handleConfirm} size="large">
-            {intl.formatMessage({ id: ETranslations.transaction_confirm })}
+            {swapSteps[0].stepActionsLabel ??
+              intl.formatMessage({ id: ETranslations.transaction_confirm })}
           </Button>
         </>
       ) : (
-        <PreSwapStep steps={swapSteps} />
+        <PreSwapStep steps={swapSteps} onRetry={handleConfirm} />
       )}
     </YStack>
   );

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Image,
   LottieView,
@@ -8,6 +10,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { ISwapStep } from '@onekeyhq/shared/types/swap/types';
 import { ESwapStepStatus } from '@onekeyhq/shared/types/swap/types';
@@ -21,7 +24,7 @@ interface IPreSwapConfirmResultProps {
 const PreSwapConfirmResult = ({ lastStep }: IPreSwapConfirmResultProps) => {
   const ref = useRef<any>(null);
   const [explorerUrl, setExplorerUrl] = useState<string>('');
-
+  const intl = useIntl();
   useEffect(() => {
     const fetchExplorerUrl = async () => {
       if (!lastStep.txHash || !lastStep.data?.fromTokenInfo.networkId) {
@@ -53,14 +56,19 @@ const PreSwapConfirmResult = ({ lastStep }: IPreSwapConfirmResultProps) => {
 
   const statusText = useMemo(() => {
     if (lastStep.status === ESwapStepStatus.SUCCESS) {
-      return 'Swap Success';
+      return intl.formatMessage({
+        id: ETranslations.swap_review_transaction_succeeded,
+      });
     }
     if (lastStep.status === ESwapStepStatus.FAILED) {
-      return 'Transaction Failed';
+      return intl.formatMessage({
+        id: ETranslations.swap_review_transaction_failed,
+      });
     }
-    return 'Transaction Success';
-  }, [lastStep.status]);
-  console.log('swap__preSwapConfirmResult__lastStep.status', lastStep.status);
+    return intl.formatMessage({
+      id: ETranslations.feedback_transaction_submitted,
+    });
+  }, [lastStep.status, intl]);
   return (
     <YStack alignItems="center" justifyContent="center" gap="$4">
       {lastStep.status === ESwapStepStatus.SUCCESS ? (
@@ -114,7 +122,10 @@ const PreSwapConfirmResult = ({ lastStep }: IPreSwapConfirmResultProps) => {
             color="$textInteractive"
             textDecorationLine="underline"
           >
-            View On Explorer ({truncateMiddle(lastStep.txHash)})
+            {intl.formatMessage({
+              id: ETranslations.swap_history_detail_view_in_browser,
+            })}
+            ({truncateMiddle(lastStep.txHash, 6, 4)})
           </SizableText>
         </XStack>
       ) : null}
@@ -130,23 +141,34 @@ const PreSwapConfirmResult = ({ lastStep }: IPreSwapConfirmResultProps) => {
           backgroundColor="$bgHover"
         >
           <SizableText size="$bodySm" color="$textInteractive">
-            Please try again or{' '}
+            {intl.formatMessage({
+              id: ETranslations.swap_review_tx_failed_1,
+            })}
           </SizableText>
           <SizableText
             size="$bodySm"
             color="$textInteractive"
             textDecorationLine="underline"
-            onPress={() => openUrlExternal(lastStep.data?.supportUrl ?? '')}
             cursor="pointer"
+            onPress={() => openUrlExternal(lastStep.data?.supportUrl ?? '')}
           >
-            contact support
+            {intl.formatMessage(
+              {
+                id: ETranslations.swap_review_tx_failed_2,
+              },
+              {
+                url: lastStep.data?.supportUrl ?? '',
+              },
+            )}
           </SizableText>
         </XStack>
       ) : null}
       {lastStep.status === ESwapStepStatus.PENDING ? (
         <XStack alignItems="center" justifyContent="center" mt="$4">
           <SizableText size="$bodySm" color="$textInteractive">
-            Leaving won’t stop the order. Check it in History.
+            {intl.formatMessage({
+              id: ETranslations.swap_review_tx_pending,
+            })}
           </SizableText>
         </XStack>
       ) : null}

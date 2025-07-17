@@ -402,6 +402,9 @@ export interface ISwapStep {
   data?: IFetchQuoteResult;
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
+  stepTitle?: string;
+  stepSubTitle?: string;
+  stepActionsLabel?: string;
   txHash?: string;
   orderId?: string;
   errorMessage?: string;

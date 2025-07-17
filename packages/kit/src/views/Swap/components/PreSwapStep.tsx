@@ -20,6 +20,7 @@ import {
 
 interface IPreSwapStepProps {
   steps: ISwapStep[];
+  onRetry: () => void;
 }
 
 interface IRoundLoadingItemProps {
@@ -28,14 +29,14 @@ interface IRoundLoadingItemProps {
   success: boolean;
   failed: boolean;
   canRetry: boolean;
-  estimatedTime: number | string;
+  stepSubTitle: string;
   onRetry: () => void;
 }
 
 const RoundLoadingItem = ({
   stepTitle,
   isLoading,
-  estimatedTime,
+  stepSubTitle,
   success,
   canRetry,
   onRetry,
@@ -43,38 +44,6 @@ const RoundLoadingItem = ({
 }: IRoundLoadingItemProps) => {
   const ref = useRef<any>(null);
   const intl = useIntl();
-
-  const estimatedTimeNumber =
-    typeof estimatedTime === 'string'
-      ? parseInt(estimatedTime, 10) || 0
-      : estimatedTime;
-
-  const [countdown, setCountdown] = useState(estimatedTimeNumber);
-
-  useEffect(() => {
-    if (!isLoading || success || failed) {
-      setCountdown(estimatedTimeNumber);
-      return;
-    }
-
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => {
-      clearInterval(timer);
-    };
-  }, [isLoading, success, failed, estimatedTimeNumber]);
-
-  // 当 estimatedTime 变化时重置倒计时
-  useEffect(() => {
-    setCountdown(estimatedTimeNumber);
-  }, [estimatedTimeNumber]);
 
   const statusComponent = useMemo(() => {
     if (success) {
@@ -120,15 +89,7 @@ const RoundLoadingItem = ({
     if (isLoading && !success && !failed) {
       return (
         <SizableText size="$bodySm" color="$textSubdued">
-          {countdown > 0
-            ? intl.formatMessage(
-                { id: ETranslations.swap_approve_token_est_time },
-                { num: countdown },
-              )
-            : intl.formatMessage(
-                { id: ETranslations.swap_approve_token_est_time },
-                { num: countdown },
-              )}
+          {stepSubTitle}
         </SizableText>
       );
     }
@@ -141,15 +102,12 @@ const RoundLoadingItem = ({
             onRetry();
           }}
         >
-          Retry
+          {intl.formatMessage({ id: ETranslations.global_retry })}
         </Button>
       );
     }
-    if (success) {
-      return <Icon size="$6" name="CheckboxOutline" color="$iconSubdued" />;
-    }
     return null;
-  }, [isLoading, success, failed, canRetry, countdown, intl, onRetry]);
+  }, [isLoading, success, failed, canRetry, stepSubTitle, intl, onRetry]);
 
   return (
     <XStack justifyContent="space-between" alignItems="center">
@@ -159,34 +117,21 @@ const RoundLoadingItem = ({
           {stepTitle}
         </SizableText>
       </XStack>
-      {isLoading && !success && !failed ? (
-        <SizableText size="$bodySm" color="$textSubdued">
-          {countdown > 0
-            ? intl.formatMessage(
-                { id: ETranslations.swap_approve_token_est_time },
-                { num: countdown },
-              )
-            : intl.formatMessage(
-                { id: ETranslations.swap_approve_token_est_time },
-                { num: countdown },
-              )}
-        </SizableText>
-      ) : null}
+      {rightComponent}
     </XStack>
   );
 };
 
-const PreSwapStep = ({ steps }: IPreSwapStepProps) => {
+const PreSwapStep = ({ steps, onRetry }: IPreSwapStepProps) => {
   return (
     <YStack gap="$1">
       {steps.map((step, index) => {
         return (
           <YStack key={step.type} gap="$1">
             <RoundLoadingItem
-              onRetry={() => {
-                console.log('retry');
-              }}
-              stepTitle={step.type}
+              onRetry={onRetry}
+              stepSubTitle={step.stepSubTitle ?? ''}
+              stepTitle={step.stepTitle ?? '-'}
               canRetry={!!step.canRetry}
               isLoading={
                 step.status === ESwapStepStatus.PENDING ||
@@ -194,7 +139,6 @@ const PreSwapStep = ({ steps }: IPreSwapStepProps) => {
               }
               success={step.status === ESwapStepStatus.SUCCESS}
               failed={step.status === ESwapStepStatus.FAILED}
-              estimatedTime={20}
             />
             {steps.length > 1 && index < steps.length - 1 ? (
               <Divider
