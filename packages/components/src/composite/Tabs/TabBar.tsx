@@ -1,21 +1,30 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 
 import { Divider } from '../../content';
 import { SizableText, XStack, YStack } from '../../primitives';
 
+import type { IYStackProps } from '../../primitives';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
+import type { SharedValue } from 'react-native-reanimated';
 
 export function TabItem({
   name,
-  focusedTab,
+  isFocused,
   onTabPress,
+  tabItemStyle,
+  focusedTabStyle,
 }: {
   name: string;
-  focusedTab: string;
+  isFocused: boolean;
   onTabPress: (name: string) => void;
+  tabItemStyle?: IYStackProps;
+  focusedTabStyle?: IYStackProps;
 }) {
+  const handlePress = useCallback(() => {
+    onTabPress(name);
+  }, [name, onTabPress]);
   return (
     <YStack
       h={49}
@@ -24,13 +33,18 @@ export function TabItem({
       jc="center"
       ml={20}
       key={name}
-      onPress={() => onTabPress(name)}
+      onPress={handlePress}
       position="relative"
+      {...tabItemStyle}
+      {...(isFocused ? focusedTabStyle : undefined)}
     >
-      <SizableText color={focusedTab === name ? '$text' : '$textSubdued'}>
+      <SizableText
+        size="$bodyLgMedium"
+        color={isFocused ? '$text' : '$textSubdued'}
+      >
         {name}
       </SizableText>
-      {focusedTab === name ? (
+      {isFocused ? (
         <YStack
           position="absolute"
           bottom={0}
@@ -54,7 +68,25 @@ export function TabBar({
   tabNames,
   focusedTab,
   renderToolbar,
-}: ITabBarProps) {
+  renderItem,
+  divider = true,
+  tabItemStyle,
+  focusedTabStyle,
+}: Omit<Partial<ITabBarProps>, 'focusedTab' | 'tabNames'> & {
+  focusedTab: SharedValue<string>;
+  tabNames: string[];
+  onTabPress: (name: string) => void;
+  divider?: boolean;
+  tabItemStyle?: IYStackProps;
+  focusedTabStyle?: IYStackProps;
+  renderItem?: ({
+    name,
+    isFocused,
+  }: {
+    name: string;
+    isFocused: boolean;
+  }) => React.ReactNode;
+}) {
   const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
   useAnimatedReaction(
     () => focusedTab.value,
@@ -64,6 +96,31 @@ export function TabBar({
       }
     },
   );
+  const tabItems = useMemo(() => {
+    return tabNames.map((name) =>
+      renderItem ? (
+        <XStack key={name} onPress={() => onTabPress(name)}>
+          {renderItem({ name, isFocused: currentTab === name })}
+        </XStack>
+      ) : (
+        <TabItem
+          key={name}
+          name={name}
+          isFocused={currentTab === name}
+          onTabPress={onTabPress}
+          tabItemStyle={tabItemStyle}
+          focusedTabStyle={focusedTabStyle}
+        />
+      ),
+    );
+  }, [
+    currentTab,
+    focusedTabStyle,
+    onTabPress,
+    renderItem,
+    tabItemStyle,
+    tabNames,
+  ]);
   return (
     <YStack
       userSelect="none"
@@ -75,19 +132,10 @@ export function TabBar({
       zIndex={10}
     >
       <XStack ai="center" jc="space-between">
-        <XStack>
-          {tabNames.map((name) => (
-            <TabItem
-              key={name}
-              name={name}
-              focusedTab={currentTab}
-              onTabPress={onTabPress}
-            />
-          ))}
-        </XStack>
+        <XStack>{tabItems}</XStack>
         {renderToolbar?.({ focusedTab: currentTab })}
       </XStack>
-      <Divider />
+      {divider ? <Divider /> : null}
     </YStack>
   );
 }

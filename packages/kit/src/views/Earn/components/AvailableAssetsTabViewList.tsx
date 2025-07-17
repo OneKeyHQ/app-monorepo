@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
+import { useSharedValue } from 'react-native-reanimated';
 import { useThrottledCallback } from 'use-debounce';
 
 import {
@@ -9,7 +10,7 @@ import {
   IconButton,
   SizableText,
   Skeleton,
-  Tab,
+  Tabs,
   XStack,
   YStack,
   useMedia,
@@ -134,6 +135,11 @@ export function AvailableAssetsTabViewList({
     [intl],
   );
 
+  const TabNames = useMemo(() => {
+    return tabData.map((item) => item.title);
+  }, [tabData]);
+  const focusedTab = useSharedValue(TabNames[0]);
+
   // Get filtered assets based on selected tab
   const assets = useMemo(() => {
     const currentTabType = tabData[selectedTabIndex]?.type;
@@ -181,9 +187,16 @@ export function AvailableAssetsTabViewList({
   );
 
   // Handle tab change
-  const handleTabChange = useCallback((index: number) => {
-    setSelectedTabIndex(index);
-  }, []);
+  const handleTabChange = useCallback(
+    (name: string) => {
+      const index = tabData.findIndex((item) => item.title === name);
+      if (index !== -1) {
+        focusedTab.value = name;
+        setSelectedTabIndex(index);
+      }
+    },
+    [focusedTab, tabData],
+  );
 
   // Update tab header when selectedTabIndex changes
   useEffect(() => {
@@ -200,39 +213,29 @@ export function AvailableAssetsTabViewList({
         <SizableText size="$headingLg">
           {intl.formatMessage({ id: ETranslations.earn_available_assets })}
         </SizableText>
-        <Tab.Header
-          ref={tabHeaderRef}
-          style={{
-            height: 28,
-            borderBottomWidth: 0,
-          }}
-          data={tabData}
-          itemContainerStyle={{
-            px: '$2',
-            mr: '$1',
-            cursor: 'default',
-          }}
-          itemTitleNormalStyle={{
-            color: '$textSubdued',
-            fontSize: 14,
-            fontWeight: '500',
-            lineHeight: 20,
-            letterSpacing: -0.15,
-          }}
-          itemTitleSelectedStyle={{
-            color: '$text',
-            fontSize: 14,
-            fontWeight: '500',
-            lineHeight: 20,
-            letterSpacing: -0.15,
-          }}
-          cursorStyle={{
-            height: '100%',
-            bg: '$bgActive',
-            borderRadius: '$2',
-            borderCurve: 'continuous',
-          }}
-          onSelectedPageIndex={handleTabChange}
+        <Tabs.TabBar
+          divider={false}
+          onTabPress={handleTabChange}
+          tabNames={TabNames}
+          focusedTab={focusedTab}
+          renderItem={({ name, isFocused }) => (
+            <XStack
+              px="$2"
+              py="$1.5"
+              mr="$1"
+              bg={isFocused ? '$bgActive' : '$bg'}
+              borderRadius="$2"
+              borderCurve="continuous"
+            >
+              <SizableText
+                size="$bodyMdMedium"
+                color={isFocused ? '$text' : '$textSubdued'}
+                letterSpacing={-0.15}
+              >
+                {name}
+              </SizableText>
+            </XStack>
+          )}
         />
 
         {isLoading && assets.length === 0 ? (
