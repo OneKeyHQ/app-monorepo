@@ -25,10 +25,22 @@ export function TabItem({
       ml={20}
       key={name}
       onPress={() => onTabPress(name)}
+      position="relative"
     >
       <SizableText color={focusedTab === name ? '$text' : '$textSubdued'}>
         {name}
       </SizableText>
+      {focusedTab === name ? (
+        <YStack
+          position="absolute"
+          bottom={0}
+          left={0}
+          right={0}
+          h="$0.5"
+          bg="$text"
+          borderRadius={1}
+        />
+      ) : null}
     </YStack>
   );
 }
@@ -54,6 +66,8 @@ export function TabBar({
   );
   return (
     <YStack
+      userSelect="none"
+      cursor="pointer"
       bg="$bgApp"
       className="onekey-tabs-header"
       position={'sticky' as any}
@@ -73,20 +87,6 @@ export function TabBar({
         </XStack>
         {renderToolbar?.({ focusedTab: currentTab })}
       </XStack>
-      <YStack
-        position="absolute"
-        bottom={0}
-        h="$0.5"
-        bg="$text"
-        borderRadius={1}
-        left={20}
-        width={52}
-        transform={[
-          {
-            translateX: tabNames.findIndex((name) => name === currentTab) * 72,
-          },
-        ]}
-      />
       <Divider />
     </YStack>
   );

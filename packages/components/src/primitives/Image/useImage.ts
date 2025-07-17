@@ -14,6 +14,7 @@ import {
   type ImageSource,
 } from 'expo-image';
 import { resolveSource } from 'expo-image';
+
 import { isEmptyResolvedSource } from './utils';
 
 const IMAGE_CACHE_MAP = new Map<string, string>();

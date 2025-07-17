@@ -103,40 +103,33 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       offerings?.current?.availablePackages?.map((p) => {
         const { normalPeriodDuration, currentPrice } = p.rcBillingProduct;
 
-        let unit = '';
-        unit = primePaymentUtils.extractCurrencySymbol(
+        let currency = '';
+        currency = primePaymentUtils.extractCurrencySymbol(
           currentPrice.formattedPrice,
           {
             useShortUSSymbol: true,
           },
         );
 
-        const pricePerYear = new BigNumber(currentPrice.amountMicros)
-          .div(1_000_000)
-          .toFixed(2);
-
-        const pricePerMonth =
+        const pricePerMonthBN =
           normalPeriodDuration === 'P1M'
-            ? new BigNumber(currentPrice.amountMicros).div(1_000_000).toFixed(2)
-            : new BigNumber(currentPrice.amountMicros)
-                .div(12)
-                .div(1_000_000)
-                .toFixed(2);
+            ? new BigNumber(currentPrice.amountMicros).div(1_000_000)
+            : new BigNumber(currentPrice.amountMicros).div(12).div(1_000_000);
+
+        const pricePerMonth = pricePerMonthBN.toFixed(2);
+        const pricePerYear = pricePerMonthBN.times(12).toFixed(2);
 
         return {
           subscriptionPeriod: normalPeriodDuration as ISubscriptionPeriod,
           pricePerYear: Number(pricePerYear),
-          pricePerYearString: `${unit}${pricePerYear}`,
+          pricePerYearString: `${currency}${pricePerYear}`,
           pricePerMonth: Number(pricePerMonth),
-          pricePerMonthString: `${unit}${pricePerMonth}`,
-          priceTotalPerYearString:
-            normalPeriodDuration === 'P1M'
-              ? `${unit}${new BigNumber(pricePerMonth).times(12).toFixed(2)}`
-              : `${unit}${pricePerYear}`,
+          pricePerMonthString: `${currency}${pricePerMonth}`,
+          priceTotalPerYearString: `${currency}${pricePerYear}`,
         };
       }) || [];
 
-    console.log('userPrimePaymentMethods >>>>>> packages', {
+    console.log('userPrimePaymentMethods >>>>>> webEmbedPackages', {
       packages,
       offerings,
     });

@@ -24,10 +24,13 @@ function _keyFromPasswordAndSaltCheck({
   }
 }
 
-async function keyFromPasswordAndSaltAsync(
-  password: string,
-  salt: Buffer,
-): Promise<Buffer> {
+async function keyFromPasswordAndSaltAsync({
+  password,
+  salt,
+}: {
+  password: string;
+  salt: Buffer;
+}): Promise<Buffer> {
   _keyFromPasswordAndSaltCheck({ password, salt });
 
   const hashedPassword: Buffer = await sha256(Buffer.from(password, 'utf8'));
@@ -41,7 +44,13 @@ async function keyFromPasswordAndSaltAsync(
   return r;
 }
 
-function keyFromPasswordAndSaltSync(password: string, salt: Buffer): Buffer {
+function keyFromPasswordAndSaltSync({
+  password,
+  salt,
+}: {
+  password: string;
+  salt: Buffer;
+}): Buffer {
   _keyFromPasswordAndSaltCheck({ password, salt });
 
   const hashedPassword: Buffer = sha256Sync(Buffer.from(password, 'utf8'));
@@ -52,19 +61,28 @@ function keyFromPasswordAndSaltSync(password: string, salt: Buffer): Buffer {
   return r;
 }
 
-async function keyFromPasswordAndSalt(
-  password: string,
-  salt: Buffer,
-): Promise<Buffer> {
+async function keyFromPasswordAndSalt({
+  password,
+  salt,
+}: {
+  password: string;
+  salt: Buffer;
+}): Promise<Buffer> {
   _keyFromPasswordAndSaltCheck({ password, salt });
 
   const saltBuffer = bufferUtils.toBuffer(salt);
 
   if (platformEnv.isNative || ALLOW_USE_WEB_CRYPTO_SUBTLE) {
-    const r: Buffer = await keyFromPasswordAndSaltAsync(password, saltBuffer);
+    const r: Buffer = await keyFromPasswordAndSaltAsync({
+      password,
+      salt: saltBuffer,
+    });
     return r;
   }
-  const r: Buffer = keyFromPasswordAndSaltSync(password, saltBuffer);
+  const r: Buffer = keyFromPasswordAndSaltSync({
+    password,
+    salt: saltBuffer,
+  });
   return r;
 }
 
@@ -82,7 +100,7 @@ async function $testSampleForKeyGen() {
     await runAppCryptoTestTask({
       expect,
       name: 'keyFromPasswordAndSaltAsync',
-      fn: () => keyFromPasswordAndSaltAsync(password, salt),
+      fn: () => keyFromPasswordAndSaltAsync({ password, salt }),
     }),
   );
 
@@ -90,7 +108,7 @@ async function $testSampleForKeyGen() {
     await runAppCryptoTestTask({
       expect,
       name: 'keyFromPasswordAndSaltSync',
-      fn: () => keyFromPasswordAndSaltSync(password, salt),
+      fn: () => keyFromPasswordAndSaltSync({ password, salt }),
     }),
   );
 
@@ -98,7 +116,7 @@ async function $testSampleForKeyGen() {
     await runAppCryptoTestTask({
       expect,
       name: 'keyFromPasswordAndSalt',
-      fn: () => keyFromPasswordAndSalt(password, salt),
+      fn: () => keyFromPasswordAndSalt({ password, salt }),
     }),
   );
 
@@ -108,12 +126,13 @@ async function $testSampleForKeyGen() {
         '9fe6f6501b6be1be5af9ac56c729d84e67ffd8d0f4f5591c3323d3a73b926649',
       name: 'keyFromPasswordAndSalt(custom params)',
       fn: () =>
-        keyFromPasswordAndSalt(
-          'ENCODE_KEY::755174C1-6480-401A-8C3D-84ADB2E0C376::eef82603-0027-40ae-96c1-6a4cd31bcfc1',
-          bufferUtils.toBuffer(
+        keyFromPasswordAndSalt({
+          password:
+            'ENCODE_KEY::755174C1-6480-401A-8C3D-84ADB2E0C376::eef82603-0027-40ae-96c1-6a4cd31bcfc1',
+          salt: bufferUtils.toBuffer(
             '1e4bf57a9204ac213c9f4c554d93c2f9e014d6af56e3b27699e9a1aaa113a9ec',
           ),
-        ),
+        }),
     }),
   );
 
