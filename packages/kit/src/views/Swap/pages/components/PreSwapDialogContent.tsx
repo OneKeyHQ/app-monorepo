@@ -46,14 +46,13 @@ const PreSwapDialogContent = ({
 
   const fromAmount = quoteResult?.fromAmount || '0';
   const toAmount = quoteResult?.toAmount || '0';
-  const [swapSteps] = useSwapStepsAtom();
+  const [swapSteps, setSwapSteps] = useSwapStepsAtom();
   const handleConfirm = () => {
     onConfirm();
   };
 
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();
-  const [, setSwapSteps] = useSwapStepsAtom();
   const { preSwapStepsStart } = useSwapBuildTx();
 
   useEffect(() => {
