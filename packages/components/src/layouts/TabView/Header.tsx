@@ -297,4 +297,9 @@ const HeaderComponent = (
   );
 };
 
+/**
+ * @deprecated This Header component is deprecated as it may cause crashes on mobile platforms.
+ * Please use alternative tab header implementations.
+ */
+
 export const Header = forwardRef(HeaderComponent);

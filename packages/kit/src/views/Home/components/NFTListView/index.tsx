@@ -170,7 +170,7 @@ function NFTListView(props: IProps) {
       numColumns={numColumns}
       data={filteredNfts || []}
       renderItem={handleRenderItem}
-      ListEmptyComponent={searchKey ? <EmptySearch /> : <EmptyNFT />}
+      ListEmptyComponent={searchKey ? <EmptySearch flex={1} /> : <EmptyNFT />}
       ListFooterComponent={
         <>{addPaddingOnListFooter ? <Stack h="$16" /> : null}</>
       }

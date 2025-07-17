@@ -18,6 +18,7 @@ import { TabsContext, TabsScrollContext } from './context';
 import { TabBar } from './TabBar';
 import { startViewTransition } from './utils';
 
+import type { LayoutChangeEvent } from 'react-native';
 import type {
   CollapsibleProps,
   TabBarProps,
@@ -91,6 +92,11 @@ export function Container({
   const ref = useRef<Element>(null);
   const listContainerRef = useRef<Element>(null);
 
+  const stickyHeaderHeight = useRef(0);
+  const handlerStickyHeaderLayout = useCallback((event: LayoutChangeEvent) => {
+    stickyHeaderHeight.current = event.nativeEvent.layout.height;
+  }, []);
+
   const [scrollElement, setScrollElement] = useState<Element | null>(null);
   const isSwitchingTabRef = useRef(false);
 
@@ -148,7 +154,7 @@ export function Container({
     (tabName: string) => {
       isSwitchingTabRef.current = true;
       // Header Height + tabBar height
-      const scrollTop = scrollTopRef.current[tabName] || 0;
+      let scrollTop = scrollTopRef.current[tabName] || 0;
       const index = tabNames.findIndex((name) => name === tabName);
       const prevTabName = focusedTab.value;
       const prevIndex = tabNames.findIndex((name) => name === prevTabName);
@@ -170,10 +176,16 @@ export function Container({
           left: width * index,
           behavior: 'instant',
         });
-        scrollElement?.scrollTo({
-          top: scrollTop,
-          behavior: 'instant',
-        });
+
+        if (stickyHeaderHeight.current > 0) {
+          if ((scrollElement?.scrollTop || 0) >= stickyHeaderHeight.current) {
+            scrollTop = Math.max(scrollTop, stickyHeaderHeight.current);
+            scrollElement?.scrollTo({
+              top: scrollTop,
+              behavior: 'instant',
+            });
+          }
+        }
         isSwitchingTabRef.current = false;
       });
     },
@@ -214,11 +226,16 @@ export function Container({
               }
               return (
                 <>
-                  {renderHeader?.({
-                    focusedTab,
-                    tabNames,
-                    onTabPress,
-                  } as any)}
+                  <YStack
+                    position="relative"
+                    onLayout={handlerStickyHeaderLayout}
+                  >
+                    {renderHeader?.({
+                      focusedTab,
+                      tabNames,
+                      onTabPress,
+                    } as any)}
+                  </YStack>
                   {renderTabBar?.({
                     focusedTab,
                     tabNames,
