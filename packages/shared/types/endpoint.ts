@@ -8,6 +8,7 @@ export enum EServiceEndpointEnum {
   NotificationWebSocket = 'notificationWebSocket',
   Prime = 'prime',
   Rebate = 'rebate',
+  Transfer = 'transfer',
 }
 
 export type IEndpointEnv = 'test' | 'prod';

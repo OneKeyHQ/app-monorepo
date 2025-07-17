@@ -1,10 +1,10 @@
 import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
 
 // eslint-disable-next-line import/order
-import type { IPrimeTransferData } from '../../types/prime/primeTransferTypes';
-
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports, import/no-relative-packages, import-path/parent-depth, import/order
-import type { IE2EESocketUserInfo } from '../../../../apps/e2ee-server/src/types';
+import type {
+  IE2EESocketUserInfo,
+  IPrimeTransferData,
+} from '../../types/prime/primeTransferTypes';
 
 export enum EPrimePages {
   PrimeDashboard = 'PrimeDashboard',

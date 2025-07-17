@@ -1,11 +1,46 @@
-/* eslint-disable no-restricted-syntax */
+import type { IE2EESocketUserInfo } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+
+import { RemoteApiProxyBase } from '../../../apis/RemoteApiProxyBase';
 
 import { JsBridgeE2EEClient } from './JsBridgeE2EEClient';
-import { RemoteApiProxyBase } from './utils/RemoteApiProxyBase';
 
-import type { RoomManager } from './roomManager';
-import type { IE2EEServerApi, IE2EEServerApiKeys } from './types';
 import type { Socket } from 'socket.io-client';
+
+interface IRoomManager {
+  createRoom(): Promise<{ roomId: string }>;
+
+  joinRoom(params: {
+    roomId: string;
+    appPlatformName: string;
+    appVersion: string;
+    appBuildNumber: string;
+    appPlatform: string;
+    appDeviceName: string;
+  }): Promise<{ roomId: string; userId: string }>;
+
+  leaveRoom(params: {
+    roomId: string;
+    userId: string;
+  }): Promise<{ roomId: string }>;
+
+  getRoomUsers(params: { roomId: string }): Promise<IE2EESocketUserInfo[]>;
+
+  startTransfer(params: {
+    roomId: string;
+    fromUserId: string;
+    toUserId: string;
+  }): Promise<{ roomId: string }>;
+
+  cancelTransfer(params: {
+    roomId: string;
+    userId: string;
+  }): Promise<{ roomId: string }>;
+}
+
+interface IE2EEServerApi {
+  roomManager: IRoomManager;
+}
+type IE2EEServerApiKeys = keyof IE2EEServerApi;
 
 export class E2EEServerApiProxy
   extends RemoteApiProxyBase
@@ -45,7 +80,7 @@ export class E2EEServerApiProxy
     });
   }
 
-  roomManager: RoomManager =
+  roomManager: IRoomManager =
     this._createProxyModule<IE2EEServerApiKeys>('roomManager');
 }
 
