@@ -166,7 +166,7 @@ export function Carousel<T>({
   }, [startAutoPlay]);
 
   return (
-    <YStack gap="$4">
+    <YStack gap="$4" userSelect="none">
       <XStack
         {...(containerStyle as any)}
         onLayout={handleLayout}
