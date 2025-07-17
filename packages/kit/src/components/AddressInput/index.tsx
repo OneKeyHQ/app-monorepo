@@ -178,6 +178,8 @@ export type IAddressQueryResult = {
   addressBadges?: IAddressBadge[];
   addressDeriveInfo?: IAccountDeriveInfo;
   addressDeriveType?: IAccountDeriveTypes;
+  addressNote?: string;
+  addressMemo?: string;
 };
 
 type IAddressInputBadgeGroupProps = {
