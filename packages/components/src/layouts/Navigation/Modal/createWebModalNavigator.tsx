@@ -253,7 +253,12 @@ function WebModalNavigator({
     [],
   );
 
-  const isExistBackdrop = document.getElementById(backdropId);
+  const isExistBackdrop = useMemo(() => {
+    return (
+      document.querySelectorAll(`[data-testid="${backdropId}"]`).length > 0
+    );
+  }, []);
+
   return (
     <NavigationContent>
       <ModalNavigatorContext.Provider value={contextValue}>
@@ -274,7 +279,7 @@ function WebModalNavigator({
           >
             {currentRouteIndex <= 1 && !isExistBackdrop ? (
               <YStack
-                id={backdropId}
+                testID={backdropId}
                 ref={(ref) => {
                   if (ref) {
                     MODAL_ANIMATED_BACKDROP_VIEW_REF = ref;
