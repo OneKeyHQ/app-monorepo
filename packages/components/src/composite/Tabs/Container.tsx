@@ -165,13 +165,16 @@ export function Container({
           left: (scrollElement?.clientWidth || 0) * tabIndex,
           behavior: 'smooth',
         });
+        setTimeout(() => {
+          updateListContainerHeight();
+        });
       }
     }, 150);
     window.addEventListener('resize', callback);
     return () => {
       window.removeEventListener('resize', callback);
     };
-  }, [focusedTab.value, scrollElement, tabNames]);
+  }, [focusedTab, scrollElement, tabNames, updateListContainerHeight]);
 
   const onTabPress = useCallback(
     (tabName: string) => {
