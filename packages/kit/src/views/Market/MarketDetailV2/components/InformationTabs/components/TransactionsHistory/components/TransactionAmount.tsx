@@ -40,7 +40,7 @@ function TransactionAmountBase({
 
           <NumberSizeableText
             size="$bodySm"
-            formatter="price"
+            autoFormatter="value-marketCap"
             color={typeColor}
           >
             {baseToken.amount}
@@ -52,7 +52,7 @@ function TransactionAmountBase({
             {`${quoteSign}`}
           </SizableText>
 
-          <NumberSizeableText size="$bodySm" formatter="price">
+          <NumberSizeableText autoFormatter="value-marketCap" size="$bodySm">
             {quoteToken.amount}
           </NumberSizeableText>
         </XStack>

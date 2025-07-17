@@ -56,6 +56,7 @@ import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
+import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
 import type ServiceReferralCode from '../services/ServiceReferralCode';
@@ -195,4 +196,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceStaking: ServiceStaking;
   serviceSignatureConfirm: ServiceSignatureConfirm;
   serviceMasterPassword: ServiceMasterPassword;
+  servicePrimeTransfer: ServicePrimeTransfer;
 }

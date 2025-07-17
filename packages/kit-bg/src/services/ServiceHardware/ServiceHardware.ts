@@ -1525,6 +1525,23 @@ class ServiceHardware extends ServiceBase {
 
     return device?.connectId || connectId;
   }
+
+  @backgroundMethod()
+  async isBtcOnlyWallet({ walletId }: { walletId: string }) {
+    if (!accountUtils.isHwWallet({ walletId })) {
+      return false;
+    }
+    try {
+      const device = await this.backgroundApi.serviceAccount.getWalletDevice({
+        walletId,
+      });
+      return await deviceUtils.isBtcOnlyFirmware({
+        features: device?.featuresInfo,
+      });
+    } catch {
+      return false;
+    }
+  }
 }
 
 export default ServiceHardware;

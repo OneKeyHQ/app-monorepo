@@ -8,6 +8,7 @@ __generated__
 .vscode/
 .chat/
 .claude/
+apps/e2ee-server/dist/
 
 dist
 build-electron
@@ -85,3 +86,4 @@ test-report.html
 /packages/kit/src/components/WebView/injectedNative.text-js
 /packages/shared/src/web/index.html
 /mobile/android/build-logic/privacy-security-plugins/bin/main/onekey/privacy/jpush
+apps/mobile/android/.kotlin/

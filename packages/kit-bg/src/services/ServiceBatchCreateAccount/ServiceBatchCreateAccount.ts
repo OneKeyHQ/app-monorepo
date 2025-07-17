@@ -89,6 +89,7 @@ export type IBatchBuildAccountsAdvancedFlowForAllNetworkParams = {
   walletId: string;
   customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
   autoHandleExitError?: boolean;
+  showUIProgress?: boolean;
 } & IAdvancedModeFlowParamsBase &
   IWithHardwareProcessingControlParams;
 
@@ -705,7 +706,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        const networksParams =
+        const networksParams: IBatchBuildAccountsBaseParams[] =
           await this.buildBatchCreateAccountsNetworksParams({
             walletId: params.walletId,
             customNetworks: params.customNetworks,
@@ -756,6 +757,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
             const { accountsForCreate } = await this.batchBuildAccounts({
               ...params,
               ...networkParams,
+              showUIProgress:
+                params.showUIProgress || networkParams.showUIProgress,
               indexes,
               excludedIndexes,
               saveToDb: true,

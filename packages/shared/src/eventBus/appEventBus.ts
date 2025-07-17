@@ -24,6 +24,7 @@ import { EAppEventBusNames } from './appEventBusNames';
 
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
+import type { IPrimeTransferData } from '../../types/prime/primeTransferTypes';
 import type {
   ESwapCrossChainStatus,
   ESwapTxHistoryStatus,
@@ -264,6 +265,14 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
   [EAppEventBusNames.PrimeDeviceLogout]: undefined;
   [EAppEventBusNames.PrimeMasterPasswordInvalid]: undefined;
+  [EAppEventBusNames.PrimeTransferDataReceived]: {
+    data: IPrimeTransferData;
+  };
+  [EAppEventBusNames.PrimeTransferForceExit]: {
+    title: string;
+    description: string;
+  };
+  [EAppEventBusNames.PrimeTransferCancel]: undefined;
   [EAppEventBusNames.CheckAddressBeforeSending]: {
     promiseId: number;
     type: 'scam' | 'contract';

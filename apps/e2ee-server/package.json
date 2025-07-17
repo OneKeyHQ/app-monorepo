@@ -1,0 +1,43 @@
+{
+  "name": "@onekeyhq/e2ee-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OneKey End-to-End Encryption Server",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "nodemon src/server.ts",
+    "clean": "rimraf dist",
+    "postinstall": "echo 'e2ee-server dependencies installed'"
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.8.0",
+    "@onekeyfe/cross-inpage-provider-core": "^2.2.34",
+    "@onekeyfe/cross-inpage-provider-types": "^2.2.34",
+    "asmcrypto.js": "^2.3.2",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "fast-json-stable-stringify": "^2.1.0",
+    "lodash": "^4.17.21",
+    "lru-cache": "^10.0.0",
+    "memoizee": "^0.4.15",
+    "nanoid": "^5.0.4",
+    "socket.io": "^4.7.5",
+    "socket.io-client": "^4.7.5"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/lodash": "^4.14.202",
+    "@types/memoizee": "^0.4.11",
+    "@types/node": "^20.0.0",
+    "nodemon": "^3.0.0",
+    "rimraf": "^5.0.5",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

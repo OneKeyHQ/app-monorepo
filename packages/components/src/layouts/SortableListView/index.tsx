@@ -49,6 +49,10 @@ function FragmentComponent({
 
 let lastIndexHeight: undefined | number;
 
+const getBody = () => {
+  return document.body;
+};
+
 function BaseSortableListView<T>(
   {
     data,
@@ -215,22 +219,30 @@ function BaseSortableListView<T>(
       <Droppable
         droppableId="droppable"
         mode="virtual"
-        renderClone={(provided, snapshot, rubric) => (
-          <div
-            ref={provided.innerRef}
-            {...provided.draggableProps}
-            {...provided.dragHandleProps}
-          >
-            {renderItem({
-              item: data[rubric.source.index],
-              drag: () => {},
-              dragProps: {},
-              getIndex: () => rubric.source.index,
-              isActive: true,
-              index: rubric.source.index,
-            })}
-          </div>
-        )}
+        type="DEFAULT"
+        direction="vertical"
+        isDropDisabled={false}
+        isCombineEnabled={false}
+        ignoreContainerClipping={false}
+        renderClone={(provided, snapshot, rubric) => {
+          return (
+            <div
+              ref={provided.innerRef}
+              {...provided.draggableProps}
+              {...provided.dragHandleProps}
+            >
+              {renderItem({
+                item: data[rubric.source.index],
+                drag: () => {},
+                dragProps: {},
+                getIndex: () => rubric.source.index,
+                isActive: true,
+                index: rubric.source.index,
+              })}
+            </div>
+          );
+        }}
+        getContainerForClone={getBody}
       >
         {(provided, snapshot) => {
           const paddingBottom = (rawContentContainerStyle?.paddingBottom ??

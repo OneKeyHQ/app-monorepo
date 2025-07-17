@@ -77,14 +77,8 @@ const useMumColumns: () => {
 };
 
 function NFTListView(props: IProps) {
-  const {
-    data,
-    isLoading,
-    initialized,
-    inTabList = false,
-    isAllNetworks,
-    listViewStyleProps,
-  } = props;
+  const { data, isLoading, initialized, isAllNetworks, listViewStyleProps } =
+    props;
 
   const [searchKey] = useSearchKeyAtom();
 
@@ -141,9 +135,12 @@ function NFTListView(props: IProps) {
     [extensionActiveTabDAppInfo?.showFloatingPanel],
   );
 
-  const style = useStyle(contentContainerStyle, {
-    resolveValues: 'auto',
-  });
+  const style = useStyle(
+    { ...contentContainerStyle, ...listViewStyleProps?.contentContainerStyle },
+    {
+      resolveValues: 'auto',
+    },
+  );
 
   const { ListHeaderComponentStyle, ListFooterComponentStyle } =
     listViewStyleProps || {};
@@ -173,7 +170,7 @@ function NFTListView(props: IProps) {
       numColumns={numColumns}
       data={filteredNfts || []}
       renderItem={handleRenderItem}
-      ListEmptyComponent={searchKey ? <EmptySearch /> : <EmptyNFT />}
+      ListEmptyComponent={searchKey ? <EmptySearch flex={1} /> : <EmptyNFT />}
       ListFooterComponent={
         <>{addPaddingOnListFooter ? <Stack h="$16" /> : null}</>
       }

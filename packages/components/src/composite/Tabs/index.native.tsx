@@ -6,3 +6,5 @@ export const Tabs = {
   ...NativeTabs,
   TabBar,
 };
+
+export * from './hooks';
