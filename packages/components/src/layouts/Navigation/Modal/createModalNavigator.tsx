@@ -79,7 +79,7 @@ function ModalNavigator({
     });
 
   const goBackCall = useCallback(() => {
-    navigation.goBack();
+    navigation.pop();
   }, [navigation]);
 
   const descriptor = descriptors[state.routes?.[state.index].key];
@@ -102,7 +102,7 @@ function ModalNavigator({
         return;
       }
       if (descriptor.options.shouldPopOnClickBackdrop) {
-        navigation.goBack();
+        navigation.pop();
       } else {
         navigation?.getParent?.()?.goBack();
       }
@@ -286,7 +286,6 @@ function ModalNavigator({
                 }}
               />
             ) : null}
-
             <Stack
               onPress={platformEnv.isNative ? stopPropagation : undefined}
               onPressIn={platformEnv.isNative ? undefined : onPagePressIn}
