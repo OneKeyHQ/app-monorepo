@@ -33,6 +33,7 @@ interface IBaseTradingViewV2Props {
   interval?: string;
   timeFrom?: number;
   timeTo?: number;
+  decimal: number;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -52,6 +53,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     tokenAddress = '',
     networkId = '',
     symbol,
+    decimal,
   } = props;
 
   const tradingViewUrlWithParams = useMemo(() => {
@@ -64,8 +66,9 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     url.searchParams.set('platform', platformEnv.appPlatform ?? 'web');
     url.searchParams.set('theme', theme);
     url.searchParams.set('symbol', symbol);
+    url.searchParams.set('decimal', decimal?.toString());
     return url.toString();
-  }, [tradingViewUrl, calendars, systemLocale, theme, symbol]);
+  }, [tradingViewUrl, calendars, systemLocale, theme, symbol, decimal]);
 
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {

@@ -26,6 +26,7 @@ interface IBaseTradingViewProps {
   interval?: string;
   timeFrom?: number;
   timeTo?: number;
+  decimal?: number;
 }
 
 export type ITradingViewProps = IBaseTradingViewProps & IStackStyle;
@@ -43,6 +44,7 @@ export function TradingViewV1(props: ITradingViewProps & WebViewProps) {
     interval: _interval,
     timeFrom: _timeFrom,
     timeTo: _timeTo,
+    decimal: _decimal,
     ...otherProps
   } = restProps as IBaseTradingViewProps;
   const tradingViewProps = useTradingViewProps({

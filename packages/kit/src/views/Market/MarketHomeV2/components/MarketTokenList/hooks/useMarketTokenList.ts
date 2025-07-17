@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -30,6 +30,8 @@ export function useMarketTokenList({
 }: IUseMarketTokenListParams) {
   const [currentPage, setCurrentPage] = useState(1);
   const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [sortBy, setSortBy] = useState<string | undefined>(
     initialSortBy || 'v24hUSD',
   );
@@ -73,7 +75,8 @@ export function useMarketTokenList({
   );
 
   useEffect(() => {
-    if (!apiResult || !apiResult.list || apiResult.list.length <= 0) {
+    if (!apiResult || !apiResult.list) {
+      setIsLoadingMore(false);
       return;
     }
 
@@ -82,11 +85,40 @@ export function useMarketTokenList({
       transformApiItemToToken(item, {
         chainId: networkId,
         networkLogoUri,
-        index: idx,
+        index: (currentPage - 1) * pageSize + idx,
       }),
     );
-    setTransformedData(transformed);
-  }, [apiResult, networkId]);
+
+    setTransformedData((prevData) => {
+      // If it's the first page, replace the data
+      if (currentPage === 1) {
+        return transformed;
+      }
+      // Otherwise, append to existing data
+      return [...prevData, ...transformed];
+    });
+
+    // Check if we have more data based on the actual response
+    // If the returned data is less than pageSize, we've reached the end
+    const hasMoreData = apiResult.list.length === pageSize;
+    console.log('Setting hasMore:', {
+      currentPage,
+      responseLength: apiResult.list.length,
+      pageSize,
+      hasMoreData,
+    });
+    setHasMore(hasMoreData);
+
+    setIsLoadingMore(false);
+  }, [apiResult, networkId, currentPage, pageSize]);
+
+  // Reset data when dependencies change
+  useEffect(() => {
+    setTransformedData([]);
+    setCurrentPage(1);
+    setIsLoadingMore(false);
+    setHasMore(true); // Reset to true when starting fresh
+  }, [networkId, sortBy, sortType, minLiquidity, maxLiquidity]);
 
   const totalCount = apiResult?.total || 0;
 
@@ -94,13 +126,40 @@ export function useMarketTokenList({
     return totalCount > 0 ? Math.ceil(totalCount / pageSize) : 1;
   }, [totalCount, pageSize]);
 
+  const loadMore = useCallback(() => {
+    console.log('loadMore called', { hasMore, isLoadingMore, isLoading });
+    if (hasMore && !isLoadingMore && !isLoading) {
+      console.log(
+        'Loading more data - incrementing page from',
+        currentPage,
+        'to',
+        currentPage + 1,
+      );
+      setIsLoadingMore(true);
+
+      setCurrentPage((prev) => prev + 1);
+    }
+  }, [hasMore, isLoadingMore, isLoading, currentPage]);
+
+  const refresh = useCallback(() => {
+    setTransformedData([]);
+    setCurrentPage(1);
+    setIsLoadingMore(false);
+    setHasMore(true); // Reset to true when refreshing
+    void fetchMarketTokenList();
+  }, [fetchMarketTokenList]);
+
   return {
     data: transformedData,
     isLoading,
+    isLoadingMore,
+    hasMore,
     currentPage,
     totalPages,
     totalCount,
     setCurrentPage,
+    loadMore,
+    refresh,
     refetch: fetchMarketTokenList,
     sortBy,
     sortType,
