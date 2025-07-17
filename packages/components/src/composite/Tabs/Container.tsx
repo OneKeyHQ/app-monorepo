@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { PropsWithChildren, RefObject } from 'react';
 
+import { debounce } from 'lodash';
 import { useSharedValue } from 'react-native-reanimated';
 import { WindowScroller } from 'react-virtualized';
 
@@ -24,7 +25,6 @@ import type {
   TabBarProps,
 } from 'react-native-collapsible-tab-view';
 import type { WindowScrollerChildProps } from 'react-virtualized';
-import { debounce } from 'lodash';
 
 export function ContainerChild({
   children,
@@ -112,6 +112,7 @@ export function Container({
       }
       const height =
         scrollTabElementsRef.current?.[focusedTab.value]?.element.clientHeight;
+      console.log('height', height);
       if (height) {
         (
           listContainerRef.current as HTMLElement
