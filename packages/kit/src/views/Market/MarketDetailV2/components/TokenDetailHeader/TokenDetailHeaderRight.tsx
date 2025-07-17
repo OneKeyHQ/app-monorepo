@@ -51,13 +51,15 @@ export function TokenDetailHeaderRight({
   const {
     name = '',
     symbol = '',
-    price: currentPrice = '0',
-    priceChange24hPercent = '0',
+    price: currentPrice = '--',
+    priceChange24hPercent = '--',
     marketCap = '0',
     tvl = '0',
     holders = 0,
     address = '',
   } = tokenDetail || {};
+
+  console.log('marketCap', marketCap);
 
   const marketStar =
     networkId && address ? (
@@ -110,7 +112,7 @@ export function TokenDetailHeaderRight({
               currency: settingsPersistAtom.currencyInfo.symbol,
             }}
           >
-            {marketCap}
+            {marketCap === '0' ? '--' : marketCap}
           </NumberSizeableText>
         }
       />
@@ -126,7 +128,7 @@ export function TokenDetailHeaderRight({
               currency: settingsPersistAtom.currencyInfo.symbol,
             }}
           >
-            {tvl}
+            {tvl === '0' ? '--' : tvl}
           </NumberSizeableText>
         }
       />
@@ -139,7 +141,7 @@ export function TokenDetailHeaderRight({
             color="$text"
             formatter="marketCap"
           >
-            {holders}
+            {holders === 0 ? '--' : holders}
           </NumberSizeableText>
         }
       />
