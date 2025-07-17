@@ -19,7 +19,6 @@ import type {
 } from '@onekeyhq/core/src/types';
 import {
   useInAppNotificationAtom,
-  useSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
@@ -78,17 +77,13 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
 import {
   useSwapBuildTxFetchingAtom,
-  useSwapFromTokenAmountAtom,
   useSwapLimitExpirationTimeAtom,
   useSwapLimitPartiallyFillAtom,
   useSwapLimitPriceFromAmountAtom,
   useSwapLimitPriceToAmountAtom,
   useSwapQuoteCurrentSelectAtom,
-  useSwapQuoteEventTotalCountAtom,
-  useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapStepsAtom,
-  useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 
@@ -893,9 +888,9 @@ export function useSwapBuildTx() {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           } else if (
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            buildSwapRes?.ctx.cowSwapOrderId ||
+            buildSwapRes?.ctx?.cowSwapOrderId ||
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            buildSwapRes?.ctx.oneInchFusionOrderHash
+            buildSwapRes?.ctx?.oneInchFusionOrderHash
           ) {
             skipSendTransAction = true;
           }
@@ -949,9 +944,9 @@ export function useSwapBuildTx() {
           };
           const orderId =
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            buildSwapRes?.ctx.cowSwapOrderId ??
+            buildSwapRes?.ctx?.cowSwapOrderId ??
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            buildSwapRes?.ctx.oneInchFusionOrderHash ??
+            buildSwapRes?.ctx?.oneInchFusionOrderHash ??
             '';
           if (skipSendTransAction) {
             void handleBuildTxSuccessWithSignedNoSend({
@@ -1374,141 +1369,145 @@ export function useSwapBuildTx() {
       swapActionState.approveUnLimit,
     ],
   );
-  const preSwapStepsStart = useCallback(async () => {
-    if (swapSteps.length > 0) {
-      for (let i = 0; i < swapSteps.length; i += 1) {
-        const stepIndex = i;
-        const step = swapSteps[i];
-        const { type, isResetApprove, data, canRetry, status } = step;
-        if (
-          status === ESwapStepStatus.READY ||
-          (canRetry && status === ESwapStepStatus.FAILED)
-        ) {
-          try {
-            setSwapSteps((prevSteps) => {
-              const newSteps = [...prevSteps];
-              newSteps[i] = {
-                ...newSteps[i],
-                status: ESwapStepStatus.LOADING,
-                errorMessage: undefined,
-              };
-              return newSteps;
-            });
-            if (type === ESwapStepType.APPROVE_TX) {
-              let approveAmount = data?.fromAmount ?? '0';
-              let approveSendTx: ISignedTxPro | undefined;
-              if (isResetApprove) {
-                approveAmount = '0';
-                approveSendTx = await approveTxNew(
-                  stepIndex,
-                  approveAmount,
-                  !!swapActionState.approveUnLimit,
-                  step.data,
-                );
-              } else {
-                approveSendTx = await approveTxNew(
-                  stepIndex,
-                  approveAmount,
-                  !!swapActionState.approveUnLimit,
-                  step.data,
-                );
-              }
-              if (step.shouldWaitApproved && approveSendTx) {
-                setSwapSteps((prevSteps: ISwapStep[]) => {
-                  const newSteps = [...prevSteps];
-                  newSteps[i] = {
-                    ...newSteps[i],
-                    status: ESwapStepStatus.PENDING,
-                    txHash: approveSendTx.txid,
-                    stepSubTitle: intl.formatMessage({
-                      id: ETranslations.swap_btn_approving,
-                    }),
-                  };
-                  return newSteps;
-                });
-                if (data?.fromTokenInfo && data?.toTokenInfo) {
-                  setInAppNotificationAtom((pre) => ({
-                    ...pre,
-                    swapApprovingTransaction: {
-                      txId: approveSendTx.txid,
-                      swapType: swapTypeSwitch,
-                      protocol: data?.protocol ?? EProtocolOfExchange.SWAP,
-                      provider: data?.info.provider,
-                      providerName: data?.info.providerName,
-                      unSupportReceiveAddressDifferent:
-                        data?.unSupportReceiveAddressDifferent,
-                      fromToken: data?.fromTokenInfo,
-                      toToken: data?.toTokenInfo,
-                      quoteId: data?.quoteId ?? '',
-                      amount: approveAmount,
-                      toAmount: data?.toAmount ?? '',
-                      useAddress: swapFromAddressInfo.address ?? '',
-                      spenderAddress:
-                        data?.allowanceResult?.allowanceTarget ?? '',
-                      status: ESwapApproveTransactionStatus.PENDING,
-                      kind: selectQuote?.kind ?? ESwapQuoteKind.SELL,
-                      resetApproveIsMax: !!swapActionState.approveUnLimit,
-                    },
-                  }));
-                }
-                break;
-              }
-            } else if (type === ESwapStepType.WRAP_TX) {
-              await wrappedTx(
-                stepIndex,
-                step.data,
-                step.fromToken,
-                step.toToken,
-              );
-            } else if (type === ESwapStepType.SEND_TX) {
-              await buildTxNew(stepIndex, step.data);
-            } else if (type === ESwapStepType.SIGN_MESSAGE) {
-              await signMessage(stepIndex, step.data);
-            } else if (type === ESwapStepType.BATCH_APPROVE_SWAP) {
-              await batchApproveSwap(stepIndex, step.data);
-            }
-
-            if (i !== swapSteps.length - 1) {
+  const preSwapStepsStart = useCallback(
+    async (swapStepsValues?: ISwapStep[]) => {
+      const swapStepsValuesFinal = swapStepsValues ?? swapSteps;
+      if (swapStepsValuesFinal.length > 0) {
+        for (let i = 0; i < swapStepsValuesFinal.length; i += 1) {
+          const stepIndex = i;
+          const step = swapStepsValuesFinal[i];
+          const { type, isResetApprove, data, canRetry, status } = step;
+          if (
+            status === ESwapStepStatus.READY ||
+            (canRetry && status === ESwapStepStatus.FAILED)
+          ) {
+            try {
               setSwapSteps((prevSteps) => {
                 const newSteps = [...prevSteps];
                 newSteps[i] = {
                   ...newSteps[i],
-                  status: ESwapStepStatus.SUCCESS,
+                  status: ESwapStepStatus.LOADING,
+                  errorMessage: undefined,
                 };
                 return newSteps;
               });
+              if (type === ESwapStepType.APPROVE_TX) {
+                let approveAmount = data?.fromAmount ?? '0';
+                let approveSendTx: ISignedTxPro | undefined;
+                if (isResetApprove) {
+                  approveAmount = '0';
+                  approveSendTx = await approveTxNew(
+                    stepIndex,
+                    approveAmount,
+                    !!swapActionState.approveUnLimit,
+                    step.data,
+                  );
+                } else {
+                  approveSendTx = await approveTxNew(
+                    stepIndex,
+                    approveAmount,
+                    !!swapActionState.approveUnLimit,
+                    step.data,
+                  );
+                }
+                if (step.shouldWaitApproved && approveSendTx) {
+                  setSwapSteps((prevSteps: ISwapStep[]) => {
+                    const newSteps = [...prevSteps];
+                    newSteps[i] = {
+                      ...newSteps[i],
+                      status: ESwapStepStatus.PENDING,
+                      txHash: approveSendTx.txid,
+                      stepSubTitle: intl.formatMessage({
+                        id: ETranslations.swap_btn_approving,
+                      }),
+                    };
+                    return newSteps;
+                  });
+                  if (data?.fromTokenInfo && data?.toTokenInfo) {
+                    setInAppNotificationAtom((pre) => ({
+                      ...pre,
+                      swapApprovingTransaction: {
+                        txId: approveSendTx.txid,
+                        swapType: swapTypeSwitch,
+                        protocol: data?.protocol ?? EProtocolOfExchange.SWAP,
+                        provider: data?.info.provider,
+                        providerName: data?.info.providerName,
+                        unSupportReceiveAddressDifferent:
+                          data?.unSupportReceiveAddressDifferent,
+                        fromToken: data?.fromTokenInfo,
+                        toToken: data?.toTokenInfo,
+                        quoteId: data?.quoteId ?? '',
+                        amount: approveAmount,
+                        toAmount: data?.toAmount ?? '',
+                        useAddress: swapFromAddressInfo.address ?? '',
+                        spenderAddress:
+                          data?.allowanceResult?.allowanceTarget ?? '',
+                        status: ESwapApproveTransactionStatus.PENDING,
+                        kind: selectQuote?.kind ?? ESwapQuoteKind.SELL,
+                        resetApproveIsMax: !!swapActionState.approveUnLimit,
+                      },
+                    }));
+                  }
+                  break;
+                }
+              } else if (type === ESwapStepType.WRAP_TX) {
+                await wrappedTx(
+                  stepIndex,
+                  step.data,
+                  step.fromToken,
+                  step.toToken,
+                );
+              } else if (type === ESwapStepType.SEND_TX) {
+                await buildTxNew(stepIndex, step.data);
+              } else if (type === ESwapStepType.SIGN_MESSAGE) {
+                await signMessage(stepIndex, step.data);
+              } else if (type === ESwapStepType.BATCH_APPROVE_SWAP) {
+                await batchApproveSwap(stepIndex, step.data);
+              }
+
+              if (i !== swapStepsValuesFinal.length - 1) {
+                setSwapSteps((prevSteps) => {
+                  const newSteps = [...prevSteps];
+                  newSteps[i] = {
+                    ...newSteps[i],
+                    status: ESwapStepStatus.SUCCESS,
+                  };
+                  return newSteps;
+                });
+              }
+            } catch (error) {
+              setSwapSteps((prevSteps) => {
+                const newSteps = [...prevSteps];
+                newSteps[i] = {
+                  ...newSteps[i],
+                  status: ESwapStepStatus.FAILED,
+                  errorMessage:
+                    error instanceof Error ? error.message : 'Unknown error',
+                };
+                return newSteps;
+              });
+              break;
             }
-          } catch (error) {
-            setSwapSteps((prevSteps) => {
-              const newSteps = [...prevSteps];
-              newSteps[i] = {
-                ...newSteps[i],
-                status: ESwapStepStatus.FAILED,
-                errorMessage:
-                  error instanceof Error ? error.message : 'Unknown error',
-              };
-              return newSteps;
-            });
-            break;
           }
         }
       }
-    }
-  }, [
-    swapSteps,
-    setSwapSteps,
-    approveTxNew,
-    swapActionState.approveUnLimit,
-    intl,
-    setInAppNotificationAtom,
-    swapTypeSwitch,
-    swapFromAddressInfo.address,
-    selectQuote?.kind,
-    wrappedTx,
-    buildTxNew,
-    signMessage,
-    batchApproveSwap,
-  ]);
+    },
+    [
+      swapSteps,
+      setSwapSteps,
+      approveTxNew,
+      swapActionState.approveUnLimit,
+      intl,
+      setInAppNotificationAtom,
+      swapTypeSwitch,
+      swapFromAddressInfo.address,
+      selectQuote?.kind,
+      wrappedTx,
+      buildTxNew,
+      signMessage,
+      batchApproveSwap,
+    ],
+  );
 
   return { preSwapStepsStart, cancelLimitOrder };
 }

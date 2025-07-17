@@ -140,6 +140,14 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     [pageType],
   );
 
+  const swapStepsRef = useRef<ISwapStep[]>([]);
+  if (
+    swapStepsRef.current !== swapSteps ||
+    swapStepsRef.current.length !== swapSteps.length
+  ) {
+    swapStepsRef.current = [...swapSteps];
+  }
+
   const onSelectToken = useCallback(
     (type: ESwapDirectionType) => {
       navigation.pushModal(EModalRoutes.SwapModal, {
@@ -285,7 +293,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       quoteRes: IFetchQuoteResult,
       isResetApprove: boolean,
       stepActionsLabel: string,
-      stepSubTitle: string,
+      stepTitle: string,
     ) => {
       return {
         type: ESwapStepType.APPROVE_TX,
@@ -296,7 +304,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         isResetApprove,
         canRetry: true,
         stepActionsLabel,
-        stepSubTitle,
+        stepTitle,
         shouldWaitApproved:
           swapBatchTransferType !==
           ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP,
@@ -401,8 +409,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
                   id: ETranslations.swap_page_approve_button,
                 },
                 {
-                  symbol: fromSelectToken?.symbol,
-                  provider: quoteRes.info.providerName,
+                  token: fromSelectToken?.symbol,
+                  target: quoteRes.info.providerName,
                 },
               ),
             ),
@@ -449,8 +457,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
                   id: ETranslations.swap_page_approve_button,
                 },
                 {
-                  symbol: fromSelectToken?.symbol,
-                  provider: quoteRes.info.providerName,
+                  token: fromSelectToken?.symbol,
+                  target: quoteRes.info.providerName,
                 },
               ),
             ),
@@ -473,30 +481,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     ],
   );
   const onActionHandler = useCallback(() => {
-    if (swapSteps.length > 0) {
-      const firstStep = swapSteps[0];
-      if (firstStep.isResetApprove) {
-        Dialog.confirm({
-          onConfirmText: intl.formatMessage({
-            id: ETranslations.global_continue,
-          }),
-          onConfirm: () => {
-            void preSwapStepsStart();
-          },
-          showCancelButton: true,
-          title: intl.formatMessage({
-            id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
-          }),
-          description: intl.formatMessage({
-            id: ETranslations.swap_page_provider_approve_usdt_dialog_content,
-          }),
-          icon: 'ErrorOutline',
-        });
-      } else {
-        void preSwapStepsStart();
-      }
+    if (swapStepsRef.current.length > 0) {
+      void preSwapStepsStart(swapStepsRef.current);
     }
-  }, [intl, preSwapStepsStart, swapSteps]);
+  }, [preSwapStepsStart]);
 
   const onActionHandlerBefore = useCallback(() => {
     if (currentQuoteRes?.quoteShowTip) {

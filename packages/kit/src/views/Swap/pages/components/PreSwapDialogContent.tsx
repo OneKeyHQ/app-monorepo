@@ -88,13 +88,14 @@ const PreSwapDialogContent = ({
           swapApprovingTransaction: undefined,
         };
       });
-      void preSwapStepsStart();
+      void preSwapStepsStart(swapSteps);
     }
   }, [
     inAppNotificationAtom.swapApprovingTransaction,
     setSwapSteps,
     preSwapStepsStart,
     setInAppNotificationAtom,
+    swapSteps,
   ]);
 
   const lastStep = useMemo(() => {
