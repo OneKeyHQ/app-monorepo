@@ -77,3 +77,14 @@ export type IPrimeTransferSelectedData = {
     id: string;
   }[];
 };
+
+export interface IE2EESocketUserInfo {
+  id: string;
+  socketId: string | undefined;
+  joinedAt: Date;
+  appPlatform: string;
+  appPlatformName: string;
+  appVersion: string;
+  appBuildNumber: string;
+  appDeviceName: string;
+}
