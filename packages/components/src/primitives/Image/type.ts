@@ -66,6 +66,8 @@ export type IImageV2Props = Omit<
   | 'onProgress'
 > &
   IStackStyle & {
+    /** Enable animated image support */
+    animated?: boolean;
     size?: IStackStyle['height'];
     source?: ImageSourcePropType | string | number;
     skeleton?: React.ReactNode;
