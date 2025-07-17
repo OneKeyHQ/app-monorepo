@@ -1,15 +1,19 @@
 /* eslint-disable react/prop-types */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ComponentType, ReactNode } from 'react';
+import { isValidElement, useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useAnimatedReaction } from 'react-native-reanimated';
+import { View } from 'react-native';
 import {
   AutoSizer,
+  CellMeasurer,
+  CellMeasurerCache,
   Collection,
   List as VirtualizedList,
 } from 'react-virtualized';
 
 import { useTabsContext, useTabsScrollContext } from './context';
-import { useCurrentTabName } from './Tab';
+import { useTabNameContext } from './TabNameContext';
+import { useConvertAnimatedToValue } from './useFocusedTab';
 
 import type { ISectionListProps } from '../../layouts';
 import type { FlashListProps } from '@shopify/flash-list';
@@ -64,7 +68,10 @@ export function List<Item>({
   ListHeaderComponentStyle,
   ListFooterComponentStyle,
   numColumns = 1,
-}: IListProps<Item> & ISectionListProps<Item>) {
+}: Omit<IListProps<Item>, 'ListEmptyComponent'> &
+  Omit<ISectionListProps<Item>, 'ListEmptyComponent'> & {
+    ListEmptyComponent?: ReactNode | ComponentType<any>;
+  }) {
   const {
     registerChild,
     height,
@@ -73,22 +80,23 @@ export function List<Item>({
     onChildScroll,
     scrollTop,
   } = useTabsScrollContext();
-  const currentTabName = useCurrentTabName();
+  const currentTabName = useTabNameContext();
   const { focusedTab } = useTabsContext();
-  const [focusedTabValue, setFocusedTabValue] = useState(focusedTab.value);
 
-  useAnimatedReaction(
-    () => focusedTab.value,
-    (result, previous) => {
-      if (result !== previous) {
-        setFocusedTabValue(result);
-      }
-    },
-  );
+  const focusedTabValue = useConvertAnimatedToValue(focusedTab, '');
 
   const ref = useRef<Element>(null);
 
   const scrollTabElementsRef = useTabsContext().scrollTabElementsRef;
+
+  const cache = useMemo(
+    () =>
+      new CellMeasurerCache({
+        fixedWidth: true,
+        defaultHeight: estimatedItemSize || 60,
+      }),
+    [estimatedItemSize],
+  );
 
   const isVisible = useMemo(() => {
     return focusedTabValue === currentTabName;
@@ -169,6 +177,30 @@ export function List<Item>({
     sections,
   ]);
 
+  const listRef = useRef<typeof VirtualizedList>(null);
+
+  const HeaderElement = useMemo(() => {
+    if (ListHeaderComponent) {
+      return (
+        <View style={ListHeaderComponentStyle as any}>
+          {ListHeaderComponent as React.ReactNode}
+        </View>
+      );
+    }
+    return null;
+  }, [ListHeaderComponent, ListHeaderComponentStyle]);
+
+  const FooterElement = useMemo(() => {
+    if (ListFooterComponent) {
+      return (
+        <View style={ListFooterComponentStyle as any}>
+          {ListFooterComponent as React.ReactNode}
+        </View>
+      );
+    }
+    return null;
+  }, [ListFooterComponent, ListFooterComponentStyle]);
+
   const rowRenderer = useCallback(
     ({
       index,
@@ -179,20 +211,13 @@ export function List<Item>({
       key: string;
       style: React.CSSProperties;
     }) => {
+      const parent = listRef.current;
       const item = listData[index];
       let element = null;
       if (item.type === 'header') {
-        element = (
-          <div style={ListHeaderComponentStyle as any}>
-            {ListHeaderComponent as React.ReactNode}
-          </div>
-        );
+        element = HeaderElement;
       } else if (item.type === 'footer') {
-        element = (
-          <div style={ListFooterComponentStyle as any}>
-            {ListFooterComponent as React.ReactNode}
-          </div>
-        );
+        element = FooterElement;
       } else if (item.type === 'section-header') {
         element = renderSectionHeader?.({
           section: item.data.section,
@@ -216,6 +241,22 @@ export function List<Item>({
             : null;
       }
 
+      if (parent) {
+        return (
+          <CellMeasurer
+            cache={cache}
+            columnIndex={0}
+            key={key}
+            parent={parent as any}
+            rowIndex={index}
+          >
+            <div key={key} style={style}>
+              {element as React.ReactNode}
+            </div>
+          </CellMeasurer>
+        );
+      }
+
       return (
         <div key={key} style={style}>
           {element as React.ReactNode}
@@ -224,14 +265,13 @@ export function List<Item>({
     },
     [
       listData,
-      ListHeaderComponentStyle,
-      ListHeaderComponent,
-      ListFooterComponentStyle,
-      ListFooterComponent,
+      HeaderElement,
+      FooterElement,
       renderSectionHeader,
       renderSectionFooter,
       renderItem,
       data,
+      cache,
     ],
   );
 
@@ -267,7 +307,18 @@ export function List<Item>({
   );
 
   if (!data?.length && !sections?.length) {
-    return ListEmptyComponent;
+    return (
+      <>
+        {HeaderElement}
+        {isValidElement(ListEmptyComponent) ? (
+          ListEmptyComponent
+        ) : (
+          // @ts-expect-error
+          <ListEmptyComponent />
+        )}
+        {FooterElement}
+      </>
+    );
   }
 
   if (numColumns > 1) {
@@ -277,6 +328,7 @@ export function List<Item>({
           return (
             <div ref={ref as React.RefObject<HTMLDivElement>}>
               <Collection
+                ref={listRef as any}
                 autoHeight
                 data={listData}
                 isScrolling={isVisible ? isScrolling : false}
@@ -302,6 +354,7 @@ export function List<Item>({
         return (
           <div ref={ref as React.RefObject<HTMLDivElement>}>
             <VirtualizedList
+              ref={listRef as any}
               autoHeight
               width={autoSizerWidth}
               data={listData}
@@ -311,17 +364,8 @@ export function List<Item>({
               overscanRowCount={30}
               scrollTop={isVisible ? scrollTop : 0}
               rowCount={listData.length}
-              rowHeight={({ index }) => {
-                const item = listData[index];
-                if (item.type === 'header') {
-                  return 44;
-                }
-                if (item.type === 'section-header') {
-                  return 36;
-                }
-                return estimatedItemSize || 60;
-              }}
-              rowRenderer={rowRenderer as any}
+              rowHeight={cache.rowHeight}
+              rowRenderer={rowRenderer}
             />
           </div>
         );

@@ -57,7 +57,7 @@ export function QuickAmountSelector({
             flex={1}
             size="medium"
             variant="secondary"
-            py="$2"
+            h="$8"
             borderTopRightRadius={index !== amountsLength - 1 ? 0 : '$2'}
             borderBottomRightRadius={index !== amountsLength - 1 ? 0 : '$2'}
             borderTopLeftRadius={index !== 0 ? 0 : '$2'}

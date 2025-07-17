@@ -1,5 +1,11 @@
 import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
 
+// eslint-disable-next-line import/order
+import type { IPrimeTransferData } from '../../types/prime/primeTransferTypes';
+
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports, import/no-relative-packages, import-path/parent-depth, import/order
+import type { IE2EESocketUserInfo } from '../../../../apps/e2ee-server/src/types';
+
 export enum EPrimePages {
   PrimeDashboard = 'PrimeDashboard',
   PrimeDeviceLimit = 'PrimeDeviceLimit',
@@ -8,12 +14,16 @@ export enum EPrimePages {
   PrimeCloudSyncInfo = 'PrimeCloudSyncInfo',
   PrimeFeatures = 'PrimeFeatures',
   PrimeDeleteAccount = 'PrimeDeleteAccount',
+  PrimeTransfer = 'PrimeTransfer',
+  PrimeTransferPreview = 'PrimeTransferPreview',
 }
 
 export enum EPrimeFeatures {
   OneKeyCloud = 'OneKeyCloud',
   BulkCopyAddresses = 'BulkCopyAddresses',
   BulkRevoke = 'BulkRevoke',
+  DeviceManagement = 'DeviceManagement',
+  CloudTransfer = 'CloudTransfer',
 }
 
 export type IPrimeParamList = {
@@ -32,4 +42,14 @@ export type IPrimeParamList = {
     showAllFeatures?: boolean;
   };
   [EPrimePages.PrimeDeleteAccount]: undefined;
+  [EPrimePages.PrimeTransfer]: undefined;
+  [EPrimePages.PrimeTransferPreview]: {
+    directionUserInfo:
+      | {
+          fromUser: IE2EESocketUserInfo;
+          toUser: IE2EESocketUserInfo;
+        }
+      | undefined;
+    transferData: IPrimeTransferData;
+  };
 };

@@ -187,7 +187,10 @@ async function encryptAsync({
   //   ? await keyFromPasswordAndSalt(passwordDecoded, salt)
   //   : keyFromPasswordAndSaltSync(passwordDecoded, salt);
   // const key: Buffer = await keyFromPasswordAndSalt(passwordDecoded, salt);
-  const key: Buffer = await keyFromPasswordAndSalt(passwordDecoded, salt);
+  const key: Buffer = await keyFromPasswordAndSalt({
+    password: passwordDecoded,
+    salt,
+  });
 
   // const dataEncrypted = platformEnv.isNative
   //   ? await aesCbcEncrypt({
@@ -288,7 +291,10 @@ async function decryptAsync({
   // const key: Buffer = platformEnv.isNative
   //   ? await keyFromPasswordAndSalt(passwordDecoded, salt)
   //   : keyFromPasswordAndSaltSync(passwordDecoded, salt);
-  const key: Buffer = await keyFromPasswordAndSalt(passwordDecoded, salt);
+  const key: Buffer = await keyFromPasswordAndSalt({
+    password: passwordDecoded,
+    salt,
+  });
 
   if (!ignoreLogger) {
     defaultLogger.account.secretPerf.keyFromPasswordAndSaltDone();

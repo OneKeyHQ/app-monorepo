@@ -53,6 +53,7 @@ import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
+import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
@@ -304,6 +305,10 @@ class BackgroundApiProxy
   serviceDBBackup = this._createProxyService(
     'serviceDBBackup',
   ) as ServiceDBBackup;
+
+  servicePrimeTransfer = this._createProxyService(
+    'servicePrimeTransfer',
+  ) as ServicePrimeTransfer;
 }
 
 export default BackgroundApiProxy;

@@ -10,7 +10,7 @@
     "keytar": "node development/build_keytar.js",
     "clean": "rimraf ./build-electron && rimraf .tamagui && rimraf ./app/build && rimraf ./app/dist && rimraf __generated__",
     "clean:build": "rimraf ./build-electron && rimraf ./app/build && rimraf ./app/dist && rimraf ./node_modules/.cache",
-    "start": "yarn dev",
+    "start": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn dev",
     "install-app-deps": "electron-builder install-app-deps",
     "dev": "yarn keytar && npx concurrently \"yarn build:main:dev\" \"yarn dev:renderer\" \"cross-env LAUNCH_ELECTRON=true node scripts/dev.js\"",
     "dev:main": "electron --inspect=5858 app/dist/app.js",

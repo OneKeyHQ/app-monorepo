@@ -107,3 +107,41 @@ export const { target: primeLoginDialogAtom, use: usePrimeLoginDialogAtom } =
       promptForgetMasterPasswordDialog: undefined,
     },
   });
+
+export enum EPrimeTransferStatus {
+  init = 'init',
+  paired = 'paired',
+  transferring = 'transferring',
+}
+export type IPrimeTransferAtomData = {
+  websocketConnected: boolean;
+  status: EPrimeTransferStatus;
+  pairedRoomId: string | undefined;
+  myCreatedRoomId: string | undefined;
+  myUserId: string | undefined;
+  transferDirection:
+    | {
+        fromUserId: string | undefined;
+        toUserId: string | undefined;
+        randomNumber: string | undefined;
+      }
+    | undefined;
+  importProgress?: {
+    total: number;
+    current: number;
+    isImporting: boolean;
+  };
+};
+export const { target: primeTransferAtom, use: usePrimeTransferAtom } =
+  globalAtom<IPrimeTransferAtomData>({
+    name: EAtomNames.primeTransferAtom,
+    initialValue: {
+      websocketConnected: false,
+      status: EPrimeTransferStatus.init,
+      pairedRoomId: undefined,
+      myCreatedRoomId: undefined,
+      myUserId: undefined,
+      transferDirection: undefined,
+      importProgress: undefined,
+    },
+  });

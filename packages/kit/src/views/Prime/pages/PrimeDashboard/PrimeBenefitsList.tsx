@@ -102,7 +102,52 @@ export function PrimeBenefitsList({
           }
         }}
       />
+      {/* <PrimeBenefitsItem
+        icon="MultipleDevicesOutline"
+        title={intl.formatMessage({
+          id: ETranslations.global_prime_device_management,
+        })}
+        subtitle={intl.formatMessage({
+          id: ETranslations.prime_device_management_desc,
+        })}
+        onPress={async () => {
+          if (isPrimeSubscriptionActive) {
+            await ensureOneKeyIDLoggedIn();
+            navigation.pushFullModal(EModalRoutes.PrimeModal, {
+              screen: EPrimePages.PrimeDeviceLimit,
+            });
+          } else {
+            navigation.navigate(EPrimePages.PrimeFeatures, {
+              showAllFeatures: true,
+              selectedFeature: EPrimeFeatures.DeviceManagement,
+              selectedSubscriptionPeriod,
+            });
+          }
+        }}
+      /> */}
       <PrimeBenefitsItem
+        icon="ArrowRightOutline"
+        title={intl.formatMessage({
+          id: ETranslations.global_transfer,
+        })}
+        subtitle={intl.formatMessage({
+          id: ETranslations.prime_transfer_description,
+        })}
+        onPress={() => {
+          if (isPrimeSubscriptionActive) {
+            navigation.navigate(EPrimePages.PrimeTransfer);
+          } else {
+            navigation.navigate(EPrimePages.PrimeTransfer);
+            // navigation.navigate(EPrimePages.PrimeFeatures, {
+            //   showAllFeatures: true,
+            //   selectedFeature: EPrimeFeatures.CloudTransfer,
+            //   selectedSubscriptionPeriod,
+            // });
+          }
+        }}
+      />
+      <PrimeBenefitsItem
+        isComingSoon
         icon="Copy3Outline"
         title={intl.formatMessage({
           id: ETranslations.global_bulk_copy_addresses,

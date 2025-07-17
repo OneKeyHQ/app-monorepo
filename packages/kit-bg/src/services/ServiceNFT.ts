@@ -7,13 +7,10 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import accountUtils, {
-  buildAccountLocalAssetsKey,
-} from '@onekeyhq/shared/src/utils/accountUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import { ETraitsDisplayType } from '@onekeyhq/shared/types/nft';
 import type {
   IAccountNFT,
   IFetchAccountNFTsParams,
@@ -21,6 +18,7 @@ import type {
   IFetchNFTDetailsParams,
   IFetchNFTDetailsResp,
 } from '@onekeyhq/shared/types/nft';
+import { ETraitsDisplayType } from '@onekeyhq/shared/types/nft';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import ServiceBase from './ServiceBase';
@@ -272,7 +270,7 @@ class ServiceNFT extends ServiceBase {
       }),
     ]);
 
-    const key = buildAccountLocalAssetsKey({
+    const key = accountUtils.buildAccountLocalAssetsKey({
       networkId,
       accountAddress,
       xpub,

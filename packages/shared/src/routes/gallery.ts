@@ -77,6 +77,8 @@ export enum EGalleryRoutes {
   ComponentTooltip = 'component-Tooltip',
   ComponentTradingViewGallery = 'component-TradingView',
   ComponentTrigger = 'component-Trigger',
+  ComponentTutorialsList = 'component-TutorialsList',
+  ComponentOrderedList = 'component-OrderedList',
   ComponentTypography = 'component-Typography',
   ComponentUsePromiseResult = 'component-UsePromiseResult',
   ComponentWalletAvatar = 'component-WalletAvatar',

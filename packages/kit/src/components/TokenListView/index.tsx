@@ -1,8 +1,8 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
 
-import type { ListView } from '@onekeyhq/components';
 import {
+  ListView,
   NestedScrollView,
   SizableText,
   Stack,
@@ -300,6 +300,10 @@ function TokenListViewCmp(props: IProps) {
     },
   );
 
+  const ListComponent = useMemo(() => {
+    return inTabList ? Tabs.FlatList : ListView;
+  }, [inTabList]);
+
   if (showSkeleton) {
     return (
       <NestedScrollView style={{ flex: 1 }}>
@@ -313,9 +317,9 @@ function TokenListViewCmp(props: IProps) {
   }
 
   return (
-    <Tabs.FlatList
+    <ListComponent
       // @ts-ignore
-      // estimatedItemSize={tableLayout ? 48 : 60}
+      estimatedItemSize={tableLayout ? undefined : 60}
       data={filteredTokens}
       contentContainerStyle={resolvedContentContainerStyle as any}
       ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
