@@ -7,6 +7,7 @@ import { Button, Dialog, Page, Spinner } from '@onekeyhq/components';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   EPrimeTransferStatus,
   usePrimeTransferAtom,
@@ -19,8 +20,6 @@ import {
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-
-import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 
 import { PrimeTransferDirection } from './components/PrimeTransferDirection';
 import { PrimeTransferHome } from './components/PrimeTransferHome';
