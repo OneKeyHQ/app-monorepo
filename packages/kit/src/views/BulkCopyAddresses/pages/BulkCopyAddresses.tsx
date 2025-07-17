@@ -24,6 +24,10 @@ import {
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type { IModalBulkCopyAddressesParamList } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
@@ -290,7 +294,15 @@ function BulkCopyAddresses({
           ),
         };
       } catch (error) {
-        console.log(error);
+        appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
+          totalCount: formRangeWatchFields.amount,
+          createdCount: 0,
+          progressTotal: formRangeWatchFields.amount,
+          progressCurrent: 0,
+          networkId: selectedNetworkId,
+          deriveType: formRangeWatchFields.deriveType as IAccountDeriveTypes,
+          error,
+        });
         throw error;
       }
     } finally {
