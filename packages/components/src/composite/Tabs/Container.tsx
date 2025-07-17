@@ -246,7 +246,7 @@ export function Container({
                     isScrolling={isScrolling}
                     scrollLeft={scrollLeft}
                     scrollTop={scrollTop}
-                    width={width}
+                    width={scrollElement?.clientWidth || width || 0}
                     onChildScroll={onChildScroll}
                     registerChild={registerChild}
                     listContainerRef={listContainerRef as any}
