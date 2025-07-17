@@ -303,9 +303,9 @@ function RewardCenterContent({
               id: ETranslations.wallet_redeem_label,
             })}
           </SizableText>
-          <Form.Field name="code" rules={{ required: true }}>
-            <XStack alignItems="center" justifyContent="space-between" gap="$9">
-              <Stack flex={1}>
+          <XStack alignItems="center" justifyContent="space-between" gap="$9">
+            <Stack flex={1}>
+              <Form.Field name="code" rules={{ required: true }}>
                 <Input
                   w="100%"
                   backgroundColor="$bgStrong"
@@ -313,23 +313,24 @@ function RewardCenterContent({
                     id: ETranslations.wallet_enter_redemption_code,
                   })}
                 />
-              </Stack>
-              <Button
-                size="medium"
-                variant="primary"
-                onPress={handleRedeemCode}
-                disabled={
-                  form.formState.isSubmitting ||
-                  !form.formState.isValid ||
-                  isRedeeming
-                }
-              >
-                {intl.formatMessage({
-                  id: ETranslations.global_ok,
-                })}
-              </Button>
-            </XStack>
-          </Form.Field>
+              </Form.Field>
+            </Stack>
+            <Button
+              size="medium"
+              variant="primary"
+              onPress={handleRedeemCode}
+              loading={isRedeeming}
+              disabled={
+                form.formState.isSubmitting ||
+                !form.formState.isValid ||
+                isRedeeming
+              }
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_ok,
+              })}
+            </Button>
+          </XStack>
         </YStack>
       </YStack>
     </Form>
