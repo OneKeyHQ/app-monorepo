@@ -6,10 +6,7 @@ import { useIntl } from 'react-intl';
 import { useClipboard } from '@onekeyhq/components';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  formatDistanceToNowStrict,
-  formatRelativeTimeAbbr,
-} from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatRelativeTimeAbbr } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 interface IUseTransactionItemDataProps {
