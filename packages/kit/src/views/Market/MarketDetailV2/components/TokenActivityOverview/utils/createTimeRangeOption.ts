@@ -15,7 +15,8 @@ export function createTimeRangeOption(
   const priceChangePercent = tokenDetail?.[priceChangeKey];
   if (priceChangePercent) {
     const percentage = parseFloat(priceChangePercent);
-    const formattedValue = parseFloat(percentage.toFixed(2));
+    const clampedPercentage = Math.max(-999.99, Math.min(999.99, percentage));
+    const formattedValue = parseFloat(clampedPercentage.toFixed(2));
 
     // Check if formatted value is zero (e.g., 0.001% becomes 0.00%)
     const isZero = formattedValue === 0;
