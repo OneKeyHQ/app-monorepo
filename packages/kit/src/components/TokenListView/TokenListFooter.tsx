@@ -118,9 +118,21 @@ function TokenListFooter(props: IProps) {
       params: {
         accountId: account.id,
         networkId: network.id,
+        tokenList: {
+          tokens: smallBalanceTokens,
+          keys: smallBalanceTokenKeys,
+          map: smallBalanceTokenListMap,
+        },
       },
     });
-  }, [account, navigation, network]);
+  }, [
+    account,
+    navigation,
+    network,
+    smallBalanceTokenKeys,
+    smallBalanceTokenListMap,
+    smallBalanceTokens,
+  ]);
   return (
     <Stack>
       {!isSearchMode && smallBalanceTokens.length > 0 ? (
@@ -193,7 +205,7 @@ function TokenListFooter(props: IProps) {
           {tableLayout ? <Stack flexGrow={1} flexBasis={0} /> : null}
         </ListItem>
       ) : null}
-      {!isSearchMode && riskyTokens ? (
+      {!isSearchMode && riskyTokens.length > 0 ? (
         <ListItem onPress={handleOnPressRiskyTokens} userSelect="none">
           <XStack alignItems="center" gap="$3" flex={1}>
             <Stack
@@ -208,7 +220,9 @@ function TokenListFooter(props: IProps) {
               />
             </Stack>
             <ListItem.Text
-              primary={`${riskyTokens.length}`}
+              primary={`${riskyTokens.length} ${intl.formatMessage({
+                id: ETranslations.wallet_collapsed_risk_assets,
+              })}`}
               {...(tableLayout && {
                 primaryTextProps: { size: '$bodyMdMedium' },
               })}

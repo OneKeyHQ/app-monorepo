@@ -46,5 +46,12 @@ export type IModalAssetListParamList = {
   [EModalAssetListRoutes.RiskTokenManager]: {
     accountId: string;
     networkId: string;
+    tokenList: {
+      tokens: IAccountToken[];
+      keys: string;
+      map: Record<string, ITokenFiat>;
+    };
+    isAllNetworks?: boolean;
+    hideValue?: boolean;
   };
 };

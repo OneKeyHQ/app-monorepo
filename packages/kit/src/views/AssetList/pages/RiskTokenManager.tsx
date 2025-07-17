@@ -1,14 +1,75 @@
-import { useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
+import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Alert, Button, Page } from '@onekeyhq/components';
+import {
+  Alert,
+  Button,
+  Page,
+  SectionList,
+  Toast,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { SEARCH_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  EModalAssetListRoutes,
+  IModalAssetListParamList,
+} from '@onekeyhq/shared/src/routes';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { ListItem } from '../../../components/ListItem';
+import TokenBalanceView from '../../../components/TokenListView/TokenBalanceView';
+import TokenIconView from '../../../components/TokenListView/TokenIconView';
+import TokenNameView from '../../../components/TokenListView/TokenNameView';
+import TokenPriceChangeView from '../../../components/TokenListView/TokenPriceChangeView';
+import TokenPriceView from '../../../components/TokenListView/TokenPriceView';
+import TokenValueView from '../../../components/TokenListView/TokenValueView';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import {
+  useTokenListActions,
+  withTokenListProvider,
+} from '../../../states/jotai/contexts/tokenList';
+
+import type { RouteProp } from '@react-navigation/core';
+import type {
+  NativeSyntheticEvent,
+  TextInputFocusEventData,
+} from 'react-native';
 
 function RiskTokenManager() {
   const intl = useIntl();
 
+  const route =
+    useRoute<
+      RouteProp<
+        IModalAssetListParamList,
+        EModalAssetListRoutes.RiskTokenManager
+      >
+    >();
+
+  const { tokenList, isAllNetworks, networkId, hideValue } = route.params;
+
+  const { tokens, map: tokenMap } = tokenList;
+
+  const originalUnblockedTokens = useRef('');
+
+  const [unblockedTokensMap, setUnblockedTokensMap] = useState<
+    Record<string, Record<string, boolean>>
+  >({});
+
   const [isEditing, setIsEditing] = useState(false);
+  const [searchKey, setSearchKey] = useState('');
+
+  const { refreshTokenListMap } = useTokenListActions().current;
 
   const headerRight = useCallback(() => {
     return (
@@ -16,6 +77,11 @@ function RiskTokenManager() {
         size="sm"
         variant="tertiary"
         onPress={() => {
+          if (isEditing) {
+            void backgroundApiProxy.serviceToken.updateUnblockedTokens(
+              unblockedTokensMap,
+            );
+          }
           setIsEditing((prev) => !prev);
         }}
       >
@@ -24,15 +90,137 @@ function RiskTokenManager() {
         })}
       </Button>
     );
-  }, [intl, isEditing]);
+  }, [intl, isEditing, unblockedTokensMap]);
+
+  const { result: sectionListData } = usePromiseResult(
+    async () => {
+      if (!tokens) {
+        return [];
+      }
+
+      const blockedTokens = [];
+      const unblockedTokens = [];
+
+      for (const token of tokens) {
+        const tokenNetworkId = token.networkId ?? networkId;
+
+        if (unblockedTokensMap?.[tokenNetworkId]?.[token.address]) {
+          unblockedTokens.push({
+            ...token,
+            isBlocked: false,
+          });
+        } else {
+          blockedTokens.push({
+            ...token,
+            isBlocked: true,
+          });
+        }
+      }
+
+      return [
+        {
+          title: intl.formatMessage({
+            id: ETranslations.wallet_risk_assets_always_visible_on_home,
+          }),
+          data: unblockedTokens,
+        },
+        {
+          title: intl.formatMessage({
+            id: ETranslations.wallet_collapsed_risk_assets,
+          }),
+          data: blockedTokens,
+        },
+      ];
+    },
+    [intl, tokens, networkId, unblockedTokensMap],
+    {
+      initResult: [],
+    },
+  );
+
+  const filteredSectionListData = useMemo(() => {
+    if (!searchKey.trim()) {
+      return sectionListData;
+    }
+
+    return sectionListData.map((section) => {
+      return {
+        ...section,
+        data: section.data.filter((token) => {
+          return (
+            token.symbol?.toLowerCase().includes(searchKey.toLowerCase()) ||
+            token.name?.toLowerCase().includes(searchKey.toLowerCase()) ||
+            token.address?.toLowerCase().includes(searchKey.toLowerCase())
+          );
+        }),
+      };
+    });
+  }, [sectionListData, searchKey]);
+
+  const handleOnClose = useCallback(() => {
+    const currentUnblockedTokens = JSON.stringify(unblockedTokensMap);
+    if (currentUnblockedTokens !== originalUnblockedTokens.current) {
+      appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+    }
+  }, [unblockedTokensMap]);
+
+  useEffect(() => {
+    const fetchUnblockedTokens = async () => {
+      const resp = await backgroundApiProxy.serviceToken.getUnblockedTokens({
+        networkId,
+      });
+      originalUnblockedTokens.current = JSON.stringify(resp);
+      setUnblockedTokensMap(resp);
+    };
+
+    void fetchUnblockedTokens();
+  }, [networkId]);
+
+  useEffect(() => {
+    if (tokenMap) {
+      refreshTokenListMap({
+        tokens: tokenMap,
+      });
+    }
+  }, [tokenMap, refreshTokenListMap]);
+
+  const handleToggleBlockedToken = useCallback(
+    (token: IAccountToken & { isBlocked: boolean }) => {
+      const tokenNetworkId = token.networkId ?? networkId;
+      const tokenAddress = token.address;
+      setUnblockedTokensMap((prev) => ({
+        ...prev,
+        [tokenNetworkId]: {
+          ...prev[tokenNetworkId],
+          [tokenAddress]: !!token.isBlocked,
+        },
+      }));
+      Toast.success({
+        title: `${token.symbol} is now ${
+          token.isBlocked ? 'show on home' : 'hidden from home'
+        }`,
+      });
+    },
+    [networkId],
+  );
 
   return (
-    <Page>
+    <Page onClose={handleOnClose}>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.wallet_risk_assets,
         })}
         headerRight={headerRight}
+        headerSearchBarOptions={{
+          onChangeText: debounce(
+            (e: NativeSyntheticEvent<TextInputFocusEventData>) =>
+              setSearchKey(e.nativeEvent.text),
+            SEARCH_DEBOUNCE_INTERVAL,
+          ),
+          placeholder: intl.formatMessage({
+            id: ETranslations.global_search,
+          }),
+        }}
       />
       <Page.Body>
         <Alert
@@ -43,9 +231,96 @@ function RiskTokenManager() {
           })}
           fullBleed
         />
+        <SectionList
+          sections={filteredSectionListData}
+          renderSectionHeader={({ section }) => (
+            <SectionList.SectionHeader
+              title={(section as { title: string }).title}
+            />
+          )}
+          estimatedItemSize={60}
+          renderItem={({
+            item: token,
+          }: {
+            item: IAccountToken & {
+              isBlocked: boolean;
+            };
+          }) => (
+            <ListItem key={token.$key ?? token.uniqueKey}>
+              <XStack alignItems="center" gap="$3" maxWidth="60%">
+                <TokenIconView
+                  networkId={token.networkId}
+                  icon={token.logoURI}
+                  isAllNetworks={isAllNetworks}
+                />
+                <YStack flex={1}>
+                  <TokenNameView
+                    name={token.symbol}
+                    isNative={token.isNative}
+                    isAllNetworks={isAllNetworks}
+                    networkId={token.networkId}
+                    textProps={{
+                      size: '$bodyLgMedium',
+                      flexShrink: 0,
+                    }}
+                  />
+                  <XStack alignItems="center" gap="$1">
+                    <TokenPriceView
+                      $key={token.$key ?? ''}
+                      size="$bodyMd"
+                      color="$textSubdued"
+                      numberOfLines={1}
+                    />
+                    <TokenPriceChangeView
+                      $key={token.$key ?? ''}
+                      size="$bodyMd"
+                      numberOfLines={1}
+                    />
+                  </XStack>
+                </YStack>
+              </XStack>
+              {isEditing ? (
+                <YStack alignItems="flex-end" flex={1}>
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    onPress={() => handleToggleBlockedToken(token)}
+                  >
+                    {intl.formatMessage({
+                      id: token.isBlocked
+                        ? ETranslations.wallet_risk_assets_show_on_home
+                        : ETranslations.wallet_risk_assets_hide_on_home,
+                    })}
+                  </Button>
+                </YStack>
+              ) : (
+                <YStack alignItems="flex-end" flex={1}>
+                  <TokenBalanceView
+                    hideValue={hideValue}
+                    numberOfLines={1}
+                    size="$bodyLgMedium"
+                    $key={token.$key ?? ''}
+                    symbol=""
+                  />
+                  <TokenValueView
+                    hideValue={hideValue}
+                    numberOfLines={1}
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    $key={token.$key ?? ''}
+                  />
+                </YStack>
+              )}
+            </ListItem>
+          )}
+        />
       </Page.Body>
     </Page>
   );
 }
 
-export default RiskTokenManager;
+const RiskTokenManagerWithProvider = memo(
+  withTokenListProvider(RiskTokenManager),
+);
+
+export default RiskTokenManagerWithProvider;

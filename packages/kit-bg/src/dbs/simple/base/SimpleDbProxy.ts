@@ -47,6 +47,7 @@ import type { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHist
 import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 import type { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 import type { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
+import type { SimpleDbEntityRiskTokenManagement } from '../entity/SimpleDbEntityRiskTokenManagement';
 
 export class SimpleDbProxy
   extends BackgroundServiceProxyBase
@@ -229,4 +230,8 @@ export class SimpleDbProxy
   recentRecipients = this._createProxyService(
     'recentRecipients',
   ) as SimpleDbEntityRecentRecipients;
+
+  riskTokenManagement = this._createProxyService(
+    'riskTokenManagement',
+  ) as SimpleDbEntityRiskTokenManagement;
 }

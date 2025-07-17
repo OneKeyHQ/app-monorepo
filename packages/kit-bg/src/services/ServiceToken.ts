@@ -708,6 +708,22 @@ class ServiceToken extends ServiceBase {
       networkId,
     };
   }
+
+  @backgroundMethod()
+  public async getUnblockedTokens({ networkId }: { networkId: string }) {
+    return this.backgroundApi.simpleDb.riskTokenManagement.getUnblockedTokens({
+      networkId,
+    });
+  }
+
+  @backgroundMethod()
+  public async updateUnblockedTokens(
+    data: Record<string, Record<string, boolean>>,
+  ) {
+    return this.backgroundApi.simpleDb.riskTokenManagement.updateUnblockedTokens(
+      data,
+    );
+  }
 }
 
 export default ServiceToken;
