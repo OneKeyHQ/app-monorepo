@@ -52,15 +52,7 @@ export function MarketFilterBar({
   }
 
   return (
-    <YStack gap="$1" pb="$3">
-      {/* Network Selector */}
-      <MarketTokenListNetworkSelector
-        selectedNetworkId={selectedNetworkId}
-        onSelectNetworkId={handleNetworkIdChange}
-        size="normal"
-        forceLoading={isLoading}
-      />
-
+    <YStack gap="$1" pt="$3">
       <XStack gap="$6" pl="$7" pr="$5">
         <XStack gap="$4">
           {/* Market View Toggle - Trending and Watchlist buttons */}
@@ -74,11 +66,19 @@ export function MarketFilterBar({
         />
 
         {/* Liquidity Filter */}
-        <LiquidityFilterControl
+        {/* <LiquidityFilterControl
           value={liquidityFilter}
           onApply={handleLiquidityFilterApply}
-        />
+        /> */}
       </XStack>
+
+      {/* Network Selector */}
+      <MarketTokenListNetworkSelector
+        selectedNetworkId={selectedNetworkId}
+        onSelectNetworkId={handleNetworkIdChange}
+        size="normal"
+        forceLoading={isLoading}
+      />
     </YStack>
   );
 }
