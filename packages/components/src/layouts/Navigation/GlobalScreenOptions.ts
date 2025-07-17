@@ -90,6 +90,7 @@ export function makeModalStackNavigatorOptions({
 
     headerShown: platformEnv.isRuntimeBrowser,
     animationEnabled: true,
+    animation: 'custom-on-web',
     ...NULL_ANIMATION_DURATION_PRESET,
     ...makeHeaderScreenOptions({
       navigation: optionsInfo?.navigation,
@@ -115,6 +116,7 @@ export function makeModalScreenOptions(info: {
     headerShown: false,
     presentation: 'transparentModal',
     cardStyle: { backgroundColor: 'transparent' },
+    animation: 'custom-on-web',
     ...makeModalOpenAnimationOptions(info),
   };
 }
