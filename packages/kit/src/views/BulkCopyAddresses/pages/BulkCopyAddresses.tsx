@@ -300,7 +300,7 @@ function BulkCopyAddresses({
               account: IBatchCreateAccount;
               deriveType: IAccountDeriveTypes;
               deriveInfo?: IAccountDeriveInfo;
-            }
+            }[]
           > = {};
           for (const account of accountsForCreate) {
             const accountDeriveType =
@@ -309,11 +309,13 @@ function BulkCopyAddresses({
                 networkId: selectedNetworkId,
                 template: account.template,
               });
-            result[accountDeriveType.deriveType] = {
+            result[accountDeriveType.deriveType] =
+              result[accountDeriveType.deriveType] ?? [];
+            result[accountDeriveType.deriveType]?.push({
               account,
               deriveType: accountDeriveType.deriveType,
               deriveInfo: accountDeriveType.deriveInfo,
-            };
+            });
           }
 
           return result;
