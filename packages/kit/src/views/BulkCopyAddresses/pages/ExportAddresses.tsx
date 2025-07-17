@@ -57,7 +57,10 @@ function ExportAddresses({
       networkAccounts.forEach((item) => {
         data.push({
           type: 'address',
-          address: item.account?.address ?? '',
+          address:
+            item.account?.address ||
+            item.account?.addressDetail?.displayAddress ||
+            '',
           accountName: item.account?.name ?? '',
           deriveType: item.deriveInfo.labelKey
             ? intl.formatMessage({

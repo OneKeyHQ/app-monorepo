@@ -323,7 +323,6 @@ function BulkCopyAddresses({
               deriveInfo: accountDeriveType.deriveInfo,
             });
           }
-
           return result;
         } catch (error) {
           appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
@@ -517,32 +516,47 @@ function BulkCopyAddresses({
       return null;
     }
 
+    let shouldShowDeriveType = true;
+
+    const deriveTypes = Object.entries(vaultSettings?.accountDeriveInfo ?? {});
+
+    if (
+      deriveTypes.length === 1 &&
+      !deriveTypes[0][1].labelKey &&
+      !deriveTypes[0][1].label
+    ) {
+      shouldShowDeriveType = false;
+    }
+
     return (
       <Stack>
         <Form form={formRange}>
-          <Form.Field
-            name="deriveType"
-            label={intl.formatMessage({
-              id: ETranslations.global_derivation_path,
-            })}
-          >
-            <Select
-              title={intl.formatMessage({
+          {shouldShowDeriveType ? (
+            <Form.Field
+              name="deriveType"
+              label={intl.formatMessage({
                 id: ETranslations.global_derivation_path,
               })}
-              items={Object.entries(vaultSettings?.accountDeriveInfo ?? {}).map(
-                ([deriveType, deriveInfo]) => ({
+            >
+              <Select
+                title={intl.formatMessage({
+                  id: ETranslations.global_derivation_path,
+                })}
+                items={Object.entries(
+                  vaultSettings?.accountDeriveInfo ?? {},
+                ).map(([deriveType, deriveInfo]) => ({
                   label: deriveInfo.labelKey
                     ? intl.formatMessage({ id: deriveInfo.labelKey })
                     : deriveInfo.label ?? '',
                   value: deriveType as IAccountDeriveTypes,
-                }),
-              )}
-              floatingPanelProps={{
-                width: '$78',
-              }}
-            />
-          </Form.Field>
+                }))}
+                floatingPanelProps={{
+                  width: '$78',
+                }}
+              />
+            </Form.Field>
+          ) : null}
+
           <Form.Field
             name="startIndex"
             label={intl.formatMessage({
