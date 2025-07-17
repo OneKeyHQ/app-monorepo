@@ -165,7 +165,7 @@ export function Container({
   useAnimatedReaction(
     () => focusedTab.value,
     (tabName, prevTabName) => {
-      if (isEffectValid.current && tabName !== prevTabName) {
+      if (isEffectValid.current && prevTabName && tabName !== prevTabName) {
         isSwitchingTabRef.current = true;
         const index = tabNames.findIndex((name) => name === tabName);
         let scrollTop = scrollTopRef.current[tabName] || 0;
