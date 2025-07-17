@@ -112,13 +112,34 @@ const validationTests = [
     should: false,
   },
   {
-    description: 'valid multiple k/m/b/t characters',
+    description:
+      'invalid multiple k/m/b/t characters (only one unit at end allowed)',
     input: 'kMBtKmBT123',
+    should: false,
+  },
+  {
+    description: 'invalid only letters (must have numbers)',
+    input: 'kmbtKMBT',
+    should: false,
+  },
+  {
+    description: 'invalid unit in middle',
+    input: '10k5',
+    should: false,
+  },
+  {
+    description: 'invalid multiple units',
+    input: '10km',
+    should: false,
+  },
+  {
+    description: 'valid single unit k only',
+    input: 'k',
     should: true,
   },
   {
-    description: 'valid only letters',
-    input: 'kmbtKMBT',
+    description: 'valid single unit M only',
+    input: 'M',
     should: true,
   },
 ];
@@ -170,33 +191,13 @@ const parseValueTests = [
     expected: 2_000_000_000_000,
   },
   {
-    description: 'parse with special characters removed',
-    input: '10$k',
-    expected: 10_000,
-  },
-  {
-    description: 'parse with spaces removed',
-    input: '10 k',
-    expected: 10_000,
-  },
-  {
-    description: 'parse large number with special chars and b suffix',
-    input: '5$b',
-    expected: 5_000_000_000,
-  },
-  {
-    description: 'parse large number with special chars and t suffix',
-    input: '1@t',
-    expected: 1_000_000_000_000,
-  },
-  {
-    description: 'parse empty string after cleaning',
-    input: '@#$',
+    description: 'parse single unit k only',
+    input: 'k',
     expected: 0,
   },
   {
-    description: 'parse only unit letters',
-    input: 'kMBT',
+    description: 'parse single unit M only',
+    input: 'M',
     expected: 0,
   },
   {
@@ -208,6 +209,21 @@ const parseValueTests = [
     description: 'parse very large number with b suffix',
     input: '999b',
     expected: 999_000_000_000,
+  },
+  {
+    description: 'parse large number with k suffix',
+    input: '999999k',
+    expected: 999_999_000,
+  },
+  {
+    description: 'parse empty string',
+    input: '',
+    expected: 0,
+  },
+  {
+    description: 'parse whitespace only',
+    input: '   ',
+    expected: 0,
   },
 ];
 
