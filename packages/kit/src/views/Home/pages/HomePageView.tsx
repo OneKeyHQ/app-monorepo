@@ -2,14 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Icon,
-  Page,
-  Stack,
-  Tabs,
-  YStack,
-  useSafeAreaInsets,
-} from '@onekeyhq/components';
+import { Icon, Page, Stack, Tabs, YStack } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -232,9 +225,6 @@ export function HomePageView({
       ),
     [intl, isNFTEnabled, tabContainerProps],
   );
-
-  const { top: safeAreaTop } = useSafeAreaInsets();
-  console.log('safeAreaTop', safeAreaTop);
 
   useEffect(() => {
     void Icon.prefetch('CloudOffOutline');
