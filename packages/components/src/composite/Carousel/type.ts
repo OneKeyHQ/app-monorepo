@@ -1,16 +1,21 @@
 import type { IStackStyle, IXStackProps } from '../../primitives';
-import type {
-  ICarouselInstance,
-  TCarouselProps,
-} from 'react-native-reanimated-carousel';
 
-export type ICarouselProps = Omit<
-  TCarouselProps,
-  'width' | 'height' | 'ref' | 'onProgressChange'
-> & {
-  containerStyle?: IXStackProps;
+export interface ICarouselInstance {
+  prev: () => void;
+  next: () => void;
+  getCurrentIndex: () => number;
+  scrollTo: ({ index }: { index: number }) => void;
+}
+
+export interface ICarouselProps<T> {
+  data?: T[];
+  autoPlayInterval?: number;
+  loop?: boolean;
   ref?: React.RefObject<ICarouselInstance>;
+  renderItem: ({ item, index }: { item: T; index: number }) => React.ReactNode;
+  containerStyle?: IXStackProps;
   paginationContainerStyle?: IStackStyle;
   activeDotStyle?: IStackStyle;
   dotStyle?: IStackStyle;
-};
+  onPageChanged?: (index: number) => void;
+}

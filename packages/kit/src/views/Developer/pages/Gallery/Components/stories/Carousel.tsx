@@ -46,15 +46,6 @@ const CarouselGallery = () => (
               borderRadius: '$4',
               overflow: 'hidden',
             }}
-            onScrollStart={() => {
-              console.log('Scroll start');
-            }}
-            onScrollEnd={() => {
-              console.log('Scroll end');
-            }}
-            onSnapToItem={(index: number) =>
-              console.log('current index:', index)
-            }
             renderItem={({ item }: { item: (typeof data)[number] }) => {
               console.log('item', item);
               switch (item.type) {
