@@ -49,6 +49,7 @@ import { WalletAvatar } from '../../../components/WalletAvatar';
 import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { BATCH_CREATE_ACCONT_MAX_COUNT } from '../../AccountManagerStacks/pages/BatchCreateAccount/BatchCreateAccountFormBase';
 import { showBatchCreateAccountProcessingDialog } from '../../AccountManagerStacks/pages/BatchCreateAccount/ProcessingDialog';
 
 enum EBulkCopyType {
@@ -545,12 +546,30 @@ function BulkCopyAddresses({
             rules={{
               required: true,
               min: 1,
-              onChange: (e: { target: { name: string; value: string } }) =>
-                handleFormValueOnChange({
-                  name: e.target.name,
-                  value: e.target.value,
-                  intRequired: true,
-                }),
+              onChange: (e: { target: { name: string; value: string } }) => {
+                const value = (e?.target?.value || '').replace(/\D/g, '');
+                const valueNum = new BigNumber(parseInt(value, 10));
+                if (!value || valueNum.isNaN()) {
+                  formRange.setValue('startIndex', 1);
+                  return;
+                }
+                if (valueNum.isLessThan(1)) {
+                  formRange.setValue('startIndex', 1);
+                  return;
+                }
+                if (
+                  valueNum.isGreaterThanOrEqualTo(
+                    BATCH_CREATE_ACCONT_MAX_COUNT - 100,
+                  )
+                ) {
+                  formRange.setValue(
+                    'startIndex',
+                    BATCH_CREATE_ACCONT_MAX_COUNT - 100,
+                  );
+                  return;
+                }
+                formRange.setValue('startIndex', valueNum.toNumber());
+              },
             }}
           >
             <Input />
@@ -737,7 +756,12 @@ function BulkCopyAddresses({
                       }}
                     >
                       <WalletAvatar wallet={selectedWallet} size="$6" />
-                      <SizableText flex={1} px={sharedStyles.px} size="$bodyLg">
+                      <SizableText
+                        flex={1}
+                        px={sharedStyles.px}
+                        size="$bodyLg"
+                        numberOfLines={1}
+                      >
                         {label}
                       </SizableText>
                       <Icon
@@ -830,6 +854,9 @@ function BulkCopyAddresses({
               size="medium"
               variant="tertiary"
               disabled={isDisabled}
+              $md={{
+                width: '100%',
+              }}
               onPress={() => {
                 Dialog.confirm({
                   icon: 'ErrorOutline',

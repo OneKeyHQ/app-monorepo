@@ -107,11 +107,17 @@ function SelectItemView({
         $gtMd={{
           size: '$bodyMd',
         }}
+        numberOfLines={2}
       >
         {label}
       </SizableText>
       {description ? (
-        <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
+        <SizableText
+          mt="$0.5"
+          size="$bodyMd"
+          color="$textSubdued"
+          numberOfLines={2}
+        >
           {description}
         </SizableText>
       ) : null}
