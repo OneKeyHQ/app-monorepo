@@ -112,7 +112,7 @@ export function Container({
       }
       const height =
         scrollTabElementsRef.current?.[focusedTab.value]?.element.clientHeight;
-      console.log('height', height);
+
       if (height) {
         (
           listContainerRef.current as HTMLElement
@@ -131,6 +131,9 @@ export function Container({
           );
         }, 100);
       } else {
+        console.error(
+          `cannot update tab ${focusedTab.value} list container height: ${height}`,
+        );
         updateListContainerHeightTimerId.current = setTimeout(
           updateListContainerHeight,
           250,
