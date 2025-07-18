@@ -216,8 +216,6 @@ function MarketTokenList({
                   minHeight: '$14',
                 }}
                 estimatedItemSize="$14"
-                onEndReached={handleEndReached}
-                onEndReachedThreshold={0.5}
                 onRow={
                   onItemPress
                     ? (item) => ({
