@@ -1,3 +1,4 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import axios from 'axios';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -5,7 +6,10 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IHardwareCallContext } from '@onekeyhq/shared/types/device';
-import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareCallContext,
+  EOneKeyDeviceMode,
+} from '@onekeyhq/shared/types/device';
 
 import { desktopBluetoothAtom } from '../../states/jotai/atoms/desktopBluetooth';
 import {
@@ -47,28 +51,28 @@ export class HardwareConnectionManager {
 
   private async requestBluetoothPermission(): Promise<boolean> {
     try {
-      // 使用 servicePromise 等待用户授权完成
+      // use servicePromise to wait for user to grant permission
       const permissionResult = await new Promise<boolean>((resolve, reject) => {
         const promiseId = this.backgroundApi.servicePromise.createCallback({
           resolve,
           reject,
         });
 
-        // 触发桌面蓝牙权限对话框
+        // toggle bluetooth permission dialog
         void hardwareUiStateAtom.set({
           action: EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION,
-          connectId: '', // 暂时为空，可以根据需要传入实际的 connectId
+          connectId: '',
           payload: {
             uiRequestType:
               EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION,
-            eventType: 'DESKTOP_REQUEST_BLUETOOTH_PERMISSION',
-            deviceType: 'Unknown' as any,
+            eventType:
+              EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION,
+            deviceType: EDeviceType.Unknown,
+            deviceMode: EOneKeyDeviceMode.normal,
             deviceId: '',
             connectId: '',
-            deviceMode: 'normal' as any,
-            currentTransportType: EHardwareTransportType.DesktopWebBle,
-            promiseId: promiseId.toString(),
             rawPayload: {},
+            promiseId: promiseId.toString(),
           },
         });
       });

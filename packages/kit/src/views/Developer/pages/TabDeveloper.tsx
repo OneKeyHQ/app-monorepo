@@ -198,7 +198,7 @@ const TabDeveloper = () => {
                         isRequestedPermission: false,
                       },
                     );
-                    alert('Desktop Bluetooth permission state has been reset.');
+                    console.log('Reset Bluetooth Permission');
                   }}
                 >
                   Reset Bluetooth Permission
