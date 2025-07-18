@@ -1067,6 +1067,7 @@
   global_bulk_copy_addresses_action_export_without_device = 'global.bulk_copy_addresses_action_export_without_device',
   global_bulk_copy_addresses_addresses_copied = 'global.bulk_copy_addresses_addresses_copied',
   global_bulk_copy_addresses_export_csv = 'global.bulk_copy_addresses_export_csv',
+  global_bulk_copy_addresses_loading_error = 'global.bulk_copy_addresses_loading_error',
   global_bulk_copy_addresses_tabs_my_accounts = 'global.bulk_copy_addresses_tabs_my_accounts',
   global_bulk_copy_addresses_tabs_set_range = 'global.bulk_copy_addresses_tabs_set_range',
   global_bulk_revoke = 'global.bulk_revoke',
