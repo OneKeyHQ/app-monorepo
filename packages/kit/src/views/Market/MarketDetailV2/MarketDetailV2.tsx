@@ -1,10 +1,15 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
-import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page, XStack, useMedia } from '@onekeyhq/components';
+import { useNavigation } from '@react-navigation/native';
+
+import type {
+  IPageNavigationProp,
+  IPageScreenProps,
+} from '@onekeyhq/components';
+import { NavBackButton, Page, XStack, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
-  type ETabMarketV2Routes,
+  ETabMarketV2Routes,
   ETabRoutes,
   type ITabMarketV2ParamList,
 } from '@onekeyhq/shared/src/routes';
@@ -15,7 +20,6 @@ import {
   AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
-import { HeaderLeftCloseButton } from '../../../components/TabPageHeader/HeaderLeft';
 import { useTokenDetailActions } from '../../../states/jotai/contexts/marketV2';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
@@ -28,6 +32,8 @@ function MarketDetail({
 }: IPageScreenProps<ITabMarketV2ParamList, ETabMarketV2Routes.MarketDetail>) {
   const { tokenAddress, networkId } = route.params;
   const tokenDetailActions = useTokenDetailActions();
+  const navigation =
+    useNavigation<IPageNavigationProp<ITabMarketV2ParamList>>();
 
   // Clear all token detail content when unmount
   useEffect(() => {
@@ -46,9 +52,13 @@ function MarketDetail({
     networkId,
   });
 
+  const handleBackPress = useCallback(() => {
+    navigation.navigate(ETabMarketV2Routes.TabMarket);
+  }, [navigation]);
+
   const customHeaderLeft = (
     <XStack gap="$3" ai="center">
-      <HeaderLeftCloseButton />
+      <NavBackButton onPress={handleBackPress} />
       <AccountSelectorTriggerHome num={0} />
     </XStack>
   );
