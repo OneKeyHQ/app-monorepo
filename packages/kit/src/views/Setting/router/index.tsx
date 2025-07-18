@@ -12,7 +12,7 @@ import { LazyLoadPage } from '../../../components/LazyLoadPage';
 // If global jotai data is modified, this page will re-render when using lazy loading, so it must be statically imported.
 // Static import to avoid React Native re-rendering issues when jotai global data is modified
 import { BasicModalSettingStack } from './basicModalSettingRouter';
-import { SettingListSubModal } from './settingListSubModal';
+import { SettingListSubModal } from './settingListSubModalRoute';
 
 const SettingTabModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/Tab'),
