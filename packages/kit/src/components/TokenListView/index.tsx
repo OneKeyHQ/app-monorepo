@@ -6,7 +6,9 @@ import {
   NestedScrollView,
   SizableText,
   Stack,
+  Tabs,
   renderNestedScrollView,
+  useStyle,
 } from '@onekeyhq/components';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
@@ -25,7 +27,6 @@ import {
   type IAccountToken,
 } from '@onekeyhq/shared/types/token';
 
-import { useTabListScroll } from '../../hooks/useTabListScroll';
 import {
   useActiveAccountTokenListAtom,
   useActiveAccountTokenListStateAtom,
@@ -201,11 +202,6 @@ function TokenListViewCmp(props: IProps) {
     tokenListMap,
   ]);
 
-  const { listViewProps, listViewRef, onLayout } =
-    useTabListScroll<IAccountToken>({
-      inTabList,
-    });
-
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
   const addPaddingOnListFooter = useMemo(
     () => !!extensionActiveTabDAppInfo?.showFloatingPanel,
@@ -280,6 +276,34 @@ function TokenListViewCmp(props: IProps) {
     }
   }, [tokenListState.isRefreshing]);
 
+  const {
+    ListHeaderComponentStyle,
+    ListFooterComponentStyle,
+    contentContainerStyle,
+  } = listViewStyleProps || {};
+
+  const resolvedContentContainerStyle = useStyle(contentContainerStyle || {}, {
+    resolveValues: 'auto',
+  });
+
+  const resolvedListHeaderComponentStyle = useStyle(
+    ListHeaderComponentStyle || {},
+    {
+      resolveValues: 'auto',
+    },
+  );
+
+  const resolvedListFooterComponentStyle = useStyle(
+    ListFooterComponentStyle || {},
+    {
+      resolveValues: 'auto',
+    },
+  );
+
+  const ListComponent = useMemo(() => {
+    return inTabList ? Tabs.FlatList : ListView;
+  }, [inTabList]);
+
   if (showSkeleton) {
     return (
       <NestedScrollView style={{ flex: 1 }}>
@@ -293,13 +317,14 @@ function TokenListViewCmp(props: IProps) {
   }
 
   return (
-    <ListView
-      {...listViewProps}
-      renderScrollComponent={renderNestedScrollView}
-      estimatedItemSize={tableLayout ? 48 : 60}
-      ref={listViewRef as any}
-      onLayout={onLayout}
+    <ListComponent
+      // @ts-ignore
+      estimatedItemSize={tableLayout ? undefined : 60}
+      extraData={filteredTokens.length}
       data={filteredTokens}
+      contentContainerStyle={resolvedContentContainerStyle as any}
+      ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
+      ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       ListHeaderComponent={
         withHeader ? (
           <TokenListHeader
@@ -354,7 +379,6 @@ function TokenListViewCmp(props: IProps) {
           {addPaddingOnListFooter ? <Stack h="$16" /> : null}
         </Stack>
       }
-      {...listViewStyleProps}
     />
   );
 }

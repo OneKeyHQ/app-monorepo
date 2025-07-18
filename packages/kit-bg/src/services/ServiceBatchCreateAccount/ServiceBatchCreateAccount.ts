@@ -89,6 +89,7 @@ export type IBatchBuildAccountsAdvancedFlowForAllNetworkParams = {
   walletId: string;
   customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
   autoHandleExitError?: boolean;
+  showUIProgress?: boolean;
 } & IAdvancedModeFlowParamsBase &
   IWithHardwareProcessingControlParams;
 
@@ -233,6 +234,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         this.progressInfo = this.buildProgressInfo({
           indexes,
           excludedIndexes,
+          progressTotalCount: hwAllNetworkPrepareAccountsResponse?.length,
         });
 
         const result: {
@@ -705,7 +707,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        const networksParams =
+        const networksParams: IBatchBuildAccountsBaseParams[] =
           await this.buildBatchCreateAccountsNetworksParams({
             walletId: params.walletId,
             customNetworks: params.customNetworks,
@@ -756,6 +758,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
             const { accountsForCreate } = await this.batchBuildAccounts({
               ...params,
               ...networkParams,
+              showUIProgress:
+                params.showUIProgress || networkParams.showUIProgress,
               indexes,
               excludedIndexes,
               saveToDb: true,
@@ -954,14 +958,17 @@ class ServiceBatchCreateAccount extends ServiceBase {
   buildProgressInfo({
     indexes,
     excludedIndexes,
+    progressTotalCount,
   }: {
     indexes: number[];
     excludedIndexes?: {
       [index: number]: true;
     };
+    progressTotalCount?: number;
   }): IBatchCreateAccountProgressInfo {
     const totalCount = indexes.length;
     const progressTotal =
+      progressTotalCount ??
       totalCount - Object.values(excludedIndexes || {}).filter(Boolean).length;
     const progressCurrent = 0;
     const createdCount = 0;

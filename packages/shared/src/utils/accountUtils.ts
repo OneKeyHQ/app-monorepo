@@ -1,5 +1,5 @@
 /* eslint-disable spellcheck/spell-checker */
-import { isNil } from 'lodash';
+import { isNaN, isNil, isNumber } from 'lodash';
 
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type {
@@ -519,7 +519,7 @@ function buildLocalHistoryId(params: {
   return historyId;
 }
 
-export function buildAccountLocalAssetsKey({
+function buildAccountLocalAssetsKey({
   networkId,
   accountAddress,
   xpub,
@@ -808,6 +808,22 @@ function getShortXfp({ xfp }: { xfp: string }) {
   return xfp.split('--')[0];
 }
 
+function getHDAccountPathIndex({ account }: { account: IDBAccount }) {
+  let index = account.pathIndex;
+  if (isNil(index) && account.indexedAccountId) {
+    index = parseIndexedAccountId({
+      indexedAccountId: account.indexedAccountId,
+    }).index;
+  }
+  if (isNil(index) && account.template) {
+    index = findIndexFromTemplate({
+      template: account.template,
+      path: account.path,
+    });
+  }
+  return isNumber(index) && !isNaN(index) ? index : undefined;
+}
+
 export default {
   URL_ACCOUNT_ID,
   buildAccountValueKey,
@@ -863,6 +879,7 @@ export default {
   formatUtxoPath,
   buildPathFromTemplate,
   findIndexFromTemplate,
+  getHDAccountPathIndex,
   removePathLastSegment,
   buildHiddenWalletName,
   buildAccountLocalAssetsKey,

@@ -17,7 +17,6 @@ import {
   Toast,
   XStack,
   YStack,
-  useDialogInstance,
   useForm,
 } from '@onekeyhq/components';
 import {
@@ -40,9 +39,11 @@ function RewardCenterContent({
   accountId: string;
   networkId: string;
   onDialogClose?: ({
-    isResourceFetched,
+    isResourceClaimed,
+    isResourceRedeemed,
   }: {
-    isResourceFetched: boolean;
+    isResourceClaimed: boolean;
+    isResourceRedeemed: boolean;
   }) => void;
 }) {
   const intl = useIntl();
@@ -60,9 +61,8 @@ function RewardCenterContent({
     networkId,
   });
 
-  const dialogInstance = useDialogInstance();
-
-  const [isResourceFetched, setIsResourceFetched] = useState(false);
+  const [isResourceClaimed, setIsResourceClaimed] = useState(false);
+  const [isResourceRedeemed, setIsResourceRedeemed] = useState(false);
 
   const [isClaiming, setIsClaiming] = useState(false);
   const [isRedeeming, setIsRedeeming] = useState(false);
@@ -180,7 +180,7 @@ function RewardCenterContent({
 
       setIsClaimed(true);
       setRemaining((v) => new BigNumber(v).minus(1).toNumber());
-      setIsResourceFetched(true);
+      setIsResourceClaimed(true);
 
       Toast.success({
         title: intl.formatMessage({
@@ -242,7 +242,7 @@ function RewardCenterContent({
       });
 
       setIsRedeeming(false);
-      setIsResourceFetched(true);
+      setIsResourceRedeemed(true);
       return resp;
     } catch (error) {
       setIsRedeeming(false);
@@ -250,8 +250,8 @@ function RewardCenterContent({
   }, [account, claimSource, form, intl, network, networkId]);
 
   useEffect(
-    () => () => void onDialogClose?.({ isResourceFetched }),
-    [onDialogClose, isResourceFetched],
+    () => () => void onDialogClose?.({ isResourceClaimed, isResourceRedeemed }),
+    [onDialogClose, isResourceClaimed, isResourceRedeemed],
   );
 
   return (
@@ -303,9 +303,9 @@ function RewardCenterContent({
               id: ETranslations.wallet_redeem_label,
             })}
           </SizableText>
-          <Form.Field name="code" rules={{ required: true }}>
-            <XStack alignItems="center" justifyContent="space-between" gap="$9">
-              <Stack flex={1}>
+          <XStack alignItems="center" justifyContent="space-between" gap="$9">
+            <Stack flex={1}>
+              <Form.Field name="code" rules={{ required: true }}>
                 <Input
                   w="100%"
                   backgroundColor="$bgStrong"
@@ -313,23 +313,24 @@ function RewardCenterContent({
                     id: ETranslations.wallet_enter_redemption_code,
                   })}
                 />
-              </Stack>
-              <Button
-                size="medium"
-                variant="primary"
-                onPress={handleRedeemCode}
-                disabled={
-                  form.formState.isSubmitting ||
-                  !form.formState.isValid ||
-                  isRedeeming
-                }
-              >
-                {intl.formatMessage({
-                  id: ETranslations.global_ok,
-                })}
-              </Button>
-            </XStack>
-          </Form.Field>
+              </Form.Field>
+            </Stack>
+            <Button
+              size="medium"
+              variant="primary"
+              onPress={handleRedeemCode}
+              loading={isRedeeming}
+              disabled={
+                form.formState.isSubmitting ||
+                !form.formState.isValid ||
+                isRedeeming
+              }
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_ok,
+              })}
+            </Button>
+          </XStack>
         </YStack>
       </YStack>
     </Form>
@@ -345,9 +346,11 @@ export const showTronRewardCenter = ({
   accountId: string;
   networkId: string;
   onDialogClose?: ({
-    isResourceFetched,
+    isResourceClaimed,
+    isResourceRedeemed,
   }: {
-    isResourceFetched: boolean;
+    isResourceClaimed: boolean;
+    isResourceRedeemed: boolean;
   }) => void;
 }) =>
   Dialog.show({

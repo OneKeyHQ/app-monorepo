@@ -8,6 +8,7 @@ import { Dialog, Toast } from '@onekeyhq/components';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
@@ -44,6 +45,14 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
   // TODO move to jotai context
   useEffect(() => {
     void (async () => {
+      if (platformEnv.isNativeAndroid) {
+        const isAvailable = await googlePlayService.isAvailable();
+        if (!isAvailable) {
+          // always set isPaymentReady to true, because google play service is not available
+          setIsPaymentReady(true);
+        }
+      }
+
       const { apiKey } = await getPrimePaymentApiKey({
         apiKeyType: 'native',
       });
@@ -162,7 +171,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           .toNumber();
       }
 
-      const unit =
+      const currency =
         primePaymentUtils.extractCurrencySymbol(priceString, {
           useShortUSSymbol: true,
         }) ||
@@ -176,21 +185,23 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       packages.push({
         subscriptionPeriod: subscriptionPeriod as ISubscriptionPeriod,
         pricePerYear: pricePerYear || 0,
-        pricePerYearString: `${unit}${new BigNumber(pricePerYear || 0).toFixed(
-          2,
-        )}`,
+        pricePerYearString: `${currency}${new BigNumber(
+          pricePerYear || 0,
+        ).toFixed(2)}`,
         pricePerMonth: pricePerMonth || 0,
-        pricePerMonthString: `${unit}${new BigNumber(
+        pricePerMonthString: `${currency}${new BigNumber(
           pricePerMonth || 0,
         ).toFixed(2)}`,
         priceTotalPerYearString:
           subscriptionPeriod === 'P1M'
-            ? `${unit}${new BigNumber(pricePerMonth || 0).times(12).toFixed(2)}`
-            : `${unit}${new BigNumber(pricePerYear || 0).toFixed(2)}`,
+            ? `${currency}${new BigNumber(pricePerMonth || 0)
+                .times(12)
+                .toFixed(2)}`
+            : `${currency}${new BigNumber(pricePerYear || 0).toFixed(2)}`,
       });
     });
 
-    console.log('userPrimePaymentMethods >>>>>> packages', {
+    console.log('userPrimePaymentMethods >>>>>> nativePackages', {
       packages,
       offerings,
     });

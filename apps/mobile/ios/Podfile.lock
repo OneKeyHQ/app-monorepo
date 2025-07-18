@@ -66,7 +66,7 @@ PODS:
     - React-Core
   - EXNotifications (0.31.3):
     - ExpoModulesCore
-  - Expo (53.0.16):
+  - Expo (53.0.19):
     - DoubleConversion
     - ExpoModulesCore
     - glog
@@ -95,7 +95,7 @@ PODS:
     - Yoga
   - ExpoAppleAuthentication (7.2.4):
     - ExpoModulesCore
-  - ExpoAsset (11.1.6):
+  - ExpoAsset (11.1.7):
     - ExpoModulesCore
   - ExpoBlur (14.1.5):
     - ExpoModulesCore
@@ -1689,7 +1689,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-lite-card (1.0.12):
+  - react-native-lite-card (1.0.13):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1739,6 +1739,30 @@ PODS:
     - Yoga
   - react-native-netinfo (11.4.1):
     - React-Core
+  - react-native-pager-view (6.8.1):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.11.18.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - react-native-safe-area-context (5.4.1):
     - DoubleConversion
     - glog
@@ -1863,7 +1887,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-tab-page-view (1.1.2):
+  - react-native-tab-page-view (1.1.3):
     - JXCategoryView (~> 1.6.1)
     - JXPagingView/Pager (~> 2.1.2)
     - React
@@ -1946,7 +1970,7 @@ PODS:
     - Yoga
   - react-native-view-shot (3.1.2):
     - React
-  - react-native-webview (13.8.2):
+  - react-native-webview (13.15.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2426,8 +2450,30 @@ PODS:
     - ReactCommon/turbomodule/core
     - SSZipArchive (~> 2.5.5)
     - Yoga
-  - RNFlashList (1.6.3):
+  - RNFlashList (2.0.0-rc.11):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.11.18.00)
+    - RCTRequired
+    - RCTTypeSafety
     - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - RNGestureHandler (2.27.1):
     - DoubleConversion
     - glog
@@ -2909,6 +2955,7 @@ DEPENDENCIES:
   - "react-native-lite-card (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
   - react-native-mmkv (from `../../../node_modules/react-native-mmkv`)
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
+  - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
   - "react-native-slider (from `../../../node_modules/@react-native-community/slider`)"
   - "react-native-tab-page-view (from `../../../node_modules/@onekeyfe/react-native-tab-page-view`)"
@@ -3168,6 +3215,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-mmkv"
   react-native-netinfo:
     :path: "../../../node_modules/@react-native-community/netinfo"
+  react-native-pager-view:
+    :path: "../../../node_modules/react-native-pager-view"
   react-native-safe-area-context:
     :path: "../../../node_modules/react-native-safe-area-context"
   react-native-slider:
@@ -3296,14 +3345,14 @@ SPEC CHECKSUMS:
   CheckBiometricAuthChanged: 9744da7f2c19b2f99fb1e94308a874a5c0df5d7d
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   CocoaLumberjack: 6a459bc897d6d80bd1b8c78482ec7ad05dffc3f0
-  DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
+  DoubleConversion: fea03f2699887d960129cc54bba7e52542b6f953
   EXApplication: 63b87ca5204304007fac6b1be432f8afa3731c17
   EXConstants: 9f310f44bfedba09087042756802040e464323c0
   EXImageLoader: 4d3d3284141f1a45006cc4d0844061c182daf7ee
   EXNotifications: 1afe5275cf399920480fc5a9008676749a767d19
-  Expo: a70d5b708d805073b66aebecd9768be7d364288a
+  Expo: 4918756619ac34910307e16b10d0ccb8e891a1e0
   ExpoAppleAuthentication: 4d2e0c88a4463229760f1fbb9a937a810efb6863
-  ExpoAsset: 5dede4a6226fe287c95e38c46c86ad39bc8ca630
+  ExpoAsset: ef06e880126c375f580d4923fdd1cdf4ee6ee7d6
   ExpoBlur: 3c8885b9bf9eef4309041ec87adec48b5f1986a9
   ExpoCamera: 7edf99216d92e40b991d4e7ed69eba9527c94cda
   ExpoClipboard: c9771e7aa5f1316183e4a6f40a5755a0b98a6b8d
@@ -3331,7 +3380,7 @@ SPEC CHECKSUMS:
   fast_float: 06eeec4fe712a76acc9376682e4808b05ce978b6
   FBLazyVector: d2a9cd223302b6c9aa4aa34c1a775e9db609eb52
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
-  glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
+  glog: c5d68082e772fa1c511173d6b30a9de2c05a69a2
   hermes-engine: f03b0e06d3882d71e67e45b073bb827da1a21aae
   ImageColors: 51cd79f7a9d2524b7a681c660b0a50574085563b
   JCore: 4707d226b452782383a401bea8ee2518565017e6
@@ -3382,16 +3431,17 @@ SPEC CHECKSUMS:
   react-native-compat: 81ec34c5738beae429211f8cb38294efb49b2edc
   react-native-get-random-values: 419569b6ed3d15bfb9b6781b2f2e058f8e8d2698
   react-native-keyboard-controller: 9c9a77993f7449e8b7d8c5989289f65e08c7ab74
-  react-native-lite-card: 3dc1052c6407a25c2af0a2b8f3a5be0600897593
+  react-native-lite-card: 9542785a69b22ef0bdc3ed799d76e104a32d2de4
   react-native-mmkv: c8da06f2c3ed40726ac6b51ed4e3653d099f0b6a
   react-native-netinfo: cec9c4e86083cb5b6aba0e0711f563e2fbbff187
+  react-native-pager-view: 38d37b9c7dcddfacf97ad4a0a1ee7a6db7b85b76
   react-native-safe-area-context: 8cf8caf5fc0f5a5d3581b650579af9c85c16be04
   react-native-slider: 0c0125010b5299e647eb5d955b58133fb4eb34e4
-  react-native-tab-page-view: dbdd786ae9429db9883ecbb4a3418b44c31ec914
+  react-native-tab-page-view: 16a35c02cbc698f0b592c2c2da533eb893136bf5
   react-native-tcp-socket: 120072c8020262032773f80f0daaf3964aaa08a1
   react-native-video: f906920a39ad30208bb789bdda7404f510ab422a
   react-native-view-shot: bb8934cb93bf8ec740c81ed94f93244778797b6c
-  react-native-webview: cea68b4b3787dcb2f5d3f2cef11bf542d04f82b5
+  react-native-webview: 69c118d283fccfbc4fca0cd680e036ff3bf188fa
   react-native-webview-cleaner: c2d3bbb850105553c845303044234ca82062d592
   React-NativeModulesApple: 0f1cdafa0517926f47ff74dbd92a1c9bb767cc69
   React-oscompat: 0592889a9fcf0eacb205532028e4a364e22907dd
@@ -3434,7 +3484,7 @@ SPEC CHECKSUMS:
   RNCAsyncStorage: b582a51d35079f9f2ae1c6e63ae39704a445627e
   RNDeviceInfo: d863506092aef7e7af3a1c350c913d867d795047
   RNFileLogger: 52442d388d36b29b1e7884b5ffbfa916ecfbc06b
-  RNFlashList: 1076a3fb7c4608a8cdf265f0783592b8fc41b6a7
+  RNFlashList: dfe8eb41445dadfa9178ed60fec3d9f37c3400c0
   RNGestureHandler: 6b48571964d1b4302f531bb07f8360399a02200a
   RNImageCropPicker: de6a16085ad4e4c67850b0c662d1d333d367cc59
   RNNotifee: 3978eab0eb24f9c2ee6ee0440ee7c50748803559

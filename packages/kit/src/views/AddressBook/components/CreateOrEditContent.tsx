@@ -14,7 +14,7 @@ import {
   Page,
   SizableText,
   Stack,
-  TextArea,
+  TextAreaInput,
   XStack,
   YStack,
   useForm,
@@ -175,7 +175,7 @@ export function CreateOrEditContent({
           },
         }}
       >
-        <TextArea
+        <TextAreaInput
           numberOfLines={2}
           size={media.gtMd ? 'medium' : 'large'}
           placeholder={intl.formatMessage({
@@ -221,7 +221,7 @@ export function CreateOrEditContent({
             },
           }}
         >
-          <TextArea
+          <TextAreaInput
             numberOfLines={2}
             size={media.gtMd ? 'medium' : 'large'}
             placeholder={intl.formatMessage({

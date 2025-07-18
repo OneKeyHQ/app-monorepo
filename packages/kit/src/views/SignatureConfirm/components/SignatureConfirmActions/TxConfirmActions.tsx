@@ -321,6 +321,12 @@ function TxConfirmActions(props: IProps) {
         tronPayCoinCode: isTronNetwork
           ? tronResourceRentalInfo?.payTokenInfo?.symbol
           : undefined,
+        tronUseCredit: isTronNetwork
+          ? tronResourceRentalInfo?.isResourceClaimed
+          : undefined,
+        tronUseRedemptionCode: isTronNetwork
+          ? tronResourceRentalInfo?.isResourceRedeemed
+          : undefined,
       });
 
       Toast.success({

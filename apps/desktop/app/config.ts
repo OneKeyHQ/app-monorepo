@@ -96,4 +96,7 @@ export const ipcMessageKeys = {
 
   // notification
   NOTIFICATION_SET_BADGE_WINDOWS: 'notification/setBadge/windows',
+
+  // Bluetooth
+  BLUETOOTH_CHECK_AVAILABILITY: 'bluetooth/checkAvailability',
 };

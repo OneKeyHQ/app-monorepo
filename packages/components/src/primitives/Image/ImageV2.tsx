@@ -7,6 +7,8 @@ import { usePropsAndStyle } from 'tamagui';
 import { Skeleton } from '../Skeleton';
 import { YStack } from '../Stack';
 
+import { isEmptyResolvedSource } from './utils';
+
 import type { IImageV2Props } from './type';
 import type {
   ImageErrorEventData,
@@ -93,7 +95,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     [onError],
   );
 
-  if (hasError) {
+  if (hasError || isEmptyResolvedSource(resolvedSource)) {
     return fallback;
   }
 

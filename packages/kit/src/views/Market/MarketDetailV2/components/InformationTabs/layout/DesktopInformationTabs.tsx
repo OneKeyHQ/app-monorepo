@@ -5,10 +5,9 @@ import { useIntl } from 'react-intl';
 import { Tab } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useTokenDetail } from '../../hooks/useTokenDetail';
-
-import { Holders } from './components/Holders';
-import { TransactionsHistory } from './components/TransactionsHistory';
+import { useTokenDetail } from '../../../hooks/useTokenDetail';
+import { Holders } from '../components/Holders';
+import { TransactionsHistory } from '../components/TransactionsHistory';
 
 // Extract component definitions outside render to prevent re-creation on each render
 const createHoldersComponent = (tokenAddress: string, networkId: string) => {
@@ -31,7 +30,7 @@ const createTransactionsHistoryComponent = (
   return Component;
 };
 
-export function InformationTabs() {
+export function DesktopInformationTabs() {
   const intl = useIntl();
   const { tokenAddress, networkId } = useTokenDetail();
 
@@ -45,28 +44,37 @@ export function InformationTabs() {
     [tokenAddress, networkId],
   );
 
-  const tabs = useMemo(
-    () =>
-      [
-        {
-          id: 'transactions',
-          title: intl.formatMessage({
-            id: ETranslations.dexmarket_details_transactions,
-          }),
-          page: TransactionsHistoryComponent,
-        },
-        networkId === 'sol--101'
-          ? {
-              id: 'holders',
-              title: intl.formatMessage({
-                id: ETranslations.dexmarket_holders,
-              }),
-              page: HoldersComponent,
-            }
-          : null,
-      ].filter(Boolean),
-    [TransactionsHistoryComponent, HoldersComponent, networkId, intl],
-  );
+  const tabs = useMemo(() => {
+    // Parameter validation: return empty array if parameters are empty
+    if (!tokenAddress || !networkId) {
+      return [];
+    }
+
+    return [
+      {
+        id: 'transactions',
+        title: intl.formatMessage({
+          id: ETranslations.dexmarket_details_transactions,
+        }),
+        page: TransactionsHistoryComponent,
+      },
+      networkId === 'sol--101'
+        ? {
+            id: 'holders',
+            title: intl.formatMessage({
+              id: ETranslations.dexmarket_holders,
+            }),
+            page: HoldersComponent,
+          }
+        : null,
+    ].filter(Boolean);
+  }, [
+    TransactionsHistoryComponent,
+    HoldersComponent,
+    tokenAddress,
+    networkId,
+    intl,
+  ]);
 
   return <Tab data={tabs} />;
 }

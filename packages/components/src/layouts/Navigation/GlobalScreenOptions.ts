@@ -90,6 +90,10 @@ export function makeModalStackNavigatorOptions({
 
     headerShown: platformEnv.isRuntimeBrowser,
     animationEnabled: true,
+    // Keep this field to preserve animation timing when removing pages in react-navigation v7
+    // The stack navigator checks for the presence of the animation field to reserve time for page removal animations
+    // https://github.com/react-navigation/react-navigation/blob/858a8746a5c007a623206c920f70d55935ed39b4/packages/stack/src/views/Stack/StackView.tsx#L145
+    animation: 'custom-animation-on-web',
     ...NULL_ANIMATION_DURATION_PRESET,
     ...makeHeaderScreenOptions({
       navigation: optionsInfo?.navigation,
@@ -115,6 +119,11 @@ export function makeModalScreenOptions(info: {
     headerShown: false,
     presentation: 'transparentModal',
     cardStyle: { backgroundColor: 'transparent' },
+    // Keep this field to preserve animation timing when removing pages in react-navigation v7
+    // The stack navigator checks for the presence of the animation field to reserve time for page removal animations
+    // https://github.com/react-navigation/react-navigation/blob/858a8746a5c007a623206c920f70d55935ed39b4/packages/stack/src/views/Stack/StackView.tsx#L145
+    // @ts-expect-error
+    animation: 'custom-animation-on-web',
     ...makeModalOpenAnimationOptions(info),
   };
 }

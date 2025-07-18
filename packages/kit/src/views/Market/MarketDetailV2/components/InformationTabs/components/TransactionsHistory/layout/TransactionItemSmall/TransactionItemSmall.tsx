@@ -6,6 +6,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import { TransactionAmount } from '../../components/TransactionAmount';
@@ -23,6 +24,7 @@ function TransactionItemSmallBase({
   networkId,
 }: ITransactionItemSmallProps) {
   const { styles } = useTransactionsLayoutSmall();
+  const [settingsPersistAtom] = useSettingsPersistAtom();
   const {
     baseToken,
     quoteToken,
@@ -62,7 +64,10 @@ function TransactionItemSmallBase({
           size="$bodySmMedium"
           color="$text"
           autoFormatter="price-marketCap"
-          formatterOptions={{ currency: '$', capAtMaxT: true }}
+          formatterOptions={{
+            capAtMaxT: true,
+            currency: settingsPersistAtom.currencyInfo.symbol,
+          }}
         >
           {value}
         </NumberSizeableText>
@@ -72,7 +77,10 @@ function TransactionItemSmallBase({
           size="$bodySm"
           color="$textSubdued"
           autoFormatter="price-marketCap"
-          formatterOptions={{ currency: '$', capAtMaxT: true }}
+          formatterOptions={{
+            capAtMaxT: true,
+            currency: settingsPersistAtom.currencyInfo.symbol,
+          }}
         >
           {price}
         </NumberSizeableText>

@@ -47,6 +47,10 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
       serviceName: EServiceEndpointEnum.Prime,
       env: 'test',
     }),
+    transfer: buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Transfer,
+      env: 'test',
+    }),
     rebate: buildServiceEndpoint({
       serviceName: EServiceEndpointEnum.Rebate,
       env: 'test',
@@ -84,6 +88,10 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
     }),
     prime: buildServiceEndpoint({
       serviceName: EServiceEndpointEnum.Prime,
+      env: 'prod',
+    }),
+    transfer: buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Transfer,
       env: 'prod',
     }),
     rebate: buildServiceEndpoint({

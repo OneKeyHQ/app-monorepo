@@ -27,8 +27,14 @@ import type { IProps } from '.';
 function TokenDetailsHistory(props: IProps) {
   const navigation = useAppNavigation();
 
-  const { accountId, networkId, tokenInfo, ListHeaderComponent, isTabView } =
-    props;
+  const {
+    accountId,
+    networkId,
+    tokenInfo,
+    ListHeaderComponent,
+    isTabView,
+    inTabList,
+  } = props;
 
   const [historyInit, setHistoryInit] = useState(false);
   const { isFocused } = useTabIsRefreshingFocused();
@@ -128,6 +134,7 @@ function TokenDetailsHistory(props: IProps) {
   return (
     <TxHistoryListView
       hideValue
+      inTabList={inTabList}
       initialized={historyInit}
       isLoading={isLoadingTokenHistory}
       data={tokenHistory ?? []}

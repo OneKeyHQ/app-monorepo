@@ -11,7 +11,6 @@ import {
   EthereumUSDe,
   EthereumWBTC,
   EthereumWETH,
-  SepoliaPol,
 } from '@onekeyhq/shared/src/consts/addresses';
 import {
   COINTYPE_ETH,
@@ -57,17 +56,12 @@ const commonStakeConfigs = {
   },
 };
 
-const lidoConfig: { ETH: IStakingFlowConfig; POL: IStakingFlowConfig } = {
+const lidoConfig: { ETH: IStakingFlowConfig } = {
   ETH: {
     ...commonStakeConfigs.ETH,
     enabled: true,
     unstakeWithSignMessage: true,
     claimWithAmount: true,
-  },
-  POL: {
-    ...commonStakeConfigs.POL,
-    enabled: true,
-    claimWithTx: true,
   },
 };
 
@@ -75,7 +69,7 @@ const stakingConfig: IStakingConfig = {
   [getNetworkIdsMap().eth]: {
     providers: {
       [EEarnProviderEnum.Lido]: {
-        supportedSymbols: ['ETH', 'POL'],
+        supportedSymbols: ['ETH'],
         configs: lidoConfig,
       },
       [EEarnProviderEnum.Everstake]: {
@@ -161,10 +155,9 @@ const stakingConfig: IStakingConfig = {
   [getNetworkIdsMap().sepolia]: {
     providers: {
       [EEarnProviderEnum.Lido]: {
-        supportedSymbols: ['ETH', 'POL'],
+        supportedSymbols: ['ETH'],
         configs: {
           ...lidoConfig,
-          POL: { ...lidoConfig.POL, tokenAddress: SepoliaPol },
         },
       },
     },

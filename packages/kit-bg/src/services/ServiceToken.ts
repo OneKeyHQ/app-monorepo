@@ -7,9 +7,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import accountUtils, {
-  buildAccountLocalAssetsKey,
-} from '@onekeyhq/shared/src/utils/accountUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
@@ -249,7 +247,7 @@ class ServiceToken extends ServiceBase {
         .plus(resp.data.data.riskTokens.fiatValue ?? '0');
 
       if (isAllNetworks) {
-        const key = buildAccountLocalAssetsKey({
+        const key = accountUtils.buildAccountLocalAssetsKey({
           networkId,
           accountAddress,
           xpub,

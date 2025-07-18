@@ -1,9 +1,8 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Animated, Easing, Keyboard } from 'react-native';
 
-import { Icon, Page, Stack, Tab, YStack } from '@onekeyhq/components';
+import { Icon, Page, Stack, Tabs, YStack } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -23,7 +22,6 @@ import { WalletBackupAlert } from '../../../components/WalletBackup';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
-import useHomePageWidth from '../hooks/useHomePageWidth';
 
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
@@ -32,7 +30,7 @@ import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
-let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
+import type { LayoutChangeEvent } from 'react-native';
 
 export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -42,21 +40,6 @@ export function HomePageView({
   onPressHide?: () => void;
   sceneName: EAccountSelectorSceneName;
 }) {
-  const { screenWidth, pageWidth } = useHomePageWidth();
-  if (CONTENT_ITEM_WIDTH == null) {
-    CONTENT_ITEM_WIDTH = new Animated.Value(pageWidth);
-  }
-  useEffect(() => {
-    if (!CONTENT_ITEM_WIDTH) {
-      return;
-    }
-    Animated.timing(CONTENT_ITEM_WIDTH, {
-      toValue: pageWidth,
-      duration: 400,
-      easing: Easing.inOut(Easing.quad),
-      useNativeDriver: false,
-    }).start();
-  }, [pageWidth]);
   const intl = useIntl();
   const {
     activeAccount: {
@@ -115,41 +98,6 @@ export function HomePageView({
   const supportedDeviceTypes = vaultSettings?.supportedDeviceTypes;
   const watchingAccountEnabled = vaultSettings?.watchingAccountEnabled;
 
-  const tabs = useMemo(
-    () =>
-      [
-        {
-          id: 'crypto',
-          title: intl.formatMessage({
-            id: ETranslations.global_crypto,
-          }),
-          page: memo(TokenListContainerWithProvider, () => true),
-        },
-        isNFTEnabled
-          ? {
-              id: 'nft',
-              title: intl.formatMessage({
-                id: ETranslations.global_nft,
-              }),
-              page: memo(NFTListContainerWithProvider, () => true),
-            }
-          : null,
-        // {
-        //   title: 'Defi',
-        //   page: memo(DefiListContainer, () => true),
-        // },
-        {
-          id: 'history',
-          title: intl.formatMessage({
-            id: ETranslations.global_history,
-          }),
-          page: memo(TxHistoryListContainerWithProvider, () => true),
-        },
-      ].filter(Boolean),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [intl, account?.id, network?.id, isNFTEnabled],
-  );
-
   const onRefresh = useCallback(() => {
     appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
   }, []);
@@ -174,56 +122,88 @@ export function HomePageView({
     [accountName, deriveInfo?.label, deriveInfo?.labelKey, intl, network?.name],
   );
 
-  const prevPageIndex = useRef<number>(undefined);
+  const renderHeader = useCallback(() => {
+    return <HomeHeaderContainer />;
+  }, []);
 
-  // OK-38433
-  useMemo(() => {
-    appEventBus.emit(EAppEventBusNames.HomeTabsChanged, {
-      index: 0,
-      tabId: tabs[0].id,
-    });
-  }, [tabs]);
-  const handleSelectPageIndexChange = useCallback(
-    (pageIndex: number) => {
-      if (
-        prevPageIndex.current !== undefined &&
-        prevPageIndex.current !== pageIndex
-      ) {
-        Keyboard.dismiss();
-      }
-      prevPageIndex.current = pageIndex;
-      appEventBus.emit(EAppEventBusNames.HomeTabsChanged, {
-        index: pageIndex,
-        tabId: tabs[pageIndex].id,
-      });
-    },
-    [tabs],
-  );
+  const tabContainerProps = useMemo(() => {
+    return {
+      headerContainerStyle: {
+        shadowOpacity: 0,
+        elevation: 0,
+      },
+      renderHeader,
+      renderTabBar: (props: any) => (
+        <Tabs.TabBar
+          {...props}
+          renderToolbar={({ focusedTab }) => (
+            <TabHeaderSettings focusedTab={focusedTab} />
+          )}
+        />
+      ),
+    };
+  }, [renderHeader]);
 
-  const renderTabs = useCallback(
-    () => (
-      <Tab
-        disableRefresh={!platformEnv.isNative}
-        data={tabs}
-        ToolBar={<TabHeaderSettings />}
-        ListHeaderComponent={<HomeHeaderContainer />}
-        onSelectedPageIndex={handleSelectPageIndexChange}
-        initialScrollIndex={0}
-        initialHeaderHeight={210}
-        contentItemWidth={CONTENT_ITEM_WIDTH}
-        contentWidth={screenWidth}
-        showsVerticalScrollIndicator={false}
-        onRefresh={onRefresh}
-      />
-    ),
-    [tabs, handleSelectPageIndexChange, screenWidth, onRefresh],
-  );
+  const tabs = useMemo(() => {
+    const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
+      network?.id ?? ''
+    }-${isNFTEnabled ? '1' : '0'}`;
+    return isNFTEnabled ? (
+      <Tabs.Container {...tabContainerProps} key={key}>
+        <Tabs.Tab
+          name={intl.formatMessage({
+            id: ETranslations.global_crypto,
+          })}
+        >
+          <TokenListContainerWithProvider />
+        </Tabs.Tab>
+        <Tabs.Tab
+          name={intl.formatMessage({
+            id: ETranslations.global_nft,
+          })}
+        >
+          <NFTListContainerWithProvider />
+        </Tabs.Tab>
+        <Tabs.Tab
+          name={intl.formatMessage({
+            id: ETranslations.global_history,
+          })}
+        >
+          <TxHistoryListContainerWithProvider />
+        </Tabs.Tab>
+      </Tabs.Container>
+    ) : (
+      <Tabs.Container {...tabContainerProps} key={key}>
+        <Tabs.Tab
+          name={intl.formatMessage({
+            id: ETranslations.global_crypto,
+          })}
+        >
+          <TokenListContainerWithProvider />
+        </Tabs.Tab>
+        <Tabs.Tab
+          name={intl.formatMessage({
+            id: ETranslations.global_history,
+          })}
+        >
+          <TxHistoryListContainerWithProvider />
+        </Tabs.Tab>
+      </Tabs.Container>
+    );
+  }, [
+    account?.id,
+    account?.indexedAccountId,
+    intl,
+    isNFTEnabled,
+    network?.id,
+    tabContainerProps,
+  ]);
 
   useEffect(() => {
     void Icon.prefetch('CloudOffOutline');
   }, []);
 
-  const renderHomePageContent = useCallback(() => {
+  const homePageContent = useMemo(() => {
     if (
       (softwareAccountDisabled &&
         accountUtils.isHdWallet({
@@ -265,12 +245,12 @@ export function HomePageView({
           networkId={network?.id ?? ''}
           accountId={account?.id ?? ''}
         >
-          <>{renderTabs()}</>
+          <>{tabs}</>
         </WalletContentWithAuth>
       );
     }
 
-    return <>{renderTabs()}</>;
+    return tabs;
   }, [
     softwareAccountDisabled,
     wallet?.id,
@@ -280,13 +260,23 @@ export function HomePageView({
     vaultSettings?.mergeDeriveAssetsEnabled,
     networkAccounts,
     isRequiredValidation,
-    renderTabs,
     watchingAccountEnabled,
     emptyAccountView,
     network?.id,
+    tabs,
   ]);
 
-  const renderHomePage = useCallback(() => {
+  // Initial heights based on typical header sizes on each platform
+  const [tabPageHeight, setTabPageHeight] = useState(
+    platformEnv.isNativeIOS ? 143 : 92,
+  );
+  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
+    // Use the actual measured height without arbitrary adjustments
+    const height = e.nativeEvent.layout.height - 20;
+    setTabPageHeight(height);
+  }, []);
+
+  const homePage = useMemo(() => {
     if (!ready) {
       return <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />;
     }
@@ -298,13 +288,17 @@ export function HomePageView({
     );
 
     if (wallet) {
-      content = renderHomePageContent();
+      content = homePageContent;
       // This is a temporary hack solution, need to fix the layout of headerLeft and headerRight
     }
     return (
       <>
-        <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
         <Page.Body>
+          {platformEnv.isNative ? (
+            <Stack h={tabPageHeight} />
+          ) : (
+            <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
+          )}
           <NetworkAlert />
           {/* {
             // The upgrade reminder does not need to be displayed on the Url Account page
@@ -318,13 +312,30 @@ export function HomePageView({
           } */}
           {content}
           <WalletBackupAlert />
+          {platformEnv.isNative ? (
+            <YStack
+              position="absolute"
+              top={-20}
+              left={0}
+              bg="$bgApp"
+              pt="$5"
+              width="100%"
+              onLayout={handleTabPageLayout}
+            >
+              <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
+            </YStack>
+          ) : null}
         </Page.Body>
       </>
     );
-  }, [ready, wallet, sceneName, renderHomePageContent]);
+  }, [
+    ready,
+    wallet,
+    tabPageHeight,
+    sceneName,
+    handleTabPageLayout,
+    homePageContent,
+  ]);
 
-  return useMemo(
-    () => <Page fullPage>{renderHomePage()}</Page>,
-    [renderHomePage],
-  );
+  return useMemo(() => <Page fullPage>{homePage}</Page>, [homePage]);
 }

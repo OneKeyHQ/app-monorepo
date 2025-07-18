@@ -97,7 +97,8 @@ export function TokenActivityOverview() {
               .formatMessage({
                 id: ETranslations.market_volume_percentage,
               })
-              .replace(' %', '')}
+              .replace('%', '')
+              .trim()}
             buyVolume={buyVolume}
             sellVolume={sellVolume}
             totalVolume={totalVolume}

@@ -1,4 +1,4 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import semver from 'semver';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
@@ -479,6 +479,19 @@ function getDefaultHardwareTransportType(): EHardwareTransportType {
   return EHardwareTransportType.Bridge;
 }
 
+async function isBtcOnlyFirmware({
+  features,
+}: {
+  features: IOneKeyDeviceFeatures | undefined;
+}) {
+  if (!features) {
+    return false;
+  }
+  const { getFirmwareType } = await CoreSDKLoader();
+  const firmwareType = getFirmwareType(features);
+  return firmwareType === EFirmwareType.BitcoinOnly;
+}
+
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
@@ -505,4 +518,5 @@ export default {
   getRawDeviceId,
   getDeviceConnectId,
   getDefaultHardwareTransportType,
+  isBtcOnlyFirmware,
 };

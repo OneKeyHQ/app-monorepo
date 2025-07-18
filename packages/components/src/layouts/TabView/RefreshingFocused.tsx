@@ -10,6 +10,8 @@ import {
 } from 'react';
 import type { ForwardedRef, PropsWithChildren } from 'react';
 
+import { useIsFocusedTab } from '../../composite/Tabs/hooks';
+
 import { useEventEmitter } from './useEventEmitter';
 
 type IRefreshingFocusedEventMapCore = {
@@ -88,9 +90,7 @@ function RawRefreshingFocusedContainer(
 
 export function useTabIsRefreshingFocused() {
   const tabRefreshingFocusedContext = useContext(TabRefreshingFocusedContext);
-  const [isFocused, setIsFocused] = useState(
-    tabRefreshingFocusedContext?.initialFocused ?? false,
-  );
+  // const [isFocused, setIsFocused] = useState(true);
   const [isHeaderRefreshing, setIsHeaderRefreshing] = useState(false);
   const [isFooterRefreshing, setIsFooterRefreshing] = useState(false);
   const overrideSetIsHeaderRefreshing = useCallback(
@@ -100,47 +100,49 @@ export function useTabIsRefreshingFocused() {
     },
     [tabRefreshingFocusedContext],
   );
-  useEffect(() => {
-    const unsubscribeChangeFocused = tabRefreshingFocusedContext?.addListener(
-      'changeFocused',
-      ({ data }) => {
-        if (data === isFocused) {
-          return;
-        }
-        setIsFocused(data);
-      },
-    );
-    const unsubscribeChangeIsRefreshing =
-      tabRefreshingFocusedContext?.addListener(
-        'changeIsRefreshing',
-        ({ data }) => {
-          if (!isFocused) {
-            return;
-          }
-          if (
-            (data.isRefreshing === isHeaderRefreshing && data.isHeader) ||
-            (data.isRefreshing === isFooterRefreshing && !data.isHeader)
-          ) {
-            return;
-          }
-          if (data.isHeader) {
-            overrideSetIsHeaderRefreshing(data.isRefreshing);
-          } else {
-            setIsFooterRefreshing(data.isRefreshing);
-          }
-        },
-      );
-    return () => {
-      unsubscribeChangeFocused?.();
-      unsubscribeChangeIsRefreshing?.();
-    };
-  }, [
-    tabRefreshingFocusedContext,
-    isFocused,
-    isHeaderRefreshing,
-    isFooterRefreshing,
-    overrideSetIsHeaderRefreshing,
-  ]);
+
+  const isFocused = useIsFocusedTab();
+  // useEffect(() => {
+  //   const unsubscribeChangeFocused = tabRefreshingFocusedContext?.addListener(
+  //     'changeFocused',
+  //     ({ data }) => {
+  //       if (data === isFocused) {
+  //         return;
+  //       }
+  //       setIsFocused(data);
+  //     },
+  //   );
+  //   const unsubscribeChangeIsRefreshing =
+  //     tabRefreshingFocusedContext?.addListener(
+  //       'changeIsRefreshing',
+  //       ({ data }) => {
+  //         if (!isFocused) {
+  //           return;
+  //         }
+  //         if (
+  //           (data.isRefreshing === isHeaderRefreshing && data.isHeader) ||
+  //           (data.isRefreshing === isFooterRefreshing && !data.isHeader)
+  //         ) {
+  //           return;
+  //         }
+  //         if (data.isHeader) {
+  //           overrideSetIsHeaderRefreshing(data.isRefreshing);
+  //         } else {
+  //           setIsFooterRefreshing(data.isRefreshing);
+  //         }
+  //       },
+  //     );
+  //   return () => {
+  //     unsubscribeChangeFocused?.();
+  //     unsubscribeChangeIsRefreshing?.();
+  //   };
+  // }, [
+  //   tabRefreshingFocusedContext,
+  //   isFocused,
+  //   isHeaderRefreshing,
+  //   isFooterRefreshing,
+  //   overrideSetIsHeaderRefreshing,
+  // ]);
 
   return {
     isFocused,

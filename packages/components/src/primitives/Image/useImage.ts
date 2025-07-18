@@ -15,6 +15,8 @@ import {
 } from 'expo-image';
 import { resolveSource } from 'expo-image';
 
+import { isEmptyResolvedSource } from './utils';
+
 const IMAGE_CACHE_MAP = new Map<string, string>();
 
 interface IUseImageOptions extends ImageLoadOptions {
@@ -54,7 +56,7 @@ export function useImage(
   const isEffectValid = useRef(true);
 
   const loadImage = useCallback(() => {
-    if (!resolvedSource) {
+    if (!resolvedSource || isEmptyResolvedSource(resolvedSource)) {
       return;
     }
     Image.loadAsync(resolvedSource, optionsRef.current)
