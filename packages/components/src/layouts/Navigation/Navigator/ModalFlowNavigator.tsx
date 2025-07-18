@@ -7,7 +7,7 @@ import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPageType, PageTypeHOC } from '../../../hocs';
 import { useThemeValue } from '../../../hooks';
 import { makeModalStackNavigatorOptions } from '../GlobalScreenOptions';
-import createModalNavigator from '../Modal/createModalNavigator';
+import createWebModalNavigator from '../Modal/createWebModalNavigator';
 import { createStackNavigator } from '../StackNavigator';
 
 import { hasStackNavigatorModal } from './CommonConfig';
@@ -39,7 +39,7 @@ interface IModalFlowNavigatorProps<
 
 const ModalStack = hasStackNavigatorModal
   ? createStackNavigator()
-  : createModalNavigator();
+  : createWebModalNavigator();
 
 function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   config,

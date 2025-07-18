@@ -18,6 +18,7 @@ export type IModalBulkCopyAddressesParamList = {
   [EModalBulkCopyAddressesRoutes.ExportAddressesModal]: {
     walletId: string;
     networkId: string;
+    exportWithoutDevice?: boolean;
     parentWalletName?: string;
     networkAccountsByDeriveType: Record<
       string,

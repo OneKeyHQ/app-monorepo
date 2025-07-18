@@ -7,6 +7,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { showTronRewardCenter } from '@onekeyhq/kit/src/components/RewardCenter/TronRewardCenter';
+import { useSignatureConfirmActions } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -23,6 +24,7 @@ function ClaimResourceEntry({
   networkId: string;
 }) {
   const intl = useIntl();
+  const { updateTronResourceRentalInfo } = useSignatureConfirmActions().current;
   return (
     <LinearGradient
       colors={['#63c811', '#00a3ff']}
@@ -42,9 +44,16 @@ function ClaimResourceEntry({
           showTronRewardCenter({
             accountId,
             networkId,
-            onDialogClose: async ({ isResourceFetched }) => {
-              if (isResourceFetched) {
+            onDialogClose: async ({
+              isResourceClaimed,
+              isResourceRedeemed,
+            }) => {
+              if (isResourceClaimed || isResourceRedeemed) {
                 await timerUtils.wait(1000);
+                updateTronResourceRentalInfo({
+                  isResourceClaimed,
+                  isResourceRedeemed,
+                });
                 appEventBus.emit(
                   EAppEventBusNames.EstimateTxFeeRetry,
                   undefined,

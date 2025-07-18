@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { flatten, groupBy, isEmpty, isNaN, map } from 'lodash';
@@ -6,6 +6,8 @@ import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
+  Button,
+  Dialog,
   Empty,
   Form,
   Icon,
@@ -23,13 +25,22 @@ import {
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type { IModalBulkCopyAddressesParamList } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IBatchCreateAccount } from '@onekeyhq/shared/types/account';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ControlledNetworkSelectorTrigger } from '../../../components/AccountSelector';
@@ -38,6 +49,7 @@ import { WalletAvatar } from '../../../components/WalletAvatar';
 import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { BATCH_CREATE_ACCONT_MAX_COUNT } from '../../AccountManagerStacks/pages/BatchCreateAccount/BatchCreateAccountFormBase';
 import { showBatchCreateAccountProcessingDialog } from '../../AccountManagerStacks/pages/BatchCreateAccount/ProcessingDialog';
 
 enum EBulkCopyType {
@@ -55,7 +67,7 @@ function BulkCopyAddressesProcessingInfo({
   const intl = useIntl();
   return (
     <Stack justifyContent="center" alignItems="center" flex={1}>
-      <SizableText size="$headingLg">
+      <SizableText size="$bodyLg">
         {intl.formatMessage(
           {
             id: ETranslations.global_fetching_addresses,
@@ -113,6 +125,8 @@ function BulkCopyAddresses({
   const { selectedWalletId, selectedNetworkId } = form.watch();
   const formRangeWatchFields = formRange.watch();
 
+  const isHwWallet = accountUtils.isHwWallet({ walletId: selectedWalletId });
+
   const { result: availableWallets } = usePromiseResult(async () => {
     const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
       ignoreEmptySingletonWalletAccounts: true,
@@ -131,11 +145,13 @@ function BulkCopyAddresses({
         !accountUtils.isOthersWallet({ walletId: wallet.id }) &&
         !wallet.deprecated
       ) {
-        availableWalletsTemp.push(wallet);
+        if (!wallet.isMocked) {
+          availableWalletsTemp.push(wallet);
+        }
         walletsMap.current[wallet.id] = wallet;
         if (wallet.hiddenWallets?.length) {
           wallet.hiddenWallets.forEach((hiddenWallet) => {
-            if (!hiddenWallet.deprecated) {
+            if (!hiddenWallet.deprecated && !hiddenWallet.isMocked) {
               availableWalletsTemp.push({
                 ...hiddenWallet,
                 parentWalletName: wallet.name,
@@ -218,92 +234,186 @@ function BulkCopyAddresses({
       },
     );
 
-  const handleGenerateAddresses = useCallback(async () => {
-    if (
-      !formRangeWatchFields.deriveType ||
-      !selectedNetworkId ||
-      !selectedWalletId ||
-      !vaultSettings?.accountDeriveInfo
-    ) {
-      return {};
-    }
-    setIsGeneratingAddresses(true);
-
-    try {
-      const fromIndex = new BigNumber(formRangeWatchFields.startIndex)
-        .minus(1)
-        .toNumber();
-      const toIndex = new BigNumber(fromIndex)
-        .plus(formRangeWatchFields.amount)
-        .minus(1)
-        .toNumber();
-
-      const params = {
-        walletId: selectedWalletId,
-        networkId: selectedNetworkId,
-        deriveType: formRangeWatchFields.deriveType as IAccountDeriveTypes,
-        fromIndex,
-        toIndex,
-        saveToDb: false,
-        hideCheckingDeviceLoading: true,
-        showUIProgress: true,
-        excludedIndexes: [],
+  const handleGenerateAddresses = useCallback(
+    async ({
+      fromIndex,
+      toIndex,
+      deriveType,
+      excludedIndexes,
+      createAllDeriveTypes,
+      amount,
+    }: {
+      fromIndex: number;
+      toIndex: number;
+      deriveType: IAccountDeriveTypes;
+      excludedIndexes: {
+        [index: number]: true;
       };
-
-      showBatchCreateAccountProcessingDialog({
-        navigation,
-        closeAfterDone: true,
-        closeAfterCancel: true,
-        closeAfterError: true,
-        renderProgressContent: ({ progressCurrent }) => (
-          <BulkCopyAddressesProcessingInfo
-            progressCurrent={progressCurrent}
-            progressTotal={formRangeWatchFields.amount}
-          />
-        ),
-      });
-
-      await timerUtils.wait(600);
+      createAllDeriveTypes?: boolean;
+      amount: number;
+    }) => {
+      if (!selectedWalletId || !selectedNetworkId) {
+        return {};
+      }
 
       try {
-        const { accountsForCreate } =
-          await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlow(
-            {
-              mode: 'advanced',
-              saveToCache: true,
-              params,
-            },
-          );
-        return {
-          [formRangeWatchFields.deriveType]: accountsForCreate.map(
-            (account) => {
-              return {
-                account,
-                deriveType: formRangeWatchFields.deriveType,
-                deriveInfo:
-                  // @ts-ignore
-                  vaultSettings.accountDeriveInfo[
-                    formRangeWatchFields.deriveType as IAccountDeriveTypes
-                  ],
-              };
-            },
-          ),
+        setIsGeneratingAddresses(true);
+        const params = {
+          walletId: selectedWalletId,
+          networkId: selectedNetworkId,
+          deriveType,
+          fromIndex,
+          toIndex,
+          saveToDb: false,
+          hideCheckingDeviceLoading: true,
+          showUIProgress: true,
+          excludedIndexes,
+          createAllDeriveTypes,
         };
-      } catch (error) {
-        console.log(error);
-        throw error;
+
+        showBatchCreateAccountProcessingDialog({
+          navigation,
+          closeAfterDone: true,
+          closeAfterCancel: true,
+          closeAfterError: true,
+          renderProgressContent: ({ progressCurrent }) => (
+            <BulkCopyAddressesProcessingInfo
+              progressCurrent={progressCurrent}
+              progressTotal={amount}
+            />
+          ),
+          onDialogClose: () => {
+            setIsGeneratingAddresses(false);
+          },
+        });
+
+        await timerUtils.wait(600);
+
+        try {
+          const { accountsForCreate } =
+            await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlow(
+              {
+                mode: 'advanced',
+                saveToCache: true,
+                params,
+              },
+            );
+
+          // @ts-ignore
+          const result: Record<
+            IAccountDeriveTypes,
+            {
+              account: IBatchCreateAccount;
+              deriveType: IAccountDeriveTypes;
+              deriveInfo?: IAccountDeriveInfo;
+            }[]
+          > = {};
+          for (const account of accountsForCreate) {
+            const accountDeriveType =
+              await backgroundApiProxy.serviceNetwork.getDeriveTypeByTemplate({
+                accountId: account.id,
+                networkId: selectedNetworkId,
+                template: account.template,
+              });
+            result[accountDeriveType.deriveType] =
+              result[accountDeriveType.deriveType] ?? [];
+            result[accountDeriveType.deriveType]?.push({
+              account,
+              deriveType: accountDeriveType.deriveType,
+              deriveInfo: accountDeriveType.deriveInfo,
+            });
+          }
+          return result;
+        } catch (error) {
+          appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
+            totalCount: 0,
+            createdCount: 0,
+            progressTotal: 0,
+            progressCurrent: 0,
+            error: error as IOneKeyError,
+          });
+          throw error;
+        }
+      } finally {
+        setIsGeneratingAddresses(false);
       }
-    } finally {
-      setIsGeneratingAddresses(false);
+    },
+    [selectedWalletId, selectedNetworkId, navigation],
+  );
+
+  const handleGenerateAddressesByRange = useCallback(async () => {
+    if (!formRangeWatchFields.deriveType) {
+      return {};
     }
+
+    const fromIndex = new BigNumber(formRangeWatchFields.startIndex)
+      .minus(1)
+      .toNumber();
+    const toIndex = new BigNumber(fromIndex)
+      .plus(formRangeWatchFields.amount)
+      .minus(1)
+      .toNumber();
+
+    const deriveType = formRangeWatchFields.deriveType as IAccountDeriveTypes;
+
+    const excludedIndexes = {};
+
+    const createAllDeriveTypes = false;
+
+    return handleGenerateAddresses({
+      fromIndex,
+      toIndex,
+      deriveType,
+      excludedIndexes,
+      createAllDeriveTypes,
+      amount: formRangeWatchFields.amount,
+    });
   }, [
     formRangeWatchFields.deriveType,
     formRangeWatchFields.startIndex,
     formRangeWatchFields.amount,
-    selectedNetworkId,
-    selectedWalletId,
+    handleGenerateAddresses,
+  ]);
+
+  const handleGenerateAddressesByAccounts = useCallback(async () => {
+    if (!selectedWallet || !selectedWallet.dbIndexedAccounts) {
+      return {};
+    }
+
+    const { dbIndexedAccounts } = selectedWallet;
+    const indexes = dbIndexedAccounts.map((account) => account.index);
+
+    const fromIndex = Math.min(...indexes);
+    const toIndex = Math.max(...indexes);
+    const excludedIndexes: { [index: number]: true } = {};
+    for (let i = fromIndex; i <= toIndex; i += 1) {
+      if (!indexes.includes(i)) {
+        excludedIndexes[i] = true;
+      }
+    }
+
+    let amount = indexes.length;
+    if (vaultSettings?.mergeDeriveAssetsEnabled) {
+      amount *= Object.keys(vaultSettings?.accountDeriveInfo ?? {}).length;
+    }
+
+    return handleGenerateAddresses({
+      fromIndex,
+      toIndex,
+      deriveType:
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: selectedNetworkId,
+        }),
+      excludedIndexes,
+      createAllDeriveTypes: true,
+      amount,
+    });
+  }, [
+    selectedWallet,
+    vaultSettings?.mergeDeriveAssetsEnabled,
     vaultSettings?.accountDeriveInfo,
-    navigation,
+    handleGenerateAddresses,
+    selectedNetworkId,
   ]);
 
   const handleFormValueOnChange = useCallback(
@@ -406,32 +516,47 @@ function BulkCopyAddresses({
       return null;
     }
 
+    let shouldShowDeriveType = true;
+
+    const deriveTypes = Object.entries(vaultSettings?.accountDeriveInfo ?? {});
+
+    if (
+      deriveTypes.length === 1 &&
+      !deriveTypes[0][1].labelKey &&
+      !deriveTypes[0][1].label
+    ) {
+      shouldShowDeriveType = false;
+    }
+
     return (
       <Stack>
         <Form form={formRange}>
-          <Form.Field
-            name="deriveType"
-            label={intl.formatMessage({
-              id: ETranslations.global_derivation_path,
-            })}
-          >
-            <Select
-              title={intl.formatMessage({
+          {shouldShowDeriveType ? (
+            <Form.Field
+              name="deriveType"
+              label={intl.formatMessage({
                 id: ETranslations.global_derivation_path,
               })}
-              items={Object.entries(vaultSettings?.accountDeriveInfo ?? {}).map(
-                ([deriveType, deriveInfo]) => ({
+            >
+              <Select
+                title={intl.formatMessage({
+                  id: ETranslations.global_derivation_path,
+                })}
+                items={Object.entries(
+                  vaultSettings?.accountDeriveInfo ?? {},
+                ).map(([deriveType, deriveInfo]) => ({
                   label: deriveInfo.labelKey
                     ? intl.formatMessage({ id: deriveInfo.labelKey })
                     : deriveInfo.label ?? '',
                   value: deriveType as IAccountDeriveTypes,
-                }),
-              )}
-              floatingPanelProps={{
-                width: '$78',
-              }}
-            />
-          </Form.Field>
+                }))}
+                floatingPanelProps={{
+                  width: '$78',
+                }}
+              />
+            </Form.Field>
+          ) : null}
+
           <Form.Field
             name="startIndex"
             label={intl.formatMessage({
@@ -440,12 +565,30 @@ function BulkCopyAddresses({
             rules={{
               required: true,
               min: 1,
-              onChange: (e: { target: { name: string; value: string } }) =>
-                handleFormValueOnChange({
-                  name: e.target.name,
-                  value: e.target.value,
-                  intRequired: true,
-                }),
+              onChange: (e: { target: { name: string; value: string } }) => {
+                const value = (e?.target?.value || '').replace(/\D/g, '');
+                const valueNum = new BigNumber(parseInt(value, 10));
+                if (!value || valueNum.isNaN()) {
+                  formRange.setValue('startIndex', 1);
+                  return;
+                }
+                if (valueNum.isLessThan(1)) {
+                  formRange.setValue('startIndex', 1);
+                  return;
+                }
+                if (
+                  valueNum.isGreaterThanOrEqualTo(
+                    BATCH_CREATE_ACCONT_MAX_COUNT - 100,
+                  )
+                ) {
+                  formRange.setValue(
+                    'startIndex',
+                    BATCH_CREATE_ACCONT_MAX_COUNT - 100,
+                  );
+                  return;
+                }
+                formRange.setValue('startIndex', valueNum.toNumber());
+              },
             }}
           >
             <Input />
@@ -504,31 +647,63 @@ function BulkCopyAddresses({
     handleFormValueOnChange,
   ]);
 
-  const handleExportAddresses = useCallback(async () => {
-    if (copyType === EBulkCopyType.Account) {
-      navigation.push(EModalBulkCopyAddressesRoutes.ExportAddressesModal, {
-        walletId: selectedWalletId,
-        networkId: selectedNetworkId,
-        networkAccountsByDeriveType,
-        parentWalletName: selectedWallet?.parentWalletName,
-      });
-    } else if (copyType === EBulkCopyType.Range) {
-      const resp = await handleGenerateAddresses();
-      navigation.push(EModalBulkCopyAddressesRoutes.ExportAddressesModal, {
-        walletId: selectedWalletId,
-        networkId: selectedNetworkId,
-        networkAccountsByDeriveType: resp,
-        parentWalletName: selectedWallet?.parentWalletName,
-      });
-    }
+  const handleExportAddresses = useCallback(
+    async ({ exportWithoutDevice }: { exportWithoutDevice?: boolean }) => {
+      if (copyType === EBulkCopyType.Account) {
+        let accountsData = networkAccountsByDeriveType;
+        if (isHwWallet && !exportWithoutDevice) {
+          accountsData = await handleGenerateAddressesByAccounts();
+        }
+
+        navigation.push(EModalBulkCopyAddressesRoutes.ExportAddressesModal, {
+          walletId: selectedWalletId,
+          networkId: selectedNetworkId,
+          networkAccountsByDeriveType: accountsData,
+          parentWalletName: selectedWallet?.parentWalletName,
+        });
+      } else if (copyType === EBulkCopyType.Range) {
+        const resp = await handleGenerateAddressesByRange();
+        navigation.push(EModalBulkCopyAddressesRoutes.ExportAddressesModal, {
+          walletId: selectedWalletId,
+          networkId: selectedNetworkId,
+          networkAccountsByDeriveType: resp,
+          parentWalletName: selectedWallet?.parentWalletName,
+        });
+      }
+    },
+    [
+      copyType,
+      networkAccountsByDeriveType,
+      selectedWalletId,
+      navigation,
+      selectedNetworkId,
+      selectedWallet?.parentWalletName,
+      handleGenerateAddressesByAccounts,
+      handleGenerateAddressesByRange,
+      isHwWallet,
+    ],
+  );
+
+  const isLoading = useMemo(() => {
+    return isGeneratingAddresses;
+  }, [isGeneratingAddresses]);
+
+  const isDisabled = useMemo(() => {
+    return copyType === EBulkCopyType.Account
+      ? !form.formState.isValid ||
+          isLoadingAccounts ||
+          !networkAccountsByDeriveType ||
+          isEmpty(networkAccountsByDeriveType)
+      : !form.formState.isValid ||
+          !formRange.formState.isValid ||
+          isGeneratingAddresses;
   }, [
     copyType,
-    navigation,
-    selectedWalletId,
-    selectedNetworkId,
+    form.formState.isValid,
+    isLoadingAccounts,
     networkAccountsByDeriveType,
-    handleGenerateAddresses,
-    selectedWallet?.parentWalletName,
+    formRange.formState.isValid,
+    isGeneratingAddresses,
   ]);
 
   useEffect(() => {
@@ -600,7 +775,12 @@ function BulkCopyAddresses({
                       }}
                     >
                       <WalletAvatar wallet={selectedWallet} size="$6" />
-                      <SizableText flex={1} px={sharedStyles.px} size="$bodyLg">
+                      <SizableText
+                        flex={1}
+                        px={sharedStyles.px}
+                        size="$bodyLg"
+                        numberOfLines={1}
+                      >
                         {label}
                       </SizableText>
                       <Icon
@@ -655,29 +835,77 @@ function BulkCopyAddresses({
         </YStack>
       </Page.Body>
       <Page.Footer>
-        <Page.FooterActions
-          onConfirm={handleExportAddresses}
-          onConfirmText={intl.formatMessage({
-            id: ETranslations.global_export,
-          })}
-          confirmButtonProps={{
-            size: gtMd ? 'medium' : 'large',
-            variant: 'primary',
-            loading:
-              copyType === EBulkCopyType.Account
-                ? false
-                : isGeneratingAddresses,
-            disabled:
-              copyType === EBulkCopyType.Account
-                ? !form.formState.isValid ||
-                  isLoadingAccounts ||
-                  !networkAccountsByDeriveType ||
-                  isEmpty(networkAccountsByDeriveType)
-                : !form.formState.isValid ||
-                  !formRange.formState.isValid ||
-                  isGeneratingAddresses,
+        <YStack
+          p="$5"
+          bg="$bgApp"
+          alignItems="center"
+          justifyContent="space-between"
+          flexDirection="row-reverse"
+          $md={{
+            flexDirection: 'column',
+            gap: '$5',
+            justifyContent: 'center',
           }}
-        />
+        >
+          <Button
+            variant="primary"
+            size="medium"
+            onPress={() =>
+              handleExportAddresses({
+                exportWithoutDevice: false,
+              })
+            }
+            $md={{
+              width: '100%',
+              size: 'large',
+            }}
+            loading={isLoading}
+            disabled={isDisabled}
+          >
+            {intl.formatMessage({
+              id: isHwWallet
+                ? ETranslations.global_action_verify_and_export
+                : ETranslations.global_export,
+            })}
+          </Button>
+          {isHwWallet && copyType === EBulkCopyType.Account ? (
+            <Button
+              size="medium"
+              variant="tertiary"
+              disabled={isDisabled}
+              $md={{
+                width: '100%',
+              }}
+              onPress={() => {
+                Dialog.confirm({
+                  icon: 'ErrorOutline',
+                  tone: 'warning',
+                  title: intl.formatMessage({
+                    id: ETranslations.global_receive_address_confirmation,
+                  }),
+                  description: intl.formatMessage({
+                    id: ETranslations.global_receive_address_confirmation_desc,
+                  }),
+                  onConfirmText: intl.formatMessage({
+                    id: ETranslations.global_receive_address_confirmation_button,
+                  }),
+                  onConfirm: () => {
+                    void handleExportAddresses({
+                      exportWithoutDevice: true,
+                    });
+                  },
+                  confirmButtonProps: {
+                    variant: 'secondary',
+                  },
+                });
+              }}
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_bulk_copy_addresses_action_export_without_device,
+              })}
+            </Button>
+          ) : null}
+        </YStack>
       </Page.Footer>
     </Page>
   );

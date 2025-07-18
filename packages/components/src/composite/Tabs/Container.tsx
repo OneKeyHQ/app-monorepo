@@ -2,6 +2,7 @@ import {
   Children,
   isValidElement,
   useCallback,
+  useImperativeHandle,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -10,7 +11,7 @@ import {
 import type { PropsWithChildren, RefObject } from 'react';
 
 import { debounce } from 'lodash';
-import { useSharedValue } from 'react-native-reanimated';
+import { useAnimatedReaction, useSharedValue } from 'react-native-reanimated';
 import { WindowScroller } from 'react-virtualized';
 
 import { XStack, YStack } from '../../primitives';
@@ -57,14 +58,23 @@ export function ContainerChild({
 const renderDefaultTabBar = (props: TabBarProps<string>) => {
   return <TabBar {...props} />;
 };
+
+interface IRefProps {
+  ref: React.RefObject<{
+    switchTab: (tabName: string) => void;
+    switchTabWithIndex: (index: number) => void;
+  }>;
+}
+
 export function Container({
   children,
   renderHeader,
   renderTabBar = renderDefaultTabBar,
   onIndexChange,
   onTabChange,
+  ref: containerRef,
   ...props
-}: PropsWithChildren<CollapsibleProps>) {
+}: PropsWithChildren<CollapsibleProps> & IRefProps) {
   // Get tab names from children props
   const scrollTopRef = useRef<{ [key: string]: number }>({});
   const tabNames = useMemo(() => {
@@ -90,6 +100,7 @@ export function Container({
     () => ({ focusedTab, tabNames: sharedTabNames, scrollTabElementsRef }),
     [focusedTab, sharedTabNames],
   );
+  const isEffectValid = useRef(true);
   const ref = useRef<Element>(null);
   const listContainerRef = useRef<Element>(null);
 
@@ -146,6 +157,7 @@ export function Container({
     setScrollElement(ref.current);
     setTimeout(updateListContainerHeight, 250);
     return () => {
+      isEffectValid.current = false;
       if (resizeObserverRef.current) {
         resizeObserverRef.current.disconnect();
       }
@@ -176,11 +188,41 @@ export function Container({
     };
   }, [focusedTab, scrollElement, tabNames, updateListContainerHeight]);
 
+  useAnimatedReaction(
+    () => focusedTab.value,
+    (tabName, prevTabName) => {
+      if (isEffectValid.current && prevTabName && tabName !== prevTabName) {
+        isSwitchingTabRef.current = true;
+        const index = tabNames.findIndex((name) => name === tabName);
+        let scrollTop = scrollTopRef.current[tabName] || 0;
+        startViewTransition(() => {
+          updateListContainerHeight();
+          const width = scrollElement?.clientWidth || 0;
+          listContainerRef.current?.scrollTo({
+            left: width * index,
+            behavior: 'instant',
+          });
+
+          if (stickyHeaderHeight.current > 0) {
+            if ((scrollElement?.scrollTop || 0) >= stickyHeaderHeight.current) {
+              scrollTop = Math.max(scrollTop, stickyHeaderHeight.current);
+              scrollElement?.scrollTo({
+                top: scrollTop,
+                behavior: 'instant',
+              });
+            }
+          }
+          isSwitchingTabRef.current = false;
+        });
+      }
+    },
+  );
+
   const onTabPress = useCallback(
     (tabName: string) => {
-      isSwitchingTabRef.current = true;
-      // Header Height + tabBar height
-      let scrollTop = scrollTopRef.current[tabName] || 0;
+      if (!isEffectValid.current) {
+        return;
+      }
       const index = tabNames.findIndex((name) => name === tabName);
       const prevTabName = focusedTab.value;
       const prevIndex = tabNames.findIndex((name) => name === prevTabName);
@@ -195,35 +237,19 @@ export function Container({
         onTabChange?.(onTabChangeData);
       }, 100);
       focusedTab.set(tabName);
-      startViewTransition(() => {
-        updateListContainerHeight();
-        const width = scrollElement?.clientWidth || 0;
-        listContainerRef.current?.scrollTo({
-          left: width * index,
-          behavior: 'instant',
-        });
-
-        if (stickyHeaderHeight.current > 0) {
-          if ((scrollElement?.scrollTop || 0) >= stickyHeaderHeight.current) {
-            scrollTop = Math.max(scrollTop, stickyHeaderHeight.current);
-            scrollElement?.scrollTo({
-              top: scrollTop,
-              behavior: 'instant',
-            });
-          }
-        }
-        isSwitchingTabRef.current = false;
-      });
     },
-    [
-      focusedTab,
-      onIndexChange,
-      onTabChange,
-      scrollElement,
-      tabNames,
-      updateListContainerHeight,
-    ],
+    [focusedTab, onIndexChange, onTabChange, tabNames],
   );
+
+  useImperativeHandle(containerRef, () => ({
+    switchTab: (tabName: string) => {
+      onTabPress(tabName);
+    },
+    switchTabWithIndex: (index: number) => {
+      onTabPress(tabNames[index]);
+    },
+  }));
+
   return (
     <YStack
       flex={1}
@@ -246,6 +272,9 @@ export function Container({
               onChildScroll,
               registerChild,
             }) => {
+              if (!isEffectValid.current || !width) {
+                return null;
+              }
               if (!isSwitchingTabRef.current) {
                 scrollTopRef.current[focusedTab.value] =
                   scrollElement.scrollTop;
