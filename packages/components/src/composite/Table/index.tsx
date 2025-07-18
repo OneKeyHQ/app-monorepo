@@ -319,6 +319,9 @@ export interface ITableProps<T> {
         onLongPress?: () => void;
       }
     | undefined;
+  // Infinite scroll support
+  onEndReached?: IListViewProps<T>['onEndReached'];
+  onEndReachedThreshold?: IListViewProps<T>['onEndReachedThreshold'];
 }
 
 function HeaderColumn<T>({
@@ -473,6 +476,8 @@ function BasicTable<T>({
   stickyHeaderHiddenOnScroll = false,
   showBackToTopButton = false,
   draggable = false,
+  onEndReached,
+  onEndReachedThreshold,
 }: ITableProps<T>) {
   const { gtMd } = useMedia();
   const [isShowBackToTopButton, setIsShowBackToTopButton] = useState(false);
@@ -606,6 +611,8 @@ function BasicTable<T>({
           ListEmptyComponent={TableEmptyComponent}
           extraData={extraData}
           renderScrollComponent={renderScrollComponent}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={onEndReachedThreshold}
         />
       ) : (
         <ListView
@@ -629,6 +636,8 @@ function BasicTable<T>({
           ListEmptyComponent={TableEmptyComponent}
           extraData={extraData}
           renderScrollComponent={renderScrollComponent}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={onEndReachedThreshold}
         />
       ),
     [
@@ -654,6 +663,8 @@ function BasicTable<T>({
       estimatedItemSize,
       handleRenderItem,
       itemSize,
+      onEndReached,
+      onEndReachedThreshold,
     ],
   );
 
