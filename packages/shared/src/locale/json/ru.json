@@ -2732,6 +2732,7 @@
   "swap_review.tx_failed_1": "* Пожалуйста, попробуйте еще раз или",
   "swap_review.tx_failed_2": "обратитесь в службу поддержки",
   "swap_review.tx_pending": "* Выход не остановит процесс. Проверьте детали в истории.",
+  "swap_review.tx_success": "Готово! Вы можете закрыть эту вкладку в любое время.",
   "swap_review.you_pay": "Вы платите",
   "swap_review.you_receive": "Вы получаете",
   "swap_settings.manage_bridge": "Управление поставщиком мостов",

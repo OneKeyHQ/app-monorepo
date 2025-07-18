@@ -96,7 +96,8 @@ const RoundLoadingItem = ({
     if (canRetry && failed) {
       return (
         <Button
-          size="sm"
+          size="small"
+          variant="tertiary"
           type="plain"
           onPress={() => {
             onRetry();
@@ -113,7 +114,7 @@ const RoundLoadingItem = ({
     <XStack justifyContent="space-between" alignItems="center">
       <XStack gap="$2" alignItems="center">
         {statusComponent}
-        <SizableText size="$bodyMd" color="$textSubdued">
+        <SizableText size="$bodyMd" color="$text">
           {stepTitle}
         </SizableText>
       </XStack>

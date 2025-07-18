@@ -2732,6 +2732,7 @@
   "swap_review.tx_failed_1": "* โปรดลองอีกครั้งหรือ",
   "swap_review.tx_failed_2": "ติดต่อฝ่ายสนับสนุน",
   "swap_review.tx_pending": "* การออกจากระบบจะไม่หยุดกระบวนการ ตรวจสอบรายละเอียดในประวัติ",
+  "swap_review.tx_success": "เสร็จเรียบร้อย! คุณสามารถปิดแท็บนี้ได้ทุกเมื่อ",
   "swap_review.you_pay": "คุณจ่าย",
   "swap_review.you_receive": "คุณได้รับ",
   "swap_settings.manage_bridge": "จัดการผู้ให้บริการสะพาน",

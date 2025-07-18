@@ -2732,6 +2732,7 @@
   "swap_review.tx_failed_1": "* Bitte versuchen Sie es erneut oder",
   "swap_review.tx_failed_2": "Support kontaktieren",
   "swap_review.tx_pending": "* Das Verlassen wird den Vorgang nicht stoppen. Details finden Sie im Verlauf.",
+  "swap_review.tx_success": "Alles erledigt! Sie können diesen Tab jederzeit schließen.",
   "swap_review.you_pay": "Sie zahlen",
   "swap_review.you_receive": "Sie erhalten",
   "swap_settings.manage_bridge": "Verwalten Sie den Brückenanbieter",

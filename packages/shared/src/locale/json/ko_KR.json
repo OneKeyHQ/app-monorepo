@@ -2732,6 +2732,7 @@
   "swap_review.tx_failed_1": "* 다시 시도하거나",
   "swap_review.tx_failed_2": "지원팀에 문의하세요",
   "swap_review.tx_pending": "* 나가도 프로세스는 중단되지 않습니다. 기록에서 세부 정보를 확인하세요.",
+  "swap_review.tx_success": "모두 완료되었습니다! 언제든지 이 탭을 닫으셔도 됩니다.",
   "swap_review.you_pay": "결제하기",
   "swap_review.you_receive": "귀하가 받습니다",
   "swap_settings.manage_bridge": "브릿지 제공자 관리",

@@ -2737,6 +2737,7 @@
   swap_review_tx_failed_1 = 'swap_review.tx_failed_1',
   swap_review_tx_failed_2 = 'swap_review.tx_failed_2',
   swap_review_tx_pending = 'swap_review.tx_pending',
+  swap_review_tx_success = 'swap_review.tx_success',
   swap_review_you_pay = 'swap_review.you_pay',
   swap_review_you_receive = 'swap_review.you_receive',
   swap_settings_manage_bridge = 'swap_settings.manage_bridge',

@@ -2732,6 +2732,7 @@
   "swap_review.tx_failed_1": "* Vui lòng thử lại hoặc",
   "swap_review.tx_failed_2": "liên hệ hỗ trợ",
   "swap_review.tx_pending": "* Rời đi sẽ không dừng quá trình. Kiểm tra chi tiết trong lịch sử.",
+  "swap_review.tx_success": "Hoàn tất! Bạn có thể đóng tab này bất cứ lúc nào.",
   "swap_review.you_pay": "Bạn thanh toán",
   "swap_review.you_receive": "Bạn nhận được",
   "swap_settings.manage_bridge": "Quản lý nhà cung cấp cầu nối",

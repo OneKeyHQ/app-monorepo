@@ -2732,6 +2732,7 @@
   "swap_review.tx_failed_1": "* कृपया पुनः प्रयास करें या",
   "swap_review.tx_failed_2": "समर्थन से संपर्क करें",
   "swap_review.tx_pending": "* छोड़ने से प्रक्रिया नहीं रुकेगी। विवरण इतिहास में देखें।",
+  "swap_review.tx_success": "सब हो गया! आप इस टैब को कभी भी बंद कर सकते हैं।",
   "swap_review.you_pay": "आप भुगतान करते हैं",
   "swap_review.you_receive": "आपको प्राप्त होता है",
   "swap_settings.manage_bridge": "ब्रिज प्रदाता प्रबंधित करें",

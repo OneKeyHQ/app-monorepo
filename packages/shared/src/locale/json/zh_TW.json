@@ -2732,6 +2732,7 @@
   "swap_review.tx_failed_1": "* 請再試一次或",
   "swap_review.tx_failed_2": "聯繫客服",
   "swap_review.tx_pending": "* 離開該頁面不會中斷訂單，你可以在歷史記錄中查看詳情。",
+  "swap_review.tx_success": "完成了！您可以隨時關閉此標籤頁",
   "swap_review.you_pay": "支付",
   "swap_review.you_receive": "收到",
   "swap_settings.manage_bridge": "管理跨鏈渠道商",

@@ -2732,6 +2732,7 @@
   "swap_review.tx_failed_1": "※ もう一度お試しいただくか",
   "swap_review.tx_failed_2": "サポートにお問い合わせください",
   "swap_review.tx_pending": "* 退出してもプロセスは停止しません。履歴で詳細を確認してください。",
+  "swap_review.tx_success": "完了しました！このタブはいつでも閉じていただけます。",
   "swap_review.you_pay": "お支払い金額",
   "swap_review.you_receive": "あなたは受け取ります",
   "swap_settings.manage_bridge": "ブリッジプロバイダーを管理する",

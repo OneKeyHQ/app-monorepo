@@ -2732,6 +2732,7 @@
   "swap_review.tx_failed_1": "* Por favor, inténtalo de nuevo o",
   "swap_review.tx_failed_2": "Contactar con soporte técnico",
   "swap_review.tx_pending": "* Salir no detendrá el proceso. Consulta los detalles en el historial.",
+  "swap_review.tx_success": "¡Todo listo! Puede cerrar esta pestaña en cualquier momento.",
   "swap_review.you_pay": "Tú pagas",
   "swap_review.you_receive": "Recibes",
   "swap_settings.manage_bridge": "Gestionar proveedor de puente",
