@@ -61,7 +61,7 @@ export function SwapPanelWrap() {
     provider,
     tradeType: tradeType || ESwapDirection.BUY,
     fromTokenAmount: paymentAmount.toFixed(),
-    antiMEV: swapPanel.antiMEV,
+    antiMEV: swapMevNetConfig?.includes(swapPanel.networkId ?? ''),
   };
 
   const speedSwapActions = useSpeedSwapActions(useSpeedSwapActionsParams);

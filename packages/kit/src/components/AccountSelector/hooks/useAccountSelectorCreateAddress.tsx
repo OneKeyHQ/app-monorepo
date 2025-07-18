@@ -38,7 +38,7 @@ export function useAccountSelectorCreateAddress() {
     backgroundApiProxy;
   const intl = useIntl();
   const actions = useAccountSelectorActions();
-  const { createQrWalletByAccount } = useCreateQrWallet();
+  const { createQrWalletAccount } = useCreateQrWallet();
   const requestsUrl = useHelpLink({ path: 'requests/new' });
 
   const createAddress = useCallback(
@@ -185,7 +185,7 @@ export function useAccountSelectorCreateAddress() {
         return await addAccounts();
       } catch (error1) {
         if (isAirGapAccountNotFound(error1)) {
-          await createQrWalletByAccount({
+          await createQrWalletAccount({
             walletId: account.walletId,
             networkId: account.networkId,
             indexedAccountId: account.indexedAccountId,
@@ -266,7 +266,7 @@ export function useAccountSelectorCreateAddress() {
     },
     [
       actions,
-      createQrWalletByAccount,
+      createQrWalletAccount,
       intl,
       requestsUrl,
       serviceAccount,
