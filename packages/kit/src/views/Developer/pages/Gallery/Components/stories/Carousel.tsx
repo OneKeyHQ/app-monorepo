@@ -47,7 +47,6 @@ const CarouselGallery = () => (
               overflow: 'hidden',
             }}
             renderItem={({ item }: { item: (typeof data)[number] }) => {
-              console.log('item', item);
               switch (item.type) {
                 case 'onekey-pro':
                   return (
