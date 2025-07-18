@@ -5,6 +5,8 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
+import { desktopBluetoothAtom } from '../../states/jotai/atoms/desktopBluetooth';
+
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 export class HardwareConnectionManager {
@@ -40,6 +42,28 @@ export class HardwareConnectionManager {
 
   async detectBluetoothAvailability(): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) {
+      return false;
+    }
+
+    const desktopBluetoothSettings = await desktopBluetoothAtom.get();
+
+    if (!desktopBluetoothSettings.isRequestedPermission) {
+      console.log(
+        '🔍 detectBluetoothAvailability desktopBluetoothSettings.isRequestedPermission -> :',
+        desktopBluetoothSettings.isRequestedPermission,
+      );
+      // TODO: 如果未授权过，需要提示用户授权，只有用户同意的前提下，才允许使用蓝牙
+      return false;
+    }
+
+    const enableDesktopBluetooth =
+      await this.backgroundApi.serviceSetting.getEnableDesktopBluetooth();
+
+    if (!enableDesktopBluetooth) {
+      console.log(
+        '🔍 detectBluetoothAvailability global Bluetooth is disabled: ',
+        enableDesktopBluetooth,
+      );
       return false;
     }
 

@@ -564,6 +564,12 @@ class ServiceSetting extends ServiceBase {
       enableDesktopBluetooth: value,
     }));
   }
+
+  @backgroundMethod()
+  public async getEnableDesktopBluetooth() {
+    const { enableDesktopBluetooth } = await settingsPersistAtom.get();
+    return enableDesktopBluetooth ?? false;
+  }
 }
 
 export default ServiceSetting;
