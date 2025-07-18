@@ -172,11 +172,11 @@ function WebModalNavigator({
   const stackChildrenRefList = useRef<TamaguiElement[]>([]);
 
   useLayoutEffect(() => {
-    const element = MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex];
-    if (element) {
-      (
-        element as HTMLElement
-      ).style.transform = `translateY(${screenHeight}px)`;
+    const element = MODAL_ANIMATED_VIEW_REF_LIST[
+      currentRouteIndex
+    ] as HTMLElement;
+    if (element && element.style.transform === '') {
+      element.style.transform = `translateY(${screenHeight}px)`;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

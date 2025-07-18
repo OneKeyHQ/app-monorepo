@@ -1,4 +1,11 @@
-import { useCallback, useLayoutEffect, useMemo } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CommonActions } from '@react-navigation/native';
@@ -21,6 +28,7 @@ import {
 } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSettingsConfig } from './config';
 import { SocialButtonGroup } from './CustomElement';
@@ -34,6 +42,7 @@ import type {
   BottomTabBarProps,
   BottomTabNavigationOptions,
 } from '@react-navigation/bottom-tabs';
+import type { TamaguiElement } from 'tamagui';
 
 const Tab = createBottomTabNavigator();
 
@@ -87,7 +96,8 @@ function TabItemView({
   return contentMemo;
 }
 
-function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
+const sideBarTestID = 'SettingsTabNavigatorSideBar';
+function BaseSideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { routes } = state;
   const { onSearch, onFocus, previousTabRoute } = useSearch();
   const tabs = useMemo(
@@ -127,9 +137,65 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   );
 
   const { top, bottom } = useSafeAreaInsets();
+  const ref = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    if (ref.current) {
+      console.log('ref.current', ref.current);
+      if (
+        ref.current.parentElement &&
+        ref.current.parentElement.style.display === 'none'
+      ) {
+        ref.current.parentElement.style.display = 'unset';
+      }
+    }
+    const element = ref.current?.parentElement;
+
+    // Monitor element display property changes
+    if (element) {
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (
+            mutation.type === 'attributes' &&
+            mutation.attributeName === 'style'
+          ) {
+            const target = mutation.target as HTMLElement;
+            if (target.style.display && target.style.display !== '') {
+              target.style.display = '';
+            }
+          }
+        });
+      });
+
+      observer.observe(element, {
+        attributes: true,
+        attributeFilter: ['style'],
+      });
+
+      // Return cleanup function for the observer
+      return () => {
+        // observer.disconnect();
+        // console.log('unmount');
+        // setTimeout(() => {
+        //   if (element) {
+        //     element.style.display = '';
+        //   }
+        // }, 0);
+      };
+    }
+    return () => {
+      console.log('unmount');
+      setTimeout(() => {
+        if (element) {
+          element.style.display = '';
+        }
+      }, 0);
+    };
+  }, []);
   return (
     <YStack
+      testID={sideBarTestID}
       w={192}
+      ref={ref}
       bg="$bgSubdued"
       pt={top}
       pb={bottom}
@@ -160,6 +226,8 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   );
 }
 
+const SideBar = memo(BaseSideBar);
+
 function SettingsTabNavigator() {
   const settingsConfig = useSettingsConfig();
   const tabScreens = useMemo(() => {
@@ -189,27 +257,71 @@ function SettingsTabNavigator() {
     });
     return items;
   }, [settingsConfig]);
-  const tabBarCallback = useCallback(
-    (props: BottomTabBarProps) => <SideBar {...props} />,
-    [],
-  );
-  return (
-    <Tab.Navigator
-      tabBar={tabBarCallback}
-      screenOptions={{
-        headerShown: false,
-        freezeOnBlur: false,
-        lazy: false,
-      }}
-    >
-      {tabScreens}
-    </Tab.Navigator>
-  );
+  const tabBarCallback = useCallback((props: BottomTabBarProps) => {
+    return <SideBar {...props} />;
+  }, []);
+  return useMemo(() => {
+    return (
+      <Tab.Navigator
+        detachInactiveScreens={false}
+        tabBar={tabBarCallback}
+        screenOptions={{
+          headerShown: false,
+          freezeOnBlur: false,
+          lazy: false,
+        }}
+      >
+        {tabScreens}
+      </Tab.Navigator>
+    );
+  }, [tabBarCallback, tabScreens]);
 }
+
+// Fix the issue where Suspense re-rendering injects display: none into the container
+// causing the page to flicker
+const usePreventFlicker = platformEnv.isNative
+  ? () => {}
+  : (isTabNavigator: boolean) => {
+      useEffect(() => {
+        if ('MutationObserver' in globalThis && isTabNavigator) {
+          const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+              if (
+                mutation.type === 'attributes' &&
+                mutation.attributeName === 'style'
+              ) {
+                const target = mutation.target as HTMLElement;
+                if (target.style.display && target.style.display !== '') {
+                  target.style.display = '';
+                }
+              }
+            });
+          });
+
+          setTimeout(() => {
+            const element = document.querySelector(
+              '[data-testid="sideBarTestID"]',
+            ) as HTMLElement;
+            if (element && element.parentElement) {
+              observer.observe(element.parentElement, {
+                attributes: true,
+                attributeFilter: ['style'],
+                childList: false,
+                subtree: false,
+              });
+            }
+          }, 0);
+          return () => {
+            observer.disconnect();
+          };
+        }
+      }, [isTabNavigator]);
+    };
 
 export default function SettingTab() {
   const isTabNavigator = useIsTabNavigator();
   const appNavigation = useAppNavigation();
+  usePreventFlicker(isTabNavigator);
   useLayoutEffect(() => {
     if (isTabNavigator) {
       appNavigation.setOptions({
