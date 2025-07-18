@@ -104,7 +104,7 @@
   "address_input.transferred_popover": "ตรวจพบการโอนก่อนหน้านี้ไปยังที่อยู่นี้ อย่าลืมตรวจสอบให้แน่ใจว่าเป็นที่อยู่ที่ต้องการ",
   "address_label.allowlist": "รายการอนุญาต",
   "address_type": "ประเภทที่อยู่",
-  "allowlist.enabled_popover_content": "คุณสามารถโอนเงินไปยังบัญชีภายในวอลเล็ตหรือไปยังที่อยู่ใดก็ได้ในสมุดที่อยู่เท่านั้น หากคุณเข้าใจความเสี่ยง คุณสามารถเปิดใช้งานได้ใน\n  <url>https://app.onekey.so/send/protection<underline>การตั้งค่า >> ความปลอดภัย >> การป้องกัน</underline></url>",
+  "allowlist.enabled_popover_content": "คุณสามารถโอนเงินไปยังบัญชีภายในวอลเล็ตหรือไปยังที่อยู่ใดก็ได้ในสมุดที่อยู่เท่านั้น หากคุณเข้าใจความเสี่ยง คุณสามารถเปิดใช้งานได้ใน <url>https://app.onekey.so/send/protection<underline>การตั้งค่า >> ความปลอดภัย >> การป้องกัน</underline></url>",
   "allowlist.enabled_popover_title": "อนุญาตให้ใช้ Allowlist",
   "approval_bulk_revoke_status_paused_reason_description": "เหตุผลที่ข้าม",
   "approval_bulk_revoke_status_processing": "กำลังดำเนินการ",

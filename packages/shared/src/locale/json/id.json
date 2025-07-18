@@ -104,7 +104,7 @@
   "address_input.transferred_popover": "Transfer sebelumnya ke alamat ini telah terdeteksi. Jangan lupa untuk memeriksa kembali untuk memastikan bahwa ini adalah alamat yang dimaksud.",
   "address_label.allowlist": "Daftar Izin",
   "address_type": "Jenis alamat",
-  "allowlist.enabled_popover_content": "Anda hanya dapat mentransfer dana ke akun di dalam dompet atau ke alamat mana pun di buku alamat. Jika Anda memahami risikonya, Anda dapat mengaktifkannya di\n  <url>https://app.onekey.so/send/protection<underline>Pengaturan >> Keamanan >> Perlindungan</underline></url>",
+  "allowlist.enabled_popover_content": "Anda hanya dapat mentransfer dana ke akun di dalam dompet atau ke alamat mana pun di buku alamat. Jika Anda memahami risikonya, Anda dapat mengaktifkannya di <url>https://app.onekey.so/send/protection<underline>Pengaturan >> Keamanan >> Perlindungan</underline></url>",
   "allowlist.enabled_popover_title": "Daftar diizinkan diaktifkan",
   "approval_bulk_revoke_status_paused_reason_description": "Alasan dilewati",
   "approval_bulk_revoke_status_processing": "Sedang memproses",

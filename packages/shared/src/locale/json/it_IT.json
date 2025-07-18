@@ -104,7 +104,7 @@
   "address_input.transferred_popover": "Trasferimenti precedenti a questo indirizzo sono stati rilevati. Non dimenticare di ricontrollare per assicurarti che sia l'indirizzo desiderato.",
   "address_label.allowlist": "Lista consentita",
   "address_type": "Tipo di indirizzo",
-  "allowlist.enabled_popover_content": "Puoi trasferire fondi solo a conti all'interno del portafoglio o a qualsiasi indirizzo nella rubrica. Se comprendi i rischi, puoi abilitarlo in\n  <url>https://app.onekey.so/send/protection<underline>Impostazioni >> Sicurezza >> Protezione</underline></url>",
+  "allowlist.enabled_popover_content": "Puoi trasferire fondi solo a conti all'interno del portafoglio o a qualsiasi indirizzo nella rubrica. Se comprendi i rischi, puoi abilitarlo in <url>https://app.onekey.so/send/protection<underline>Impostazioni >> Sicurezza >> Protezione</underline></url>",
   "allowlist.enabled_popover_title": "Allowlist abilitata",
   "approval_bulk_revoke_status_paused_reason_description": "Motivo del salto",
   "approval_bulk_revoke_status_processing": "Elaborazione in corso",
