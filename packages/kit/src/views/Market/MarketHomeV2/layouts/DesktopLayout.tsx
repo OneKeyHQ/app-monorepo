@@ -47,14 +47,6 @@ export function DesktopLayout({
         <MarketFilterBar {...filterBarProps} />
       </Stack>
 
-      <Stack px="$5" flex={1}>
-        <MarketTokenList
-          networkId={selectedNetworkId}
-          liquidityFilter={liquidityFilter}
-          key={`${selectedNetworkId}-${activeTab}`} // Force re-render when tab changes
-        />
-      </Stack>
-
       {shouldShowRecommendList ? (
         <Stack
           position="absolute"
@@ -73,7 +65,15 @@ export function DesktopLayout({
             networkId={selectedNetworkId}
           />
         </Stack>
-      ) : null}
+      ) : (
+        <Stack px="$5" flex={1}>
+          <MarketTokenList
+            networkId={selectedNetworkId}
+            liquidityFilter={liquidityFilter}
+            key={`${selectedNetworkId}-${activeTab}`} // Force re-render when tab changes
+          />
+        </Stack>
+      )}
     </>
   );
 }
