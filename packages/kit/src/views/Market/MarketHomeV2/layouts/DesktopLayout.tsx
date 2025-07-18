@@ -1,6 +1,10 @@
 import { Stack } from '@onekeyhq/components';
 
 import { MarketFilterBar } from '../components/MarketFilterBar';
+import {
+  MarketRecommendList,
+  mockRecommendedTokens,
+} from '../components/MarketRecommendList';
 import { MarketTokenList } from '../components/MarketTokenList';
 
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
@@ -37,6 +41,25 @@ export function DesktopLayout({
           networkId={selectedNetworkId}
           liquidityFilter={liquidityFilter}
           key={`${selectedNetworkId}-${activeTab}`} // Force re-render when tab changes
+        />
+      </Stack>
+
+      <Stack
+        position="absolute"
+        bottom={0}
+        top={0}
+        left={0}
+        right={0}
+        zIndex={1000}
+        display="flex"
+      >
+        <MarketRecommendList
+          recommendedTokens={mockRecommendedTokens}
+          maxSize={8}
+          enableSelection
+          showTitle
+          showAddButton
+          networkId={selectedNetworkId}
         />
       </Stack>
     </>
