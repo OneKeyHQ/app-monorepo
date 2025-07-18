@@ -26,7 +26,7 @@ export function useMarketWatchlistTokenList({
   watchlist,
   initialSortBy,
   initialSortType,
-  pageSize = 50,
+  pageSize = 100,
   minLiquidity,
   maxLiquidity,
 }: IUseMarketWatchlistTokenListParams) {

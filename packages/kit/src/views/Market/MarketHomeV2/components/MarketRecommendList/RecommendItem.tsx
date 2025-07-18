@@ -8,7 +8,6 @@ import {
   YStack,
   getSharedButtonStyles,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketTokenIcon } from '../../../components/MarketTokenIcon';
 
@@ -41,26 +40,29 @@ export function RecommendItem({
       flexGrow={1}
       flexBasis={0}
       justifyContent="space-between"
-      px={platformEnv.isExtensionUiPopup ? '$3' : '$4'}
-      py={platformEnv.isExtensionUiPopup ? '$1.5' : '$3.5'}
+      px="$4"
+      py="$2"
       borderRadius="$3"
+      {...sharedFrameStyles}
+      borderWidth={1}
+      borderColor="$neutral3"
       onPress={() => {
         onChange(!checked, address);
       }}
       ai="center"
-      {...sharedFrameStyles}
     >
       <XStack gap="$3" ai="center" flexShrink={1}>
-        <MarketTokenIcon uri={icon} size="lg" />
+        <MarketTokenIcon uri={icon} size="md" />
         <YStack flexShrink={1}>
           <SizableText size="$bodyLgMedium" numberOfLines={1}>
             {symbol.toUpperCase()}
           </SizableText>
           <SizableText
-            size="$bodyMd"
+            size="$bodySm"
             color="$textSubdued"
             flexShrink={1}
             numberOfLines={1}
+            maxWidth={120}
           >
             {tokenName}
           </SizableText>

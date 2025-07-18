@@ -1,4 +1,8 @@
 import { Stack } from '@onekeyhq/components';
+import {
+  useMarketWatchListV2Atom,
+  useShowWatchlistOnlyValue,
+} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
 import { MarketFilterBar } from '../components/MarketFilterBar';
 import {
@@ -30,6 +34,13 @@ export function DesktopLayout({
   liquidityFilter,
   activeTab,
 }: IDesktopLayoutProps) {
+  const [watchlistState] = useMarketWatchListV2Atom();
+  const [showWatchlistOnly] = useShowWatchlistOnlyValue();
+
+  const watchlistItems = watchlistState.data;
+  const isWatchlistEmpty = !watchlistItems || watchlistItems.length === 0;
+  const shouldShowRecommendList = showWatchlistOnly && isWatchlistEmpty;
+
   return (
     <>
       <Stack>
@@ -44,24 +55,25 @@ export function DesktopLayout({
         />
       </Stack>
 
-      <Stack
-        position="absolute"
-        bottom={0}
-        top={0}
-        left={0}
-        right={0}
-        zIndex={1000}
-        display="flex"
-      >
-        <MarketRecommendList
-          recommendedTokens={mockRecommendedTokens}
-          maxSize={8}
-          enableSelection
-          showTitle
-          showAddButton
-          networkId={selectedNetworkId}
-        />
-      </Stack>
+      {shouldShowRecommendList ? (
+        <Stack
+          position="absolute"
+          bottom={0}
+          top="20vh"
+          left={0}
+          right={0}
+          zIndex={1000}
+        >
+          <MarketRecommendList
+            recommendedTokens={mockRecommendedTokens}
+            maxSize={8}
+            enableSelection
+            showTitle
+            showAddButton
+            networkId={selectedNetworkId}
+          />
+        </Stack>
+      ) : null}
     </>
   );
 }

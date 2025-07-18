@@ -126,6 +126,7 @@ export function MarketRecommendList({
       <ScrollView
         contentContainerStyle={{ ai: 'center' }}
         px="$5"
+        display="flex"
         py={platformEnv.isExtensionUiPopup ? '$5' : '$8'}
       >
         {showTitle ? (
