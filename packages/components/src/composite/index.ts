@@ -1,4 +1,5 @@
 export * from './Banner';
+export * from './Carousel';
 export * from './Dialog';
 export * from './ImageCrop';
 export * from './Stepper';
