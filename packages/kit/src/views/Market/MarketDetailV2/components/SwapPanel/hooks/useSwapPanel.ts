@@ -13,7 +13,6 @@ export function useSwapPanel({
   const [paymentAmount, setPaymentAmount] = useState<BigNumber>(
     new BigNumber(0),
   );
-  const [antiMEV, setAntiMEV] = useState(true);
   const [paymentToken, setPaymentToken] = useState<IToken>();
   const [networkId, setNetworkId] = useState(initialNetworkId);
   const [slippage, setSlippage] = useState<number>(0.5);
@@ -24,10 +23,6 @@ export function useSwapPanel({
     }
   }, [initialNetworkId, setNetworkId]);
 
-  const handleAntiMEVToggle = useCallback(() => {
-    setAntiMEV((prev) => !prev);
-  }, []);
-
   return {
     paymentAmount,
     setPaymentAmount,
@@ -35,10 +30,6 @@ export function useSwapPanel({
     // For NetworkSelector
     networkId,
     setNetworkId,
-
-    // For AntiMEVToggle
-    handleAntiMEVToggle,
-    antiMEV,
 
     // For TokenInputSection
     paymentToken,
