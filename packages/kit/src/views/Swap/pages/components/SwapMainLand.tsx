@@ -663,6 +663,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     slippageItem,
     setSwapBuildTxFetching,
     parseQuoteResultToSteps,
+    setSwapShouldRefreshQuote,
   ]);
 
   return (
