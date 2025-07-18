@@ -143,18 +143,8 @@ export class HardwareConnectionManager {
       } finally {
         this.isRequestingBluetoothPermission = false;
         // Update state to show checking device step instead of calling showCheckingDeviceDialog
-        void hardwareUiStateAtom.set({
-          action: EHardwareUiStateAction.DeviceChecking,
+        void this.backgroundApi.serviceHardwareUI.showCheckingDeviceDialog({
           connectId: '',
-          payload: {
-            uiRequestType: EHardwareUiStateAction.DeviceChecking,
-            eventType: EHardwareUiStateAction.DeviceChecking,
-            deviceType: EDeviceType.Unknown,
-            deviceMode: EOneKeyDeviceMode.normal,
-            deviceId: '',
-            connectId: '',
-            rawPayload: {},
-          },
         });
       }
     }
