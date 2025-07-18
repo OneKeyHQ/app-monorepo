@@ -104,7 +104,7 @@
   "address_input.transferred_popover": "Des transferts précédents vers cette adresse ont été détectés. N'oubliez pas de vérifier deux fois pour vous assurer qu'il s'agit de l'adresse souhaitée.",
   "address_label.allowlist": "Liste d'autorisation",
   "address_type": "Type d'adresse",
-  "allowlist.enabled_popover_content": "Vous ne pouvez transférer des fonds qu'à des comptes dans le portefeuille ou à n'importe quelle adresse du carnet d'adresses. Si vous comprenez les risques, vous\n  pouvez l'activer dans <url>https://app.onekey.so/send/protection<underline>Paramètres >> Sécurité >> Protection</underline></url>",
+  "allowlist.enabled_popover_content": "Vous ne pouvez transférer des fonds qu'à des comptes dans le portefeuille ou à n'importe quelle adresse du carnet d'adresses. Si vous comprenez les risques, vous pouvez l'activer dans <url>https://app.onekey.so/send/protection<underline>Paramètres >> Sécurité >> Protection</underline></url>",
   "allowlist.enabled_popover_title": "Liste d'autorisation activée",
   "approval_bulk_revoke_status_paused_reason_description": "Raison du saut",
   "approval_bulk_revoke_status_processing": "En cours de traitement",

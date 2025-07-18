@@ -104,7 +104,7 @@
   "address_input.transferred_popover": "Se han detectado transferencias anteriores a esta dirección. No olvides verificar dos veces para asegurarte de que es la dirección deseada.",
   "address_label.allowlist": "Lista de permitidos",
   "address_type": "Tipo de dirección",
-  "allowlist.enabled_popover_content": "Solo puede transferir fondos a cuentas dentro de la billetera o a cualquier dirección en la libreta de direcciones. Si comprende los riesgos, puede habilitarlo en\n  <url>https://app.onekey.so/send/protection<underline>Configuración >> Seguridad >> Protección</underline></url>",
+  "allowlist.enabled_popover_content": "Solo puede transferir fondos a cuentas dentro de la billetera o a cualquier dirección en la libreta de direcciones. Si comprende los riesgos, puede habilitarlo en <url>https://app.onekey.so/send/protection<underline>Configuración >> Seguridad >> Protección</underline></url>",
   "allowlist.enabled_popover_title": "Lista de permitidos habilitada",
   "approval_bulk_revoke_status_paused_reason_description": "Motivo omitido",
   "approval_bulk_revoke_status_processing": "Procesando",

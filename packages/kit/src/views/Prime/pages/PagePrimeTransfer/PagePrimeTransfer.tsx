@@ -79,6 +79,7 @@ export default function PagePrimeTransfer() {
       Dialog.show({
         title: data.title,
         description: data.description,
+        showCancelButton: false,
       });
       navigation.popStack();
     };
