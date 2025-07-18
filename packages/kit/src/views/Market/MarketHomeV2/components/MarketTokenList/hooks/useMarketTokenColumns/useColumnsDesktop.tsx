@@ -178,7 +178,7 @@ export const useColumnsDesktop = (
       dataIndex: 'uniqueTraders',
       columnProps: { flex: 1 },
       render: (text: number) => (
-        <NumberSizeableText size="$bodyMd" formatter="balance">
+        <NumberSizeableText size="$bodyMd" formatter="marketCap">
           {text}
         </NumberSizeableText>
       ),
@@ -189,7 +189,7 @@ export const useColumnsDesktop = (
       dataIndex: 'holders',
       columnProps: { flex: 1 },
       render: (text: number) => (
-        <NumberSizeableText size="$bodyMd" formatter="balance">
+        <NumberSizeableText size="$bodyMd" formatter="marketCap">
           {text}
         </NumberSizeableText>
       ),
