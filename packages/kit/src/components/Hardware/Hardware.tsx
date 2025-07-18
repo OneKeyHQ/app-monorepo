@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
@@ -31,6 +31,7 @@ import {
   useForm,
   useMedia,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -823,6 +824,84 @@ export function ConfirmPassphrase({
       >
         {intl.formatMessage({ id: ETranslations.global_enter_on_device })}
       </Button>
+    </Stack>
+  );
+}
+
+export interface IDesktopBluetoothPermissionContentProps {
+  promiseId?: string;
+}
+
+export function DesktopBluetoothPermissionContent({
+  promiseId,
+}: IDesktopBluetoothPermissionContentProps) {
+  const intl = useIntl();
+  const retryCount = useRef(0);
+
+  useEffect(() => {
+    if (!promiseId) return;
+
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+    const callbackResult = (result: boolean) => {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+      }
+      // TODO: set isRequestedPermission to true
+      // await backgroundApiProxy.serviceSetting.setDesktopBluetoothAtom({
+      //   isRequestedPermission: true,
+      // });
+      void backgroundApiProxy.servicePromise.resolveCallback({
+        id: promiseId,
+        data: result,
+      });
+    };
+
+    // 轮询检查蓝牙状态
+    const checkBluetoothStatus = async () => {
+      retryCount.current += 1;
+      if (retryCount.current > 10) {
+        callbackResult(false);
+        return;
+      }
+      try {
+        // 检查蓝牙是否可用
+        const available =
+          await globalThis?.desktopApi?.nobleBle?.checkAvailability();
+        console.log(
+          'HardwareUiStateContent checkBluetoothStatus available -> :',
+          available,
+        );
+        if (available?.available) {
+          callbackResult(true);
+        }
+      } catch (error) {
+        console.error('Check bluetooth status error:', error);
+      }
+    };
+
+    pollTimer = setInterval(checkBluetoothStatus, 1000);
+
+    return () => {
+      clearInterval(pollTimer);
+    };
+  }, [promiseId]);
+
+  return (
+    <Stack gap="$4" padding="$4">
+      <Stack gap="$3" alignItems="center">
+        <Icon name="BluetoothOutline" size="$12" color="$iconInfo" />
+        <SizableText size="$bodyLgMedium" textAlign="center">
+          {intl.formatMessage({
+            id: ETranslations.hardware_bluetooth_requires_permission_error,
+          })}
+        </SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+          {intl.formatMessage({
+            id: ETranslations.hardware_bluetooth_need_turned_on_error,
+          })}
+        </SizableText>
+      </Stack>
     </Stack>
   );
 }

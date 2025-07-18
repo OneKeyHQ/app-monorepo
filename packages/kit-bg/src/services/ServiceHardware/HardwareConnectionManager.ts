@@ -6,6 +6,10 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { desktopBluetoothAtom } from '../../states/jotai/atoms/desktopBluetooth';
+import {
+  EHardwareUiStateAction,
+  hardwareUiStateAtom,
+} from '../../states/jotai/atoms/hardware';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
@@ -49,11 +53,49 @@ export class HardwareConnectionManager {
 
     if (!desktopBluetoothSettings.isRequestedPermission) {
       console.log(
-        '🔍 detectBluetoothAvailability desktopBluetoothSettings.isRequestedPermission -> :',
+        'HardwareConnectionManager detectBluetoothAvailability desktopBluetoothSettings.isRequestedPermission -> :',
         desktopBluetoothSettings.isRequestedPermission,
       );
-      // TODO: 如果未授权过，需要提示用户授权，只有用户同意的前提下，才允许使用蓝牙
-      return false;
+
+      // 使用 servicePromise 等待用户授权完成
+      const permissionResult = await new Promise<boolean>((resolve, reject) => {
+        const promiseId = this.backgroundApi.servicePromise.createCallback({
+          resolve,
+          reject,
+        });
+
+        // 触发桌面蓝牙权限对话框
+        void hardwareUiStateAtom.set({
+          action: EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION,
+          connectId: '', // 暂时为空，可以根据需要传入实际的 connectId
+          payload: {
+            uiRequestType:
+              EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION,
+            eventType: 'DESKTOP_REQUEST_BLUETOOTH_PERMISSION',
+            deviceType: 'Unknown' as any,
+            deviceId: '',
+            connectId: '',
+            deviceMode: 'normal' as any,
+            currentTransportType: EHardwareTransportType.DesktopWebBle,
+            promiseId: promiseId.toString(),
+            rawPayload: {},
+          },
+        });
+      });
+
+      // // 如果用户授权了，重新检查蓝牙可用性
+      // if (permissionResult) {
+      //   return this.detectBluetoothAvailability();
+      // }
+
+      console.log(
+        'HardwareConnectionManager detectBluetoothAvailability permissionResult -> :',
+        permissionResult,
+      );
+
+      if (!permissionResult) {
+        return false;
+      }
     }
 
     const enableDesktopBluetooth =
