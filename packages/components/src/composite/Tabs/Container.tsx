@@ -90,12 +90,21 @@ export function Container({
   }, [children]);
   const sharedTabNames = useSharedValue<string[]>(tabNames);
   const focusedTab = useSharedValue<string>(tabNames[0] || '');
+  const scrollTabElementDict = useMemo(() => {
+    return tabNames.reduce((acc, name) => {
+      acc[name] = {
+        element: null,
+        height: 0,
+      };
+      return acc;
+    }, {} as { [key: string]: { element: HTMLElement | null; height: number } });
+  }, [tabNames]);
   const scrollTabElementsRef = useRef<{
     [key: string]: {
-      element: HTMLElement;
-      height?: string;
+      element: HTMLElement | null;
+      height?: number;
     };
-  }>({});
+  }>(scrollTabElementDict);
   const contextValue = useMemo(
     () => ({ focusedTab, tabNames: sharedTabNames, scrollTabElementsRef }),
     [focusedTab, sharedTabNames],
@@ -122,7 +131,7 @@ export function Container({
         resizeObserverRef.current.disconnect();
       }
       const height =
-        scrollTabElementsRef.current?.[focusedTab.value]?.element.clientHeight;
+        scrollTabElementsRef.current?.[focusedTab.value]?.element?.clientHeight;
 
       if (height) {
         (
@@ -137,13 +146,17 @@ export function Container({
               ).style.maxHeight = `${entry.contentRect.height}px`;
             }
           });
-          resizeObserverRef.current.observe(
-            scrollTabElementsRef.current?.[focusedTab.value]?.element,
-          );
+          const element =
+            scrollTabElementsRef.current?.[focusedTab.value]?.element;
+          if (element) {
+            resizeObserverRef.current.observe(element);
+          }
         }, 100);
       } else {
         console.error(
-          `cannot update tab ${focusedTab.value} list container height: ${height}`,
+          `cannot update tab ${focusedTab.value} list container height: ${
+            height || 0
+          }`,
         );
         updateListContainerHeightTimerId.current = setTimeout(
           updateListContainerHeight,
