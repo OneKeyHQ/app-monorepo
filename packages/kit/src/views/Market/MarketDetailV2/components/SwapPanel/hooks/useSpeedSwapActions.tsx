@@ -77,7 +77,6 @@ export function useSpeedSwapActions(props: {
   const [speedSwapBuildTxLoading, setSpeedSwapBuildTxLoading] = useState(false);
   const [checkTokenAllowanceLoading, setCheckTokenAllowanceLoading] =
     useState(false);
-  console.log('swap__account', account);
   const [baseToken, setBaseToken] = useState<ISwapTokenBase | undefined>();
   const [fetchBalanceLoading, setFetchBalanceLoading] = useState(false);
   const [priceRate, setPriceRate] = useState<
@@ -99,7 +98,6 @@ export function useSpeedSwapActions(props: {
       networkId: marketToken?.networkId,
       deriveType: account?.deriveType ?? 'default',
     });
-    console.log('swap__netAccountRes', res);
     return res;
   }, [account, marketToken?.networkId]);
   const { navigationToTxConfirm } = useSignatureConfirm({
