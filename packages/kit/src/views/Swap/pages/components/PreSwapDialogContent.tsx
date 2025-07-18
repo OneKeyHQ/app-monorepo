@@ -3,6 +3,7 @@ import { useEffect, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, Divider, SizableText, YStack } from '@onekeyhq/components';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSwapStepsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -19,7 +20,6 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { useActiveAccount } from '../../../../states/jotai/contexts/accountSelector';
 import PreSwapConfirmResult from '../../components/PreSwapConfirmResult';
 import PreSwapInfoGroup from '../../components/PreSwapInfoGroup';
 import PreSwapStep from '../../components/PreSwapStep';
