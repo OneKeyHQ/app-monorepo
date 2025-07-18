@@ -46,9 +46,8 @@ export function Carousel<T>({
     currentPage.current = previousPage;
   }, [currentPage, data.length]);
   const scrollToNextPage = useCallback(() => {
-    console.log('scrollToNextPage', currentPage.current);
     const nextPage =
-      currentPage.current < data.length ? currentPage.current + 1 : 0;
+      currentPage.current < data.length - 1 ? currentPage.current + 1 : 0;
     pagerRef.current?.setPage(nextPage);
     currentPage.current = nextPage;
   }, [data.length, currentPage]);
