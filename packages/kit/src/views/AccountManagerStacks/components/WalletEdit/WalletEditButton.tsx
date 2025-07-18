@@ -80,7 +80,7 @@ function WalletEditButtonView({
       return false;
     }
 
-    if (wallet?.deprecated || !wallet?.backuped) {
+    if (wallet?.deprecated || !wallet?.backuped || wallet.isMocked) {
       return false;
     }
 

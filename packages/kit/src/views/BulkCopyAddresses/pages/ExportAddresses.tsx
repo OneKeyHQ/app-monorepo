@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Badge,
   Button,
   type IPageScreenProps,
   Page,
@@ -20,6 +21,7 @@ import type {
   EModalBulkCopyAddressesRoutes,
   IModalBulkCopyAddressesParamList,
 } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import csvExporterUtils from '@onekeyhq/shared/src/utils/csvExporterUtils';
 
 import { useAccountData } from '../../../hooks/useAccountData';
@@ -35,8 +37,13 @@ function ExportAddresses({
   const { copyText } = useClipboard();
   const [isExporting, setIsExporting] = useState(false);
 
-  const { networkAccountsByDeriveType, walletId, networkId, parentWalletName } =
-    route.params;
+  const {
+    networkAccountsByDeriveType,
+    walletId,
+    networkId,
+    parentWalletName,
+    exportWithoutDevice,
+  } = route.params;
 
   const { wallet, network } = useAccountData({ walletId, networkId });
 
@@ -131,6 +138,7 @@ function ExportAddresses({
         .map((item) => item.address?.trim() || '')
         .filter((address) => address)
         .join('\n'),
+      ETranslations.global_bulk_copy_addresses_addresses_copied,
     );
   }, [addressesData, copyText]);
 
@@ -199,7 +207,21 @@ function ExportAddresses({
           id: ETranslations.global_export_addresses,
         })}
       />
-      <Page.Body p="$5">{renderAddresses()}</Page.Body>
+      <Page.Body p="$5">
+        {accountUtils.isHwWallet({ walletId: walletId ?? '' }) &&
+        exportWithoutDevice ? (
+          <XStack mb="$3">
+            <Badge badgeSize="sm" badgeType="critical">
+              <Badge.Text>
+                {intl.formatMessage({
+                  id: ETranslations.receive_address_unconfirmed_alert_message,
+                })}
+              </Badge.Text>
+            </Badge>
+          </XStack>
+        ) : null}
+        {renderAddresses()}
+      </Page.Body>
       <Page.Footer>
         <XStack
           p="$5"

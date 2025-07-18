@@ -55,6 +55,7 @@ export type IBatchBuildAccountsBaseParams = {
   deriveType: IAccountDeriveTypes;
   showUIProgress?: boolean;
   createAllDeriveTypes?: boolean;
+  errorMessage?: string;
 } & IWithHardwareProcessingControlParams;
 export type IBatchBuildAccountsParams = IBatchBuildAccountsBaseParams & {
   indexes: number[];
@@ -248,6 +249,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             this.checkIfCancelled({
               saveToDb,
               showUIProgress: payload.params.showUIProgress,
+              errorMessage: payload.params.errorMessage,
             });
             const resp = await this.batchBuildAccounts({
               ...payload.params,
@@ -916,15 +918,18 @@ class ServiceBatchCreateAccount extends ServiceBase {
   checkIfCancelled({
     saveToDb,
     showUIProgress,
+    errorMessage,
   }: {
     saveToDb: boolean | undefined;
     showUIProgress?: boolean;
+    errorMessage?: string;
   }) {
     if ((saveToDb || showUIProgress) && this.isCreateFlowCancelled) {
       throw new OneKeyLocalError(
-        appLocale.intl.formatMessage({
-          id: ETranslations.global_bulk_accounts_loading_error,
-        }),
+        errorMessage ||
+          appLocale.intl.formatMessage({
+            id: ETranslations.global_bulk_accounts_loading_error,
+          }),
       );
     }
   }
@@ -995,6 +1000,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     showUIProgress,
     hwAllNetworkPrepareAccountsResponse,
     isVerifyAddressAction,
+    errorMessage,
   }: IBatchBuildAccountsParams): Promise<{
     accountsForCreate: IBatchCreateAccount[];
   }> {
@@ -1030,7 +1036,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       key: string;
       accountForCreate: IBatchCreateAccount;
     }) => {
-      this.checkIfCancelled({ saveToDb, showUIProgress });
+      this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
       await this.updateAccountExistsInDb({ account: accountForCreate });
       if (saveToCache) {
         this.networkAccountsCache[key] = accountForCreate;
@@ -1038,7 +1044,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       accountsForCreate.push(accountForCreate);
       if (saveToDb) {
         if (!accountForCreate.existsInDb) {
-          this.checkIfCancelled({ saveToDb, showUIProgress });
+          this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
           await this.backgroundApi.serviceAccount.addBatchCreatedHdOrHwAccount({
             walletId,
             networkId,
@@ -1068,7 +1074,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     // for loop indexes
     for (const index of indexes) {
       try {
-        this.checkIfCancelled({ saveToDb, showUIProgress });
+        this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
         if (excludedIndexes?.[index] === true) {
           // eslint-disable-next-line no-continue
           continue;
@@ -1081,7 +1087,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         });
         const cacheAccount = this.networkAccountsCache[key];
         if (cacheAccount && saveToCache) {
-          this.checkIfCancelled({ saveToDb, showUIProgress });
+          this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
           await processAccountForCreateFn({
             key,
             accountForCreate: cacheAccount,
@@ -1105,7 +1111,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       for (let i = 0; i < indexesChunks.length; i += 1) {
         const indexesForRebuildChunk = indexesChunks[i];
         try {
-          this.checkIfCancelled({ saveToDb, showUIProgress });
+          this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
           defaultLogger.account.batchCreatePerf.prepareHdOrHwAccounts();
 
           const { vault, accounts } =
@@ -1133,7 +1139,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
           const networkInfo = await vault.getNetworkInfo();
           for (const account of accounts) {
             try {
-              this.checkIfCancelled({ saveToDb, showUIProgress });
+              this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
               if (isNil(account.pathIndex)) {
                 throw new OneKeyLocalError(
                   'batchBuildNetworkAccounts ERROR: pathIndex is required',
@@ -1149,7 +1155,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
                 deriveType,
                 index: account.pathIndex,
               });
-              this.checkIfCancelled({ saveToDb, showUIProgress });
+              this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
 
               defaultLogger.account.batchCreatePerf.buildAccountAddressDetail();
 
@@ -1169,7 +1175,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
                   '',
               };
 
-              this.checkIfCancelled({ saveToDb, showUIProgress });
+              this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
 
               defaultLogger.account.batchCreatePerf.processAccountForCreate();
               await processAccountForCreateFn({
