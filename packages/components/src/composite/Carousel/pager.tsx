@@ -1,4 +1,10 @@
-import { Children, useImperativeHandle, useMemo, useRef } from 'react';
+import {
+  Children,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { ScrollView } from 'react-native';
 
@@ -33,20 +39,27 @@ export function PagerView({
     } as any);
   };
 
+  const getSafePageIndex = useCallback(
+    (page: number) => {
+      return Math.max(0, Math.min(page, pageSize - 1));
+    },
+    [pageSize],
+  );
+
   useImperativeHandle(
     ref,
     () =>
       ({
         setPage: (page: number) => {
           scrollViewRef.current?.scrollTo({
-            x: (page >= pageSize ? 0 : page) * width,
+            x: getSafePageIndex(page) * width,
             y: 0,
             animated: true,
           });
         },
         setPageWithoutAnimation: (page: number) => {
           scrollViewRef.current?.scrollTo({
-            x: page * width,
+            x: getSafePageIndex(page) * width,
             y: 0,
             animated: false,
           });
