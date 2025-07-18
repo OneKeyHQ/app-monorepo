@@ -382,6 +382,8 @@ class ServiceAccountProfile extends ServiceBase {
             });
           result.addressBookId = addressBookItem?.id;
           result.isAllowListed = addressBookItem?.isAllowListed;
+          result.addressNote = addressBookItem?.note;
+          result.addressMemo = addressBookItem?.memo;
           if (addressBookItem?.name) {
             result.addressBookName = `${appLocale.intl.formatMessage({
               id: ETranslations.global_contact,
