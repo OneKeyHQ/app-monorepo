@@ -69,7 +69,6 @@ export function useSwapQuote() {
   const [swapQuoteEventTotalCount, setSwapQuoteEventTotalCount] =
     useSwapQuoteEventTotalCountAtom();
   const [swapQuoteFetching] = useSwapQuoteFetchingAtom();
-  const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
   const [swapShouldRefresh] = useSwapShouldRefreshQuoteAtom();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
 
@@ -133,12 +132,6 @@ export function useSwapQuote() {
   >(undefined);
   if (activeAccountRef.current !== swapAddressInfo) {
     activeAccountRef.current = swapAddressInfo;
-  }
-  const swapApprovingTxRef = useRef<ISwapApproveTransaction | undefined>(
-    undefined,
-  );
-  if (swapApprovingTxRef.current !== swapApprovingTransaction) {
-    swapApprovingTxRef.current = swapApprovingTransaction;
   }
   const fromAmountDebounce = useDebounce(fromTokenAmount, 500, {
     leading: true,

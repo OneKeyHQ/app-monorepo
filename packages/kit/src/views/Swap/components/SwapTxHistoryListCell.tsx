@@ -113,11 +113,11 @@ const SwapTxHistoryListCell = ({
     () => (
       <XStack alignItems="center" gap="$1" flex={1} flexWrap="wrap">
         <SizableText size="$bodyLgMedium" flexShrink={1} numberOfLines={1}>
-          {item.baseInfo.fromToken.symbol.toUpperCase()}
+          {item.baseInfo?.fromToken?.symbol?.toUpperCase() ?? ''}
         </SizableText>
         <Icon name="ArrowRightOutline" size="$5" color="$iconSubdued" />
         <SizableText size="$bodyLgMedium" flexShrink={1} numberOfLines={1}>
-          {item.baseInfo.toToken.symbol.toUpperCase()}
+          {item.baseInfo?.toToken?.symbol?.toUpperCase() ?? ''}
         </SizableText>
       </XStack>
     ),
@@ -160,7 +160,7 @@ const SwapTxHistoryListCell = ({
               {item.baseInfo.toAmount}
             </NumberSizeableText>{' '}
             <SizableText color="$textSuccess">
-              {item.baseInfo.toToken.symbol.toUpperCase()}
+              {item.baseInfo?.toToken?.symbol?.toUpperCase() ?? ''}
             </SizableText>
           </SizableText>
         }
@@ -178,7 +178,7 @@ const SwapTxHistoryListCell = ({
               {fromTokenAmountFinal}
             </NumberSizeableText>{' '}
             <SizableText size="$bodyMd" color="$textSubdued">
-              {item.baseInfo.fromToken.symbol.toUpperCase()}
+              {item.baseInfo?.fromToken?.symbol?.toUpperCase() ?? ''}
             </SizableText>
           </SizableText>
         }
