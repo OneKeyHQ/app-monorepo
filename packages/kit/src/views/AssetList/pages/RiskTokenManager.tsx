@@ -61,8 +61,13 @@ function RiskTokenManager() {
   const { tokens, map: tokenMap } = tokenList;
 
   const originalUnblockedTokens = useRef('');
+  const originalBlockedTokens = useRef('');
 
   const [unblockedTokensMap, setUnblockedTokensMap] = useState<
+    Record<string, Record<string, boolean>>
+  >({});
+
+  const [blockedTokensMap, setBlockedTokensMap] = useState<
     Record<string, Record<string, boolean>>
   >({});
 
@@ -78,9 +83,10 @@ function RiskTokenManager() {
         variant="tertiary"
         onPress={() => {
           if (isEditing) {
-            void backgroundApiProxy.serviceToken.updateUnblockedTokens(
-              unblockedTokensMap,
-            );
+            void backgroundApiProxy.serviceToken.updateRiskTokensState({
+              unblockedTokens: unblockedTokensMap,
+              blockedTokens: blockedTokensMap,
+            });
           }
           setIsEditing((prev) => !prev);
         }}
@@ -90,7 +96,7 @@ function RiskTokenManager() {
         })}
       </Button>
     );
-  }, [intl, isEditing, unblockedTokensMap]);
+  }, [intl, isEditing, unblockedTokensMap, blockedTokensMap]);
 
   const { result: sectionListData } = usePromiseResult(
     async () => {
@@ -159,21 +165,33 @@ function RiskTokenManager() {
 
   const handleOnClose = useCallback(() => {
     const currentUnblockedTokens = JSON.stringify(unblockedTokensMap);
-    if (currentUnblockedTokens !== originalUnblockedTokens.current) {
+    const currentBlockedTokens = JSON.stringify(blockedTokensMap);
+    if (
+      currentUnblockedTokens !== originalUnblockedTokens.current ||
+      currentBlockedTokens !== originalBlockedTokens.current
+    ) {
       appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
     }
-  }, [unblockedTokensMap]);
+  }, [unblockedTokensMap, blockedTokensMap]);
 
   useEffect(() => {
-    const fetchUnblockedTokens = async () => {
-      const resp = await backgroundApiProxy.serviceToken.getUnblockedTokens({
-        networkId,
-      });
-      originalUnblockedTokens.current = JSON.stringify(resp);
-      setUnblockedTokensMap(resp);
+    const fetchRiskTokens = async () => {
+      // promise all
+      const [unblockedTokens, blockedTokens] = await Promise.all([
+        backgroundApiProxy.serviceToken.getUnblockedTokens({
+          networkId,
+        }),
+        backgroundApiProxy.serviceToken.getBlockedTokens({
+          networkId,
+        }),
+      ]);
+      setUnblockedTokensMap(blockedTokens);
+      setBlockedTokensMap(unblockedTokens);
+      originalUnblockedTokens.current = JSON.stringify(unblockedTokens);
+      originalBlockedTokens.current = JSON.stringify(blockedTokens);
     };
 
-    void fetchUnblockedTokens();
+    void fetchRiskTokens();
   }, [networkId]);
 
   useEffect(() => {
@@ -193,6 +211,13 @@ function RiskTokenManager() {
         [tokenNetworkId]: {
           ...prev[tokenNetworkId],
           [tokenAddress]: !!token.isBlocked,
+        },
+      }));
+      setBlockedTokensMap((prev) => ({
+        ...prev,
+        [tokenNetworkId]: {
+          ...prev[tokenNetworkId],
+          [tokenAddress]: !token.isBlocked,
         },
       }));
       Toast.success({

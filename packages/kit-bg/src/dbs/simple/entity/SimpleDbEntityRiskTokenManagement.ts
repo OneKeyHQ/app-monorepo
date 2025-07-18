@@ -5,6 +5,7 @@ import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface IRiskTokenManagement {
   unblockedTokens: Record<string, Record<string, boolean>>; // <networkId, Record<tokenAddress, boolean>>
+  blockedTokens: Record<string, Record<string, boolean>>; // <networkId, Record<tokenAddress, boolean>>
 }
 
 export class SimpleDbEntityRiskTokenManagement extends SimpleDbEntityBase<IRiskTokenManagement> {
@@ -26,15 +27,40 @@ export class SimpleDbEntityRiskTokenManagement extends SimpleDbEntityBase<IRiskT
   }
 
   @backgroundMethod()
-  async getUnblockedTokensInAllNetworks() {
+  async getBlockedTokens({ networkId }: { networkId: string }) {
     const rawData = await this.getRawData();
-    return rawData?.unblockedTokens ?? {};
+
+    if (networkUtils.isAllNetwork({ networkId })) {
+      return rawData?.blockedTokens ?? {};
+    }
+
+    return {
+      [networkId]: rawData?.blockedTokens?.[networkId] ?? {},
+    };
   }
 
   @backgroundMethod()
-  async updateUnblockedTokens(data: Record<string, Record<string, boolean>>) {
+  async updateRiskTokensState({
+    blockedTokens,
+    unblockedTokens,
+  }: {
+    blockedTokens: Record<string, Record<string, boolean>>;
+    unblockedTokens: Record<string, Record<string, boolean>>;
+  }) {
     // merge each network's unblocked tokens
-    const mergedData = Object.entries(data).reduce(
+    const mergedUnblockedTokens = Object.entries(unblockedTokens).reduce(
+      (acc, [networkId, tokens]) => {
+        acc[networkId] = {
+          ...(acc[networkId] ?? {}),
+          ...tokens,
+        };
+        return acc;
+      },
+      {} as Record<string, Record<string, boolean>>,
+    );
+
+    // merge each network's blocked tokens
+    const mergedBlockedTokens = Object.entries(blockedTokens).reduce(
       (acc, [networkId, tokens]) => {
         acc[networkId] = {
           ...(acc[networkId] ?? {}),
@@ -48,7 +74,11 @@ export class SimpleDbEntityRiskTokenManagement extends SimpleDbEntityBase<IRiskT
     await this.setRawData((rawData) => ({
       unblockedTokens: {
         ...rawData?.unblockedTokens,
-        ...mergedData,
+        ...mergedUnblockedTokens,
+      },
+      blockedTokens: {
+        ...rawData?.blockedTokens,
+        ...mergedBlockedTokens,
       },
     }));
   }

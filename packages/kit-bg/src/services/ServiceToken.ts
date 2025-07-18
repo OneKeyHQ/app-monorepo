@@ -715,11 +715,25 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async updateUnblockedTokens(
-    data: Record<string, Record<string, boolean>>,
-  ) {
-    return this.backgroundApi.simpleDb.riskTokenManagement.updateUnblockedTokens(
-      data,
+  public async getBlockedTokens({ networkId }: { networkId: string }) {
+    return this.backgroundApi.simpleDb.riskTokenManagement.getBlockedTokens({
+      networkId,
+    });
+  }
+
+  @backgroundMethod()
+  public async updateRiskTokensState({
+    blockedTokens,
+    unblockedTokens,
+  }: {
+    blockedTokens: Record<string, Record<string, boolean>>;
+    unblockedTokens: Record<string, Record<string, boolean>>;
+  }) {
+    return this.backgroundApi.simpleDb.riskTokenManagement.updateRiskTokensState(
+      {
+        blockedTokens,
+        unblockedTokens,
+      },
     );
   }
 }
