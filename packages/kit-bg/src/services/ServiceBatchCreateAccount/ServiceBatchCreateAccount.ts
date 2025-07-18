@@ -234,6 +234,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         this.progressInfo = this.buildProgressInfo({
           indexes,
           excludedIndexes,
+          progressTotalCount: hwAllNetworkPrepareAccountsResponse?.length,
         });
 
         const result: {
@@ -957,14 +958,17 @@ class ServiceBatchCreateAccount extends ServiceBase {
   buildProgressInfo({
     indexes,
     excludedIndexes,
+    progressTotalCount,
   }: {
     indexes: number[];
     excludedIndexes?: {
       [index: number]: true;
     };
+    progressTotalCount?: number;
   }): IBatchCreateAccountProgressInfo {
     const totalCount = indexes.length;
     const progressTotal =
+      progressTotalCount ??
       totalCount - Object.values(excludedIndexes || {}).filter(Boolean).length;
     const progressCurrent = 0;
     const createdCount = 0;
