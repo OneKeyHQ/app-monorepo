@@ -410,7 +410,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
                 },
                 {
                   token: fromSelectToken?.symbol,
-                  target: quoteRes.info.providerName,
                 },
               ),
             ),
