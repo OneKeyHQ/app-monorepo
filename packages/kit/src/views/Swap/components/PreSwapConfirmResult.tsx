@@ -70,85 +70,81 @@ const PreSwapConfirmResult = ({ lastStep }: IPreSwapConfirmResultProps) => {
     });
   }, [lastStep.status, intl]);
   return (
-    <YStack alignItems="center" justifyContent="center" gap="$4">
-      {lastStep.status === ESwapStepStatus.SUCCESS ? (
-        <LottieView
-          ref={ref}
-          width="$26"
-          height="$26"
-          autoPlay
-          loop={false}
-          source={require('@onekeyhq/kit/assets/animations/lottie_send_success_feedback.json')}
-        />
-      ) : (
-        <>
-          {lastStep.status === ESwapStepStatus.FAILED ? (
-            <Image
-              width={120}
-              height={120}
-              source={require('@onekeyhq/kit/assets/preSwapStepFailed.png')}
-            />
-          ) : (
-            <Image
-              source={require('@onekeyhq/kit/assets/preSwapPending.png')}
-              width={120}
-              height={120}
-            />
-          )}
-        </>
-      )}
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {statusText}
-      </SizableText>
-      {lastStep.status === ESwapStepStatus.FAILED ? (
-        <SizableText size="$bodySm" color="$textSubdued">
-          {lastStep.errorMessage ?? ''}
-        </SizableText>
-      ) : null}
-      {lastStep.txHash ? (
-        <XStack
-          onPress={handleViewOnExplorer}
-          cursor="pointer"
-          alignItems="center"
-          justifyContent="center"
-          paddingVertical="$1"
-          paddingHorizontal="$2"
-          borderRadius="$1"
-          backgroundColor="$bgHover"
-          opacity={explorerUrl ? 1 : 0.5}
-        >
-          <SizableText
-            size="$bodySm"
-            color="$textInteractive"
-            textDecorationLine="underline"
-          >
-            {intl.formatMessage({
-              id: ETranslations.swap_history_detail_view_in_browser,
-            })}
-            ({truncateMiddle(lastStep.txHash, 6, 4)})
+    <YStack alignItems="center" justifyContent="flex-end" h={300} flex={1}>
+      <YStack justifyContent="center" alignItems="center" gap="$4" flex={1}>
+        {lastStep.status === ESwapStepStatus.SUCCESS ? (
+          <Image
+            width={110}
+            height={110}
+            source={require('@onekeyhq/kit/assets/preSwapStepSuccess.png')}
+          />
+        ) : (
+          <>
+            {lastStep.status === ESwapStepStatus.FAILED ? (
+              <Image
+                width={110}
+                height={110}
+                source={require('@onekeyhq/kit/assets/preSwapStepFailed.png')}
+              />
+            ) : (
+              <Image
+                source={require('@onekeyhq/kit/assets/preSwapPending.png')}
+                width={110}
+                height={110}
+              />
+            )}
+          </>
+        )}
+        <YStack gap="$2" alignItems="center" justifyContent="center">
+          <SizableText size="$bodyLg" color="$text">
+            {statusText}
           </SizableText>
-        </XStack>
-      ) : null}
+          {lastStep.status === ESwapStepStatus.FAILED ? (
+            <SizableText size="$bodySm" color="$textSubdued">
+              {lastStep.errorMessage ?? ''}
+            </SizableText>
+          ) : null}
+          {lastStep.txHash ? (
+            <XStack
+              onPress={handleViewOnExplorer}
+              cursor="pointer"
+              alignItems="center"
+              justifyContent="center"
+              opacity={explorerUrl ? 1 : 0.5}
+            >
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                hoverStyle={{
+                  color: '$text',
+                }}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.swap_history_detail_view_in_browser,
+                })}
+                {` (${truncateMiddle(lastStep.txHash, 6, 4)})`}
+              </SizableText>
+            </XStack>
+          ) : null}
+        </YStack>
+      </YStack>
       {lastStep.data?.supportUrl &&
       lastStep.status === ESwapStepStatus.FAILED ? (
-        <XStack
-          alignItems="center"
-          justifyContent="center"
-          paddingVertical="$1"
-          paddingHorizontal="$2"
-          mt="$4"
-          borderRadius="$1"
-          backgroundColor="$bgHover"
-        >
-          <SizableText size="$bodySm" color="$textInteractive">
+        <XStack alignItems="center" justifyContent="center">
+          <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.swap_review_tx_failed_1,
             })}
           </SizableText>
           <SizableText
             size="$bodySm"
-            color="$textInteractive"
+            hoverStyle={{
+              color: '$text',
+            }}
             textDecorationLine="underline"
+            textDecorationColor="$textSubdued"
+            textDecorationStyle="dotted"
+            color="$textSubdued"
             cursor="pointer"
             onPress={() => openUrlExternal(lastStep.data?.supportUrl ?? '')}
           >
