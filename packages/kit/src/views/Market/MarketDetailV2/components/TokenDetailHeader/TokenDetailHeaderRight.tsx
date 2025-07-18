@@ -85,6 +85,8 @@ export function TokenDetailHeaderRight({
     );
   }
 
+  console.log('priceChange24hPercent', priceChange24hPercent);
+
   return (
     <XStack gap="$6" ai="center">
       {/* Price and Price Change */}
