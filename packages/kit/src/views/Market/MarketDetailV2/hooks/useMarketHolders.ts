@@ -75,7 +75,6 @@ export function useMarketHolders({
 
   return {
     holders: holdersData?.list || [],
-    holdersData,
     fetchHolders,
     isRefreshing,
     onRefresh,
