@@ -54,7 +54,7 @@ export const useColumnsDesktop = (
     {
       title: intl.formatMessage({ id: ETranslations.global_name }),
       dataIndex: 'name',
-      columnWidth: 230,
+      columnWidth: 200,
       render: (_, record) => (
         <TokenIdentityItem
           tokenLogoURI={record.tokenImageUri}
@@ -142,6 +142,21 @@ export const useColumnsDesktop = (
       renderSkeleton: () => <Skeleton width={100} height={16} />,
     },
     {
+      title: intl.formatMessage({ id: ETranslations.dexmarket_turnover }),
+      dataIndex: 'turnover',
+      columnProps: { flex: 1.1 },
+      render: (text: number) => (
+        <NumberSizeableText
+          size="$bodyMd"
+          formatter="marketCap"
+          formatterOptions={{ currency }}
+        >
+          {text}
+        </NumberSizeableText>
+      ),
+      renderSkeleton: () => <Skeleton width={100} height={16} />,
+    },
+    {
       title: intl.formatMessage({ id: ETranslations.dexmarket_txns }),
       dataIndex: 'transactions',
       columnProps: { flex: 1 },
@@ -179,21 +194,6 @@ export const useColumnsDesktop = (
         </NumberSizeableText>
       ),
       renderSkeleton: () => <Skeleton width={60} height={16} />,
-    },
-    {
-      title: intl.formatMessage({ id: ETranslations.dexmarket_turnover }),
-      dataIndex: 'turnover',
-      columnProps: { flex: 1.1 },
-      render: (text: number) => (
-        <NumberSizeableText
-          size="$bodyMd"
-          formatter="value"
-          formatterOptions={{ currency }}
-        >
-          {text}
-        </NumberSizeableText>
-      ),
-      renderSkeleton: () => <Skeleton width={100} height={16} />,
     },
   ];
 };
