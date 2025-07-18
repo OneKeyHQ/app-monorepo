@@ -142,7 +142,7 @@ function ProcessingDialogContent({
           w="100%"
           maxWidth="$80"
         >
-          {isDone ? (
+          {isDone && !isError && !isCancelled ? (
             <Icon name="CheckRadioSolid" size="$12" color="$iconSuccess" />
           ) : null}
 
