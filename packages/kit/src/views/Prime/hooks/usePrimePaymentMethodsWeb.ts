@@ -8,9 +8,12 @@ import { Toast } from '@onekeyhq/components';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
+
+import purchaseSdkUtils from '../purchasesSdk/purchaseSdkUtils';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 import primePaymentUtils from './primePaymentUtils';
@@ -185,7 +188,9 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
         const purchaseParams: PurchaseParams = {
           rcPackage: paywallPackage,
           customerEmail: email,
-          selectedLocale: locale,
+          selectedLocale: purchaseSdkUtils.convertToRevenuecatLocale({
+            locale: locale as ILocaleJSONSymbol,
+          }),
         };
         // TODO check package user is Matched to id
         // TODO check if user has already purchased

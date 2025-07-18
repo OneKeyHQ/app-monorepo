@@ -214,8 +214,19 @@ export default function PrimeDashboard({
   const [isSubscribeLazyLoading, setIsSubscribeLazyLoading] = useState(false);
   const isSubscribeLazyLoadingRef = useRef(isSubscribeLazyLoading);
   isSubscribeLazyLoadingRef.current = isSubscribeLazyLoading;
+
+  const subscribeButtonEnabled = useMemo(() => {
+    if (!isLoggedIn) {
+      return true;
+    }
+    if (packages?.length) {
+      return true;
+    }
+    return false;
+  }, [isLoggedIn, packages?.length]);
+
   const subscribe = useCallback(async () => {
-    if (packages?.length === 0) {
+    if (!subscribeButtonEnabled) {
       return;
     }
     if (isSubscribeLazyLoadingRef.current) {
@@ -235,8 +246,8 @@ export default function PrimeDashboard({
     });
   }, [
     ensurePrimeSubscriptionActive,
-    packages?.length,
     selectedSubscriptionPeriod,
+    subscribeButtonEnabled,
   ]);
 
   const isLoggedInMaybe =
@@ -379,7 +390,7 @@ export default function PrimeDashboard({
                     shouldShowConfirmButton
                       ? {
                           loading: isSubscribeLazyLoading,
-                          disabled: packages?.length === 0,
+                          disabled: !subscribeButtonEnabled,
                         }
                       : undefined
                   }
