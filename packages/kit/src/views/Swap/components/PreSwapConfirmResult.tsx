@@ -96,7 +96,7 @@ const PreSwapConfirmResult = ({ lastStep }: IPreSwapConfirmResultProps) => {
           </>
         )}
         <YStack gap="$2" alignItems="center" justifyContent="center">
-          <SizableText size="$bodyLg" color="$text">
+          <SizableText size="$headingLg" color="$text">
             {statusText}
           </SizableText>
           {lastStep.status === ESwapStepStatus.FAILED ? (
@@ -161,9 +161,18 @@ const PreSwapConfirmResult = ({ lastStep }: IPreSwapConfirmResultProps) => {
       ) : null}
       {lastStep.status === ESwapStepStatus.PENDING ? (
         <XStack alignItems="center" justifyContent="center" mt="$4">
-          <SizableText size="$bodySm" color="$textInteractive">
+          <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.swap_review_tx_pending,
+            })}
+          </SizableText>
+        </XStack>
+      ) : null}
+      {lastStep.status === ESwapStepStatus.SUCCESS ? (
+        <XStack alignItems="center" justifyContent="center" mt="$4">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.swap_review_tx_success,
             })}
           </SizableText>
         </XStack>
