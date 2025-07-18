@@ -57,6 +57,7 @@ import {
   BiologyAuthListItem,
   CleanDataListItem,
   CurrencyListItem,
+  DesktopBluetoothListItem,
   HardwareTransportTypeListItem,
   LanguageListItem,
   ListVersionItem,
@@ -250,6 +251,18 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   ) => {
                     navigation?.push(EModalSettingRoutes.SettingNotifications);
                   },
+                }
+              : undefined,
+          ],
+          [
+            platformEnv.isSupportDesktopBle &&
+            devSettings.settings?.enableDesktopBluetooth
+              ? {
+                  icon: 'BluetoothOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.global_bluetooth,
+                  }),
+                  renderElement: <DesktopBluetoothListItem />,
                 }
               : undefined,
           ],
@@ -462,7 +475,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               },
             },
             platformEnv.isSupportWebUSB ||
-            (platformEnv.isDesktopMac &&
+            (platformEnv.isSupportDesktopBle &&
+              platformEnv.isDev &&
               devSettings.settings?.enableDesktopBluetooth)
               ? {
                   icon: 'UsbOutline',

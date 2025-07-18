@@ -556,6 +556,14 @@ class ServiceSetting extends ServiceBase {
       isFilterScamHistoryEnabled: value,
     }));
   }
+
+  @backgroundMethod()
+  public async setEnableDesktopBluetooth(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      enableDesktopBluetooth: value,
+    }));
+  }
 }
 
 export default ServiceSetting;
