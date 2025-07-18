@@ -7,6 +7,7 @@ import { usePropsAndStyle } from 'tamagui';
 import { Skeleton } from '../Skeleton';
 import { YStack } from '../Stack';
 
+import { AnimatedExpoImage } from './AnimatedImage';
 import { isEmptyResolvedSource } from './utils';
 
 import type { IImageV2Props } from './type';
@@ -17,7 +18,11 @@ import type {
   ImageStyle,
 } from 'expo-image';
 
-export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
+export function ImageV2({
+  style: defaultStyle,
+  animated,
+  ...props
+}: IImageV2Props) {
   const sizeProps = useMemo(() => {
     // eslint-disable-next-line react/destructuring-assignment
     if (props?.size) {
@@ -95,13 +100,20 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     [onError],
   );
 
+  const ImageComponent = useMemo(() => {
+    if (animated) {
+      return AnimatedExpoImage;
+    }
+    return ExpoImage;
+  }, [animated]);
+
   if (hasError || isEmptyResolvedSource(resolvedSource)) {
     return fallback;
   }
 
   return (
     <YStack style={style}>
-      <ExpoImage
+      <ImageComponent
         source={resolvedSource}
         style={style}
         onError={handleError}
