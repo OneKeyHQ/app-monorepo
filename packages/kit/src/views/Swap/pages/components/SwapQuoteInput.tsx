@@ -30,7 +30,6 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
-import { useSwapApproving } from '../../hooks/useSwapApproving';
 import { useSwapQuote } from '../../hooks/useSwapQuote';
 import {
   useSwapQuoteEventFetching,
@@ -66,7 +65,6 @@ const SwapQuoteInput = ({
   const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
   useSwapQuote();
   useSwapFromAccountNetworkSync();
-  useSwapApproving();
 
   const getTransform = useCallback(() => {
     if (!platformEnv.isNative) {
