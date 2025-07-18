@@ -60,8 +60,6 @@ export function TokenDetailHeaderRight({
     address = '',
   } = tokenDetail || {};
 
-  console.log('marketCap', marketCap);
-
   const marketStar =
     networkId && address ? (
       <MarketStarV2
@@ -85,8 +83,6 @@ export function TokenDetailHeaderRight({
       </XStack>
     );
   }
-
-  console.log('priceChange24hPercent', priceChange24hPercent);
 
   return (
     <XStack gap="$6" ai="center">

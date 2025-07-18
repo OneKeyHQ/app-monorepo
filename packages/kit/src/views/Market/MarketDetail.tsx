@@ -8,8 +8,6 @@ export type IMarketDetailProps = IPageScreenProps<any, any>;
 export default function MarketDetail(props: IMarketDetailProps) {
   const { route } = props;
 
-  console.log('route', route);
-
   if (route.params?.tokenAddress && route.params?.networkId) {
     return <MarketDetailV2 {...(props as any)} />;
   }
