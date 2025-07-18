@@ -116,8 +116,8 @@ function BulkCopyAddresses({
   const formRange = useForm({
     defaultValues: {
       deriveType: '',
-      startIndex: 1,
-      amount: 10,
+      startIndex: '1',
+      amount: '10',
     },
     mode: 'onChange',
   });
@@ -199,40 +199,50 @@ function BulkCopyAddresses({
     );
   }, [selectedWalletId]);
 
-  const { result: networkAccountsByDeriveType, isLoading: isLoadingAccounts } =
-    usePromiseResult(
-      async () => {
-        if (copyType !== EBulkCopyType.Account) {
-          return {};
-        }
+  const {
+    result: { networkAccountsByDeriveType, networkAccounts },
+    isLoading: isLoadingAccounts,
+  } = usePromiseResult(
+    async () => {
+      if (copyType !== EBulkCopyType.Account) {
+        return {};
+      }
 
-        if (!selectedNetworkId || !selectedWallet) {
-          return {};
-        }
+      if (!selectedNetworkId || !selectedWallet) {
+        return {};
+      }
 
-        const { dbIndexedAccounts } = selectedWallet;
+      const { dbIndexedAccounts } = selectedWallet;
 
-        const accountsRequest = dbIndexedAccounts?.map(
-          async (indexedAccount) => {
-            return backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-              {
-                networkId: selectedNetworkId,
-                indexedAccountId: indexedAccount.id,
-                excludeEmptyAccount: true,
-              },
-            );
+      const accountsRequest = dbIndexedAccounts?.map(async (indexedAccount) => {
+        return backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+          {
+            networkId: selectedNetworkId,
+            indexedAccountId: indexedAccount.id,
+            excludeEmptyAccount: true,
           },
         );
+      });
 
-        const resp = await Promise.all(accountsRequest ?? []);
+      const resp = await Promise.all(accountsRequest ?? []);
 
-        return groupBy(flatten(map(resp, 'networkAccounts')), 'deriveType');
+      return {
+        networkAccounts: resp,
+        networkAccountsByDeriveType: groupBy(
+          flatten(map(resp, 'networkAccounts')),
+          'deriveType',
+        ),
+      };
+    },
+    [selectedNetworkId, selectedWallet, copyType],
+    {
+      watchLoading: true,
+      initResult: {
+        networkAccounts: [],
+        networkAccountsByDeriveType: {},
       },
-      [selectedNetworkId, selectedWallet, copyType],
-      {
-        watchLoading: true,
-      },
-    );
+    },
+  );
 
   const handleGenerateAddresses = useCallback(
     async ({
@@ -369,7 +379,7 @@ function BulkCopyAddresses({
       deriveType,
       excludedIndexes,
       createAllDeriveTypes,
-      amount: formRangeWatchFields.amount,
+      amount: Number(formRangeWatchFields.amount),
     });
   }, [
     formRangeWatchFields.deriveType,
@@ -384,18 +394,22 @@ function BulkCopyAddresses({
     }
 
     const { dbIndexedAccounts } = selectedWallet;
+
     const indexes = dbIndexedAccounts.map((account) => account.index);
 
     const fromIndex = Math.min(...indexes);
     const toIndex = Math.max(...indexes);
     const excludedIndexes: { [index: number]: true } = {};
     for (let i = fromIndex; i <= toIndex; i += 1) {
-      if (!indexes.includes(i)) {
+      if (
+        !indexes.includes(i) ||
+        !networkAccounts?.[i].networkAccounts?.length
+      ) {
         excludedIndexes[i] = true;
       }
     }
 
-    let amount = indexes.length;
+    let amount = indexes.length - Object.keys(excludedIndexes).length;
     if (vaultSettings?.mergeDeriveAssetsEnabled) {
       amount *= Object.keys(vaultSettings?.accountDeriveInfo ?? {}).length;
     }
@@ -417,6 +431,7 @@ function BulkCopyAddresses({
     vaultSettings?.accountDeriveInfo,
     handleGenerateAddresses,
     selectedNetworkId,
+    networkAccounts,
   ]);
 
   const handleFormValueOnChange = useCallback(
@@ -571,26 +586,22 @@ function BulkCopyAddresses({
               onChange: (e: { target: { name: string; value: string } }) => {
                 const value = (e?.target?.value || '').replace(/\D/g, '');
                 const valueNum = new BigNumber(parseInt(value, 10));
+                const maxValue = new BigNumber(
+                  BATCH_CREATE_ACCONT_MAX_COUNT,
+                ).minus(100);
                 if (!value || valueNum.isNaN()) {
-                  formRange.setValue('startIndex', 1);
+                  formRange.setValue('startIndex', '');
                   return;
                 }
                 if (valueNum.isLessThan(1)) {
-                  formRange.setValue('startIndex', 1);
+                  formRange.setValue('startIndex', '');
                   return;
                 }
-                if (
-                  valueNum.isGreaterThanOrEqualTo(
-                    BATCH_CREATE_ACCONT_MAX_COUNT - 100,
-                  )
-                ) {
-                  formRange.setValue(
-                    'startIndex',
-                    BATCH_CREATE_ACCONT_MAX_COUNT - 100,
-                  );
+                if (valueNum.isGreaterThanOrEqualTo(maxValue)) {
+                  formRange.setValue('startIndex', maxValue.toFixed());
                   return;
                 }
-                formRange.setValue('startIndex', valueNum.toNumber());
+                formRange.setValue('startIndex', valueNum.toFixed());
               },
             }}
           >
@@ -618,21 +629,21 @@ function BulkCopyAddresses({
                 {
                   label: '1',
                   onPress: () => {
-                    formRange.setValue('amount', 1);
+                    formRange.setValue('amount', '1');
                     void formRange.trigger('amount');
                   },
                 },
                 {
                   label: '10',
                   onPress: () => {
-                    formRange.setValue('amount', 10);
+                    formRange.setValue('amount', '10');
                     void formRange.trigger('amount');
                   },
                 },
                 {
                   label: '100',
                   onPress: () => {
-                    formRange.setValue('amount', 100);
+                    formRange.setValue('amount', '100');
                     void formRange.trigger('amount');
                   },
                 },
