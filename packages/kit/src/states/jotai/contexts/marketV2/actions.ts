@@ -125,9 +125,9 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       set(marketWatchListV2Atom(), { ...prev, data: newData });
 
       // Asynchronously call API without waiting for result
-      // void backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
-      //   watchList: params,
-      // });
+      void backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
+        watchList: params,
+      });
     },
   );
 
@@ -148,9 +148,9 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       set(marketWatchListV2Atom(), { ...prev, data: newData });
 
       // Asynchronously call API without waiting for result
-      // void backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
-      //   items: [{ chainId, contractAddress }],
-      // });
+      void backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
+        items: [{ chainId, contractAddress }],
+      });
     },
   );
 

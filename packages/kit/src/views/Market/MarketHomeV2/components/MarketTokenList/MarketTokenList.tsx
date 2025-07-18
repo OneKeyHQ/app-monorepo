@@ -1,13 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
 
-import {
-  Pagination,
-  Stack,
-  Table,
-  XStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Stack, Table, useMedia } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
 import {
   useMarketWatchListV2Atom,
@@ -158,8 +152,8 @@ function MarketTokenList({
     [handleSortChange],
   );
 
-  const { data, isLoading, currentPage, setCurrentPage, totalPages } =
-    showWatchlistOnly ? watchlistResult : normalResult;
+  const result = showWatchlistOnly ? watchlistResult : normalResult;
+  const { data, isLoading } = result;
 
   // Show skeleton only on initial load (when there's no data yet)
   // This provides better UX by avoiding skeleton flash during pagination
@@ -185,7 +179,7 @@ function MarketTokenList({
             overflowX: 'auto',
           }}
         >
-          <Stack minWidth={md ? '100%' : 1466} flex={1} minHeight={100}>
+          <Stack minWidth={md ? '100%' : 1466} flex={1} minHeight={400}>
             {showSkeleton ? (
               <Table.Skeleton
                 columns={marketTokenColumns}
@@ -199,7 +193,7 @@ function MarketTokenList({
                 stickyHeader
                 columns={marketTokenColumns}
                 dataSource={data}
-                keyExtractor={(item) => item.address + item.symbol}
+                keyExtractor={(item) => item.address + item.symbol + item.name}
                 onHeaderRow={handleHeaderRow}
                 rowProps={{
                   minHeight: '$14',
@@ -225,7 +219,7 @@ function MarketTokenList({
       </Stack>
 
       {/* Hide pagination during skeleton loading */}
-      {!showSkeleton && totalPages > 1 ? (
+      {/* {!showSkeleton && totalPages > 1 ? (
         <XStack justifyContent="center" py="$4">
           <Pagination
             maxPages={20}
@@ -234,7 +228,7 @@ function MarketTokenList({
             onChange={setCurrentPage}
           />
         </XStack>
-      ) : null}
+      ) : null} */}
     </>
   );
 }

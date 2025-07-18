@@ -153,20 +153,23 @@ const PreSwapDialogContent = ({
   return (
     <YStack gap="$4">
       {/* You pay */}
-      <SizableText size="$bodyLg" color="$textSubdued">
-        {intl.formatMessage({ id: ETranslations.swap_review_you_pay })}
-      </SizableText>
+      <YStack gap="$1">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.swap_review_you_pay })}
+        </SizableText>
 
-      {/* From token item */}
-      <PreSwapTokenItem token={fromTokenInfo} amount={fromAmount} />
-
+        {/* From token item */}
+        <PreSwapTokenItem token={fromTokenInfo} amount={fromAmount} />
+      </YStack>
       {/* You received */}
-      <SizableText size="$bodyLg" color="$textSubdued">
-        {intl.formatMessage({ id: ETranslations.swap_review_you_receive })}
-      </SizableText>
+      <YStack gap="$1">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.swap_review_you_receive })}
+        </SizableText>
 
-      {/* To token item */}
-      <PreSwapTokenItem token={toTokenInfo} amount={toAmount} />
+        {/* To token item */}
+        <PreSwapTokenItem token={toTokenInfo} amount={toAmount} />
+      </YStack>
 
       <Divider />
 
@@ -178,7 +181,7 @@ const PreSwapDialogContent = ({
             slippageItem={slippageItem}
           />
           {/* Primary button */}
-          <Button variant="primary" onPress={handleConfirm} size="large">
+          <Button variant="primary" onPress={handleConfirm} size="medium">
             {swapSteps[0].stepActionsLabel ??
               intl.formatMessage({ id: ETranslations.transaction_confirm })}
           </Button>

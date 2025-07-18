@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Page, XStack, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -14,6 +16,7 @@ import {
 } from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { HeaderLeftCloseButton } from '../../../components/TabPageHeader/HeaderLeft';
+import { useTokenDetailActions } from '../../../states/jotai/contexts/marketV2';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
 import { useAutoRefreshTokenDetail } from './hooks';
@@ -24,6 +27,18 @@ function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketV2ParamList, ETabMarketV2Routes.MarketDetail>) {
   const { tokenAddress, networkId } = route.params;
+  const tokenDetailActions = useTokenDetailActions();
+
+  // Clear all token detail content when unmount
+  useEffect(() => {
+    const actions = tokenDetailActions.current;
+    return () => {
+      actions.setTokenDetail(undefined);
+      actions.setTokenDetailLoading(false);
+      actions.setTokenAddress('');
+      actions.setNetworkId('');
+    };
+  }, [tokenDetailActions]);
 
   // Start auto-refresh for token details every 5 seconds
   useAutoRefreshTokenDetail({

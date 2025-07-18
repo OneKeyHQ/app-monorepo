@@ -1,17 +1,21 @@
 export const useHoldersLayout = () => {
   const layoutConfig = {
     rank: {
-      width: '$8',
+      width: '$10',
     },
     address: {
-      width: '$36',
+      width: '$40',
     },
     amount: {
-      width: '$20',
+      width: '$40',
       textAlign: 'right' as const,
     },
     value: {
-      flex: 1,
+      width: '$40',
+      textAlign: 'right' as const,
+    },
+    percentage: {
+      width: '$40',
       textAlign: 'right' as const,
     },
   };

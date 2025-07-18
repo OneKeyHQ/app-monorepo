@@ -230,72 +230,6 @@ const SwapActionsState = ({
     ],
   );
 
-  const approveStepComponent = useMemo(() => {
-    if (swapActionState.isApprove && !isBatchTransfer) {
-      return (
-        <XStack
-          gap="$1"
-          {...(pageType === EPageType.modal && !md ? {} : { pb: '$4' })}
-        >
-          <SizableText size="$bodyMd">1.</SizableText>
-          <Popover
-            title={intl.formatMessage({ id: ETranslations.global_approve })}
-            placement="top-start"
-            renderContent={
-              <Stack p="$3">
-                <SizableText size="$bodyMd">
-                  {intl.formatMessage({
-                    id: ETranslations.swap_page_swap_steps_1_approve_dialog,
-                  })}
-                </SizableText>
-              </Stack>
-            }
-            renderTrigger={
-              <XStack
-                userSelect="none"
-                hoverStyle={{
-                  opacity: 0.5,
-                }}
-              >
-                <SizableText
-                  size="$bodyMdMedium"
-                  pr="$1"
-                  textDecorationLine="underline"
-                  textDecorationStyle="dotted"
-                  textDecorationColor="$textSubdued"
-                  cursor="pointer"
-                >
-                  {intl.formatMessage(
-                    { id: ETranslations.swap_page_swap_steps_1 },
-                    { tokenSymbol: fromToken?.symbol ?? '' },
-                  )}
-                </SizableText>
-              </XStack>
-            }
-          />
-          <Icon name="ArrowRightOutline" size="$5" color="$iconSubdued" />
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id:
-                swapType === ESwapTabSwitchType.LIMIT
-                  ? ETranslations.limit_place_order_step_2
-                  : ETranslations.swap_page_swap_steps_2,
-            })}
-          </SizableText>
-        </XStack>
-      );
-    }
-    return null;
-  }, [
-    swapActionState.isApprove,
-    isBatchTransfer,
-    pageType,
-    md,
-    intl,
-    fromToken?.symbol,
-    swapType,
-  ]);
-
   const recipientComponent = useMemo(() => {
     if (swapActionState.isApprove && !isBatchTransfer) {
       return null;
@@ -386,7 +320,6 @@ const SwapActionsState = ({
             }
           : {})}
       >
-        {approveStepComponent}
         {recipientComponent}
         <Button
           onPress={onActionHandlerBefore}
@@ -415,7 +348,6 @@ const SwapActionsState = ({
       </Stack>
     ),
     [
-      approveStepComponent,
       haveTips,
       md,
       onActionHandlerBefore,

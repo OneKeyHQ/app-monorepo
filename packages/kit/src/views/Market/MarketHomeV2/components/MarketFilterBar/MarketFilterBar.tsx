@@ -1,46 +1,38 @@
 import { useState } from 'react';
 
 import { XStack, YStack } from '@onekeyhq/components';
+import { useShowWatchlistOnlyValue } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
-import { LiquidityFilterControl } from '../LiquidityFilterControl';
 import { MarketTokenListNetworkSelector } from '../MarketTokenListNetworkSelector';
 import { MarketViewToggle } from '../MarketViewToggle';
 import { TimeRangeSelector } from '../TimeRangeSelector';
 
 import { MarketFilterBarSkeleton } from './MarketFilterBarSkeleton';
 
-import type { ILiquidityFilter } from '../../types';
 import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
 
 export interface IMarketFilterBarProps {
   selectedNetworkId?: string;
   timeRange?: ITimeRangeSelectorValue;
-  liquidityFilter?: ILiquidityFilter;
   onNetworkIdChange?: (networkId: string) => void;
   onTimeRangeChange?: (value: ITimeRangeSelectorValue) => void;
-  onLiquidityFilterChange?: (filter: ILiquidityFilter) => void;
   isLoading?: boolean;
 }
 
 export function MarketFilterBar({
   selectedNetworkId,
   timeRange = '24h',
-  liquidityFilter,
   onNetworkIdChange,
   onTimeRangeChange,
-  onLiquidityFilterChange,
   isLoading = false,
 }: IMarketFilterBarProps) {
   const [currentTimeRange, setCurrentTimeRange] =
     useState<ITimeRangeSelectorValue>(timeRange);
+  const [showWatchlistOnly] = useShowWatchlistOnlyValue();
 
   const handleTimeRangeChange = (value: ITimeRangeSelectorValue) => {
     setCurrentTimeRange(value);
     onTimeRangeChange?.(value);
-  };
-
-  const handleLiquidityFilterApply = (filter: ILiquidityFilter) => {
-    onLiquidityFilterChange?.(filter);
   };
 
   const handleNetworkIdChange = (networkId: string) => {
@@ -52,15 +44,7 @@ export function MarketFilterBar({
   }
 
   return (
-    <YStack gap="$1" pb="$3">
-      {/* Network Selector */}
-      <MarketTokenListNetworkSelector
-        selectedNetworkId={selectedNetworkId}
-        onSelectNetworkId={handleNetworkIdChange}
-        size="normal"
-        forceLoading={isLoading}
-      />
-
+    <YStack gap="$1" pt="$3">
       <XStack gap="$6" pl="$7" pr="$5">
         <XStack gap="$4">
           {/* Market View Toggle - Trending and Watchlist buttons */}
@@ -72,13 +56,17 @@ export function MarketFilterBar({
           value={currentTimeRange}
           onChange={handleTimeRangeChange}
         />
-
-        {/* Liquidity Filter */}
-        <LiquidityFilterControl
-          value={liquidityFilter}
-          onApply={handleLiquidityFilterApply}
-        />
       </XStack>
+
+      {/* Network Selector - Hidden in watchlist mode */}
+      {showWatchlistOnly ? null : (
+        <MarketTokenListNetworkSelector
+          selectedNetworkId={selectedNetworkId}
+          onSelectNetworkId={handleNetworkIdChange}
+          size="normal"
+          forceLoading={isLoading}
+        />
+      )}
     </YStack>
   );
 }

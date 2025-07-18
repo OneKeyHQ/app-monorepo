@@ -14,7 +14,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { parseValueToNumber } from '../../utils';
+import { parseValueToNumber, validateLiquidityInput } from '../../utils';
 
 type ILiquidityFilterContentProps = {
   value?: { min?: string; max?: string };
@@ -36,6 +36,19 @@ function LiquidityFilterContent({
     : undefined;
   const [minValue, setMinValue] = useState<string | undefined>(valueProp?.min);
   const [maxValue, setMaxValue] = useState<string | undefined>(valueProp?.max);
+
+  // Validated input handlers
+  const handleMinValueChange = useCallback((value: string) => {
+    if (validateLiquidityInput(value)) {
+      setMinValue(value);
+    }
+  }, []);
+
+  const handleMaxValueChange = useCallback((value: string) => {
+    if (validateLiquidityInput(value)) {
+      setMaxValue(value);
+    }
+  }, []);
   const intl = useIntl();
 
   // Validation logic for min > max
@@ -73,7 +86,18 @@ function LiquidityFilterContent({
     (preset: string) => {
       // Apply preset values immediately without updating local state
       // to avoid state inconsistency during rapid closure
-      onApply?.({ min: preset, max: undefined });
+      // If preset value is greater than 1t, set to 1t (minimum value cannot exceed 1t)
+      const presetNum = parseValueToNumber(preset);
+      const maximumMinValue = 1_000_000_000_000; // 1 trillion
+
+      let finalPreset = preset;
+      if (presetNum > maximumMinValue) {
+        finalPreset = String(
+          numberFormat(String(maximumMinValue), { formatter: 'marketCap' }),
+        );
+      }
+
+      onApply?.({ min: finalPreset, max: undefined });
       onClose?.();
     },
     [onApply, onClose],
@@ -92,8 +116,10 @@ function LiquidityFilterContent({
     if (minValue?.trim()) {
       try {
         const minNum = parseValueToNumber(minValue.trim());
+        // Enforce maximum minimum value of 1t (minimum value cannot exceed 1t)
+        const finalMinNum = Math.min(minNum, 1_000_000_000_000);
         convertedMin = String(
-          numberFormat(String(minNum), { formatter: 'marketCap' }),
+          numberFormat(String(finalMinNum), { formatter: 'marketCap' }),
         );
       } catch (error) {
         // Keep original value if parsing fails
@@ -104,6 +130,7 @@ function LiquidityFilterContent({
     if (maxValue?.trim()) {
       try {
         const maxNum = parseValueToNumber(maxValue.trim());
+        // No restriction on maximum value
         convertedMax = String(
           numberFormat(String(maxNum), { formatter: 'marketCap' }),
         );
@@ -155,7 +182,7 @@ function LiquidityFilterContent({
                 id: ETranslations.dexmarket_custom_filters_min,
               })}
               value={minValue}
-              onChangeText={setMinValue}
+              onChangeText={handleMinValueChange}
             />
           </Stack>
           <Stack flex={1} gap="$2">
@@ -164,7 +191,7 @@ function LiquidityFilterContent({
                 id: ETranslations.dexmarket_custom_filters_max,
               })}
               value={maxValue}
-              onChangeText={setMaxValue}
+              onChangeText={handleMaxValueChange}
             />
           </Stack>
         </XStack>

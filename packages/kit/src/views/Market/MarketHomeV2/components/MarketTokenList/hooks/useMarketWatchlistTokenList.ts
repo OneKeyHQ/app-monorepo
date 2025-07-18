@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -26,7 +26,7 @@ export function useMarketWatchlistTokenList({
   watchlist,
   initialSortBy,
   initialSortType,
-  pageSize = 20,
+  pageSize = 100,
   minLiquidity,
   maxLiquidity,
 }: IUseMarketWatchlistTokenListParams) {
@@ -36,6 +36,8 @@ export function useMarketWatchlistTokenList({
   const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
     initialSortType,
   );
+  const [isLoadingMore] = useState(false);
+  const [hasMore] = useState(false);
 
   const {
     result: apiResult,
@@ -150,13 +152,26 @@ export function useMarketWatchlistTokenList({
     return sortedData.slice(start, start + pageSize);
   }, [sortedData, currentPage, pageSize]);
 
+  const loadMore = useCallback(() => {
+    // Watchlist doesn't support load more - all data is loaded at once
+  }, []);
+
+  const refresh = useCallback(() => {
+    setCurrentPage(1);
+    void refetchData();
+  }, [refetchData]);
+
   return {
     data: paginatedData,
     isLoading,
+    isLoadingMore,
+    hasMore,
     currentPage,
     totalPages,
     totalCount,
     setCurrentPage,
+    loadMore,
+    refresh,
     refetch: refetchData,
     sortBy,
     sortType,

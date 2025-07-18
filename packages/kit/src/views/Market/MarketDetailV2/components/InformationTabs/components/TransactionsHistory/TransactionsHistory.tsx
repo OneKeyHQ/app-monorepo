@@ -69,7 +69,7 @@ export function TransactionsHistory({
   }
 
   const list = (
-    <>
+    <Stack flex={1}>
       {gtLg ? <TransactionsHeaderNormal /> : <TransactionsHeaderSmall />}
       <ListView<IMarketTokenTransaction>
         data={transactions}
@@ -81,7 +81,7 @@ export function TransactionsHistory({
           paddingBottom: '$4',
         }}
       />
-    </>
+    </Stack>
   );
 
   if (gtLg && shouldEnableScroll) {
