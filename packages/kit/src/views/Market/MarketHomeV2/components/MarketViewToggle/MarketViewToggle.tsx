@@ -1,12 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  type IIconProps,
-  Icon,
-  SizableText,
-  XStack,
-} from '@onekeyhq/components';
+import { Button, SizableText, XStack } from '@onekeyhq/components';
 import { useShowWatchlistOnlyValue } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useShowWatchlistOnlyActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/actions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
