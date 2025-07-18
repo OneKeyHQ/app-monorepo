@@ -710,6 +710,7 @@ function BulkCopyAddresses({
           isEmpty(networkAccountsByDeriveType)
       : !form.formState.isValid ||
           !formRange.formState.isValid ||
+          !selectedWallet ||
           isGeneratingAddresses;
   }, [
     copyType,
@@ -718,6 +719,7 @@ function BulkCopyAddresses({
     networkAccountsByDeriveType,
     formRange.formState.isValid,
     isGeneratingAddresses,
+    selectedWallet,
   ]);
 
   useEffect(() => {
