@@ -1244,7 +1244,7 @@ class ServiceHardware extends ServiceBase {
       const compatibleConnectId = await this.getCompatibleConnectId({
         connectId,
         featuresDeviceId: deviceId,
-        hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
       const hardwareSDK = await this.getSDKInstance();
       await timerUtils.wait(600);
