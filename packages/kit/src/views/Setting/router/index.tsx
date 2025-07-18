@@ -6,13 +6,17 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
+import { LazyLoadPage } from '../../../components/LazyLoadPage';
 // WARNING:
 // If global jotai data is modified, this page will re-render when using lazy loading, so it must be statically imported.
 // Static import to avoid React Native re-rendering issues when jotai global data is modified
-import SettingTabModal from '../pages/Tab';
 import SettingListSubModal from '../pages/Tab/SettingListSubModal';
 
 import { BasicModalSettingStack } from './basicModalSettingRouter';
+
+const SettingTabModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/Tab'),
+);
 
 export const ModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
