@@ -48,6 +48,7 @@ export enum EHardwareUiStateAction {
   PREVIOUS_ADDRESS = 'ui-previous_address_result',
 
   WEB_DEVICE_PROMPT_ACCESS_PERMISSION = 'ui-web_device_prompt_access_permission',
+  DESKTOP_REQUEST_BLUETOOTH_PERMISSION = 'ui-desktop_request_bluetooth_permission',
 }
 
 export type IHardwareUiPayload = {
@@ -72,6 +73,8 @@ export type IHardwareUiPayload = {
   rawPayload: any;
   // request pin type
   requestPinType?: 'PinEntry' | 'AttachPin';
+  // service promise for waiting user interaction
+  promiseId?: string;
 };
 export type IHardwareUiState = {
   action: EHardwareUiStateAction;

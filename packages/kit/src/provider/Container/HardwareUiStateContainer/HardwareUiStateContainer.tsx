@@ -44,6 +44,7 @@ import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 import {
   CommonDeviceLoading,
   ConfirmOnDeviceToastContent,
+  DesktopBluetoothPermissionContent,
   EnterHiddenWalletPinOnDevice,
   EnterPassphraseOnDevice,
   EnterPhase,
@@ -275,6 +276,40 @@ function HardwareSingletonDialogCmp(
       );
     }
 
+    // Desktop Bluetooth Permission
+    if (
+      action === EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION
+    ) {
+      title = intl.formatMessage({
+        id: ETranslations.hardware_bluetooth_requires_permission_error,
+      });
+      content = (
+        <DesktopBluetoothPermissionContent
+          promiseId={state?.payload?.promiseId}
+          // onConfirm={async () => {
+          //   // 设置权限已请求
+          //   const { desktopBluetoothAtom } = await import(
+          //     '@onekeyhq/kit-bg/src/states/jotai/atoms/desktopBluetooth'
+          //   );
+          //   const currentSettings = await desktopBluetoothAtom.get();
+          //   await desktopBluetoothAtom.set({
+          //     ...currentSettings,
+          //     isRequestedPermission: true,
+          //   });
+          //   // 如果没有 promiseId，说明是旧的实现，直接继续检查设备流程
+          //   if (!state?.payload?.promiseId) {
+          //     await serviceHardwareUI.showCheckingDeviceDialog({ connectId });
+          //   }
+          // }}
+          // onCancel={async () => {
+          //   await serviceHardwareUI.closeHardwareUiStateDialog({
+          //     connectId: state?.connectId,
+          //   });
+          // }}
+        />
+      );
+    }
+
     return { title, content };
   }, [
     action,
@@ -329,7 +364,7 @@ function HardwareSingletonDialogCmp(
   ) : null;
 }
 
-const hasConfirmAction = (localState: IHardwareUiState | undefined) => {
+const _hasConfirmAction = (localState: IHardwareUiState | undefined) => {
   if (localState?.action === EHardwareUiStateAction.REQUEST_BUTTON) {
     return true;
   }
