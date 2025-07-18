@@ -88,7 +88,7 @@ const PreSwapConfirmResult = ({ lastStep }: IPreSwapConfirmResultProps) => {
               />
             ) : (
               <Image
-                source={require('@onekeyhq/kit/assets/preSwapPending.png')}
+                source={require('@onekeyhq/kit/assets/preSwapPending2.png')}
                 width={110}
                 height={110}
               />
