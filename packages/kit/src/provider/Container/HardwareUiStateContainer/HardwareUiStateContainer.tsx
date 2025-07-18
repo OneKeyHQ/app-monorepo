@@ -150,10 +150,24 @@ function HardwareSingletonDialogCmp(
     let content = defaultLoadingView;
 
     if (action === EHardwareUiStateAction.DeviceChecking) {
-      title = intl.formatMessage({
-        id: ETranslations.global_checking_device,
-      });
-      content = defaultLoadingView;
+      const eventType = state?.payload?.eventType;
+
+      if (
+        eventType ===
+        EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION
+      ) {
+        title = 'Communicating...';
+        content = (
+          <DesktopBluetoothPermissionContent
+            promiseId={state?.payload?.promiseId}
+          />
+        );
+      } else {
+        title = intl.formatMessage({
+          id: ETranslations.global_checking_device,
+        });
+        content = defaultLoadingView;
+      }
     }
 
     if (action === EHardwareUiStateAction.ProcessLoading) {
@@ -276,40 +290,6 @@ function HardwareSingletonDialogCmp(
       );
     }
 
-    // Desktop Bluetooth Permission
-    if (
-      action === EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION
-    ) {
-      title = intl.formatMessage({
-        id: ETranslations.hardware_bluetooth_requires_permission_error,
-      });
-      content = (
-        <DesktopBluetoothPermissionContent
-          promiseId={state?.payload?.promiseId}
-          // onConfirm={async () => {
-          //   // 设置权限已请求
-          //   const { desktopBluetoothAtom } = await import(
-          //     '@onekeyhq/kit-bg/src/states/jotai/atoms/desktopBluetooth'
-          //   );
-          //   const currentSettings = await desktopBluetoothAtom.get();
-          //   await desktopBluetoothAtom.set({
-          //     ...currentSettings,
-          //     isRequestedPermission: true,
-          //   });
-          //   // 如果没有 promiseId，说明是旧的实现，直接继续检查设备流程
-          //   if (!state?.payload?.promiseId) {
-          //     await serviceHardwareUI.showCheckingDeviceDialog({ connectId });
-          //   }
-          // }}
-          // onCancel={async () => {
-          //   await serviceHardwareUI.closeHardwareUiStateDialog({
-          //     connectId: state?.connectId,
-          //   });
-          // }}
-        />
-      );
-    }
-
     return { title, content };
   }, [
     action,
@@ -322,7 +302,17 @@ function HardwareSingletonDialogCmp(
     state?.payload,
   ]);
 
-  const dialogKey = result.title + (action?.toString() || '');
+  const getDialogKey = (params: {
+    action: EHardwareUiStateAction | undefined;
+  }) => {
+    // Use consistent dialogKey for bluetooth permission flow
+    if (params.action === EHardwareUiStateAction.DeviceChecking) {
+      return 'DeviceCheckingFlow';
+    }
+    return result.title + (params.action?.toString() || '');
+  };
+
+  const dialogKey = getDialogKey({ action });
 
   // Need Open Bluetooth Dialog Container
   if (action === EHardwareUiStateAction.BLUETOOTH_PERMISSION) {
