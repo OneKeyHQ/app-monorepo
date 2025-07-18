@@ -21,11 +21,12 @@ const PreSwapTokenItem = ({ token, amount }: IPreSwapTokenItemProps) => {
   }, [token?.price, amount]);
   const [settings] = useSettingsPersistAtom();
   return (
-    <XStack alignItems="center" justifyContent="space-between">
+    <XStack alignItems="center" justifyContent="space-between" flex={1}>
       <YStack gap="$1">
         <NumberSizeableText
           size="$heading3xl"
           formatter="balance"
+          numberOfLines={1}
           formatterOptions={{
             tokenSymbol: token?.symbol ?? '-',
           }}
@@ -39,6 +40,7 @@ const PreSwapTokenItem = ({ token, amount }: IPreSwapTokenItemProps) => {
           formatterOptions={{
             currency: settings.currencyInfo.symbol,
           }}
+          numberOfLines={1}
         >
           {fiatValue}
         </NumberSizeableText>

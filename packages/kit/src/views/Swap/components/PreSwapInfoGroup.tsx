@@ -43,7 +43,7 @@ const PreSwapInfoGroup = ({
           id: ETranslations.swap_page_provider_provider,
         })}
         value={
-          <XStack gap="$1">
+          <XStack gap="$2">
             <Image
               source={{ uri: quoteResult?.info.providerLogo ?? '' }}
               size="$5"
