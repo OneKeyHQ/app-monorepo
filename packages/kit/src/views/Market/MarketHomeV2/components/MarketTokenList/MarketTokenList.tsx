@@ -159,23 +159,6 @@ function MarketTokenList({
   // This provides better UX by avoiding skeleton flash during pagination
   const showSkeleton = isLoading && data.length === 0;
 
-  const handleEndReached = useCallback(() => {
-    console.log('handleEndReached triggered', {
-      showWatchlistOnly,
-      hasHasMore: 'hasMore' in result,
-      hasIsLoadingMore: 'isLoadingMore' in result,
-      hasLoadMore: 'loadMore' in result,
-    });
-
-    if (!showWatchlistOnly && 'loadMore' in result) {
-      const extendedResult = result as ReturnType<typeof useMarketTokenList>;
-      if (extendedResult.hasMore && !extendedResult.isLoadingMore) {
-        console.log('Loading more data...');
-        extendedResult.loadMore();
-      }
-    }
-  }, [result, showWatchlistOnly]);
-
   console.log('data', data);
 
   return (
