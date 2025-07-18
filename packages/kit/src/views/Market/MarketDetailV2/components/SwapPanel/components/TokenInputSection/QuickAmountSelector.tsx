@@ -11,6 +11,7 @@ export interface IQuickAmountSelectorProps {
   tradeType: ITradeType;
   buyAmounts: { label: string; value: number }[];
   balance?: BigNumber;
+  selectedTokenDecimals?: number;
 }
 
 const sellPercentages = [
@@ -25,6 +26,7 @@ export function QuickAmountSelector({
   buyAmounts,
   tradeType,
   balance,
+  selectedTokenDecimals,
 }: IQuickAmountSelectorProps) {
   const amounts =
     tradeType === ESwapDirection.BUY ? buyAmounts : sellPercentages;
@@ -37,15 +39,21 @@ export function QuickAmountSelector({
           onSelect('0');
           return;
         }
-
         const percentageBN = new BigNumber(amount.value.toString());
-        const calculatedAmount = balance.multipliedBy(percentageBN).toFixed();
-        onSelect(calculatedAmount);
+        const calculatedAmountBN = balance.multipliedBy(percentageBN);
+        if (selectedTokenDecimals) {
+          const calculatedAmount = calculatedAmountBN
+            .decimalPlaces(selectedTokenDecimals, BigNumber.ROUND_DOWN)
+            .toFixed();
+          onSelect(calculatedAmount);
+        } else {
+          onSelect(calculatedAmountBN.toFixed());
+        }
       } else {
         onSelect(amount.value.toString());
       }
     },
-    [tradeType, balance, onSelect],
+    [tradeType, balance, selectedTokenDecimals, onSelect],
   );
 
   return (
