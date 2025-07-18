@@ -29,7 +29,7 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 - `yarn app:native-bundle` - Bundle React Native app
 
 ### Development Tools
-- `yarn lint` - Run comprehensive linting (TypeScript, ESLint, folder structure, i18n)
+- `yarn lint` - Run comprehensive linting (TypeScript, ESLint, folder structure, i18n) - **Note: This command takes a long time to run, expect up to 10 minutes timeout**
 - `yarn tsc:only` - TypeScript type checking only
 - `yarn lint:only` - ESLint only
 - `yarn test` - Run Jest tests

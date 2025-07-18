@@ -14,7 +14,7 @@ import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
 import { useHoldersLayout } from './useHoldersLayout';
 
 interface IHolderItemProps {
-  item: IMarketTokenHolder;
+  item: IMarketTokenHolder & { marketCapPercentage?: string | null };
   index: number;
 }
 
@@ -28,7 +28,7 @@ function HolderItemBase({ item, index }: IHolderItemProps) {
   }, [copyText, item.accountAddress]);
 
   return (
-    <XStack py="$3" px="$4" alignItems="center" gap="$3">
+    <XStack h={40} px="$4" alignItems="center" gap="$3">
       {/* Rank */}
       <SizableText size="$bodyMd" color="$textSubdued" {...layoutConfig.rank}>
         #{index + 1}
@@ -41,12 +41,9 @@ function HolderItemBase({ item, index }: IHolderItemProps) {
         hoverStyle={{ bg: '$bgHover' }}
         pressStyle={{ bg: '$bgActive' }}
         borderRadius="$2"
-        px="$1"
-        py="$1"
         alignItems="center"
         gap="$1"
         {...layoutConfig.address}
-        mx="$-1"
       >
         <SizableText
           fontFamily="$monoRegular"
@@ -63,6 +60,11 @@ function HolderItemBase({ item, index }: IHolderItemProps) {
         </SizableText>
         <Icon name="Copy2Outline" size="$4" color="$iconSubdued" />
       </XStack>
+
+      {/* Market Cap Percentage */}
+      <SizableText size="$bodyMd" color="$text" {...layoutConfig.percentage}>
+        {item.marketCapPercentage ? `${item.marketCapPercentage}%` : '-'}
+      </SizableText>
 
       {/* Amount */}
       <NumberSizeableText

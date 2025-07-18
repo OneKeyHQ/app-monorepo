@@ -14,6 +14,7 @@ import { MarketStarV2 } from '@onekeyhq/kit/src/views/Market/components/MarketSt
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
+import { clampPercentage } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { TokenIdentityItem } from '../../components/TokenIdentityItem';
 import { Txns } from '../../components/Txns';
@@ -53,7 +54,7 @@ export const useColumnsDesktop = (
     {
       title: intl.formatMessage({ id: ETranslations.global_name }),
       dataIndex: 'name',
-      columnWidth: 230,
+      columnWidth: 200,
       render: (_, record) => (
         <TokenIdentityItem
           tokenLogoURI={record.tokenImageUri}
@@ -104,7 +105,7 @@ export const useColumnsDesktop = (
             color={text >= 0 ? '$textSuccess' : '$textCritical'}
             formatterOptions={{ showPlusMinusSigns: true }}
           >
-            {text}
+            {clampPercentage(text)}
           </NumberSizeableText>
         );
       },
@@ -141,6 +142,21 @@ export const useColumnsDesktop = (
       renderSkeleton: () => <Skeleton width={100} height={16} />,
     },
     {
+      title: intl.formatMessage({ id: ETranslations.dexmarket_turnover }),
+      dataIndex: 'turnover',
+      columnProps: { flex: 1.1 },
+      render: (text: number) => (
+        <NumberSizeableText
+          size="$bodyMd"
+          formatter="marketCap"
+          formatterOptions={{ currency }}
+        >
+          {text}
+        </NumberSizeableText>
+      ),
+      renderSkeleton: () => <Skeleton width={100} height={16} />,
+    },
+    {
       title: intl.formatMessage({ id: ETranslations.dexmarket_txns }),
       dataIndex: 'transactions',
       columnProps: { flex: 1 },
@@ -162,7 +178,7 @@ export const useColumnsDesktop = (
       dataIndex: 'uniqueTraders',
       columnProps: { flex: 1 },
       render: (text: number) => (
-        <NumberSizeableText size="$bodyMd" formatter="balance">
+        <NumberSizeableText size="$bodyMd" formatter="marketCap">
           {text}
         </NumberSizeableText>
       ),
@@ -173,26 +189,11 @@ export const useColumnsDesktop = (
       dataIndex: 'holders',
       columnProps: { flex: 1 },
       render: (text: number) => (
-        <NumberSizeableText size="$bodyMd" formatter="balance">
+        <NumberSizeableText size="$bodyMd" formatter="marketCap">
           {text}
         </NumberSizeableText>
       ),
       renderSkeleton: () => <Skeleton width={60} height={16} />,
-    },
-    {
-      title: intl.formatMessage({ id: ETranslations.dexmarket_turnover }),
-      dataIndex: 'turnover',
-      columnProps: { flex: 1.1 },
-      render: (text: number) => (
-        <NumberSizeableText
-          size="$bodyMd"
-          formatter="value"
-          formatterOptions={{ currency }}
-        >
-          {text}
-        </NumberSizeableText>
-      ),
-      renderSkeleton: () => <Skeleton width={100} height={16} />,
     },
   ];
 };

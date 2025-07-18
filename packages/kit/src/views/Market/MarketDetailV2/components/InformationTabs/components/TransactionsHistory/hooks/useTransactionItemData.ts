@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 import { useClipboard } from '@onekeyhq/components';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatDistanceToNowStrict } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatRelativeTimeAbbr } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 interface IUseTransactionItemDataProps {
@@ -33,11 +33,7 @@ export function useTransactionItemData({
     });
   }, [networkId, item.hash]);
 
-  const formatRelativeTime = (timestamp: number) =>
-    formatDistanceToNowStrict(timestamp * 1000, {
-      addSuffix: false,
-      roundingMethod: 'floor',
-    });
+  const formatRelativeTime = formatRelativeTimeAbbr;
 
   const isBuy = item.type === 'buy';
   const baseToken = isBuy ? item.to : item.from;

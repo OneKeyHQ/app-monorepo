@@ -319,6 +319,18 @@ export const formatPrice: IFormatNumberFunc = (value, options) => {
   };
 };
 
+/** Clamp percentage value between -999.99 and 999.99 */
+export const clampPercentage = (value: string | number): number => {
+  const bigValue = new BigNumber(value);
+  if (bigValue.isNaN()) {
+    return 0;
+  }
+  const min = new BigNumber(-999.99);
+  const max = new BigNumber(999.99);
+  const clampedValue = BigNumber.max(min, BigNumber.min(max, bigValue));
+  return clampedValue.decimalPlaces(2, BigNumber.ROUND_HALF_UP).toNumber();
+};
+
 /** PriceChange */
 export const formatPriceChange: IFormatNumberFunc = (value, options) => {
   const val = new BigNumber(value);

@@ -11,6 +11,7 @@ import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
+import { clampPercentage } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketStarV2 } from '../../../components/MarketStarV2';
@@ -51,8 +52,8 @@ export function TokenDetailHeaderRight({
   const {
     name = '',
     symbol = '',
-    price: currentPrice = '0',
-    priceChange24hPercent = '0',
+    price: currentPrice = '--',
+    priceChange24hPercent = '--',
     marketCap = '0',
     tvl = '0',
     holders = 0,
@@ -94,7 +95,7 @@ export function TokenDetailHeaderRight({
           tokenSymbol={symbol}
         />
         <PriceChangePercentage size="$bodySm">
-          {priceChange24hPercent}
+          {clampPercentage(priceChange24hPercent)}
         </PriceChangePercentage>
       </YStack>
 
@@ -110,7 +111,7 @@ export function TokenDetailHeaderRight({
               currency: settingsPersistAtom.currencyInfo.symbol,
             }}
           >
-            {marketCap}
+            {marketCap === '0' ? '--' : marketCap}
           </NumberSizeableText>
         }
       />
@@ -126,7 +127,7 @@ export function TokenDetailHeaderRight({
               currency: settingsPersistAtom.currencyInfo.symbol,
             }}
           >
-            {tvl}
+            {tvl === '0' ? '--' : tvl}
           </NumberSizeableText>
         }
       />
@@ -139,7 +140,7 @@ export function TokenDetailHeaderRight({
             color="$text"
             formatter="marketCap"
           >
-            {holders}
+            {holders === 0 ? '--' : holders}
           </NumberSizeableText>
         }
       />

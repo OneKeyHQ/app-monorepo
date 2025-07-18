@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -57,7 +57,7 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
         data={holders}
         renderItem={renderItem}
         keyExtractor={(item) => item.accountAddress + item.fiatValue}
-        estimatedItemSize={70}
+        estimatedItemSize={40}
         showsVerticalScrollIndicator
         contentContainerStyle={{
           paddingBottom: '$4',
