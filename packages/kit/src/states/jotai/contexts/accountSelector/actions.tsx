@@ -894,9 +894,18 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 skipDeviceCancel: true,
               },
               {
+                // will autoSelect later by wallet is mocked or not
                 disableAutoSelect: true,
               },
             );
+          if (!wallet.isMocked && indexedAccount?.id) {
+            // autoSelect account here
+            await this.autoSelectToCreatedWallet.call(set, {
+              wallet,
+              indexedAccount,
+              isOverrideWallet,
+            });
+          }
           await serviceAccount.restoreTempCreatedWallet({
             walletId: wallet.id,
           });
@@ -1799,6 +1808,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ) => {
       const { wallet, indexedAccount } = createResult;
+      if (wallet?.isMocked || !indexedAccount?.id) {
+        return;
+      }
       toastExistingWalletSwitch(createResult);
       await this.updateSelectedAccount.call(set, {
         num: 0,

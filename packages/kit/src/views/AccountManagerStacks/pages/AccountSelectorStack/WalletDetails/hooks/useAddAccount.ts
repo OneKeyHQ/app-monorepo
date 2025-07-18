@@ -57,7 +57,7 @@ export function useAddAccount({
 }) {
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
-  const { createQrWalletByAccount } = useCreateQrWallet();
+  const { createQrWalletAccount } = useCreateQrWallet();
   const { activeAccount } = useActiveAccount({ num });
   const { serviceAccount } = backgroundApiProxy;
 
@@ -142,7 +142,7 @@ export function useAddAccount({
                   )
                 : result?.failedAccounts?.length)
             ) {
-              await createQrWalletByAccount({
+              await createQrWalletAccount({
                 walletId: focusedWalletId,
                 networkId:
                   activeAccount?.network?.id || getNetworkIdsMap().onekeyall,

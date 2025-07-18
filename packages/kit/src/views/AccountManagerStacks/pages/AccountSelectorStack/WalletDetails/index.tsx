@@ -70,7 +70,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const isEditableRouteParams = route.params?.editable;
   const linkedNetworkId = linkNetwork ? selectedAccount?.networkId : undefined;
   const [searchText, setSearchText] = useState('');
-  const { createQrWalletByAccount } = useCreateQrWallet();
+  const { createQrWallet } = useCreateQrWallet();
 
   defaultLogger.accountSelector.perf.renderAccountsList({
     selectedAccount,
@@ -409,13 +409,8 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                     qrHiddenCreateGuideDialog.showDialogForCreatingStandardWallet(
                       {
                         onConfirm: () => {
-                          void createQrWalletByAccount({
-                            walletId: focusedWalletInfo.wallet?.id || '',
-                            networkId:
-                              selectedAccount?.networkId ||
-                              getNetworkIdsMap().onekeyall,
-                            indexedAccountId:
-                              selectedAccount.indexedAccountId || '',
+                          void createQrWallet({
+                            isOnboarding: true,
                           });
                         },
                       },
@@ -557,7 +552,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     accountsCount,
     accountsValue,
     actions,
-    createQrWalletByAccount,
+    createQrWallet,
     editable,
     focusedWalletInfo,
     getItemLayout,
