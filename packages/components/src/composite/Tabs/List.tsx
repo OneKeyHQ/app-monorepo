@@ -125,9 +125,13 @@ export function List<Item>({
 
   useEffect(() => {
     if (
-      currentTabName &&
-      !scrollTabElementsRef.current[currentTabName] &&
-      ref.current
+      (currentTabName &&
+        ref.current &&
+        !scrollTabElementsRef.current[currentTabName]) ||
+      (scrollTabElementsRef.current[currentTabName]?.element &&
+        !document.body.contains(
+          scrollTabElementsRef.current[currentTabName].element,
+        ))
     ) {
       scrollTabElementsRef.current[currentTabName] = {
         element: ref.current as HTMLElement,
@@ -315,6 +319,17 @@ export function List<Item>({
     [numColumns, width],
   );
 
+  useEffect(() => {
+    if (numColumns > 1 && width) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      (listRef.current as any)?.recomputeCellSizesAndPositions();
+    } else {
+      cache.clearAll();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      (listRef.current as any)?.recomputeRowHeights();
+    }
+  }, [numColumns, width, cache]);
+
   const cellRenderer = useCallback(
     (params: CollectionCellRendererParams) => {
       const { index, key, style } = params;
@@ -361,6 +376,7 @@ export function List<Item>({
                 cellSizeAndPositionGetter={cellSizeAndPositionGetter}
                 cellRenderer={cellRenderer as any}
                 overscanRowCount={30}
+                rowCount={Math.ceil(listData.length / numColumns)}
               />
             </div>
           );

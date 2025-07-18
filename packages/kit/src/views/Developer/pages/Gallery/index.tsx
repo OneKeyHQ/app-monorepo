@@ -601,6 +601,13 @@ const UnOrderedListGallery = LazyLoadPage(
   () => import('./Components/stories/UnOrderedListGallery'),
 );
 
+const CarouselGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Carousel'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -879,5 +886,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentUnOrderedList,
     component: UnOrderedListGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentCarousel,
+    component: CarouselGallery,
   },
 ];
