@@ -1,6 +1,13 @@
 /* eslint-disable react/prop-types */
 import type { ComponentType, ReactNode } from 'react';
-import { isValidElement, useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  isValidElement,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { View } from 'react-native';
 import {
@@ -68,6 +75,7 @@ export function List<Item>({
   ListHeaderComponentStyle,
   ListFooterComponentStyle,
   numColumns = 1,
+  extraData,
 }: Omit<IListProps<Item>, 'ListEmptyComponent'> &
   Omit<ISectionListProps<Item>, 'ListEmptyComponent'> & {
     ListEmptyComponent?: ReactNode | ComponentType<any>;
@@ -97,6 +105,19 @@ export function List<Item>({
       }),
     [estimatedItemSize],
   );
+
+  const prevNumColumns = useRef(numColumns);
+  const prevExtraData = useRef(extraData);
+  useMemo(() => {
+    if (
+      numColumns !== prevNumColumns.current ||
+      extraData !== prevExtraData.current
+    ) {
+      cache.clearAll();
+    }
+  }, [numColumns, extraData, cache]);
+  prevNumColumns.current = numColumns;
+  prevExtraData.current = extraData;
 
   const isVisible = useMemo(() => {
     return focusedTabValue === currentTabName;

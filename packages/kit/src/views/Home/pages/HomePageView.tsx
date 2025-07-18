@@ -98,41 +98,6 @@ export function HomePageView({
   const supportedDeviceTypes = vaultSettings?.supportedDeviceTypes;
   const watchingAccountEnabled = vaultSettings?.watchingAccountEnabled;
 
-  // const tabs = useMemo(
-  //   () =>
-  //     [
-  //       {
-  //         id: 'crypto',
-  //         title: intl.formatMessage({
-  //           id: ETranslations.global_crypto,
-  //         }),
-  //         page: memo(TokenListContainerWithProvider, () => true),
-  //       },
-  //       isNFTEnabled
-  //         ? {
-  //             id: 'nft',
-  //             title: intl.formatMessage({
-  //               id: ETranslations.global_nft,
-  //             }),
-  //             page: memo(NFTListContainerWithProvider, () => true),
-  //           }
-  //         : null,
-  //       // {
-  //       //   title: 'Defi',
-  //       //   page: memo(DefiListContainer, () => true),
-  //       // },
-  //       {
-  //         id: 'history',
-  //         title: intl.formatMessage({
-  //           id: ETranslations.global_history,
-  //         }),
-  //         page: memo(TxHistoryListContainerWithProvider, () => true),
-  //       },
-  //     ].filter(Boolean),
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  //   [intl, account?.id, network?.id, isNFTEnabled],
-  // );
-
   const onRefresh = useCallback(() => {
     appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
   }, []);
@@ -179,58 +144,66 @@ export function HomePageView({
     };
   }, [renderHeader]);
 
-  const tabs = useMemo(
-    () =>
-      isNFTEnabled ? (
-        <Tabs.Container {...tabContainerProps}>
-          <Tabs.Tab
-            name={intl.formatMessage({
-              id: ETranslations.global_crypto,
-            })}
-          >
-            <TokenListContainerWithProvider />
-          </Tabs.Tab>
-          <Tabs.Tab
-            name={intl.formatMessage({
-              id: ETranslations.global_nft,
-            })}
-          >
-            <NFTListContainerWithProvider />
-          </Tabs.Tab>
-          <Tabs.Tab
-            name={intl.formatMessage({
-              id: ETranslations.global_history,
-            })}
-          >
-            <TxHistoryListContainerWithProvider />
-          </Tabs.Tab>
-        </Tabs.Container>
-      ) : (
-        <Tabs.Container {...tabContainerProps}>
-          <Tabs.Tab
-            name={intl.formatMessage({
-              id: ETranslations.global_crypto,
-            })}
-          >
-            <TokenListContainerWithProvider />
-          </Tabs.Tab>
-          <Tabs.Tab
-            name={intl.formatMessage({
-              id: ETranslations.global_history,
-            })}
-          >
-            <TxHistoryListContainerWithProvider />
-          </Tabs.Tab>
-        </Tabs.Container>
-      ),
-    [intl, isNFTEnabled, tabContainerProps],
-  );
+  const tabs = useMemo(() => {
+    const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
+      network?.id ?? ''
+    }-${isNFTEnabled ? '1' : '0'}`;
+    return isNFTEnabled ? (
+      <Tabs.Container {...tabContainerProps} key={key}>
+        <Tabs.Tab
+          name={intl.formatMessage({
+            id: ETranslations.global_crypto,
+          })}
+        >
+          <TokenListContainerWithProvider />
+        </Tabs.Tab>
+        <Tabs.Tab
+          name={intl.formatMessage({
+            id: ETranslations.global_nft,
+          })}
+        >
+          <NFTListContainerWithProvider />
+        </Tabs.Tab>
+        <Tabs.Tab
+          name={intl.formatMessage({
+            id: ETranslations.global_history,
+          })}
+        >
+          <TxHistoryListContainerWithProvider />
+        </Tabs.Tab>
+      </Tabs.Container>
+    ) : (
+      <Tabs.Container {...tabContainerProps} key={key}>
+        <Tabs.Tab
+          name={intl.formatMessage({
+            id: ETranslations.global_crypto,
+          })}
+        >
+          <TokenListContainerWithProvider />
+        </Tabs.Tab>
+        <Tabs.Tab
+          name={intl.formatMessage({
+            id: ETranslations.global_history,
+          })}
+        >
+          <TxHistoryListContainerWithProvider />
+        </Tabs.Tab>
+      </Tabs.Container>
+    );
+  }, [
+    account?.id,
+    account?.indexedAccountId,
+    intl,
+    isNFTEnabled,
+    network?.id,
+    tabContainerProps,
+  ]);
 
   useEffect(() => {
     void Icon.prefetch('CloudOffOutline');
   }, []);
 
-  const renderHomePageContent = useCallback(() => {
+  const homePageContent = useMemo(() => {
     if (
       (softwareAccountDisabled &&
         accountUtils.isHdWallet({
@@ -303,7 +276,7 @@ export function HomePageView({
     setTabPageHeight(height);
   }, []);
 
-  const renderHomePage = useCallback(() => {
+  const homePage = useMemo(() => {
     if (!ready) {
       return <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />;
     }
@@ -315,7 +288,7 @@ export function HomePageView({
     );
 
     if (wallet) {
-      content = renderHomePageContent();
+      content = homePageContent;
       // This is a temporary hack solution, need to fix the layout of headerLeft and headerRight
     }
     return (
@@ -361,11 +334,8 @@ export function HomePageView({
     tabPageHeight,
     sceneName,
     handleTabPageLayout,
-    renderHomePageContent,
+    homePageContent,
   ]);
 
-  return useMemo(
-    () => <Page fullPage>{renderHomePage()}</Page>,
-    [renderHomePage],
-  );
+  return useMemo(() => <Page fullPage>{homePage}</Page>, [homePage]);
 }
