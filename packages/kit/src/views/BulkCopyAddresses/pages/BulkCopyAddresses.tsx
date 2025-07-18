@@ -269,6 +269,9 @@ function BulkCopyAddresses({
           showUIProgress: true,
           excludedIndexes,
           createAllDeriveTypes,
+          errorMessage: intl.formatMessage({
+            id: ETranslations.global_bulk_copy_addresses_loading_error,
+          }),
         };
 
         showBatchCreateAccountProcessingDialog({
@@ -338,7 +341,7 @@ function BulkCopyAddresses({
         setIsGeneratingAddresses(false);
       }
     },
-    [selectedWalletId, selectedNetworkId, navigation],
+    [selectedWalletId, selectedNetworkId, navigation, intl],
   );
 
   const handleGenerateAddressesByRange = useCallback(async () => {
