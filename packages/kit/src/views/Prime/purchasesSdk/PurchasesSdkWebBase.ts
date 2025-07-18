@@ -1,7 +1,9 @@
 import { LogLevel, Purchases } from '@revenuecat/purchases-js';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
 
+import purchaseSdkUtils from './purchaseSdkUtils';
 import { PurchasesSdkBase } from './PurchasesSdkBase';
 
 import type { IPurchasePackageParams } from './PurchasesSdkBase';
@@ -83,7 +85,9 @@ export abstract class PurchasesSdkWebBase extends PurchasesSdkBase {
       const purchaseParams: PurchaseParams = {
         rcPackage: paywallPackage,
         customerEmail: email,
-        selectedLocale: locale,
+        selectedLocale: purchaseSdkUtils.convertToRevenuecatLocale({
+          locale: locale as ILocaleJSONSymbol,
+        }),
       };
       // TODO check package user is Matched to privyUserId
       // TODO check if user has already purchased
