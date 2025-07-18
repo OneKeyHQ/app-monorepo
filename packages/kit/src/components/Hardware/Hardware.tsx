@@ -888,20 +888,10 @@ export function DesktopBluetoothPermissionContent({
   }, [promiseId]);
 
   return (
-    <Stack gap="$4" padding="$4">
-      <Stack gap="$3" alignItems="center">
-        <Icon name="BluetoothOutline" size="$12" color="$iconInfo" />
-        <SizableText size="$bodyLgMedium" textAlign="center">
-          {intl.formatMessage({
-            id: ETranslations.hardware_bluetooth_requires_permission_error,
-          })}
-        </SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-          {intl.formatMessage({
-            id: ETranslations.hardware_bluetooth_need_turned_on_error,
-          })}
-        </SizableText>
-      </Stack>
-    </Stack>
+    <Alert
+      title="USB not detected. OneKey will now try Bluetooth — please allow Bluetooth access when prompted."
+      type="info"
+      icon="BluetoothOutline"
+    />
   );
 }

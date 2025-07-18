@@ -143,9 +143,9 @@ export class HardwareConnectionManager {
       } finally {
         this.isRequestingBluetoothPermission = false;
         // Update state to show checking device step instead of calling showCheckingDeviceDialog
-        void this.backgroundApi.serviceHardwareUI.showCheckingDeviceDialog({
-          connectId: '',
-        });
+        // void this.backgroundApi.serviceHardwareUI.showCheckingDeviceDialog({
+        //   connectId: '',
+        // });
       }
     }
 
