@@ -1,4 +1,7 @@
+import { useIntl } from 'react-intl';
+
 import { Badge, Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 export interface IAddressListItemProps {
@@ -11,6 +14,8 @@ export interface IAddressListItemProps {
   showHierarchyIndicator?: boolean;
   disabled?: boolean;
   onPress?: () => void;
+  memo?: string;
+  note?: string;
 }
 
 function AddressListItem(props: IAddressListItemProps) {
@@ -24,7 +29,11 @@ function AddressListItem(props: IAddressListItemProps) {
     address,
     onPress,
     disabled,
+    memo,
+    note,
   } = props;
+
+  const intl = useIntl();
 
   const shouldDisplayAccount = showAccount && !!accountName;
   const shouldDisplayType = showType && !!addressType;
@@ -74,6 +83,18 @@ function AddressListItem(props: IAddressListItemProps) {
           >
             {address}
           </SizableText>
+          {memo || note ? (
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              flexWrap="wrap"
+              flex={1}
+            >
+              {`${intl.formatMessage({
+                id: note ? ETranslations.global_Note : ETranslations.send_tag,
+              })}: ${memo || note || ''}`}
+            </SizableText>
+          ) : null}
         </YStack>
       </XStack>
     </YStack>

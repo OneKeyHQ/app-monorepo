@@ -323,7 +323,7 @@ function MoreActionContentGridItem({
         $group-press={{
           bg: '$bgActive',
         }}
-        overflow="hidden"
+        overflow={showRedDot ? 'visible' : 'hidden'}
       >
         {icon ? <Icon name={icon} /> : null}
         {lottieSrc ? (
@@ -332,7 +332,7 @@ function MoreActionContentGridItem({
         {showRedDot ? (
           <Stack
             position="absolute"
-            right="$-4"
+            right="$-2"
             top="$-2"
             alignItems="flex-end"
             w="$10"

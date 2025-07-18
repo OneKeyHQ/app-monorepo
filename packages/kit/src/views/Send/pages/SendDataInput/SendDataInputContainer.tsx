@@ -75,7 +75,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
@@ -1624,8 +1623,18 @@ function SendDataInputContainer() {
                 networkId={currentAccount.networkId}
                 searchKey={toAddressRaw}
                 isSearchMode={!form.formState.isValid}
-                onSelect={({ address: selectedAddress }) => {
+                onSelect={({
+                  address: selectedAddress,
+                  memo: selectedMemo,
+                  note: selectedNote,
+                }) => {
                   setEnsureAddressValid(true);
+                  if (selectedMemo) {
+                    form.setValue('memo', selectedMemo);
+                  }
+                  if (selectedNote) {
+                    form.setValue('note', selectedNote);
+                  }
                   form.setValue('to', {
                     raw: selectedAddress,
                   });

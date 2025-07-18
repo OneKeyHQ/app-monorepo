@@ -254,6 +254,7 @@ export function showBatchCreateAccountProcessingDialog({
   closeAfterCancel,
   closeAfterError,
   renderProgressContent,
+  onDialogClose,
   ...dialogProps
 }: IDialogShowProps & {
   navigation?: IAppNavigation;
@@ -265,6 +266,7 @@ export function showBatchCreateAccountProcessingDialog({
     progressCurrent: number;
     progressTotal: number;
   }) => React.ReactNode;
+  onDialogClose?: () => void;
 }) {
   setGlobalShowDeviceProgressDialogEnabled(false);
   Dialog.show({
@@ -275,6 +277,7 @@ export function showBatchCreateAccountProcessingDialog({
       void backgroundApiProxy.serviceBatchCreateAccount.cancelBatchCreateAccountsFlow();
     },
     onClose() {
+      onDialogClose?.();
       setGlobalShowDeviceProgressDialogEnabled(true);
       void backgroundApiProxy.serviceBatchCreateAccount.cancelBatchCreateAccountsFlow();
     },

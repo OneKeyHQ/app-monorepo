@@ -171,6 +171,8 @@ export const {
     price: 0,
     minutes: 0,
   },
+  isResourceRedeemed: false,
+  isResourceClaimed: false,
 });
 
 export const { atom: payWithTokenInfoAtom, use: usePayWithTokenInfoAtom } =

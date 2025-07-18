@@ -120,9 +120,6 @@ function BaseTxHistoryListView(props: IProps) {
     [data, searchKey],
   );
 
-  const { bottom, top } = useSafeAreaInsets();
-  const { height: screenHeight } = useWindowDimensions();
-
   const sections = useMemo(
     () =>
       convertToSectionGroups({
@@ -203,6 +200,7 @@ function BaseTxHistoryListView(props: IProps) {
       contentContainerStyle={resolvedContentContainerStyle as any}
       stickySectionHeadersEnabled={false}
       sections={sections}
+      extraData={sections.length}
       ListEmptyComponent={
         searchKey && data.length > 0 ? EmptySearch : EmptyHistory
       }

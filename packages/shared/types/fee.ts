@@ -46,6 +46,8 @@ export type ITronResourceRentalInfo = {
     pledgeBandwidthNum: number;
     extraTrxNum?: number;
   };
+  isResourceClaimed?: boolean;
+  isResourceRedeemed?: boolean;
 };
 
 export type IGasEIP1559 = {
