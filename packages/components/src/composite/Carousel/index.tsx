@@ -56,6 +56,9 @@ export function Carousel<T>({
 
   const startAutoPlay = useCallback(() => {
     if (loop) {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
       timerRef.current = setTimeout(() => {
         scrollToNextPage();
         startAutoPlay();
