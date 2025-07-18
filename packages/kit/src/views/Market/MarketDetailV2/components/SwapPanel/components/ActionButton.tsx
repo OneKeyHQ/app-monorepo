@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Button } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -40,7 +41,7 @@ export function ActionButton({
   const intl = useIntl();
   const { tokenDetail } = useTokenDetail();
   const [settingsValue] = useSettingsPersistAtom();
-
+  const { activeAccount } = useActiveAccount({ num: 0 });
   // Get payment token price for buy orders
   const { price: paymentTokenPrice } = usePaymentTokenPrice(
     tradeType === ESwapDirection.BUY ? paymentToken : undefined,
@@ -85,6 +86,9 @@ export function ActionButton({
   const hasAmount = amountBN.gt(0);
   const isInsufficientBalance = balance && hasAmount && amountBN.gt(balance);
 
+  const noAccount =
+    !activeAccount?.indexedAccount?.id && !activeAccount?.account?.id;
+
   // Disable button if insufficient balance
   const shouldDisable = isInsufficientBalance;
   const displayAmountFormatted = numberFormat(displayAmount, {
@@ -115,6 +119,12 @@ export function ActionButton({
   if (!hasAmount) {
     buttonText = intl.formatMessage({
       id: ETranslations.swap_page_button_enter_amount,
+    });
+  }
+
+  if (noAccount) {
+    buttonText = intl.formatMessage({
+      id: ETranslations.swap_page_button_no_connected_wallet,
     });
   }
 

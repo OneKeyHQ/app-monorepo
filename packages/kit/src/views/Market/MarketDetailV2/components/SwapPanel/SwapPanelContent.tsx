@@ -62,8 +62,6 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     paymentToken,
     setPaymentAmount,
     setPaymentToken,
-    antiMEV,
-    handleAntiMEVToggle,
     tradeType,
     setTradeType,
     setSlippage,
@@ -137,13 +135,13 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       {/* Slippage setting */}
       <SlippageSetting
         autoDefaultValue={slippageAutoValue}
-        isMEV={antiMEV}
+        isMEV={swapMevNetConfig?.includes(swapPanel.networkId ?? '')}
         onSlippageChange={(item) => setSlippage(item.value)}
       />
 
       {/* AntiMEV toggle */}
       {swapMevNetConfig?.includes(swapPanel.networkId ?? '') ? (
-        <AntiMEVToggle value={antiMEV} onToggle={handleAntiMEVToggle} />
+        <AntiMEVToggle value />
       ) : null}
     </YStack>
   );
