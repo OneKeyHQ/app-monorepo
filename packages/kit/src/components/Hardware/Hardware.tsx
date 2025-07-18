@@ -843,14 +843,14 @@ export function DesktopBluetoothPermissionContent({
 
     let pollTimer: ReturnType<typeof setInterval> | null = null;
 
-    const callbackResult = (result: boolean) => {
+    const callbackResult = async (result: boolean) => {
       if (pollTimer) {
         clearInterval(pollTimer);
       }
-      // TODO: set isRequestedPermission to true
-      // await backgroundApiProxy.serviceSetting.setDesktopBluetoothAtom({
-      //   isRequestedPermission: true,
-      // });
+      // Set isRequestedPermission to true after user grants permission
+      await backgroundApiProxy.serviceSetting.setDesktopBluetoothAtom({
+        isRequestedPermission: true,
+      });
       void backgroundApiProxy.servicePromise.resolveCallback({
         id: promiseId,
         data: result,
@@ -861,7 +861,7 @@ export function DesktopBluetoothPermissionContent({
     const checkBluetoothStatus = async () => {
       retryCount.current += 1;
       if (retryCount.current > 10) {
-        callbackResult(false);
+        void callbackResult(false);
         return;
       }
       try {
@@ -873,7 +873,7 @@ export function DesktopBluetoothPermissionContent({
           available,
         );
         if (available?.available) {
-          callbackResult(true);
+          void callbackResult(true);
         }
       } catch (error) {
         console.error('Check bluetooth status error:', error);

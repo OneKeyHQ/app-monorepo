@@ -4,6 +4,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
+import type { IHardwareCallContext } from '@onekeyhq/shared/types/device';
+import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 
 import { desktopBluetoothAtom } from '../../states/jotai/atoms/desktopBluetooth';
 import {
@@ -14,12 +16,76 @@ import {
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 export class HardwareConnectionManager {
+  private static instance: HardwareConnectionManager | null = null;
+
   private backgroundApi: IBackgroundApi;
 
   private actualTransportType: EHardwareTransportType | null = null;
 
-  constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
+  private isRequestingBluetoothPermission = false;
+
+  private constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
     this.backgroundApi = backgroundApi;
+  }
+
+  static getInstance({
+    backgroundApi,
+  }: {
+    backgroundApi: IBackgroundApi;
+  }): HardwareConnectionManager {
+    if (!HardwareConnectionManager.instance) {
+      HardwareConnectionManager.instance = new HardwareConnectionManager({
+        backgroundApi,
+      });
+    }
+    return HardwareConnectionManager.instance;
+  }
+
+  static resetInstance(): void {
+    HardwareConnectionManager.instance = null;
+  }
+
+  private async requestBluetoothPermission(): Promise<boolean> {
+    try {
+      // 使用 servicePromise 等待用户授权完成
+      const permissionResult = await new Promise<boolean>((resolve, reject) => {
+        const promiseId = this.backgroundApi.servicePromise.createCallback({
+          resolve,
+          reject,
+        });
+
+        // 触发桌面蓝牙权限对话框
+        void hardwareUiStateAtom.set({
+          action: EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION,
+          connectId: '', // 暂时为空，可以根据需要传入实际的 connectId
+          payload: {
+            uiRequestType:
+              EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION,
+            eventType: 'DESKTOP_REQUEST_BLUETOOTH_PERMISSION',
+            deviceType: 'Unknown' as any,
+            deviceId: '',
+            connectId: '',
+            deviceMode: 'normal' as any,
+            currentTransportType: EHardwareTransportType.DesktopWebBle,
+            promiseId: promiseId.toString(),
+            rawPayload: {},
+          },
+        });
+      });
+
+      console.log(
+        'HardwareConnectionManager requestBluetoothPermission permissionResult -> :',
+        permissionResult,
+      );
+
+      return permissionResult;
+    } catch (error) {
+      console.error(
+        'HardwareConnectionManager requestBluetoothPermission error -> :',
+        error,
+      );
+      return false;
+    }
   }
 
   async detectUSBDeviceAvailability(): Promise<boolean> {
@@ -57,44 +123,21 @@ export class HardwareConnectionManager {
         desktopBluetoothSettings.isRequestedPermission,
       );
 
-      // 使用 servicePromise 等待用户授权完成
-      const permissionResult = await new Promise<boolean>((resolve, reject) => {
-        const promiseId = this.backgroundApi.servicePromise.createCallback({
-          resolve,
-          reject,
-        });
-
-        // 触发桌面蓝牙权限对话框
-        void hardwareUiStateAtom.set({
-          action: EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION,
-          connectId: '', // 暂时为空，可以根据需要传入实际的 connectId
-          payload: {
-            uiRequestType:
-              EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION,
-            eventType: 'DESKTOP_REQUEST_BLUETOOTH_PERMISSION',
-            deviceType: 'Unknown' as any,
-            deviceId: '',
-            connectId: '',
-            deviceMode: 'normal' as any,
-            currentTransportType: EHardwareTransportType.DesktopWebBle,
-            promiseId: promiseId.toString(),
-            rawPayload: {},
-          },
-        });
-      });
-
-      // // 如果用户授权了，重新检查蓝牙可用性
-      // if (permissionResult) {
-      //   return this.detectBluetoothAvailability();
-      // }
-
-      console.log(
-        'HardwareConnectionManager detectBluetoothAvailability permissionResult -> :',
-        permissionResult,
-      );
-
-      if (!permissionResult) {
+      if (this.isRequestingBluetoothPermission) {
+        console.log(
+          '❌ detectBluetoothAvailability isRequestingBluetoothPermission -> :',
+          this.isRequestingBluetoothPermission,
+        );
         return false;
+      }
+
+      this.isRequestingBluetoothPermission = true;
+
+      try {
+        const result = await this.requestBluetoothPermission();
+        return result;
+      } finally {
+        this.isRequestingBluetoothPermission = false;
       }
     }
 
@@ -162,17 +205,43 @@ export class HardwareConnectionManager {
   }
 
   shouldSwitchTransportType = memoizee(
-    async (): Promise<{
+    async ({
+      hardwareCallContext,
+    }: {
+      hardwareCallContext?: IHardwareCallContext;
+    }): Promise<{
       shouldSwitch: boolean;
       targetType: EHardwareTransportType;
     }> => {
+      // only if context is not background task or sdk initialization, we will detect optimal transport type
+      if (
+        [
+          EHardwareCallContext.BACKGROUND_TASK,
+          EHardwareCallContext.SDK_INITIALIZATION,
+          EHardwareCallContext.SILENT_CALL,
+        ].includes(hardwareCallContext || EHardwareCallContext.USER_INTERACTION)
+      ) {
+        console.log(
+          '❌ Skip transport type detection: ',
+          hardwareCallContext || EHardwareCallContext.USER_INTERACTION,
+        );
+        const currentSettingType =
+          await this.backgroundApi.serviceSetting.getHardwareTransportType();
+        return {
+          shouldSwitch: false,
+          targetType: currentSettingType,
+        };
+      }
+
       const optimalType = await this.determineOptimalTransportType();
       const shouldSwitch = this.actualTransportType !== optimalType;
 
       console.log(
         `🔍 CACHE RESULT: shouldSwitch=${
           shouldSwitch ? 'true' : 'false'
-        }, targetType=${optimalType}`,
+        }, targetType=${optimalType}, context=${
+          hardwareCallContext || 'undefined'
+        }`,
       );
       return {
         shouldSwitch,
@@ -183,6 +252,7 @@ export class HardwareConnectionManager {
       promise: true,
       maxAge: timerUtils.getTimeDurationMs({ seconds: 2 }),
       max: 1,
+      normalizer: (args) => args[0].hardwareCallContext || 'default',
     },
   );
 
