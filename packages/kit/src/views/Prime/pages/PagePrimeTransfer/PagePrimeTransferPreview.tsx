@@ -385,7 +385,7 @@ export default function PagePrimeTransferPreview() {
               id: ETranslations.transfer_transfer_verify_passcode_desc,
             },
             {
-              'deviceName': directionUserInfo?.fromUser?.appDeviceName || '--',
+              'deviceName': directionUserInfo?.fromUser?.appPlatformName || '--',
             },
           ),
           showCancelButton: false,
@@ -419,7 +419,7 @@ export default function PagePrimeTransferPreview() {
       setIsImporting(false);
     }
   }, [
-    directionUserInfo?.fromUser?.appDeviceName,
+    directionUserInfo?.fromUser?.appPlatformName,
     intl,
     isImporting,
     navigation,

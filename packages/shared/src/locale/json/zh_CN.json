@@ -104,7 +104,7 @@
   "address_input.transferred_popover": "已检测到之前向此地址的转账。也请再次检查以确保这是预期的地址。",
   "address_label.allowlist": "白名单",
   "address_type": "地址类型",
-  "allowlist.enabled_popover_content": "您只能将资金转移到钱包内的账户或地址簿中的任何地址。如果您了解风险，可以在 <url>https://app.onekey.so/send/protection<underline>设置 >> 安全 >>\n  保护</underline></url> 中启用它",
+  "allowlist.enabled_popover_content": "您只能将资金转移到钱包内的账户或地址簿中的任何地址。如果您了解风险，可以在 <url>https://app.onekey.so/send/protection<underline>设置 >> 安全 >> 保护</underline></url> 中启用它",
   "allowlist.enabled_popover_title": "白名单已启用",
   "approval_bulk_revoke_status_paused_reason_description": "跳过原因",
   "approval_bulk_revoke_status_processing": "处理中",
