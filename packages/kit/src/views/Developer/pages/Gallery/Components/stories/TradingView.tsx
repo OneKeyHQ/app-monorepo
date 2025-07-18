@@ -17,6 +17,7 @@ const TradingViewGallery = () => (
             identifier="binance"
             h={400}
             w="100%"
+            decimal={8}
             onLoadEnd={() => console.log('onLoadEnd')}
           />
         ),
