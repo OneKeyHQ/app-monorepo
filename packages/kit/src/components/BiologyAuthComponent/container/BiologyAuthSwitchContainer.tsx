@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 
-import { flushSync } from 'react-dom';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
@@ -28,12 +27,10 @@ const BiologyAuthSwitchContainer = ({
   const onChange = useCallback(
     async (checked: boolean) => {
       try {
-        void flushSync(async () => {
-          await backgroundApiProxy.servicePassword.setBiologyAuthEnable(
-            checked,
-            skipAuth,
-          );
-        });
+        await backgroundApiProxy.servicePassword.setBiologyAuthEnable(
+          checked,
+          skipAuth,
+        );
       } catch (e) {
         const error = e as { message?: string; name?: string };
         if (error?.name === BIOLOGY_AUTH_CANCEL_ERROR) {
