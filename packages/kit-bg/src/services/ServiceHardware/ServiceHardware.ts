@@ -45,8 +45,10 @@ import type {
   IFirmwareReleasePayload,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
-import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import {
+  EHardwareCallContext,
+  EOneKeyDeviceMode,
+} from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 import simpleDb from '../../dbs/simple/simpleDb';
@@ -213,9 +215,10 @@ class ServiceHardware extends ServiceBase {
     backgroundApi: this.backgroundApi,
   });
 
-  connectionManager: HardwareConnectionManager = new HardwareConnectionManager({
-    backgroundApi: this.backgroundApi,
-  });
+  connectionManager: HardwareConnectionManager =
+    HardwareConnectionManager.getInstance({
+      backgroundApi: this.backgroundApi,
+    });
 
   private registeredEvents = false;
 
@@ -249,8 +252,11 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
-  async getSDKInstance(options?: { skipTransportDetection?: boolean }) {
-    const { skipTransportDetection = false } = options || {};
+  async getSDKInstance(options?: {
+    hardwareCallContext?: EHardwareCallContext;
+  }) {
+    const { hardwareCallContext = EHardwareCallContext.USER_INTERACTION } =
+      options || {};
     this.checkSdkVersionValid();
 
     const { hardwareConnectSrc } = await settingsPersistAtom.get();
@@ -269,12 +275,12 @@ class ServiceHardware extends ServiceBase {
 
     // Desktop Auto switch transport type
     if (platformEnv.isSupportDesktopBle) {
-      if (!skipTransportDetection) {
-        // Check if we should switch transport type based on optimal connection strategy
-        const result = await this.connectionManager.shouldSwitchTransportType();
-        shouldSwitch = result.shouldSwitch;
-        hardwareTransportType = result.targetType;
-      }
+      // Check if we should switch transport type based on optimal connection strategy
+      const result = await this.connectionManager.shouldSwitchTransportType({
+        hardwareCallContext,
+      });
+      shouldSwitch = result.shouldSwitch;
+      hardwareTransportType = result.targetType;
       // If transport type needs to be switched, update it
       if (shouldSwitch) {
         const currentTransportType =
@@ -557,7 +563,9 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async init() {
-    await this.getSDKInstance();
+    await this.getSDKInstance({
+      hardwareCallContext: EHardwareCallContext.SDK_INITIALIZATION,
+    });
   }
 
   @backgroundMethod()
@@ -623,6 +631,7 @@ class ServiceHardware extends ServiceBase {
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
       featuresDeviceId: device.deviceId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
 
     if (platformEnv.isNative) {
@@ -649,6 +658,7 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance();
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceUnlock(compatibleConnectId, {}),
@@ -659,6 +669,7 @@ class ServiceHardware extends ServiceBase {
   async getFeaturesWithUnlock({ connectId }: { connectId: string }) {
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
     let features = await this.getFeaturesWithoutCache({
       connectId: compatibleConnectId,
@@ -713,7 +724,9 @@ class ServiceHardware extends ServiceBase {
 
     const fn = async () => {
       // For cancel operations, skip transport detection to avoid unnecessary /enumerate calls
-      const sdk = await this.getSDKInstance({ skipTransportDetection: true });
+      const sdk = await this.getSDKInstance({
+        hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+      });
       // sdk.cancel() always cause device re-emit UI_EVENT:  ui-close_window
 
       // cancel the hardware process
@@ -724,7 +737,7 @@ class ServiceHardware extends ServiceBase {
         const compatibleConnectId = connectId
           ? await this.getCompatibleConnectId({
               connectId,
-              skipTransportDetection: true,
+              hardwareCallContext: EHardwareCallContext.SILENT_CALL,
             })
           : undefined;
         sdk.cancel(compatibleConnectId);
@@ -786,6 +799,7 @@ class ServiceHardware extends ServiceBase {
   async getDeviceSupportFeatures(connectId: string) {
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
     const hardwareSDK = await this.getSDKInstance();
     return convertDeviceResponse(() =>
@@ -875,6 +889,7 @@ class ServiceHardware extends ServiceBase {
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId: params.connectId,
       featuresDeviceId: dbDevice.deviceId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
@@ -1087,6 +1102,7 @@ class ServiceHardware extends ServiceBase {
   async uploadResource(connectId: string, params: DeviceUploadResourceParams) {
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
     const hardwareSDK = await this.getSDKInstance();
     return convertDeviceResponse(() =>
@@ -1186,7 +1202,7 @@ class ServiceHardware extends ServiceBase {
       const compatibleConnectId = await this.getCompatibleConnectId({
         connectId: params.connectId,
         featuresDeviceId: params.deviceId,
-        skipTransportDetection: true, // Skip detection during EVM address retrieval
+        hardwareCallContext: EHardwareCallContext.SILENT_CALL,
       });
       const hardwareSDK = await this.getSDKInstance();
       await timerUtils.wait(600);
@@ -1228,7 +1244,7 @@ class ServiceHardware extends ServiceBase {
       const compatibleConnectId = await this.getCompatibleConnectId({
         connectId,
         featuresDeviceId: deviceId,
-        skipTransportDetection: true, // Skip detection during XFP generation
+        hardwareCallContext: EHardwareCallContext.SILENT_CALL,
       });
       const hardwareSDK = await this.getSDKInstance();
       await timerUtils.wait(600);
@@ -1479,15 +1495,15 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async getCompatibleConnectId({
+    hardwareCallContext,
     connectId,
     featuresDeviceId,
     features,
-    skipTransportDetection = false,
   }: {
+    hardwareCallContext: EHardwareCallContext;
     connectId?: string;
     featuresDeviceId?: string | undefined | null; // rawDeviceId
     features?: IOneKeyDeviceFeatures;
-    skipTransportDetection?: boolean; // Skip transport type detection for performance
   }) {
     if (!connectId) {
       throw new OneKeyLocalError('connectId is required');
@@ -1505,18 +1521,10 @@ class ServiceHardware extends ServiceBase {
     }
 
     // Determine the transport type to use
-    let targetTransportType: EHardwareTransportType;
-
-    if (skipTransportDetection) {
-      // Skip detection and use current transport type
-      const currentTransportType =
-        await this.connectionManager.getCurrentTransportType();
-      targetTransportType = currentTransportType;
-    } else {
-      // Perform transport type detection
-      const result = await this.connectionManager.shouldSwitchTransportType();
-      targetTransportType = result.targetType;
-    }
+    const result = await this.connectionManager.shouldSwitchTransportType({
+      hardwareCallContext,
+    });
+    const targetTransportType = result.targetType;
 
     // Handle connection logic based on transport type
     if (targetTransportType === EHardwareTransportType.DesktopWebBle) {

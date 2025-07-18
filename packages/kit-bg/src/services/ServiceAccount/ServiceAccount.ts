@@ -97,8 +97,11 @@ import type {
   IQrWalletAirGapAccount,
 } from '@onekeyhq/shared/types/account';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
-import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
+import type {
+  EHardwareCallContext,
+  IDeviceSharedCallParams,
+} from '@onekeyhq/shared/types/device';
 import type { IExternalConnectWalletResult } from '@onekeyhq/shared/types/externalWallet.types';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
@@ -2388,8 +2391,10 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async getWalletDeviceParams({
     walletId,
+    hardwareCallContext,
   }: {
     walletId: string;
+    hardwareCallContext: EHardwareCallContext;
   }): Promise<IDeviceSharedCallParams | undefined> {
     if (!accountUtils.isHwWallet({ walletId })) {
       return undefined;
@@ -2406,6 +2411,7 @@ class ServiceAccount extends ServiceBase {
             connectId: dbDevice.connectId,
             featuresDeviceId: dbDevice.deviceId,
             features: dbDevice.featuresInfo,
+            hardwareCallContext,
           });
       } catch (error) {
         // If getCompatibleConnectId fails, use the original connectId

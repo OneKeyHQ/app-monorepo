@@ -189,6 +189,21 @@ const TabDeveloper = () => {
                   </>
                 )}
               </Button>
+
+              {platformEnv.isSupportDesktopBle ? (
+                <Button
+                  onPress={async () => {
+                    await backgroundApiProxy.serviceSetting.setDesktopBluetoothAtom(
+                      {
+                        isRequestedPermission: false,
+                      },
+                    );
+                    alert('Desktop Bluetooth permission state has been reset.');
+                  }}
+                >
+                  Reset Bluetooth Permission
+                </Button>
+              ) : null}
             </PartContainer>
 
             {platformEnv.isNative ? (
