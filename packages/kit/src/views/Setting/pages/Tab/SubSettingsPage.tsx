@@ -24,7 +24,7 @@ export function SubSettingsPage({
 }: {
   name: ISettingName;
   settingsConfig: ISettingsConfig;
-} & { route: RouteProp<any, any> }) {
+} & { route?: RouteProp<any, any> }) {
   const context = useConfigContext();
   const name = useMemo(() => {
     return (route?.name as string) || title;
