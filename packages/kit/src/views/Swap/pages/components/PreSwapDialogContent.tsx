@@ -3,9 +3,11 @@ import { useEffect, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, Divider, SizableText, YStack } from '@onekeyhq/components';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSwapStepsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
   ESwapSlippageSegmentKey,
   IFetchQuoteResult,
@@ -47,6 +49,14 @@ const PreSwapDialogContent = ({
   const fromAmount = quoteResult?.fromAmount || '0';
   const toAmount = quoteResult?.toAmount || '0';
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const isHwWallet = useMemo(
+    () =>
+      accountUtils.isHwWallet({
+        walletId: activeAccount?.wallet?.id ?? '',
+      }),
+    [activeAccount?.wallet?.id],
+  );
   const handleConfirm = () => {
     onConfirm();
   };
@@ -182,8 +192,11 @@ const PreSwapDialogContent = ({
           />
           {/* Primary button */}
           <Button variant="primary" onPress={handleConfirm} size="medium">
-            {swapSteps[0].stepActionsLabel ??
-              intl.formatMessage({ id: ETranslations.transaction_confirm })}
+            {intl.formatMessage({
+              id: isHwWallet
+                ? ETranslations.global_confirm_on_device
+                : ETranslations.global_confirm,
+            })}
           </Button>
         </>
       ) : (

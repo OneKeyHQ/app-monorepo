@@ -243,11 +243,7 @@ export function useSwapActionState() {
     fromToken,
     toToken,
   ]);
-  const isBatchTransfer = useSwapBatchTransfer(
-    swapFromAddressInfo.networkId,
-    swapFromAddressInfo.accountInfo?.account?.id,
-    quoteCurrentSelect?.providerDisableBatchTransfer,
-  );
+
   const isRefreshQuote = useMemo(
     () => quoteIntervalCount > swapQuoteIntervalMaxCount || shouldRefreshQuote,
     [quoteIntervalCount, shouldRefreshQuote],
@@ -315,19 +311,20 @@ export function useSwapActionState() {
       swapApprovingMatchLoading ||
       buildTxFetching
     ) {
-      if (swapApprovingMatchLoading) {
-        infoRes.label = intl.formatMessage({
-          id: ETranslations.swap_btn_approving,
-        });
-      } else if (buildTxFetching) {
-        infoRes.label = intl.formatMessage({
-          id: ETranslations.swap_btn_building,
-        });
-      } else {
-        infoRes.label = intl.formatMessage({
-          id: ETranslations.swap_page_button_fetching_quotes,
-        });
-      }
+      // if (swapApprovingMatchLoading) {
+      //   infoRes.label = intl.formatMessage({
+      //     id: ETranslations.swap_btn_approving,
+      //   });
+      // } else if (buildTxFetching) {
+      //   infoRes.label = intl.formatMessage({
+      //     id: ETranslations.swap_btn_building,
+      //   });
+      // } else {
+      //   infoRes.label = intl.formatMessage({
+      //     id: ETranslations.swap_page_button_fetching_quotes,
+      //   });
+      // }
+      infoRes.disable = true;
     } else {
       // if (isCrossChain && fromToken && toToken) {
       //   infoRes.label = intl.formatMessage({
