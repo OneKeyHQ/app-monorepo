@@ -39,7 +39,7 @@ export function PagerView({
       ({
         setPage: (page: number) => {
           scrollViewRef.current?.scrollTo({
-            x: (page > pageSize ? 0 : page) * width,
+            x: (page >= pageSize ? 0 : page) * width,
             y: 0,
             animated: true,
           });
