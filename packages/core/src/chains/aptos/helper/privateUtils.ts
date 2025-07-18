@@ -1,7 +1,7 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
-import type { ICurveName } from '../../types';
+import type { ICurveName } from '../../../types';
 
 export const AIP80_PREFIXES: Record<ICurveName, string | undefined> = {
   'ed25519': 'ed25519-priv-',
@@ -16,6 +16,10 @@ export const getSupportedAlgorithms = (): ICurveName[] => {
 };
 
 export const detectAlgorithm = (privateKey: string): ICurveName | null => {
+  if (!privateKey || typeof privateKey !== 'string') {
+    return null;
+  }
+
   for (const [variant, prefix] of Object.entries(AIP80_PREFIXES)) {
     if (prefix && privateKey.startsWith(prefix)) {
       return variant as ICurveName;
@@ -52,7 +56,7 @@ export const addPrefix = (
 ): string => {
   const prefix = AIP80_PREFIXES[algorithm];
   if (!prefix) {
-    throw new OneKeyLocalError('Unsupported algorithm');
+    throw new OneKeyLocalError(`Unsupported algorithm: ${algorithm}`);
   }
   if (privateKey.startsWith(prefix)) {
     return privateKey;
@@ -61,7 +65,6 @@ export const addPrefix = (
 };
 
 export const validatePrivateKey = (privateKey: string): boolean => {
-  console.log('=====>>>>> validatePrivateKey', privateKey);
   if (!privateKey || typeof privateKey !== 'string') {
     return false;
   }
@@ -97,6 +100,10 @@ export const normalizePrivateKey = (
   targetFormat: 'legacy' | 'aip80',
   algorithm?: ICurveName,
 ): string => {
+  if (!privateKey || typeof privateKey !== 'string') {
+    throw new OneKeyLocalError('Invalid private key format');
+  }
+
   let rawPrivateKey = privateKey;
   if (!isAIP80Format(rawPrivateKey)) {
     rawPrivateKey = hexUtils.addHexPrefix(rawPrivateKey);

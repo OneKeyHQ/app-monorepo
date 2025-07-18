@@ -4,6 +4,7 @@ import {
   Aptos as AptosRpcClient,
   Deserializer,
   MimeType,
+  MultiAgentTransaction,
   RawTransaction,
   Serializer,
   SignedTransaction,
@@ -19,7 +20,8 @@ import { isEmpty, isNil } from 'lodash';
 import {
   normalizePrivateKey,
   validatePrivateKey,
-} from '@onekeyhq/core/src/chains/aptos/privateHelper';
+} from '@onekeyhq/core/src/chains/aptos/helper/privateUtils';
+import { deserializeTransaction } from '@onekeyhq/core/src/chains/aptos/helper/transactionUtils';
 import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
@@ -96,7 +98,10 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
-import type { PendingTransactionResponse } from '@aptos-labs/ts-sdk';
+import type {
+  AnyRawTransaction,
+  PendingTransactionResponse,
+} from '@aptos-labs/ts-sdk';
 
 export default class VaultAptos extends VaultBase {
   override coreApi = coreChainApi.aptos.hd;
@@ -173,9 +178,8 @@ export default class VaultAptos extends VaultBase {
     const expect = getExpirationTimestampSecs();
     const { bcsTxn, disableEditTx } = encodedTx;
     if (!isNil(bcsTxn) && !isEmpty(bcsTxn)) {
-      const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));
-      const simpleTxn = SimpleTransaction.deserialize(deserializer);
-      const rawTx = simpleTxn.rawTransaction;
+      const originalTxn = deserializeTransaction(bcsTxn);
+      const rawTx = originalTxn.rawTransaction;
 
       let expirationTimestampSecs = rawTx.expiration_timestamp_secs;
       if (!disableEditTx && rawTx.expiration_timestamp_secs < expect) {
@@ -192,12 +196,24 @@ export default class VaultAptos extends VaultBase {
         rawTx.chain_id,
       );
 
-      const newSimpleTxn = new SimpleTransaction(
-        newRawTx,
-        simpleTxn.feePayerAddress,
-      );
+      let newTxn: AnyRawTransaction;
       const serializer = new Serializer();
-      newSimpleTxn.serialize(serializer);
+      if (originalTxn instanceof MultiAgentTransaction) {
+        newTxn = new MultiAgentTransaction(
+          newRawTx,
+          originalTxn.secondarySignerAddresses,
+          originalTxn.feePayerAddress,
+        );
+      } else if (originalTxn instanceof SimpleTransaction) {
+        newTxn = new SimpleTransaction(newRawTx, originalTxn.feePayerAddress);
+      } else {
+        const _exhaustiveCheck: never = originalTxn;
+        throw new OneKeyLocalError(
+          `Unhandled transaction type: ${_exhaustiveCheck as string}`,
+        );
+      }
+
+      newTxn.serialize(serializer);
       encodedTx.bcsTxn = bufferUtils.bytesToHex(serializer.toUint8Array());
     } else if (
       !encodedTx.expiration_timestamp_secs ||
