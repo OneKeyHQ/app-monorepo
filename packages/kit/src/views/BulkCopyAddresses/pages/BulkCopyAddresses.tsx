@@ -265,7 +265,7 @@ function BulkCopyAddresses({
           fromIndex,
           toIndex,
           saveToDb: false,
-          hideCheckingDeviceLoading: true,
+          hideCheckingDeviceLoading: false,
           showUIProgress: true,
           excludedIndexes,
           createAllDeriveTypes,
