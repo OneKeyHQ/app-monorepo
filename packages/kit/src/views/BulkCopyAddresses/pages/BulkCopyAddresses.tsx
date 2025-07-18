@@ -21,7 +21,6 @@ import {
   XStack,
   YStack,
   useForm,
-  useMedia,
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -90,7 +89,6 @@ function BulkCopyAddresses({
 >) {
   const intl = useIntl();
   const { walletId, networkId } = route.params;
-  const { gtMd } = useMedia();
 
   const navigation = useAppNavigation();
 
@@ -674,6 +672,7 @@ function BulkCopyAddresses({
           networkId: selectedNetworkId,
           networkAccountsByDeriveType: accountsData,
           parentWalletName: selectedWallet?.parentWalletName,
+          exportWithoutDevice,
         });
       } else if (copyType === EBulkCopyType.Range) {
         const resp = await handleGenerateAddressesByRange();
@@ -681,6 +680,7 @@ function BulkCopyAddresses({
           walletId: selectedWalletId,
           networkId: selectedNetworkId,
           networkAccountsByDeriveType: resp,
+          exportWithoutDevice,
           parentWalletName: selectedWallet?.parentWalletName,
         });
       }
