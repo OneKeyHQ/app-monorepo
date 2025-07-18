@@ -26,6 +26,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { headerPlatform } from '@onekeyhq/shared/src/request/InterceptorConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -211,9 +213,13 @@ class ServicePrimeTransfer extends ServiceBase {
 
         this.socket.on('room-full', async (data: { roomId: string }) => {
           if (data.roomId === (await primeTransferAtom.get()).pairedRoomId) {
+            const message = appLocale.intl.formatMessage({
+              // eslint-disable-next-line spellcheck/spell-checker
+              id: ETranslations.global_connet_error_try_again,
+            });
             appEventBus.emit(EAppEventBusNames.PrimeTransferForceExit, {
-              title: 'Room is full',
-              description: 'Please try again later',
+              title: message,
+              description: platformEnv.isDev ? 'RoomIsFullError' : '',
             });
           }
         });
@@ -298,7 +304,10 @@ class ServicePrimeTransfer extends ServiceBase {
 
   checkPairingCodeValid(pairingCode: string | undefined | null) {
     if (!pairingCode || pairingCode.length !== 59) {
-      throw new OneKeyLocalError('Invalid pairing code');
+      const message = appLocale.intl.formatMessage({
+        id: ETranslations.transfer_invalid_code,
+      });
+      throw new OneKeyLocalError(message);
     }
   }
 

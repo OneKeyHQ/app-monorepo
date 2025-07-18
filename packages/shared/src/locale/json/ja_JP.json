@@ -104,7 +104,7 @@
   "address_input.transferred_popover": "このアドレスへの以前の送金が検出されました。意図したアドレスであることを確認するために、必ず再確認してください。",
   "address_label.allowlist": "許可リスト",
   "address_type": "住所タイプ",
-  "allowlist.enabled_popover_content": "ウォレット内のアカウントまたはアドレス帳の任意のアドレスにのみ資金を送金できます。リスクを理解している場合は、<url>https://app.onekey.so/send/protection<underline>設定\n  >> セキュリティ >> 保護</underline></url>で有効にできます",
+  "allowlist.enabled_popover_content": "ウォレット内のアカウントまたはアドレス帳の任意のアドレスにのみ資金を送金できます。リスクを理解している場合は、<url>https://app.onekey.so/send/protection<underline>設定 >> セキュリティ >> 保護</underline></url>で有効にできます",
   "allowlist.enabled_popover_title": "許可リストが有効",
   "approval_bulk_revoke_status_paused_reason_description": "スキップした理由",
   "approval_bulk_revoke_status_processing": "処理中",

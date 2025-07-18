@@ -104,7 +104,7 @@
   "address_input.transferred_popover": "Frühere Überweisungen an diese Adresse wurden erkannt. Vergessen Sie nicht, doppelt zu überprüfen, um sicherzustellen, dass es sich um die beabsichtigte Adresse handelt.",
   "address_label.allowlist": "Erlaubnisliste",
   "address_type": "Adresstyp",
-  "allowlist.enabled_popover_content": "Sie können Gelder nur auf Konten innerhalb der Wallet oder an eine beliebige Adresse im Adressbuch überweisen. Wenn Sie die Risiken verstehen, können Sie es unter\n  <url>https://app.onekey.so/send/protection<underline>Einstellungen >> Sicherheit >> Schutz</underline></url> aktivieren",
+  "allowlist.enabled_popover_content": "Sie können Gelder nur auf Konten innerhalb der Wallet oder an eine beliebige Adresse im Adressbuch überweisen. Wenn Sie die Risiken verstehen, können Sie es unter <url>https://app.onekey.so/send/protection<underline>Einstellungen >> Sicherheit >> Schutz</underline></url> aktivieren",
   "allowlist.enabled_popover_title": "Allowlist aktiviert",
   "approval_bulk_revoke_status_paused_reason_description": "Grund für Übersprung",
   "approval_bulk_revoke_status_processing": "Wird verarbeitet",

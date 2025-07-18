@@ -7,6 +7,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -119,20 +121,27 @@ export class E2EEClientToClientApi {
     const { userId, encryptedData, clientPublicKey } = keyExchangeRequest;
 
     if (isVerifiedRoomId === this.roomId) {
-      appEventBus.emit(EAppEventBusNames.PrimeTransferForceExit, {
-        title: 'Pairing code already verified',
-        description: 'Please try again',
+      const message = appLocale.intl.formatMessage({
+        // eslint-disable-next-line spellcheck/spell-checker
+        id: ETranslations.global_connet_error_try_again,
       });
-      throw new OneKeyLocalError('Pairing code already verified');
+      appEventBus.emit(EAppEventBusNames.PrimeTransferForceExit, {
+        title: message,
+        description: platformEnv.isDev ? 'PairingCodeAlreadyVerifiedError' : '',
+      });
+      throw new OneKeyLocalError(message);
     }
 
     this.verifyPairingCodeTimes += 1;
     if (this.verifyPairingCodeTimes > (platformEnv.isDev ? 3 : 10)) {
-      appEventBus.emit(EAppEventBusNames.PrimeTransferForceExit, {
-        title: 'Verify pairing code exceed max times',
-        description: 'Please try again',
+      const message = appLocale.intl.formatMessage({
+        id: ETranslations.transfer_pair_code_enter_over_limit,
       });
-      throw new OneKeyLocalError('Verify pairing code exceed max times');
+      appEventBus.emit(EAppEventBusNames.PrimeTransferForceExit, {
+        title: message,
+        description: platformEnv.isDev ? 'PairingCodeEnterOverLimitError' : '',
+      });
+      throw new OneKeyLocalError(message);
     }
 
     // TODO check if userId is in the room
@@ -160,7 +169,10 @@ export class E2EEClientToClientApi {
       });
       const result = bufferUtils.bytesToUtf8(decryptedData);
       if (result !== 'OneKeyPrimeTransfer') {
-        throw new OneKeyLocalError('Invalid pairing code');
+        const message = appLocale.intl.formatMessage({
+          id: ETranslations.transfer_invalid_code,
+        });
+        throw new OneKeyLocalError(message);
       }
 
       // Validate client public key format (should be 66 hex chars for compressed secp256k1)
@@ -209,7 +221,10 @@ export class E2EEClientToClientApi {
       };
     } catch (error) {
       console.error('InvalidPairingCodeError:', error);
-      throw new OneKeyLocalError('Invalid pairing code');
+      const message = appLocale.intl.formatMessage({
+        id: ETranslations.transfer_invalid_code,
+      });
+      throw new OneKeyLocalError(message);
     }
   }
 

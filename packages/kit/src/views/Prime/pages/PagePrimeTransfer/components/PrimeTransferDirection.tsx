@@ -302,24 +302,24 @@ export function PrimeTransferDirection({
 
       navigation.popStack();
       Dialog.show({
-        title: intl.formatMessage(
+        title: intl.formatMessage({
+          id: ETranslations.transfer_transfer_loading,
+        }),
+        description: intl.formatMessage(
           {
             id: ETranslations.transfer_data_sent_to_target,
           },
           {
-            'deviceType': directionUserInfo?.toUser?.appDeviceName,
+            'deviceType': directionUserInfo?.toUser?.appPlatformName,
           },
         ),
-        description: intl.formatMessage({
-          id: ETranslations.transfer_transfer_loading,
-        }),
         showCancelButton: false,
         showConfirmButton: false,
         disableDrag: true,
         dismissOnOverlayPress: false,
       });
     },
-    [intl, navigation, directionUserInfo?.toUser?.appDeviceName],
+    [intl, navigation, directionUserInfo?.toUser?.appPlatformName],
   );
 
   useEffect(() => {

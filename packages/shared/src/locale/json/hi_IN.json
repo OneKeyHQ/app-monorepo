@@ -104,7 +104,7 @@
   "address_input.transferred_popover": "इस पते पर पहले के स्थानांतरण का पता चला है। यह सुनिश्चित करने के लिए दोबारा जांच करना न भूलें कि यह इच्छित पता है।",
   "address_label.allowlist": "अनुमतिसूची",
   "address_type": "पता प्रकार",
-  "allowlist.enabled_popover_content": "आप केवल वॉलेट के भीतर खातों में या पता पुस्तिका में किसी भी पते पर धनराशि स्थानांतरित कर सकते हैं। यदि आप जोखिमों को समझते हैं, तो आप इसे <url>https://app.onekey.so/send/protection<underline>सेटिंग्स >> सुरक्षा\n  >> सुरक्षा</underline></url> में सक्षम कर सकते हैं",
+  "allowlist.enabled_popover_content": "आप केवल वॉलेट के भीतर खातों में या पता पुस्तिका में किसी भी पते पर धनराशि स्थानांतरित कर सकते हैं। यदि आप जोखिमों को समझते हैं, तो आप इसे <url>https://app.onekey.so/send/protection<underline>सेटिंग्स >> सुरक्षा >> सुरक्षा</underline></url> में सक्षम कर सकते हैं",
   "allowlist.enabled_popover_title": "अनुमति सूची सक्षम की गई",
   "approval_bulk_revoke_status_paused_reason_description": "छोड़ने का कारण",
   "approval_bulk_revoke_status_processing": "प्रसंस्करण जारी",

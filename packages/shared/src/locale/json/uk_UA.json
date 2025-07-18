@@ -104,7 +104,7 @@
   "address_input.transferred_popover": "Виявлено попередні перекази на цю адресу. Не забудьте перевірити ще раз, щоб переконатися, що це потрібна адреса.",
   "address_label.allowlist": "Список дозволених",
   "address_type": "Тип адреси",
-  "allowlist.enabled_popover_content": "Ви можете переказувати кошти лише на рахунки в гаманці або на будь-яку адресу в адресній книзі. Якщо ви розумієте ризики, ви можете ввімкнути це в\n  <url>https://app.onekey.so/send/protection<underline>Налаштування >> Безпека >> Захист</underline></url>",
+  "allowlist.enabled_popover_content": "Ви можете переказувати кошти лише на рахунки в гаманці або на будь-яку адресу в адресній книзі. Якщо ви розумієте ризики, ви можете ввімкнути це в  <url>https://app.onekey.so/send/protection<underline>Налаштування >> Безпека >> Захист</underline></url>",
   "allowlist.enabled_popover_title": "Список дозволених увімкнено",
   "approval_bulk_revoke_status_paused_reason_description": "Причина пропуску",
   "approval_bulk_revoke_status_processing": "Обробка",
