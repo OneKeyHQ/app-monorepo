@@ -8,6 +8,7 @@ import type {
 } from '@onekeyhq/components';
 import { NavBackButton, Page, XStack, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ETabMarketV2Routes,
   ETabRoutes,
@@ -60,10 +61,10 @@ function MarketDetail({
 
   const customHeaderLeft = (
     <XStack gap="$3" ai="center">
-      {media.gtMd ? (
-        <NavBackButton onPress={handleBackPress} />
-      ) : (
+      {platformEnv.isNative ? (
         <HeaderLeftCloseButton />
+      ) : (
+        <NavBackButton onPress={handleBackPress} />
       )}
       <AccountSelectorTriggerHome num={0} />
     </XStack>
