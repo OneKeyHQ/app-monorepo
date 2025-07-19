@@ -20,6 +20,7 @@ import {
   AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { HeaderLeftCloseButton } from '../../../components/TabPageHeader/HeaderLeft';
 import { useTokenDetailActions } from '../../../states/jotai/contexts/marketV2';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
@@ -31,6 +32,7 @@ function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketV2ParamList, ETabMarketV2Routes.MarketDetail>) {
   const { tokenAddress, networkId } = route.params;
+  const media = useMedia();
   const tokenDetailActions = useTokenDetailActions();
   const navigation =
     useNavigation<IPageNavigationProp<ITabMarketV2ParamList>>();
@@ -58,12 +60,14 @@ function MarketDetail({
 
   const customHeaderLeft = (
     <XStack gap="$3" ai="center">
-      <NavBackButton onPress={handleBackPress} />
+      {media.gtMd ? (
+        <NavBackButton onPress={handleBackPress} />
+      ) : (
+        <HeaderLeftCloseButton />
+      )}
       <AccountSelectorTriggerHome num={0} />
     </XStack>
   );
-
-  const media = useMedia();
 
   return (
     <Page>
