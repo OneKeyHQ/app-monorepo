@@ -158,10 +158,10 @@ export function TokenOverview() {
         <Token size="lg" tokenImageUri={tokenDetail.logoUrl} />
         <Stack flex={1}>
           <SizableText size="$headingLg" color="$text" fontWeight="600">
-            {tokenDetail.name}
+            {tokenDetail.symbol}
           </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
-            {tokenDetail.symbol}
+            {tokenDetail.name}
           </SizableText>
         </Stack>
       </XStack>
