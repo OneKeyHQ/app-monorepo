@@ -5,6 +5,8 @@ import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type { Socket } from 'socket.io';
 
 const RATE_LIMIT_INTERVAL_MS = 3500;
@@ -115,7 +117,9 @@ export class JsBridgeE2EEClientToClient extends JsBridgeBase {
             this.responseError({
               id: p.id || -9999,
               error: {
-                message: `Rate limit,3333 please try again later`,
+                message: appLocale.intl.formatMessage({
+                  id: ETranslations.global_request_limit,
+                }),
                 // code: CLIENT_TO_CLIENT_RATE_LIMIT_ERROR_CODE,
               },
               scope: p.scope,

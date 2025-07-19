@@ -104,7 +104,7 @@
   "address_input.transferred_popover": "Transferências anteriores para este endereço foram detectadas. Não se esqueça de verificar duas vezes para garantir que é o endereço pretendido.",
   "address_label.allowlist": "Lista de Permissão",
   "address_type": "Tipo de endereço",
-  "allowlist.enabled_popover_content": "Você só pode transferir fundos para contas dentro da carteira ou para qualquer endereço no catálogo de endereços. Se você entende os riscos, pode ativá-lo em\n  <url>https://app.onekey.so/send/protection<underline>Configurações >> Segurança >> Proteção</underline></url>",
+  "allowlist.enabled_popover_content": "Você só pode transferir fundos para contas dentro da carteira ou para qualquer endereço no catálogo de endereços. Se você entende os riscos, pode ativá-lo em\n <url>https://app.onekey.so/send/protection<underline>Configurações >> Segurança >> Proteção</underline></url>",
   "allowlist.enabled_popover_title": "Lista de permitidos ativada",
   "approval_bulk_revoke_status_paused_reason_description": "Motivo ignorado",
   "approval_bulk_revoke_status_processing": "Processando",

@@ -410,7 +410,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
                 },
                 {
                   token: fromSelectToken?.symbol,
-                  target: quoteRes.info.providerName,
                 },
               ),
             ),
@@ -607,17 +606,17 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const onPreSwapClose = useCallback(() => {
     void dialogRef.current?.close();
     setSwapBuildTxFetching(false);
-    setSwapShouldRefreshQuote(true);
     setTimeout(() => {
       setSwapSteps([]);
     }, 500);
-  }, [setSwapBuildTxFetching, setSwapShouldRefreshQuote, setSwapSteps]);
+  }, [setSwapBuildTxFetching, setSwapSteps]);
 
   const onPreSwap = useCallback(() => {
     if (!currentQuoteRes) {
       return;
     }
     cleanQuoteInterval();
+    setSwapShouldRefreshQuote(true);
     dialogRef.current = Dialog.show({
       onClose: onPreSwapClose,
       title: intl.formatMessage({ id: ETranslations.global_review_order }),
@@ -664,6 +663,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     slippageItem,
     setSwapBuildTxFetching,
     parseQuoteResultToSteps,
+    setSwapShouldRefreshQuote,
   ]);
 
   return (

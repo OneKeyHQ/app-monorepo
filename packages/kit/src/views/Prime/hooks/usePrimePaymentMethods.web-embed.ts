@@ -9,6 +9,8 @@ import { useSearchParams } from 'react-router-dom';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import purchaseSdkUtils from '../purchasesSdk/purchaseSdkUtils';
+
 import primePaymentUtils from './primePaymentUtils';
 
 import type {
@@ -17,6 +19,8 @@ import type {
   IUsePrimePayment,
 } from './usePrimePaymentTypes';
 import type { CustomerInfo, PurchaseParams } from '@revenuecat/purchases-js';
+
+import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
 
 if (process.env.NODE_ENV !== 'production') {
   Purchases.setLogLevel(LogLevel.Verbose);
@@ -183,7 +187,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         const purchaseParams: PurchaseParams = {
           rcPackage: paywallPackage,
           customerEmail: email,
-          selectedLocale: locale,
+          selectedLocale: purchaseSdkUtils.convertToRevenuecatLocale({
+            locale: locale as ILocaleJSONSymbol,
+          }),
         };
         // TODO check package user is Matched to id
         // TODO check if user has already purchased
