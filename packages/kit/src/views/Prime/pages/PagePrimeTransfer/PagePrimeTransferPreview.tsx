@@ -385,7 +385,8 @@ export default function PagePrimeTransferPreview() {
               id: ETranslations.transfer_transfer_verify_passcode_desc,
             },
             {
-              'deviceName': directionUserInfo?.fromUser?.appPlatformName || '--',
+              'deviceName':
+                directionUserInfo?.fromUser?.appPlatformName || '--',
             },
           ),
           showCancelButton: false,
