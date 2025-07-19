@@ -143,9 +143,9 @@ export class HardwareConnectionManager {
       } finally {
         this.isRequestingBluetoothPermission = false;
         // Update state to show checking device step instead of calling showCheckingDeviceDialog
-        // void this.backgroundApi.serviceHardwareUI.showCheckingDeviceDialog({
-        //   connectId: '',
-        // });
+        void this.backgroundApi.serviceHardwareUI.showCheckingDeviceDialog({
+          connectId: '',
+        });
       }
     }
 
@@ -176,6 +176,25 @@ export class HardwareConnectionManager {
         '🔍 detectBluetoothAvailability bleAvailableState: ',
         bleAvailableState,
       );
+
+      const foo = 1;
+      if (bleAvailableState?.state === 'unauthorized' || foo === 1) {
+        // Show bluetooth permission unauthorized dialog
+        await hardwareUiStateAtom.set({
+          action: EHardwareUiStateAction.DeviceChecking,
+          connectId: '',
+          payload: {
+            eventType: EHardwareUiStateAction.BLUETOOTH_PERMISSION_UNAUTHORIZED,
+            uiRequestType:
+              EHardwareUiStateAction.BLUETOOTH_PERMISSION_UNAUTHORIZED,
+            deviceType: 'unknown' as any,
+            deviceId: '',
+            connectId: '',
+            deviceMode: 'normal' as any,
+            rawPayload: bleAvailableState,
+          },
+        });
+      }
 
       return Boolean(bleAvailableState?.available);
     } catch (error) {

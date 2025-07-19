@@ -42,6 +42,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import {
+  BluetoothPermissionUnauthorizedContent,
   CommonDeviceLoading,
   ConfirmOnDeviceToastContent,
   DesktopBluetoothPermissionContent,
@@ -162,6 +163,11 @@ function HardwareSingletonDialogCmp(
             promiseId={state?.payload?.promiseId}
           />
         );
+      } else if (
+        eventType === EHardwareUiStateAction.BLUETOOTH_PERMISSION_UNAUTHORIZED
+      ) {
+        title = 'Communicating...';
+        content = <BluetoothPermissionUnauthorizedContent />;
       } else {
         title = intl.formatMessage({
           id: ETranslations.global_checking_device,

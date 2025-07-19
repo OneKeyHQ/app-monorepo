@@ -15,6 +15,7 @@ import {
   Anchor,
   Button,
   Dialog,
+  Divider,
   ESwitchSize,
   Form,
   Icon,
@@ -28,6 +29,7 @@ import {
   Switch,
   Toast,
   XStack,
+  YStack,
   useForm,
   useMedia,
 } from '@onekeyhq/components';
@@ -888,10 +890,93 @@ export function DesktopBluetoothPermissionContent({
   }, [promiseId]);
 
   return (
-    <Alert
-      title="USB not detected. OneKey will now try Bluetooth — please allow Bluetooth access when prompted."
-      type="info"
-      icon="BluetoothOutline"
-    />
+    <XStack
+      p="$3"
+      gap="$3"
+      alignItems="flex-start"
+      borderRadius="$2"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderInfoSubdued"
+      bg="$bgInfoSubdued"
+    >
+      {/* ICON */}
+      <Stack
+        w="$10"
+        h="$10"
+        ai="center"
+        jc="center"
+        borderRadius="$1"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderInfo"
+        background="linear-gradient(180deg, rgba(0, 130, 230, 0.63) 0%, rgba(0, 125, 234, 0.97) 
+100%)"
+      >
+        <Icon name="BluetoothOutline" size="$6" color="$iconOnColor" />
+      </Stack>
+      {/* CONTENT */}
+      <YStack gap="$4" flex={1}>
+        <SizableText size="$bodyMd" color="$text">
+          USB not detected. OneKey tried Bluetooth but lacks permission. Please
+          enable it in System Settings.
+        </SizableText>
+      </YStack>
+    </XStack>
+  );
+}
+
+export function BluetoothPermissionUnauthorizedContent() {
+  const handleGoToSettings = useCallback(() => {
+    // Open system settings for Bluetooth
+    // For now, just show an alert about opening system settings manually
+    alert(
+      'Please open System Settings > Privacy & Security > Bluetooth to enable permission for OneKey.',
+    );
+  }, []);
+
+  return (
+    <YStack gap="$5">
+      <Stack borderRadius="$3" p="$5" bg="$bgSubdued" borderCurve="continuous">
+        <Spinner size="large" />
+      </Stack>
+
+      <XStack
+        p="$3"
+        gap="$3"
+        alignItems="flex-start"
+        borderRadius="$2"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderInfoSubdued"
+        bg="$bgInfoSubdued"
+      >
+        {/* ICON */}
+        <Stack
+          w="$10"
+          h="$10"
+          ai="center"
+          jc="center"
+          borderRadius="$1"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$borderInfo"
+          background="linear-gradient(180deg, rgba(0, 130, 230, 0.63) 0%, rgba(0, 125, 234, 0.97) 
+  100%)"
+        >
+          <Icon name="BluetoothOutline" size="$6" color="$iconOnColor" />
+        </Stack>
+        {/* CONTENT */}
+        <YStack gap="$4" flex={1}>
+          <SizableText size="$bodyMd" color="$text">
+            USB not detected. OneKey tried Bluetooth but lacks permission.
+            Please enable it in System Settings.
+          </SizableText>
+          <Button size="small" variant="secondary" alignSelf="flex-start">
+            Go to settings
+          </Button>
+          <Divider />
+          <SizableText size="$bodySm" color="$textSubdued">
+            Disable Bluetooth in OneKey Settings &gt; Preferences to stop this
+          </SizableText>
+        </YStack>
+      </XStack>
+    </YStack>
   );
 }
