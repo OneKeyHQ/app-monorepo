@@ -177,8 +177,7 @@ export class HardwareConnectionManager {
         bleAvailableState,
       );
 
-      const foo = 1;
-      if (bleAvailableState?.state === 'unauthorized' || foo === 1) {
+      if (bleAvailableState?.state === 'unauthorized') {
         // Show bluetooth permission unauthorized dialog
         await hardwareUiStateAtom.set({
           action: EHardwareUiStateAction.DeviceChecking,
