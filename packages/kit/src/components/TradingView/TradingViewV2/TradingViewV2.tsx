@@ -154,8 +154,9 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
           left={0}
           top={0}
           bottom={0}
-          width={isIPadPortrait ? 50 : 40}
+          width={12}
           zIndex={1}
+          bg="$red6"
           pointerEvents="auto"
         />
       ) : null}
