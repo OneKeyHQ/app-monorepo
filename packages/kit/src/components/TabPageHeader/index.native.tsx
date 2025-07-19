@@ -18,6 +18,7 @@ export function TabPageHeader({
   tabRoute,
   customHeaderRightItems,
   customHeaderLeftItems,
+  hideSearch = false,
 }: ITabPageHeaderProp) {
   const { top } = useSafeAreaInsets();
 
@@ -55,7 +56,9 @@ export function TabPageHeader({
         </View>
         {headerRight}
       </XStack>
-      <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
+      {!hideSearch && (
+        <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
+      )}
       <PageHeaderDivider mt="$3" />
     </>
   );

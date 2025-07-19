@@ -71,6 +71,7 @@ function MarketDetail({
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Market}
         customHeaderLeftItems={customHeaderLeft}
+        hideSearch={!media.gtMd}
       />
       <Page.Body>{media.gtMd ? <DesktopLayout /> : <MobileLayout />}</Page.Body>
     </Page>
