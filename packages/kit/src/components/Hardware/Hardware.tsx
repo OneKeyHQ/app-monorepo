@@ -926,11 +926,7 @@ export function DesktopBluetoothPermissionContent({
 
 export function BluetoothPermissionUnauthorizedContent() {
   const handleGoToSettings = useCallback(() => {
-    // Open system settings for Bluetooth
-    // For now, just show an alert about opening system settings manually
-    alert(
-      'Please open System Settings > Privacy & Security > Bluetooth to enable permission for OneKey.',
-    );
+    void globalThis.desktopApiProxy.bluetooth.openPrivacySettings();
   }, []);
 
   return (
@@ -968,7 +964,12 @@ export function BluetoothPermissionUnauthorizedContent() {
             USB not detected. OneKey tried Bluetooth but lacks permission.
             Please enable it in System Settings.
           </SizableText>
-          <Button size="small" variant="secondary" alignSelf="flex-start">
+          <Button
+            size="small"
+            variant="secondary"
+            alignSelf="flex-start"
+            onPress={handleGoToSettings}
+          >
             Go to settings
           </Button>
           <Divider />
