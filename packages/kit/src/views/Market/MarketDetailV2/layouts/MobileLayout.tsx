@@ -43,6 +43,7 @@ export function MobileLayout() {
         </ScrollView>
       );
     }
+
     return (
       <ScrollView>
         {/* Token Stats */}
@@ -60,8 +61,9 @@ export function MobileLayout() {
       <TokenDetailHeader showStats={false} showMediaAndSecurity={false} />
 
       {/* Switch Buttons */}
-      <XStack p="$4" gap="$2">
+      <XStack px="$4" py="$0.5" gap="$2">
         <Button
+          size="small"
           flex={1}
           variant={activeTab === 'chart' ? 'primary' : 'secondary'}
           onPress={() => setActiveTab('chart')}
@@ -69,6 +71,7 @@ export function MobileLayout() {
           {intl.formatMessage({ id: ETranslations.market_chart })}
         </Button>
         <Button
+          size="small"
           flex={1}
           variant={activeTab === 'overview' ? 'primary' : 'secondary'}
           onPress={() => setActiveTab('overview')}
