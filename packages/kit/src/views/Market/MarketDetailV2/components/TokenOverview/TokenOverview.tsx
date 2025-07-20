@@ -137,14 +137,12 @@ export function TokenOverview() {
     [intl, tokenDetail],
   );
 
-  const maxSupplyStat = useMemo<IStatItem>(
+  const fdvStat = useMemo<IStatItem>(
     () => ({
-      label: intl.formatMessage({
-        id: ETranslations.dexmarket_details_max_supply,
-      }),
-      value: formatTokenValue(tokenDetail?.liquidity as string | number),
+      label: 'FDV',
+      value: formatCurrencyValue(tokenDetail?.fdv),
     }),
-    [intl, tokenDetail?.liquidity],
+    [tokenDetail?.fdv],
   );
 
   if (!tokenDetail) {
@@ -178,10 +176,10 @@ export function TokenOverview() {
         <StatCard {...liquidityStat} />
       </XStack>
 
-      {/* Third row: Circulating supply and Maximum supply */}
+      {/* Third row: Circulating supply and FDV */}
       <XStack gap="$3">
         <StatCard {...circulatingSupplyStat} />
-        <StatCard {...maxSupplyStat} />
+        <StatCard {...fdvStat} />
       </XStack>
     </Stack>
   );
