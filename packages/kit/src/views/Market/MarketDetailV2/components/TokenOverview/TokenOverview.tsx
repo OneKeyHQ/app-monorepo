@@ -60,7 +60,9 @@ function StatCard({ label, value, icon, iconColor }: IStatItem) {
       bg="$bgSubdued"
       borderRadius="$3"
       p="$3"
-      flex={1}
+      flexGrow={1}
+      flexShrink={1}
+      flexBasis={0}
       minHeight="$16"
       justifyContent="space-between"
       alignItems="center"
