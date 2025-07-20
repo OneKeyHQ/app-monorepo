@@ -4,7 +4,7 @@ import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
 
-import { AddressComponent } from '../AddressComponent';
+import { AddressDisplay } from '../AddressDisplay';
 
 import { useHoldersLayout } from './useHoldersLayout';
 
@@ -26,7 +26,7 @@ function HolderItemBase({ item, index, networkId }: IHolderItemProps) {
       </SizableText>
 
       {/* Address with copy icon */}
-      <AddressComponent
+      <AddressDisplay
         address={item.accountAddress}
         enableCopy
         enableOpenInBrowser

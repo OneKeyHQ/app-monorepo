@@ -7,9 +7,9 @@ import {
 } from '@onekeyhq/kit/src/utils/explorerUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import type { IAddressComponentProps } from './types';
+import type { IAddressDisplayProps } from './types';
 
-function AddressComponentBase({
+function AddressDisplayBase({
   address,
   enableCopy = true,
   enableOpenInBrowser = false,
@@ -19,7 +19,7 @@ function AddressComponentBase({
   style,
   networkId,
   txId,
-}: IAddressComponentProps) {
+}: IAddressDisplayProps) {
   const { copyText } = useClipboard();
 
   const handleCopyAddress = useCallback(() => {
@@ -96,4 +96,4 @@ function AddressComponentBase({
   );
 }
 
-export const AddressComponent = memo(AddressComponentBase);
+export const AddressDisplay = memo(AddressDisplayBase);

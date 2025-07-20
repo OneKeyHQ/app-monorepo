@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 
 import type { XStack } from '@onekeyhq/components';
 
-export interface IAddressComponentProps {
+export interface IAddressDisplayProps {
   address: string;
   // Feature toggles
   enableCopy?: boolean;
