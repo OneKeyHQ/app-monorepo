@@ -63,7 +63,7 @@ export function QuickAmountSelector({
   );
 
   if (amounts.length === 0) {
-    return <Skeleton h="$8" w="full" />;
+    return <Skeleton h="$8" w="100%" />;
   }
 
   return (
