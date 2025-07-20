@@ -204,6 +204,22 @@ const TabDeveloper = () => {
                   Reset Bluetooth Permission
                 </Button>
               ) : null}
+
+              <Button
+                onPress={async () => {
+                  try {
+                    await backgroundApiProxy.serviceHardware.clearAllBleConnectIdsForTesting();
+                    console.log('Successfully cleared all bleConnectId fields');
+                  } catch (error) {
+                    console.error(
+                      'Failed to clear bleConnectId fields:',
+                      error,
+                    );
+                  }
+                }}
+              >
+                Clear All BLE ConnectIds (Test)
+              </Button>
             </PartContainer>
 
             {platformEnv.isNative ? (
