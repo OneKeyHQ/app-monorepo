@@ -8,20 +8,32 @@ import {
   YStack,
 } from '@onekeyhq/components';
 
+import { useConfigContext } from './configContext';
 import { TabSettingsListGrid, TabSettingsSection } from './ListItem';
 import { useIsTabNavigator } from './useIsTabNavigator';
 
 import type { ISettingsConfig } from './config';
+import type { RouteProp } from '@react-navigation/native';
 
 type ISettingName = string;
 
 export function SubSettingsPage({
-  name,
-  settingsConfig,
+  name: title,
+  settingsConfig: settingsConfigFromProps,
+  route,
 }: {
   name: ISettingName;
   settingsConfig: ISettingsConfig;
-}) {
+} & { route?: RouteProp<any, any> }) {
+  const context = useConfigContext();
+  const name = useMemo(() => {
+    return (route?.name as string) || title;
+  }, [route?.name, title]);
+  const settingsConfig = useMemo(() => {
+    return context.settingsConfig.length
+      ? context.settingsConfig
+      : settingsConfigFromProps;
+  }, [context.settingsConfig, settingsConfigFromProps]);
   const isTabNavigator = useIsTabNavigator();
   const configList = useMemo(() => {
     return settingsConfig
