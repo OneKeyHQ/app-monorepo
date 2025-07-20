@@ -100,7 +100,7 @@ export type ISettingsConfig = (
       tabBarIconStyle?: IIconProps;
       tabBarLabelStyle?: ISizableTextProps;
       Component?: ComponentType<{
-        route?: RouteProp<any, any>;
+        route: RouteProp<any, any>;
         name: string;
         settingsConfig: ISettingsConfig;
       }>;
