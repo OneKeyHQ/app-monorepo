@@ -319,10 +319,6 @@ export interface IAppEventBusPayload {
     features?: any;
     promiseId?: number;
   };
-  [EAppEventBusNames.DesktopBleRepairProgress]: {
-    stage: 'searching' | 'matching' | 'connecting' | 'success' | 'failed';
-    message: string;
-  };
 }
 
 export enum EEventBusBroadcastMethodNames {

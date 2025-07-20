@@ -1398,52 +1398,26 @@ class ServiceHardware extends ServiceBase {
     }
 
     try {
-      // Step 1: Notify UI that search is starting
-      appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
-        stage: 'searching',
-        message: 'Searching for Bluetooth devices...',
-      });
-
-      // Step 2: Search for available BLE devices
+      // Step 1: Search for available BLE devices
       const searchResult = await this.searchDevices();
       if (!searchResult?.success || !searchResult?.payload?.length) {
-        appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
-          stage: 'failed',
-          message: 'No Bluetooth devices found',
-        });
         return null;
       }
 
-      // Step 3: Get expected device name from features
+      // Step 2: Get expected device name from features
       const expectedDeviceName = features.ble_name;
 
-      // Step 4: Notify UI that matching is in progress
-      appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
-        stage: 'matching',
-        message: `Looking for device: ${expectedDeviceName || 'Unknown'}`,
-      });
-
-      // Step 5: Find matching device by name and model
+      // Step 3: Find matching device by name
       const matchingDevice = searchResult.payload.find((device) => {
         const nameMatch = device.name === expectedDeviceName;
         return nameMatch;
       });
 
       if (!matchingDevice) {
-        appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
-          stage: 'failed',
-          message: `Device ${expectedDeviceName || 'Unknown'} not found`,
-        });
         return null;
       }
 
-      // Step 6: Notify UI that connection is being tested
-      appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
-        stage: 'connecting',
-        message: `Connecting to ${expectedDeviceName || 'Unknown'}...`,
-      });
-
-      // Step 7: Try to connect and verify using this.connect
+      // Step 4: Try to connect and verify
       const connectResult = await this.connect({
         device: {
           ...matchingDevice,
@@ -1453,7 +1427,7 @@ class ServiceHardware extends ServiceBase {
       });
 
       if (connectResult && connectResult.device_id === features.device_id) {
-        // Step 8: Update device in DB with BLE connectId
+        // Step 5: Update device in DB with BLE connectId
         const device = await localDb.getDeviceByQuery({
           connectId,
           featuresDeviceId: featuresDeviceId || undefined,
@@ -1467,28 +1441,13 @@ class ServiceHardware extends ServiceBase {
             bleConnectId: matchingDevice.connectId || undefined,
           });
 
-          // Notify UI that repair was successful
-          appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
-            stage: 'success',
-            message: 'Connection repaired successfully',
-          });
-
           return matchingDevice.connectId;
         }
       }
 
-      appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
-        stage: 'failed',
-        message: 'Device verification failed',
-      });
-
       return null;
     } catch (error) {
       console.error('Repair BLE connectId with progress failed:', error);
-      appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
-        stage: 'failed',
-        message: `Repair failed: ${(error as Error).message}`,
-      });
       return null;
     }
   }
