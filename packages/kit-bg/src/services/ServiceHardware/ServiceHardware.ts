@@ -1392,16 +1392,26 @@ class ServiceHardware extends ServiceBase {
     connectId?: string;
     featuresDeviceId?: string | undefined | null;
     features?: IOneKeyDeviceFeatures;
-  }): Promise<string | null> {
+  }): Promise<string> {
     if (!connectId || !features) {
-      return null;
+      throw new deviceErrors.DeviceNotFound({
+        payload: {
+          connectId,
+          deviceId: featuresDeviceId || undefined,
+        },
+      });
     }
 
     try {
       // Step 1: Search for available BLE devices
       const searchResult = await this.searchDevices();
       if (!searchResult?.success || !searchResult?.payload?.length) {
-        return null;
+        throw new deviceErrors.DeviceNotFound({
+          payload: {
+            connectId,
+            deviceId: featuresDeviceId || undefined,
+          },
+        });
       }
 
       // Step 2: Get expected device name from features
@@ -1414,7 +1424,12 @@ class ServiceHardware extends ServiceBase {
       });
 
       if (!matchingDevice) {
-        return null;
+        throw new deviceErrors.DeviceNotFound({
+          payload: {
+            connectId,
+            deviceId: featuresDeviceId || undefined,
+          },
+        });
       }
 
       // Step 4: Try to connect and verify
@@ -1441,14 +1456,29 @@ class ServiceHardware extends ServiceBase {
             bleConnectId: matchingDevice.connectId || undefined,
           });
 
-          return matchingDevice.connectId;
+          return matchingDevice.connectId || '';
         }
       }
 
-      return null;
+      throw new deviceErrors.DeviceNotFound({
+        payload: {
+          connectId,
+          deviceId: featuresDeviceId || undefined,
+        },
+      });
     } catch (error) {
       console.error('Repair BLE connectId with progress failed:', error);
-      return null;
+      // Re-throw if it's already a hardware error
+      if (error instanceof deviceErrors.OneKeyHardwareError) {
+        throw error;
+      }
+      // Wrap other errors in DeviceNotFound
+      throw new deviceErrors.DeviceNotFound({
+        payload: {
+          connectId,
+          deviceId: featuresDeviceId || undefined,
+        },
+      });
     }
   }
 
@@ -1513,6 +1543,17 @@ class ServiceHardware extends ServiceBase {
             },
           );
         });
+
+        // Validate bleConnectId result
+        if (!bleConnectId) {
+          throw new deviceErrors.DeviceNotFound({
+            payload: {
+              connectId,
+              deviceId: featuresDeviceId || undefined,
+              message: 'Failed to obtain BLE connectId during pairing process',
+            },
+          });
+        }
 
         return bleConnectId;
       }

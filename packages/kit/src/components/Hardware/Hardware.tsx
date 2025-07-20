@@ -859,7 +859,6 @@ export function DesktopBluetoothPermissionContent({
       });
     };
 
-    // 轮询检查蓝牙状态
     const checkBluetoothStatus = async () => {
       retryCount.current += 1;
       if (retryCount.current > 10) {
@@ -867,7 +866,6 @@ export function DesktopBluetoothPermissionContent({
         return;
       }
       try {
-        // 检查蓝牙是否可用
         const available =
           await globalThis?.desktopApi?.nobleBle?.checkAvailability();
         console.log(
@@ -947,7 +945,6 @@ export function BluetoothDevicePairingContent({
     isProcessingRef.current = true;
 
     try {
-      // 调用后台的设备修复方法
       const result =
         await backgroundApiProxy.serviceHardware.repairBleConnectIdWithProgress(
           {
@@ -957,14 +954,12 @@ export function BluetoothDevicePairingContent({
           },
         );
 
-      // 通过 servicePromise 回调结果
       await backgroundApiProxy.servicePromise.resolveCallback({
         id: promiseId,
         data: result,
       });
     } catch (error) {
       console.error('Bluetooth device pairing failed:', error);
-      // 通过 servicePromise 回调错误
       await backgroundApiProxy.servicePromise.rejectCallback({
         id: promiseId,
         error: error as Error,
@@ -974,12 +969,10 @@ export function BluetoothDevicePairingContent({
     }
   }, [deviceId, usbConnectId, features, promiseId]);
 
-  // 组件挂载时开始配对流程
   useEffect(() => {
     void executePairingProcess();
   }, [executePairingProcess]);
 
-  // UI 与 DesktopBluetoothPermissionContent 完全一致
   return (
     <XStack
       p="$3"
@@ -990,7 +983,6 @@ export function BluetoothDevicePairingContent({
       borderColor="$borderInfoSubdued"
       bg="$bgInfoSubdued"
     >
-      {/* ICON - 与原组件完全相同 */}
       <Stack
         w="$10"
         h="$10"
@@ -1003,11 +995,10 @@ export function BluetoothDevicePairingContent({
       >
         <Icon name="BluetoothOutline" size="$6" color="$iconOnColor" />
       </Stack>
-      {/* CONTENT - 与原组件完全相同 */}
       <YStack gap="$4" flex={1}>
         <SizableText size="$bodyMd" color="$text">
-          USB not detected. OneKey tried Bluetooth but lacks permission. Please
-          enable it in System Settings.
+          USB not detected. OneKey tried Bluetooth but the device isn’t paired.
+          Please complete the pairing process.
         </SizableText>
       </YStack>
     </XStack>
@@ -1034,7 +1025,6 @@ export function BluetoothPermissionUnauthorizedContent() {
         borderColor="$borderInfoSubdued"
         bg="$bgInfoSubdued"
       >
-        {/* ICON */}
         <Stack
           w="$10"
           h="$10"
@@ -1048,7 +1038,6 @@ export function BluetoothPermissionUnauthorizedContent() {
         >
           <Icon name="BluetoothOutline" size="$6" color="$iconOnColor" />
         </Stack>
-        {/* CONTENT */}
         <YStack gap="$4" flex={1}>
           <SizableText size="$bodyMd" color="$text">
             USB not detected. OneKey tried Bluetooth but lacks permission.
