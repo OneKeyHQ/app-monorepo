@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { Icon, SizableText, XStack, useClipboard } from '@onekeyhq/components';
 import {
@@ -48,35 +48,42 @@ function AddressDisplayBase({
     }
   }, [onOpenInBrowser, networkId, txId, address]);
 
+  const addressContainerProps = useMemo(
+    () => ({
+      onPress: enableCopy ? handleCopyAddress : undefined,
+      cursor: enableCopy ? 'pointer' : 'default',
+      hoverStyle: enableCopy ? { bg: '$bgHover' } : undefined,
+      pressStyle: enableCopy ? { bg: '$bgActive' } : undefined,
+    }),
+    [enableCopy, handleCopyAddress],
+  );
+
   return (
     <XStack alignItems="center" gap="$1" {...style} mx="$-1">
-      {enableCopy ? (
-        <XStack
-          onPress={handleCopyAddress}
-          cursor="pointer"
-          hoverStyle={{ bg: '$bgHover' }}
-          pressStyle={{ bg: '$bgActive' }}
-          borderRadius="$2"
-          p="$1"
-          alignItems="center"
-          gap="$1"
+      <XStack
+        {...addressContainerProps}
+        borderRadius="$2"
+        p="$1"
+        alignItems="center"
+        gap="$1"
+        flexShrink={1}
+      >
+        <SizableText
+          fontFamily="$monoRegular"
+          size="$bodyMd"
+          color="$text"
+          numberOfLines={1}
           flexShrink={1}
         >
-          <SizableText
-            fontFamily="$monoRegular"
-            size="$bodyMd"
-            color="$text"
-            numberOfLines={1}
-            flexShrink={1}
-          >
-            {accountUtils.shortenAddress({
-              address,
-              ...addressFormatOptions,
-            })}
-          </SizableText>
+          {accountUtils.shortenAddress({
+            address,
+            ...addressFormatOptions,
+          })}
+        </SizableText>
+        {enableCopy ? (
           <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
-        </XStack>
-      ) : null}
+        ) : null}
+      </XStack>
 
       {enableOpenInBrowser ? (
         <XStack
