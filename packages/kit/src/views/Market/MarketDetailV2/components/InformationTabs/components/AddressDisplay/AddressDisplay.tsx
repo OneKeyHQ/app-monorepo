@@ -80,6 +80,7 @@ function AddressDisplayBase({
             ...addressFormatOptions,
           })}
         </SizableText>
+
         {enableCopy ? (
           <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
         ) : null}
