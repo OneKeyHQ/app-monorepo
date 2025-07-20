@@ -4,7 +4,7 @@ import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
-import { TransactionAddress } from '../../components/TransactionAddress';
+import { AddressComponent } from '../../../AddressComponent';
 import { TransactionAmount } from '../../components/TransactionAmount';
 import { useTransactionItemData } from '../../hooks/useTransactionItemData';
 
@@ -80,10 +80,12 @@ function TransactionItemNormalBase({
         {value}
       </NumberSizeableText>
 
-      <TransactionAddress
+      <AddressComponent
         address={item.owner}
-        handleCopyAddress={handleCopyAddress}
-        handleViewInBrowser={handleViewInBrowser}
+        enableCopy
+        enableOpenInBrowser
+        onCopyAddress={handleCopyAddress}
+        onOpenInBrowser={handleViewInBrowser}
         style={styles.address}
       />
     </XStack>

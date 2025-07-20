@@ -28,10 +28,15 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
     useCallback(
       ({ item, index }: { item: IMarketTokenHolder; index: number }) => {
         return (
-          <HolderItem key={item.accountAddress} item={item} index={index} />
+          <HolderItem
+            key={item.accountAddress}
+            item={item}
+            index={index}
+            networkId={networkId}
+          />
         );
       },
-      [],
+      [networkId],
     );
 
   if (isRefreshing && holders.length === 0) {
