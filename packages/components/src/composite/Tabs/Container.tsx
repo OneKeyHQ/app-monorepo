@@ -10,6 +10,7 @@ import {
 } from 'react';
 import type { PropsWithChildren, RefObject } from 'react';
 
+import { debounce } from 'lodash';
 import { useAnimatedReaction, useSharedValue } from 'react-native-reanimated';
 import { WindowScroller } from 'react-virtualized';
 
@@ -122,6 +123,7 @@ export function Container({
       }
       const height =
         scrollTabElementsRef.current?.[focusedTab.value]?.element.clientHeight;
+
       if (height) {
         (
           listContainerRef.current as HTMLElement
@@ -140,6 +142,9 @@ export function Container({
           );
         }, 100);
       } else {
+        console.error(
+          `cannot update tab ${focusedTab.value} list container height: ${height}`,
+        );
         updateListContainerHeightTimerId.current = setTimeout(
           updateListContainerHeight,
           250,
@@ -161,6 +166,27 @@ export function Container({
       }
     };
   }, [updateListContainerHeight]);
+
+  useLayoutEffect(() => {
+    const callback = debounce(() => {
+      if (listContainerRef.current) {
+        const tabIndex = tabNames.findIndex(
+          (name) => name === focusedTab.value,
+        );
+        listContainerRef.current.scrollTo({
+          left: (scrollElement?.clientWidth || 0) * tabIndex,
+          behavior: 'smooth',
+        });
+        setTimeout(() => {
+          updateListContainerHeight();
+        });
+      }
+    }, 150);
+    window.addEventListener('resize', callback);
+    return () => {
+      window.removeEventListener('resize', callback);
+    };
+  }, [focusedTab, scrollElement, tabNames, updateListContainerHeight]);
 
   useAnimatedReaction(
     () => focusedTab.value,
@@ -275,7 +301,7 @@ export function Container({
                     isScrolling={isScrolling}
                     scrollLeft={scrollLeft}
                     scrollTop={scrollTop}
-                    width={width}
+                    width={scrollElement?.clientWidth || width || 0}
                     onChildScroll={onChildScroll}
                     registerChild={registerChild}
                     listContainerRef={listContainerRef as any}

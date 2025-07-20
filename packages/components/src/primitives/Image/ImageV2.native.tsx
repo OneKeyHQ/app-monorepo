@@ -6,6 +6,7 @@ import { usePropsAndStyle } from 'tamagui';
 
 import { Skeleton } from '../Skeleton';
 
+import { AnimatedExpoImage } from './AnimatedImage';
 import { useImage } from './useImage';
 
 import type { IImageV2Props } from './type';
@@ -15,7 +16,11 @@ const getRandomRetryTimes = () => {
   return Math.floor(Math.random() * 2) * 1000;
 };
 
-export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
+export function ImageV2({
+  style: defaultStyle,
+  animated,
+  ...props
+}: IImageV2Props) {
   const sizeProps = useMemo(() => {
     // eslint-disable-next-line react/destructuring-assignment
     if (props?.size) {
@@ -86,6 +91,21 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
       return fallback;
     }
     return skeleton || <Skeleton width={style.width} height={style.height} />;
+  }
+
+  if (animated) {
+    return (
+      <AnimatedExpoImage
+        source={image}
+        style={style}
+        onError={handleError}
+        onLoad={onLoad}
+        onLoadEnd={onLoadEnd}
+        onDisplay={onDisplay}
+        onLoadStart={onLoadStart}
+        {...(imageProps as any)}
+      />
+    );
   }
 
   return (

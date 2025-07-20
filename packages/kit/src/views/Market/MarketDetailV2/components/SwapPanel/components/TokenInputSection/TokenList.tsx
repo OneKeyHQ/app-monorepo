@@ -19,6 +19,7 @@ type IEnhancedToken = IToken & {
   price?: string;
   networkImageSrc?: string;
   valueProps?: { value: string; currency: string };
+  error?: string;
 };
 
 interface ITokenListProps {
@@ -39,19 +40,25 @@ export function TokenList({
 
   // get network account
   const networkAccount = usePromiseResult(async () => {
-    if (!activeAccount?.indexedAccount?.id || !currentNetworkId) {
+    if (
+      (!activeAccount?.indexedAccount?.id && !activeAccount?.account?.id) ||
+      !currentNetworkId
+    ) {
       return null;
     }
 
     return backgroundApiProxy.serviceAccount.getNetworkAccount({
-      accountId: undefined,
-      indexedAccountId: activeAccount.indexedAccount.id,
+      accountId: activeAccount?.indexedAccount?.id
+        ? undefined
+        : activeAccount?.account?.id,
+      indexedAccountId: activeAccount?.indexedAccount?.id ?? '',
       networkId: currentNetworkId,
       deriveType: activeAccount.deriveType ?? 'default',
     });
   }, [
     activeAccount?.indexedAccount?.id,
-    activeAccount?.deriveType,
+    activeAccount?.account?.id,
+    activeAccount.deriveType,
     currentNetworkId,
   ]);
 
@@ -95,7 +102,7 @@ export function TokenList({
         };
       } catch (error) {
         console.error(`Failed to fetch details for ${token.symbol}:`, error);
-        return { ...token };
+        return { ...token, error: 'Failed to fetch details' };
       }
     });
 
@@ -124,7 +131,7 @@ export function TokenList({
       <YStack gap="$1" px="$1" py="$1">
         {displayTokens?.map((token: IEnhancedToken) => (
           <TokenListItem
-            isLoading={!token.balance}
+            isLoading={Boolean(!token.balance && !token.error)}
             key={`${token.networkId}-${token.contractAddress}`}
             tokenImageSrc={token.logoURI}
             networkImageSrc={token.networkImageSrc}

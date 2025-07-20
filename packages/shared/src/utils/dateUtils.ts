@@ -253,6 +253,28 @@ export function formatMillisecondsToBlocks(
   return Math.ceil(seconds / blockIntervalSeconds);
 }
 
+export function formatRelativeTimeAbbr(date: Date | number) {
+  let timestamp = date;
+
+  // Auto-detect timestamp format: if it's a number with length <= 10, it's in seconds
+  if (typeof date === 'number' && date.toString().length <= 10) {
+    timestamp = date * 1000;
+  }
+
+  const distance = formatDistanceToNowStrict(timestamp, {
+    addSuffix: false,
+    roundingMethod: 'floor',
+  });
+
+  return distance
+    .replace(/\d+\s*seconds?/g, (match) => `${match.match(/\d+/)?.[0] || ''}s`)
+    .replace(/\d+\s*minutes?/g, (match) => `${match.match(/\d+/)?.[0] || ''}m`)
+    .replace(/\d+\s*hours?/g, (match) => `${match.match(/\d+/)?.[0] || ''}h`)
+    .replace(/\d+\s*days?/g, (match) => `${match.match(/\d+/)?.[0] || ''}d`)
+    .replace(/\d+\s*months?/g, (match) => `${match.match(/\d+/)?.[0] || ''}mo`)
+    .replace(/\d+\s*years?/g, (match) => `${match.match(/\d+/)?.[0] || ''}y`);
+}
+
 export default {
   formatDate,
   formatMonth,

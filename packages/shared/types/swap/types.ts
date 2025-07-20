@@ -374,6 +374,46 @@ export interface IOneKeyFeeInfo {
   oneKeyFeeUsd?: string;
 }
 
+export enum ESwapStepStatus {
+  PENDING = 'pending',
+  SUCCESS = 'success',
+  FAILED = 'failed',
+  LOADING = 'loading',
+  READY = 'ready',
+}
+
+export enum ESwapStepType {
+  BATCH_APPROVE_SWAP = 'batch_approve_swap',
+  APPROVE_TX = 'approve_tx',
+  SIGN_MESSAGE = 'sign_message',
+  SEND_TX = 'send_tx',
+  WRAP_TX = 'wrap_tx',
+}
+
+export enum ESwapBatchTransferType {
+  CONTINUOUS_APPROVE_AND_SWAP = 'continuous_approve_and_swap',
+  BATCH_APPROVE_AND_SWAP = 'batch_approve_and_swap',
+  NORMAL = 'normal',
+}
+
+export interface ISwapStep {
+  type: ESwapStepType;
+  status: ESwapStepStatus;
+  data?: IFetchQuoteResult;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+  stepTitle?: string;
+  stepSubTitle?: string;
+  stepActionsLabel?: string;
+  txHash?: string;
+  orderId?: string;
+  errorMessage?: string;
+  canRetry?: boolean;
+  shouldWaitApproved?: boolean;
+  isResetApprove?: boolean;
+  skipSendTransAction?: boolean;
+}
+
 export interface IFetchQuoteResult {
   quoteId?: string;
   eventId?: string;

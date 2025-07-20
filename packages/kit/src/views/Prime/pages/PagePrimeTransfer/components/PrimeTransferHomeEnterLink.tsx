@@ -53,7 +53,9 @@ export function PrimeTransferHomeEnterLink({
         primeTransferAtom.myCreatedRoomId.toUpperCase()
     ) {
       Toast.error({
-        title: 'Cannot connect to yourself',
+        title: intl.formatMessage({
+          id: ETranslations.transfer_pair_code_own_error,
+        }),
       });
       return;
     }
