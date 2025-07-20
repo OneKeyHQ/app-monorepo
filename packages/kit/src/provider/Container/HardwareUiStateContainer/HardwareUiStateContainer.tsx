@@ -42,6 +42,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import {
+  BluetoothDevicePairingContent,
   BluetoothPermissionUnauthorizedContent,
   CommonDeviceLoading,
   ConfirmOnDeviceToastContent,
@@ -168,6 +169,19 @@ function HardwareSingletonDialogCmp(
       ) {
         title = 'Communicating...';
         content = <BluetoothPermissionUnauthorizedContent />;
+      } else if (
+        eventType === EHardwareUiStateAction.BLUETOOTH_DEVICE_PAIRING
+      ) {
+        title = 'Pairing Device...';
+        content = (
+          <BluetoothDevicePairingContent
+            deviceId={state?.payload?.deviceId}
+            usbConnectId={state?.payload?.connectId}
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            features={state?.payload?.rawPayload?.features}
+            promiseId={state?.payload?.promiseId}
+          />
+        );
       } else {
         title = intl.formatMessage({
           id: ETranslations.global_checking_device,

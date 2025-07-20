@@ -924,6 +924,96 @@ export function DesktopBluetoothPermissionContent({
   );
 }
 
+interface IBluetoothDevicePairingContentProps {
+  deviceId?: string;
+  usbConnectId?: string;
+  features?: any;
+  promiseId?: string;
+}
+
+export function BluetoothDevicePairingContent({
+  deviceId,
+  usbConnectId,
+  features,
+  promiseId,
+}: IBluetoothDevicePairingContentProps) {
+  const isProcessingRef = useRef(false);
+
+  // 执行设备配对流程（后台静默执行）
+  const executePairingProcess = useCallback(async () => {
+    if (isProcessingRef.current || !deviceId || !usbConnectId || !promiseId)
+      return;
+
+    isProcessingRef.current = true;
+
+    try {
+      // 调用后台的设备修复方法
+      const result =
+        await backgroundApiProxy.serviceHardware.repairBleConnectIdWithProgress(
+          {
+            connectId: usbConnectId,
+            featuresDeviceId: deviceId,
+            features,
+          },
+        );
+
+      // 通过 servicePromise 回调结果
+      await backgroundApiProxy.servicePromise.resolveCallback({
+        id: promiseId,
+        data: result,
+      });
+    } catch (error) {
+      console.error('Bluetooth device pairing failed:', error);
+      // 通过 servicePromise 回调错误
+      await backgroundApiProxy.servicePromise.rejectCallback({
+        id: promiseId,
+        error: error as Error,
+      });
+    } finally {
+      isProcessingRef.current = false;
+    }
+  }, [deviceId, usbConnectId, features, promiseId]);
+
+  // 组件挂载时开始配对流程
+  useEffect(() => {
+    void executePairingProcess();
+  }, [executePairingProcess]);
+
+  // UI 与 DesktopBluetoothPermissionContent 完全一致
+  return (
+    <XStack
+      p="$3"
+      gap="$3"
+      alignItems="flex-start"
+      borderRadius="$2"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderInfoSubdued"
+      bg="$bgInfoSubdued"
+    >
+      {/* ICON - 与原组件完全相同 */}
+      <Stack
+        w="$10"
+        h="$10"
+        ai="center"
+        jc="center"
+        borderRadius="$1"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderInfo"
+        background="linear-gradient(180deg, rgba(0, 130, 230, 0.63) 0%, rgba(0, 125, 234, 0.97) 100%)"
+      >
+        <Icon name="BluetoothOutline" size="$6" color="$iconOnColor" />
+      </Stack>
+      {/* CONTENT - 与原组件完全相同 */}
+      <YStack gap="$4" flex={1}>
+        <SizableText size="$bodyMd" color="$text">
+          USB not detected. OneKey tried Bluetooth but lacks permission. Please
+          enable it in System Settings.
+        </SizableText>
+      </YStack>
+    </XStack>
+  );
+}
+
 export function BluetoothPermissionUnauthorizedContent() {
   const handleGoToSettings = useCallback(() => {
     void globalThis.desktopApiProxy.bluetooth.openPrivacySettings();

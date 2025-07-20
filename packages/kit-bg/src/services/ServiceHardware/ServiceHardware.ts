@@ -1543,14 +1543,16 @@ class ServiceHardware extends ServiceBase {
             reject,
           });
 
-          // Emit event for UI dialog with promiseId
-          appEventBus.emit(EAppEventBusNames.DesktopBleRepairRequired, {
-            connectId,
-            deviceId: featuresDeviceId || undefined,
-            deviceName: features?.label || device.name,
-            features,
-            promiseId,
-          });
+          // Show the new Bluetooth device pairing dialog with promiseId
+          void this.backgroundApi.serviceHardwareUI.showBluetoothDevicePairingDialog(
+            {
+              device,
+              deviceId: featuresDeviceId || '',
+              usbConnectId: connectId,
+              features,
+              promiseId,
+            },
+          );
         });
 
         return bleConnectId;

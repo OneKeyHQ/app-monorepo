@@ -50,6 +50,7 @@ export enum EHardwareUiStateAction {
   WEB_DEVICE_PROMPT_ACCESS_PERMISSION = 'ui-web_device_prompt_access_permission',
   DESKTOP_REQUEST_BLUETOOTH_PERMISSION = 'ui-desktop_request_bluetooth_permission',
   BLUETOOTH_PERMISSION_UNAUTHORIZED = 'ui-bluetooth_permission_unauthorized',
+  BLUETOOTH_DEVICE_PAIRING = 'ui-bluetooth_device_pairing',
 }
 
 export type IHardwareUiPayload = {
