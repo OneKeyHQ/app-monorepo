@@ -172,7 +172,7 @@ function HardwareSingletonDialogCmp(
       } else if (
         eventType === EHardwareUiStateAction.BLUETOOTH_DEVICE_PAIRING
       ) {
-        title = 'Pairing Device...';
+        title = 'Communicating...';
         content = (
           <BluetoothDevicePairingContent
             deviceId={state?.payload?.deviceId}
