@@ -23,13 +23,13 @@ export function BalanceDisplay({
 }: IBalanceDisplayProps) {
   const intl = useIntl();
   return (
-    <XStack justifyContent="space-between" alignItems="center" minHeight="$6">
+    <XStack justifyContent="space-between" alignItems="center" height="$6">
       <InfoItemLabel
         title={intl.formatMessage({ id: ETranslations.global_balance })}
       />
 
       {isLoading ? (
-        <Skeleton height="$5" width="$24" />
+        <Skeleton height="$6" width="$24" />
       ) : (
         <SizableText
           size="$bodyMdMedium"

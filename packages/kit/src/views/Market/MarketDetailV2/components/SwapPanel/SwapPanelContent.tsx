@@ -81,35 +81,35 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       {/* Trade type selector */}
       <TradeTypeSelector value={tradeType} onChange={setTradeType} />
 
-      {/* Token input section */}
-      <TokenInputSection
-        ref={tokenInputRef}
-        tradeType={tradeType}
-        onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
-        selectedToken={
-          tradeType === ESwapDirection.SELL ? balanceToken : paymentToken
-        }
-        selectableTokens={defaultTokens}
-        onTokenChange={(token) => setPaymentToken(token)}
-        balance={balance}
-      />
+      <YStack gap="$2">
+        {/* Token input section */}
+        <TokenInputSection
+          ref={tokenInputRef}
+          tradeType={tradeType}
+          onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
+          selectedToken={
+            tradeType === ESwapDirection.SELL ? balanceToken : paymentToken
+          }
+          selectableTokens={defaultTokens}
+          onTokenChange={(token) => setPaymentToken(token)}
+          balance={balance}
+        />
 
-      {/* Rate display */}
-      {priceRate ? (
+        {/* Rate display */}
         <RateDisplay
           rate={priceRate?.rate}
           fromTokenSymbol={priceRate?.fromTokenSymbol}
           toTokenSymbol={priceRate?.toTokenSymbol}
         />
-      ) : null}
 
-      {/* Balance display */}
-      <BalanceDisplay
-        balance={balance}
-        token={balanceToken}
-        isLoading={balanceLoading}
-        onBalanceClick={handleBalanceClick}
-      />
+        {/* Balance display */}
+        <BalanceDisplay
+          balance={balance}
+          token={balanceToken}
+          isLoading={balanceLoading}
+          onBalanceClick={handleBalanceClick}
+        />
+      </YStack>
 
       {/* Unsupported swap warning */}
       {!isLoading && !supportSpeedSwap ? <UnsupportedSwapWarning /> : null}
