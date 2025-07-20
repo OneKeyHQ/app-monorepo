@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
@@ -59,25 +59,31 @@ function MarketDetail({
     navigation.navigate(ETabMarketV2Routes.TabMarket);
   }, [navigation]);
 
-  const customHeaderLeft = (
-    <XStack gap="$3" ai="center">
-      {platformEnv.isNative ? (
-        <HeaderLeftCloseButton />
-      ) : (
-        <NavBackButton onPress={handleBackPress} />
-      )}
-      <AccountSelectorTriggerHome num={0} />
-    </XStack>
+  const customHeaderLeft = useMemo(
+    () => (
+      <XStack gap="$3" ai="center">
+        {platformEnv.isNative ? (
+          <HeaderLeftCloseButton />
+        ) : (
+          <NavBackButton onPress={handleBackPress} />
+        )}
+        <AccountSelectorTriggerHome num={0} />
+      </XStack>
+    ),
+    [handleBackPress],
   );
 
   return (
     <Page>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.Market}
-        customHeaderLeftItems={customHeaderLeft}
-        hideSearch={!media.gtMd}
-      />
+      {media.gtMd ? (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.Market}
+          customHeaderLeftItems={customHeaderLeft}
+          hideSearch={!media.gtMd}
+        />
+      ) : null}
+
       <Page.Body>{media.gtMd ? <DesktopLayout /> : <MobileLayout />}</Page.Body>
     </Page>
   );

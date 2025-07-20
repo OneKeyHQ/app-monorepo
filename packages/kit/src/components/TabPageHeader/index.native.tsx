@@ -56,9 +56,11 @@ export function TabPageHeader({
         </View>
         {headerRight}
       </XStack>
-      {!hideSearch && (
+
+      {!hideSearch ? (
         <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
-      )}
+      ) : null}
+
       <PageHeaderDivider mt="$3" />
     </>
   );
