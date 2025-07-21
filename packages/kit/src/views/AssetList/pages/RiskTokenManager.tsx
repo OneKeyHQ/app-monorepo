@@ -82,12 +82,6 @@ function RiskTokenManager() {
         size="sm"
         variant="tertiary"
         onPress={() => {
-          if (isEditing) {
-            void backgroundApiProxy.serviceToken.updateRiskTokensState({
-              unblockedTokens: unblockedTokensMap,
-              blockedTokens: blockedTokensMap,
-            });
-          }
           setIsEditing((prev) => !prev);
         }}
       >
@@ -96,7 +90,7 @@ function RiskTokenManager() {
         })}
       </Button>
     );
-  }, [intl, isEditing, unblockedTokensMap, blockedTokensMap]);
+  }, [intl, isEditing]);
 
   const { result: sectionListData } = usePromiseResult(
     async () => {
@@ -121,6 +115,17 @@ function RiskTokenManager() {
             isBlocked: true,
           });
         }
+      }
+
+      if (unblockedTokens.length === 0) {
+        return [
+          {
+            title: intl.formatMessage({
+              id: ETranslations.wallet_collapsed_risk_assets,
+            }),
+            data: blockedTokens,
+          },
+        ];
       }
 
       return [
@@ -163,7 +168,12 @@ function RiskTokenManager() {
     });
   }, [sectionListData, searchKey]);
 
-  const handleOnClose = useCallback(() => {
+  const handleOnClose = useCallback(async () => {
+    await backgroundApiProxy.serviceToken.updateRiskTokensState({
+      unblockedTokens: unblockedTokensMap,
+      blockedTokens: blockedTokensMap,
+    });
+
     const currentUnblockedTokens = JSON.stringify(unblockedTokensMap);
     const currentBlockedTokens = JSON.stringify(blockedTokensMap);
     if (
@@ -176,19 +186,19 @@ function RiskTokenManager() {
 
   useEffect(() => {
     const fetchRiskTokens = async () => {
-      // promise all
-      const [unblockedTokens, blockedTokens] = await Promise.all([
-        backgroundApiProxy.serviceToken.getUnblockedTokens({
+      const [u, b] = await Promise.all([
+        backgroundApiProxy.serviceToken.getUnblockedTokensMap({
           networkId,
         }),
-        backgroundApiProxy.serviceToken.getBlockedTokens({
+        backgroundApiProxy.serviceToken.getBlockedTokensMap({
           networkId,
         }),
       ]);
-      setUnblockedTokensMap(blockedTokens);
-      setBlockedTokensMap(unblockedTokens);
-      originalUnblockedTokens.current = JSON.stringify(unblockedTokens);
-      originalBlockedTokens.current = JSON.stringify(blockedTokens);
+      setUnblockedTokensMap(u);
+      setBlockedTokensMap(b);
+
+      originalUnblockedTokens.current = JSON.stringify(u);
+      originalBlockedTokens.current = JSON.stringify(b);
     };
 
     void fetchRiskTokens();
