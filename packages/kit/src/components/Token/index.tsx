@@ -3,6 +3,8 @@
   A component for render token (and NFT) images. It has a fallback icon when the image is not available. Typically used in list, card, or any other components that display small token images.
 */
 
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import type {
@@ -76,18 +78,32 @@ export function Token({
   if (fallbackIcon) {
     fallbackIconName = fallbackIcon;
   }
+  const borderRadius = useMemo(() => {
+    if (isNFT) {
+      return '$2';
+    }
+    return '$full';
+  }, [isNFT]);
   const tokenImage = (
     <Image
       size={tokenImageSize}
-      borderRadius={isNFT ? '$2' : '$full'}
-      bg="$gray5"
+      borderRadius={borderRadius}
       source={tokenImageUri ? { uri: tokenImageUri } : undefined}
       fallback={
-        <Icon
-          size={fallbackIconSize}
-          name={fallbackIconName}
-          color="$iconSubdued"
-        />
+        <Stack
+          bg="$gray5"
+          ai="center"
+          jc="center"
+          borderRadius={borderRadius}
+          w={tokenImageSize}
+          h={tokenImageSize}
+        >
+          <Icon
+            size={fallbackIconSize}
+            name={fallbackIconName}
+            color="$iconSubdued"
+          />
+        </Stack>
       }
       skeleton={
         <Skeleton w={tokenImageSize} h={tokenImageSize} radius="round" />
