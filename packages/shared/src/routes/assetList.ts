@@ -12,6 +12,7 @@ export enum EModalAssetListRoutes {
   TokenList = 'TokenList',
   TokenManagerModal = 'TokenManagerModal',
   AddCustomTokenModal = 'AddCustomTokenModal',
+  RiskTokenManager = 'RiskTokenManager',
 }
 
 export type IModalAssetListParamList = {
@@ -42,4 +43,15 @@ export type IModalAssetListParamList = {
     isAllNetworks?: boolean;
   };
   [EModalAssetListRoutes.AddCustomTokenModal]: IAddCustomTokenRouteParams;
+  [EModalAssetListRoutes.RiskTokenManager]: {
+    accountId: string;
+    networkId: string;
+    tokenList: {
+      tokens: IAccountToken[];
+      keys: string;
+      map: Record<string, ITokenFiat>;
+    };
+    isAllNetworks?: boolean;
+    hideValue?: boolean;
+  };
 };
