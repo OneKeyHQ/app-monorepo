@@ -210,7 +210,7 @@ function FinalizeWalletSetupPage({
     }
   }, [currentStep, navigation, showStep, handleWalletSetupReady]);
 
-  const showCloseButton = currentStep !== EFinalizeWalletSetupSteps.Ready;
+  const showCloseButton = currentStep === EFinalizeWalletSetupSteps.Ready;
 
   const renderHeaderLeft = useCallback(() => {
     if (!showCloseButton) {
@@ -222,7 +222,7 @@ function FinalizeWalletSetupPage({
     return <NavBackButton onPress={popPage} />;
   }, [showCloseButton, shouldBondReferralCode, popPage, closePage]);
 
-  usePreventRemove(showCloseButton, () => null);
+  usePreventRemove(!showCloseButton, () => null);
 
   return (
     <Page
