@@ -13,7 +13,6 @@ export class HardwareHomeScreenScene extends BaseScene {
     deviceName: string;
     imgName: string;
     imgResType: string;
-    needUploadResource: boolean | undefined;
     imgHex: string;
     buildCustomHexError: string | undefined;
     isUserUpload: boolean | undefined;
@@ -24,7 +23,6 @@ export class HardwareHomeScreenScene extends BaseScene {
       deviceName,
       imgName,
       imgResType,
-      needUploadResource,
       buildCustomHexError,
       isUserUpload,
     } = params;
@@ -37,7 +35,6 @@ export class HardwareHomeScreenScene extends BaseScene {
       isUserUpload,
       imgHex: params.imgHex?.slice(0, 10),
       imgResType,
-      needUploadResource,
     };
   }
 

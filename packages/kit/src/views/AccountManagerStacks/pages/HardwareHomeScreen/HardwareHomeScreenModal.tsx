@@ -38,6 +38,7 @@ import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EAccountManagerStacksRoutes,
@@ -744,10 +745,58 @@ export default function HardwareHomeScreenModal({
             }
             setIsUploadLoading(true);
 
+            const { nameHex, screenHex, thumbnailHex, resType, isUserUpload } =
+              selectedItem;
+
+            const isCustomScreen = resType === 'custom' || isUserUpload;
+
+            let buildCustomHexError: string | undefined = '';
+
+            let finallyScreenHex = '';
+            let finallyThumbnailHex: string | undefined;
+            try {
+              if (isCustomScreen) {
+                // case 1: custom upload wallpaper from uri
+                // case 2: server custom wallpaper from url
+                const {
+                  screenHex: customScreenHex,
+                  thumbnailHex: customThumbnailHex,
+                } = await deviceHomeScreenUtils.buildCustomScreenHex(
+                  device.id,
+                  selectedItem.uri || selectedItem.url,
+                  device.deviceType,
+                  isUserUpload,
+                  deviceInfo?.config,
+                );
+
+                finallyScreenHex = customScreenHex || '';
+                finallyThumbnailHex = customThumbnailHex;
+              } else {
+                finallyScreenHex = screenHex || nameHex || '';
+                finallyThumbnailHex = thumbnailHex;
+              }
+            } catch (error) {
+              buildCustomHexError = (error as Error | undefined)?.message;
+            }
+
+            defaultLogger.hardware.homescreen.setHomeScreen({
+              buildCustomHexError,
+              deviceId: device?.id,
+              deviceType: device.deviceType,
+              deviceName: device.name,
+              imgName: selectedItem.id,
+              imgResType: resType,
+              imgHex: finallyScreenHex,
+              isUserUpload,
+            });
+
             await backgroundApiProxy.serviceHardware.setDeviceHomeScreen({
               dbDeviceId: device?.id,
-              deviceType: device.deviceType,
-              screenItem: selectedItem,
+              screenItem: {
+                ...selectedItem,
+                screenHex: finallyScreenHex,
+                thumbnailHex: finallyThumbnailHex,
+              },
             });
             // setSelectedItem(undefined);
             Toast.success({

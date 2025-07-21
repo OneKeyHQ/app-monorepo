@@ -7,12 +7,8 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import type { IResizeImageResult } from '@onekeyhq/shared/src/utils/imageUtils';
-import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
 
 import localDb from '../../dbs/local/localDb';
 
@@ -25,7 +21,6 @@ import type {
 import type {
   DeviceSettingsParams,
   DeviceUploadResourceParams,
-  IDeviceType,
 } from '@onekeyfe/hd-core';
 
 export type ISetInputPinOnSoftwareParams = {
@@ -64,7 +59,6 @@ export type IHardwareHomeScreenData = {
 
 export type ISetDeviceHomeScreenParams = {
   dbDeviceId: string;
-  deviceType: IDeviceType;
   screenItem: IHardwareHomeScreenData;
 };
 export type IDeviceHomeScreenSizeInfo = {
@@ -187,91 +181,10 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     );
   }
 
-  private async buildCustomScreenHex(
-    dbDeviceId: string,
-    url: string | undefined,
-    deviceType: IDeviceType,
-    isUserUpload?: boolean,
-  ) {
-    const imgUri =
-      (await imageUtils.getBase64FromRequiredImageSource(url, (...args) => {
-        defaultLogger.hardware.homescreen.getBase64FromRequiredImageSource(
-          ...args,
-        );
-      })) || '';
-    if (!imgUri) {
-      throw new OneKeyLocalError('Error imgUri not defined');
-    }
-
-    if (deviceHomeScreenUtils.isMonochromeScreen(deviceType)) {
-      const customHex = await deviceHomeScreenUtils.imagePathToHex(
-        imgUri,
-        deviceType,
-      );
-      return {
-        screenHex: customHex,
-        thumbnailHex: undefined,
-      };
-    }
-
-    const config =
-      await this.backgroundApi.serviceHardware.getDeviceHomeScreenConfig({
-        dbDeviceId,
-        homeScreenType: 'WallPaper',
-      });
-
-    if (!config || !config.size) {
-      return {
-        screenHex: '',
-        thumbnailHex: undefined,
-      };
-    }
-
-    let imgThumb: IResizeImageResult | undefined;
-    if (config.thumbnailSize) {
-      imgThumb = await imageUtils.resizeImage({
-        uri: imgUri,
-
-        width: config.thumbnailSize?.width ?? config.size?.width,
-        height: config.thumbnailSize?.height ?? config.size?.height,
-
-        originW: config.size?.width,
-        originH: config.size?.height,
-        isMonochrome: false,
-      });
-    }
-
-    let screenHex = '';
-    if (!isUserUpload) {
-      const imgScreen = await imageUtils.resizeImage({
-        uri: imgUri,
-
-        width: config.size?.width,
-        height: config.size?.height,
-
-        originW: config.size?.width,
-        originH: config.size?.height,
-        isMonochrome: false,
-      });
-      screenHex = imgScreen.hex;
-    } else {
-      screenHex = Buffer.from(
-        imageUtils.stripBase64UriPrefix(imgUri),
-        'base64',
-      ).toString('hex');
-    }
-
-    return {
-      screenHex,
-      thumbnailHex: imgThumb?.hex,
-    };
-  }
-
   @backgroundMethod()
   async setDeviceHomeScreen({
     dbDeviceId,
     screenItem,
-    deviceType,
   }: ISetDeviceHomeScreenParams) {
     const device = await localDb.getDevice(dbDeviceId);
 
@@ -286,44 +199,8 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     // Pro、Touch: custom upload wallpaper
     const needUploadResource = isCustomScreen && !isMonochrome;
 
-    let buildCustomHexError: string | undefined = '';
-
-    let finallyScreenHex = '';
-    let finallyThumbnailHex: string | undefined;
-
-    try {
-      if (isCustomScreen) {
-        // case 1: custom upload wallpaper from uri
-        // case 2: server custom wallpaper from url
-        const { screenHex: customScreenHex, thumbnailHex: customThumbnailHex } =
-          await this.buildCustomScreenHex(
-            dbDeviceId,
-            screenItem.uri || screenItem.url,
-            deviceType,
-            isUserUpload,
-          );
-
-        finallyScreenHex = customScreenHex || '';
-        finallyThumbnailHex = customThumbnailHex;
-      } else {
-        finallyScreenHex = screenHex || nameHex || '';
-        finallyThumbnailHex = thumbnailHex;
-      }
-    } catch (error) {
-      buildCustomHexError = (error as Error | undefined)?.message;
-    }
-
-    defaultLogger.hardware.homescreen.setHomeScreen({
-      buildCustomHexError,
-      deviceId: device?.id,
-      deviceType: device.deviceType,
-      deviceName: device.name,
-      imgName: screenItem.id,
-      imgResType: resType,
-      needUploadResource,
-      imgHex: finallyScreenHex,
-      isUserUpload,
-    });
+    const finallyScreenHex = screenHex || nameHex || '';
+    const finallyThumbnailHex: string | undefined = thumbnailHex;
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
