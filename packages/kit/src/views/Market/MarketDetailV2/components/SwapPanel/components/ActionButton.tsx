@@ -5,9 +5,11 @@ import { useIntl } from 'react-intl';
 
 import { Button } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
@@ -15,6 +17,7 @@ import { usePaymentTokenPrice } from '../hooks/usePaymentTokenPrice';
 import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 
 import type { IToken } from '../types';
+import type { GestureResponderEvent } from 'react-native';
 
 export interface IActionButtonProps extends IButtonProps {
   tradeType: ITradeType;
@@ -42,6 +45,7 @@ export function ActionButton({
   const { tokenDetail } = useTokenDetail();
   const [settingsValue] = useSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const navigation = useAppNavigation();
   // Get payment token price for buy orders
   const { price: paymentTokenPrice } = usePaymentTokenPrice(
     tradeType === ESwapDirection.BUY ? paymentToken : undefined,
@@ -90,7 +94,7 @@ export function ActionButton({
     !activeAccount?.indexedAccount?.id && !activeAccount?.account?.id;
 
   // Disable button if insufficient balance
-  const shouldDisable = isInsufficientBalance;
+  let shouldDisable = isInsufficientBalance;
   const displayAmountFormatted = numberFormat(displayAmount, {
     formatter: 'balance',
     formatterOptions: {
@@ -126,6 +130,7 @@ export function ActionButton({
     buttonText = intl.formatMessage({
       id: ETranslations.swap_page_button_no_connected_wallet,
     });
+    shouldDisable = false;
   }
 
   return (
@@ -133,7 +138,19 @@ export function ActionButton({
       variant="primary"
       size="medium"
       disabled={shouldDisable || disabled || !hasAmount}
-      onPress={shouldDisable ? undefined : onPress}
+      onPress={
+        shouldDisable
+          ? undefined
+          : (event: GestureResponderEvent) => {
+              if (noAccount) {
+                navigation.pushModal(EModalRoutes.OnboardingModal, {
+                  screen: EOnboardingPages.GetStarted,
+                });
+                return;
+              }
+              onPress?.(event);
+            }
+      }
       {...otherProps}
     >
       {buttonText}

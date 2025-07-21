@@ -399,9 +399,6 @@ export enum ESwapBatchTransferType {
 export interface ISwapStep {
   type: ESwapStepType;
   status: ESwapStepStatus;
-  data?: IFetchQuoteResult;
-  fromToken?: ISwapToken;
-  toToken?: ISwapToken;
   stepTitle?: string;
   stepSubTitle?: string;
   stepActionsLabel?: string;
@@ -412,6 +409,18 @@ export interface ISwapStep {
   shouldWaitApproved?: boolean;
   isResetApprove?: boolean;
   skipSendTransAction?: boolean;
+}
+
+export interface ISwapPreSwapData {
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+  fromTokenAmount?: string;
+  toTokenAmount?: string;
+  providerInfo?: IFetchQuoteInfo;
+  slippage?: number;
+  unSupportSlippage?: boolean;
+  fee?: IFetchQuoteFee;
+  allowanceResult?: IAllowanceResult;
 }
 
 export interface IFetchQuoteResult {
