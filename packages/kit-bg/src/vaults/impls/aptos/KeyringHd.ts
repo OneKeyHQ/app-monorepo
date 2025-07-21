@@ -42,14 +42,11 @@ export class KeyringHd extends KeyringHdBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     const { unsignedTx } = params;
-
-    console.log('=====>>>>> keyringHd signTransaction', params);
     const rawTxn = await generateUnsignedTransaction(
       (this.vault as VaultAptos).client,
       params.unsignedTx,
     );
 
-    console.log('=====>>>>> keyringHd rawTxn', rawTxn);
     return this.baseSignTransaction({
       ...params,
       unsignedTx: {

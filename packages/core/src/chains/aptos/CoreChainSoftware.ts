@@ -136,14 +136,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     const rawTxn = deserializeTransaction(rawTxUnsigned);
     const signingMessage = generateSigningMessageForTransaction(rawTxn);
-    console.log(
-      '=====>>>>> signingMessage:',
-      bufferUtils.toBuffer(signingMessage),
-    );
-
-    const transaction = deriveTransactionType(rawTxn);
-    const rawTx = transaction.bcsToHex().toStringWithoutPrefix();
-    console.log('=====>>>>> signingMessage hardware:', rawTx);
 
     const [signature] = await signer.sign(bufferUtils.toBuffer(signingMessage));
     const signatureHex = hexUtils.hexlify(signature, {

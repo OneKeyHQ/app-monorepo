@@ -22,10 +22,6 @@ export function deserializeTransaction(
     const transaction = SimpleTransaction.deserialize(deserializer);
 
     if (deserializer.remaining() === 0) {
-      console.log(
-        '=====>>>>> deserialize transaction SimpleTransaction',
-        transaction,
-      );
       return transaction;
     }
   } catch (error) {
@@ -37,10 +33,6 @@ export function deserializeTransaction(
     const transaction = MultiAgentTransaction.deserialize(deserializer);
 
     if (deserializer.remaining() === 0) {
-      console.log(
-        '=====>>>>> deserialize transaction MultiAgentTransaction',
-        transaction,
-      );
       return transaction;
     }
   } catch (error) {
