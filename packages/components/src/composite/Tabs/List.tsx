@@ -327,10 +327,10 @@ export function List<Item>({
   );
 
   useEffect(() => {
-    if (numColumns || width || extraData) {
+    if (data?.length || sections?.length || numColumns || width || extraData) {
       recompute({ numColumns, width });
     }
-  }, [numColumns, width, extraData, recompute]);
+  }, [data?.length, sections?.length, numColumns, width, extraData, recompute]);
 
   const cellRenderer = useCallback(
     (params: CollectionCellRendererParams) => {

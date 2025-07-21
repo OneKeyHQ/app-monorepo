@@ -1,9 +1,7 @@
 import type { ComponentProps, ReactElement } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
 import type { IListViewProps } from '@onekeyhq/components';
 import {
@@ -14,7 +12,7 @@ import {
   XStack,
   renderNestedScrollView,
 } from '@onekeyhq/components';
-import { useSafeAreaInsets, useStyle } from '@onekeyhq/components/src/hooks';
+import { useStyle } from '@onekeyhq/components/src/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -184,24 +182,9 @@ function BaseTxHistoryListView(props: IProps) {
     return inTabList ? Tabs.SectionList : SectionList;
   }, [inTabList]);
 
-  const [testSections, setTestSections] = useState(sections);
-  const [count, setCount] = useState(0);
-  globalThis.addItemToList = () => {
-    const newSections = testSections.length > 0 ? testSections : sections;
-    if (newSections.length > 0) {
-      newSections[0].data.unshift(
-        newSections[newSections.length - 1].data[
-          newSections[newSections.length - 1].data.length - 1
-        ],
-      );
-      setTestSections(cloneDeep(newSections));
-      setCount((c) => c + 1);
-    }
-  };
-
   const itemCounts = useMemo(() => {
-    return testSections.reduce((acc, section) => acc + section.data.length, 0);
-  }, [testSections]);
+    return sections.reduce((acc, section) => acc + section.data.length, 0);
+  }, [sections]);
 
   if (!initialized && isLoading) {
     return (
@@ -219,7 +202,7 @@ function BaseTxHistoryListView(props: IProps) {
       renderScrollComponent={renderNestedScrollView}
       contentContainerStyle={resolvedContentContainerStyle as any}
       stickySectionHeadersEnabled={false}
-      sections={testSections}
+      sections={sections}
       extraData={itemCounts}
       ListEmptyComponent={
         searchKey && data.length > 0 ? EmptySearch : EmptyHistory
