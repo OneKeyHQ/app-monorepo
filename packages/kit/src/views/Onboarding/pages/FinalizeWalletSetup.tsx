@@ -214,7 +214,7 @@ function FinalizeWalletSetupPage({
 
   const renderHeaderLeft = useCallback(() => {
     if (!showCloseButton) {
-      return null;
+      return <Stack />;
     }
     if (shouldBondReferralCode) {
       return <NavCloseButton onPress={closePage} />;
