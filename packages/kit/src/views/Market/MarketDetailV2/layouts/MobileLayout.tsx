@@ -73,7 +73,6 @@ export function MobileLayout() {
   return (
     <>
       {/* Header */}
-      <TokenDetailHeader showStats={false} showMediaAndSecurity={false} />
 
       {/* Switch Buttons */}
       <SimpleTabHeader

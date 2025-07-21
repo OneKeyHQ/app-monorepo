@@ -162,74 +162,60 @@ function MarketTokenList({
   console.log('data', data);
 
   return (
-    <>
-      <Stack flex={1} width="100%">
-        {/* render custom toolbar if provided */}
-        {toolbar ? (
-          <Stack width="100%" mb="$3">
-            {toolbar}
-          </Stack>
-        ) : null}
+    <Stack flex={1} width="100%">
+      {/* render custom toolbar if provided */}
+      {toolbar ? (
+        <Stack width="100%" mb="$3">
+          {toolbar}
+        </Stack>
+      ) : null}
 
-        {/* Table container with horizontal scroll support */}
-        <Stack
-          flex={1}
-          className="normal-scrollbar"
-          style={{
-            overflowX: 'auto',
-          }}
-        >
-          <Stack minWidth={md ? '100%' : 1466} flex={1} minHeight={400}>
-            {showSkeleton ? (
-              <Table.Skeleton
-                columns={marketTokenColumns}
-                count={pageSize}
-                rowProps={{
-                  minHeight: '$14',
-                }}
-              />
-            ) : (
-              <Table<IMarketToken>
-                stickyHeader
-                columns={marketTokenColumns}
-                dataSource={data}
-                keyExtractor={(item) => item.address + item.symbol + item.name}
-                onHeaderRow={handleHeaderRow}
-                rowProps={{
-                  minHeight: '$14',
-                }}
-                estimatedItemSize="$14"
-                onRow={
-                  onItemPress
-                    ? (item) => ({
-                        onPress: () => onItemPress(item),
-                      })
-                    : (item) => ({
-                        onPress: () =>
-                          toDetailPage({
-                            tokenAddress: item.address,
-                            networkId,
-                          }),
-                      })
-                }
-              />
-            )}
-          </Stack>
+      {/* Table container with horizontal scroll support */}
+      <Stack
+        flex={1}
+        className="normal-scrollbar"
+        style={{
+          overflowX: 'auto',
+        }}
+      >
+        <Stack minWidth={md ? '100%' : 1466} flex={1} minHeight={400}>
+          {showSkeleton ? (
+            <Table.Skeleton
+              columns={marketTokenColumns}
+              count={pageSize}
+              rowProps={{
+                minHeight: '$14',
+              }}
+            />
+          ) : (
+            <Table<IMarketToken>
+              stickyHeader
+              columns={marketTokenColumns}
+              dataSource={data}
+              keyExtractor={(item) => item.address + item.symbol + item.name}
+              onHeaderRow={handleHeaderRow}
+              rowProps={{
+                minHeight: '$14',
+              }}
+              estimatedItemSize="$14"
+              onRow={
+                onItemPress
+                  ? (item) => ({
+                      onPress: () => onItemPress(item),
+                    })
+                  : (item) => ({
+                      onPress: () =>
+                        toDetailPage({
+                          tokenAddress: item.address,
+                          networkId,
+                        }),
+                    })
+              }
+            />
+          )}
         </Stack>
       </Stack>
-
-      {/* Hide pagination during skeleton loading */}
-      {/* {!showSkeleton && totalPages > 1 ? (
-        <XStack justifyContent="center" py="$4">
-          <Pagination
-            maxPages={20}
-            current={currentPage}
-            total={totalPages}
-            onChange={setCurrentPage}
-          />
-        </XStack>
-      ) : null} */}
-    </>
+    </Stack>
   );
 }
 

@@ -25,6 +25,7 @@ import { HeaderLeftCloseButton } from '../../../components/TabPageHeader/HeaderL
 import { useTokenDetailActions } from '../../../states/jotai/contexts/marketV2';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
+import { TokenDetailHeader } from './components/TokenDetailHeader/TokenDetailHeader';
 import { useAutoRefreshTokenDetail } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileLayout } from './layouts/MobileLayout';
@@ -67,22 +68,28 @@ function MarketDetail({
         ) : (
           <NavBackButton onPress={handleBackPress} />
         )}
-        <AccountSelectorTriggerHome num={0} />
+
+        <TokenDetailHeader
+          containerProps={{ p: '$0' }}
+          showStats={false}
+          showMediaAndSecurity={false}
+        />
       </XStack>
     ),
     [handleBackPress],
   );
 
+  const customHeaderRight = useMemo(() => null, []);
+
   return (
     <Page>
-      {media.gtMd ? (
-        <TabPageHeader
-          sceneName={EAccountSelectorSceneName.home}
-          tabRoute={ETabRoutes.Market}
-          customHeaderLeftItems={customHeaderLeft}
-          hideSearch={!media.gtMd}
-        />
-      ) : null}
+      <TabPageHeader
+        sceneName={EAccountSelectorSceneName.home}
+        tabRoute={ETabRoutes.Market}
+        customHeaderLeftItems={customHeaderRight}
+        customHeaderRightItems={customHeaderLeft}
+        hideSearch={!media.gtMd}
+      />
 
       <Page.Body>{media.gtMd ? <DesktopLayout /> : <MobileLayout />}</Page.Body>
     </Page>
