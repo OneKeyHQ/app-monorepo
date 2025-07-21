@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 /* eslint-disable react/no-unstable-nested-components */
-import { useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 
 import type { ISelectItem, ISelectSection } from '@onekeyhq/components';
 import { Icon, Select, SizableText, Stack } from '@onekeyhq/components';
@@ -57,26 +57,30 @@ const SelectDefaultItem = () => {
   );
 };
 
-const SelectLongListItem = () => {
+function BasicSelectLongListItem() {
   const [val, setVal] = useState('Apple');
-
+  const selectItems = useMemo(() => {
+    return new Array(1000).fill(undefined).map((_, index) => ({
+      label: String(index),
+      value: String(index),
+    }));
+  }, []);
+  console.log('val---', val);
   return (
     <Select
-      items={new Array(1000).fill(undefined).map((_, index) => ({
-        label: String(index),
-        value: String(index),
-      }))}
+      items={selectItems}
       sheetProps={{
         snapPointsMode: 'percent',
         snapPoints: [80],
       }}
       value={val}
-      onChange={setVal}
+      // onChange={setVal}
       title="Demo Title"
       onOpenChange={console.log}
     />
   );
-};
+}
+const SelectLongListItem = memo(BasicSelectLongListItem);
 
 const SelectDisabledItem = () => {
   const [val, setVal] = useState('Apple');

@@ -50,7 +50,7 @@
     "@react-native-community/slider": "4.5.7",
     "@react-native-google-signin/google-signin": "^9.1.0",
     "@sentry/react-native": "6.16.1",
-    "@shopify/flash-list": "2.0.0-rc.11",
+    "@shopify/flash-list": "2.0.0-alpha.21",
     "@types/react-native-canvas": "^0.1.13",
     "@walletconnect/modal-react-native": "1.1.0",
     "@walletconnect/react-native-compat": "2.11.2",

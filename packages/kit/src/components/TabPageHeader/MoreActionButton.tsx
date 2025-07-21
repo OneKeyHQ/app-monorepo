@@ -585,7 +585,7 @@ function MoreActionContentGrid() {
         icon: 'Copy3Outline',
         onPress: openBulkCopyAddressesModal,
         trackID: 'bulk-copy-addresses-in-more-action',
-        isPrimeFeature: true,
+        isPrimeFeature: false,
       },
     ].filter(Boolean) as IMoreActionContentGridItemProps[];
   }, [
