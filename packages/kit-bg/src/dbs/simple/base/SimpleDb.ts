@@ -36,6 +36,7 @@ import { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
 import { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
 import { SimpleDbEntityRecentRecipients } from '../entity/SimpleDbEntityRecentRecipients';
 import { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
+import { SimpleDbEntityRiskTokenManagement } from '../entity/SimpleDbEntityRiskTokenManagement';
 import { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
 import { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
@@ -134,4 +135,6 @@ export class SimpleDb {
   addressInfo = new SimpleDbEntityAddressInfo();
 
   recentRecipients = new SimpleDbEntityRecentRecipients();
+
+  riskTokenManagement = new SimpleDbEntityRiskTokenManagement();
 }
