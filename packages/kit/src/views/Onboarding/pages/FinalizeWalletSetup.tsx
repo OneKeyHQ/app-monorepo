@@ -210,14 +210,19 @@ function FinalizeWalletSetupPage({
     }
   }, [currentStep, navigation, showStep, handleWalletSetupReady]);
 
+  const showCloseButton = currentStep !== EFinalizeWalletSetupSteps.Ready;
+
   const renderHeaderLeft = useCallback(() => {
+    if (!showCloseButton) {
+      return null;
+    }
     if (shouldBondReferralCode) {
       return <NavCloseButton onPress={closePage} />;
     }
     return <NavBackButton onPress={popPage} />;
-  }, [shouldBondReferralCode, popPage, closePage]);
+  }, [showCloseButton, shouldBondReferralCode, popPage, closePage]);
 
-  usePreventRemove(currentStep !== EFinalizeWalletSetupSteps.Ready, () => null);
+  usePreventRemove(showCloseButton, () => null);
 
   return (
     <Page
