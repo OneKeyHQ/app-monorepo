@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, Stack, XStack } from '@onekeyhq/components';
+import { Icon, Stack } from '@onekeyhq/components';
 import { useShowWatchlistOnlyActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/actions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 

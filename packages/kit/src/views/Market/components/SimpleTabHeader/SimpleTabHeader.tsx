@@ -50,6 +50,7 @@ export function SimpleTabHeader<T = string>({
       return (
         <ButtonFrame
           m="$0"
+          backgroundColor="transparent"
           key={item.id as string}
           onPress={() => handleTabPress(index, item.id)}
           borderBottomWidth="$0.5"

@@ -11,7 +11,6 @@ import {
   MarketTradingView,
   SwapPanel,
   TokenActivityOverview,
-  TokenDetailHeader,
   TokenOverview,
 } from '../components';
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';

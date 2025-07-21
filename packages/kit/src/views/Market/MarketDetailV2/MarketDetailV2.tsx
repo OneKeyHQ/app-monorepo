@@ -16,10 +16,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import {
-  AccountSelectorProviderMirror,
-  AccountSelectorTriggerHome,
-} from '../../../components/AccountSelector';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { HeaderLeftCloseButton } from '../../../components/TabPageHeader/HeaderLeft';
 import { useTokenDetailActions } from '../../../states/jotai/contexts/marketV2';
