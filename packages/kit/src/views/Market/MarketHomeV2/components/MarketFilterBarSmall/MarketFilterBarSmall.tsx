@@ -1,10 +1,6 @@
-import { useEffect, useState } from 'react';
-
 import { XStack } from '@onekeyhq/components';
 
-import { LiquidityFilterControl } from '../LiquidityFilterControl';
 import { MarketTokenListNetworkSelector } from '../MarketTokenListNetworkSelector';
-import { TimeRangeSelector } from '../TimeRangeSelector';
 
 import type { ILiquidityFilter } from '../../types';
 import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
@@ -21,30 +17,9 @@ export interface IMarketFilterBarSmallProps {
 
 function MarketFilterBarSmall({
   selectedNetworkId,
-  timeRange = '5m',
-  liquidityFilter,
   onNetworkIdChange,
-  onTimeRangeChange,
-  onLiquidityFilterChange,
   isLoading = false,
 }: IMarketFilterBarSmallProps) {
-  const [currentTimeRange, setCurrentTimeRange] =
-    useState<ITimeRangeSelectorValue>(timeRange);
-
-  // Sync with external timeRange prop
-  useEffect(() => {
-    setCurrentTimeRange(timeRange);
-  }, [timeRange]);
-
-  const handleTimeRangeChange = (value: ITimeRangeSelectorValue) => {
-    setCurrentTimeRange(value);
-    onTimeRangeChange?.(value);
-  };
-
-  const handleLiquidityFilterApply = (filter: ILiquidityFilter) => {
-    onLiquidityFilterChange?.(filter);
-  };
-
   const handleNetworkIdChange = (networkId: string) => {
     onNetworkIdChange?.(networkId);
   };
@@ -62,18 +37,6 @@ function MarketFilterBarSmall({
         size="small"
         forceLoading={isLoading}
         placement="bottom-start"
-      />
-
-      {/* Time Range Selector */}
-      <TimeRangeSelector
-        value={currentTimeRange}
-        onChange={handleTimeRangeChange}
-      />
-
-      {/* Liquidity Filter */}
-      <LiquidityFilterControl
-        value={liquidityFilter}
-        onApply={handleLiquidityFilterApply}
       />
     </XStack>
   );

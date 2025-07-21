@@ -1,12 +1,37 @@
+import { useEffect } from 'react';
+
 import { Page, View } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { SwapPanelWrap } from '../MarketDetailV2/components/SwapPanel/SwapPanelWrap';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
 export default function MarketSwapModal() {
+  const navigation = useAppNavigation();
+
+  useEffect(() => {
+    const handleSwapSuccess = () => {
+      navigation.pop();
+    };
+
+    appEventBus.on(
+      EAppEventBusNames.SwapSpeedBuildTxSuccess,
+      handleSwapSuccess,
+    );
+
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.SwapSpeedBuildTxSuccess,
+        handleSwapSuccess,
+      );
+    };
+  }, [navigation]);
+
   return (
     <Page>
       <Page.Header title="Swap" />
