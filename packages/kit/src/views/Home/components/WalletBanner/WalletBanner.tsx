@@ -8,17 +8,25 @@ import {
   Button,
   Carousel,
   Icon,
+  IconButton,
   Image,
   SizableText,
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  openUrlExternal,
+  openUrlInApp,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
+
+import type { GestureResponderEvent } from 'react-native';
 
 function WalletBanner() {
   const {
@@ -26,6 +34,8 @@ function WalletBanner() {
   } = useActiveAccount({ num: 0 });
 
   const intl = useIntl();
+
+  const { md, gtMd } = useMedia();
 
   const [closedForeverBanners, setClosedForeverBanners] = useState<
     Record<string, boolean>
@@ -51,6 +61,7 @@ function WalletBanner() {
       if (banners.length === 0) {
         return banners;
       }
+
       return banners.filter((banner) => !closedForeverBanners[banner.id]);
     },
     [banners, closedForeverBanners],
@@ -77,7 +88,11 @@ function WalletBanner() {
   }, []);
 
   const handleClick = useCallback((item: IWalletBanner) => {
-    console.log('handleClick', item);
+    if (item.hrefType === 'external') {
+      openUrlExternal(item.href);
+    } else {
+      openUrlInApp(item.href);
+    }
   }, []);
 
   useEffect(() => {
@@ -94,7 +109,7 @@ function WalletBanner() {
   }
 
   return (
-    <Stack p="$5">
+    <Stack px="$5">
       <Carousel
         data={filteredBanners}
         autoPlayInterval={3800}
@@ -105,10 +120,22 @@ function WalletBanner() {
           borderRadius: '$4',
           overflow: 'hidden',
         }}
+        paginationContainerStyle={{
+          marginBottom: 0,
+        }}
         renderItem={({ item }: { item: IWalletBanner }) => {
           return (
-            <XStack bg="$bgApp" px="$4" flex={1} jc="space-between" ai="center">
-              <XStack gap="$5" alignItems="center">
+            <XStack
+              key={item.id}
+              bg="$bgApp"
+              px="$4"
+              flex={1}
+              jc="space-between"
+              ai="center"
+              onPress={gtMd ? undefined : () => handleClick(item)}
+              gap="$5"
+            >
+              <XStack gap="$5" alignItems="center" flex={1}>
                 <Image
                   size="$16"
                   borderRadius="$2.5"
@@ -129,18 +156,13 @@ function WalletBanner() {
                     </Image.Fallback>
                   }
                 />
-                <YStack gap="$0.5">
-                  <SizableText
-                    size="$bodyLgMedium"
-                    $md={{ maxWidth: 0, width: 0 }}
-                  >
+                <YStack gap="$0.5" flex={1}>
+                  <SizableText size="$bodyLgMedium" numberOfLines={1}>
                     {item.title}
                   </SizableText>
                   <SizableText
                     size="$bodyMd"
                     color="$textSubdued"
-                    maxWidth="$40"
-                    $md={{ maxWidth: 0, width: 0 }}
                     numberOfLines={2}
                     flexShrink={1}
                   >
@@ -148,19 +170,36 @@ function WalletBanner() {
                   </SizableText>
                 </YStack>
               </XStack>
-              <XStack gap="$5">
-                {item.closeable ? (
-                  <Button
-                    variant="tertiary"
-                    onPress={() => handleDismiss(item)}
-                  >
-                    {intl.formatMessage({ id: ETranslations.explore_dismiss })}
+              {gtMd ? (
+                <XStack gap="$5">
+                  {item.closeable ? (
+                    <Button
+                      variant="tertiary"
+                      onPress={() => handleDismiss(item)}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.explore_dismiss,
+                      })}
+                    </Button>
+                  ) : null}
+                  <Button variant="primary" onPress={() => handleClick(item)}>
+                    {item.button}
                   </Button>
-                ) : null}
-                <Button variant="primary" onPress={() => handleClick(item)}>
-                  {item.button}
-                </Button>
-              </XStack>
+                </XStack>
+              ) : (
+                <Stack height="100%" position="relative">
+                  <IconButton
+                    size="small"
+                    variant="tertiary"
+                    onPress={(event: GestureResponderEvent) => {
+                      event.stopPropagation();
+                      void handleDismiss(item);
+                    }}
+                    icon="CrossedSmallOutline"
+                    mt="$3"
+                  />
+                </Stack>
+              )}
             </XStack>
           );
         }}
