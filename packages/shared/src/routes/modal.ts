@@ -1,3 +1,5 @@
+import type { IModalMarketParamList } from '@onekeyhq/kit/src/views/Market/router';
+
 import type { IAccountManagerStacksParamList } from './accountManagerStacks';
 import type { IModalAddressBookParamList } from './addressBook';
 import type { IAppUpdatePagesParamList } from './appUpdate';
@@ -38,6 +40,7 @@ export enum EModalRoutes {
   SettingModal = 'SettingModal',
   TestModal = 'TestModal',
   SwapModal = 'SwapModal',
+  MarketModal = 'MarketModal',
   AccountManagerStacks = 'AccountManagerStacks',
   OnboardingModal = 'OnboardingModal',
   PrimeModal = 'PrimeModal',
@@ -83,6 +86,7 @@ export type IModalParamList = {
   [EModalRoutes.MainModal]: IModalAssetListParamList &
     IModalAssetDetailsParamList &
     ITabHomeUrlAccountParamList;
+  [EModalRoutes.MarketModal]: IModalMarketParamList;
   [EModalRoutes.NotificationsModal]: IModalNotificationsParamList;
   [EModalRoutes.OnboardingModal]: IOnboardingParamList;
   [EModalRoutes.PrimeModal]: IPrimeParamList;

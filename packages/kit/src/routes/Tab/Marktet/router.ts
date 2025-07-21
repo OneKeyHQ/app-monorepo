@@ -1,6 +1,9 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ETabMarketRoutes,
+  ETabMarketV2Routes,
+} from '@onekeyhq/shared/src/routes';
 
 import {
   LazyLoadPage,
@@ -15,6 +18,10 @@ const MarketDetail = LazyLoadPage(
   () => import('../../../views/Market/MarketDetail'),
 );
 
+const MarketSwap = LazyLoadPage(
+  () => import('../../../views/Market/MarketSwap'),
+);
+
 export const marketRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     rewrite: '/',
@@ -26,5 +33,10 @@ export const marketRouters: ITabSubNavigatorConfig<any, any>[] = [
     name: ETabMarketRoutes.MarketDetail,
     component: MarketDetail,
     rewrite: '/tokens/:token',
+  },
+  {
+    name: ETabMarketV2Routes.MarketSwap,
+    component: MarketSwap,
+    rewrite: '/swap',
   },
 ];
