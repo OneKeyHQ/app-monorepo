@@ -88,7 +88,6 @@ function HeaderView({
   const state = navigation?.getState();
   const canGoBack = headerBack !== undefined;
   const topStack = (state?.index ?? 0) === 0;
-  const disableClose = get(options, 'disableClose', false);
 
   const onBackCallback = useCallback(() => {
     if (canGoBack) {
@@ -110,7 +109,6 @@ function HeaderView({
           onPress={onBackCallback}
           isRootScreen={isRootScreen}
           isModelScreen={isModelScreen}
-          disableClose={disableClose}
           renderLeft={headerLeft}
           {...props}
         />
@@ -120,14 +118,7 @@ function HeaderView({
         <XStack className="app-region-no-drag">{headerBackButton}</XStack>
       ) : null;
     },
-    [
-      topStack,
-      onBackCallback,
-      isRootScreen,
-      isModelScreen,
-      disableClose,
-      headerLeft,
-    ],
+    [topStack, onBackCallback, isRootScreen, isModelScreen, headerLeft],
   );
 
   const { gtMd } = useMedia();

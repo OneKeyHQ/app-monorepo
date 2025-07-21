@@ -100,8 +100,6 @@ export default function PrimeDeviceLimit() {
         headerTitle={intl.formatMessage({
           id: ETranslations.prime_device_management,
         })}
-        // dismissOnOverlayPress={false}
-        // disableClose={!platformEnv.isDev}
       />
       <Page.Body>
         <Stack pb="$4">

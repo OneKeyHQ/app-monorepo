@@ -86,27 +86,20 @@ function WebModalNavigator({
   const descriptor = descriptors[state.routes?.[state.index].key];
 
   const handleBackPress = useCallback(() => {
-    const { disableClose }: { disableClose?: boolean } = descriptor.options;
-
-    if (disableClose) {
-      return true;
-    }
     if (navigation.isFocused()) goBackCall();
     return true;
-  }, [descriptor, navigation, goBackCall]);
+  }, [navigation, goBackCall]);
 
   useBackHandler(handleBackPress, true, false);
 
   const handleBackdropClick = useThrottledCallback(() => {
-    if (!descriptor.options.disableClose) {
-      if (descriptor.options.dismissOnOverlayPress === false) {
-        return;
-      }
-      if (descriptor.options.shouldPopOnClickBackdrop) {
-        navigation.goBack();
-      } else {
-        navigation?.getParent?.()?.goBack();
-      }
+    if (descriptor.options.dismissOnOverlayPress === false) {
+      return;
+    }
+    if (descriptor.options.shouldPopOnClickBackdrop) {
+      navigation.goBack();
+    } else {
+      navigation?.getParent?.()?.goBack();
     }
   }, 350);
 
