@@ -18,6 +18,8 @@ import type {
   ILocalDBGetAllRecordsResult,
   ILocalDBGetRecordByIdParams,
   ILocalDBGetRecordByIdResult,
+  ILocalDBGetRecordIdsParams,
+  ILocalDBGetRecordIdsResult,
   ILocalDBGetRecordsByIdsParams,
   ILocalDBGetRecordsByIdsResult,
   ILocalDBGetRecordsCountParams,
@@ -29,6 +31,8 @@ import type {
   ILocalDBTxGetAllRecordsResult,
   ILocalDBTxGetRecordByIdParams,
   ILocalDBTxGetRecordByIdResult,
+  ILocalDBTxGetRecordIdsParams,
+  ILocalDBTxGetRecordIdsResult,
   ILocalDBTxGetRecordsByIdsParams,
   ILocalDBTxGetRecordsByIdsResult,
   ILocalDBTxGetRecordsCountParams,
@@ -104,6 +108,13 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
 
     const db = await this.readyDb;
     return db.getRecordById(params);
+  }
+
+  async getRecordIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBGetRecordIdsParams<T>,
+  ): Promise<ILocalDBGetRecordIdsResult> {
+    const db = await this.readyDb;
+    return db.getRecordIds(params);
   }
 
   private getRecordByIdWithCache = memoizee(
@@ -192,6 +203,13 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   ): Promise<ILocalDBTxGetRecordByIdResult<T>> {
     const db = await this.readyDb;
     return db.txGetRecordById(params);
+  }
+
+  async txGetRecordIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBTxGetRecordIdsParams<T>,
+  ): Promise<ILocalDBTxGetRecordIdsResult> {
+    const db = await this.readyDb;
+    return db.txGetRecordIds(params);
   }
 
   async txUpdateRecords<T extends ELocalDBStoreNames>(

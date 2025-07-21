@@ -9,7 +9,7 @@ export const IS_DB_BUCKET_SUPPORT = Boolean(
 );
 
 const LOCAL_DB_NAME = 'OneKeyV5';
-const LOCAL_DB_VERSION = 12;
+const LOCAL_DB_VERSION = 13;
 
 // ----------------------------------------------
 
@@ -47,6 +47,7 @@ export const INDEXED_DB_BUCKET_PRESET_STORE_NAMES = {
     ELocalDBStoreNames.SignedMessage,
     ELocalDBStoreNames.SignedTransaction,
     ELocalDBStoreNames.ConnectedSite,
+    ELocalDBStoreNames.HardwareHomeScreen,
   ],
 };
 // ---------------------------------------------- enums
