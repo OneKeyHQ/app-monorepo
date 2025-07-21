@@ -1,7 +1,3 @@
-import type { ComponentProps } from 'react';
-
-import type { XStack } from '@onekeyhq/components';
-
 /**
  * Data structure for tab items
  */
@@ -10,8 +6,6 @@ export interface ITabItem<T = string> {
   id: T;
   /** Display title for the tab */
   title: string;
-  /** Optional disabled state */
-  disabled?: boolean;
 }
 
 /**
@@ -30,10 +24,4 @@ export interface ISimpleTabHeaderProps<T = string> {
     index: number,
     isActive: boolean,
   ) => React.ReactNode;
-  /** Optional container styling props */
-  containerProps?: ComponentProps<typeof XStack>;
-  /** Optional button size */
-  size?: 'small' | 'medium' | 'large';
-  /** Optional gap between buttons */
-  gap?: string;
 }

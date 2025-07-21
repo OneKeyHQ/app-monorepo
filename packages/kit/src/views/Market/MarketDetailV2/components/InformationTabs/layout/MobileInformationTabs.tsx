@@ -105,7 +105,6 @@ export function MobileInformationTabs() {
         onTabPress={(_, tabId: 'transactions' | 'holders') =>
           setActiveTab(tabId)
         }
-        containerProps={{ p: '$2' }}
       />
 
       {/* Tab content */}

@@ -82,7 +82,6 @@ export function MobileLayout() {
         onTabPress={(index: number, tabId: 'chart' | 'overview') =>
           setActiveTab(tabId)
         }
-        containerProps={{ px: '$4', py: '$0.5' }}
       />
 
       {/* Main Content */}

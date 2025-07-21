@@ -68,7 +68,7 @@ export function MarketMobileTabs({
         <Icon
           name="StarOutline"
           size="$4"
-          color={isActive ? '$textInteractive' : '$icon'}
+          color={isActive ? '$text' : '$iconSubdued'}
         />
       ) : (
         intl.formatMessage({ id: ETranslations.market_trending })
@@ -100,7 +100,6 @@ export function MarketMobileTabs({
         activeIndex={activeIndex}
         onTabPress={handleTabChange}
         renderTitle={renderTitle}
-        containerProps={{ px: '$5', py: '$3' }}
       />
       <Stack flex={1} position="relative">
         {currentTab === EMarketHomeTab.Trending ? (

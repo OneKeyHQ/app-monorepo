@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { Button, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { ButtonFrame, SizableText, Stack, XStack } from '@onekeyhq/components';
 
 import type { ISimpleTabHeaderProps, ITabItem } from './types';
 
@@ -9,9 +9,6 @@ export function SimpleTabHeader<T = string>({
   activeIndex,
   onTabPress,
   renderTitle,
-  containerProps,
-  size = 'small',
-  gap = '$2',
 }: ISimpleTabHeaderProps<T>) {
   const handleTabPress = useCallback(
     (index: number, tabId: T) => {
@@ -30,8 +27,8 @@ export function SimpleTabHeader<T = string>({
           if (typeof titleContent === 'string') {
             return (
               <SizableText
-                size="$bodyMdMedium"
-                color={isActive ? '$textSubdued' : '$text'}
+                size="$bodyLgMedium"
+                color={isActive ? '$text' : '$textSubdued'}
               >
                 {titleContent}
               </SizableText>
@@ -39,10 +36,11 @@ export function SimpleTabHeader<T = string>({
           }
           return <Stack>{titleContent}</Stack>;
         }
+
         return (
           <SizableText
-            size="$bodyMdMedium"
-            color={isActive ? '$textSubdued' : '$text'}
+            size="$bodyLgMedium"
+            color={isActive ? '$text' : '$textSubdued'}
           >
             {item.title}
           </SizableText>
@@ -50,32 +48,34 @@ export function SimpleTabHeader<T = string>({
       };
 
       return (
-        <Button
+        <ButtonFrame
+          m="$0"
           key={item.id as string}
-          variant="tertiary"
-          size={size}
-          disabled={item.disabled}
           onPress={() => handleTabPress(index, item.id)}
-          mr={index < data.length - 1 ? '$5' : '$0'}
           borderBottomWidth="$0.5"
-          borderBottomColor={isActive ? '$borderInteractive' : 'transparent'}
+          borderBottomColor={isActive ? '$text' : 'transparent'}
           opacity={isActive ? 1 : 0.6}
-          bg="transparent"
+          py="$1.5"
+          hoverStyle={{
+            bg: isActive ? '$bgActive' : '$bgHover',
+          }}
+          pressStyle={{
+            bg: isActive ? '$bgActive' : '$bgPressed',
+          }}
         >
           {renderContent()}
-        </Button>
+        </ButtonFrame>
       );
     },
-    [activeIndex, renderTitle, handleTabPress, size, data.length],
+    [activeIndex, renderTitle, handleTabPress],
   );
 
   return (
     <XStack
+      gap="$5"
       px="$5"
-      py="$3"
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
-      {...containerProps}
     >
       {data.map(renderTabButton)}
     </XStack>
