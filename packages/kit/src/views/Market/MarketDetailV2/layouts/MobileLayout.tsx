@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, ScrollView, Stack, XStack } from '@onekeyhq/components';
+import { ScrollView, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { SimpleTabHeader } from '../../components/SimpleTabHeader';
 import {
   InformationPanel,
   MarketTradingView,
@@ -20,6 +21,20 @@ export function MobileLayout() {
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
   const [activeTab, setActiveTab] = useState<'chart' | 'overview'>('chart');
   const intl = useIntl();
+
+  const tabData = useMemo(
+    () => [
+      {
+        id: 'chart' as const,
+        title: intl.formatMessage({ id: ETranslations.market_chart }),
+      },
+      {
+        id: 'overview' as const,
+        title: intl.formatMessage({ id: ETranslations.global_overview }),
+      },
+    ],
+    [intl],
+  );
 
   const renderContent = () => {
     if (activeTab === 'chart') {
@@ -61,22 +76,14 @@ export function MobileLayout() {
       <TokenDetailHeader showStats={false} showMediaAndSecurity={false} />
 
       {/* Switch Buttons */}
-      <XStack px="$4" py="$0.5" gap="$2">
-        <Button
-          size="small"
-          variant={activeTab === 'chart' ? 'primary' : 'secondary'}
-          onPress={() => setActiveTab('chart')}
-        >
-          {intl.formatMessage({ id: ETranslations.market_chart })}
-        </Button>
-        <Button
-          size="small"
-          variant={activeTab === 'overview' ? 'primary' : 'secondary'}
-          onPress={() => setActiveTab('overview')}
-        >
-          {intl.formatMessage({ id: ETranslations.global_overview })}
-        </Button>
-      </XStack>
+      <SimpleTabHeader
+        data={tabData}
+        activeIndex={activeTab === 'chart' ? 0 : 1}
+        onTabPress={(index: number, tabId: 'chart' | 'overview') =>
+          setActiveTab(tabId)
+        }
+        containerProps={{ px: '$4', py: '$0.5' }}
+      />
 
       {/* Main Content */}
       {renderContent()}

@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Stack, XStack } from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components';
+import { SimpleTabHeader } from '@onekeyhq/kit/src/views/Market/components/SimpleTabHeader';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
@@ -79,30 +80,33 @@ export function MobileInformationTabs() {
     intl,
   ]);
 
+  const tabHeaderData = useMemo(
+    () =>
+      tabs.map((tab) => ({
+        id: tab.id,
+        title: tab.title,
+      })),
+    [tabs],
+  );
+
   if (!tokenAddress || !networkId || tabs.length === 0) {
     return null;
   }
 
   const ActiveComponent = tabs.find((tab) => tab?.id === activeTab)?.component;
+  const activeIndex = tabHeaderData.findIndex((tab) => tab.id === activeTab);
 
   return (
     <Stack flex={1}>
       {/* Tab buttons */}
-      <XStack p="$2" gap="$2">
-        {tabs.map((tab) => {
-          if (!tab) return null;
-          return (
-            <Button
-              size="small"
-              key={tab.id}
-              variant={activeTab === tab.id ? 'primary' : 'secondary'}
-              onPress={() => setActiveTab(tab.id)}
-            >
-              {tab.title}
-            </Button>
-          );
-        })}
-      </XStack>
+      <SimpleTabHeader
+        data={tabHeaderData}
+        activeIndex={activeIndex}
+        onTabPress={(_, tabId: 'transactions' | 'holders') =>
+          setActiveTab(tabId)
+        }
+        containerProps={{ p: '$2' }}
+      />
 
       {/* Tab content */}
       <Stack flex={1}>{ActiveComponent ? <ActiveComponent /> : null}</Stack>
