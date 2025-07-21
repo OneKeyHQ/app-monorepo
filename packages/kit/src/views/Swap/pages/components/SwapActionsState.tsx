@@ -158,7 +158,6 @@ const SwapActionsState = ({
   const { quoteAction } = useSwapActions().current;
   const swapActionState = useSwapActionState();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
-  const [swapType] = useSwapTypeSwitchAtom();
   const swapSlippageRef = useRef(slippageItem);
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
@@ -231,9 +230,6 @@ const SwapActionsState = ({
   );
 
   const recipientComponent = useMemo(() => {
-    if (swapActionState.isApprove && !isBatchTransfer) {
-      return null;
-    }
     if (shouldShowRecipient) {
       return (
         <XStack
@@ -294,19 +290,11 @@ const SwapActionsState = ({
     onOpenRecipientAddress,
     pageType,
     shouldShowRecipient,
-    swapActionState.isApprove,
-    isBatchTransfer,
     swapRecipientAddressInfo?.accountInfo?.accountName,
     swapRecipientAddressInfo?.accountInfo?.walletName,
     swapRecipientAddressInfo?.isExtAccount,
     swapRecipientAddressInfo?.showAddress,
   ]);
-
-  const haveTips = useMemo(
-    () =>
-      shouldShowRecipient || (swapActionState.isApprove && !isBatchTransfer),
-    [shouldShowRecipient, swapActionState.isApprove, isBatchTransfer],
-  );
 
   const actionComponent = useMemo(
     () => (
@@ -315,7 +303,9 @@ const SwapActionsState = ({
         {...(pageType === EPageType.modal && !md
           ? {
               flexDirection: 'row',
-              justifyContent: haveTips ? 'space-between' : 'flex-end',
+              justifyContent: shouldShowRecipient
+                ? 'space-between'
+                : 'flex-end',
               alignItems: 'center',
             }
           : {})}
@@ -348,13 +338,13 @@ const SwapActionsState = ({
       </Stack>
     ),
     [
-      haveTips,
       md,
       onActionHandlerBefore,
       pageType,
       quoteLoading,
       quoting,
       recipientComponent,
+      shouldShowRecipient,
       swapActionState.disabled,
       swapActionState.isLoading,
       swapActionState.label,
