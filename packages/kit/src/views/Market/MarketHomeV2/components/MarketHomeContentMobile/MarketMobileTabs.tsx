@@ -2,10 +2,11 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { Icon, Stack, XStack } from '@onekeyhq/components';
 import { useShowWatchlistOnlyActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/actions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { SimpleTabHeader } from '../../../components/SimpleTabHeader';
 import { EMarketHomeTab } from '../../types';
 import { MarketFilterBarSmall } from '../MarketFilterBarSmall';
 import { MarketTokenList } from '../MarketTokenList';
@@ -26,61 +27,6 @@ interface IMarketMobileTabsProps {
   };
   selectedNetworkId: string;
   liquidityFilter: ILiquidityFilter;
-}
-
-// Simple Tab Header Component
-interface ISimpleTabHeaderProps {
-  data: Array<{ id: IMarketHomeTabValue; title: string }>;
-  activeIndex: number;
-  onTabPress: (index: number) => void;
-  renderTitle: (
-    item: { id: IMarketHomeTabValue },
-    isActive: boolean,
-  ) => React.ReactNode;
-}
-
-function SimpleTabHeader({
-  data,
-  activeIndex,
-  onTabPress,
-  renderTitle,
-}: ISimpleTabHeaderProps) {
-  return (
-    <XStack
-      px="$5"
-      py="$3"
-      borderBottomWidth="$px"
-      borderBottomColor="$borderSubdued"
-    >
-      {data.map((item, index) => {
-        const isActive = index === activeIndex;
-        return (
-          <Button
-            key={item.id}
-            variant="tertiary"
-            size="small"
-            onPress={() => onTabPress(index)}
-            mr={index < data.length - 1 ? '$5' : '$0'}
-            borderBottomWidth="$0.5"
-            borderBottomColor={isActive ? '$borderInteractive' : 'transparent'}
-            opacity={isActive ? 1 : 0.6}
-            bg="transparent"
-          >
-            {typeof renderTitle(item, isActive) === 'string' ? (
-              <SizableText
-                size="$bodyMdMedium"
-                color={isActive ? '$textSubdued' : '$text'}
-              >
-                {renderTitle(item, isActive)}
-              </SizableText>
-            ) : (
-              <Stack>{renderTitle(item, isActive)}</Stack>
-            )}
-          </Button>
-        );
-      })}
-    </XStack>
-  );
 }
 
 export function MarketMobileTabs({
@@ -113,7 +59,11 @@ export function MarketMobileTabs({
 
   // Custom title render: star icon for watchlist tab, translated text for trending
   const renderTitle = useCallback(
-    (item: { id: IMarketHomeTabValue }, isActive: boolean) =>
+    (
+      item: { id: IMarketHomeTabValue; title: string },
+      index: number,
+      isActive: boolean,
+    ) =>
       item.id === EMarketHomeTab.Watchlist ? (
         <Icon
           name="StarOutline"
@@ -127,8 +77,7 @@ export function MarketMobileTabs({
   );
 
   const handleTabChange = useCallback(
-    (index: number) => {
-      const tabId = tabData[index]?.id as IMarketHomeTabValue;
+    (index: number, tabId: IMarketHomeTabValue) => {
       if (tabId) {
         setActiveIndex(index);
         onTabChange?.(tabId);
@@ -139,18 +88,19 @@ export function MarketMobileTabs({
         );
       }
     },
-    [tabData, onTabChange, showWatchlistOnlyActions],
+    [onTabChange, showWatchlistOnlyActions],
   );
 
   const currentTab = tabData[activeIndex]?.id;
 
   return (
     <Stack flex={1}>
-      <SimpleTabHeader
+      <SimpleTabHeader<IMarketHomeTabValue>
         data={tabData}
         activeIndex={activeIndex}
         onTabPress={handleTabChange}
         renderTitle={renderTitle}
+        containerProps={{ px: '$5', py: '$3' }}
       />
       <Stack flex={1} position="relative">
         {currentTab === EMarketHomeTab.Trending ? (
