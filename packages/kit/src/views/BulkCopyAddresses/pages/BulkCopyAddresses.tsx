@@ -69,20 +69,19 @@ function BulkCopyAddressesProcessingInfo({
   progressTotal: number;
 }) {
   const intl = useIntl();
+
   return (
-    <Stack justifyContent="center" alignItems="center" flex={1}>
-      <SizableText size="$bodyLg">
-        {intl.formatMessage(
-          {
-            id: ETranslations.global_fetching_addresses,
-          },
-          {
-            current: progressCurrent ?? 0,
-            total: progressTotal ?? 0,
-          },
-        )}
-      </SizableText>
-    </Stack>
+    <SizableText size="$bodyLg" textAlign="center" flex={1}>
+      {intl.formatMessage(
+        {
+          id: ETranslations.global_fetching_addresses,
+        },
+        {
+          current: progressCurrent ?? 0,
+          total: progressTotal ?? 0,
+        },
+      )}
+    </SizableText>
   );
 }
 
@@ -767,7 +766,7 @@ function BulkCopyAddresses({
   }, [availableWallets, selectedWallet, form]);
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.global_bulk_copy_addresses,
