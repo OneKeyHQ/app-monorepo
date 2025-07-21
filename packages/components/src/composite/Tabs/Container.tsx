@@ -90,12 +90,21 @@ export function Container({
   }, [children]);
   const sharedTabNames = useSharedValue<string[]>(tabNames);
   const focusedTab = useSharedValue<string>(tabNames[0] || '');
+  const scrollTabElementDict = useMemo(() => {
+    return tabNames.reduce((acc, name) => {
+      acc[name] = {
+        element: null,
+        height: 0,
+      };
+      return acc;
+    }, {} as { [key: string]: { element: HTMLElement | null; height: number } });
+  }, [tabNames]);
   const scrollTabElementsRef = useRef<{
     [key: string]: {
-      element: HTMLElement;
-      height?: string;
+      element: HTMLElement | null;
+      height?: number;
     };
-  }>({});
+  }>(scrollTabElementDict);
   const contextValue = useMemo(
     () => ({ focusedTab, tabNames: sharedTabNames, scrollTabElementsRef }),
     [focusedTab, sharedTabNames],
@@ -116,42 +125,52 @@ export function Container({
   const updateListContainerHeightTimerId = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
-  const updateListContainerHeight = useCallback(() => {
-    if (listContainerRef.current) {
-      if (resizeObserverRef.current) {
-        resizeObserverRef.current.disconnect();
+  const updateListContainerHeight = useCallback(
+    (times = 0) => {
+      if (times > 100) {
+        return;
       }
-      const height =
-        scrollTabElementsRef.current?.[focusedTab.value]?.element.clientHeight;
+      if (listContainerRef.current) {
+        if (resizeObserverRef.current) {
+          resizeObserverRef.current.disconnect();
+        }
+        const height =
+          scrollTabElementsRef.current?.[focusedTab.value]?.element
+            ?.clientHeight;
 
-      if (height) {
-        (
-          listContainerRef.current as HTMLElement
-        ).style.maxHeight = `${height}px`;
-        setTimeout(() => {
-          resizeObserverRef.current = new ResizeObserver((entries) => {
-            const entry = entries[0];
-            if (entry && entry.contentRect.height) {
-              (
-                listContainerRef.current as HTMLElement
-              ).style.maxHeight = `${entry.contentRect.height}px`;
+        if (height) {
+          (
+            listContainerRef.current as HTMLElement
+          ).style.maxHeight = `${height}px`;
+          setTimeout(() => {
+            resizeObserverRef.current = new ResizeObserver((entries) => {
+              const entry = entries[0];
+              if (entry && entry.contentRect.height) {
+                (
+                  listContainerRef.current as HTMLElement
+                ).style.maxHeight = `${entry.contentRect.height}px`;
+              }
+            });
+            const element =
+              scrollTabElementsRef.current?.[focusedTab.value]?.element;
+            if (element) {
+              resizeObserverRef.current.observe(element);
             }
-          });
-          resizeObserverRef.current.observe(
-            scrollTabElementsRef.current?.[focusedTab.value]?.element,
+          }, 100);
+        } else {
+          console.error(
+            `cannot update tab ${focusedTab.value} list container height: ${
+              height || 0
+            }`,
           );
-        }, 100);
-      } else {
-        console.error(
-          `cannot update tab ${focusedTab.value} list container height: ${height}`,
-        );
-        updateListContainerHeightTimerId.current = setTimeout(
-          updateListContainerHeight,
-          250,
-        );
+          updateListContainerHeightTimerId.current = setTimeout(() => {
+            updateListContainerHeight(times + 1);
+          }, 250);
+        }
       }
-    }
-  }, [focusedTab]);
+    },
+    [focusedTab],
+  );
 
   useLayoutEffect(() => {
     setScrollElement(ref.current);
