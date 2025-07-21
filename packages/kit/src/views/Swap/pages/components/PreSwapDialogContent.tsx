@@ -47,6 +47,7 @@ const PreSwapDialogContent = ({
   const intl = useIntl();
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
   const preSwapData = swapSteps.preSwapData;
+  const quoteResult = swapSteps.quoteResult;
   const fromAmount = preSwapData?.fromTokenAmount || '0';
   const toAmount = preSwapData?.toTokenAmount || '0';
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -181,6 +182,8 @@ const PreSwapDialogContent = ({
     <HeightTransition initialHeight={355}>
       {showResultContent && swapSteps.steps.length > 0 ? (
         <PreSwapConfirmResult
+          fromToken={preSwapData?.fromToken}
+          supportUrl={quoteResult?.supportUrl}
           lastStep={swapSteps.steps[swapSteps.steps.length - 1]}
         />
       ) : (
