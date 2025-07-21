@@ -19,10 +19,12 @@ type ISettingName = string;
 
 export function SubSettingsPage({
   name: nameFromProps,
+  title: titleFromProps,
   settingsConfig: settingsConfigFromProps,
   route,
 }: {
   name: ISettingName;
+  title: string;
   settingsConfig: ISettingsConfig;
 } & { route?: RouteProp<any, any> }) {
   const context = useConfigContext();
@@ -46,7 +48,7 @@ export function SubSettingsPage({
 
   return (
     <Page>
-      <Page.Header title={config?.title} />
+      <Page.Header title={titleFromProps || config?.title} />
       <Page.Body>
         <ScrollView
           keyboardShouldPersistTaps="handled"
