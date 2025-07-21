@@ -2043,6 +2043,7 @@
   prime_log_out_device_desc = 'prime.log_out_device_desc',
   prime_manage_subscription = 'prime.manage_subscription',
   prime_manage_your_onekeyid = 'prime.manage_your_onekeyid',
+  prime_membership_expired_sync_paused = 'prime.membership_expired_sync_paused',
   prime_monthly = 'prime.monthly',
   prime_new_email_code = 'prime.new_email_code',
   prime_new_password = 'prime.new_password',

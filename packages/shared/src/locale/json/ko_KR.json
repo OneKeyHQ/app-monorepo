@@ -2038,6 +2038,7 @@
   "prime.log_out_device_desc": "이 기기는 다음 사용 시 로그아웃됩니다.",
   "prime.manage_subscription": "구독 관리",
   "prime.manage_your_onekeyid": "OneKey ID를 관리하세요.",
+  "prime.membership_expired_sync_paused": "Prime 멤버십이 만료되어 새 콘텐츠 동기화가 중지되었습니다. 기존 데이터는 안전하게 보관되어 있으니, 갱신하여 다시 시작하세요.",
   "prime.monthly": "월간",
   "prime.new_email_code": "새 이메일 주소를 입력하세요. 확인을 위해 인증 코드를 보내드리겠습니다.",
   "prime.new_password": "새 비밀번호",

@@ -2038,6 +2038,7 @@
   "prime.log_out_device_desc": "此设备将在下次使用时登出。",
   "prime.manage_subscription": "管理订阅",
   "prime.manage_your_onekeyid": "管理您的 OneKey ID。",
+  "prime.membership_expired_sync_paused": "Prime 会员已到期，新内容已暂停同步。您的现有数据仍安全，续费即可恢复。",
   "prime.monthly": "连续包月",
   "prime.new_email_code": "请输入您的新邮箱地址。我们将向您发送验证码以进行确认。",
   "prime.new_password": "新密码",

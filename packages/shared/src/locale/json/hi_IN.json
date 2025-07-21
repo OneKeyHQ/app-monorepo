@@ -2038,6 +2038,7 @@
   "prime.log_out_device_desc": "यह डिवाइस अगली बार उपयोग करने पर लॉग आउट हो जाएगा।",
   "prime.manage_subscription": "सदस्यता प्रबंधित करें",
   "prime.manage_your_onekeyid": "अपने OneKey ID को प्रबंधित करें।",
+  "prime.membership_expired_sync_paused": "प्राइम सदस्यता समाप्त हो गई है, और नई सामग्री सिंक नहीं हो रही है। आपका डेटा सुरक्षित है; फिर से शुरू करने के लिए नवीनीकरण करें।",
   "prime.monthly": "मासिक",
   "prime.new_email_code": "कृपया अपना नया ईमेल पता दर्ज करें। हम इसकी पुष्टि के लिए आपको एक सत्यापन कोड भेजेंगे।",
   "prime.new_password": "नया पासवर्ड",
