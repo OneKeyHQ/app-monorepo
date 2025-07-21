@@ -119,9 +119,9 @@ function TokenListFooter(props: IProps) {
         accountId: account.id,
         networkId: network.id,
         tokenList: {
-          tokens: smallBalanceTokens,
-          keys: smallBalanceTokenKeys,
-          map: smallBalanceTokenListMap,
+          tokens: riskyTokens,
+          keys: riskyTokenKeys,
+          map: riskyTokenListMap,
         },
       },
     });
@@ -129,9 +129,9 @@ function TokenListFooter(props: IProps) {
     account,
     navigation,
     network,
-    smallBalanceTokenKeys,
-    smallBalanceTokenListMap,
-    smallBalanceTokens,
+    riskyTokenKeys,
+    riskyTokenListMap,
+    riskyTokens,
   ]);
   return (
     <Stack>
