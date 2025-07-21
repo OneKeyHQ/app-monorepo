@@ -108,7 +108,7 @@
     "react-native-keyboard-controller": "1.17.5",
     "react-native-level-fs": "3.0.1",
     "react-native-mmkv": "3.2.0",
-    "react-native-modal": "14.0.0-rc.1",
+    "react-native-modal": "^13.0.1",
     "react-native-network-logger": "2.0.0",
     "react-native-pager-view": "6.8.1",
     "react-native-passkeys": "0.3.3",

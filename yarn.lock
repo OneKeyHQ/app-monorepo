@@ -7951,7 +7951,7 @@ __metadata:
     react-native-keyboard-controller: "npm:1.17.5"
     react-native-level-fs: "npm:3.0.1"
     react-native-mmkv: "npm:3.2.0"
-    react-native-modal: "npm:14.0.0-rc.1"
+    react-native-modal: "npm:^13.0.1"
     react-native-network-logger: "npm:2.0.0"
     react-native-pager-view: "npm:6.8.1"
     react-native-passkeys: "npm:0.3.3"
@@ -35395,12 +35395,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-animatable@npm:1.4.0":
-  version: 1.4.0
-  resolution: "react-native-animatable@npm:1.4.0"
+"react-native-animatable@npm:1.3.3":
+  version: 1.3.3
+  resolution: "react-native-animatable@npm:1.3.3"
   dependencies:
-    prop-types: "npm:^15.8.1"
-  checksum: 10/df11665d1e5b67cdaf4b9f1e9cfa15e315a2654e3e6850cf1d22ce8c092ee272fe78352f11bea0a4461d58372c6c35cefd2e5619d09928f8fd72972547d74b8a
+    prop-types: "npm:^15.7.2"
+  checksum: 10/be7552f9eca8a881e64ce4650849da4a20d68023a445288d609e4dce0ad454ebccefbe52a0cd4ee412782731174b84cdd89acbb384107ad1ed2af05441593ed3
   languageName: node
   linkType: hard
 
@@ -35764,15 +35764,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-modal@npm:14.0.0-rc.1":
-  version: 14.0.0-rc.1
-  resolution: "react-native-modal@npm:14.0.0-rc.1"
+"react-native-modal@npm:^13.0.1":
+  version: 13.0.1
+  resolution: "react-native-modal@npm:13.0.1"
   dependencies:
-    react-native-animatable: "npm:1.4.0"
+    prop-types: "npm:^15.6.2"
+    react-native-animatable: "npm:1.3.3"
   peerDependencies:
     react: "*"
-    react-native: ">=0.70.0"
-  checksum: 10/569ed4419769b120b6a676094f1594801bf3fa7ac6c3eda4fa4f6405ba63afe9998b7e70e67614e20c717b0f181410516a697b5bf40dc3ed8ad3c2db280a6307
+    react-native: ">=0.65.0"
+  checksum: 10/7b9096127f5195e28bf8016bed5e8760e060e533358ba41f829605233b7f0e9e7e94941884c9fdb0d14d288c02a2944b516754477af24b0173c57777f2aa5018
   languageName: node
   linkType: hard
 
