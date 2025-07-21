@@ -16,6 +16,7 @@ import {
 import { resolveSource } from 'expo-image';
 
 import { isEmptyResolvedSource } from './utils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const IMAGE_CACHE_MAP = new Map<string, string>();
 
@@ -36,6 +37,9 @@ export function useImage(
     return resolveSource(source);
   }, [source]);
   const cachedImage: ImageSource | null = useMemo(() => {
+    if (platformEnv.isNativeAndroid) {
+      return null;
+    }
     const imageUri = resolvedSource?.uri;
     if (imageUri && IMAGE_CACHE_MAP.has(imageUri)) {
       return {
