@@ -64,7 +64,8 @@ export function SettingList() {
                         navigation.push(
                           EModalSettingRoutes.SettingListSubModal,
                           {
-                            name: config.title,
+                            title: config.title,
+                            name: config.name,
                           },
                         );
                       }}
