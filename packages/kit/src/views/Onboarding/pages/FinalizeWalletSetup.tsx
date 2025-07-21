@@ -14,6 +14,7 @@ import {
   Spinner,
   Stack,
   Toast,
+  usePreventRemove,
 } from '@onekeyhq/components';
 import { EMnemonicType } from '@onekeyhq/core/src/secret';
 import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
@@ -215,6 +216,8 @@ function FinalizeWalletSetupPage({
     }
     return <NavBackButton onPress={popPage} />;
   }, [shouldBondReferralCode, popPage, closePage]);
+
+  usePreventRemove(currentStep !== EFinalizeWalletSetupSteps.Ready, () => null);
 
   return (
     <Page
