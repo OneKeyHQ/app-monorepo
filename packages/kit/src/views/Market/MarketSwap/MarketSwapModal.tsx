@@ -16,7 +16,9 @@ export default function MarketSwapModal() {
 
   useEffect(() => {
     const handleSwapSuccess = () => {
-      navigation.pop();
+      setTimeout(() => {
+        navigation.pop();
+      }, 200);
     };
 
     appEventBus.on(
