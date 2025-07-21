@@ -256,7 +256,7 @@ class ServiceStaking extends ServiceBase {
     if (!stakingConfig) {
       throw new OneKeyLocalError('Staking config not found');
     }
-    const isMorphoProvider = earnUtils.isMorphoProvider({
+    const useVaultProvider = earnUtils.useVaultProvider({
       providerName: provider,
     });
     const paramsToSend: Record<string, any> = {
@@ -276,7 +276,7 @@ class ServiceStaking extends ServiceBase {
       ...rest,
     };
 
-    if (isMorphoProvider) {
+    if (useVaultProvider) {
       paramsToSend.vault = morphoVault;
     }
 
@@ -308,7 +308,7 @@ class ServiceStaking extends ServiceBase {
     if (!stakingConfig) {
       throw new OneKeyLocalError('Staking config not found');
     }
-    const isMorphoProvider = earnUtils.isMorphoProvider({
+    const useVaultProvider = earnUtils.useVaultProvider({
       providerName: params.provider,
     });
     const resp = await client.post<{
@@ -320,7 +320,7 @@ class ServiceStaking extends ServiceBase {
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
-      vault: isMorphoProvider ? morphoVault : '',
+      vault: useVaultProvider ? morphoVault : '',
       ...rest,
     });
     return resp.data.data;
@@ -394,7 +394,7 @@ class ServiceStaking extends ServiceBase {
       sendParams.rewardTokenAddress = rewardTokenAddress;
     }
     if (
-      earnUtils.isMorphoProvider({ providerName: params.provider }) &&
+      earnUtils.useVaultProvider({ providerName: params.provider }) &&
       vaultAddress
     ) {
       sendParams.vault = vaultAddress;
@@ -480,9 +480,9 @@ class ServiceStaking extends ServiceBase {
         networkId,
         accountId,
       });
-    const isMorphoProvider =
+    const useVaultProvider =
       params.provider &&
-      earnUtils.isMorphoProvider({
+      earnUtils.useVaultProvider({
         providerName: params.provider,
       });
     const data: Record<string, string | undefined> & { type?: string } = {
@@ -491,7 +491,7 @@ class ServiceStaking extends ServiceBase {
       ...rest,
     };
 
-    if (isMorphoProvider) {
+    if (useVaultProvider) {
       data.vault = morphoVault;
     }
     if (type) {
@@ -1006,7 +1006,7 @@ class ServiceStaking extends ServiceBase {
         'networkId or accountId or provider not found',
       );
     }
-    const isMorphoProvider = earnUtils.isMorphoProvider({
+    const useVaultProvider = earnUtils.useVaultProvider({
       providerName: provider,
     });
     const vault = await vaultFactory.getVault({ networkId, accountId });
@@ -1024,7 +1024,7 @@ class ServiceStaking extends ServiceBase {
         provider: provider || '',
         action,
         amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
-        vault: isMorphoProvider ? morphoVault : '',
+        vault: useVaultProvider ? morphoVault : '',
         withdrawAll,
       },
     });
@@ -1338,7 +1338,7 @@ class ServiceStaking extends ServiceBase {
       symbol,
       ...rest,
     };
-    if (earnUtils.isMorphoProvider({ providerName: params.provider })) {
+    if (earnUtils.useVaultProvider({ providerName: params.provider })) {
       sendParams.vault = morphoVault;
     }
     const resp = await client.get<{

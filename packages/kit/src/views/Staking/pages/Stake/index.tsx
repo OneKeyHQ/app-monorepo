@@ -85,7 +85,7 @@ function BasicStakePage() {
         // TODO: remove term after babylon remove term
         term: undefined,
         feeRate: Number(btcFeeRate) > 0 ? Number(btcFeeRate) : undefined,
-        morphoVault: earnUtils.isMorphoProvider({
+        morphoVault: earnUtils.useVaultProvider({
           providerName,
         })
           ? protocolInfo?.approve?.approveTarget

@@ -57,7 +57,7 @@ const WithdrawPage = () => {
       await handleWithdraw({
         amount,
         identity,
-        morphoVault: earnUtils.isMorphoProvider({
+        morphoVault: earnUtils.useVaultProvider({
           providerName,
         })
           ? vault
@@ -112,7 +112,7 @@ const WithdrawPage = () => {
         providerName.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
           ? identity
           : undefined,
-      morphoVault: earnUtils.isMorphoProvider({
+      morphoVault: earnUtils.useVaultProvider({
         providerName,
       })
         ? vault

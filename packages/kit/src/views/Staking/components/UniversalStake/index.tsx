@@ -134,8 +134,8 @@ export function UniversalStake({
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const [amountValue, setAmountValue] = useState('');
   const [approving, setApproving] = useState<boolean>(false);
-  const isMorphoProvider = useMemo(
-    () => earnUtils.isMorphoProvider({ providerName }),
+  const useVaultProvider = useMemo(
+    () => earnUtils.useVaultProvider({ providerName }),
     [providerName],
   );
   const [
@@ -225,8 +225,8 @@ export function UniversalStake({
           networkId,
           provider: providerName,
           symbol: tokenInfo?.token.symbol || '',
-          vault: isMorphoProvider
-            ? protocolInfo?.approve?.approveTarget || ''
+          vault: useVaultProvider
+            ? protocolInfo?.approve?.approveTarget || protocolInfo?.vault || ''
             : '',
           accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
           action: ECheckAmountActionType.STAKING,
@@ -238,8 +238,9 @@ export function UniversalStake({
       networkId,
       providerName,
       tokenInfo?.token.symbol,
-      isMorphoProvider,
+      useVaultProvider,
       protocolInfo?.approve?.approveTarget,
+      protocolInfo?.vault,
       protocolInfo?.earnAccount?.accountAddress,
     ],
   );
@@ -291,8 +292,8 @@ export function UniversalStake({
         symbol: tokenInfo?.token.symbol || '',
         action: shouldApprove ? 'approve' : 'stake',
         amount: amountNumber.toFixed(),
-        morphoVault: isMorphoProvider
-          ? protocolInfo?.approve?.approveTarget
+        morphoVault: useVaultProvider
+          ? protocolInfo?.approve?.approveTarget || protocolInfo?.vault || ''
           : undefined,
         accountAddress: account?.address,
         ...permitParams,
@@ -302,9 +303,10 @@ export function UniversalStake({
     [
       accountId,
       allowance,
-      isMorphoProvider,
+      useVaultProvider,
       networkId,
       protocolInfo?.approve?.approveTarget,
+      protocolInfo?.vault,
       providerName,
       shouldApprove,
       tokenInfo?.token.symbol,
@@ -394,7 +396,7 @@ export function UniversalStake({
 
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
 
-  const morphoVault = isMorphoProvider
+  const morphoVault = useVaultProvider
     ? protocolInfo?.approve?.approveTarget
     : undefined;
   const checkAmount = useDebouncedCallback(async (amount: string) => {

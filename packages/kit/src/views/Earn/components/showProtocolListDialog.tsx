@@ -343,7 +343,7 @@ export function showProtocolListDialog({
                 earnAccount?.account.indexedAccountId || indexedAccountId,
               symbol,
               provider: protocol.provider.name,
-              vault: earnUtils.isMorphoProvider({
+              vault: earnUtils.useVaultProvider({
                 providerName: protocol.provider.name,
               })
                 ? protocol.provider.vault

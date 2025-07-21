@@ -5,6 +5,7 @@ export enum EEarnProviderEnum {
   Morpho = 'Morpho',
   Falcon = 'Falcon',
   Ethena = 'Ethena',
+  Momentum = 'Momentum',
 }
 
 export type ISupportedSymbol =
