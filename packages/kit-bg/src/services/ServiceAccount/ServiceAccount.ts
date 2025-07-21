@@ -97,11 +97,11 @@ import type {
   IQrWalletAirGapAccount,
 } from '@onekeyhq/shared/types/account';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
-import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
-import type {
+import {
+  EConfirmOnDeviceType,
   EHardwareCallContext,
-  IDeviceSharedCallParams,
 } from '@onekeyhq/shared/types/device';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type { IExternalConnectWalletResult } from '@onekeyhq/shared/types/externalWallet.types';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
@@ -1278,6 +1278,7 @@ class ServiceAccount extends ServiceBase {
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
         walletId,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
       });
     const credentialEncrypt = await encryptImportedCredential({
       credential: {
@@ -2937,6 +2938,7 @@ class ServiceAccount extends ServiceBase {
     }
     await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
       walletId,
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
     });
     const result = await localDb.removeWallet({
       walletId,
@@ -3100,6 +3102,7 @@ class ServiceAccount extends ServiceBase {
       await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
         walletId,
         reason,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
       });
     const credential = await localDb.getCredential(walletId);
     const mnemonicRaw = await mnemonicFromEntropy(
