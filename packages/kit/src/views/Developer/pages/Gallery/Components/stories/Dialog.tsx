@@ -12,6 +12,7 @@ import {
   Checkbox,
   DialogContainer,
   Form,
+  Icon,
   Input,
   LottieView,
   ScrollView,
@@ -43,6 +44,8 @@ import {
   ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import { ConnectionTroubleShootingAccordion } from '../../../../../Onboarding/pages/ConnectHardwareWallet/ConnectYourDevice';
 
 import { Layout } from './utils/Layout';
 
@@ -1168,6 +1171,63 @@ const DialogGallery = () => {
                 }}
               >
                 ErrorOutline(warning)
+              </Button>
+            </YStack>
+          ),
+        },
+        {
+          title: 'ble desktop',
+          element: (
+            <YStack gap="$4">
+              <Button
+                onPress={() => {
+                  Dialog.show({
+                    title: intl.formatMessage({
+                      id: ETranslations.communication_timeout,
+                    }),
+                    showFooter: false,
+                    renderContent: (
+                      <ScrollView maxHeight={480}>
+                        <YStack>
+                          <XStack alignItems="center" gap={7} mb="$2">
+                            <Icon name="TypeCoutline" size="$3.5" />
+                            <SizableText size="$headingSm">
+                              {intl.formatMessage({
+                                id: ETranslations.troubleshooting_usb,
+                              })}
+                            </SizableText>
+                          </XStack>
+                          <YStack>
+                            <ConnectionTroubleShootingAccordion
+                              connectionType="usb"
+                              defaultValue={undefined}
+                              indent={false}
+                            />
+                          </YStack>
+                        </YStack>
+                        <YStack mt="$5">
+                          <XStack alignItems="center" gap={7} mb="$2">
+                            <Icon name="BluetoothOutline" size="$3.5" />
+                            <SizableText size="$headingSm">
+                              {intl.formatMessage({
+                                id: ETranslations.troubleshooting_bluetooth,
+                              })}
+                            </SizableText>
+                          </XStack>
+                          <YStack>
+                            <ConnectionTroubleShootingAccordion
+                              connectionType="bluetooth"
+                              defaultValue={undefined}
+                              indent={false}
+                            />
+                          </YStack>
+                        </YStack>
+                      </ScrollView>
+                    ),
+                  });
+                }}
+              >
+                Communication timeout
               </Button>
             </YStack>
           ),
