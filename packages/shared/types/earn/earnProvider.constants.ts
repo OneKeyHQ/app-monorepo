@@ -65,11 +65,11 @@ export const isSupportStaking = (symbol: string) =>
 
 export const earnMainnetNetworkIds = [
   getNetworkIdsMap().eth,
-  getNetworkIdsMap().base,
   getNetworkIdsMap().cosmoshub,
   getNetworkIdsMap().apt,
   getNetworkIdsMap().sol,
   getNetworkIdsMap().btc,
+  getNetworkIdsMap().sui,
 ];
 
 export function normalizeToEarnSymbol(
