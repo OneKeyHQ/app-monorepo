@@ -305,7 +305,7 @@ function BulkCopyAddresses({
             await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlow(
               {
                 mode: 'advanced',
-                saveToCache: true,
+                saveToCache: false,
                 params,
               },
             );
