@@ -1229,6 +1229,28 @@ const DialogGallery = () => {
               >
                 Communication timeout
               </Button>
+
+              <Button
+                onPress={() => {
+                  Dialog.show({
+                    icon: 'TypeCoutline',
+                    title: intl.formatMessage({
+                      id: ETranslations.upgrade_use_usb,
+                    }),
+                    description: intl.formatMessage({
+                      id: ETranslations.upgrade_recommend_usb,
+                    }),
+                    onConfirmText: intl.formatMessage({
+                      id: ETranslations.upgrade_switch_to_usb,
+                    }),
+                    onCancelText: intl.formatMessage({
+                      id: ETranslations.global_continue_anyway,
+                    }),
+                  });
+                }}
+              >
+                Asking for switch to USB mode
+              </Button>
             </YStack>
           ),
         },
