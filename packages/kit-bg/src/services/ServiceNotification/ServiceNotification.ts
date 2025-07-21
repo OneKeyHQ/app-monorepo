@@ -48,6 +48,7 @@ import {
   notificationsAtom,
   notificationsDevSettingsPersistAtom,
   notificationsReadedAtom,
+  primePersistAtom,
   settingsPersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
@@ -499,9 +500,9 @@ export default class ServiceNotification extends ServiceBase {
       notificationWallets = await this.getNotificationWalletsWithAccounts();
     }
 
-    await this.fixAccountActivityNotificationSettings({ notificationWallets });
-
     const supportNetworksFiltered = await this.getSupportedNetworks();
+
+    await this.fixAccountActivityNotificationSettings({ notificationWallets });
 
     defaultLogger.notification.common.consoleLog('supportNetworksFiltered', {
       supportNetworksFiltered: supportNetworksFiltered.length,
@@ -740,10 +741,73 @@ export default class ServiceNotification extends ServiceBase {
       (await notificationsAtom.get()).maxAccountCount ??
       NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT;
 
+    const isPrime = await primePersistAtom.get();
+    const isPrimeActive = isPrime?.primeSubscription?.isActive;
+
     const settings =
       await this.backgroundApi.simpleDb.notificationSettings.getRawData();
 
     const oldAccountActivity = cloneDeep(settings?.accountActivity ?? {});
+    if (
+      isPrimeActive &&
+      settings?.primeBackupAccountActivity &&
+      maxAccountCount > NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT
+    ) {
+      // merge oldAccountActivity with settings?.primeBackupAccountActivity
+      // Logic: either value being true results in true, only when both are false does the result become false
+      Object.entries(settings.primeBackupAccountActivity).forEach(
+        ([walletId, primeWalletData]) => {
+          if (primeWalletData) {
+            const oldWalletData:
+              | {
+                  enabled: boolean | undefined;
+                  accounts: {
+                    [accountId: string]: {
+                      enabled: boolean | undefined;
+                    };
+                  };
+                }
+              | undefined = oldAccountActivity[walletId];
+
+            // Merge wallet enabled: true if either is true
+            const mergedWalletEnabled = Boolean(
+              primeWalletData.enabled || oldWalletData?.enabled,
+            );
+
+            oldAccountActivity[walletId] = {
+              enabled: mergedWalletEnabled,
+              accounts: {
+                ...oldWalletData?.accounts,
+              },
+            };
+
+            // Merge accounts
+            if (primeWalletData.accounts) {
+              Object.entries(primeWalletData.accounts).forEach(
+                ([accountId, primeAccountData]) => {
+                  if (primeAccountData) {
+                    const oldAccountData:
+                      | {
+                          enabled: boolean | undefined;
+                        }
+                      | undefined = oldWalletData?.accounts?.[accountId];
+
+                    // Merge account enabled: true if either is true
+                    const mergedAccountEnabled = Boolean(
+                      primeAccountData.enabled || oldAccountData?.enabled,
+                    );
+
+                    oldAccountActivity[walletId].accounts[accountId] = {
+                      enabled: mergedAccountEnabled,
+                    };
+                  }
+                },
+              );
+            }
+          }
+        },
+      );
+    }
     const accountActivity: IAccountActivityNotificationSettings = {};
 
     const currentEnabledAccountCount =
@@ -983,6 +1047,44 @@ export default class ServiceNotification extends ServiceBase {
     }
   }
 
+  async saveMaxAccountCount({
+    serverSettings,
+  }: {
+    serverSettings: INotificationPushSettings;
+  }) {
+    const oldMaxAccountCount = (await notificationsAtom.get())?.maxAccountCount;
+
+    // serverSettings.maxAccount = 30;
+
+    // eslint-disable-next-line prefer-const
+    let maxAccountCount =
+      serverSettings.maxAccount ??
+      NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT;
+
+    const primeUserInfo = await primePersistAtom.get();
+    if (primeUserInfo?.primeSubscription?.isActive) {
+      // TODO remove in future
+      maxAccountCount = Math.max(maxAccountCount, 100);
+    }
+
+    await notificationsAtom.set((v) =>
+      perfUtils.buildNewValueIfChanged(v, {
+        ...v,
+        maxAccountCount,
+      }),
+    );
+
+    if ((maxAccountCount ?? 0) < (oldMaxAccountCount ?? 0)) {
+      await this.backgroundApi.simpleDb.notificationSettings.backupPrimeAccountActivityNotificationSettings();
+    }
+
+    console.log('saveMaxAccountCount', {
+      oldMaxAccountCount,
+      maxAccountCount,
+    });
+  }
+
+  // TODO clear cache if prime expired, onekeyID logout
   getSupportedNetworks = memoizee(
     async () => {
       const serverSettings = await this.fetchServerNotificationSettings();
@@ -1012,22 +1114,7 @@ export default class ServiceNotification extends ServiceBase {
         supportNetworks = result?.data?.data ?? [];
       }
 
-      // serverSettings.maxAccount = 30;
-
-      const maxAccountCount =
-        serverSettings.maxAccount ??
-        NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT;
-
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const currentMaxAccountCount = (await notificationsAtom.get())
-        .maxAccountCount;
-
-      await notificationsAtom.set((v) =>
-        perfUtils.buildNewValueIfChanged(v, {
-          ...v,
-          maxAccountCount,
-        }),
-      );
+      await this.saveMaxAccountCount({ serverSettings });
 
       const supportNetworksFiltered = uniqBy(supportNetworks, (item) => {
         if (item.impl === IMPL_EVM) {
