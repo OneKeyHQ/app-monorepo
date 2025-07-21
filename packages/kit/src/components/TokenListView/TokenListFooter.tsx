@@ -24,6 +24,8 @@ import {
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import {
+  useRiskyTokenListAtom,
+  useRiskyTokenListMapAtom,
   useSearchKeyAtom,
   useSmallBalanceTokenListAtom,
   useSmallBalanceTokenListMapAtom,
@@ -50,10 +52,16 @@ function TokenListFooter(props: IProps) {
 
   const [smallBalanceTokensFiatValue] = useSmallBalanceTokensFiatValueAtom();
 
+  const [riskyTokenList] = useRiskyTokenListAtom();
+
+  const [riskyTokenListMap] = useRiskyTokenListMapAtom();
+
   const [searchKey] = useSearchKeyAtom();
 
   const { smallBalanceTokens, keys: smallBalanceTokenKeys } =
     smallBalanceTokenList;
+
+  const { riskyTokens, keys: riskyTokenKeys } = riskyTokenList;
 
   const isSearchMode = searchKey.length >= SEARCH_KEY_MIN_LENGTH;
   const helpText = useMemo(
@@ -103,6 +111,28 @@ function TokenListFooter(props: IProps) {
     helpText,
   ]);
 
+  const handleOnPressRiskyTokens = useCallback(() => {
+    if (!account || !network) return;
+    navigation.pushModal(EModalRoutes.MainModal, {
+      screen: EModalAssetListRoutes.RiskTokenManager,
+      params: {
+        accountId: account.id,
+        networkId: network.id,
+        tokenList: {
+          tokens: riskyTokens,
+          keys: riskyTokenKeys,
+          map: riskyTokenListMap,
+        },
+      },
+    });
+  }, [
+    account,
+    navigation,
+    network,
+    riskyTokenKeys,
+    riskyTokenListMap,
+    riskyTokens,
+  ]);
   return (
     <Stack>
       {!isSearchMode && smallBalanceTokens.length > 0 ? (
@@ -173,6 +203,31 @@ function TokenListFooter(props: IProps) {
             </NumberSizeableText>
           </Stack>
           {tableLayout ? <Stack flexGrow={1} flexBasis={0} /> : null}
+        </ListItem>
+      ) : null}
+      {!isSearchMode && riskyTokens.length > 0 ? (
+        <ListItem onPress={handleOnPressRiskyTokens} userSelect="none">
+          <XStack alignItems="center" gap="$3" flex={1}>
+            <Stack
+              p={tableLayout ? '$1' : '$1.5'}
+              borderRadius="$full"
+              bg="$bgStrong"
+            >
+              <Icon
+                name="ErrorSolid"
+                color="$iconSubdued"
+                size={tableLayout ? '$6' : '$7'}
+              />
+            </Stack>
+            <ListItem.Text
+              primary={`${riskyTokens.length} ${intl.formatMessage({
+                id: ETranslations.wallet_collapsed_risk_assets,
+              })}`}
+              {...(tableLayout && {
+                primaryTextProps: { size: '$bodyMdMedium' },
+              })}
+            />
+          </XStack>
         </ListItem>
       ) : null}
     </Stack>
