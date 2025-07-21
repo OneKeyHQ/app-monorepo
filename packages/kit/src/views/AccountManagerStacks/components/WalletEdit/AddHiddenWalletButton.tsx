@@ -30,6 +30,7 @@ export function AddHiddenWalletButton({
           if (error instanceof Error && error.message !== 'User cancelled') {
             errorToastUtils.toastIfError(error);
           }
+          throw error;
         }
       }}
       onClose={onClose}
