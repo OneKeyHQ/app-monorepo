@@ -93,8 +93,8 @@ export function MobileInformationTabs() {
           if (!tab) return null;
           return (
             <Button
+              size="small"
               key={tab.id}
-              flex={1}
               variant={activeTab === tab.id ? 'primary' : 'secondary'}
               onPress={() => setActiveTab(tab.id)}
             >

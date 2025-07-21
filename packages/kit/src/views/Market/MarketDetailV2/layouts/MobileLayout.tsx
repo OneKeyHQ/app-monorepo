@@ -64,7 +64,6 @@ export function MobileLayout() {
       <XStack px="$4" py="$0.5" gap="$2">
         <Button
           size="small"
-          flex={1}
           variant={activeTab === 'chart' ? 'primary' : 'secondary'}
           onPress={() => setActiveTab('chart')}
         >
@@ -72,7 +71,6 @@ export function MobileLayout() {
         </Button>
         <Button
           size="small"
-          flex={1}
           variant={activeTab === 'overview' ? 'primary' : 'secondary'}
           onPress={() => setActiveTab('overview')}
         >
