@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import type { ComponentType, ReactNode } from 'react';
+import type { CSSProperties, ComponentType, ReactNode } from 'react';
 import {
   isValidElement,
   useCallback,
@@ -62,6 +62,14 @@ type IListData<Item> =
       };
     };
 
+const renderElement = (Element: ReactNode | ComponentType<any>) => {
+  if (isValidElement(Element)) {
+    return Element;
+  }
+  const Component = Element as ComponentType<any>;
+  return <Component />;
+};
+
 export function List<Item>({
   renderItem,
   data,
@@ -76,9 +84,11 @@ export function List<Item>({
   ListFooterComponentStyle,
   numColumns = 1,
   extraData,
+  contentContainerStyle,
 }: Omit<IListProps<Item>, 'ListEmptyComponent'> &
   Omit<ISectionListProps<Item>, 'ListEmptyComponent'> & {
     ListEmptyComponent?: ReactNode | ComponentType<any>;
+    contentContainerStyle?: CSSProperties;
   }) {
   const {
     registerChild,
@@ -199,7 +209,7 @@ export function List<Item>({
     if (ListHeaderComponent) {
       return (
         <View style={ListHeaderComponentStyle as any}>
-          {ListHeaderComponent as React.ReactNode}
+          {renderElement(ListHeaderComponent)}
         </View>
       );
     }
@@ -210,7 +220,7 @@ export function List<Item>({
     if (ListFooterComponent) {
       return (
         <View style={ListFooterComponentStyle as any}>
-          {ListFooterComponent as React.ReactNode}
+          {renderElement(ListFooterComponent)}
         </View>
       );
     }
@@ -337,12 +347,7 @@ export function List<Item>({
     return (
       <>
         {HeaderElement}
-        {isValidElement(ListEmptyComponent) ? (
-          ListEmptyComponent
-        ) : (
-          // @ts-expect-error
-          <ListEmptyComponent />
-        )}
+        {renderElement(ListEmptyComponent)}
         {FooterElement}
       </>
     );
@@ -380,7 +385,10 @@ export function List<Item>({
     <AutoSizer disableHeight>
       {({ width: autoSizerWidth, height: autoSizerHeight }) => {
         return (
-          <div ref={ref as React.RefObject<HTMLDivElement>}>
+          <div
+            ref={ref as React.RefObject<HTMLDivElement>}
+            style={contentContainerStyle as any}
+          >
             <VirtualizedList
               ref={listRef as any}
               autoHeight
