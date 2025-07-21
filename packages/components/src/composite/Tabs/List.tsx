@@ -107,6 +107,8 @@ export function List<Item>({
 
   const scrollTabElementsRef = useTabsContext().scrollTabElementsRef;
 
+  // Cell measurement cache for react-virtualized list optimization
+  // Can be optimized with keyExtractor for better height caching performance
   const cache = useMemo(
     () =>
       new CellMeasurerCache({
