@@ -44,6 +44,14 @@ const useVaultProvider = ({ providerName }: { providerName: string }) => {
   );
 };
 
+const showRiskNoticeDialogBeforeDepositOrWithdraw = ({
+  providerName,
+}: {
+  providerName: string;
+}) => {
+  return isMomentumProvider({ providerName });
+};
+
 function getEarnProviderName({
   providerName,
 }: {
@@ -85,4 +93,5 @@ export default {
   getEarnPermitCacheKey,
   isUSDTonETHNetwork,
   useVaultProvider,
+  showRiskNoticeDialogBeforeDepositOrWithdraw,
 };
