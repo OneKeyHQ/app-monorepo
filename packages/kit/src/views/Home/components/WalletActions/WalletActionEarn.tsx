@@ -43,8 +43,7 @@ export function WalletActionEarn(props: {
     const protocolList =
       await backgroundApiProxy.serviceStaking.getProtocolList({
         symbol: symbolInfo?.symbol,
-        networkId,
-        filter: true,
+        filterNetworkId: networkId,
       });
     const aprItems = protocolList
       .map((o) => Number(o.provider.aprWithoutFee))

@@ -125,7 +125,6 @@ function ProtocolListDialogContent({
         symbol,
         accountId,
         indexedAccountId,
-        networkId,
       });
 
       const groupedData = groupProtocolsByGroup(data);
@@ -136,7 +135,7 @@ function ProtocolListDialogContent({
     } finally {
       setIsLoading(false);
     }
-  }, [symbol, accountId, indexedAccountId, networkId]);
+  }, [symbol, accountId, indexedAccountId]);
 
   useEffect(() => {
     void fetchProtocolData();

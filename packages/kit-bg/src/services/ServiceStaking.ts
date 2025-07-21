@@ -22,7 +22,10 @@ import type {
   EEarnProviderEnum,
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
-import { earnMainnetNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import {
+  earnMainnetNetworkIds,
+  getSymbolSupportedNetworks,
+} from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountHistoryTx,
@@ -631,20 +634,21 @@ class ServiceStaking extends ServiceBase {
   _getProtocolList = memoizee(
     async (params: {
       symbol: string;
-      networkId?: string;
-      accountAddress?: string;
-      publicKey?: string;
+      items: Array<{
+        networkId: string;
+        accountAddress?: string;
+        publicKey?: string;
+      }>;
     }) => {
-      const { symbol, accountAddress, publicKey } = params;
+      const { symbol, items } = params;
       const client = await this.getClient(EServiceEndpointEnum.Earn);
-      const protocolListResp = await client.get<{
+
+      // Use v2 API that supports multiple networks
+      const protocolListResp = await client.post<{
         data: { protocols: IStakeProtocolListItem[] };
-      }>('/earn/v1/stake-protocol/list', {
-        params: {
-          symbol,
-          accountAddress,
-          publicKey,
-        },
+      }>('/earn/v2/stake-protocol/list', {
+        symbol,
+        items: items.filter((item) => item.accountAddress), // Only include items with account address
       });
       const protocols = protocolListResp.data.data.protocols;
       return protocols;
@@ -658,44 +662,79 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async getProtocolList(params: {
     symbol: string;
-    networkId?: string;
     accountId?: string;
     indexedAccountId?: string;
-    filter?: boolean;
+    filterNetworkId?: string;
   }) {
-    const listParams: {
-      symbol: string;
-      networkId?: string;
-      accountAddress?: string;
-      publicKey?: string;
-    } = { symbol: params.symbol };
-    if (params.networkId && params.accountId) {
-      const earnAccount = await this.getEarnAccount({
-        accountId: params.accountId,
-        networkId: params.networkId,
-        indexedAccountId: params.indexedAccountId,
-        btcOnlyTaproot: true,
-      });
-      if (earnAccount) {
-        listParams.networkId = earnAccount.networkId;
-        listParams.accountAddress = earnAccount.accountAddress;
-        if (networkUtils.isBTCNetwork(listParams.networkId)) {
-          listParams.publicKey = earnAccount.account.pub;
+    const symbolSupportedNetworks = getSymbolSupportedNetworks();
+    const supportedNetworkIds =
+      symbolSupportedNetworks[
+        params.symbol as keyof typeof symbolSupportedNetworks
+      ] || [];
+
+    if (supportedNetworkIds.length === 0) {
+      return [];
+    }
+
+    // Get account info for each supported network
+    const networkAccountsPromises = supportedNetworkIds.map(
+      async (networkId) => {
+        if (!params.accountId) {
+          return { networkId, accountAddress: undefined, publicKey: undefined };
         }
-      }
-    }
-    let items = await this._getProtocolList(listParams);
 
+        const earnAccount = await this.getEarnAccount({
+          accountId: params.accountId,
+          networkId,
+          indexedAccountId: params.indexedAccountId,
+          btcOnlyTaproot: true,
+        });
+
+        if (!earnAccount) {
+          return { networkId, accountAddress: undefined, publicKey: undefined };
+        }
+
+        return {
+          networkId: earnAccount.networkId,
+          accountAddress: earnAccount.accountAddress,
+          publicKey: networkUtils.isBTCNetwork(earnAccount.networkId)
+            ? earnAccount.account.pub
+            : undefined,
+        };
+      },
+    );
+
+    const networkAccounts = await Promise.all(networkAccountsPromises);
+
+    // Use cached _getProtocolList method with v2 API
+    let allItems: IStakeProtocolListItem[] = [];
+    try {
+      allItems = await this._getProtocolList({
+        symbol: params.symbol,
+        items: networkAccounts,
+      });
+    } catch (error) {
+      console.warn(
+        `Failed to fetch protocol list for symbol ${params.symbol}:`,
+        error,
+      );
+      // Fall back to empty array if request fails
+      allItems = [];
+    }
+
+    // Apply network filter if specified
     if (
-      params.filter &&
-      params.networkId &&
-      !networkUtils.isAllNetwork({ networkId: params.networkId })
+      params.filterNetworkId &&
+      !networkUtils.isAllNetwork({ networkId: params.filterNetworkId })
     ) {
-      items = items.filter((o) => o.network.networkId === params.networkId);
+      allItems = allItems.filter(
+        (item) => item.network.networkId === params.filterNetworkId,
+      );
     }
 
+    // Check enabled status for all items
     const itemsWithEnabledStatus = await Promise.all(
-      items.map(async (item) => {
+      allItems.map(async (item) => {
         const stakingConfig = await this.getStakingConfigs({
           networkId: item.network.networkId,
           symbol: params.symbol,
@@ -709,6 +748,7 @@ class ServiceStaking extends ServiceBase {
     const enabledItems = itemsWithEnabledStatus
       .filter(({ isEnabled }) => isEnabled)
       .map(({ item }) => item);
+
     return enabledItems;
   }
 

@@ -155,3 +155,29 @@ export function getImportFromToken({
     swapTabSwitchType,
   };
 }
+
+// Symbol to supported networks mapping for earn protocols
+export function getSymbolSupportedNetworks(): Record<
+  ISupportedSymbol,
+  string[]
+> {
+  const networkIdsMap = getNetworkIdsMap();
+
+  return {
+    'BTC': [networkIdsMap.btc],
+    'SBTC': [networkIdsMap.sbtc],
+    'ETH': [networkIdsMap.eth],
+    'SOL': [networkIdsMap.sol],
+    'APT': [networkIdsMap.apt],
+    'ATOM': [networkIdsMap.cosmoshub],
+    'POL': [networkIdsMap.eth],
+    'USDC': [networkIdsMap.eth, networkIdsMap.sui],
+    'USDT': [networkIdsMap.eth],
+    'DAI': [networkIdsMap.eth],
+    'WETH': [networkIdsMap.eth],
+    'cbBTC': [networkIdsMap.eth],
+    'WBTC': [networkIdsMap.eth],
+    'USDf': [networkIdsMap.eth],
+    'USDe': [networkIdsMap.eth],
+  };
+}
