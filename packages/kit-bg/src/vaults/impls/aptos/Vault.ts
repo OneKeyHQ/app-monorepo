@@ -3,6 +3,7 @@ import {
   AptosConfig,
   Aptos as AptosRpcClient,
   Deserializer,
+  Ed25519PublicKey,
   MimeType,
   MultiAgentTransaction,
   RawTransaction,
@@ -12,6 +13,7 @@ import {
   TransactionPayloadEntryFunction,
   TransactionPayloadScript,
   U64,
+  generateSignedTransactionForSimulation,
   postAptosFullNode,
 } from '@aptos-labs/ts-sdk';
 import BigNumber from 'bignumber.js';
@@ -828,12 +830,11 @@ export default class VaultAptos extends VaultBase {
       return { encodedTx };
     }
 
-    let rawTx: SimpleTransaction;
+    let rawTx: AnyRawTransaction;
     const unSignedEncodedTx = encodedTx;
     const { bcsTxn } = unSignedEncodedTx;
     if (bcsTxn && !isEmpty(bcsTxn)) {
-      const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));
-      rawTx = SimpleTransaction.deserialize(deserializer);
+      rawTx = deserializeTransaction(bcsTxn);
     } else {
       const network = await this.getNetwork();
       try {
@@ -851,35 +852,38 @@ export default class VaultAptos extends VaultBase {
       }
     }
 
-    const rawTxn = rawTx.rawTransaction;
-    const newRawTx = new RawTransaction(
-      rawTxn.sender,
-      rawTxn.sequence_number,
-      rawTxn.payload,
-      BigInt('200000'),
-      BigInt('0'),
-      rawTxn.expiration_timestamp_secs || getExpirationTimestampSecs(),
-      rawTxn.chain_id,
-    );
-
     const account = await this.getAccount();
-    const invalidSigBytes = new Uint8Array(64);
     let pubkey = account.pub;
     if (!pubkey) {
       const accountOnChain = await this.client.getAccount(account.address);
       pubkey = accountOnChain.authentication_key;
     }
-    const { rawTx: rawSignTx } = await buildSignedTx(
-      new SimpleTransaction(newRawTx),
-      pubkey,
-      bufferUtils.bytesToHex(invalidSigBytes),
-    );
+
+    const rawSignTxBytes = generateSignedTransactionForSimulation({
+      transaction: rawTx,
+      signerPublicKey: new Ed25519PublicKey(
+        bufferUtils.hexToBytes(hexUtils.stripHexPrefix(pubkey)),
+      ),
+      feePayerPublicKey: rawTx.feePayerAddress
+        ? new Ed25519PublicKey(
+            bufferUtils.hexToBytes(hexUtils.stripHexPrefix(pubkey)),
+          )
+        : undefined,
+      secondarySignersPublicKeys: rawTx.secondarySignerAddresses
+        ? rawTx.secondarySignerAddresses.map(
+            () =>
+              new Ed25519PublicKey(
+                bufferUtils.hexToBytes(hexUtils.stripHexPrefix(pubkey)),
+              ),
+          )
+        : undefined,
+    });
 
     const params = {
       encodedTx: {
         ...encodedTx,
         ...encodedTx.payload,
-        rawSignTx,
+        rawSignTx: bufferUtils.bytesToHex(rawSignTxBytes),
       },
     };
 
