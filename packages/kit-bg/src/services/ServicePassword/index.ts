@@ -665,9 +665,11 @@ export default class ServicePassword extends ServiceBase {
   async promptPasswordVerifyByWallet({
     walletId,
     reason = EReasonForNeedPassword.CreateOrRemoveWallet,
+    hardwareCallContext = EHardwareCallContext.USER_INTERACTION,
   }: {
     walletId: string;
     reason?: EReasonForNeedPassword;
+    hardwareCallContext?: EHardwareCallContext;
   }) {
     const isHardware = accountUtils.isHwWallet({ walletId });
     const isQrWallet = accountUtils.isQrWallet({ walletId });
@@ -679,7 +681,7 @@ export default class ServicePassword extends ServiceBase {
         deviceParams =
           await this.backgroundApi.serviceAccount.getWalletDeviceParams({
             walletId,
-            hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+            hardwareCallContext,
           });
       } catch (error) {
         //
