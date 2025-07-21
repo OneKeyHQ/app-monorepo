@@ -15,6 +15,7 @@ import {
   Stack,
   Switch,
   YStack,
+  startViewTransition,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
@@ -57,6 +58,16 @@ const SettingProtectionModal = () => {
       setIsLocked(true);
     }, 60 * 1000);
   }, [clearLockTimer]);
+
+  // https://github.com/facebook/react/issues/31819
+  // Page flicker caused by Suspense throttling behavior.
+  const handleTransition = useCallback(
+    (fn: () => Promise<void>) => {
+      startViewTransition(fn);
+      updateLockTimer();
+    },
+    [updateLockTimer],
+  );
 
   useEffect(() => {
     if (useIsFocused) {
@@ -136,8 +147,9 @@ const SettingProtectionModal = () => {
               size={ESwitchSize.small}
               value={tokenRiskReminder}
               onChange={async (value) => {
-                setSettings((v) => ({ ...v, tokenRiskReminder: !!value }));
-                updateLockTimer();
+                handleTransition(async () => {
+                  setSettings((v) => ({ ...v, tokenRiskReminder: !!value }));
+                });
               }}
             />
           </ListItem>
@@ -155,10 +167,11 @@ const SettingProtectionModal = () => {
               size={ESwitchSize.small}
               value={isEnableTransferAllowList}
               onChange={async (value) => {
-                await backgroundApiProxy.serviceSetting.setIsEnableTransferAllowList(
-                  value,
-                );
-                updateLockTimer();
+                handleTransition(async () => {
+                  await backgroundApiProxy.serviceSetting.setIsEnableTransferAllowList(
+                    value,
+                  );
+                });
               }}
             />
           </ListItem>
@@ -182,10 +195,11 @@ const SettingProtectionModal = () => {
               size={ESwitchSize.small}
               value={!protectCreateTransaction}
               onChange={async (value) => {
-                await backgroundApiProxy.serviceSetting.setProtectCreateTransaction(
-                  !value,
-                );
-                updateLockTimer();
+                handleTransition(async () => {
+                  await backgroundApiProxy.serviceSetting.setProtectCreateTransaction(
+                    !value,
+                  );
+                });
               }}
             />
           </ListItem>
@@ -198,10 +212,11 @@ const SettingProtectionModal = () => {
               size={ESwitchSize.small}
               value={!protectCreateOrRemoveWallet}
               onChange={async (value) => {
-                await backgroundApiProxy.serviceSetting.setProtectCreateOrRemoveWallet(
-                  !value,
-                );
-                updateLockTimer();
+                handleTransition(async () => {
+                  await backgroundApiProxy.serviceSetting.setProtectCreateOrRemoveWallet(
+                    !value,
+                  );
+                });
               }}
             />
           </ListItem>
@@ -223,7 +238,7 @@ const SettingProtectionModal = () => {
           >
             <PassCodeProtectionSwitch
               size={ESwitchSize.small}
-              onChange={updateLockTimer}
+              onTransition={handleTransition}
             />
           </ListItem>
           <SizableText px="$5" size="$bodySm" color="$textSubdued">
@@ -241,6 +256,7 @@ const SettingProtectionModal = () => {
   }, [
     checkEnableProtection,
     enableProtection,
+    handleTransition,
     intl,
     isEnableTransferAllowList,
     isLocked,
@@ -248,7 +264,6 @@ const SettingProtectionModal = () => {
     protectCreateTransaction,
     setSettings,
     tokenRiskReminder,
-    updateLockTimer,
   ]);
 
   return (

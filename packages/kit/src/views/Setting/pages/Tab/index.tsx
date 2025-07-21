@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo } from 'react';
+import { memo, useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CommonActions } from '@react-navigation/native';
@@ -23,6 +23,7 @@ import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 import { useSettingsConfig } from './config';
+import { ConfigContext } from './configContext';
 import { SocialButtonGroup } from './CustomElement';
 import { SettingList } from './SettingList';
 import { SubSettings } from './SubSettings';
@@ -163,7 +164,7 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
 function SettingsTabNavigator() {
   const settingsConfig = useSettingsConfig();
   const tabScreens = useMemo(() => {
-    const items = settingsConfig.map((config) => {
+    const items = settingsConfig.map((config, index) => {
       if (!config) {
         return null;
       }
@@ -172,19 +173,14 @@ function SettingsTabNavigator() {
         <Tab.Screen
           key={title}
           name={name}
+          component={(Component || SubSettings) as any}
           options={{
             ...(options as any),
             tabBarLabel: title,
             tabBarIcon: () => icon,
             tabBarPosition: 'left',
           }}
-        >
-          {Component
-            ? () => <Component name={title} settingsConfig={settingsConfig} />
-            : () => (
-                <SubSettings name={title} settingsConfig={settingsConfig} />
-              )}
-        </Tab.Screen>
+        />
       );
     });
     return items;
@@ -193,21 +189,28 @@ function SettingsTabNavigator() {
     (props: BottomTabBarProps) => <SideBar {...props} />,
     [],
   );
+  const contextValue = useMemo(() => {
+    return { settingsConfig };
+  }, [settingsConfig]);
   return (
-    <Tab.Navigator
-      tabBar={tabBarCallback}
-      screenOptions={{
-        headerShown: false,
-        freezeOnBlur: false,
-        lazy: false,
-      }}
-    >
-      {tabScreens}
-    </Tab.Navigator>
+    <ConfigContext.Provider value={contextValue}>
+      <Tab.Navigator
+        tabBar={tabBarCallback}
+        screenOptions={{
+          headerShown: false,
+          freezeOnBlur: false,
+          lazy: false,
+        }}
+      >
+        {tabScreens}
+      </Tab.Navigator>
+    </ConfigContext.Provider>
   );
 }
 
-export default function SettingTab() {
+const MemoizedSettingsTabNavigator = memo(SettingsTabNavigator);
+
+function SettingTab() {
   const isTabNavigator = useIsTabNavigator();
   const appNavigation = useAppNavigation();
   useLayoutEffect(() => {
@@ -217,5 +220,7 @@ export default function SettingTab() {
       });
     }
   }, [appNavigation, isTabNavigator]);
-  return isTabNavigator ? <SettingsTabNavigator /> : <SettingList />;
+  return isTabNavigator ? <MemoizedSettingsTabNavigator /> : <SettingList />;
 }
+
+export default memo(SettingTab);
