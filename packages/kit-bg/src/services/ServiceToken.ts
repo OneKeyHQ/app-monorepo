@@ -118,16 +118,23 @@ class ServiceToken extends ServiceBase {
       dbAccount,
       customTokensRawData,
     };
-    const [xpub, accountAddress, customTokens, hiddenTokens, vaultSettings] =
-      await Promise.all([
-        this.backgroundApi.serviceAccount.getAccountXpub(accountParams),
-        this.backgroundApi.serviceAccount.getAccountAddressForApi(
-          accountParams,
-        ),
-        this.backgroundApi.serviceCustomToken.getCustomTokens(accountParams),
-        this.backgroundApi.serviceCustomToken.getHiddenTokens(accountParams),
-        this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
-      ]);
+    const [
+      xpub,
+      accountAddress,
+      customTokens,
+      hiddenTokens,
+      unblockedTokens,
+      blockedTokens,
+      vaultSettings,
+    ] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountXpub(accountParams),
+      this.backgroundApi.serviceAccount.getAccountAddressForApi(accountParams),
+      this.backgroundApi.serviceCustomToken.getCustomTokens(accountParams),
+      this.backgroundApi.serviceCustomToken.getHiddenTokens(accountParams),
+      this.backgroundApi.serviceToken.getUnblockedTokens({ networkId }),
+      this.backgroundApi.serviceToken.getBlockedTokens({ networkId }),
+      this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
+    ]);
 
     if (!accountAddress && !xpub) {
       console.log(
@@ -145,6 +152,9 @@ class ServiceToken extends ServiceBase {
     ];
 
     rest.hiddenTokens = hiddenTokens.map((t) => t.address);
+
+    rest.unblockedTokens = unblockedTokens;
+    rest.blockedTokens = blockedTokens;
 
     // const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const controller = new AbortController();
@@ -705,6 +715,54 @@ class ServiceToken extends ServiceBase {
       accountId,
       networkId,
     };
+  }
+
+  @backgroundMethod()
+  public async getUnblockedTokensMap({ networkId }: { networkId: string }) {
+    return this.backgroundApi.simpleDb.riskTokenManagement.getUnblockedTokens({
+      networkId,
+    });
+  }
+
+  @backgroundMethod()
+  public async getBlockedTokensMap({ networkId }: { networkId: string }) {
+    return this.backgroundApi.simpleDb.riskTokenManagement.getBlockedTokens({
+      networkId,
+    });
+  }
+
+  @backgroundMethod()
+  public async getBlockedTokens({ networkId }: { networkId: string }) {
+    const blockedTokensMap = await this.getBlockedTokensMap({ networkId });
+    const blockedTokensMapByNetworkId = blockedTokensMap[networkId];
+    return Object.keys(blockedTokensMapByNetworkId).filter(
+      (tokenAddress) => blockedTokensMapByNetworkId[tokenAddress],
+    );
+  }
+
+  @backgroundMethod()
+  public async getUnblockedTokens({ networkId }: { networkId: string }) {
+    const unblockedTokensMap = await this.getUnblockedTokensMap({ networkId });
+    const unblockedTokensMapByNetworkId = unblockedTokensMap[networkId];
+    return Object.keys(unblockedTokensMapByNetworkId).filter(
+      (tokenAddress) => unblockedTokensMapByNetworkId[tokenAddress],
+    );
+  }
+
+  @backgroundMethod()
+  public async updateRiskTokensState({
+    blockedTokens,
+    unblockedTokens,
+  }: {
+    blockedTokens: Record<string, Record<string, boolean>>;
+    unblockedTokens: Record<string, Record<string, boolean>>;
+  }) {
+    return this.backgroundApi.simpleDb.riskTokenManagement.updateRiskTokensState(
+      {
+        blockedTokens,
+        unblockedTokens,
+      },
+    );
   }
 }
 

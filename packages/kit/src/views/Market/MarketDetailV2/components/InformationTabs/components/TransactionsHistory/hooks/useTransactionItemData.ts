@@ -1,39 +1,20 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { useClipboard } from '@onekeyhq/components';
-import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatRelativeTimeAbbr } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 interface IUseTransactionItemDataProps {
   item: IMarketTokenTransaction;
-  networkId: string;
 }
 
-export function useTransactionItemData({
-  item,
-  networkId,
-}: IUseTransactionItemDataProps) {
+export function useTransactionItemData({ item }: IUseTransactionItemDataProps) {
   const intl = useIntl();
-  const { copyText } = useClipboard();
 
-  const handleCopyAddress = useCallback(() => {
-    copyText(item.owner);
-  }, [copyText, item.owner]);
-
-  const handleViewInBrowser = useCallback(() => {
-    void openTransactionDetailsUrl({
-      networkId,
-      txid: item.hash,
-      openInExternal: true,
-    });
-  }, [networkId, item.hash]);
-
-  const formatRelativeTime = formatRelativeTimeAbbr;
+  const formattedTime = formatRelativeTimeAbbr(item.timestamp);
 
   const isBuy = item.type === 'buy';
   const baseToken = isBuy ? item.to : item.from;
@@ -68,8 +49,6 @@ export function useTransactionItemData({
     typeText,
     price,
     value,
-    formatRelativeTime,
-    handleCopyAddress,
-    handleViewInBrowser,
+    formattedTime,
   };
 }
