@@ -116,19 +116,6 @@ export function List<Item>({
     [estimatedItemSize],
   );
 
-  const prevNumColumns = useRef(numColumns);
-  const prevExtraData = useRef(extraData);
-  useMemo(() => {
-    if (
-      numColumns !== prevNumColumns.current ||
-      extraData !== prevExtraData.current
-    ) {
-      cache.clearAll();
-    }
-  }, [numColumns, extraData, cache]);
-  prevNumColumns.current = numColumns;
-  prevExtraData.current = extraData;
-
   const isVisible = useMemo(() => {
     return focusedTabValue === currentTabName;
   }, [focusedTabValue, currentTabName]);
@@ -320,16 +307,30 @@ export function List<Item>({
     [numColumns, width],
   );
 
-  useEffect(() => {
-    if (numColumns > 1 && width) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      (listRef.current as any)?.recomputeCellSizesAndPositions();
-    } else {
+  const recompute = useCallback(
+    ({
+      numColumns: _numColumns,
+      width: _width,
+    }: {
+      numColumns: number;
+      width: number;
+    }) => {
       cache.clearAll();
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      (listRef.current as any)?.recomputeRowHeights();
+      if (_numColumns > 1 && _width) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+        (listRef.current as any)?.recomputeCellSizesAndPositions();
+      } else {
+        cache.clearAll();
+      }
+    },
+    [cache],
+  );
+
+  useEffect(() => {
+    if (numColumns || width || extraData) {
+      recompute({ numColumns, width });
     }
-  }, [numColumns, width, cache]);
+  }, [numColumns, width, extraData, recompute]);
 
   const cellRenderer = useCallback(
     (params: CollectionCellRendererParams) => {

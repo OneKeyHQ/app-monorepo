@@ -1,6 +1,7 @@
 import type { ComponentProps, ReactElement } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
+import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
@@ -183,6 +184,25 @@ function BaseTxHistoryListView(props: IProps) {
     return inTabList ? Tabs.SectionList : SectionList;
   }, [inTabList]);
 
+  const [testSections, setTestSections] = useState(sections);
+  const [count, setCount] = useState(0);
+  globalThis.addItemToList = () => {
+    const newSections = testSections.length > 0 ? testSections : sections;
+    if (newSections.length > 0) {
+      newSections[0].data.unshift(
+        newSections[newSections.length - 1].data[
+          newSections[newSections.length - 1].data.length - 1
+        ],
+      );
+      setTestSections(cloneDeep(newSections));
+      setCount((c) => c + 1);
+    }
+  };
+
+  const itemCounts = useMemo(() => {
+    return testSections.reduce((acc, section) => acc + section.data.length, 0);
+  }, [testSections]);
+
   if (!initialized && isLoading) {
     return (
       <Stack {...contentContainerStyle}>
@@ -199,8 +219,8 @@ function BaseTxHistoryListView(props: IProps) {
       renderScrollComponent={renderNestedScrollView}
       contentContainerStyle={resolvedContentContainerStyle as any}
       stickySectionHeadersEnabled={false}
-      sections={sections}
-      extraData={sections.length}
+      sections={testSections}
+      extraData={itemCounts}
       ListEmptyComponent={
         searchKey && data.length > 0 ? EmptySearch : EmptyHistory
       }
