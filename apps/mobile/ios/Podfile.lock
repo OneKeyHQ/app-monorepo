@@ -2373,7 +2373,7 @@ PODS:
     - ScreenshotPreventing
   - RealmJS (12.14.2):
     - React
-  - RestartNewArch (1.0.72):
+  - RestartNewArch (1.0.75):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -3479,7 +3479,7 @@ SPEC CHECKSUMS:
   ReactNativePasskeys: 9e950e8cbf0e7d6aad9df4dcd21cee0efeb4e5cd
   ReactNativeSecureWindow: aca1652c05825f4a3c1706b942a5a12060c54742
   RealmJS: ff8a7d6d6e339c1b3410a96ceb4151b151fe56f5
-  RestartNewArch: 8f05b9ac18db934e1df999f89d4781872ea1e7f4
+  RestartNewArch: 448d52741003a4918f8abe3dfc89ed32fc0c7a9d
   RevenueCat: 7e1d0768fb287c9983173c9b28e39ccbeeb828a9
   RNCAsyncStorage: b582a51d35079f9f2ae1c6e63ae39704a445627e
   RNDeviceInfo: d863506092aef7e7af3a1c350c913d867d795047
