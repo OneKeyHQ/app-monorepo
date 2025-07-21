@@ -156,7 +156,6 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
           bottom={0}
           width={12}
           zIndex={1}
-          bg="$red6"
           pointerEvents="auto"
         />
       ) : null}
