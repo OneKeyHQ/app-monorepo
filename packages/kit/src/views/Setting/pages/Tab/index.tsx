@@ -172,7 +172,7 @@ function SettingsTabNavigator() {
       return (
         <Tab.Screen
           key={title}
-          name={name}
+          name={title}
           component={(Component || SubSettings) as any}
           options={{
             ...(options as any),
