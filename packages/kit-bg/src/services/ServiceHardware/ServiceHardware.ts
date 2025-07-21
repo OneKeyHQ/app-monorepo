@@ -1622,6 +1622,42 @@ class ServiceHardware extends ServiceBase {
         nameHex: item.nameHex,
       }));
   }
+
+  @backgroundMethod()
+  async clearAllBleConnectIdsForTesting(): Promise<void> {
+    try {
+      // Get all devices from database
+      const { devices } = await localDb.getAllDevices();
+
+      if (devices.length === 0) {
+        console.log('No devices found in database');
+        return;
+      }
+
+      // Filter devices that have bleConnectId
+      const devicesWithBle = devices.filter((device) => device.bleConnectId);
+
+      if (devicesWithBle.length === 0) {
+        console.log('No devices with bleConnectId found');
+        return;
+      }
+
+      console.log(`Clearing bleConnectId for ${devicesWithBle.length} devices`);
+
+      // Clear bleConnectId for each device using the existing update method
+      for (const device of devicesWithBle) {
+        await localDb.cleanDeviceConnectId({ dbDeviceId: device.id });
+        console.log(
+          `Cleared bleConnectId for device: ${device.name || device.id}`,
+        );
+      }
+
+      console.log('Successfully cleared all bleConnectId fields for testing');
+    } catch (error) {
+      console.error('Failed to clear bleConnectId fields:', error);
+      throw error;
+    }
+  }
 }
 
 export default ServiceHardware;
