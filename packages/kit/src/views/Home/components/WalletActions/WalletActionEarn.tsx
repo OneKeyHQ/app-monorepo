@@ -96,7 +96,7 @@ export function WalletActionEarn(props: {
       symbol,
       accountId,
       indexedAccountId,
-      networkId: protocols[0].networkId,
+      filterNetworkId: networkId,
       onProtocolSelect: async (params) => {
         navigation.pushModal(EModalRoutes.StakingModal, {
           screen: EModalStakingRoutes.ProtocolDetailsV2,

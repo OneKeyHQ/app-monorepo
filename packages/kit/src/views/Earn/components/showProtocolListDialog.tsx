@@ -103,15 +103,15 @@ const groupProtocolsByGroup = (
 
 function ProtocolListDialogContent({
   symbol,
-  networkId,
   accountId,
   indexedAccountId,
+  filterNetworkId,
   onProtocolSelect,
 }: {
   symbol: string;
-  networkId: string;
   accountId: string;
   indexedAccountId?: string;
+  filterNetworkId?: string;
   onProtocolSelect: (protocol: IStakeProtocolListItem) => Promise<void>;
 }) {
   const [protocolData, setProtocolData] = useState<IProtocolSection[]>([]);
@@ -125,6 +125,7 @@ function ProtocolListDialogContent({
         symbol,
         accountId,
         indexedAccountId,
+        filterNetworkId,
       });
 
       const groupedData = groupProtocolsByGroup(data);
@@ -135,7 +136,7 @@ function ProtocolListDialogContent({
     } finally {
       setIsLoading(false);
     }
-  }, [symbol, accountId, indexedAccountId]);
+  }, [symbol, accountId, indexedAccountId, filterNetworkId]);
 
   useEffect(() => {
     void fetchProtocolData();
@@ -285,13 +286,13 @@ export function showProtocolListDialog({
   symbol,
   accountId,
   indexedAccountId,
-  networkId,
+  filterNetworkId,
   onProtocolSelect,
 }: {
   symbol: string;
   accountId: string;
   indexedAccountId?: string;
-  networkId: string;
+  filterNetworkId?: string;
   onProtocolSelect: (params: {
     networkId: string;
     accountId: string;
@@ -318,9 +319,9 @@ export function showProtocolListDialog({
     renderContent: (
       <ProtocolListDialogContent
         symbol={symbol}
-        networkId={networkId}
         accountId={accountId}
         indexedAccountId={indexedAccountId}
+        filterNetworkId={filterNetworkId}
         onProtocolSelect={async (protocol: IStakeProtocolListItem) => {
           try {
             defaultLogger.staking.page.selectProvider({
