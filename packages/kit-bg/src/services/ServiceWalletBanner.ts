@@ -31,6 +31,25 @@ class ServiceWalletBanner extends ServiceBase {
 
     return resp.data.data;
   }
+
+  @backgroundMethod()
+  async updateClosedForeverBanners({
+    bannerId,
+    closedForever,
+  }: {
+    bannerId: string;
+    closedForever: boolean;
+  }) {
+    await this.backgroundApi.simpleDb.walletBanner.updateClosedForeverBanners({
+      bannerId,
+      closedForever,
+    });
+  }
+
+  @backgroundMethod()
+  async getClosedForeverBanners() {
+    return this.backgroundApi.simpleDb.walletBanner.getClosedForeverBanners();
+  }
 }
 
 export default ServiceWalletBanner;

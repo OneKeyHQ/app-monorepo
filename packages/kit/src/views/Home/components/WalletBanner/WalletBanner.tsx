@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -27,6 +27,10 @@ function WalletBanner() {
 
   const intl = useIntl();
 
+  const [closedForeverBanners, setClosedForeverBanners] = useState<
+    Record<string, boolean>
+  >({});
+
   const { result: banners } = usePromiseResult(
     async () => {
       if (isNil(account?.id)) {
@@ -47,19 +51,42 @@ function WalletBanner() {
       if (banners.length === 0) {
         return banners;
       }
-      return banners;
+      return banners.filter((banner) => !closedForeverBanners[banner.id]);
     },
-    [banners],
+    [banners, closedForeverBanners],
     {
       initResult: [],
     },
   );
 
-  const handleDismiss = useCallback((item: IWalletBanner) => {
-    console.log('handleDismiss', item);
+  const handleDismiss = useCallback(async (item: IWalletBanner) => {
+    if (item.closeable) {
+      setClosedForeverBanners((prev) => ({
+        ...prev,
+        [item.id]: true,
+      }));
+      if (item.closeForever) {
+        await backgroundApiProxy.serviceWalletBanner.updateClosedForeverBanners(
+          {
+            bannerId: item.id,
+            closedForever: true,
+          },
+        );
+      }
+    }
   }, []);
+
   const handleClick = useCallback((item: IWalletBanner) => {
     console.log('handleClick', item);
+  }, []);
+
+  useEffect(() => {
+    const fetchClosedForeverBanners = async () => {
+      const resp =
+        await backgroundApiProxy.serviceWalletBanner.getClosedForeverBanners();
+      setClosedForeverBanners(resp);
+    };
+    void fetchClosedForeverBanners();
   }, []);
 
   if (filteredBanners.length === 0) {
