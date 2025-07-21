@@ -15,8 +15,9 @@ import {
 } from 'expo-image';
 import { resolveSource } from 'expo-image';
 
-import { isEmptyResolvedSource } from './utils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { isEmptyResolvedSource } from './utils';
 
 const IMAGE_CACHE_MAP = new Map<string, string>();
 
