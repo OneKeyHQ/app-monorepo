@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  AnimatePresence,
   Image,
   LottieView,
   SizableText,
@@ -13,7 +14,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { ISwapStep } from '@onekeyhq/shared/types/swap/types';
-import { ESwapStepStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapExtraStatus,
+  ESwapStepStatus,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { truncateMiddle } from '../utils/utils';
 
@@ -72,29 +76,45 @@ const PreSwapConfirmResult = ({ lastStep }: IPreSwapConfirmResultProps) => {
   return (
     <YStack alignItems="center" justifyContent="flex-end" h={300} flex={1}>
       <YStack justifyContent="center" alignItems="center" gap="$4" flex={1}>
-        {lastStep.status === ESwapStepStatus.SUCCESS ? (
-          <Image
-            width={110}
-            height={110}
-            source={require('@onekeyhq/kit/assets/preSwapStepSuccess.png')}
-          />
-        ) : (
+        <AnimatePresence>
+          {lastStep.status === ESwapStepStatus.SUCCESS ? (
+            <YStack
+              key={lastStep.status}
+              animation="medium"
+              enterStyle={{ scale: 0.5, opacity: 0.5 }}
+            >
+              <Image
+                key={lastStep.status}
+                width={110}
+                height={110}
+                source={require('@onekeyhq/kit/assets/preSwapStepSuccess.png')}
+              />
+            </YStack>
+          ) : null}
+        </AnimatePresence>
+        {lastStep.status !== ESwapStepStatus.SUCCESS ? (
           <>
             {lastStep.status === ESwapStepStatus.FAILED ? (
-              <Image
-                width={110}
-                height={110}
-                source={require('@onekeyhq/kit/assets/preSwapStepFailed.png')}
-              />
+              <YStack key={lastStep.status}>
+                <Image
+                  key={lastStep.status}
+                  width={110}
+                  height={110}
+                  source={require('@onekeyhq/kit/assets/preSwapStepFailed.png')}
+                />
+              </YStack>
             ) : (
-              <Image
-                source={require('@onekeyhq/kit/assets/preSwapPending.png')}
-                width={110}
-                height={110}
-              />
+              <YStack key={lastStep.status}>
+                <Image
+                  key={lastStep.status}
+                  source={require('@onekeyhq/kit/assets/preSwapPending2.png')}
+                  width={110}
+                  height={110}
+                />
+              </YStack>
             )}
           </>
-        )}
+        ) : null}
         <YStack gap="$2" alignItems="center" justifyContent="center">
           <SizableText size="$headingLg" color="$text">
             {statusText}

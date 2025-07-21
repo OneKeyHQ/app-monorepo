@@ -124,20 +124,11 @@ export function List<Item>({
   }, [focusedTabValue, currentTabName]);
 
   useEffect(() => {
-    if (
-      (currentTabName &&
-        ref.current &&
-        !scrollTabElementsRef.current[currentTabName]) ||
-      (scrollTabElementsRef.current[currentTabName]?.element &&
-        !document.body.contains(
-          scrollTabElementsRef.current[currentTabName].element,
-        ))
-    ) {
-      scrollTabElementsRef.current[currentTabName] = {
-        element: ref.current as HTMLElement,
-      };
-    }
     if (focusedTabValue === currentTabName) {
+      if (scrollTabElementsRef?.current[currentTabName]) {
+        scrollTabElementsRef.current[currentTabName].element =
+          ref.current as HTMLElement;
+      }
       registerChild(ref.current);
     }
   }, [focusedTabValue, currentTabName, registerChild, scrollTabElementsRef]);

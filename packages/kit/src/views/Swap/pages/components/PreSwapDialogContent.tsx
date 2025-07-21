@@ -2,10 +2,19 @@ import { useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Divider, SizableText, YStack } from '@onekeyhq/components';
+import {
+  AnimatePresence,
+  Button,
+  Divider,
+  HeightTransition,
+  SizableText,
+  YStack,
+} from '@onekeyhq/components';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSwapStepsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
   ESwapSlippageSegmentKey,
   IFetchQuoteResult,
@@ -47,6 +56,14 @@ const PreSwapDialogContent = ({
   const fromAmount = quoteResult?.fromAmount || '0';
   const toAmount = quoteResult?.toAmount || '0';
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const isHwWallet = useMemo(
+    () =>
+      accountUtils.isHwWallet({
+        walletId: activeAccount?.wallet?.id ?? '',
+      }),
+    [activeAccount?.wallet?.id],
+  );
   const handleConfirm = () => {
     onConfirm();
   };
@@ -147,49 +164,61 @@ const PreSwapDialogContent = ({
     }
   }, [lastStep?.status, swapSteps.length]);
 
-  if (showResultContent && swapSteps.length > 0) {
-    return <PreSwapConfirmResult lastStep={swapSteps[swapSteps.length - 1]} />;
-  }
+  // if (showResultContent && swapSteps.length > 0) {
+  //   return <PreSwapConfirmResult lastStep={swapSteps[swapSteps.length - 1]} />;
+  // }
   return (
-    <YStack gap="$4">
-      {/* You pay */}
-      <YStack gap="$1">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.swap_review_you_pay })}
-        </SizableText>
-
-        {/* From token item */}
-        <PreSwapTokenItem token={fromTokenInfo} amount={fromAmount} />
-      </YStack>
-      {/* You received */}
-      <YStack gap="$1">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.swap_review_you_receive })}
-        </SizableText>
-
-        {/* To token item */}
-        <PreSwapTokenItem token={toTokenInfo} amount={toAmount} />
-      </YStack>
-
-      <Divider />
-
-      {swapSteps.length > 0 && swapSteps[0].status === ESwapStepStatus.READY ? (
-        <>
-          {/* Info items */}
-          <PreSwapInfoGroup
-            quoteResult={quoteResult}
-            slippageItem={slippageItem}
-          />
-          {/* Primary button */}
-          <Button variant="primary" onPress={handleConfirm} size="medium">
-            {swapSteps[0].stepActionsLabel ??
-              intl.formatMessage({ id: ETranslations.transaction_confirm })}
-          </Button>
-        </>
+    <HeightTransition initialHeight={355}>
+      {showResultContent && swapSteps.length > 0 ? (
+        <PreSwapConfirmResult lastStep={swapSteps[swapSteps.length - 1]} />
       ) : (
-        <PreSwapStep steps={swapSteps} onRetry={handleConfirm} />
+        <YStack gap="$4">
+          {/* You pay */}
+          <YStack gap="$1">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.swap_review_you_pay })}
+            </SizableText>
+
+            {/* From token item */}
+            <PreSwapTokenItem token={fromTokenInfo} amount={fromAmount} />
+          </YStack>
+          {/* You received */}
+          <YStack gap="$1">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.swap_review_you_receive,
+              })}
+            </SizableText>
+
+            {/* To token item */}
+            <PreSwapTokenItem token={toTokenInfo} amount={toAmount} />
+          </YStack>
+
+          <Divider />
+
+          {swapSteps.length > 0 &&
+          swapSteps[0].status === ESwapStepStatus.READY ? (
+            <YStack gap="$4">
+              {/* Info items */}
+              <PreSwapInfoGroup
+                quoteResult={quoteResult}
+                slippageItem={slippageItem}
+              />
+              {/* Primary button */}
+              <Button variant="primary" onPress={handleConfirm} size="medium">
+                {intl.formatMessage({
+                  id: isHwWallet
+                    ? ETranslations.global_confirm_on_device
+                    : ETranslations.global_confirm,
+                })}
+              </Button>
+            </YStack>
+          ) : (
+            <PreSwapStep steps={swapSteps} onRetry={handleConfirm} />
+          )}
+        </YStack>
       )}
-    </YStack>
+    </HeightTransition>
   );
 };
 

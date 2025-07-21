@@ -303,25 +303,28 @@ export function useSwapBuildTx() {
             populated.value,
           ),
         );
-        if (!swapFromAddressInfo.accountInfo?.indexedAccount?.id) {
-          return;
+        if (
+          !swapFromAddressInfo.accountInfo?.indexedAccount?.id &&
+          !swapFromAddressInfo.accountInfo?.account?.id
+        ) {
+          throw new OneKeyError('No account found');
         }
-        const accounts =
-          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
-            {
-              indexedAccountId:
-                swapFromAddressInfo.accountInfo?.indexedAccount?.id,
-              networkIds: [item.networkId],
-            },
-          );
-        const orderAccount = accounts.find(
-          (o) => o.network.id === item.networkId,
-        );
+        const orderAccount =
+          await backgroundApiProxy.serviceAccount.getNetworkAccount({
+            accountId: swapFromAddressInfo.accountInfo?.indexedAccount?.id
+              ? undefined
+              : swapFromAddressInfo?.accountInfo?.account?.id,
+            indexedAccountId:
+              swapFromAddressInfo?.accountInfo?.indexedAccount?.id ?? '',
+            networkId: item.networkId,
+            deriveType:
+              swapFromAddressInfo.accountInfo?.deriveType ?? 'default',
+          });
         if (dataMessage) {
           const signHash = await new Promise<string>((resolve, reject) => {
             if (dataMessage && item.userAddress && orderAccount) {
               navigationToMessageConfirm({
-                accountId: orderAccount.account?.id ?? '',
+                accountId: orderAccount.id,
                 networkId: item.networkId,
                 unsignedMessage: {
                   type: signedType ?? EMessageTypesEth.TYPED_DATA_V4,
@@ -343,7 +346,7 @@ export function useSwapBuildTx() {
               reject(
                 new Error(
                   `missing data: dataMessage: ${dataMessage ?? ''}, address: ${
-                    orderAccount?.account?.address ?? ''
+                    orderAccount?.address ?? ''
                   }, networkId: ${item.networkId ?? ''}`,
                 ),
               );

@@ -199,6 +199,7 @@ function TokenInputSectionComponent(
             value: amount,
           })) ?? []
         }
+        selectedTokenDecimals={selectedToken?.decimals}
         onSelect={handleInternalChange}
         tradeType={tradeType}
         balance={balance}

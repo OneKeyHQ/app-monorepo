@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { ConfigProvider } from '@onekeyhq/components';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
@@ -21,16 +21,18 @@ function BasicThemeProvider({ children }: PropsWithChildren<unknown>) {
       });
     }
   }, []);
-  return (
-    <ConfigProvider
-      theme={themeVariant as any}
-      locale={localeVariant}
-      HyperlinkText={HyperlinkText}
-      onLocaleChange={handleLocalChange}
-    >
-      {children}
-    </ConfigProvider>
-  );
+  return useMemo(() => {
+    return (
+      <ConfigProvider
+        theme={themeVariant as any}
+        locale={localeVariant}
+        HyperlinkText={HyperlinkText}
+        onLocaleChange={handleLocalChange}
+      >
+        {children}
+      </ConfigProvider>
+    );
+  }, [themeVariant, localeVariant, handleLocalChange, children]);
 }
 
 export const ThemeProvider = memo(BasicThemeProvider);
