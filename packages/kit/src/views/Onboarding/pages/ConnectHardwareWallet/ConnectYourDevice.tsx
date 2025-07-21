@@ -507,7 +507,7 @@ export function ConnectionTroubleShootingAccordion({
                         },
                       )}
                 </Heading>
-                <Stack animation="quick" rotate={open ? '180deg' : '0deg'}>
+                <Stack animation="quick" rotate={open ? '-180deg' : '0deg'}>
                   <Icon
                     name="ChevronDownSmallOutline"
                     color={open ? '$iconActive' : '$iconSubdued'}
@@ -524,7 +524,13 @@ export function ConnectionTroubleShootingAccordion({
               enterStyle={{ opacity: 0 }}
               exitStyle={{ opacity: 0 }}
             >
-              <Stack role="list" px={indent ? '$5' : 0} pt="$1" pb="$3">
+              <Stack
+                role="list"
+                px={indent ? '$5' : 0}
+                pt="$1"
+                pb="$3"
+                gap="$2"
+              >
                 {list.map((item, subIndex) => (
                   <XStack role="listitem" key={subIndex} gap="$2">
                     <SizableText w="$4" size="$bodyMd" color="$textSubdued">
