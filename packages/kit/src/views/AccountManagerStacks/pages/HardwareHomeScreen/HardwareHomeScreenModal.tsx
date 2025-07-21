@@ -1,30 +1,41 @@
+/* eslint-disable spellcheck/spell-checker */
 import { useCallback, useMemo, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { isNil } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
+  ActionList,
+  Alert,
   AnimatePresence,
-  Button,
   Icon,
   IconButton,
   Image,
   ImageCrop,
   Page,
+  SizableText,
+  Spinner,
   Stack,
   Toast,
   XStack,
+  YStack,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type {
+  IDBDevice,
+  IDBHardwareHomeScreen,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
   IDeviceHomeScreenConfig,
   IDeviceHomeScreenSizeInfo,
+  IHardwareHomeScreenData,
 } from '@onekeyhq/kit-bg/src/services/ServiceHardware/DeviceSettingsManager';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -37,13 +48,6 @@ import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUt
 import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
-import hardwareHomeScreenData from './hardwareHomeScreenData';
-import uploadedHomeScreenCache from './uploadedHomeScreenCache';
-
-import type {
-  IHardwareHomeScreenData,
-  IHardwareHomeScreenName,
-} from './hardwareHomeScreenData';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { DimensionValue } from 'react-native';
 
@@ -53,6 +57,13 @@ type IAspectRatioInfo = {
   ratio: number;
   flexBasis: DimensionValue | undefined;
 };
+
+type IWallpaperCategory = {
+  title: string;
+  data: IHardwareHomeScreenData[];
+  canUpload?: boolean;
+};
+
 function useAspectRatioInfo(params: {
   sizeInfo: IDeviceHomeScreenSizeInfo | undefined;
   deviceType: IDeviceType;
@@ -85,6 +96,7 @@ function HomeScreenImageItem({
   onItemSelected,
   onImageLayout,
   aspectRatioInfo,
+  onDelete,
 }: {
   isLoading: boolean;
   isSelected: boolean;
@@ -92,7 +104,10 @@ function HomeScreenImageItem({
   aspectRatioInfo: IAspectRatioInfo;
   onItemSelected: (item: IHardwareHomeScreenData) => void;
   onImageLayout?: (params: { width: number; height: number }) => void;
+  onDelete?: (item: IHardwareHomeScreenData) => void;
 }) {
+  const [showDelete, setShowDelete] = useState(false);
+
   return (
     <XStack
       position="relative"
@@ -100,45 +115,79 @@ function HomeScreenImageItem({
       borderWidth={4}
       borderRadius="$3"
       borderColor={isSelected ? '$transparent' : '$transparent'}
-      hoverStyle={{
-        opacity: 0.7,
-      }}
-      pressStyle={{
-        opacity: 0.5,
-      }}
-      onPress={() => {
-        if (isLoading) {
-          return;
+      onHoverIn={() => {
+        if (onDelete) {
+          setShowDelete(true);
         }
-        onItemSelected(item);
+      }}
+      onHoverOut={() => {
+        if (onDelete) {
+          setShowDelete(false);
+        }
       }}
     >
-      <Image
+      <Stack
         flex={1}
-        opacity={isSelected ? 0.35 : 1}
-        aspectRatio={aspectRatioInfo.ratio}
-        resizeMode="contain"
-        borderRadius="$2"
-        onLayout={
-          onImageLayout
-            ? (e) => {
-                const { width, height } = e.nativeEvent.layout;
-                onImageLayout({
-                  // Here we need to subtract 1, so that the upload button can be on the same line as the three images in a row
-                  width: Math.floor(width) - 1,
-                  height: Math.floor(height),
-                });
-              }
-            : undefined
-        }
-        source={
-          !isNil(item.source)
-            ? item.source
-            : {
-                uri: item.uri,
-              }
-        }
-      />
+        hoverStyle={{
+          opacity: 0.8,
+        }}
+        pressStyle={{
+          opacity: 0.5,
+        }}
+        onPress={() => {
+          if (isLoading) {
+            return;
+          }
+          onItemSelected(item);
+        }}
+        onLongPress={() => {
+          if (platformEnv.isNative) {
+            ActionList.show({
+              title: appLocale.intl.formatMessage({
+                id: ETranslations.explore_options,
+              }),
+              items: [
+                {
+                  label: appLocale.intl.formatMessage({
+                    id: ETranslations.global_delete,
+                  }),
+                  destructive: true,
+                  onPress: () => {
+                    onDelete?.(item);
+                  },
+                },
+              ],
+            });
+          }
+        }}
+      >
+        <Image
+          flex={1}
+          opacity={isSelected ? 0.35 : 1}
+          aspectRatio={aspectRatioInfo.ratio}
+          resizeMode="contain"
+          borderRadius="$2"
+          onLayout={
+            onImageLayout
+              ? (e) => {
+                  const { width, height } = e.nativeEvent.layout;
+                  onImageLayout({
+                    // Here we need to subtract 1, so that the upload button can be on the same line as the three images in a row
+                    width: Math.floor(width) - 1,
+                    height: Math.floor(height),
+                  });
+                }
+              : undefined
+          }
+          source={
+            !isNil(item.url)
+              ? item.url
+              : {
+                  uri: item.uri,
+                }
+          }
+        />
+      </Stack>
 
       <AnimatePresence>
         {isSelected ? (
@@ -170,8 +219,328 @@ function HomeScreenImageItem({
           </Stack>
         ) : null}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {showDelete ? (
+          <Stack
+            position="absolute"
+            right="$-1"
+            top="$-1"
+            zIndex={101}
+            borderRadius="$full"
+            backgroundColor="$bg"
+            animation="quick"
+            enterStyle={
+              platformEnv.isNativeAndroid
+                ? undefined
+                : {
+                    opacity: 0,
+                    scale: 0,
+                  }
+            }
+            onPress={(e) => {
+              e?.stopPropagation?.();
+              onDelete?.(item);
+            }}
+            exitStyle={
+              platformEnv.isNativeAndroid
+                ? undefined
+                : {
+                    opacity: 0,
+                    scale: 0,
+                  }
+            }
+          >
+            <Icon size="$6" name="XCircleSolid" color="$icon" />
+          </Stack>
+        ) : null}
+      </AnimatePresence>
     </XStack>
   );
+}
+
+function UploadButton({
+  canUpload,
+  onUpload,
+  aspectRatioInfo,
+}: {
+  canUpload?: boolean;
+  onUpload?: () => void;
+  aspectRatioInfo: IAspectRatioInfo;
+}) {
+  if (canUpload && onUpload) {
+    return (
+      <Stack
+        position="relative"
+        flexBasis={aspectRatioInfo.flexBasis}
+        borderWidth={4}
+        borderRadius="$3"
+        borderColor="$transparent"
+      >
+        <Stack
+          flex={1}
+          justifyContent="center"
+          alignItems="center"
+          aspectRatio={aspectRatioInfo.ratio}
+          borderWidth={1}
+          borderRadius="$2"
+          borderColor="$borderSubdued"
+          onPress={onUpload}
+        >
+          <IconButton icon="PlusSmallOutline" onPress={onUpload} />
+        </Stack>
+      </Stack>
+    );
+  }
+
+  return null;
+}
+
+function WallpaperCategorySection({
+  category,
+  selectedItem,
+  onItemSelected,
+  isLoading,
+  aspectRatioInfo,
+  imageLayout,
+  onImageLayout,
+  onUpload,
+  onDelete,
+}: {
+  category: IWallpaperCategory;
+  selectedItem: IHardwareHomeScreenData | undefined;
+  onItemSelected: (item: IHardwareHomeScreenData) => void;
+  isLoading: boolean;
+  aspectRatioInfo: IAspectRatioInfo;
+  imageLayout?: { width: number; height: number };
+  onImageLayout?: (params: { width: number; height: number }) => void;
+  onUpload?: () => void;
+  onDelete?: (item: IHardwareHomeScreenData) => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const expandCount = onUpload ? 7 : 8;
+  const displayData = isExpanded
+    ? category.data
+    : category.data.slice(0, expandCount);
+  const hasMore = category.data.length > expandCount;
+
+  const onToggleExpand = useCallback(() => {
+    setIsExpanded((prev) => !prev);
+  }, []);
+
+  return (
+    <YStack gap="$2">
+      <XStack px="$1" alignItems="center" justifyContent="space-between">
+        <SizableText size="$headingMd" fontWeight="600">
+          {category.title}
+        </SizableText>
+        {hasMore ? (
+          <IconButton
+            icon={
+              isExpanded ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'
+            }
+            size="small"
+            onPress={onToggleExpand}
+          />
+        ) : null}
+      </XStack>
+
+      <XStack flexWrap="wrap">
+        {/* 自定义壁纸分类显示上传按钮 */}
+        <UploadButton
+          canUpload={category.canUpload}
+          onUpload={onUpload}
+          aspectRatioInfo={aspectRatioInfo}
+        />
+
+        {displayData.map((item, index) => (
+          <HomeScreenImageItem
+            key={`${item.id}-${index}`}
+            aspectRatioInfo={aspectRatioInfo}
+            isLoading={isLoading}
+            isSelected={selectedItem?.id === item.id}
+            item={item}
+            onItemSelected={onItemSelected}
+            onImageLayout={
+              index === 0 && !imageLayout ? onImageLayout : undefined
+            }
+            onDelete={onDelete}
+          />
+        ))}
+      </XStack>
+    </YStack>
+  );
+}
+
+function WallpaperCustomCategorySection({
+  device,
+  config,
+  canUpload,
+  selectedItem,
+  onItemSelected,
+  isLoading,
+  aspectRatioInfo,
+  imageLayout,
+  onImageLayout,
+}: {
+  device: IDBDevice;
+  config: IDeviceHomeScreenConfig | undefined;
+  canUpload: boolean;
+  selectedItem: IHardwareHomeScreenData | undefined;
+  onItemSelected: (item: IHardwareHomeScreenData | undefined) => void;
+  isLoading: boolean;
+  aspectRatioInfo: IAspectRatioInfo;
+  imageLayout?: { width: number; height: number };
+  onImageLayout?: (params: { width: number; height: number }) => void;
+}) {
+  const { result: deviceHomeScreens, run: runGetDeviceHomeScreens } =
+    usePromiseResult<IHardwareHomeScreenData[]>(async () => {
+      const data = await backgroundApiProxy.serviceHardware.getDeviceHomeScreen(
+        {
+          deviceId: device.id,
+        },
+      );
+      return (
+        data?.map((item: IDBHardwareHomeScreen) => ({
+          id: item.id,
+          uri: imageUtils.prefixBase64Uri(item.imgBase64, 'image/jpeg'), // base64 data uri
+          screenHex: Buffer.from(item.imgBase64, 'base64').toString('hex'),
+
+          isUserUpload: true,
+          resType: 'custom',
+        })) ?? []
+      );
+    }, [device.id]);
+
+  const pressUpload = useCallback(async () => {
+    if (!config || !config.size) {
+      return;
+    }
+    const data = await ImageCrop.openPicker({
+      width: config.size?.width,
+      height: config.size?.height,
+    });
+    console.log('cropImage:', data);
+    if (!data.data) {
+      return;
+    }
+
+    const originW = data?.width;
+    const originH = data?.height;
+
+    const isMonochrome = deviceHomeScreenUtils.isMonochromeScreen(
+      device.deviceType,
+    );
+
+    const imgBase64: string = data.data;
+
+    const img = await imageUtils.resizeImage({
+      uri: imgBase64,
+
+      width: config.size?.width,
+      height: config.size?.height,
+
+      originW,
+      originH,
+      isMonochrome,
+    });
+
+    const name = `${USER_UPLOAD_IMG_NAME_PREFIX}${generateUUID()}`;
+
+    const id = await backgroundApiProxy.serviceHardware.saveDeviceHomeScreen({
+      deviceId: device.id,
+      imgBase64: img?.base64 ?? '',
+      name,
+    });
+
+    const uploadItem: IHardwareHomeScreenData = {
+      id,
+      uri: imageUtils.prefixBase64Uri(img?.base64 || imgBase64, 'image/jpeg'), // base64 data uri
+      screenHex: img?.hex,
+      isUserUpload: true,
+      resType: 'custom',
+    };
+
+    onItemSelected(uploadItem);
+
+    await runGetDeviceHomeScreens();
+  }, [
+    config,
+    device.deviceType,
+    device.id,
+    onItemSelected,
+    runGetDeviceHomeScreens,
+  ]);
+
+  const category = {
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.global_wallpaper_custom,
+    }),
+    data: deviceHomeScreens ?? [],
+    canUpload,
+  };
+
+  const onDelete = useCallback(
+    async (item: IHardwareHomeScreenData) => {
+      if (selectedItem && 'id' in selectedItem && selectedItem.id === item.id) {
+        onItemSelected(undefined);
+      }
+      await backgroundApiProxy.serviceHardware.deleteDeviceHomeScreen(item.id);
+      await runGetDeviceHomeScreens();
+    },
+    [onItemSelected, runGetDeviceHomeScreens, selectedItem],
+  );
+
+  return (
+    <WallpaperCategorySection
+      category={category}
+      selectedItem={selectedItem}
+      onItemSelected={onItemSelected}
+      isLoading={isLoading}
+      aspectRatioInfo={aspectRatioInfo}
+      imageLayout={imageLayout}
+      onImageLayout={onImageLayout}
+      onUpload={canUpload ? pressUpload : undefined}
+      onDelete={onDelete}
+    />
+  );
+}
+
+function LoadingStateView({
+  isLoading,
+  errorMessage,
+  onRetry,
+}: {
+  isLoading: boolean;
+  errorMessage?: string;
+  onRetry: () => void;
+}) {
+  const intl = useIntl();
+
+  if (isLoading) {
+    return <Spinner size="large" />;
+  }
+
+  if (errorMessage) {
+    return (
+      <Alert
+        icon="ErrorOutline"
+        type="critical"
+        title={errorMessage}
+        action={{
+          primary: intl.formatMessage({
+            id: ETranslations.global_retry,
+          }),
+          onPrimaryPress() {
+            onRetry();
+          },
+        }}
+      />
+    );
+  }
+
+  return null;
 }
 
 export default function HardwareHomeScreenModal({
@@ -185,14 +554,10 @@ export default function HardwareHomeScreenModal({
   const [selectedItem, setSelectedItem] = useState<
     IHardwareHomeScreenData | undefined
   >();
-  const [isLoading, setIsLoading] = useState(false);
-  const [resizedImagePreview, setResizedImagePreview] = useState<{
-    base64Img: string | undefined;
-    base64ThumbnailImg: string | undefined;
-  }>();
+  const intl = useIntl();
+  const [isUploadLoading, setIsUploadLoading] = useState(false);
 
-  const { result } = usePromiseResult<{
-    dataList: IHardwareHomeScreenData[];
+  const { result: deviceInfo } = usePromiseResult<{
     deviceType: IDeviceType;
     canUpload: boolean;
     config: IDeviceHomeScreenConfig;
@@ -203,45 +568,68 @@ export default function HardwareHomeScreenModal({
         homeScreenType: 'WallPaper',
       });
 
-    // 'unknown' | 'classic' | 'classic1s' | 'classicPure' | 'mini' | 'touch' | 'pro';
     const deviceType: IDeviceType = device?.deviceType || 'unknown';
-    let dataList: IHardwareHomeScreenData[] = [];
+
     let canUpload = false;
-    if (
-      [
-        EDeviceType.Classic,
-        EDeviceType.Mini,
-        EDeviceType.Classic1s,
-        EDeviceType.ClassicPure,
-      ].includes(deviceType)
-    ) {
-      dataList = hardwareHomeScreenData.classicMini;
+    if ([EDeviceType.Classic1s, EDeviceType.ClassicPure].includes(deviceType)) {
+      canUpload = true;
+    }
+    if ([EDeviceType.Classic, EDeviceType.Mini].includes(deviceType)) {
       canUpload = true;
     }
     if ([EDeviceType.Touch].includes(deviceType)) {
-      dataList = hardwareHomeScreenData.touch;
       canUpload = true;
     }
     if ([EDeviceType.Pro].includes(deviceType)) {
-      dataList = hardwareHomeScreenData.pro;
       canUpload = true;
     }
+
     return {
-      config,
-      dataList,
-      deviceType,
+      deviceType: device?.deviceType || 'unknown',
       canUpload,
+      config,
     };
   }, [device?.deviceType, device?.id]);
 
-  console.log('HardwareHomeScreenModal_____result', result);
+  const {
+    result,
+    isLoading: isHardwareHomeScreenLoading,
+    run: runFetchHardwareHomeScreen,
+  } = usePromiseResult<{
+    homeScreenList: IHardwareHomeScreenData[];
+    isLoadingError: boolean;
+  }>(async () => {
+    const { getDeviceFirmwareVersion, getDeviceUUID } = await CoreSDKLoader();
 
-  const [uploadItems, setUploadItems] = useState<IHardwareHomeScreenData[]>([
-    ...uploadedHomeScreenCache.getCacheList(device?.id),
-  ]);
+    const serialNumber = device?.featuresInfo
+      ? getDeviceUUID(device.featuresInfo)
+      : '';
+
+    const firmwareVersion = device?.featuresInfo
+      ? getDeviceFirmwareVersion(device.featuresInfo)?.join('.')
+      : '';
+
+    // 'unknown' | 'classic' | 'classic1s' | 'classicPure' | 'mini' | 'touch' | 'pro';
+    const deviceType: IDeviceType = device?.deviceType || 'unknown';
+
+    try {
+      const dataList =
+        await backgroundApiProxy.serviceHardware.fetchHardwareHomeScreen({
+          deviceType,
+          serialNumber,
+          firmwareVersion,
+        });
+
+      return { homeScreenList: dataList, isLoadingError: false };
+    } catch (error) {
+      return { homeScreenList: [], isLoadingError: true };
+    }
+  }, [device?.deviceType, device.featuresInfo]);
+
+  console.log('HardwareHomeScreenModal_____result', result?.homeScreenList);
 
   const aspectRatioInfo = useAspectRatioInfo({
-    sizeInfo: result?.config?.size,
+    sizeInfo: deviceInfo?.config?.size,
     deviceType: device.deviceType,
   });
 
@@ -253,233 +641,162 @@ export default function HardwareHomeScreenModal({
     | undefined
   >();
 
-  const pressUpload = useCallback(async () => {
-    if (!result?.config || !result?.config.size) {
-      return;
-    }
-    const data = await ImageCrop.openPicker({
-      width: result?.config.size?.width,
-      height: result?.config.size?.height,
-    });
-    console.log('cropImage:', data);
-    if (!data.data) {
-      return;
-    }
+  const wallpaperCategories = useMemo((): IWallpaperCategory[] => {
+    const filteredDataList = result?.homeScreenList || [];
 
-    // const originW = result?.config.size?.width;
-    // const originH = result?.config.size?.height;
-    const originW = data?.width;
-    const originH = data?.height;
-
-    const isMonochrome = deviceHomeScreenUtils.isMonochromeScreen(
-      device.deviceType,
+    const defaultWallpapers = filteredDataList.filter(
+      (item) => item.wallpaperType === 'default',
+    );
+    const cobrandingWallpapers = filteredDataList.filter(
+      (item) => item.wallpaperType === 'cobranding',
     );
 
-    const imgBase64: string = data.data;
+    const categories = [
+      {
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.global_wallpaper_classic,
+        }),
+        data: defaultWallpapers,
+      },
+    ];
 
-    const img = await imageUtils.resizeImage({
-      uri: imgBase64,
+    if (cobrandingWallpapers.length > 0) {
+      categories.push({
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.global_wallpaper_cobranding,
+        }),
+        data: cobrandingWallpapers,
+      });
+    }
 
-      width: result?.config.size?.width,
-      height: result?.config.size?.height,
+    return categories;
+  }, [result?.homeScreenList]);
 
-      originW,
-      originH,
-      isMonochrome,
+  const ScreenContent = useMemo(() => {
+    if (isHardwareHomeScreenLoading || result?.isLoadingError) {
+      return (
+        <LoadingStateView
+          isLoading={!!isHardwareHomeScreenLoading}
+          errorMessage={intl.formatMessage({
+            id: ETranslations.global_network_error_help_text,
+          })}
+          onRetry={runFetchHardwareHomeScreen}
+        />
+      );
+    }
+
+    return wallpaperCategories.map((category) => {
+      return (
+        <YStack key={category.title}>
+          <WallpaperCategorySection
+            category={category}
+            selectedItem={selectedItem}
+            onItemSelected={setSelectedItem}
+            isLoading={isUploadLoading}
+            aspectRatioInfo={aspectRatioInfo}
+            imageLayout={imageLayout}
+            onImageLayout={setImageLayout}
+          />
+        </YStack>
+      );
     });
-    const imgThumb = await imageUtils.resizeImage({
-      uri: imgBase64,
-
-      width: result?.config.thumbnailSize?.width ?? result?.config.size?.width,
-      height:
-        result?.config.thumbnailSize?.height ?? result?.config.size?.height,
-
-      originW,
-      originH,
-      isMonochrome,
-    });
-
-    // setResizedImagePreview({
-    //   base64Img: img?.uri,
-    //   base64ThumbnailImg: imgThumb?.uri,
-    // });
-
-    const name =
-      `${USER_UPLOAD_IMG_NAME_PREFIX}${generateUUID()}` as IHardwareHomeScreenName;
-    const uploadItem: IHardwareHomeScreenData = {
-      uri: imageUtils.prefixBase64Uri(img?.base64 || imgBase64, 'image/jpeg'), // base64 data uri
-      hex: img?.hex,
-      thumbnailHex: imgThumb?.hex,
-      name,
-      isUserUpload: true,
-    };
-    setUploadItems([...uploadItems, uploadItem]);
-    setSelectedItem(uploadItem);
-    uploadedHomeScreenCache.saveCache(device?.id, uploadItem);
-  }, [result?.config, device.deviceType, device?.id, uploadItems]);
-
-  const buildItemCustomHex = useCallback(
-    async (item: IHardwareHomeScreenData) => {
-      let customHex = '';
-      if (deviceHomeScreenUtils.isMonochromeScreen(device.deviceType)) {
-        const imgUri =
-          (await imageUtils.getBase64FromRequiredImageSource(
-            item?.source,
-            (...args) => {
-              defaultLogger.hardware.homescreen.getBase64FromRequiredImageSource(
-                ...args,
-              );
-            },
-          )) ||
-          item?.uri ||
-          '';
-        console.log('imgUri >>>>>>>>>>>>>>>>>++++++++>>> ', imgUri, item);
-        if (!imgUri) {
-          throw new OneKeyLocalError('Error imgUri not defined');
-        }
-        customHex = await deviceHomeScreenUtils.imagePathToHex(
-          imgUri,
-          device.deviceType,
-        );
-      }
-      return customHex;
-    },
-    [device.deviceType],
-  );
-
-  const printAllItemsCustomHex = useCallback(async () => {
-    const data = await Promise.all(
-      (result?.dataList || []).map(async (item) => ({
-        name: item.name,
-        customHex: await buildItemCustomHex(item),
-        // hex: item.hex,
-      })),
-    );
-    console.log('printAllItemsCustomHex', data);
-    console.log('printAllItemsCustomHex string', JSON.stringify(data));
-    return data;
-  }, [result?.dataList, buildItemCustomHex]);
+  }, [
+    isHardwareHomeScreenLoading,
+    result?.isLoadingError,
+    wallpaperCategories,
+    intl,
+    runFetchHardwareHomeScreen,
+    selectedItem,
+    isUploadLoading,
+    aspectRatioInfo,
+    imageLayout,
+  ]);
 
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header title="HomeScreen" />
       <Page.Body px="$4">
-        <XStack flexWrap="wrap" px="$1" py="$2">
-          {(result?.dataList || []).map((item, index) => {
-            if (!result?.config?.names?.includes?.(item.name)) {
-              return null;
-            }
-            return (
-              <HomeScreenImageItem
-                aspectRatioInfo={aspectRatioInfo}
-                key={index}
-                isLoading={isLoading}
-                isSelected={selectedItem?.name === item.name}
-                item={item}
-                onItemSelected={setSelectedItem}
-                onImageLayout={
-                  index === 0
-                    ? (p) => {
-                        setImageLayout(p);
-                      }
-                    : undefined
-                }
-              />
-            );
-          })}
-          {uploadItems.map((item, index) => (
-            <HomeScreenImageItem
-              aspectRatioInfo={aspectRatioInfo}
-              key={index}
-              isLoading={isLoading}
-              isSelected={selectedItem?.name === item.name}
-              item={item}
-              onItemSelected={setSelectedItem}
-            />
-          ))}
-          {result?.canUpload && imageLayout ? (
-            <Stack borderWidth={4} borderColor="$transparent">
-              <Stack
-                justifyContent="center"
-                alignItems="center"
-                borderWidth={1}
-                borderRadius="$2"
-                borderColor="$borderSubdued"
-                w={imageLayout?.width}
-                h={imageLayout?.height}
-                onPress={pressUpload}
-              >
-                <IconButton icon="PlusSmallOutline" onPress={pressUpload} />
-              </Stack>
-            </Stack>
-          ) : null}
+        <YStack gap="$2" py="$2">
+          <WallpaperCustomCategorySection
+            device={device}
+            config={deviceInfo?.config}
+            canUpload={deviceInfo?.canUpload ?? false}
+            selectedItem={selectedItem}
+            onItemSelected={setSelectedItem}
+            isLoading={isUploadLoading}
+            aspectRatioInfo={aspectRatioInfo}
+            imageLayout={imageLayout}
+            onImageLayout={setImageLayout}
+          />
 
-          {resizedImagePreview?.base64Img ? (
-            <Image
-              source={{
-                uri: `${resizedImagePreview.base64Img}`,
-              }}
-            />
-          ) : null}
-          {resizedImagePreview?.base64ThumbnailImg ? (
-            <Image
-              source={{
-                uri: `${resizedImagePreview.base64ThumbnailImg}`,
-              }}
-            />
-          ) : null}
-          {platformEnv.isDev ? (
-            <Button onPress={printAllItemsCustomHex}>AllHex</Button>
-          ) : null}
-        </XStack>
+          {ScreenContent}
+        </YStack>
       </Page.Body>
       <Page.Footer
         onCancel={() => {}}
         confirmButtonProps={{
-          disabled: !selectedItem || isLoading,
-          loading: isLoading,
+          disabled: !selectedItem || isUploadLoading,
+          loading: isUploadLoading,
         }}
-        onConfirm={async (close) => {
+        onConfirm={async (_close) => {
           try {
             if (!device?.id || !selectedItem) {
               return;
             }
-            setIsLoading(true);
+            setIsUploadLoading(true);
+
+            const { nameHex, screenHex, thumbnailHex, resType, isUserUpload } =
+              selectedItem;
+
+            const isCustomScreen = resType === 'custom' || isUserUpload;
 
             let buildCustomHexError: string | undefined = '';
-            let customHex = '';
+
+            let finallyScreenHex = '';
+            let finallyThumbnailHex: string | undefined;
             try {
-              customHex = await buildItemCustomHex(selectedItem);
+              if (isCustomScreen) {
+                // case 1: custom upload wallpaper from uri
+                // case 2: server custom wallpaper from url
+                const {
+                  screenHex: customScreenHex,
+                  thumbnailHex: customThumbnailHex,
+                } = await deviceHomeScreenUtils.buildCustomScreenHex(
+                  device.id,
+                  selectedItem.uri || selectedItem.url,
+                  device.deviceType,
+                  isUserUpload,
+                  deviceInfo?.config,
+                );
+
+                finallyScreenHex = customScreenHex || '';
+                finallyThumbnailHex = customThumbnailHex;
+              } else {
+                finallyScreenHex = screenHex || nameHex || '';
+                finallyThumbnailHex = thumbnailHex;
+              }
             } catch (error) {
               buildCustomHexError = (error as Error | undefined)?.message;
             }
-            const customHexPreDefined =
-              hardwareHomeScreenData.classicMiniHomeScreenCustomHex.find(
-                (item) => item.name === selectedItem.name,
-              )?.customHex;
-
-            const imgHex =
-              customHex || customHexPreDefined || selectedItem.hex || '';
 
             defaultLogger.hardware.homescreen.setHomeScreen({
               buildCustomHexError,
               deviceId: device?.id,
               deviceType: device.deviceType,
               deviceName: device.name,
-              imgName: selectedItem.name,
-              imgHex,
-              customHex,
-              customHexPreDefined,
-              selectedItemHex: selectedItem.hex,
-              isUserUpload: selectedItem.isUserUpload,
+              imgName: selectedItem.id,
+              imgResType: resType,
+              imgHex: finallyScreenHex,
+              isUserUpload,
             });
 
             await backgroundApiProxy.serviceHardware.setDeviceHomeScreen({
               dbDeviceId: device?.id,
-              imgName: selectedItem.name,
-              imgHex,
-              thumbnailHex: selectedItem.thumbnailHex || '',
-              isUserUpload: selectedItem.isUserUpload,
+              screenItem: {
+                ...selectedItem,
+                screenHex: finallyScreenHex,
+                thumbnailHex: finallyThumbnailHex,
+              },
             });
             // setSelectedItem(undefined);
             Toast.success({
@@ -493,7 +810,7 @@ export default function HardwareHomeScreenModal({
             errorToastUtils.toastIfError(error);
             throw error;
           } finally {
-            setIsLoading(false);
+            setIsUploadLoading(false);
           }
         }}
       />
