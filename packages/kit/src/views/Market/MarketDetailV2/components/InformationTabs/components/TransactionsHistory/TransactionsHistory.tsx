@@ -46,7 +46,7 @@ export function TransactionsHistory({
         return gtLg ? (
           <TransactionItemNormal item={item} networkId={networkId} />
         ) : (
-          <TransactionItemSmall item={item} networkId={networkId} />
+          <TransactionItemSmall item={item} />
         );
       },
       [networkId, gtLg],

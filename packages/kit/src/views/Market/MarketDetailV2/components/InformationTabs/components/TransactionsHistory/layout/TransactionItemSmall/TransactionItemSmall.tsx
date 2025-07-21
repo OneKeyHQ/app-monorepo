@@ -16,12 +16,10 @@ import { useTransactionsLayoutSmall } from './useTransactionsLayoutSmall';
 
 interface ITransactionItemSmallProps {
   item: IMarketTokenTransaction;
-  networkId: string;
 }
 
 function TransactionItemSmallBase({
   item,
-  networkId,
 }: ITransactionItemSmallProps) {
   const { styles } = useTransactionsLayoutSmall();
   const [settingsPersistAtom] = useSettingsPersistAtom();
@@ -34,8 +32,8 @@ function TransactionItemSmallBase({
     typeText,
     price,
     value,
-    formatRelativeTime,
-  } = useTransactionItemData({ item, networkId });
+    formattedTime,
+  } = useTransactionItemData({ item });
 
   return (
     <XStack py="$1" px="$4" alignItems="center">
@@ -45,7 +43,7 @@ function TransactionItemSmallBase({
         </SizableText>
 
         <SizableText size="$bodySm" color="$textSubdued">
-          {formatRelativeTime(item.timestamp)}
+          {formattedTime}
         </SizableText>
       </YStack>
 

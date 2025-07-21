@@ -4,7 +4,7 @@ import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
-import { TransactionAddress } from '../../components/TransactionAddress';
+import { AddressDisplay } from '../../../AddressDisplay';
 import { TransactionAmount } from '../../components/TransactionAmount';
 import { useTransactionItemData } from '../../hooks/useTransactionItemData';
 
@@ -29,16 +29,14 @@ function TransactionItemNormalBase({
     typeText,
     price,
     value,
-    formatRelativeTime,
-    handleCopyAddress,
-    handleViewInBrowser,
-  } = useTransactionItemData({ item, networkId });
+    formattedTime,
+  } = useTransactionItemData({ item });
   const [settingsPersistAtom] = useSettingsPersistAtom();
 
   return (
     <XStack py="$1" px="$4" alignItems="center">
       <SizableText size="$bodyMd" color="$textSubdued" {...styles.time}>
-        {formatRelativeTime(item.timestamp)}
+        {formattedTime}
       </SizableText>
 
       <SizableText size="$bodyMdMedium" color={typeColor} {...styles.type}>
@@ -80,10 +78,12 @@ function TransactionItemNormalBase({
         {value}
       </NumberSizeableText>
 
-      <TransactionAddress
+      <AddressDisplay
         address={item.owner}
-        handleCopyAddress={handleCopyAddress}
-        handleViewInBrowser={handleViewInBrowser}
+        enableCopy
+        enableOpenInBrowser
+        networkId={networkId}
+        txId={item.hash}
         style={styles.address}
       />
     </XStack>
