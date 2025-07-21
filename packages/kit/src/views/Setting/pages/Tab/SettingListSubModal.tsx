@@ -19,7 +19,7 @@ export default function SettingListSubModal() {
     useRoute<
       RouteProp<IModalSettingParamList, EModalSettingRoutes.SettingListSubModal>
     >();
-  const { name } = route.params || {};
+  const { name, title } = route.params || {};
   const settingsConfig = useSettingsConfig();
   const filteredSettingsConfig = useMemo(() => {
     return settingsConfig.filter((config) => config && !config.isHidden);
@@ -27,6 +27,7 @@ export default function SettingListSubModal() {
   return (
     <SubSettingsPage
       name={name as ISettingName}
+      title={title || ''}
       settingsConfig={filteredSettingsConfig}
     />
   );

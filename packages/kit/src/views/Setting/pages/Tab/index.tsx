@@ -164,7 +164,7 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
 function SettingsTabNavigator() {
   const settingsConfig = useSettingsConfig();
   const tabScreens = useMemo(() => {
-    const items = settingsConfig.map((config, index) => {
+    const items = settingsConfig.map((config) => {
       if (!config) {
         return null;
       }

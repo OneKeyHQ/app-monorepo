@@ -1,31 +1,22 @@
-import { memo, useCallback } from 'react';
+import { memo } from 'react';
 
-import {
-  Icon,
-  NumberSizeableText,
-  SizableText,
-  XStack,
-  useClipboard,
-} from '@onekeyhq/components';
+import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
+
+import { AddressDisplay } from '../AddressDisplay';
 
 import { useHoldersLayout } from './useHoldersLayout';
 
 interface IHolderItemProps {
   item: IMarketTokenHolder & { marketCapPercentage?: string | null };
   index: number;
+  networkId: string;
 }
 
-function HolderItemBase({ item, index }: IHolderItemProps) {
-  const { copyText } = useClipboard();
+function HolderItemBase({ item, index, networkId }: IHolderItemProps) {
   const { layoutConfig } = useHoldersLayout();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-
-  const handleCopyAddress = useCallback(() => {
-    copyText(item.accountAddress);
-  }, [copyText, item.accountAddress]);
 
   return (
     <XStack h={40} px="$4" alignItems="center" gap="$3">
@@ -35,31 +26,13 @@ function HolderItemBase({ item, index }: IHolderItemProps) {
       </SizableText>
 
       {/* Address with copy icon */}
-      <XStack
-        onPress={handleCopyAddress}
-        cursor="pointer"
-        hoverStyle={{ bg: '$bgHover' }}
-        pressStyle={{ bg: '$bgActive' }}
-        borderRadius="$2"
-        alignItems="center"
-        gap="$1"
-        {...layoutConfig.address}
-      >
-        <SizableText
-          fontFamily="$monoRegular"
-          size="$bodyMd"
-          color="$text"
-          numberOfLines={1}
-          flexShrink={1}
-        >
-          {accountUtils.shortenAddress({
-            address: item.accountAddress,
-            leadingLength: 6,
-            trailingLength: 4,
-          })}
-        </SizableText>
-        <Icon name="Copy2Outline" size="$4" color="$iconSubdued" />
-      </XStack>
+      <AddressDisplay
+        address={item.accountAddress}
+        enableCopy
+        enableOpenInBrowser
+        networkId={networkId}
+        style={layoutConfig.address}
+      />
 
       {/* Market Cap Percentage */}
       <SizableText size="$bodyMd" color="$text" {...layoutConfig.percentage}>
