@@ -18,9 +18,7 @@ interface ITransactionItemSmallProps {
   item: IMarketTokenTransaction;
 }
 
-function TransactionItemSmallBase({
-  item,
-}: ITransactionItemSmallProps) {
+function TransactionItemSmallBase({ item }: ITransactionItemSmallProps) {
   const { styles } = useTransactionsLayoutSmall();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const {
