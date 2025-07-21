@@ -104,10 +104,16 @@ function useAppNavigation<
         params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
       },
     ) => {
-      rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-        screen: route,
-        params,
-      });
+      rootNavigationRef.current?.navigate(
+        ERootRoutes.Main,
+        {
+          screen: route,
+          params,
+        },
+        {
+          pop: true,
+        },
+      );
     },
     [],
   );
