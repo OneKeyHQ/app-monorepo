@@ -9,6 +9,7 @@ import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
+import type { ILottieViewProps } from '@onekeyhq/components';
 import {
   Accordion,
   Anchor,
@@ -29,6 +30,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import BluetoothSignalSpreading from '@onekeyhq/kit/assets/animations/bluetooth_signal_spreading.json';
 import ConnectByBluetoothAnim from '@onekeyhq/kit/assets/animations/connect_by_bluetooth.json';
 import ConnectByUSBAnim from '@onekeyhq/kit/assets/animations/connect_by_usb.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -329,6 +331,300 @@ enum EConnectionStatus {
   searching = 'searching',
   listing = 'listing',
 }
+
+function AnimationView({
+  troubleshootingSolutions,
+  lottieSource,
+  connectStatus,
+}: {
+  troubleshootingSolutions: (string | ReactNode)[][];
+  lottieSource: ILottieViewProps['source'];
+  connectStatus: EConnectionStatus;
+}) {
+  const intl = useIntl();
+  const [showHelper, setShowHelper] = useState(false);
+  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
+
+  useEffect(() => {
+    if (connectStatus === EConnectionStatus.listing) {
+      const timer = setTimeout(() => {
+        setShowHelper(true);
+      }, 10_000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [connectStatus]);
+
+  const handleHelperPress = useCallback(() => {
+    setShowTroubleshooting(true);
+    setShowHelper(false);
+  }, []);
+
+  return (
+    <Stack bg="$bgSubdued">
+      {!showTroubleshooting && lottieSource ? (
+        <LottieView width="100%" height="$56" source={lottieSource} />
+      ) : (
+        <Accordion type="single" defaultValue="0" collapsible>
+          {troubleshootingSolutions.map((list, index) => (
+            <Accordion.Item value={index.toString()} key={index.toString()}>
+              <Accordion.Trigger
+                unstyled
+                flexDirection="row"
+                alignItems="center"
+                borderWidth={0}
+                px="$5"
+                py="$2"
+                bg="$transparent"
+                hoverStyle={{ bg: '$bgHover' }}
+                pressStyle={{
+                  bg: '$bgActive',
+                }}
+                focusVisibleStyle={{
+                  outlineWidth: 2,
+                  outlineStyle: 'solid',
+                  outlineColor: '$focusRing',
+                  outlineOffset: 0,
+                }}
+              >
+                {({ open }: { open: boolean }) => (
+                  <>
+                    <Heading
+                      flex={1}
+                      size={open ? '$headingSm' : '$bodyMd'}
+                      textAlign="left"
+                      color={open ? '$text' : '$textSubdued'}
+                    >
+                      {index === troubleshootingSolutions.length - 1
+                        ? intl.formatMessage({
+                            id: ETranslations.troubleshooting_fallback_solution_label,
+                          })
+                        : intl.formatMessage(
+                            { id: ETranslations.troubleshooting_solution_x },
+                            {
+                              number: index + 1,
+                            },
+                          )}
+                    </Heading>
+                    <Stack animation="quick" rotate={open ? '180deg' : '0deg'}>
+                      <Icon
+                        name="ChevronDownSmallOutline"
+                        color={open ? '$iconActive' : '$iconSubdued'}
+                        size="$5"
+                      />
+                    </Stack>
+                  </>
+                )}
+              </Accordion.Trigger>
+              <Accordion.HeightAnimator
+                animation="quick"
+                borderBottomWidth={StyleSheet.hairlineWidth}
+                borderBottomColor="$borderSubdued"
+              >
+                <Accordion.Content
+                  unstyled
+                  animation="quick"
+                  enterStyle={{ opacity: 0 }}
+                  exitStyle={{ opacity: 0 }}
+                >
+                  <Stack role="list" px="$5" pt="$1" pb="$3">
+                    {list.map((item, subIndex) => (
+                      <XStack role="listitem" key={subIndex} gap="$2">
+                        <SizableText w="$4" size="$bodyMd" color="$textSubdued">
+                          {subIndex + 1}.
+                        </SizableText>
+                        <SizableText
+                          $md={{
+                            maxWidth: '$78',
+                          }}
+                          size="$bodyMd"
+                        >
+                          {item}
+                        </SizableText>
+                      </XStack>
+                    ))}
+                  </Stack>
+                </Accordion.Content>
+              </Accordion.HeightAnimator>
+            </Accordion.Item>
+          ))}
+        </Accordion>
+      )}
+      {showHelper ? (
+        <Stack
+          position="absolute"
+          left="$0"
+          right="$0"
+          bottom="$0"
+          p="$2"
+          bg="$gray3"
+          alignItems="center"
+        >
+          <Button size="small" variant="tertiary" onPress={handleHelperPress}>
+            {intl.formatMessage({
+              id: ETranslations.troubleshooting_show_helper_cta_label,
+            })}
+          </Button>
+        </Stack>
+      ) : null}
+    </Stack>
+  );
+}
+
+function DeviceListView({
+  title,
+  description,
+  devicesData,
+}: {
+  title?: string;
+  description?: string;
+  devicesData: IConnectYourDeviceItem[];
+}) {
+  const intl = useIntl();
+
+  return (
+    <ScrollView flex={1}>
+      <YStack gap="$1" py="$2.5" px="$5">
+        {title ? (
+          <SizableText size="$headingMd" textAlign="center">
+            {title}
+          </SizableText>
+        ) : (
+          <SizableText size="$headingMd" textAlign="center">
+            {`${intl.formatMessage({
+              id: ETranslations.onboarding_bluetooth_connect_help_text,
+            })}...`}
+          </SizableText>
+        )}
+
+        <SizableText size="$bodyMd" textAlign="center" color="$textSubdued">
+          {description}
+        </SizableText>
+      </YStack>
+      {devicesData.map((item) => (
+        <DeviceListItem
+          item={item}
+          key={item.device?.connectId ?? item.title}
+        />
+      ))}
+    </ScrollView>
+  );
+}
+
+// Static troubleshooting solutions data
+const getTroubleshootingSolutions = (intl: ReturnType<typeof useIntl>) => {
+  const usbTroubleshootingSolutions = [
+    [
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_replug_usb_cable,
+      }),
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_connect_and_unlock,
+      }),
+    ],
+    [
+      intl.formatMessage({ id: ETranslations.troubleshooting_change_usb_port }),
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_remove_usb_dongles,
+      }),
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_connect_and_unlock,
+      }),
+    ],
+    [
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_use_original_usb_cable,
+      }),
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_try_different_usb_cable,
+      }),
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_connect_and_unlock,
+      }),
+    ],
+    [
+      intl.formatMessage(
+        { id: ETranslations.troubleshooting_check_bridge },
+        {
+          tag: (chunks: ReactNode[]) => (
+            <Anchor
+              href="https://help.onekey.so/articles/11461190"
+              target="_blank"
+              size="$bodyMd"
+              color="$textInfo"
+            >
+              {chunks}
+            </Anchor>
+          ),
+        },
+      ),
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_close_other_onekey_app,
+      }),
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_connect_and_unlock,
+      }),
+    ],
+  ];
+
+  const bluetoothTroubleshootingSolutions = [
+    [
+      intl.formatMessage({ id: ETranslations.troubleshooting_check_bluetooth }),
+      intl.formatMessage({ id: ETranslations.troubleshooting_unlock_device }),
+    ],
+    [
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_remove_device_from_bluetooth_list,
+      }),
+      intl.formatMessage({ id: ETranslations.troubleshooting_restart_app }),
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_reconnect_and_pair,
+      }),
+    ],
+  ];
+
+  const commonTroubleshootingSolutions = [
+    [
+      intl.formatMessage(
+        { id: ETranslations.troubleshooting_help_center },
+        {
+          tag: (chunks: ReactNode[]) => (
+            <Anchor
+              href="https://help.onekey.so/?q=connect"
+              target="_blank"
+              size="$bodyMd"
+              color="$textInfo"
+            >
+              {chunks}
+            </Anchor>
+          ),
+        },
+      ),
+      intl.formatMessage(
+        { id: ETranslations.troubleshooting_request },
+        {
+          tag: (chunks: ReactNode[]) => (
+            <Anchor
+              href={FIRMWARE_CONTACT_US_URL}
+              target="_blank"
+              size="$bodyMd"
+              color="$textInfo"
+            >
+              {chunks}
+            </Anchor>
+          ),
+        },
+      ),
+    ],
+  ];
+
+  return {
+    usb: usbTroubleshootingSolutions,
+    bluetooth: bluetoothTroubleshootingSolutions,
+    common: commonTroubleshootingSolutions,
+  };
+};
+
 function ConnectByUSBOrBLE() {
   const intl = useIntl();
   const isFocused = useIsFocused();
@@ -364,6 +660,12 @@ function ConnectByUSBOrBLE() {
   );
 
   const requestsUrl = useHelpLink({ path: 'requests/new' });
+
+  const troubleshootingSolutionsData = getTroubleshootingSolutions(intl);
+  const troubleshootingSolutions = [
+    ...troubleshootingSolutionsData.usb,
+    ...troubleshootingSolutionsData.common,
+  ];
 
   const handleNotActivatedDevicePress = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -495,8 +797,6 @@ function ConnectByUSBOrBLE() {
   const isSearchingRef = useRef(false);
   const [isCheckingDeviceLoading, setIsChecking] = useState(false);
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
-  const [showHelper, setShowHelper] = useState(false);
-  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
 
   const deviceScanner = useMemo(
     () =>
@@ -1087,251 +1387,15 @@ function ConnectByUSBOrBLE() {
     [],
   );
 
-  useEffect(() => {
-    if (connectStatus === EConnectionStatus.listing) {
-      const timer = setTimeout(() => {
-        setShowHelper(true);
-      }, 10_000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [connectStatus]);
-
-  const handleHelperPress = useCallback(() => {
-    setShowTroubleshooting(true);
-    setShowHelper(false);
-  }, []);
-
-  const usbTroubleshootingSolutions = [
-    [
-      intl.formatMessage({
-        id: ETranslations.troubleshooting_replug_usb_cable,
-      }),
-      intl.formatMessage({
-        id: ETranslations.troubleshooting_connect_and_unlock,
-      }),
-    ],
-    [
-      intl.formatMessage({ id: ETranslations.troubleshooting_change_usb_port }),
-      intl.formatMessage({
-        id: ETranslations.troubleshooting_remove_usb_dongles,
-      }),
-      intl.formatMessage({
-        id: ETranslations.troubleshooting_connect_and_unlock,
-      }),
-    ],
-    [
-      intl.formatMessage({
-        id: ETranslations.troubleshooting_use_original_usb_cable,
-      }),
-      intl.formatMessage({
-        id: ETranslations.troubleshooting_try_different_usb_cable,
-      }),
-      intl.formatMessage({
-        id: ETranslations.troubleshooting_connect_and_unlock,
-      }),
-    ],
-    [
-      intl.formatMessage(
-        { id: ETranslations.troubleshooting_check_bridge },
-        {
-          tag: (chunks: ReactNode[]) => (
-            <Anchor
-              href="https://help.onekey.so/articles/11461190"
-              target="_blank"
-              size="$bodyMd"
-              color="$textInfo"
-            >
-              {chunks}
-            </Anchor>
-          ),
-        },
-      ),
-      intl.formatMessage({
-        id: ETranslations.troubleshooting_close_other_onekey_app,
-      }),
-      intl.formatMessage({
-        id: ETranslations.troubleshooting_connect_and_unlock,
-      }),
-    ],
-  ];
-
-  const bluetoothTroubleshootingSolutions = [
-    [
-      intl.formatMessage({ id: ETranslations.troubleshooting_check_bluetooth }),
-      intl.formatMessage({ id: ETranslations.troubleshooting_unlock_device }),
-    ],
-    [
-      intl.formatMessage({
-        id: ETranslations.troubleshooting_remove_device_from_bluetooth_list,
-      }),
-      intl.formatMessage({ id: ETranslations.troubleshooting_restart_app }),
-      intl.formatMessage({
-        id: ETranslations.troubleshooting_reconnect_and_pair,
-      }),
-    ],
-  ];
-
-  const troubleshootingSolutions = [
-    ...(platformEnv.isNative
-      ? bluetoothTroubleshootingSolutions
-      : usbTroubleshootingSolutions),
-    [
-      intl.formatMessage(
-        { id: ETranslations.troubleshooting_help_center },
-        {
-          tag: (chunks: ReactNode[]) => (
-            <Anchor
-              href="https://help.onekey.so/?q=connect"
-              target="_blank"
-              size="$bodyMd"
-              color="$textInfo"
-            >
-              {chunks}
-            </Anchor>
-          ),
-        },
-      ),
-      intl.formatMessage(
-        { id: ETranslations.troubleshooting_request },
-        {
-          tag: (chunks: ReactNode[]) => (
-            <Anchor
-              href={FIRMWARE_CONTACT_US_URL}
-              target="_blank"
-              size="$bodyMd"
-              color="$textInfo"
-            >
-              {chunks}
-            </Anchor>
-          ),
-        },
-      ),
-    ],
-  ];
-
   return (
     <>
-      <Stack bg="$bgSubdued">
-        {!showTroubleshooting ? (
-          <LottieView
-            width="100%"
-            height="$56"
-            source={
-              platformEnv.isNative ? ConnectByBluetoothAnim : ConnectByUSBAnim
-            }
-          />
-        ) : (
-          <Accordion type="single" defaultValue="0" collapsible>
-            {troubleshootingSolutions.map((list, index) => (
-              <Accordion.Item value={index.toString()} key={index.toString()}>
-                <Accordion.Trigger
-                  unstyled
-                  flexDirection="row"
-                  alignItems="center"
-                  borderWidth={0}
-                  px="$5"
-                  py="$2"
-                  bg="$transparent"
-                  hoverStyle={{ bg: '$bgHover' }}
-                  pressStyle={{
-                    bg: '$bgActive',
-                  }}
-                  focusVisibleStyle={{
-                    outlineWidth: 2,
-                    outlineStyle: 'solid',
-                    outlineColor: '$focusRing',
-                    outlineOffset: 0,
-                  }}
-                >
-                  {({ open }: { open: boolean }) => (
-                    <>
-                      <Heading
-                        flex={1}
-                        size={open ? '$headingSm' : '$bodyMd'}
-                        textAlign="left"
-                        color={open ? '$text' : '$textSubdued'}
-                      >
-                        {index === troubleshootingSolutions.length - 1
-                          ? intl.formatMessage({
-                              id: ETranslations.troubleshooting_fallback_solution_label,
-                            })
-                          : intl.formatMessage(
-                              { id: ETranslations.troubleshooting_solution_x },
-                              {
-                                number: index + 1,
-                              },
-                            )}
-                      </Heading>
-                      <Stack
-                        animation="quick"
-                        rotate={open ? '180deg' : '0deg'}
-                      >
-                        <Icon
-                          name="ChevronDownSmallOutline"
-                          color={open ? '$iconActive' : '$iconSubdued'}
-                          size="$5"
-                        />
-                      </Stack>
-                    </>
-                  )}
-                </Accordion.Trigger>
-                <Accordion.HeightAnimator
-                  animation="quick"
-                  borderBottomWidth={StyleSheet.hairlineWidth}
-                  borderBottomColor="$borderSubdued"
-                >
-                  <Accordion.Content
-                    unstyled
-                    animation="quick"
-                    enterStyle={{ opacity: 0 }}
-                    exitStyle={{ opacity: 0 }}
-                  >
-                    <Stack role="list" px="$5" pt="$1" pb="$3">
-                      {list.map((item, subIndex) => (
-                        <XStack role="listitem" key={subIndex} gap="$2">
-                          <SizableText
-                            w="$4"
-                            size="$bodyMd"
-                            color="$textSubdued"
-                          >
-                            {subIndex + 1}.
-                          </SizableText>
-                          <SizableText
-                            $md={{
-                              maxWidth: '$78',
-                            }}
-                            size="$bodyMd"
-                          >
-                            {item}
-                          </SizableText>
-                        </XStack>
-                      ))}
-                    </Stack>
-                  </Accordion.Content>
-                </Accordion.HeightAnimator>
-              </Accordion.Item>
-            ))}
-          </Accordion>
-        )}
-        {showHelper ? (
-          <Stack
-            position="absolute"
-            left="$0"
-            right="$0"
-            bottom="$0"
-            p="$2"
-            bg="$gray3"
-            alignItems="center"
-          >
-            <Button size="small" variant="tertiary" onPress={handleHelperPress}>
-              {intl.formatMessage({
-                id: ETranslations.troubleshooting_show_helper_cta_label,
-              })}
-            </Button>
-          </Stack>
-        ) : null}
-      </Stack>
+      <AnimationView
+        troubleshootingSolutions={troubleshootingSolutions}
+        lottieSource={
+          platformEnv.isNative ? ConnectByBluetoothAnim : ConnectByUSBAnim
+        }
+        connectStatus={connectStatus}
+      />
 
       {connectStatus === EConnectionStatus.init ? (
         <YStack pt="$8">
@@ -1375,40 +1439,99 @@ function ConnectByUSBOrBLE() {
       ) : null}
 
       {connectStatus === EConnectionStatus.listing ? (
-        <ScrollView flex={1}>
-          <XStack
-            gap="$2"
-            alignItems="center"
-            justifyContent="center"
-            py="$2.5"
-            px="$5"
-          >
-            <Spinner size="small" />
-            <SizableText color="$textSubdued">
-              {`${intl.formatMessage({
-                id: ETranslations.onboarding_bluetooth_connect_help_text,
-              })}...`}
-            </SizableText>
-          </XStack>
-          {devicesData.map((item) => (
-            <DeviceListItem
-              item={item}
-              key={item.device?.connectId ?? item.title}
-            />
-          ))}
-          {/* {platformEnv.isDev ? (
-            <Button
-              onPress={() => {
-                void fwUpdateActions.showForceUpdate({
-                  connectId: undefined,
-                });
-              }}
-            >
-              ForceUpdate
-            </Button>
-          ) : null} */}
-        </ScrollView>
+        <DeviceListView devicesData={devicesData} />
       ) : null}
+    </>
+  );
+}
+
+function ConnectByBluetooth() {
+  const intl = useIntl();
+  const [bluetoothStatus, setBluetoothStatus] = useState<
+    'enabled' | 'disabledInApp' | 'disabledInSystem' | 'noSystemPermission'
+  >('enabled');
+  const troubleshootingSolutionsData = getTroubleshootingSolutions(intl);
+  const troubleshootingSolutions = [
+    ...troubleshootingSolutionsData.bluetooth,
+    ...troubleshootingSolutionsData.common,
+  ];
+
+  if (bluetoothStatus === 'disabledInApp') {
+    return (
+      <Empty
+        flex={1}
+        title={intl.formatMessage({ id: ETranslations.bluetooth_disabled })}
+        description={intl.formatMessage({
+          id: ETranslations.bluetooth_enable_in_app_settings,
+        })}
+        buttonProps={{
+          variant: 'primary',
+          children: intl.formatMessage({
+            id: ETranslations.onboarding_enable_bluetooth,
+          }),
+        }}
+      />
+    );
+  }
+  if (bluetoothStatus === 'disabledInSystem') {
+    return (
+      <Empty
+        flex={1}
+        title={intl.formatMessage({ id: ETranslations.bluetooth_disabled })}
+        description={intl.formatMessage({
+          id: ETranslations.bluetooth_enable_in_system_settings,
+        })}
+        buttonProps={{
+          variant: 'primary',
+          children: intl.formatMessage({
+            id: ETranslations.onboarding_enable_bluetooth,
+          }),
+        }}
+      />
+    );
+  }
+  if (bluetoothStatus === 'noSystemPermission') {
+    return (
+      <Empty
+        flex={1}
+        title={intl.formatMessage({
+          id: ETranslations.onboarding_bluetooth_permission_needed,
+        })}
+        description={intl.formatMessage({
+          id: ETranslations.bluetooth_permission_prompt,
+        })}
+        buttonProps={{
+          variant: 'primary',
+          children: intl.formatMessage({
+            id: ETranslations.global_go_to_settings,
+          }),
+        }}
+      />
+    );
+  }
+
+  return (
+    <>
+      <AnimationView
+        troubleshootingSolutions={troubleshootingSolutions}
+        lottieSource={BluetoothSignalSpreading}
+        connectStatus={EConnectionStatus.listing}
+      />
+      <DeviceListView
+        description={intl.formatMessage({
+          id: ETranslations.bluetooth_keep_near,
+        })}
+        devicesData={[
+          // mock data
+          {
+            title: 'Pro 062B',
+            src: HwWalletAvatarImages[getDeviceAvatarImage(EDeviceType.Pro)],
+            onPress: () => {},
+            device: {} as SearchDevice,
+            opacity: 1,
+          },
+        ]}
+      />
     </>
   );
 }
@@ -1448,6 +1571,16 @@ export function ConnectYourDevicePage() {
                   : 'USB',
                 value: EConnectDeviceChannel.usbOrBle,
               },
+              ...(platformEnv.isDesktopMac
+                ? [
+                    {
+                      label: intl.formatMessage({
+                        id: ETranslations.global_bluetooth,
+                      }),
+                      value: EConnectDeviceChannel.bluetooth,
+                    },
+                  ]
+                : []),
               {
                 label: intl.formatMessage({ id: ETranslations.global_qr_code }),
                 value: EConnectDeviceChannel.qr,
@@ -1459,6 +1592,10 @@ export function ConnectYourDevicePage() {
 
         {tabValue === EConnectDeviceChannel.usbOrBle ? (
           <ConnectByUSBOrBLE />
+        ) : null}
+
+        {tabValue === EConnectDeviceChannel.bluetooth ? (
+          <ConnectByBluetooth />
         ) : null}
 
         {tabValue === EConnectDeviceChannel.qr ? (
