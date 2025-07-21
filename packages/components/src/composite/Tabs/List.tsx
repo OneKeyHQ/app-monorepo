@@ -315,8 +315,8 @@ export function List<Item>({
       numColumns: number;
       width: number;
     }) => {
+      cache.clearAll();
       if (_numColumns > 1 && _width) {
-        cache.clearAll();
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
         (listRef.current as any)?.recomputeCellSizesAndPositions();
       } else {
