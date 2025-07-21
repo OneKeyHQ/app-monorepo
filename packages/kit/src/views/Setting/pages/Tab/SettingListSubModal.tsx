@@ -27,7 +27,7 @@ export default function SettingListSubModal() {
   return (
     <SubSettingsPage
       name={name as ISettingName}
-      title={title}
+      title={title || ''}
       settingsConfig={filteredSettingsConfig}
     />
   );
