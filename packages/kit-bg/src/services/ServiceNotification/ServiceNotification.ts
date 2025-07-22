@@ -62,7 +62,10 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '../../dbs/local/types';
-import type { IAccountActivityNotificationSettings } from '../../dbs/simple/entity/SimpleDbEntityNotificationSettings';
+import type {
+  IAccountActivityNotificationSettings,
+  ISimpleDbNotificationSettings,
+} from '../../dbs/simple/entity/SimpleDbEntityNotificationSettings';
 import type { Socket } from 'socket.io-client';
 
 export default class ServiceNotification extends ServiceBase {
@@ -747,7 +750,8 @@ export default class ServiceNotification extends ServiceBase {
     const settings =
       await this.backgroundApi.simpleDb.notificationSettings.getRawData();
 
-    const oldAccountActivity = cloneDeep(settings?.accountActivity ?? {});
+    const originalAccountActivity = cloneDeep(settings?.accountActivity ?? {});
+    const currentAccountActivity = cloneDeep(settings?.accountActivity ?? {});
     if (
       isPrimeActive &&
       settings?.primeBackupAccountActivity &&
@@ -758,7 +762,7 @@ export default class ServiceNotification extends ServiceBase {
       Object.entries(settings.primeBackupAccountActivity).forEach(
         ([walletId, primeWalletData]) => {
           if (primeWalletData) {
-            const oldWalletData:
+            const originalWalletData:
               | {
                   enabled: boolean | undefined;
                   accounts: {
@@ -767,17 +771,17 @@ export default class ServiceNotification extends ServiceBase {
                     };
                   };
                 }
-              | undefined = oldAccountActivity[walletId];
+              | undefined = originalAccountActivity[walletId];
 
             // Merge wallet enabled: true if either is true
             const mergedWalletEnabled = Boolean(
-              primeWalletData.enabled || oldWalletData?.enabled,
+              primeWalletData.enabled || originalWalletData?.enabled,
             );
 
-            oldAccountActivity[walletId] = {
+            currentAccountActivity[walletId] = {
               enabled: mergedWalletEnabled,
               accounts: {
-                ...oldWalletData?.accounts,
+                ...originalWalletData?.accounts,
               },
             };
 
@@ -786,18 +790,18 @@ export default class ServiceNotification extends ServiceBase {
               Object.entries(primeWalletData.accounts).forEach(
                 ([accountId, primeAccountData]) => {
                   if (primeAccountData) {
-                    const oldAccountData:
+                    const originalAccountData:
                       | {
                           enabled: boolean | undefined;
                         }
-                      | undefined = oldWalletData?.accounts?.[accountId];
+                      | undefined = originalWalletData?.accounts?.[accountId];
 
                     // Merge account enabled: true if either is true
                     const mergedAccountEnabled = Boolean(
-                      primeAccountData.enabled || oldAccountData?.enabled,
+                      primeAccountData.enabled || originalAccountData?.enabled,
                     );
 
-                    oldAccountActivity[walletId].accounts[accountId] = {
+                    currentAccountActivity[walletId].accounts[accountId] = {
                       enabled: mergedAccountEnabled,
                     };
                   }
@@ -808,6 +812,31 @@ export default class ServiceNotification extends ServiceBase {
         },
       );
     }
+
+    const accountActivity = await this.rebuildAccountActivity({
+      notificationWallets,
+      maxAccountCount,
+      originalAccountActivity,
+      currentAccountActivity,
+      settings,
+    });
+    await this.saveAccountActivityNotificationSettings(accountActivity);
+  }
+
+  async rebuildAccountActivity({
+    notificationWallets,
+    maxAccountCount,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    originalAccountActivity,
+    currentAccountActivity,
+    settings,
+  }: {
+    notificationWallets: IDBWallet[];
+    maxAccountCount: number;
+    originalAccountActivity: IAccountActivityNotificationSettings;
+    currentAccountActivity: IAccountActivityNotificationSettings;
+    settings: ISimpleDbNotificationSettings | null | undefined;
+  }) {
     const accountActivity: IAccountActivityNotificationSettings = {};
 
     const currentEnabledAccountCount =
@@ -815,7 +844,15 @@ export default class ServiceNotification extends ServiceBase {
 
     let totalEnabledCount = 0;
     const isInit = !settings?.accountActivity;
-    const updateWalletAccountActivity = (wallet: IDBWallet) => {
+    const updateWalletAccountActivity = ({
+      wallet,
+      skipDisabledAccounts,
+      oldAccountActivity,
+    }: {
+      wallet: IDBWallet;
+      skipDisabledAccounts?: boolean;
+      oldAccountActivity: IAccountActivityNotificationSettings;
+    }) => {
       accountActivity[wallet.id] = oldAccountActivity?.[wallet.id] || {
         enabled: false,
         accounts: {},
@@ -824,6 +861,9 @@ export default class ServiceNotification extends ServiceBase {
         accountActivity[wallet.id].accounts || {};
       let enabledCountInWallet = 0;
       const disableAccount = (account: IDBAccount | IDBIndexedAccount) => {
+        if (skipDisabledAccounts) {
+          return;
+        }
         accountActivity[wallet.id].accounts[account.id] = {
           enabled: false,
         };
@@ -872,19 +912,39 @@ export default class ServiceNotification extends ServiceBase {
         }
       }
       if (accountActivity?.[wallet.id]?.enabled === undefined) {
-        accountActivity[wallet.id].enabled = enabledCountInWallet > 0;
+        const newEnabled = enabledCountInWallet > 0;
+        if (!newEnabled) {
+          if (!skipDisabledAccounts) {
+            accountActivity[wallet.id].enabled = false;
+          }
+        } else {
+          accountActivity[wallet.id].enabled = true;
+        }
       }
-      if (enabledCountInWallet === 0) {
+      if (enabledCountInWallet === 0 && !skipDisabledAccounts) {
         accountActivity[wallet.id].enabled = false;
       }
     };
     for (const wallet of notificationWallets) {
-      updateWalletAccountActivity(wallet);
+      // TODO only update enabled=true accounts
+      // updateWalletAccountActivity(wallet, originalAccountActivity);
+      // for (const hiddenWallet of wallet.hiddenWallets || []) {
+      //   updateWalletAccountActivity(hiddenWallet, originalAccountActivity);
+      // }
+
+      updateWalletAccountActivity({
+        wallet,
+        oldAccountActivity: currentAccountActivity,
+      });
       for (const hiddenWallet of wallet.hiddenWallets || []) {
-        updateWalletAccountActivity(hiddenWallet);
+        updateWalletAccountActivity({
+          wallet: hiddenWallet,
+          oldAccountActivity: currentAccountActivity,
+        });
       }
     }
-    await this.saveAccountActivityNotificationSettings(accountActivity);
+
+    return accountActivity;
   }
 
   @backgroundMethod()
