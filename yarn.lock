@@ -7891,7 +7891,7 @@ __metadata:
     "@react-native-community/slider": "npm:4.5.7"
     "@react-native-google-signin/google-signin": "npm:^9.1.0"
     "@sentry/react-native": "npm:6.16.1"
-    "@shopify/flash-list": "npm:2.0.0-rc.11"
+    "@shopify/flash-list": "npm:2.0.0-alpha.21"
     "@types/react-native-canvas": "npm:^0.1.13"
     "@walletconnect/modal-react-native": "npm:1.1.0"
     "@walletconnect/react-native-compat": "npm:2.11.2"
@@ -7959,7 +7959,7 @@ __metadata:
     react-native-purchases: "npm:8.11.9"
     react-native-qrcode-styled: "npm:0.3.3"
     react-native-reanimated: "npm:3.18.0"
-    react-native-restart: "npm:react-native-restart-newarch@1.0.72"
+    react-native-restart: "npm:react-native-restart-newarch@1.0.75"
     react-native-safe-area-context: "npm:5.4.1"
     react-native-screens: "npm:4.11.0"
     react-native-svg: "npm:15.12.0"
@@ -12031,9 +12031,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@shopify/flash-list@npm:2.0.0-rc.11":
-  version: 2.0.0-rc.11
-  resolution: "@shopify/flash-list@npm:2.0.0-rc.11"
+"@shopify/flash-list@npm:2.0.0-alpha.21":
+  version: 2.0.0-alpha.21
+  resolution: "@shopify/flash-list@npm:2.0.0-alpha.21"
   dependencies:
     recyclerlistview: "npm:4.2.3"
     tslib: "npm:2.8.1"
@@ -12041,7 +12041,7 @@ __metadata:
     "@babel/runtime": "*"
     react: "*"
     react-native: "*"
-  checksum: 10/cc3187eb0137216116bbe0854912cc976589340f6cc393618696b18cb22ead160130e77115b1f8f38f76f7449b6a49f056d737364e0b8c224a8557d5d3fe11ef
+  checksum: 10/7aac31aa13167d3936d366e36617b0a3eef86dc51ed324ff626a114acfa0e21c1461591e8db3924aa5e5780d6aec3b91feae23dab71d19eba2e11a3ca1b5f61d
   languageName: node
   linkType: hard
 
@@ -21443,30 +21443,19 @@ __metadata:
   linkType: hard
 
 "cross-spawn@npm:^6.0.5":
-  version: 6.0.5
-  resolution: "cross-spawn@npm:6.0.5"
+  version: 6.0.6
+  resolution: "cross-spawn@npm:6.0.6"
   dependencies:
     nice-try: "npm:^1.0.4"
     path-key: "npm:^2.0.1"
     semver: "npm:^5.5.0"
     shebang-command: "npm:^1.2.0"
     which: "npm:^1.2.9"
-  checksum: 10/f07e643b4875f26adffcd7f13bc68d9dff20cf395f8ed6f43a23f3ee24fc3a80a870a32b246fd074e514c8fd7da5f978ac6a7668346eec57aa87bac89c1ed3a1
+  checksum: 10/7abf6137b23293103a22bfeaf320f2d63faae70d97ddb4b58597237501d2efdd84cdc69a30246977e0c5f68216593894d41a7f122915dd4edf448db14c74171b
   languageName: node
   linkType: hard
 
-"cross-spawn@npm:^7.0.1, cross-spawn@npm:^7.0.3":
-  version: 7.0.3
-  resolution: "cross-spawn@npm:7.0.3"
-  dependencies:
-    path-key: "npm:^3.1.0"
-    shebang-command: "npm:^2.0.0"
-    which: "npm:^2.0.1"
-  checksum: 10/e1a13869d2f57d974de0d9ef7acbf69dc6937db20b918525a01dacb5032129bd552d290d886d981e99f1b624cb03657084cc87bd40f115c07ecf376821c729ce
-  languageName: node
-  linkType: hard
-
-"cross-spawn@npm:^7.0.2, cross-spawn@npm:^7.0.6":
+"cross-spawn@npm:^7.0.1, cross-spawn@npm:^7.0.2, cross-spawn@npm:^7.0.3, cross-spawn@npm:^7.0.6":
   version: 7.0.6
   resolution: "cross-spawn@npm:7.0.6"
   dependencies:
@@ -28033,9 +28022,9 @@ __metadata:
   linkType: hard
 
 "ip@npm:^2.0.0":
-  version: 2.0.0
-  resolution: "ip@npm:2.0.0"
-  checksum: 10/1270b11e534a466fb4cf4426cbcc3a907c429389f7f4e4e3b288b42823562e88d6a509ceda8141a507de147ca506141f745005c0aa144569d94cf24a54eb52bc
+  version: 2.0.1
+  resolution: "ip@npm:2.0.1"
+  checksum: 10/d6dd154e1bc5e8725adfdd6fb92218635b9cbe6d873d051bd63b178f009777f751a5eea4c67021723a7056325fc3052f8b6599af0a2d56f042c93e684b4a0349
   languageName: node
   linkType: hard
 
@@ -35910,12 +35899,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-restart@npm:react-native-restart-newarch@1.0.72":
-  version: 1.0.72
-  resolution: "react-native-restart-newarch@npm:1.0.72"
+"react-native-restart@npm:react-native-restart-newarch@1.0.75":
+  version: 1.0.75
+  resolution: "react-native-restart-newarch@npm:1.0.75"
   peerDependencies:
     react-native: ">=0.60.0"
-  checksum: 10/3bd810c96e85cf7c54c6fcbbf285ea9bfaddde676f4cc1ff3cef7562a24a5f22bd3b0533d698eb5d7b6f8d66db2293de1ab37747776aa2096bcda0f1ac4057fd
+  checksum: 10/148dfe78bd5e0568e1bf48fe99e4ef3c482efc94e263bb66bf5a817f21501afa684bd803ef37dc03252f03fea1dd58efe105341c7ef3224ad494b7a13d998888
   languageName: node
   linkType: hard
 
@@ -39603,21 +39592,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tar@npm:^6.0.2, tar@npm:^6.0.5, tar@npm:^6.1.11, tar@npm:^6.1.12, tar@npm:^6.1.2":
-  version: 6.2.0
-  resolution: "tar@npm:6.2.0"
-  dependencies:
-    chownr: "npm:^2.0.0"
-    fs-minipass: "npm:^2.0.0"
-    minipass: "npm:^5.0.0"
-    minizlib: "npm:^2.1.1"
-    mkdirp: "npm:^1.0.3"
-    yallist: "npm:^4.0.0"
-  checksum: 10/2042bbb14830b5cd0d584007db0eb0a7e933e66d1397e72a4293768d2332449bc3e312c266a0887ec20156dea388d8965e53b4fc5097f42d78593549016da089
-  languageName: node
-  linkType: hard
-
-"tar@npm:^6.2.1":
+"tar@npm:^6.0.2, tar@npm:^6.0.5, tar@npm:^6.1.11, tar@npm:^6.1.12, tar@npm:^6.1.2, tar@npm:^6.2.1":
   version: 6.2.1
   resolution: "tar@npm:6.2.1"
   dependencies:

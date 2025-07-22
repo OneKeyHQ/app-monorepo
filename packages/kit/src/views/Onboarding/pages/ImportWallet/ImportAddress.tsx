@@ -88,6 +88,7 @@ const FormDeriveTypeInput = ({
         <DeriveTypeSelectorFormInput
           networkId={networkId}
           enabledItems={deriveInfoItems}
+          undefinedResultIfReRun={false}
           renderTrigger={({ label, onPress }) => (
             <Stack
               testID="derive-type-input"

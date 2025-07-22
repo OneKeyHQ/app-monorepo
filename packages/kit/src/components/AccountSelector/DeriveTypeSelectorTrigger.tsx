@@ -391,6 +391,7 @@ export function DeriveTypeSelectorFormInput(
     networkId: string;
     onItemsChange?: (items: IAccountDeriveInfoItems[]) => void;
     hideIfItemsLTEOne?: boolean; // <=1
+    undefinedResultIfReRun?: boolean;
   },
 ) {
   const {
@@ -400,9 +401,11 @@ export function DeriveTypeSelectorFormInput(
     value: deriveType,
     onChange: onDeriveTypeChange,
     onItemsChange,
+    undefinedResultIfReRun = true,
     ...others
   } = props;
   const intl = useIntl();
+
   const { result: viewItems } = usePromiseResult(
     async () => {
       const selectItems =
@@ -414,7 +417,7 @@ export function DeriveTypeSelectorFormInput(
     },
     [enabledItems, networkId],
     {
-      undefinedResultIfReRun: true,
+      undefinedResultIfReRun,
     },
   );
   const options = useMemo(
