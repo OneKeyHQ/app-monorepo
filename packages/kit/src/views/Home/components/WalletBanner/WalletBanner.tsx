@@ -186,7 +186,8 @@ function WalletBanner() {
                     {item.button}
                   </Button>
                 </XStack>
-              ) : (
+              ) : null}
+              {md && item.closeable ? (
                 <Stack height="100%" position="relative">
                   <IconButton
                     size="small"
@@ -199,7 +200,7 @@ function WalletBanner() {
                     mt="$3"
                   />
                 </Stack>
-              )}
+              ) : null}
             </XStack>
           );
         }}
