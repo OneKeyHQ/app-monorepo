@@ -426,7 +426,7 @@ export function List<Item>({
               height={autoSizerHeight || height || 400}
               isScrolling={isVisible ? isScrolling : false}
               onScroll={isVisible ? onChildScroll : undefined}
-              overscanRowCount={5}
+              overscanRowCount={10}
               scrollTop={isVisible ? scrollTop : 0}
               rowCount={listData.length}
               rowHeight={cache.rowHeight}
