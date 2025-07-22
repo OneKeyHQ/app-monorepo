@@ -98,32 +98,6 @@ const WithdrawPage = () => {
     ],
   );
 
-  const { result: estimateFeeResp } = usePromiseResult(async () => {
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      accountId,
-      networkId,
-    });
-    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
-      networkId,
-      provider: providerName,
-      symbol: tokenSymbol,
-      action: 'unstake',
-      amount: '1',
-      txId:
-        providerName.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
-          ? identity
-          : undefined,
-      protocolVault: earnUtils.useVaultProvider({
-        providerName,
-      })
-        ? vault
-        : undefined,
-      identity,
-      accountAddress: account.address,
-    });
-    return resp;
-  }, [accountId, networkId, providerName, tokenSymbol, identity, vault]);
-
   const balance = useMemo(() => {
     if (fromPage === EModalStakingRoutes.WithdrawOptions) {
       return BigNumber(initialAmount ?? 0).toFixed();
@@ -140,6 +114,40 @@ const WithdrawPage = () => {
     active,
     overflow,
     initialAmount,
+  ]);
+
+  const { result: estimateFeeResp } = usePromiseResult(async () => {
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
+    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+      networkId,
+      provider: providerName,
+      symbol: tokenSymbol,
+      action: 'unstake',
+      amount: earnUtils.isMomentumProvider({ providerName }) ? balance : '1',
+      txId:
+        providerName.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
+          ? identity
+          : undefined,
+      protocolVault: earnUtils.useVaultProvider({
+        providerName,
+      })
+        ? vault
+        : undefined,
+      identity,
+      accountAddress: account.address,
+    });
+    return resp;
+  }, [
+    accountId,
+    networkId,
+    providerName,
+    tokenSymbol,
+    identity,
+    vault,
+    balance,
   ]);
 
   return (
