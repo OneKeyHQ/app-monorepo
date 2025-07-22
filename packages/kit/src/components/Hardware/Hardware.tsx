@@ -95,10 +95,13 @@ export function ConfirmOnDeviceToastContent({
     };
   }, []);
 
+  console.log('animationData', animationData);
   return (
     <XStack alignItems="center">
       <Stack bg="$bgStrong" btlr="$2" bblr="$2">
-        <LottieView width={72} height={72} source={animationData ?? ''} />
+        {animationData ? (
+          <LottieView width={72} height={72} source={animationData} />
+        ) : null}
       </Stack>
       <XStack flex={1} alignItems="center" px="$3" gap="$5">
         <SizableText flex={1} size="$bodyLgMedium">
