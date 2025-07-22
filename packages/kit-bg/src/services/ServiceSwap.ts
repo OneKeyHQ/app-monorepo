@@ -927,6 +927,7 @@ export default class ServiceSwap extends ServiceBase {
         title: error?.message,
         message: error?.requestId,
       });
+      throw e;
     }
   }
 

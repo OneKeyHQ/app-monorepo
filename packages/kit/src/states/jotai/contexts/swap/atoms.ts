@@ -6,6 +6,7 @@ import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapProviderSort,
   mevSwapNetworks,
@@ -15,11 +16,14 @@ import type {
   ESwapDirectionType,
   ESwapQuoteKind,
   ESwapRateDifferenceUnit,
+  IFetchQuoteFee,
+  IFetchQuoteInfo,
   IFetchQuoteResult,
   ISwapAlertState,
   ISwapAutoSlippageSuggestedValue,
   ISwapLimitPriceInfo,
   ISwapNetwork,
+  ISwapPreSwapData,
   ISwapStep,
   ISwapTips,
   ISwapToken,
@@ -625,9 +629,14 @@ export const {
   use: useSwapBuildTxFetchingAtom,
 } = contextAtom<boolean>(false);
 
-export const { atom: swapStepsAtom, use: useSwapStepsAtom } = contextAtom<
-  ISwapStep[]
->([]);
+export const { atom: swapStepsAtom, use: useSwapStepsAtom } = contextAtom<{
+  steps: ISwapStep[];
+  preSwapData: ISwapPreSwapData;
+  quoteResult?: IFetchQuoteResult;
+}>({
+  steps: [],
+  preSwapData: {},
+});
 
 // swap tips
 export const { atom: swapTipsAtom, use: useSwapTipsAtom } = contextAtom<
