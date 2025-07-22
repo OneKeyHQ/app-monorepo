@@ -37,13 +37,12 @@ const styles = StyleSheet.create({
   },
 });
 
-const getOrigin = (uri: string, defaultUri: string) => {
+const getOrigin = (uri: string) => {
   if (uri === 'null') {
     return uri;
   }
-  const url = uri || defaultUri;
   try {
-    const data = new URL(url || '');
+    const data = new URL(uri || '');
     return data?.origin || '';
   } catch (error) {
     return '';
@@ -89,7 +88,7 @@ const NativeWebView = forwardRef(
       (event: WebViewMessageEvent) => {
         const { data, url } = event.nativeEvent;
         try {
-          const origin = getOrigin(url, src);
+          const origin = getOrigin(url || src);
           if (origin) {
             jsBridge.receive(data, { origin });
           }
