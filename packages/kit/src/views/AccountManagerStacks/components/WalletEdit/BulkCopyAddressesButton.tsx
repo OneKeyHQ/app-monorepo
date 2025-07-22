@@ -115,13 +115,15 @@ export function BulkCopyAddressesButton({
       }}
       onClose={onClose}
       extra={
-        <Badge badgeSize="sm" badgeType="default">
-          <Badge.Text>
-            {intl.formatMessage({
-              id: ETranslations.prime_status_prime,
-            })}
-          </Badge.Text>
-        </Badge>
+        isPrimeUser ? null : (
+          <Badge badgeSize="sm" badgeType="default">
+            <Badge.Text>
+              {intl.formatMessage({
+                id: ETranslations.prime_status_prime,
+              })}
+            </Badge.Text>
+          </Badge>
+        )
       }
     />
   );

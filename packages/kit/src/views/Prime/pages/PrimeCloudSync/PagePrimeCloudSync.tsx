@@ -28,6 +28,7 @@ import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { AppAutoLockSettingsView } from '../../../Setting/pages/AppAutoLock';
+import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 
 function isAutoLockValueNotAllowed(value: number) {
@@ -109,6 +110,9 @@ function EnableOneKeyCloudSwitchListItem() {
     );
   }, [passwordSettings.appLockDuration, passwordSettings.isPasswordSet]);
 
+  const { user } = usePrimeAuthV2();
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.privyUserId;
+
   return (
     <ListItem
       title={intl.formatMessage({
@@ -119,6 +123,15 @@ function EnableOneKeyCloudSwitchListItem() {
         id: ETranslations.prime_last_update,
       })} : ${lastUpdateTime}`}
     >
+      {!isPrimeUser ? (
+        <Badge badgeSize="sm" badgeType="default">
+          <Badge.Text>
+            {intl.formatMessage({
+              id: ETranslations.prime_status_prime,
+            })}
+          </Badge.Text>
+        </Badge>
+      ) : null}
       <Switch
         disabled={false}
         size={ESwitchSize.small}
