@@ -22,6 +22,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapApproveTransactionStatus,
+  ESwapNetworkFeeLevel,
   ESwapStepStatus,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -226,6 +227,22 @@ const PreSwapDialogContent = ({
               <PreSwapInfoGroup
                 preSwapData={swapSteps.preSwapData}
                 slippageItem={slippageItem}
+                onSelectNetworkFeeLevel={(value) => {
+                  setSwapSteps(
+                    (prevSteps: {
+                      steps: ISwapStep[];
+                      preSwapData: ISwapPreSwapData;
+                    }) => {
+                      return {
+                        ...prevSteps,
+                        preSwapData: {
+                          ...prevSteps.preSwapData,
+                          netWorkFee: { feeLevel: value },
+                        },
+                      };
+                    },
+                  );
+                }}
               />
               {/* Primary button */}
               <Button variant="primary" onPress={handleConfirm} size="medium">

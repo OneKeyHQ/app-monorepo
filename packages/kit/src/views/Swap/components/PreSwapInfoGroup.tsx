@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
@@ -6,16 +6,13 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
-  Dialog,
   Icon,
   Image,
-  NumberSizeableText,
+  Select,
   SizableText,
-  Skeleton,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ESwapNetworkFeeLevel,
@@ -24,7 +21,6 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import PreSwapInfoItem from './PreSwapInfoItem';
-import PreSwapNetFeeSelectContent from './PreSwapNetFeeSelectContent';
 
 interface IPreSwapInfoGroupProps {
   preSwapData: ISwapPreSwapData;
@@ -32,13 +28,45 @@ interface IPreSwapInfoGroupProps {
     key: ESwapSlippageSegmentKey;
     value: number;
   };
+  onSelectNetworkFeeLevel: (value: ESwapNetworkFeeLevel) => void;
 }
 
 const PreSwapInfoGroup = ({
   preSwapData,
   slippageItem,
+  onSelectNetworkFeeLevel,
 }: IPreSwapInfoGroupProps) => {
   const intl = useIntl();
+  const networkFeeLevelArray = useMemo(() => {
+    const feeArray = [
+      ESwapNetworkFeeLevel.LOW,
+      ESwapNetworkFeeLevel.MEDIUM,
+      ESwapNetworkFeeLevel.HIGH,
+    ];
+    const selectItems = feeArray.map((item) => {
+      let label = '';
+      if (item === ESwapNetworkFeeLevel.LOW) {
+        label = intl.formatMessage({
+          id: ETranslations.transaction_slow,
+        });
+      }
+      if (item === ESwapNetworkFeeLevel.MEDIUM) {
+        label = intl.formatMessage({
+          id: ETranslations.transaction_normal,
+        });
+      }
+      if (item === ESwapNetworkFeeLevel.HIGH) {
+        label = intl.formatMessage({
+          id: ETranslations.transaction_fast,
+        });
+      }
+      return {
+        label,
+        value: item,
+      };
+    });
+    return selectItems;
+  }, [intl]);
   const slippage = useMemo(() => {
     if (!preSwapData?.unSupportSlippage) {
       return new BigNumber(slippageItem.value)
@@ -47,7 +75,6 @@ const PreSwapInfoGroup = ({
     }
     return undefined;
   }, [preSwapData?.unSupportSlippage, slippageItem.value]);
-  const [settings] = useSettingsPersistAtom();
   const fee = useMemo(() => {
     if (
       new BigNumber(preSwapData?.fee?.percentageFee ?? '0').isZero() ||
@@ -63,23 +90,6 @@ const PreSwapInfoGroup = ({
     }
     return `${preSwapData?.fee?.percentageFee ?? '-'}%`;
   }, [intl, preSwapData?.fee?.percentageFee]);
-
-  const handleNetWorkFeeSelect = useCallback(() => {
-    console.log('handleNetWorkFeeSelect');
-    Dialog.confirm({
-      title: intl.formatMessage({
-        id: ETranslations.provider_network_fee,
-      }),
-      renderContent: <PreSwapNetFeeSelectContent />,
-      onConfirm: () => {
-        console.log('onConfirm');
-      },
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.action_save,
-      }),
-      showCancelButton: false,
-    });
-  }, [intl]);
 
   const networkFeeLevelLabel = useMemo(() => {
     if (preSwapData.netWorkFee?.feeLevel === ESwapNetworkFeeLevel.LOW) {
@@ -101,35 +111,28 @@ const PreSwapInfoGroup = ({
   }, [intl, preSwapData.netWorkFee?.feeLevel]);
 
   const networkFeeSelect = useMemo(() => {
-    if (preSwapData.netWorkFeeLoading) {
-      return <Skeleton w="$30" h="$5" />;
-    }
-    if (preSwapData.netWorkFee) {
-      return (
-        <XStack gap="$1" onPress={handleNetWorkFeeSelect} alignItems="center">
-          <SizableText size="$bodyMdMedium" color="$textSubdued">
-            {networkFeeLevelLabel}
-          </SizableText>
-          <Icon name="ChevronGrabberHorOutline" size="$4" />
-          <NumberSizeableText
-            size="$bodyMd"
-            formatter="value"
-            formatterOptions={{
-              currency: settings.currencyInfo.symbol,
-            }}
-          >
-            {preSwapData.netWorkFee.feeFiatValue ?? '0'}
-          </NumberSizeableText>
-        </XStack>
-      );
-    }
-    return '-';
+    return (
+      <Select
+        onChange={onSelectNetworkFeeLevel}
+        renderTrigger={() => (
+          <XStack gap="$1" alignItems="center">
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
+              {networkFeeLevelLabel}
+            </SizableText>
+            <Icon name="ChevronGrabberVerOutline" size="$4" />
+          </XStack>
+        )}
+        title={intl.formatMessage({
+          id: ETranslations.swap_review_transaction_speed,
+        })}
+        items={networkFeeLevelArray}
+      />
+    );
   }, [
-    preSwapData.netWorkFeeLoading,
-    preSwapData.netWorkFee,
-    handleNetWorkFeeSelect,
+    intl,
+    networkFeeLevelArray,
     networkFeeLevelLabel,
-    settings.currencyInfo.symbol,
+    onSelectNetworkFeeLevel,
   ]);
 
   return (
@@ -167,7 +170,7 @@ const PreSwapInfoGroup = ({
       />
       <PreSwapInfoItem
         title={intl.formatMessage({
-          id: ETranslations.provider_network_fee,
+          id: ETranslations.swap_review_transaction_speed,
         })}
         value={networkFeeSelect}
       />

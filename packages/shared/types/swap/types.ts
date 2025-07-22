@@ -430,16 +430,8 @@ export interface ISwapPreSwapData {
   unSupportSlippage?: boolean;
   fee?: IFetchQuoteFee;
   allowanceResult?: IAllowanceResult;
-  swapBuildFetching?: boolean;
-  netWorkFeeLoading?: boolean;
-  swapBuildTransferInfo?: ITransferInfo;
-  swapBuildEncodedTx?: IEncodedTx;
-  swapBuildSwapInfo?: ISwapTxInfo;
   netWorkFee?: {
-    feeLevel: ESwapNetworkFeeLevel;
-    feeAmount: string;
-    feeSymbol: string;
-    feeFiatValue: string;
+    feeLevel?: ESwapNetworkFeeLevel;
   };
 }
 
