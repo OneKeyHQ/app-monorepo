@@ -117,7 +117,6 @@ function BasicShowToaster({
         alignContent="center"
         multipleToasts={false}
         justifyContent="center"
-        px="$5"
         py={top || '$5'}
       />
 
