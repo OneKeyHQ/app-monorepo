@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Image as ExpoImage, resolveSource } from 'expo-image';
 import { StyleSheet } from 'react-native';
@@ -63,9 +63,19 @@ export function ImageV2({
     ...imageProps
   } = restProps;
   const [hasError, setHasError] = useState(false);
+  const hasErrorRef = useRef(hasError);
+  hasErrorRef.current = hasError;
   const resolvedSource = useMemo(() => {
     return resolveSource((source as ImageSource) || src);
   }, [source, src]);
+
+  const resolvedSourceRef = useRef<ImageSource | null>(resolvedSource);
+  useEffect(() => {
+    if (hasErrorRef.current && resolvedSourceRef.current !== resolvedSource) {
+      setHasError(false);
+    }
+    resolvedSourceRef.current = resolvedSource;
+  }, [resolvedSource]);
 
   const skeletonTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
