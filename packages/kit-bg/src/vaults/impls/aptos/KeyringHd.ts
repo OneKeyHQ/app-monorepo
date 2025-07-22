@@ -46,6 +46,7 @@ export class KeyringHd extends KeyringHdBase {
       (this.vault as VaultAptos).client,
       params.unsignedTx,
     );
+
     return this.baseSignTransaction({
       ...params,
       unsignedTx: {

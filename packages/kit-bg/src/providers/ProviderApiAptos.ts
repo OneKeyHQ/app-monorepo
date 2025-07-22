@@ -1,18 +1,19 @@
 import {
-  AccountAddress,
   Deserializer,
+  MultiAgentTransaction,
   Network,
   NetworkToNodeAPI,
-  RawTransaction,
   Serializer,
   SignedTransaction,
   SimpleTransaction,
 } from '@aptos-labs/ts-sdk';
+import { parseAddress } from '@ckb-lumos/helpers';
 import { hexToBytes } from '@noble/hashes/utils';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { get, isArray } from 'lodash';
 
+import { deserializeTransaction } from '@onekeyhq/core/src/chains/aptos/helper/transactionUtils';
 import {
   type IEncodedTxAptos,
   type ISignMessagePayload,
@@ -43,6 +44,7 @@ import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type VaultAptos from '../vaults/impls/aptos/Vault';
+import type { AccountAddress } from '@aptos-labs/ts-sdk';
 import type {
   AptosSignAndSubmitTransactionInput,
   AptosSignAndSubmitTransactionOutput,
@@ -241,39 +243,11 @@ class ProviderApiAptos extends ProviderApiBase {
       bcsTxn = bufferUtils.hexToBytes(txn);
     }
 
-    const deserializer = new Deserializer(bcsTxn);
-    const rawTxn = RawTransaction.deserialize(deserializer);
-
-    let feePayerAddress;
-    try {
-      const feePayerPresent = deserializer.deserializeBool();
-      if (feePayerPresent) {
-        feePayerAddress = AccountAddress.deserialize(deserializer);
-      }
-    } catch {
-      // ignore
-    }
-
-    const simpleTxn = new SimpleTransaction(rawTxn, feePayerAddress);
+    const rawTxn = deserializeTransaction(bcsTxn);
     return {
-      rawTxn: simpleTxn,
-      hexBcsTxn: simpleTxn.bcsToHex().toStringWithoutPrefix(),
+      rawTxn,
+      hexBcsTxn: rawTxn.bcsToHex().toStringWithoutPrefix(),
     };
-  }
-
-  private _convertRawTransactionToEncodeTx(
-    transaction: SimpleTransaction,
-    hexBcsTxn: string,
-  ): IEncodedTxAptos {
-    const payload = transaction.rawTransaction.payload;
-
-    if (get(payload, 'entryFunction', null)) {
-      return {
-        bcsTxn: hexBcsTxn,
-      };
-    }
-
-    throw new OneKeyLocalError(`not support transaction type`);
   }
 
   private async _getAccount(request: IJsBridgeMessagePayload) {
@@ -310,8 +284,10 @@ class ProviderApiAptos extends ProviderApiBase {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const { account, accountInfo } = await this._getAccount(request);
 
-    const { rawTxn, hexBcsTxn } = this._decodeTxToRawTransaction(params);
-    const encodeTx = this._convertRawTransactionToEncodeTx(rawTxn, hexBcsTxn);
+    const { hexBcsTxn } = this._decodeTxToRawTransaction(params);
+    const encodeTx = {
+      bcsTxn: hexBcsTxn,
+    };
 
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
@@ -333,8 +309,10 @@ class ProviderApiAptos extends ProviderApiBase {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const { account, accountInfo } = await this._getAccount(request);
 
-    const { rawTxn, hexBcsTxn } = this._decodeTxToRawTransaction(params);
-    const encodeTx = this._convertRawTransactionToEncodeTx(rawTxn, hexBcsTxn);
+    const { hexBcsTxn } = this._decodeTxToRawTransaction(params);
+    const encodeTx = {
+      bcsTxn: hexBcsTxn,
+    };
 
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
@@ -403,18 +381,20 @@ class ProviderApiAptos extends ProviderApiBase {
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
 
-    if (params.transactionType === 'multi_agent') {
-      throw new OneKeyLocalError('Not implemented MultiAgentTransaction');
-    }
     const txnBsc = params.transaction;
 
     const { rawTxn, hexBcsTxn } = this._decodeTxToRawTransaction(txnBsc);
 
     const { account, accountInfo } = await this._getAccountByAddress(
       request,
-      rawTxn.rawTransaction.sender.bcsToHex().toStringWithoutPrefix(),
+      params.asFeePayer
+        ? rawTxn.feePayerAddress?.bcsToHex().toStringWithoutPrefix() ?? ''
+        : rawTxn.rawTransaction.sender.bcsToHex().toStringWithoutPrefix(),
     );
-    const encodeTx = this._convertRawTransactionToEncodeTx(rawTxn, hexBcsTxn);
+    const encodeTx = {
+      bcsTxn: hexBcsTxn,
+    };
+
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
