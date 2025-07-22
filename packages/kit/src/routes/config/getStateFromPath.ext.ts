@@ -1,5 +1,7 @@
 // Source File in node_modules/@react-navigation/core/src/getStateFromPath.tsx
 
+/* eslint-disable @typescript-eslint/restrict-template-expressions */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable no-param-reassign */
 /* eslint-disable @typescript-eslint/no-unnecessary-type-assertion */
@@ -351,7 +353,7 @@ function checkForDuplicatedConfigs(configs: RouteConfig[]) {
           : a.every((it, i) => b[i] === it);
 
       if (!intersects) {
-        throw new Error(
+        throw new OneKeyLocalError(
           `Found conflicting screens with the same pattern. The pattern '${
             pattern
           }' resolves to both '${a.join(' > ')}' and '${b.join(
@@ -471,7 +473,7 @@ const createNormalizedConfigs = (
     // it could have `screens` prop which has nested configs
     if (typeof config.path === 'string') {
       if (config.exact && config.path == null) {
-        throw new Error(
+        throw new OneKeyLocalError(
           `Screen '${screen}' doesn't specify a 'path'. A 'path' needs to be specified when specifying 'exact: true'. If you don't want this screen in the URL, specify it as empty string, e.g. \`path: ''\`.`
         );
       }
@@ -525,7 +527,7 @@ const createNormalizedConfigs = (
       typeof config.path !== 'string' &&
       config.alias?.length
     ) {
-      throw new Error(
+      throw new OneKeyLocalError(
         `Screen '${screen}' doesn't specify a 'path'. A 'path' needs to be specified in order to use 'alias'.`
       );
     }
