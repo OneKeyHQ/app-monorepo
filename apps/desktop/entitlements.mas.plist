@@ -20,7 +20,5 @@
     <true/>
     <key>com.apple.security.device.usb</key>
     <true/>
-    <key>com.apple.security.device.bluetooth</key>
-    <true/>
   </dict>
 </plist>

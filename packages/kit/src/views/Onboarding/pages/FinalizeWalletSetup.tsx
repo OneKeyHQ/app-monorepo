@@ -210,7 +210,8 @@ function FinalizeWalletSetupPage({
     }
   }, [currentStep, navigation, showStep, handleWalletSetupReady]);
 
-  const showCloseButton = currentStep === EFinalizeWalletSetupSteps.Ready;
+  const showCloseButton =
+    currentStep === EFinalizeWalletSetupSteps.Ready || onboardingError;
 
   const renderHeaderLeft = useCallback(() => {
     if (shouldBondReferralCode) {

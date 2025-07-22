@@ -3,7 +3,9 @@ import {
   AptosConfig,
   Aptos as AptosRpcClient,
   Deserializer,
+  Ed25519PublicKey,
   MimeType,
+  MultiAgentTransaction,
   RawTransaction,
   Serializer,
   SignedTransaction,
@@ -11,13 +13,23 @@ import {
   TransactionPayloadEntryFunction,
   TransactionPayloadScript,
   U64,
+  generateSignedTransactionForSimulation,
   postAptosFullNode,
 } from '@aptos-labs/ts-sdk';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 
+import {
+  normalizePrivateKey,
+  validatePrivateKey,
+} from '@onekeyhq/core/src/chains/aptos/helper/privateUtils';
+import { deserializeTransaction } from '@onekeyhq/core/src/chains/aptos/helper/transactionUtils';
 import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import {
+  decodeSensitiveTextAsync,
+  encodeSensitiveTextAsync,
+} from '@onekeyhq/core/src/secret';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -88,7 +100,10 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
-import type { PendingTransactionResponse } from '@aptos-labs/ts-sdk';
+import type {
+  AnyRawTransaction,
+  PendingTransactionResponse,
+} from '@aptos-labs/ts-sdk';
 
 export default class VaultAptos extends VaultBase {
   override coreApi = coreChainApi.aptos.hd;
@@ -165,9 +180,8 @@ export default class VaultAptos extends VaultBase {
     const expect = getExpirationTimestampSecs();
     const { bcsTxn, disableEditTx } = encodedTx;
     if (!isNil(bcsTxn) && !isEmpty(bcsTxn)) {
-      const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));
-      const simpleTxn = SimpleTransaction.deserialize(deserializer);
-      const rawTx = simpleTxn.rawTransaction;
+      const originalTxn = deserializeTransaction(bcsTxn);
+      const rawTx = originalTxn.rawTransaction;
 
       let expirationTimestampSecs = rawTx.expiration_timestamp_secs;
       if (!disableEditTx && rawTx.expiration_timestamp_secs < expect) {
@@ -184,12 +198,24 @@ export default class VaultAptos extends VaultBase {
         rawTx.chain_id,
       );
 
-      const newSimpleTxn = new SimpleTransaction(
-        newRawTx,
-        simpleTxn.feePayerAddress,
-      );
+      let newTxn: AnyRawTransaction;
+      if (originalTxn instanceof MultiAgentTransaction) {
+        newTxn = new MultiAgentTransaction(
+          newRawTx,
+          originalTxn.secondarySignerAddresses,
+          originalTxn.feePayerAddress,
+        );
+      } else if (originalTxn instanceof SimpleTransaction) {
+        newTxn = new SimpleTransaction(newRawTx, originalTxn.feePayerAddress);
+      } else {
+        const _exhaustiveCheck: never = originalTxn;
+        throw new OneKeyLocalError(
+          `Unhandled transaction type: ${_exhaustiveCheck as string}`,
+        );
+      }
+
       const serializer = new Serializer();
-      newSimpleTxn.serialize(serializer);
+      newTxn.serialize(serializer);
       encodedTx.bcsTxn = bufferUtils.bytesToHex(serializer.toUint8Array());
     } else if (
       !encodedTx.expiration_timestamp_secs ||
@@ -758,10 +784,16 @@ export default class VaultAptos extends VaultBase {
     });
   }
 
-  override getPrivateKeyFromImported(
+  override async getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    return this.baseGetPrivateKeyFromImported(params);
+    const input = await decodeSensitiveTextAsync({
+      encodedText: params.input,
+    });
+    const privateKey = normalizePrivateKey(input, 'legacy');
+    return {
+      privateKey: await encodeSensitiveTextAsync({ text: privateKey }),
+    };
   }
 
   override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
@@ -773,7 +805,9 @@ export default class VaultAptos extends VaultBase {
   override validatePrivateKey(
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
-    return this.baseValidatePrivateKey(privateKey);
+    return Promise.resolve({
+      isValid: validatePrivateKey(privateKey),
+    });
   }
 
   override async validateGeneralInput(
@@ -796,14 +830,12 @@ export default class VaultAptos extends VaultBase {
       return { encodedTx };
     }
 
-    let rawTx: SimpleTransaction;
+    let rawTx: AnyRawTransaction;
     const unSignedEncodedTx = encodedTx;
     const { bcsTxn } = unSignedEncodedTx;
     if (bcsTxn && !isEmpty(bcsTxn)) {
-      const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));
-      rawTx = SimpleTransaction.deserialize(deserializer);
+      rawTx = deserializeTransaction(bcsTxn);
     } else {
-      const network = await this.getNetwork();
       try {
         rawTx = await generateUnsignedTransaction(this.client, {
           encodedTx,
@@ -819,6 +851,13 @@ export default class VaultAptos extends VaultBase {
       }
     }
 
+    const account = await this.getAccount();
+    let pubkey = account.pub;
+    if (!pubkey) {
+      const accountOnChain = await this.client.getAccount(account.address);
+      pubkey = accountOnChain.authentication_key;
+    }
+
     const rawTxn = rawTx.rawTransaction;
     const newRawTx = new RawTransaction(
       rawTxn.sender,
@@ -830,24 +869,46 @@ export default class VaultAptos extends VaultBase {
       rawTxn.chain_id,
     );
 
-    const account = await this.getAccount();
-    const invalidSigBytes = new Uint8Array(64);
-    let pubkey = account.pub;
-    if (!pubkey) {
-      const accountOnChain = await this.client.getAccount(account.address);
-      pubkey = accountOnChain.authentication_key;
+    if (rawTx instanceof MultiAgentTransaction) {
+      rawTx = new MultiAgentTransaction(
+        newRawTx,
+        rawTx.secondarySignerAddresses,
+        rawTx.feePayerAddress,
+      );
+    } else if (rawTx instanceof SimpleTransaction) {
+      rawTx = new SimpleTransaction(newRawTx, rawTx.feePayerAddress);
+    } else {
+      const _exhaustiveCheck: never = rawTx;
+      throw new OneKeyLocalError(
+        `Unhandled transaction type: ${_exhaustiveCheck as string}`,
+      );
     }
-    const { rawTx: rawSignTx } = await buildSignedTx(
-      new SimpleTransaction(newRawTx),
-      pubkey,
-      bufferUtils.bytesToHex(invalidSigBytes),
-    );
+
+    const rawSignTxBytes = generateSignedTransactionForSimulation({
+      transaction: rawTx,
+      signerPublicKey: new Ed25519PublicKey(
+        bufferUtils.hexToBytes(hexUtils.stripHexPrefix(pubkey)),
+      ),
+      feePayerPublicKey: rawTx.feePayerAddress
+        ? new Ed25519PublicKey(
+            bufferUtils.hexToBytes(hexUtils.stripHexPrefix(pubkey)),
+          )
+        : undefined,
+      secondarySignersPublicKeys: rawTx.secondarySignerAddresses
+        ? rawTx.secondarySignerAddresses.map(
+            () =>
+              new Ed25519PublicKey(
+                bufferUtils.hexToBytes(hexUtils.stripHexPrefix(pubkey)),
+              ),
+          )
+        : undefined,
+    });
 
     const params = {
       encodedTx: {
         ...encodedTx,
         ...encodedTx.payload,
-        rawSignTx,
+        rawSignTx: bufferUtils.bytesToHex(rawSignTxBytes),
       },
     };
 
