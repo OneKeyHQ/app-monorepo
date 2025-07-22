@@ -1,11 +1,14 @@
 import { Toasts } from '@backpackapp-io/react-native-toast';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { TOAST_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 import { View } from '../../primitives';
 
 function ToastContainer() {
-  return (
+  return platformEnv.isNative ? (
+    <Toasts />
+  ) : (
     <View
       position="absolute"
       left={0}

@@ -224,6 +224,7 @@ export function ImportSingleChainBase({
               <DeriveTypeSelectorFormInput
                 networkId={form.getValues().networkId || ''}
                 enabledItems={validateResult?.deriveInfoItems || []}
+                undefinedResultIfReRun={false}
                 renderTrigger={({ label, onPress }) => (
                   <Stack
                     testID="wallet-derivation-path-selector-trigger"
