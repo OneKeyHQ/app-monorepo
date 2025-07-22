@@ -7,6 +7,8 @@ import Animated, {
   useAnimatedStyle,
 } from 'react-native-reanimated';
 
+import { YStack } from '../../primitives';
+
 import type { ViewStyle } from 'react-native';
 
 export type IDotStyle = Omit<ViewStyle, 'width' | 'height'> & {
@@ -110,5 +112,10 @@ export function PaginationItem<T>({
         </Animated.View>
       </View>
     </TouchableWithoutFeedback>
+
+    // container
+    // <YStack>
+    // <YStack /> dot
+    // </YStack>
   );
 }
