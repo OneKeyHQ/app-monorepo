@@ -282,18 +282,8 @@ function MoreActionContentGridItem({
     }
   }, [closePopover, onPress, trackID]);
 
-  const themeVariant = useThemeVariant();
   const { user } = usePrimeAuthV2();
   const isPrimeUser = user?.primeSubscription?.isActive && user?.privyUserId;
-
-  const primeIcon = useMemo(() => {
-    if (isPrimeUser) {
-      return themeVariant === 'light'
-        ? 'OnekeyPrimeLightColored'
-        : 'OnekeyPrimeDarkColored';
-    }
-    return 'PrimeOutline';
-  }, [isPrimeUser, themeVariant]);
 
   if (isPrimeFeature && !isPrimeAvailable) {
     return null;
@@ -369,7 +359,8 @@ function MoreActionContentGridItem({
             </Stack>
           </Stack>
         ) : null}
-        {isPrimeFeature ? (
+        {/* Only show Prime badge for non-Prime users */}
+        {isPrimeFeature && !isPrimeUser ? (
           <Stack
             position="absolute"
             left={-1}
@@ -381,10 +372,10 @@ function MoreActionContentGridItem({
             borderBottomRightRadius="$2"
           >
             <Icon
-              color={isPrimeUser ? '$icon' : '$iconDisabled'}
+              color="$iconDisabled"
               width={10}
               height={10}
-              name={primeIcon}
+              name="PrimeOutline"
             />
           </Stack>
         ) : null}
