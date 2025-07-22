@@ -417,6 +417,21 @@ function WallpaperCustomCategorySection({
     if (!config || !config.size) {
       return;
     }
+
+    if (deviceHomeScreens?.length && deviceHomeScreens.length >= 7) {
+      Toast.error({
+        title: appLocale.intl.formatMessage(
+          {
+            id: ETranslations.global_wallpaper_custom_max_limit,
+          },
+          {
+            '0': 7,
+          },
+        ),
+      });
+      return;
+    }
+
     const data = await ImageCrop.openPicker({
       width: config.size?.width,
       height: config.size?.height,
@@ -469,6 +484,7 @@ function WallpaperCustomCategorySection({
     config,
     device.deviceType,
     device.id,
+    deviceHomeScreens,
     onItemSelected,
     runGetDeviceHomeScreens,
   ]);
@@ -626,8 +642,6 @@ export default function HardwareHomeScreenModal({
     }
   }, [device?.deviceType, device.featuresInfo]);
 
-  console.log('HardwareHomeScreenModal_____result', result?.homeScreenList);
-
   const aspectRatioInfo = useAspectRatioInfo({
     sizeInfo: deviceInfo?.config?.size,
     deviceType: device.deviceType,
@@ -677,9 +691,13 @@ export default function HardwareHomeScreenModal({
       return (
         <LoadingStateView
           isLoading={!!isHardwareHomeScreenLoading}
-          errorMessage={intl.formatMessage({
-            id: ETranslations.global_network_error_help_text,
-          })}
+          errorMessage={
+            result?.isLoadingError
+              ? intl.formatMessage({
+                  id: ETranslations.global_network_error_help_text,
+                })
+              : undefined
+          }
           onRetry={runFetchHardwareHomeScreen}
         />
       );
