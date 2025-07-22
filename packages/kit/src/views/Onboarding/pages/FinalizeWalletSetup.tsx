@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { EMnemonicType } from '@onekeyhq/core/src/secret';
 import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
+import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -144,19 +145,6 @@ function FinalizeWalletSetupPage({
     };
   }, []);
 
-  useEffect(() => {
-    const fn = (
-      event: IAppEventBusPayload[EAppEventBusNames.FinalizeWalletSetupError],
-    ) => {
-      setOnboardingError(event.error);
-    };
-
-    appEventBus.on(EAppEventBusNames.FinalizeWalletSetupError, fn);
-    return () => {
-      appEventBus.off(EAppEventBusNames.FinalizeWalletSetupError, fn);
-    };
-  }, []);
-
   const isFirstCreateWallet = useRef(false);
   const readIsFirstCreateWallet = async () => {
     const { isOnboardingDone } =
@@ -174,6 +162,25 @@ function FinalizeWalletSetupPage({
       pop: true,
     });
   }, [navigation]);
+
+  useEffect(() => {
+    const fn = (
+      event: IAppEventBusPayload[EAppEventBusNames.FinalizeWalletSetupError],
+    ) => {
+      setOnboardingError(event.error);
+
+      setTimeout(() => {
+        if (event.error instanceof OneKeyHardwareError) {
+          popPage();
+        }
+      }, 200);
+    };
+
+    appEventBus.on(EAppEventBusNames.FinalizeWalletSetupError, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.FinalizeWalletSetupError, fn);
+    };
+  }, [popPage]);
 
   const handleWalletSetupReadyInner = useCallback(async () => {
     const needBondReferralCode = await getReferralCodeBondStatus({
