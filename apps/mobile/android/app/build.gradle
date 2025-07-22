@@ -1,6 +1,6 @@
 plugins {
     id "com.android.application"
-    // id "so.onekey.plugin.security"
+    id "so.onekey.plugin.security"
 }
 apply plugin: "com.facebook.react"
 
