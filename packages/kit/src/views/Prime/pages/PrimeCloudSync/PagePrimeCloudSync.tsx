@@ -143,7 +143,7 @@ function EnableOneKeyCloudSwitchListItem() {
         onChange={async (value) => {
           if (value && !isPrimeSubscriptionActive) {
             navigation.navigate(EPrimePages.PrimeFeatures, {
-              showAllFeatures: true,
+              showAllFeatures: false,
               selectedFeature: EPrimeFeatures.OneKeyCloud,
               selectedSubscriptionPeriod:
                 route?.params?.selectedSubscriptionPeriod,
