@@ -20,6 +20,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   openUrlExternal,
   openUrlInApp,
@@ -76,6 +77,10 @@ function WalletBanner() {
         ...prev,
         [item.id]: true,
       }));
+      defaultLogger.wallet.walletBanner.walletBannerClicked({
+        bannerId: item.id,
+        type: 'close',
+      });
       if (item.closeForever) {
         await backgroundApiProxy.serviceWalletBanner.updateClosedForeverBanners(
           {
@@ -88,6 +93,10 @@ function WalletBanner() {
   }, []);
 
   const handleClick = useCallback((item: IWalletBanner) => {
+    defaultLogger.wallet.walletBanner.walletBannerClicked({
+      bannerId: item.id,
+      type: 'jump',
+    });
     if (item.hrefType === 'external') {
       openUrlExternal(item.href);
     } else {
@@ -117,6 +126,14 @@ function WalletBanner() {
       }}
       paginationContainerStyle={{
         marginBottom: 0,
+      }}
+      onPageChanged={(index) => {
+        console.log('onPageChanged', index);
+        if (filteredBanners[index]) {
+          defaultLogger.wallet.walletBanner.walletBannerViewed({
+            bannerId: filteredBanners[index].id,
+          });
+        }
       }}
       renderItem={({ item }: { item: IWalletBanner }) => {
         return (
@@ -188,7 +205,8 @@ function WalletBanner() {
                     {item.button}
                   </Button>
                 </XStack>
-              ) : (
+              ) : null}
+              {md && item.closeable ? (
                 <Stack height="100%" position="relative">
                   <IconButton
                     size="small"
@@ -201,7 +219,7 @@ function WalletBanner() {
                     mt="$3"
                   />
                 </Stack>
-              )}
+              ) : null}
             </XStack>
           </YStack>
         );
