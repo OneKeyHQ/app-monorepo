@@ -24,7 +24,12 @@ export enum EModalSettingRoutes {
 
 export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingListModal]: { flag?: string } | undefined;
-  [EModalSettingRoutes.SettingListSubModal]: { name: string } | undefined;
+  [EModalSettingRoutes.SettingListSubModal]:
+    | {
+        name: string;
+        title: string;
+      }
+    | undefined;
   [EModalSettingRoutes.SettingCurrencyModal]: undefined;
   [EModalSettingRoutes.SettingClearAppCache]: undefined;
   [EModalSettingRoutes.SettingAccountDerivationModal]: undefined;

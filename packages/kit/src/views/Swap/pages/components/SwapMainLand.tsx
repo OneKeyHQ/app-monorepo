@@ -15,6 +15,7 @@ import {
   ScrollView,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
@@ -51,6 +52,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IFetchQuoteResult,
   ISwapInitParams,
+  ISwapPreSwapData,
   ISwapStep,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -125,8 +127,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
-  const [fromToken] = useSwapSelectFromTokenAtom();
-  const [swapSteps] = useSwapStepsAtom();
+  const [swapStepData] = useSwapStepsAtom();
   const swapSlippageRef = useRef(slippageItem);
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
@@ -142,10 +143,20 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
 
   const swapStepsRef = useRef<ISwapStep[]>([]);
   if (
-    swapStepsRef.current !== swapSteps ||
-    swapStepsRef.current.length !== swapSteps.length
+    swapStepsRef.current !== swapStepData.steps ||
+    swapStepsRef.current.length !== swapStepData.steps.length
   ) {
-    swapStepsRef.current = [...swapSteps];
+    swapStepsRef.current = [...swapStepData.steps];
+  }
+
+  const quoteResultRef = useRef<IFetchQuoteResult | undefined>(undefined);
+  if (quoteResultRef.current !== currentQuoteRes) {
+    quoteResultRef.current = currentQuoteRes;
+  }
+
+  const preSwapDataRef = useRef<ISwapPreSwapData | undefined>(undefined);
+  if (preSwapDataRef.current !== swapStepData.preSwapData) {
+    preSwapDataRef.current = swapStepData.preSwapData;
   }
 
   const onSelectToken = useCallback(
@@ -289,18 +300,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   );
 
   const createApproveStep = useCallback(
-    (
-      quoteRes: IFetchQuoteResult,
-      isResetApprove: boolean,
-      stepActionsLabel: string,
-      stepTitle: string,
-    ) => {
+    (isResetApprove: boolean, stepActionsLabel: string, stepTitle: string) => {
       return {
         type: ESwapStepType.APPROVE_TX,
         status: ESwapStepStatus.READY,
-        data: quoteRes,
-        fromToken: fromSelectToken,
-        toToken: toSelectToken,
         isResetApprove,
         canRetry: true,
         stepActionsLabel,
@@ -310,178 +313,177 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP,
       };
     },
-    [fromSelectToken, swapBatchTransferType, toSelectToken],
+    [swapBatchTransferType],
   );
 
-  const createSignStep = useCallback(
-    (quoteRes: IFetchQuoteResult) => {
-      return {
-        type: ESwapStepType.SIGN_MESSAGE,
-        status: ESwapStepStatus.READY,
-        data: quoteRes,
-        fromToken: fromSelectToken,
-        toToken: toSelectToken,
-        stepTitle: intl.formatMessage({
-          id: ETranslations.swap_review_sign_and_submit,
-        }),
-        stepActionsLabel: intl.formatMessage({
-          id: ETranslations.global_sign,
-        }),
-      };
-    },
-    [fromSelectToken, intl, toSelectToken],
-  );
+  const createSignStep = useCallback(() => {
+    return {
+      type: ESwapStepType.SIGN_MESSAGE,
+      status: ESwapStepStatus.READY,
+      stepTitle: intl.formatMessage({
+        id: ETranslations.swap_review_sign_and_submit,
+      }),
+      stepActionsLabel: intl.formatMessage({
+        id: ETranslations.global_sign,
+      }),
+    };
+  }, [intl]);
 
-  const createBatchApproveSwapStep = useCallback(
-    (quoteRes: IFetchQuoteResult) => {
-      return {
-        type: ESwapStepType.BATCH_APPROVE_SWAP,
-        status: ESwapStepStatus.READY,
-        data: quoteRes,
-        fromToken: fromSelectToken,
-        toToken: toSelectToken,
-        stepTitle: intl.formatMessage({
-          id: ETranslations.swap_page_approve_and_swap,
-        }),
-        stepActionsLabel: intl.formatMessage({
-          id: ETranslations.swap_page_approve_and_swap,
-        }),
-      };
-    },
-    [fromSelectToken, intl, toSelectToken],
-  );
+  const createBatchApproveSwapStep = useCallback(() => {
+    return {
+      type: ESwapStepType.BATCH_APPROVE_SWAP,
+      status: ESwapStepStatus.READY,
+      stepTitle: intl.formatMessage({
+        id: ETranslations.swap_page_approve_and_swap,
+      }),
+      stepActionsLabel: intl.formatMessage({
+        id: ETranslations.swap_page_approve_and_swap,
+      }),
+    };
+  }, [intl]);
 
-  const createSendTxStep = useCallback(
-    (quoteRes: IFetchQuoteResult) => {
-      return {
-        type: ESwapStepType.SEND_TX,
-        status: ESwapStepStatus.READY,
-        data: quoteRes,
-        fromToken: fromSelectToken,
-        toToken: toSelectToken,
-        stepTitle: intl.formatMessage({
-          id: ETranslations.swap_review_confirm_swap,
-        }),
-        stepActionsLabel: intl.formatMessage({
-          id: ETranslations.global_swap,
-        }),
-      };
-    },
-    [fromSelectToken, intl, toSelectToken],
-  );
+  const createSendTxStep = useCallback(() => {
+    return {
+      type: ESwapStepType.SEND_TX,
+      status: ESwapStepStatus.READY,
+      stepTitle: intl.formatMessage({
+        id: ETranslations.swap_review_confirm_swap,
+      }),
+      stepActionsLabel: intl.formatMessage({
+        id: ETranslations.global_swap,
+      }),
+    };
+  }, [intl]);
 
-  const parseQuoteResultToSteps = useCallback(
-    (quoteRes: IFetchQuoteResult) => {
-      let steps: ISwapStep[] = [];
-      if (quoteRes.isWrapped) {
-        steps = [createWrapStep(quoteRes)];
-      } else if (quoteRes.swapShouldSignedData) {
-        if (quoteRes.allowanceResult) {
-          if (quoteRes.allowanceResult.shouldResetApprove) {
-            steps = [
-              createApproveStep(
-                quoteRes,
-                true,
-                intl.formatMessage({
-                  id: ETranslations.swap_page_approve_and_sign,
-                }),
-                intl.formatMessage(
-                  {
-                    id: ETranslations.global_revoke_approve,
-                  },
-                  {
-                    symbol: fromSelectToken?.symbol,
-                  },
-                ),
-              ),
-            ];
-          }
+  const parseQuoteResultToSteps = useCallback(() => {
+    let steps: ISwapStep[] = [];
+    if (currentQuoteRes?.isWrapped) {
+      steps = [createWrapStep(currentQuoteRes)];
+    } else if (currentQuoteRes?.swapShouldSignedData) {
+      if (currentQuoteRes?.allowanceResult) {
+        if (currentQuoteRes?.allowanceResult.shouldResetApprove) {
           steps = [
-            ...steps,
             createApproveStep(
-              quoteRes,
-              false,
+              true,
               intl.formatMessage({
                 id: ETranslations.swap_page_approve_and_sign,
               }),
               intl.formatMessage(
                 {
-                  id: ETranslations.swap_page_approve_button,
+                  id: ETranslations.global_revoke_approve,
                 },
                 {
-                  token: fromSelectToken?.symbol,
+                  symbol: fromSelectToken?.symbol,
                 },
               ),
             ),
           ];
         }
-        steps = [...steps, createSignStep(quoteRes)];
-      } else if (
-        swapBatchTransferType ===
-          ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP &&
-        quoteRes.allowanceResult
-      ) {
-        steps = [createBatchApproveSwapStep(quoteRes)];
-      } else {
-        if (quoteRes.allowanceResult) {
-          if (quoteRes.allowanceResult.shouldResetApprove) {
-            steps = [
-              createApproveStep(
-                quoteRes,
-                true,
-                intl.formatMessage({
-                  id: ETranslations.swap_page_approve_and_swap,
-                }),
-                intl.formatMessage(
-                  {
-                    id: ETranslations.global_revoke_approve,
-                  },
-                  {
-                    symbol: fromSelectToken?.symbol,
-                  },
-                ),
-              ),
-            ];
-          }
+        steps = [
+          ...steps,
+          createApproveStep(
+            false,
+            intl.formatMessage({
+              id: ETranslations.swap_page_approve_and_sign,
+            }),
+            intl.formatMessage(
+              {
+                id: ETranslations.swap_page_approve_button,
+              },
+              {
+                token: fromSelectToken?.symbol,
+              },
+            ),
+          ),
+        ];
+      }
+      steps = [...steps, createSignStep()];
+    } else if (
+      swapBatchTransferType === ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP &&
+      currentQuoteRes?.allowanceResult
+    ) {
+      steps = [createBatchApproveSwapStep()];
+    } else {
+      if (currentQuoteRes?.allowanceResult) {
+        if (currentQuoteRes?.allowanceResult.shouldResetApprove) {
           steps = [
-            ...steps,
             createApproveStep(
-              quoteRes,
-              false,
+              true,
               intl.formatMessage({
                 id: ETranslations.swap_page_approve_and_swap,
               }),
               intl.formatMessage(
                 {
-                  id: ETranslations.swap_page_approve_button,
+                  id: ETranslations.global_revoke_approve,
                 },
                 {
-                  token: fromSelectToken?.symbol,
-                  target: quoteRes.info.providerName,
+                  symbol: fromSelectToken?.symbol,
                 },
               ),
             ),
           ];
         }
-        steps = [...steps, createSendTxStep(quoteRes)];
+        steps = [
+          ...steps,
+          createApproveStep(
+            false,
+            intl.formatMessage({
+              id: ETranslations.swap_page_approve_and_swap,
+            }),
+            intl.formatMessage(
+              {
+                id: ETranslations.swap_page_approve_button,
+              },
+              {
+                token: fromSelectToken?.symbol,
+                target: currentQuoteRes?.info.providerName,
+              },
+            ),
+          ),
+        ];
       }
-      setSwapSteps([...steps]);
-    },
-    [
-      swapBatchTransferType,
-      setSwapSteps,
-      createWrapStep,
-      createSignStep,
-      createApproveStep,
-      intl,
-      fromSelectToken?.symbol,
-      createBatchApproveSwapStep,
-      createSendTxStep,
-    ],
-  );
+      steps = [...steps, createSendTxStep()];
+    }
+    setSwapSteps({
+      steps: [...steps],
+      preSwapData: {
+        fromToken: fromSelectToken,
+        toToken: toSelectToken,
+        fromTokenAmount: fromAmount.value,
+        toTokenAmount: swapToAmount.value,
+        providerInfo: currentQuoteRes?.info,
+        slippage: swapSlippageRef.current.value,
+        unSupportSlippage: currentQuoteRes?.unSupportSlippage ?? false,
+        fee: currentQuoteRes?.fee,
+      },
+      quoteResult: { ...(currentQuoteRes as IFetchQuoteResult) },
+    });
+  }, [
+    currentQuoteRes,
+    swapBatchTransferType,
+    setSwapSteps,
+    fromSelectToken,
+    toSelectToken,
+    fromAmount.value,
+    swapToAmount.value,
+    createWrapStep,
+    createSignStep,
+    createApproveStep,
+    intl,
+    createBatchApproveSwapStep,
+    createSendTxStep,
+  ]);
   const onActionHandler = useCallback(() => {
-    if (swapStepsRef.current.length > 0) {
-      void preSwapStepsStart(swapStepsRef.current);
+    if (
+      swapStepsRef.current.length > 0 &&
+      preSwapDataRef.current &&
+      quoteResultRef.current
+    ) {
+      void preSwapStepsStart({
+        steps: swapStepsRef.current,
+        preSwapData: preSwapDataRef.current,
+        quoteResult: quoteResultRef.current,
+      });
     }
   }, [preSwapStepsStart]);
 
@@ -606,8 +608,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const onPreSwapClose = useCallback(() => {
     void dialogRef.current?.close();
     setSwapBuildTxFetching(false);
+    void backgroundApiProxy.serviceGas.abortEstimateFee();
     setTimeout(() => {
-      setSwapSteps([]);
+      setSwapSteps({
+        steps: [],
+        preSwapData: {},
+      });
     }, 500);
   }, [setSwapBuildTxFetching, setSwapSteps]);
 
@@ -617,6 +623,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     }
     cleanQuoteInterval();
     setSwapShouldRefreshQuote(true);
+    parseQuoteResultToSteps();
     dialogRef.current = Dialog.show({
       onClose: onPreSwapClose,
       title: intl.formatMessage({ id: ETranslations.global_review_order }),
@@ -637,9 +644,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             }
           >
             <PreSwapDialogContent
-              fromTokenInfo={fromToken}
-              toTokenInfo={toToken}
-              quoteResult={currentQuoteRes}
               onConfirm={handleConfirm}
               slippageItem={slippageItem}
             />
@@ -650,20 +654,17 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       showConfirmButton: false,
     });
     setSwapBuildTxFetching(true);
-    parseQuoteResultToSteps(currentQuoteRes);
   }, [
-    pageType,
     currentQuoteRes,
     cleanQuoteInterval,
+    setSwapShouldRefreshQuote,
+    parseQuoteResultToSteps,
     onPreSwapClose,
     intl,
-    fromToken,
-    toToken,
+    pageType,
     handleConfirm,
     slippageItem,
     setSwapBuildTxFetching,
-    parseQuoteResultToSteps,
-    setSwapShouldRefreshQuote,
   ]);
 
   return (

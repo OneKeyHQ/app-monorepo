@@ -19,7 +19,6 @@ export type IOnekeyStackHeaderProps = {
   isModelScreen?: boolean;
   isRootScreen?: boolean;
   isFlowModelScreen?: boolean;
-  disableClose?: boolean;
 };
 
 export function makeHeaderScreenOptions({

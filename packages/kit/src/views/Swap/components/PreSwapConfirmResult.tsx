@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
   AnimatePresence,
   Image,
-  LottieView,
   SizableText,
   XStack,
   YStack,
@@ -13,32 +12,34 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import type { ISwapStep } from '@onekeyhq/shared/types/swap/types';
-import {
-  ESwapExtraStatus,
-  ESwapStepStatus,
-} from '@onekeyhq/shared/types/swap/types';
+import type { ISwapStep, ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import { ESwapStepStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { truncateMiddle } from '../utils/utils';
 
 interface IPreSwapConfirmResultProps {
   lastStep: ISwapStep;
+  fromToken?: ISwapToken;
+  supportUrl?: string;
 }
 
-const PreSwapConfirmResult = ({ lastStep }: IPreSwapConfirmResultProps) => {
-  const ref = useRef<any>(null);
+const PreSwapConfirmResult = ({
+  lastStep,
+  fromToken,
+  supportUrl,
+}: IPreSwapConfirmResultProps) => {
   const [explorerUrl, setExplorerUrl] = useState<string>('');
   const intl = useIntl();
   useEffect(() => {
     const fetchExplorerUrl = async () => {
-      if (!lastStep.txHash || !lastStep.data?.fromTokenInfo.networkId) {
+      if (!lastStep.txHash || !fromToken?.networkId) {
         setExplorerUrl('');
         return;
       }
 
       try {
         const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl({
-          networkId: lastStep.data?.fromTokenInfo.networkId,
+          networkId: fromToken?.networkId,
           type: 'transaction',
           param: lastStep.txHash,
         });
@@ -50,7 +51,7 @@ const PreSwapConfirmResult = ({ lastStep }: IPreSwapConfirmResultProps) => {
     };
 
     void fetchExplorerUrl();
-  }, [lastStep.txHash, lastStep.data?.fromTokenInfo.networkId]);
+  }, [lastStep.txHash, fromToken?.networkId]);
 
   const handleViewOnExplorer = useCallback(() => {
     if (explorerUrl) {
@@ -148,8 +149,7 @@ const PreSwapConfirmResult = ({ lastStep }: IPreSwapConfirmResultProps) => {
           ) : null}
         </YStack>
       </YStack>
-      {lastStep.data?.supportUrl &&
-      lastStep.status === ESwapStepStatus.FAILED ? (
+      {supportUrl && lastStep.status === ESwapStepStatus.FAILED ? (
         <XStack alignItems="center" justifyContent="center">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
@@ -166,14 +166,14 @@ const PreSwapConfirmResult = ({ lastStep }: IPreSwapConfirmResultProps) => {
             textDecorationStyle="dotted"
             color="$textSubdued"
             cursor="pointer"
-            onPress={() => openUrlExternal(lastStep.data?.supportUrl ?? '')}
+            onPress={() => openUrlExternal(supportUrl ?? '')}
           >
             {intl.formatMessage(
               {
                 id: ETranslations.swap_review_tx_failed_2,
               },
               {
-                url: lastStep.data?.supportUrl ?? '',
+                url: supportUrl,
               },
             )}
           </SizableText>

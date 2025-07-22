@@ -87,6 +87,9 @@ export function SlippageSetting({
       />
 
       <XStack onPress={onSlippageHandleClick} alignItems="center" gap="$1">
+        {isMEV ? (
+          <Icon name="ShieldCheckDoneSolid" size="$5" color="$iconSuccess" />
+        ) : null}
         <SizableText
           size="$bodyMd"
           color={
