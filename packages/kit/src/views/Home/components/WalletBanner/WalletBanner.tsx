@@ -145,7 +145,7 @@ function WalletBanner() {
               <XStack
                 key={item.id}
                 flex={1}
-                gap="$3"
+                gap="$5"
                 alignItems="center"
                 p="$4"
                 pr="$8"
@@ -156,6 +156,7 @@ function WalletBanner() {
                 borderCurve="continuous"
                 elevation={0.5}
                 {...(!gtLg && {
+                  gap: '$3',
                   hoverStyle: {
                     bg: '$bgHover',
                   },
