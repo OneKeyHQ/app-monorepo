@@ -156,10 +156,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.global_onekey_cloud,
                   }),
-                  badgeProps: {
-                    badgeSize: 'sm',
-                    badgeText: 'Prime',
-                  },
                   onPress: (navigation) => {
                     if (isPrimeSubscriptionActive) {
                       navigation?.pushModal(EModalRoutes.PrimeModal, {

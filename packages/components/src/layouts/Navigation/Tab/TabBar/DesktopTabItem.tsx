@@ -191,13 +191,13 @@ export function DesktopTabItem(
             />
             {showDot ? (
               <Stack
-                width="$3"
-                height="$3"
+                width="$2.5"
+                height="$2.5"
                 bg="$iconInfo"
                 borderRadius="$full"
                 position="absolute"
-                right={-4}
-                top={-4}
+                right={-3}
+                top={-2}
                 borderWidth="$0.5"
                 borderColor="$bgSubdued"
               />
