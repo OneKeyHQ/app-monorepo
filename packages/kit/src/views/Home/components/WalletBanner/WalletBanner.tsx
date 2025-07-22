@@ -118,36 +118,45 @@ function WalletBanner() {
   }
 
   return (
-    <Stack px="$5">
-      <Carousel
-        data={filteredBanners}
-        autoPlayInterval={3800}
-        containerStyle={{
-          height: 96,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: '$borderSubdued',
-          borderRadius: '$4',
-          overflow: 'hidden',
-        }}
-        paginationContainerStyle={{
-          marginBottom: 0,
-        }}
-        renderItem={({ item }: { item: IWalletBanner }) => {
-          return (
+    <Carousel
+      data={filteredBanners}
+      autoPlayInterval={3800}
+      containerStyle={{
+        height: 100,
+      }}
+      paginationContainerStyle={{
+        marginBottom: 0,
+      }}
+      onPageChanged={(index) => {
+        if (filteredBanners[index]) {
+          defaultLogger.wallet.walletBanner.walletBannerViewed({
+            bannerId: filteredBanners[index].id,
+          });
+        }
+      }}
+      renderItem={({ item }: { item: IWalletBanner }) => {
+        return (
+          <YStack px="$5">
             <XStack
               key={item.id}
-              bg="$bgApp"
-              px="$4"
               flex={1}
-              jc="space-between"
-              ai="center"
+              gap="$3"
+              alignItems="center"
+              p="$4"
+              pr="$8"
+              bg="$bg"
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor="$borderSubdued"
+              borderRadius="$4"
+              borderCurve="continuous"
+              elevation={0.5}
               onPress={gtMd ? undefined : () => handleClick(item)}
-              gap="$5"
             >
               <XStack gap="$5" alignItems="center" flex={1}>
                 <Image
                   size="$16"
-                  borderRadius="$2.5"
+                  borderRadius="$2"
+                  borderCurve="continuous"
                   source={{ uri: item.src }}
                   fallback={
                     <Image.Fallback
@@ -169,20 +178,16 @@ function WalletBanner() {
                   <SizableText size="$bodyLgMedium" numberOfLines={1}>
                     {item.title}
                   </SizableText>
-                  <SizableText
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    numberOfLines={2}
-                    flexShrink={1}
-                  >
+                  <SizableText size="$bodyMd" color="$textSubdued">
                     {item.description}
                   </SizableText>
                 </YStack>
               </XStack>
               {gtMd ? (
-                <XStack gap="$5">
+                <XStack gap="$5" alignItems="center">
                   {item.closeable ? (
                     <Button
+                      size="small"
                       variant="tertiary"
                       onPress={() => handleDismiss(item)}
                     >
@@ -191,7 +196,11 @@ function WalletBanner() {
                       })}
                     </Button>
                   ) : null}
-                  <Button variant="primary" onPress={() => handleClick(item)}>
+                  <Button
+                    size="small"
+                    variant="primary"
+                    onPress={() => handleClick(item)}
+                  >
                     {item.button}
                   </Button>
                 </XStack>
@@ -211,17 +220,10 @@ function WalletBanner() {
                 </Stack>
               ) : null}
             </XStack>
-          );
-        }}
-        onPageChanged={(index) => {
-          if (filteredBanners[index]) {
-            defaultLogger.wallet.walletBanner.walletBannerViewed({
-              bannerId: filteredBanners[index].id,
-            });
-          }
-        }}
-      />
-    </Stack>
+          </YStack>
+        );
+      }}
+    />
   );
 }
 
