@@ -3,7 +3,6 @@ import { useEffect, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  AnimatePresence,
   Button,
   Divider,
   HeightTransition,
@@ -18,8 +17,8 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
   ESwapSlippageSegmentKey,
   IFetchQuoteResult,
+  ISwapPreSwapData,
   ISwapStep,
-  ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapApproveTransactionStatus,
@@ -34,9 +33,6 @@ import PreSwapTokenItem from '../../components/PreSwapTokenItem';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 
 interface IPreSwapDialogContentProps {
-  quoteResult: IFetchQuoteResult;
-  fromTokenInfo?: ISwapToken;
-  toTokenInfo?: ISwapToken;
   onConfirm: () => void;
   slippageItem: {
     key: ESwapSlippageSegmentKey;
@@ -45,17 +41,15 @@ interface IPreSwapDialogContentProps {
 }
 
 const PreSwapDialogContent = ({
-  onConfirm,
-  quoteResult,
   slippageItem,
-  fromTokenInfo,
-  toTokenInfo,
+  onConfirm,
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
-
-  const fromAmount = quoteResult?.fromAmount || '0';
-  const toAmount = quoteResult?.toAmount || '0';
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
+  const preSwapData = swapSteps.preSwapData;
+  const quoteResult = swapSteps.quoteResult;
+  const fromAmount = preSwapData?.fromTokenAmount || '0';
+  const toAmount = preSwapData?.toTokenAmount || '0';
   const { activeAccount } = useActiveAccount({ num: 0 });
   const isHwWallet = useMemo(
     () =>
@@ -84,28 +78,37 @@ const PreSwapDialogContent = ({
           ? ESwapStepStatus.SUCCESS
           : ESwapStepStatus.FAILED;
 
-      setSwapSteps((prevSteps: ISwapStep[]) => {
-        const newSteps = [...prevSteps];
-        const txId = inAppNotificationAtom.swapApprovingTransaction?.txId;
+      setSwapSteps(
+        (prevSteps: { steps: ISwapStep[]; preSwapData: ISwapPreSwapData }) => {
+          const newSteps = [...prevSteps.steps];
+          const txId = inAppNotificationAtom.swapApprovingTransaction?.txId;
 
-        const stepIndex = newSteps.findIndex((step) => step.txHash === txId);
+          const stepIndex = newSteps.findIndex((step) => step.txHash === txId);
 
-        if (stepIndex !== -1) {
-          newSteps[stepIndex] = {
-            ...newSteps[stepIndex],
-            status: approveStepStatus,
+          if (stepIndex !== -1) {
+            newSteps[stepIndex] = {
+              ...newSteps[stepIndex],
+              status: approveStepStatus,
+            };
+          }
+
+          return {
+            ...prevSteps,
+            steps: newSteps,
           };
-        }
-
-        return newSteps;
-      });
+        },
+      );
       setInAppNotificationAtom((prev) => {
         return {
           ...prev,
           swapApprovingTransaction: undefined,
         };
       });
-      void preSwapStepsStart(swapSteps);
+      void preSwapStepsStart({
+        steps: [...swapSteps.steps],
+        preSwapData: swapSteps.preSwapData,
+        quoteResult: swapSteps.quoteResult as IFetchQuoteResult,
+      });
     }
   }, [
     inAppNotificationAtom.swapApprovingTransaction,
@@ -116,7 +119,7 @@ const PreSwapDialogContent = ({
   ]);
 
   const lastStep = useMemo(() => {
-    return swapSteps[swapSteps.length - 1];
+    return swapSteps.steps[swapSteps.steps.length - 1];
   }, [swapSteps]);
 
   useEffect(() => {
@@ -138,14 +141,22 @@ const PreSwapDialogContent = ({
           stepStatus = ESwapStepStatus.FAILED;
         }
 
-        setSwapSteps((prevSteps: ISwapStep[]) => {
-          const newSteps = [...prevSteps];
-          newSteps[newSteps.length - 1] = {
-            ...newSteps[newSteps.length - 1],
-            status: stepStatus,
-          };
-          return newSteps;
-        });
+        setSwapSteps(
+          (prevSteps: {
+            steps: ISwapStep[];
+            preSwapData: ISwapPreSwapData;
+          }) => {
+            const newSteps = [...prevSteps.steps];
+            newSteps[newSteps.length - 1] = {
+              ...newSteps[newSteps.length - 1],
+              status: stepStatus,
+            };
+            return {
+              ...prevSteps,
+              steps: newSteps,
+            };
+          },
+        );
       }
     }
   }, [
@@ -156,21 +167,25 @@ const PreSwapDialogContent = ({
   ]);
 
   const showResultContent = useMemo(() => {
-    if (swapSteps.length > 0) {
+    if (swapSteps.steps.length > 0) {
       return (
         lastStep?.status !== ESwapStepStatus.READY &&
         lastStep?.status !== ESwapStepStatus.LOADING
       );
     }
-  }, [lastStep?.status, swapSteps.length]);
+  }, [lastStep?.status, swapSteps.steps.length]);
 
   // if (showResultContent && swapSteps.length > 0) {
   //   return <PreSwapConfirmResult lastStep={swapSteps[swapSteps.length - 1]} />;
   // }
   return (
     <HeightTransition initialHeight={355}>
-      {showResultContent && swapSteps.length > 0 ? (
-        <PreSwapConfirmResult lastStep={swapSteps[swapSteps.length - 1]} />
+      {showResultContent && swapSteps.steps.length > 0 ? (
+        <PreSwapConfirmResult
+          fromToken={preSwapData?.fromToken}
+          supportUrl={quoteResult?.supportUrl}
+          lastStep={swapSteps.steps[swapSteps.steps.length - 1]}
+        />
       ) : (
         <YStack gap="$4">
           {/* You pay */}
@@ -180,7 +195,10 @@ const PreSwapDialogContent = ({
             </SizableText>
 
             {/* From token item */}
-            <PreSwapTokenItem token={fromTokenInfo} amount={fromAmount} />
+            <PreSwapTokenItem
+              token={preSwapData?.fromToken}
+              amount={fromAmount}
+            />
           </YStack>
           {/* You received */}
           <YStack gap="$1">
@@ -191,17 +209,17 @@ const PreSwapDialogContent = ({
             </SizableText>
 
             {/* To token item */}
-            <PreSwapTokenItem token={toTokenInfo} amount={toAmount} />
+            <PreSwapTokenItem token={preSwapData?.toToken} amount={toAmount} />
           </YStack>
 
           <Divider />
 
-          {swapSteps.length > 0 &&
-          swapSteps[0].status === ESwapStepStatus.READY ? (
+          {swapSteps.steps.length > 0 &&
+          swapSteps.steps[0].status === ESwapStepStatus.READY ? (
             <YStack gap="$4">
               {/* Info items */}
               <PreSwapInfoGroup
-                quoteResult={quoteResult}
+                preSwapData={swapSteps.preSwapData}
                 slippageItem={slippageItem}
               />
               {/* Primary button */}
@@ -214,7 +232,7 @@ const PreSwapDialogContent = ({
               </Button>
             </YStack>
           ) : (
-            <PreSwapStep steps={swapSteps} onRetry={handleConfirm} />
+            <PreSwapStep steps={swapSteps.steps} onRetry={handleConfirm} />
           )}
         </YStack>
       )}

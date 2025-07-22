@@ -65,6 +65,8 @@ import { DevSettingsSection } from './DevSettingsSection';
 import { exportLogs } from './exportLogs';
 import { SubSearchSettings } from './SubSettings';
 
+import type { RouteProp } from '@react-navigation/native';
+
 export interface ISubSettingConfig {
   icon: string | IKeyOfIcons;
   title: string;
@@ -98,6 +100,7 @@ export type ISettingsConfig = (
       tabBarIconStyle?: IIconProps;
       tabBarLabelStyle?: ISizableTextProps;
       Component?: ComponentType<{
+        route: RouteProp<any, any>;
         name: string;
         settingsConfig: ISettingsConfig;
       }>;

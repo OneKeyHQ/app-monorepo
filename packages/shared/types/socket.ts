@@ -20,16 +20,20 @@ export type IPrimeSubscriptionInfo = {
 };
 
 export type IPrimeDeviceLogoutInfo = {
+  msgId: string;
   id: string;
   emails: string[];
 };
 
 export type IPrimeConfigChangedInfo = {
+  msgId: string;
   nonce: number;
+  pwdHash: string;
   serverData: ICloudSyncServerItem[];
 };
 
 export type IPrimeConfigFlushInfo = {
+  msgId: string;
   lock: {
     key: string;
     dataType: EPrimeCloudSyncDataType.Lock;
@@ -43,6 +47,7 @@ export type IPrimeConfigFlushInfo = {
 };
 
 export type IPrimeLockChangedInfo = {
+  msgId: string;
   lock: {
     key: string;
     dataType: EPrimeCloudSyncDataType.Lock;

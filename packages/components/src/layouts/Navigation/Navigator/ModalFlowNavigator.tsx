@@ -1,10 +1,11 @@
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { EPageType, PageTypeHOC } from '../../../hocs';
+import { EPageType } from '../../../hocs';
+import { PageTypeContext } from '../../../hocs/PageType/context';
 import { useThemeValue } from '../../../hooks';
 import { makeModalStackNavigatorOptions } from '../GlobalScreenOptions';
 import createWebModalNavigator from '../Modal/createWebModalNavigator';
@@ -21,8 +22,6 @@ export interface IModalFlowNavigatorConfig<
   P extends ParamListBase,
 > extends ICommonNavigatorConfig<RouteName, P> {
   translationId?: ETranslations | string;
-  allowDisableClose?: boolean;
-  disableClose?: boolean;
   shouldPopOnClickBackdrop?: boolean;
   dismissOnOverlayPress?: boolean;
 }
@@ -67,43 +66,47 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
     };
   }, [onMounted, onUnmounted]);
 
+  const contextValue = useMemo(
+    () => ({
+      pageType: EPageType.modal,
+    }),
+    [],
+  );
   return (
-    <ModalStack.Navigator screenOptions={makeScreenOptions}>
-      {config.map(
-        ({
-          name,
-          component,
-          options,
-          translationId,
-          allowDisableClose,
-          disableClose,
-          shouldPopOnClickBackdrop,
-          dismissOnOverlayPress,
-        }) => {
-          const customOptions: IModalNavigationOptions = {
-            ...options,
-            allowDisableClose,
-            disableClose,
+    <PageTypeContext.Provider value={contextValue}>
+      <ModalStack.Navigator screenOptions={makeScreenOptions}>
+        {config.map(
+          ({
+            name,
+            component,
+            options,
+            translationId,
             shouldPopOnClickBackdrop,
             dismissOnOverlayPress,
-            title: translationId
-              ? intl.formatMessage({
-                  id: translationId as ETranslations,
-                })
-              : '',
-          };
-          const key = `Modal-Flow-${name as string}`;
-          return (
-            <ModalStack.Screen
-              key={key}
-              name={name}
-              component={PageTypeHOC(key, EPageType.modal, component)}
-              options={customOptions}
-            />
-          );
-        },
-      )}
-    </ModalStack.Navigator>
+          }) => {
+            const customOptions: IModalNavigationOptions = {
+              ...options,
+              shouldPopOnClickBackdrop,
+              dismissOnOverlayPress,
+              title: translationId
+                ? intl.formatMessage({
+                    id: translationId as ETranslations,
+                  })
+                : '',
+            };
+            const key = `Modal-Flow-${name as string}`;
+            return (
+              <ModalStack.Screen
+                key={key}
+                name={name}
+                component={component}
+                options={customOptions}
+              />
+            );
+          },
+        )}
+      </ModalStack.Navigator>
+    </PageTypeContext.Provider>
   );
 }
 

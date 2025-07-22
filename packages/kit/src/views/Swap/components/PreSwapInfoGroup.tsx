@@ -1,18 +1,27 @@
 import { useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Image, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Image,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   ESwapSlippageSegmentKey,
   IFetchQuoteResult,
+  ISwapPreSwapData,
 } from '@onekeyhq/shared/types/swap/types';
 
 import PreSwapInfoItem from './PreSwapInfoItem';
 
 interface IPreSwapInfoGroupProps {
-  quoteResult: IFetchQuoteResult;
+  preSwapData: ISwapPreSwapData;
   slippageItem: {
     key: ESwapSlippageSegmentKey;
     value: number;
@@ -20,22 +29,33 @@ interface IPreSwapInfoGroupProps {
 }
 
 const PreSwapInfoGroup = ({
-  quoteResult,
+  preSwapData,
   slippageItem,
 }: IPreSwapInfoGroupProps) => {
   const intl = useIntl();
   const slippage = useMemo(() => {
-    if (!quoteResult?.unSupportSlippage) {
-      return slippageItem.value;
+    if (!preSwapData?.unSupportSlippage) {
+      return new BigNumber(slippageItem.value)
+        .decimalPlaces(2, BigNumber.ROUND_DOWN)
+        .toNumber();
     }
     return undefined;
-  }, [quoteResult?.unSupportSlippage, slippageItem.value]);
+  }, [preSwapData?.unSupportSlippage, slippageItem.value]);
   const fee = useMemo(() => {
-    if (quoteResult?.fee?.percentageFee) {
-      return `${quoteResult?.fee?.percentageFee ?? '-'}%`;
+    if (
+      new BigNumber(preSwapData?.fee?.percentageFee ?? '0').isZero() ||
+      new BigNumber(preSwapData?.fee?.percentageFee ?? '0').isNaN()
+    ) {
+      return (
+        <Badge badgeSize="sm" marginRight="$2" badgeType="info">
+          {intl.formatMessage({
+            id: ETranslations.swap_stablecoin_0_fee,
+          })}
+        </Badge>
+      );
     }
-    return '-';
-  }, [quoteResult?.fee?.percentageFee]);
+    return `${preSwapData?.fee?.percentageFee ?? '-'}%`;
+  }, [intl, preSwapData?.fee?.percentageFee]);
   return (
     <YStack gap="$3">
       <PreSwapInfoItem
@@ -45,22 +65,22 @@ const PreSwapInfoGroup = ({
         value={
           <XStack gap="$2">
             <Image
-              source={{ uri: quoteResult?.info.providerLogo ?? '' }}
+              source={{ uri: preSwapData?.providerInfo?.providerLogo ?? '' }}
               size="$5"
               borderRadius="$1"
             />
             <SizableText size="$bodyMd">
-              {quoteResult?.info?.providerName ?? ''}
+              {preSwapData?.providerInfo?.providerName ?? ''}
             </SizableText>
           </XStack>
         }
       />
-      {slippage ? (
+      {!isNil(slippage) ? (
         <PreSwapInfoItem
           title={intl.formatMessage({
             id: ETranslations.swap_page_provider_slippage_tolerance,
           })}
-          value={`${slippage.toFixed(2)}%`}
+          value={`${slippage}%`}
         />
       ) : null}
       <PreSwapInfoItem

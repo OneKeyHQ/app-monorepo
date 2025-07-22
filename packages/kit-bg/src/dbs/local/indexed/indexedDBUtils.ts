@@ -31,6 +31,7 @@ function getBucketNameByStoreName(
     case ELocalDBStoreNames.SignedMessage:
     case ELocalDBStoreNames.SignedTransaction:
     case ELocalDBStoreNames.ConnectedSite:
+    case ELocalDBStoreNames.HardwareHomeScreen:
       return EIndexedDBBucketNames.archive;
 
     default: {

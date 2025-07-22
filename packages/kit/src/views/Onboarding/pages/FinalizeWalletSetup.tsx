@@ -14,6 +14,7 @@ import {
   Spinner,
   Stack,
   Toast,
+  usePreventRemove,
 } from '@onekeyhq/components';
 import { EMnemonicType } from '@onekeyhq/core/src/secret';
 import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
@@ -209,12 +210,21 @@ function FinalizeWalletSetupPage({
     }
   }, [currentStep, navigation, showStep, handleWalletSetupReady]);
 
+  const showCloseButton = currentStep === EFinalizeWalletSetupSteps.Ready;
+
   const renderHeaderLeft = useCallback(() => {
     if (shouldBondReferralCode) {
       return <NavCloseButton onPress={closePage} />;
     }
-    return <NavBackButton onPress={popPage} />;
-  }, [shouldBondReferralCode, popPage, closePage]);
+    return (
+      <NavBackButton
+        opacity={showCloseButton ? 1 : 0}
+        onPress={showCloseButton ? popPage : undefined}
+      />
+    );
+  }, [showCloseButton, shouldBondReferralCode, popPage, closePage]);
+
+  usePreventRemove(!showCloseButton, () => null);
 
   return (
     <Page

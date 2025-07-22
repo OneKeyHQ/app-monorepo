@@ -43,7 +43,6 @@ function HeaderBackButton({
   isModelScreen,
   isRootScreen,
   canGoBack,
-  disableClose,
   renderLeft,
   ...props
 }: IOnekeyStackHeaderProps &
@@ -102,7 +101,7 @@ function HeaderBackButton({
   return (
     <HeaderButtonGroup mr="$4">
       {renderCollapseButton()}
-      {!disableClose && !renderLeft ? renderBackButton() : null}
+      {!renderLeft ? renderBackButton() : null}
       {renderLeft
         ? renderLeft({
             canGoBack,

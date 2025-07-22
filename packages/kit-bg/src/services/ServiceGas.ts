@@ -52,6 +52,7 @@ class ServiceGas extends ServiceBase {
         encodedTxList: encodedTxs,
       },
       {
+        signal: controller.signal,
         headers:
           await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
             accountId,

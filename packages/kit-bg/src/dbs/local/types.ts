@@ -23,6 +23,7 @@ import type {
   IQrWalletAirGapAccountsInfo,
 } from '@onekeyhq/shared/types/account';
 import type {
+  IDeviceHomeScreen,
   IOneKeyDeviceFeatures,
   IQrWalletDevice,
 } from '@onekeyhq/shared/types/device';
@@ -45,6 +46,7 @@ import type { RealmSchemaCloudSyncItem } from './realm/schemas/RealmSchemaCloudS
 import type { RealmSchemaContext } from './realm/schemas/RealmSchemaContext';
 import type { RealmSchemaCredential } from './realm/schemas/RealmSchemaCredential';
 import type { RealmSchemaDevice } from './realm/schemas/RealmSchemaDevice';
+import type { RealmSchemaHardwareHomeScreen } from './realm/schemas/RealmSchemaHardwareHomeScreen';
 import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
@@ -385,6 +387,10 @@ export type IDBConnectedSite = IDBBaseObject &
   IBaseConnectedSite &
   IBaseCreatedAt;
 
+export type IDBHardwareHomeScreen = IDBBaseObject &
+  IDeviceHomeScreen &
+  IBaseCreatedAt;
+
 // ---------------------------------------------- prime cloud sync
 export type IDBCloudSyncItem = IDBBaseObject & {
   // key: string; use id as key
@@ -418,6 +424,7 @@ export interface ILocalDBSchemaMap {
   [ELocalDBStoreNames.SignedTransaction]: IDBSignedTransaction;
   [ELocalDBStoreNames.ConnectedSite]: IDBConnectedSite;
   [ELocalDBStoreNames.CloudSyncItem]: IDBCloudSyncItem;
+  [ELocalDBStoreNames.HardwareHomeScreen]: IDBHardwareHomeScreen;
 }
 
 export interface IRealmDBSchemaMap {
@@ -433,6 +440,7 @@ export interface IRealmDBSchemaMap {
   [ELocalDBStoreNames.SignedTransaction]: IDBSignedTransaction;
   [ELocalDBStoreNames.ConnectedSite]: IDBConnectedSite;
   [ELocalDBStoreNames.CloudSyncItem]: RealmSchemaCloudSyncItem;
+  [ELocalDBStoreNames.HardwareHomeScreen]: RealmSchemaHardwareHomeScreen;
 }
 
 export type IIndexedBucketsMap = Record<
@@ -504,6 +512,10 @@ export interface IIndexedDBSchemaMap extends DBSchema {
   [ELocalDBStoreNames.CloudSyncItem]: {
     key: string;
     value: IDBCloudSyncItem;
+  };
+  [ELocalDBStoreNames.HardwareHomeScreen]: {
+    key: string;
+    value: IDBHardwareHomeScreen;
   };
 }
 
@@ -580,6 +592,12 @@ export type ILocalDBTransactionStores = {
     ELocalDBStoreNames.CloudSyncItem,
     'readwrite'
   >;
+  [ELocalDBStoreNames.HardwareHomeScreen]: IndexedDBObjectStorePromised<
+    IIndexedDBSchemaMap,
+    ELocalDBStoreNames.HardwareHomeScreen[],
+    ELocalDBStoreNames.HardwareHomeScreen,
+    'readwrite'
+  >;
 };
 
 // TODO generic type of bucketName
@@ -623,6 +641,12 @@ export interface ILocalDBGetRecordByIdParams<T extends ELocalDBStoreNames> {
 export type ILocalDBGetRecordByIdResult<T extends ELocalDBStoreNames> =
   ILocalDBRecord<T>;
 
+// GetRecordIds
+export interface ILocalDBGetRecordIdsParams<T extends ELocalDBStoreNames> {
+  name: T;
+}
+export type ILocalDBGetRecordIdsResult = string[];
+
 // GetRecords
 export type ILocalDBGetRecordsQuery = {
   limit?: number;
@@ -664,6 +688,13 @@ export interface ILocalDBGetRecordsByIdsResult<T extends ELocalDBStoreNames> {
   records: Array<ILocalDBRecord<T> | null | undefined>;
   // recordPairs is only available of txGetAllRecords()
 }
+
+// GetRecordIds
+export interface ILocalDBTxGetRecordIdsParams<T extends ELocalDBStoreNames> {
+  tx: ILocalDBTransaction;
+  name: T;
+}
+export type ILocalDBTxGetRecordIdsResult = string[];
 
 // UpdateRecords
 export interface ILocalDBTxUpdateRecordsParams<T extends ELocalDBStoreNames> {
@@ -741,6 +772,10 @@ export interface ILocalDBAgent {
     params: ILocalDBGetRecordByIdParams<T>,
   ): Promise<ILocalDBGetRecordByIdResult<T>>;
 
+  getRecordIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBGetRecordIdsParams<T>,
+  ): Promise<ILocalDBGetRecordIdsResult>;
+
   txGetRecordsCount<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetRecordsCountParams<T>,
   ): Promise<ILocalDBGetRecordsCountResult>;
@@ -756,6 +791,10 @@ export interface ILocalDBAgent {
   txGetRecordById<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetRecordByIdParams<T>,
   ): Promise<ILocalDBTxGetRecordByIdResult<T>>;
+
+  txGetRecordIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBTxGetRecordIdsParams<T>,
+  ): Promise<ILocalDBGetRecordIdsResult>;
 
   // TODO batch update/add/remove
   txUpdateRecords<T extends ELocalDBStoreNames>(
