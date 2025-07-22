@@ -6,7 +6,6 @@ import { StyleSheet } from 'react-native';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
-  Alert,
   Badge,
   Button,
   Divider,
@@ -35,7 +34,6 @@ import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -45,7 +43,6 @@ import type {
   IEarnAlert,
   IEarnDetailActions,
   IEarnReceiveActionIcon,
-  IEarnText,
   IEarnTokenInfo,
   IEarnTradeActionIcon,
   IEarnWithdrawActionIcon,

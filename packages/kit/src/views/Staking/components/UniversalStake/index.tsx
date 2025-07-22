@@ -54,7 +54,6 @@ import {
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
-import { useFalconEventEndedDialog } from '../../hooks/useFalconEventEndedDialog';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
@@ -483,6 +482,10 @@ export function UniversalStake({
     [amountValue, balance],
   );
 
+  const isStakingCapFull = useMemo(() => {
+    return false;
+  }, []);
+
   // const isLessThanMinAmount = useMemo<boolean>(() => {
   //   const minAmountBn = new BigNumber(minAmount);
   //   const amountValueBn = new BigNumber(amountValue);
@@ -501,13 +504,19 @@ export function UniversalStake({
 
   const isCheckAmountMessageError =
     amountValue?.length > 0 && !!checkAmountMessage;
+
+  const amountInputDisabled = useMemo(() => {
+    return isDisabled || isStakingCapFull;
+  }, [isDisabled, isStakingCapFull]);
+
   const isDisable = useMemo(() => {
     const amountValueBN = BigNumber(amountValue);
     return (
       amountValueBN.isNaN() ||
       amountValueBN.isLessThanOrEqualTo(0) ||
       isInsufficientBalance ||
-      isCheckAmountMessageError
+      isCheckAmountMessageError ||
+      isStakingCapFull
     );
     // return (
     //   amountValueBN.isNaN() ||
@@ -517,7 +526,12 @@ export function UniversalStake({
     //   isGreaterThanMaxAmount ||
     //   isReachBabylonCap
     // );
-  }, [amountValue, isCheckAmountMessageError, isInsufficientBalance]);
+  }, [
+    amountValue,
+    isCheckAmountMessageError,
+    isInsufficientBalance,
+    isStakingCapFull,
+  ]);
 
   // const estAnnualRewardsState = useMemo(() => {
   //   if (Number(amountValue) > 0 && Number(apr) > 0) {
@@ -947,10 +961,10 @@ export function UniversalStake({
 
   return (
     <StakingFormWrapper>
-      <Stack position="relative" opacity={isDisabled ? 0.7 : 1}>
+      <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
         <StakingAmountInput
           title={intl.formatMessage({ id: ETranslations.earn_deposit })}
-          disabled={isDisabled}
+          disabled={amountInputDisabled}
           hasError={isInsufficientBalance || isCheckAmountMessageError}
           value={amountValue}
           onChange={onChangeAmountValue}
@@ -966,7 +980,7 @@ export function UniversalStake({
           }}
           inputProps={{
             placeholder: '0',
-            autoFocus: !isDisabled,
+            autoFocus: !amountInputDisabled,
           }}
           valueProps={{
             value: currentValue,
@@ -975,7 +989,7 @@ export function UniversalStake({
           enableMaxAmount
           onSelectPercentageStage={onSelectPercentageStage}
         />
-        {isDisabled ? (
+        {amountInputDisabled ? (
           <Stack position="absolute" w="100%" h="100%" zIndex={1} />
         ) : null}
       </Stack>
@@ -984,6 +998,19 @@ export function UniversalStake({
           icon="InfoCircleOutline"
           type="critical"
           title={checkAmountMessage}
+        />
+      ) : null}
+      {isStakingCapFull ? (
+        <Alert
+          type="warning"
+          title={`Deposit cap reached (Remaining: 1,234 ${tokenSymbol || ''})`}
+          description="Continue via this exclusive link to earn 1.2x points"
+          action={{
+            primary: 'Open dApp',
+            onPrimaryPress: () => {
+              // TODO: Navigate to exclusive link for 1.2x points
+            },
+          }}
         />
       ) : null}
 
