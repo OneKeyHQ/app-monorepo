@@ -137,8 +137,6 @@ export function Carousel<T>({
   );
   const mergedActiveDotStyle = useMemo(() => {
     return {
-      borderRadius: 100,
-      overflow: 'hidden',
       backgroundColor: 'rgba(0, 0, 0, 0.88)',
       ...resolvedActiveDotStyle,
     } as IDotStyle;
@@ -152,7 +150,7 @@ export function Carousel<T>({
   );
   const mergedDotStyle = useMemo(() => {
     return {
-      borderRadius: 100,
+      borderRadius: 9999,
       backgroundColor: 'rgba(0, 0, 0, 0.11)',
       ...resolvedDotStyle,
     } as IDotStyle;

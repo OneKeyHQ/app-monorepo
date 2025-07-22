@@ -11,7 +11,6 @@ import {
   IconButton,
   Image,
   SizableText,
-  Stack,
   XStack,
   YStack,
   useMedia,
@@ -35,8 +34,7 @@ function WalletBanner() {
   } = useActiveAccount({ num: 0 });
 
   const intl = useIntl();
-
-  const { md, gtMd } = useMedia();
+  const { gtLg } = useMedia();
 
   const [closedForeverBanners, setClosedForeverBanners] = useState<
     Record<string, boolean>
@@ -118,42 +116,63 @@ function WalletBanner() {
   }
 
   return (
-    <Carousel
-      data={filteredBanners}
-      autoPlayInterval={3800}
-      containerStyle={{
-        height: 100,
+    <YStack
+      pb="$5"
+      $gtLg={{
+        pt: '$3',
       }}
-      paginationContainerStyle={{
-        marginBottom: 0,
-      }}
-      onPageChanged={(index) => {
-        console.log('onPageChanged', index);
-        if (filteredBanners[index]) {
-          defaultLogger.wallet.walletBanner.walletBannerViewed({
-            bannerId: filteredBanners[index].id,
-          });
-        }
-      }}
-      renderItem={({ item }: { item: IWalletBanner }) => {
-        return (
-          <YStack px="$5">
-            <XStack
-              key={item.id}
-              flex={1}
-              gap="$3"
-              alignItems="center"
-              p="$4"
-              pr="$8"
-              bg="$bg"
-              borderWidth={StyleSheet.hairlineWidth}
-              borderColor="$borderSubdued"
-              borderRadius="$4"
-              borderCurve="continuous"
-              elevation={0.5}
-              onPress={gtMd ? undefined : () => handleClick(item)}
-            >
-              <XStack gap="$5" alignItems="center" flex={1}>
+    >
+      <Carousel
+        loop={false}
+        data={filteredBanners}
+        autoPlayInterval={3800}
+        containerStyle={{
+          height: 102,
+        }}
+        paginationContainerStyle={{
+          marginBottom: 0,
+        }}
+        onPageChanged={(index) => {
+          console.log('onPageChanged', index);
+          if (filteredBanners[index]) {
+            defaultLogger.wallet.walletBanner.walletBannerViewed({
+              bannerId: filteredBanners[index].id,
+            });
+          }
+        }}
+        renderItem={({ item }: { item: IWalletBanner }) => {
+          return (
+            <YStack px="$5">
+              <XStack
+                key={item.id}
+                flex={1}
+                gap="$3"
+                alignItems="center"
+                p="$4"
+                pr="$8"
+                bg="$bg"
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="$borderSubdued"
+                borderRadius="$4"
+                borderCurve="continuous"
+                elevation={0.5}
+                {...(!gtLg && {
+                  hoverStyle: {
+                    bg: '$bgHover',
+                  },
+                  pressStyle: {
+                    bg: '$bgActive',
+                  },
+                  focusable: true,
+                  focusVisibleStyle: {
+                    outlineColor: '$focusRing',
+                    outlineWidth: 2,
+                    outlineStyle: 'solid',
+                    outlineOffset: -2,
+                  },
+                  onPress: () => handleClick(item),
+                })}
+              >
                 <Image
                   size="$16"
                   borderRadius="$2"
@@ -179,18 +198,28 @@ function WalletBanner() {
                   <SizableText size="$bodyLgMedium" numberOfLines={1}>
                     {item.title}
                   </SizableText>
-                  <SizableText size="$bodyMd" color="$textSubdued">
+                  <SizableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    numberOfLines={2}
+                  >
                     {item.description}
                   </SizableText>
                 </YStack>
-              </XStack>
-              {gtMd ? (
-                <XStack gap="$5" alignItems="center">
+
+                <XStack
+                  gap="$5"
+                  alignItems="center"
+                  $lg={{
+                    display: 'none',
+                  }}
+                >
                   {item.closeable ? (
                     <Button
                       size="small"
                       variant="tertiary"
                       onPress={() => handleDismiss(item)}
+                      pointerEvents="auto"
                     >
                       {intl.formatMessage({
                         id: ETranslations.explore_dismiss,
@@ -201,30 +230,33 @@ function WalletBanner() {
                     size="small"
                     variant="primary"
                     onPress={() => handleClick(item)}
+                    pointerEvents="auto"
                   >
                     {item.button}
                   </Button>
                 </XStack>
-              ) : null}
-              {md && item.closeable ? (
-                <Stack height="100%" position="relative">
-                  <IconButton
-                    size="small"
-                    variant="tertiary"
-                    onPress={(event: GestureResponderEvent) => {
-                      event.stopPropagation();
-                      void handleDismiss(item);
-                    }}
-                    icon="CrossedSmallOutline"
-                    mt="$3"
-                  />
-                </Stack>
-              ) : null}
-            </XStack>
-          </YStack>
-        );
-      }}
-    />
+
+                <IconButton
+                  position="absolute"
+                  top="$3"
+                  right="$3"
+                  size="small"
+                  variant="tertiary"
+                  onPress={(event: GestureResponderEvent) => {
+                    event.stopPropagation();
+                    void handleDismiss(item);
+                  }}
+                  icon="CrossedSmallOutline"
+                  $gtLg={{
+                    display: 'none',
+                  }}
+                />
+              </XStack>
+            </YStack>
+          );
+        }}
+      />
+    </YStack>
   );
 }
 
