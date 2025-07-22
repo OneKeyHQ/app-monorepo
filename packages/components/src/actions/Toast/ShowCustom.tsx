@@ -115,17 +115,9 @@ function BasicShowToaster({
 
   return (
     <>
-      <ToastViewport
-        name={containerName}
-        width="100%"
-        alignContent="center"
-        multipleToasts={false}
-        justifyContent="center"
-        py={top || '$5'}
-      />
-
       {isOpen ? (
         <Stack
+          position="absolute"
           width="100%"
           height="100%"
           flex={1}
@@ -133,6 +125,16 @@ function BasicShowToaster({
           onPress={dismissOnOverlayPress ? handleContainerClose : handleNoop}
         />
       ) : null}
+
+      <ToastViewport
+        name={containerName}
+        width="100%"
+        position="absolute"
+        alignContent="center"
+        multipleToasts={false}
+        justifyContent="center"
+        py={top || '$5'}
+      />
 
       <Toast
         unstyled
