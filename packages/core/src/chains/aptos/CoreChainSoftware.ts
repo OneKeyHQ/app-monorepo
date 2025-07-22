@@ -1,10 +1,9 @@
 import {
-  Deserializer,
   Ed25519PublicKey,
   Ed25519Signature,
   SignedTransaction,
-  SimpleTransaction,
   TransactionAuthenticatorEd25519,
+  deriveTransactionType,
   generateSigningMessageForTransaction,
 } from '@aptos-labs/ts-sdk';
 // eslint-disable-next-line camelcase
@@ -36,13 +35,22 @@ import {
   type IUnsignedMessageAptos,
 } from '../../types';
 
+import { normalizePrivateKey } from './helper/privateUtils';
+import { deserializeTransaction } from './helper/transactionUtils';
+
+import type { IEncodedTxAptos } from './types';
+import type {
+  MultiAgentTransaction,
+  SimpleTransaction,
+} from '@aptos-labs/ts-sdk';
+
 const curveName: ICurveName = 'ed25519';
 
 async function buildSignedTx(
-  rawTxn: SimpleTransaction,
+  rawTxn: SimpleTransaction | MultiAgentTransaction,
   senderPublicKey: string,
   signature: string,
-  encodedTx: any,
+  encodedTx: IEncodedTxAptos,
 ) {
   const txSignature = new Ed25519Signature(bufferUtils.hexToBytes(signature));
   const authenticator = new TransactionAuthenticatorEd25519(
@@ -51,10 +59,12 @@ async function buildSignedTx(
     ),
     txSignature,
   );
+
   const signRawTx = new SignedTransaction(
     rawTxn.rawTransaction,
     authenticator,
   ).bcsToHex();
+
   return Promise.resolve({
     txid: '',
     rawTx: signRawTx.toStringWithoutPrefix(),
@@ -85,9 +95,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       throw new OneKeyLocalError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
-      return `0x${(
-        await decryptAsync({ password, data: privateKeyRaw })
-      ).toString('hex')}`;
+      const privateKey = (
+        await decryptAsync({
+          password,
+          data: privateKeyRaw,
+        })
+      ).toString('hex');
+      return normalizePrivateKey(privateKey, 'aip80', curveName);
     }
     throw new OneKeyLocalError(`SecretKey type not support: ${keyType}`);
   }
@@ -109,7 +123,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       payload,
       curve: curveName,
     });
-    const { rawTxUnsigned, encodedTx } = unsignedTx;
+
+    const { rawTxUnsigned } = unsignedTx;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxAptos;
     if (!rawTxUnsigned) {
       throw new OneKeyLocalError('rawTxUnsigned is undefined');
     }
@@ -118,11 +134,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       throw new OneKeyInternalError('Unable to get sender public key.');
     }
 
-    const rawTxn = SimpleTransaction.deserialize(
-      new Deserializer(Buffer.from(rawTxUnsigned, 'hex')),
-    );
-
+    const rawTxn = deserializeTransaction(rawTxUnsigned);
     const signingMessage = generateSigningMessageForTransaction(rawTxn);
+
     const [signature] = await signer.sign(bufferUtils.toBuffer(signingMessage));
     const signatureHex = hexUtils.hexlify(signature, {
       noPrefix: true,

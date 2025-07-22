@@ -2,11 +2,9 @@
 /* eslint-disable camelcase */
 /* eslint-disable @typescript-eslint/naming-convention */
 import {
-  Deserializer,
   Ed25519PublicKey,
   Ed25519Signature,
   SignedTransaction,
-  SimpleTransaction,
   TransactionAuthenticatorEd25519,
   TransactionResponseType,
   findFirstNonSignerArg,
@@ -15,6 +13,7 @@ import {
 } from '@aptos-labs/ts-sdk';
 import { get, isEmpty } from 'lodash';
 
+import { deserializeTransaction } from '@onekeyhq/core/src/chains/aptos/helper/transactionUtils';
 import type {
   IEncodedTxAptos,
   ISignMessagePayload,
@@ -37,10 +36,13 @@ import type { IBuildUnsignedTxParams } from '../../types';
 import type {
   AccountAddressInput,
   AnyNumber,
+  AnyRawTransaction,
   EntryFunctionABI,
   EntryFunctionPayloadResponse,
   InputGenerateTransactionPayloadData,
   MoveResource,
+  MultiAgentTransaction,
+  SimpleTransaction,
   TransactionResponse,
   TypeTag,
 } from '@aptos-labs/ts-sdk';
@@ -148,7 +150,7 @@ export function getTransactionType(
 }
 
 export async function buildSignedTx(
-  rawTxn: SimpleTransaction,
+  rawTxn: AnyRawTransaction,
   senderPublicKey: string,
   signature: string,
 ) {
@@ -165,6 +167,7 @@ export async function buildSignedTx(
     rawTxn.rawTransaction,
     authenticator,
   ).bcsToHex();
+
   return Promise.resolve({
     txid: '',
     rawTx: signRawTx.toStringWithoutPrefix(),
@@ -480,7 +483,7 @@ export function generateTransferCreateNft(
 export async function generateUnsignedTransaction(
   client: AptosClient,
   unsignedTx: IBuildUnsignedTxParams,
-): Promise<SimpleTransaction> {
+): Promise<AnyRawTransaction> {
   const encodedTx = unsignedTx.encodedTx as IEncodedTxAptos;
 
   const { sender } = encodedTx;
@@ -488,13 +491,11 @@ export async function generateUnsignedTransaction(
     throw new OneKeyHardwareError(Error('sender is required'));
   }
 
-  let rawTxn: SimpleTransaction | undefined;
+  let rawTxn: AnyRawTransaction | undefined;
   if (encodedTx.bcsTxn && !isEmpty(encodedTx.bcsTxn)) {
-    const deserializer = new Deserializer(
-      bufferUtils.hexToBytes(encodedTx.bcsTxn),
-    );
-    rawTxn = SimpleTransaction.deserialize(deserializer);
-  } else if (encodedTx.payload || (!!encodedTx.type && !!encodedTx.function)) {
+    return deserializeTransaction(encodedTx.bcsTxn);
+  }
+  if (encodedTx.payload || (!!encodedTx.type && !!encodedTx.function)) {
     let txData: InputGenerateTransactionPayloadData | undefined;
 
     const { max_gas_amount, expiration_timestamp_secs, payload } = encodedTx;
