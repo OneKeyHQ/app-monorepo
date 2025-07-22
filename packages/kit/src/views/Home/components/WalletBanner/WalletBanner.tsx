@@ -4,8 +4,6 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-
 import {
   Button,
   Carousel,
@@ -22,6 +20,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   openUrlExternal,
   openUrlInApp,
@@ -215,6 +214,7 @@ function WalletBanner() {
           );
         }}
         onPageChanged={(index) => {
+          console.log('onPageChanged', index);
           if (filteredBanners[index]) {
             defaultLogger.wallet.walletBanner.walletBannerViewed({
               bannerId: filteredBanners[index].id,
