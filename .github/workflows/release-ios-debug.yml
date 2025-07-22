@@ -10,12 +10,12 @@ on:
 
 jobs:
   release-ios-debug:
-    runs-on: macos-14
+    runs-on: macos-15.5
     strategy:
       matrix:
         node-version: [20.x]
-        ruby-version: [2.7.x]
-        xcode-version: [15.3]
+        ruby-version: [3.4.4]
+        xcode-version: [16.4]
 
     steps:
       - name: Checkout Source Code
@@ -75,7 +75,7 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           cd apps/mobile/ios
-          gem install cocoapods -v 1.15.2
+          gem install cocoapods -v 1.16.2
           pod install
 
       - name: Build App File
