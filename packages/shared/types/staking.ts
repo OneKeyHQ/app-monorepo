@@ -678,6 +678,12 @@ export interface IEarnAlert {
   badge: IBadgeType;
 }
 
+export interface IEarnRiskNoticeDialog {
+  title: IEarnText;
+  description: IEarnText;
+  checkboxes: IEarnText[];
+}
+
 export interface IStakeEarnDetail {
   protection?: {
     title: IEarnText;
@@ -771,6 +777,7 @@ export interface IStakeEarnDetail {
       };
     }[];
   };
+  riskNoticeDialog?: Record<string, IEarnRiskNoticeDialog>;
 }
 
 export interface IEarnProvider {

@@ -619,9 +619,7 @@ const ProtocolDetailsPage = () => {
       earnAccount?.accountAddress &&
       protocolInfo?.provider &&
       networkId &&
-      earnUtils.showRiskNoticeDialogBeforeDepositOrWithdraw({
-        providerName: protocolInfo.provider,
-      })
+      detailInfo?.riskNoticeDialog?.deposit
     ) {
       const isFirstDeposit =
         await backgroundApiProxy.simpleDb.earnExtra.isFirstOperation(
@@ -637,6 +635,7 @@ const ProtocolDetailsPage = () => {
           providerName: protocolInfo.provider,
           address: earnAccount.accountAddress,
           operationType: 'deposit',
+          riskNoticeDialogContent: detailInfo?.riskNoticeDialog?.deposit,
           onConfirm: async () => {
             await handleStake({
               protocolInfo,
@@ -678,6 +677,7 @@ const ProtocolDetailsPage = () => {
     earnAccount?.accountAddress,
     networkId,
     indexedAccountId,
+    detailInfo?.riskNoticeDialog?.deposit,
   ]);
 
   const onWithdraw = useCallback(
@@ -686,9 +686,7 @@ const ProtocolDetailsPage = () => {
         earnAccount?.accountAddress &&
         protocolInfo?.provider &&
         networkId &&
-        earnUtils.showRiskNoticeDialogBeforeDepositOrWithdraw({
-          providerName: protocolInfo.provider,
-        })
+        detailInfo?.riskNoticeDialog?.withdraw
       ) {
         const isFirstWithdraw =
           await backgroundApiProxy.simpleDb.earnExtra.isFirstOperation(
@@ -704,6 +702,7 @@ const ProtocolDetailsPage = () => {
             providerName: protocolInfo.provider,
             address: earnAccount.accountAddress,
             operationType: 'withdraw',
+            riskNoticeDialogContent: detailInfo?.riskNoticeDialog?.withdraw,
             onConfirm: async () => {
               await handleWithdraw({
                 withdrawType,
@@ -749,6 +748,7 @@ const ProtocolDetailsPage = () => {
       provider,
       symbol,
       tokenInfo,
+      detailInfo?.riskNoticeDialog?.withdraw,
     ],
   );
 

@@ -1,14 +1,11 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import type { ICheckedState } from '@onekeyhq/components';
-import {
-  Checkbox,
-  Dialog,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Checkbox, Dialog, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IEarnRiskNoticeDialog } from '@onekeyhq/shared/types/staking';
+
+import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 
 function RiskNoticeDialogContent({
   onConfirm,
@@ -16,12 +13,14 @@ function RiskNoticeDialogContent({
   providerName,
   address,
   operationType,
+  riskNoticeDialogContent,
 }: {
   onConfirm: () => Promise<void>;
   networkId: string;
   providerName: string;
   address: string;
   operationType: 'deposit' | 'withdraw';
+  riskNoticeDialogContent: IEarnRiskNoticeDialog;
 }) {
   const [checkboxState, setCheckboxState] = useState<ICheckedState>(false);
 
@@ -44,39 +43,29 @@ function RiskNoticeDialogContent({
 
   const isConfirmDisabled = !checkboxState;
 
-  const contentText = useMemo(() => {
-    if (operationType === 'deposit') {
-      return 'You are about to use a service provided by a third party. OneKey is not involved in and has no control over its operations. Please make sure to fully understand and assess the associated risks before proceeding.';
-    }
-    return 'Withdrawals may affect airdrop eligibility';
-  }, [operationType]);
-
-  const checkBoxLabel = useMemo(() => {
-    if (operationType === 'deposit') {
-      return 'I have understood the risk notice above';
-    }
-    return 'I have understood the risk notice above';
-  }, [operationType]);
-
   return (
     <YStack gap="$4">
-      <SizableText size="$bodyMd" color="$text">
-        {contentText}
-      </SizableText>
+      <EarnText
+        size="$bodyMd"
+        text={riskNoticeDialogContent.description}
+        color="$text"
+      />
 
-      <XStack alignItems="flex-start" gap="$2">
-        <Checkbox
-          labelContainerProps={{
-            flex: 1,
-          }}
-          label={checkBoxLabel}
-          value={checkboxState}
-          onChange={handleCheckboxChange}
-          labelProps={{
-            variant: '$bodyMdMedium',
-          }}
-        />
-      </XStack>
+      {riskNoticeDialogContent.checkboxes.map((checkbox) => (
+        <XStack key={checkbox.text} alignItems="flex-start" gap="$2">
+          <Checkbox
+            labelContainerProps={{
+              flex: 1,
+            }}
+            label={checkbox.text}
+            value={checkboxState}
+            onChange={handleCheckboxChange}
+            labelProps={{
+              variant: '$bodyMdMedium',
+            }}
+          />
+        </XStack>
+      ))}
 
       <Dialog.Footer
         onConfirm={handleConfirm}
@@ -97,20 +86,18 @@ export function showRiskNoticeDialogBeforeDepositOrWithdraw({
   providerName,
   address,
   operationType,
+  riskNoticeDialogContent,
 }: {
   onConfirm: () => Promise<void>;
   networkId: string;
   providerName: string;
   address: string;
   operationType: 'deposit' | 'withdraw';
+  riskNoticeDialogContent: IEarnRiskNoticeDialog;
 }) {
-  const title =
-    operationType === 'deposit'
-      ? 'Risk notice for using third-party services'
-      : 'Withdrawals may affect airdrop eligibility';
   return Dialog.show({
     icon: 'InfoCircleOutline',
-    title,
+    title: riskNoticeDialogContent.title.text,
     showFooter: false,
     renderContent: (
       <RiskNoticeDialogContent
@@ -119,6 +106,7 @@ export function showRiskNoticeDialogBeforeDepositOrWithdraw({
         providerName={providerName}
         address={address}
         operationType={operationType}
+        riskNoticeDialogContent={riskNoticeDialogContent}
       />
     ),
   });
