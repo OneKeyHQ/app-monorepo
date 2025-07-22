@@ -168,12 +168,14 @@ const PreSwapInfoGroup = ({
         })}
         value={fee}
       />
-      <PreSwapInfoItem
-        title={intl.formatMessage({
-          id: ETranslations.swap_review_transaction_speed,
-        })}
-        value={networkFeeSelect}
-      />
+      {preSwapData.netWorkFee?.feeLevel ? (
+        <PreSwapInfoItem
+          title={intl.formatMessage({
+            id: ETranslations.swap_review_transaction_speed,
+          })}
+          value={networkFeeSelect}
+        />
+      ) : null}
     </YStack>
   );
 };
