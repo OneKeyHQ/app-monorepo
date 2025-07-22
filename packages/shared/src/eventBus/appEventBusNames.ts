@@ -103,7 +103,6 @@ export enum EAppEventBusNames {
   MarketWSDataUpdate = 'MarketWSDataUpdate',
   MarketWatchlistOnlyChanged = 'MarketWatchlistOnlyChanged',
   SettingsSearchResult = 'SettingsSearchResult',
-  CheckEndpointPrefix = 'CheckEndpointPrefix',
   DesktopBleRepairRequired = 'DesktopBleRepairRequired',
   DesktopBleRepairProgress = 'DesktopBleRepairProgress',
 }
