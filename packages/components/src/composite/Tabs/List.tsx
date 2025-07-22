@@ -370,7 +370,7 @@ export function List<Item>({
     [rowRenderer],
   );
 
-  const noRowsRenderer = useCallback(() => {
+  const noContentRenderer = useCallback(() => {
     return (
       <>
         {HeaderElement}
@@ -385,26 +385,24 @@ export function List<Item>({
       ref: listRef as any,
       autoHeight: true,
       height,
-      data: data?.length || sections?.length ? listData : [],
-      rowCount: data?.length || sections?.length ? listData.length : 0,
+      data: listData,
+      rowCount: listData.length,
       isScrolling: isVisible ? isScrolling : false,
       onScroll: isVisible ? onChildScroll : undefined,
       scrollTop: isVisible ? scrollTop : 0,
       overscanRowCount: 10,
       deferredMeasurementCache: cache,
-      noRowsRenderer,
+      noContentRenderer,
     };
   }, [
     height,
-    data?.length,
-    sections?.length,
     listData,
     isVisible,
     isScrolling,
     onChildScroll,
     scrollTop,
     cache,
-    noRowsRenderer,
+    noContentRenderer,
   ]);
 
   if (numColumns > 1) {
