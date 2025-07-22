@@ -312,9 +312,6 @@ export interface IAppEventBusPayload {
     }[];
     searchText: string;
   };
-  [EAppEventBusNames.CheckEndpointPrefix]: {
-    cleanAppClientCache?: boolean;
-  };
   [EAppEventBusNames.DesktopBleRepairRequired]: {
     connectId: string;
     deviceId?: string;
