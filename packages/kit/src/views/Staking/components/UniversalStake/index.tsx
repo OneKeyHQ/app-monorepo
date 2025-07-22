@@ -1103,6 +1103,30 @@ export function UniversalStake({
               size: '$bodyMdMedium',
             }}
           />
+          {transactionConfirmation?.alerts &&
+          transactionConfirmation.alerts.length > 0 ? (
+            <YStack gap="$2">
+              {transactionConfirmation.alerts.map((alert, index) => (
+                <Alert
+                  key={index}
+                  type="warning"
+                  title={alert.text.text}
+                  action={
+                    alert.button
+                      ? {
+                          primary: alert.button.text.text,
+                          onPrimaryPress: () => {
+                            if (alert.button?.data?.link) {
+                              openUrlExternal(alert.button.data.link);
+                            }
+                          },
+                        }
+                      : undefined
+                  }
+                />
+              ))}
+            </YStack>
+          ) : null}
           {transactionConfirmation?.rewards.map((reward) => {
             const hasTooltip = reward.tooltip?.type === 'text';
             const textSize = hasTooltip ? '$bodyMd' : '$bodyLgMedium';
