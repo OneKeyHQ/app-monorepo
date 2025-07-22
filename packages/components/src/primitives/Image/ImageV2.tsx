@@ -8,7 +8,7 @@ import { Skeleton } from '../Skeleton';
 import { YStack } from '../Stack';
 
 import { AnimatedExpoImage } from './AnimatedImage';
-import { isEmptyResolvedSource } from './utils';
+import { isEmptyResolvedSource, useResetError } from './utils';
 
 import type { IImageV2Props } from './type';
 import type {
@@ -63,19 +63,11 @@ export function ImageV2({
     ...imageProps
   } = restProps;
   const [hasError, setHasError] = useState(false);
-  const hasErrorRef = useRef(hasError);
-  hasErrorRef.current = hasError;
   const resolvedSource = useMemo(() => {
     return resolveSource((source as ImageSource) || src);
   }, [source, src]);
 
-  const resolvedSourceRef = useRef<ImageSource | null>(resolvedSource);
-  useEffect(() => {
-    if (hasErrorRef.current && resolvedSourceRef.current !== resolvedSource) {
-      setHasError(false);
-    }
-    resolvedSourceRef.current = resolvedSource;
-  }, [resolvedSource]);
+  useResetError(resolvedSource, hasError, setHasError);
 
   const skeletonTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
