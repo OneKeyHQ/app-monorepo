@@ -37,6 +37,19 @@ const styles = StyleSheet.create({
   },
 });
 
+const getOrigin = (uri: string, defaultUri: string) => {
+  if (uri === 'null') {
+    return uri;
+  }
+  const url = uri || defaultUri;
+  try {
+    const data = new URL(url || '');
+    return data?.origin || '';
+  } catch (error) {
+    return '';
+  }
+};
+
 const NativeWebView = forwardRef(
   (
     {
@@ -74,22 +87,18 @@ const NativeWebView = forwardRef(
 
     const webviewOnMessage = useCallback(
       (event: WebViewMessageEvent) => {
-        const { data } = event.nativeEvent;
+        const { data, url } = event.nativeEvent;
         try {
-          const uri = new URL(event.nativeEvent.url);
-          const origin = uri?.origin || '';
-          // debugLogger.webview.info('onMessage', origin, data);
-          // console.log('onMessage: ', origin, data);
-          // - receive
+          const origin = getOrigin(url, src);
           if (origin) {
             jsBridge.receive(data, { origin });
           }
-        } catch {
+        } catch (error) {
           // noop
         }
         onMessage?.(event);
       },
-      [jsBridge, onMessage],
+      [jsBridge, onMessage, src],
     );
 
     useImperativeHandle(ref, (): IWebViewWrapperRef => {
