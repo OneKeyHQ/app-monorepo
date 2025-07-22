@@ -141,6 +141,8 @@ export const UniversalClaim = ({
       if (valueBN.isNaN()) {
         if (value === '') {
           setAmountValue('');
+          setCheckoutAmountMessage('');
+          setCheckAmountAlerts([]);
         }
         return;
       }

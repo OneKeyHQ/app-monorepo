@@ -592,6 +592,7 @@ const ProtocolDetailsPage = () => {
 
           // staking
           minTransactionFee: detailInfo.nums?.minTransactionFee,
+          remainingCap: detailInfo.nums?.remainingCap,
 
           // claim
           claimable: detailInfo.nums?.claimable,
@@ -605,6 +606,7 @@ const ProtocolDetailsPage = () => {
     detailInfo?.nums?.maxUnstakeAmount,
     detailInfo?.nums?.minTransactionFee,
     detailInfo?.nums?.minUnstakeAmount,
+    detailInfo?.nums?.remainingCap,
     detailInfo?.nums?.overflow,
     detailInfo?.protocol,
     earnAccount,

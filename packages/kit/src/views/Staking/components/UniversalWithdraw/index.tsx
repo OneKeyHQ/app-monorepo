@@ -214,6 +214,8 @@ export function UniversalWithdraw({
       const valueBN = new BigNumber(value);
       if (valueBN.isNaN()) {
         if (value === '') {
+          setCheckoutAmountMessage('');
+          setCheckAmountAlerts([]);
           setAmountValue('');
         }
         return;

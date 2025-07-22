@@ -344,6 +344,7 @@ export type IProtocolInfo = {
   maxUnstakeAmount?: string;
   minUnstakeAmount?: string;
   claimable?: string;
+  remainingCap?: string;
 };
 
 export interface IEarnToken {
@@ -745,6 +746,7 @@ export interface IStakeEarnDetail {
     maxUnstakeAmount: string;
     minTransactionFee: string;
     claimable: string;
+    remainingCap: string;
   };
   managers?: {
     items: {

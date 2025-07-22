@@ -433,6 +433,8 @@ export function UniversalStake({
       if (valueBN.isNaN()) {
         if (value === '') {
           setAmountValue('');
+          setCheckoutAmountMessage('');
+          setCheckAmountAlerts([]);
           void debouncedFetchEstimateFeeResp();
         }
         return;
@@ -492,8 +494,12 @@ export function UniversalStake({
   );
 
   const isStakingCapFull = useMemo(() => {
-    return false;
-  }, []);
+    if (!protocolInfo?.remainingCap) {
+      return false;
+    }
+    const remainingCapBN = new BigNumber(protocolInfo.remainingCap);
+    return !remainingCapBN.isNaN() && remainingCapBN.isEqualTo(0);
+  }, [protocolInfo?.remainingCap]);
 
   // const isLessThanMinAmount = useMemo<boolean>(() => {
   //   const minAmountBn = new BigNumber(minAmount);
