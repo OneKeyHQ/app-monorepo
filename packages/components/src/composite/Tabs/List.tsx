@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import type { ComponentType, ReactNode } from 'react';
+import type { CSSProperties, ComponentType, ReactNode } from 'react';
 import {
   isValidElement,
   useCallback,
@@ -62,6 +62,14 @@ type IListData<Item> =
       };
     };
 
+const renderElement = (Element: ReactNode | ComponentType<any>) => {
+  if (isValidElement(Element)) {
+    return Element;
+  }
+  const Component = Element as ComponentType<any>;
+  return <Component />;
+};
+
 export function List<Item>({
   renderItem,
   data,
@@ -76,9 +84,11 @@ export function List<Item>({
   ListFooterComponentStyle,
   numColumns = 1,
   extraData,
+  contentContainerStyle,
 }: Omit<IListProps<Item>, 'ListEmptyComponent'> &
   Omit<ISectionListProps<Item>, 'ListEmptyComponent'> & {
     ListEmptyComponent?: ReactNode | ComponentType<any>;
+    contentContainerStyle?: CSSProperties;
   }) {
   const {
     registerChild,
@@ -97,6 +107,8 @@ export function List<Item>({
 
   const scrollTabElementsRef = useTabsContext().scrollTabElementsRef;
 
+  // Cell measurement cache for react-virtualized list optimization
+  // Can be optimized with keyExtractor for better height caching performance
   const cache = useMemo(
     () =>
       new CellMeasurerCache({
@@ -105,19 +117,6 @@ export function List<Item>({
       }),
     [estimatedItemSize],
   );
-
-  const prevNumColumns = useRef(numColumns);
-  const prevExtraData = useRef(extraData);
-  useMemo(() => {
-    if (
-      numColumns !== prevNumColumns.current ||
-      extraData !== prevExtraData.current
-    ) {
-      cache.clearAll();
-    }
-  }, [numColumns, extraData, cache]);
-  prevNumColumns.current = numColumns;
-  prevExtraData.current = extraData;
 
   const isVisible = useMemo(() => {
     return focusedTabValue === currentTabName;
@@ -199,7 +198,7 @@ export function List<Item>({
     if (ListHeaderComponent) {
       return (
         <View style={ListHeaderComponentStyle as any}>
-          {ListHeaderComponent as React.ReactNode}
+          {renderElement(ListHeaderComponent)}
         </View>
       );
     }
@@ -210,7 +209,7 @@ export function List<Item>({
     if (ListFooterComponent) {
       return (
         <View style={ListFooterComponentStyle as any}>
-          {ListFooterComponent as React.ReactNode}
+          {renderElement(ListFooterComponent)}
         </View>
       );
     }
@@ -310,16 +309,31 @@ export function List<Item>({
     [numColumns, width],
   );
 
-  useEffect(() => {
-    if (numColumns > 1 && width) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      (listRef.current as any)?.recomputeCellSizesAndPositions();
-    } else {
+  const recompute = useCallback(
+    ({
+      numColumns: _numColumns,
+      width: _width,
+    }: {
+      numColumns: number;
+      width: number;
+    }) => {
       cache.clearAll();
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      (listRef.current as any)?.recomputeRowHeights();
+      if (_numColumns > 1 && _width) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+        (listRef.current as any)?.recomputeCellSizesAndPositions();
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+        (listRef.current as any)?.recomputeRowHeights();
+      }
+    },
+    [cache],
+  );
+
+  useEffect(() => {
+    if (data?.length || sections?.length || numColumns || width || extraData) {
+      recompute({ numColumns, width });
     }
-  }, [numColumns, width, cache]);
+  }, [data?.length, sections?.length, numColumns, width, extraData, recompute]);
 
   const cellRenderer = useCallback(
     (params: CollectionCellRendererParams) => {
@@ -337,12 +351,7 @@ export function List<Item>({
     return (
       <>
         {HeaderElement}
-        {isValidElement(ListEmptyComponent) ? (
-          ListEmptyComponent
-        ) : (
-          // @ts-expect-error
-          <ListEmptyComponent />
-        )}
+        {renderElement(ListEmptyComponent)}
         {FooterElement}
       </>
     );
@@ -380,7 +389,10 @@ export function List<Item>({
     <AutoSizer disableHeight>
       {({ width: autoSizerWidth, height: autoSizerHeight }) => {
         return (
-          <div ref={ref as React.RefObject<HTMLDivElement>}>
+          <div
+            ref={ref as React.RefObject<HTMLDivElement>}
+            style={contentContainerStyle as any}
+          >
             <VirtualizedList
               ref={listRef as any}
               autoHeight

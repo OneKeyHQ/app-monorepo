@@ -25,6 +25,8 @@ import type {
   ILocalDBGetAllRecordsResult,
   ILocalDBGetRecordByIdParams,
   ILocalDBGetRecordByIdResult,
+  ILocalDBGetRecordIdsParams,
+  ILocalDBGetRecordIdsResult,
   ILocalDBGetRecordsByIdsParams,
   ILocalDBGetRecordsByIdsResult,
   ILocalDBGetRecordsCountParams,
@@ -37,6 +39,8 @@ import type {
   ILocalDBTxGetAllRecordsResult,
   ILocalDBTxGetRecordByIdParams,
   ILocalDBTxGetRecordByIdResult,
+  ILocalDBTxGetRecordIdsParams,
+  ILocalDBTxGetRecordIdsResult,
   ILocalDBTxGetRecordsByIdsParams,
   ILocalDBTxGetRecordsByIdsResult,
   ILocalDBTxGetRecordsCountParams,
@@ -171,6 +175,16 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     );
   }
 
+  async getRecordIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBGetRecordIdsParams<T>,
+  ): Promise<ILocalDBGetRecordIdsResult> {
+    const bucketName = indexedUtils.getBucketNameByStoreName(params.name);
+    return this.withTransaction(bucketName, async (tx) => {
+      const ids = await this.txGetRecordIds({ ...params, tx });
+      return ids;
+    });
+  }
+
   async getAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBGetAllRecordsParams<T>,
   ): Promise<ILocalDBGetAllRecordsResult<T>> {
@@ -227,6 +241,20 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       recordPairs,
       records,
     });
+  }
+
+  async txGetRecordIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBTxGetRecordIdsParams<T>,
+  ): Promise<ILocalDBTxGetRecordIdsResult> {
+    const { name } = params;
+    const objList = this.realm.objects<IRealmDBSchemaMap[T]>(name);
+    const length = objList.length;
+
+    const ids = new Array<string>(length);
+    for (let i = 0; i < length; i += 1) {
+      ids[i] = objList[i].id;
+    }
+    return Promise.resolve(ids);
   }
 
   async txGetAllRecords<T extends ELocalDBStoreNames>(
