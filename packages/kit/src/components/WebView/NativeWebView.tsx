@@ -19,7 +19,9 @@ import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import GeckoView from '@onekeyhq/shared/src/modules3rdParty/geckoview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
+import uriUtils, {
+  checkOneKeyCardGoogleOauthUrl,
+} from '@onekeyhq/shared/src/utils/uriUtils';
 
 import ErrorView from './ErrorView';
 import { createMessageInjectedScript } from './utils';
@@ -74,22 +76,18 @@ const NativeWebView = forwardRef(
 
     const webviewOnMessage = useCallback(
       (event: WebViewMessageEvent) => {
-        const { data } = event.nativeEvent;
+        const { data, url } = event.nativeEvent;
         try {
-          const uri = new URL(event.nativeEvent.url);
-          const origin = uri?.origin || '';
-          // debugLogger.webview.info('onMessage', origin, data);
-          // console.log('onMessage: ', origin, data);
-          // - receive
+          const origin = uriUtils.getOriginFromUrl({ url: url || src });
           if (origin) {
             jsBridge.receive(data, { origin });
           }
-        } catch {
+        } catch (error) {
           // noop
         }
         onMessage?.(event);
       },
-      [jsBridge, onMessage],
+      [jsBridge, onMessage, src],
     );
 
     useImperativeHandle(ref, (): IWebViewWrapperRef => {

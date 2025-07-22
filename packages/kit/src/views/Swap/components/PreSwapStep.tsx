@@ -95,16 +95,20 @@ const RoundLoadingItem = ({
     }
     if (canRetry && failed) {
       return (
-        <Button
-          size="small"
-          variant="tertiary"
-          type="plain"
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          hoverStyle={{
+            color: '$text',
+            size: '$bodySmMedium',
+          }}
           onPress={() => {
             onRetry();
           }}
+          cursor="pointer"
         >
           {intl.formatMessage({ id: ETranslations.global_retry })}
-        </Button>
+        </SizableText>
       );
     }
     return null;
