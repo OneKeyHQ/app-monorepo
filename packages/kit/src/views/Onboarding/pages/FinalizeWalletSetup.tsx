@@ -168,12 +168,18 @@ function FinalizeWalletSetupPage({
       event: IAppEventBusPayload[EAppEventBusNames.FinalizeWalletSetupError],
     ) => {
       setOnboardingError(event.error);
-
-      setTimeout(() => {
-        if (event.error instanceof OneKeyHardwareError) {
-          popPage();
-        }
-      }, 200);
+      console.log('FinalizeWalletSetupError', event.error);
+      setTimeout(
+        () => {
+          if (
+            event.error instanceof OneKeyHardwareError ||
+            event.error?.name === 'OneKeyHardwareError'
+          ) {
+            popPage();
+          }
+        },
+        platformEnv.isNative ? 450 : 200,
+      );
     };
 
     appEventBus.on(EAppEventBusNames.FinalizeWalletSetupError, fn);
