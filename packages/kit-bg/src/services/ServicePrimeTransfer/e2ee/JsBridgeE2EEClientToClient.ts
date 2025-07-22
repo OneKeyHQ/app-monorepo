@@ -1,12 +1,13 @@
 import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+
 import type {
   IJsBridgeConfig,
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type { Socket } from 'socket.io';
 
 const RATE_LIMIT_INTERVAL_MS = 3500;

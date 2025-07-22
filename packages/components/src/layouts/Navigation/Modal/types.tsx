@@ -19,8 +19,6 @@ export type IScene = {
 export type IModalNavigationConfig = NonNullable<unknown>;
 
 export type IModalNavigationOptions = IStackNavigationOptions & {
-  allowDisableClose?: boolean;
-  disableClose?: boolean;
   shouldPopOnClickBackdrop?: boolean;
   dismissOnOverlayPress?: boolean;
 };

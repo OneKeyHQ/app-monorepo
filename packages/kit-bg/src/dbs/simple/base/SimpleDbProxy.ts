@@ -40,6 +40,7 @@ import type { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
 import type { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
 import type { SimpleDbEntityRecentRecipients } from '../entity/SimpleDbEntityRecentRecipients';
 import type { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
+import type { SimpleDbEntityRiskTokenManagement } from '../entity/SimpleDbEntityRiskTokenManagement';
 import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import type { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
 import type { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
@@ -229,4 +230,8 @@ export class SimpleDbProxy
   recentRecipients = this._createProxyService(
     'recentRecipients',
   ) as SimpleDbEntityRecentRecipients;
+
+  riskTokenManagement = this._createProxyService(
+    'riskTokenManagement',
+  ) as SimpleDbEntityRiskTokenManagement;
 }

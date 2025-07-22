@@ -1513,21 +1513,28 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (swapAllNetworkActionLock) {
         return;
       }
+      const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       const swapSupportNetworks = get(swapNetworks());
+      const currentTypeSupportNetworks =
+        swapTypeSwitchValue === ESwapTabSwitchType.SWAP
+          ? swapSupportNetworks
+          : swapSupportNetworks.filter((item) => item.supportLimit);
       const { accountIdKey, swapSupportAccounts } =
         await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
           indexedAccountId,
           otherWalletTypeAccountId,
-          swapSupportNetworks,
+          swapSupportNetworks: currentTypeSupportNetworks,
         });
       if (swapSupportAccounts.length > 0) {
         set(swapAllNetworkActionLockAtom(), true);
         const currentSwapAllNetworkTokenList = get(
           swapAllNetworkTokenListMapAtom(),
         )[accountIdKey];
-        const accountAddressList = swapSupportAccounts.filter(
-          (item) => item.apiAddress,
-        );
+        const accountAddressList = swapSupportAccounts
+          .filter((item) => item.apiAddress)
+          .filter(
+            (item) => !networkUtils.isAllNetwork({ networkId: item.networkId }),
+          );
         const requests = accountAddressList.map((networkDataString) => {
           const {
             apiAddress,

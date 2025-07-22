@@ -7,7 +7,7 @@ __generated__
 .idea/
 .vscode/
 .chat/
-.claude/
+.claude/PRPs
 
 dist
 build-electron
