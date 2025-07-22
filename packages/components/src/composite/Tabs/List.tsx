@@ -105,6 +105,9 @@ export function List<Item>({
   const scrollTabElementsRef = useTabsContext().scrollTabElementsRef;
 
   const listData: IListData<Item>[] = useMemo(() => {
+    if (!data?.length && !sections?.length) {
+      return [];
+    }
     const list: IListData<Item>[] = [];
     if (ListHeaderComponent) {
       list.push({ type: 'header' });
