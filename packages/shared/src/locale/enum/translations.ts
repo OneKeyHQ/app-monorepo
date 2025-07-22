@@ -2751,6 +2751,7 @@
   swap_review_review_swap = 'swap_review.review_swap',
   swap_review_sign_and_submit = 'swap_review.sign_and_submit',
   swap_review_transaction_failed = 'swap_review.transaction_failed',
+  swap_review_transaction_speed = 'swap_review.transaction_speed',
   swap_review_transaction_succeeded = 'swap_review.transaction_succeeded',
   swap_review_tx_failed_1 = 'swap_review.tx_failed_1',
   swap_review_tx_failed_2 = 'swap_review.tx_failed_2',
