@@ -83,12 +83,14 @@ function CurrentConnectionModal() {
     lastHasConnectionRef.current = currentHasConnection;
   }, [memoizedResult, fetchAccountsInfo]);
 
-  useFocusEffect(() => {
-    if (shouldRefreshWhenPageGoBack.current) {
-      void fetchAccountsInfo();
-      shouldRefreshWhenPageGoBack.current = false;
-    }
-  });
+  useFocusEffect(
+    useCallback(() => {
+      if (shouldRefreshWhenPageGoBack.current) {
+        void fetchAccountsInfo();
+        shouldRefreshWhenPageGoBack.current = false;
+      }
+    }, [fetchAccountsInfo]),
+  );
 
   useEffect(() => {
     void fetchAccountsInfo();
