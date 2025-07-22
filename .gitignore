@@ -8,6 +8,7 @@ __generated__
 .vscode/
 .chat/
 .claude/PRPs
+.claude/settings.local.json
 
 dist
 build-electron
