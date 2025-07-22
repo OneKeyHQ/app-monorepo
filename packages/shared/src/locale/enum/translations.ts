@@ -1441,6 +1441,7 @@
   global_select_wallet_type_to_add = 'global.select_wallet_type_to_add',
   global_sell = 'global.sell',
   global_send = 'global.send',
+  global_sent_successfully = 'global.sent_successfully',
   global_serial_number = 'global.serial_number',
   global_serial_number_start = 'global.serial_number_start',
   global_serial_number_start_desc = 'global.serial_number_start_desc',
