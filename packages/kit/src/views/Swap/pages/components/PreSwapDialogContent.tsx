@@ -46,10 +46,18 @@ const PreSwapDialogContent = ({
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
-  const preSwapData = swapSteps.preSwapData;
-  const quoteResult = swapSteps.quoteResult;
-  const fromAmount = preSwapData?.fromTokenAmount || '0';
-  const toAmount = preSwapData?.toTokenAmount || '0';
+  const { preSwapData, quoteResult } = useMemo(() => {
+    return {
+      preSwapData: swapSteps.preSwapData,
+      quoteResult: swapSteps.quoteResult,
+    };
+  }, [swapSteps]);
+  const { fromAmount, toAmount } = useMemo(() => {
+    return {
+      fromAmount: preSwapData?.fromTokenAmount || '0',
+      toAmount: preSwapData?.toTokenAmount || '0',
+    };
+  }, [preSwapData]);
   const { activeAccount } = useActiveAccount({ num: 0 });
   const isHwWallet = useMemo(
     () =>
@@ -175,9 +183,6 @@ const PreSwapDialogContent = ({
     }
   }, [lastStep?.status, swapSteps.steps.length]);
 
-  // if (showResultContent && swapSteps.length > 0) {
-  //   return <PreSwapConfirmResult lastStep={swapSteps[swapSteps.length - 1]} />;
-  // }
   return (
     <HeightTransition initialHeight={355}>
       {showResultContent && swapSteps.steps.length > 0 ? (
