@@ -406,7 +406,6 @@ function BulkCopyAddresses({
       return {};
     }
 
-    let addressCount = networkAccounts?.length ?? 0;
     const indexes = [];
 
     for (const networkAccount of networkAccounts ?? []) {
@@ -417,6 +416,8 @@ function BulkCopyAddresses({
         indexes.push(networkAccount.networkAccounts[0].account?.pathIndex);
       }
     }
+
+    let addressCount = indexes.length;
 
     if (vaultSettings?.mergeDeriveAssetsEnabled) {
       addressCount *= Object.keys(
