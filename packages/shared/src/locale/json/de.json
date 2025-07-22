@@ -2746,6 +2746,7 @@
   "swap_review.review_swap": "Rezensionsaustausch",
   "swap_review.sign_and_submit": "Transaktion signieren und einreichen",
   "swap_review.transaction_failed": "Transaktion fehlgeschlagen",
+  "swap_review.transaction_speed": "Transaktionsgeschwindigkeit",
   "swap_review.transaction_succeeded": "Transaktion erfolgreich",
   "swap_review.tx_failed_1": "* Bitte versuchen Sie es erneut oder ",
   "swap_review.tx_failed_2": "Support kontaktieren",

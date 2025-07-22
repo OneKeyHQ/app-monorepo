@@ -2746,6 +2746,7 @@
   "swap_review.review_swap": "리뷰 교환",
   "swap_review.sign_and_submit": "거래 서명 및 제출",
   "swap_review.transaction_failed": "거래 실패",
+  "swap_review.transaction_speed": "거래 속도",
   "swap_review.transaction_succeeded": "거래가 성공했습니다",
   "swap_review.tx_failed_1": "* 다시 시도하거나",
   "swap_review.tx_failed_2": "지원팀에 문의하세요",

@@ -2746,6 +2746,7 @@
   "swap_review.review_swap": "Review swap",
   "swap_review.sign_and_submit": "Sign and submit transaction",
   "swap_review.transaction_failed": "Transaction failed",
+  "swap_review.transaction_speed": "Transaction speed",
   "swap_review.transaction_succeeded": "Transaction successful",
   "swap_review.tx_failed_1": "* Please try again or ",
   "swap_review.tx_failed_2": "contact support",

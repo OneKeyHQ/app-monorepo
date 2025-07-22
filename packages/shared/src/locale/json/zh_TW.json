@@ -2746,6 +2746,7 @@
   "swap_review.review_swap": "確認兌換",
   "swap_review.sign_and_submit": "簽署並提交交易",
   "swap_review.transaction_failed": "交易失敗",
+  "swap_review.transaction_speed": "交易速度",
   "swap_review.transaction_succeeded": "交易成功",
   "swap_review.tx_failed_1": "* 請重試或",
   "swap_review.tx_failed_2": "聯繫客服",

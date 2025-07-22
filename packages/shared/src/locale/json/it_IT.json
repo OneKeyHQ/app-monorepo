@@ -2746,6 +2746,7 @@
   "swap_review.review_swap": "Rivedi lo scambio",
   "swap_review.sign_and_submit": "Firma e invia la transazione",
   "swap_review.transaction_failed": "Transazione non riuscita",
+  "swap_review.transaction_speed": "Velocità di transazione",
   "swap_review.transaction_succeeded": "Transazione riuscita",
   "swap_review.tx_failed_1": "* Per favore riprova oppure ",
   "swap_review.tx_failed_2": "contattare l'assistenza",

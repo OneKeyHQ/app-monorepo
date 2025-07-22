@@ -2746,6 +2746,7 @@
   "swap_review.review_swap": "レビューの交換",
   "swap_review.sign_and_submit": "トランザクションに署名して送信する",
   "swap_review.transaction_failed": "取引に失敗しました",
+  "swap_review.transaction_speed": "取引速度",
   "swap_review.transaction_succeeded": "取引が成功しました",
   "swap_review.tx_failed_1": "※ もう一度お試しいただくか",
   "swap_review.tx_failed_2": "サポートにお問い合わせください",

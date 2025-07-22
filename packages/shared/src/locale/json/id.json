@@ -2746,6 +2746,7 @@
   "swap_review.review_swap": "Tinjau pertukaran",
   "swap_review.sign_and_submit": "Tandatangani dan kirim transaksi",
   "swap_review.transaction_failed": "Transaksi gagal",
+  "swap_review.transaction_speed": "Kecepatan transaksi",
   "swap_review.transaction_succeeded": "Transaksi berhasil",
   "swap_review.tx_failed_1": "* Silakan coba lagi atau ",
   "swap_review.tx_failed_2": "hubungi dukungan",

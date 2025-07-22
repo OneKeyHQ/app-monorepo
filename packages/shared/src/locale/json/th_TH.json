@@ -2746,6 +2746,7 @@
   "swap_review.review_swap": "ตรวจสอบการสลับ",
   "swap_review.sign_and_submit": "เซ็นและส่งธุรกรรม",
   "swap_review.transaction_failed": "ธุรกรรมล้มเหลว",
+  "swap_review.transaction_speed": "ความเร็วในการทำธุรกรรม",
   "swap_review.transaction_succeeded": "ธุรกรรมสำเร็จ",
   "swap_review.tx_failed_1": "* โปรดลองอีกครั้งหรือ ",
   "swap_review.tx_failed_2": "ติดต่อฝ่ายสนับสนุน",

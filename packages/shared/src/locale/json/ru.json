@@ -2746,6 +2746,7 @@
   "swap_review.review_swap": "Проверить обмен",
   "swap_review.sign_and_submit": "Подпишите и отправьте транзакцию",
   "swap_review.transaction_failed": "Транзакция не выполнена",
+  "swap_review.transaction_speed": "Скорость транзакций",
   "swap_review.transaction_succeeded": "Транзакция выполнена успешно",
   "swap_review.tx_failed_1": "* Пожалуйста, попробуйте еще раз или",
   "swap_review.tx_failed_2": "обратитесь в службу поддержки",

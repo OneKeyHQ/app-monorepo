@@ -2746,6 +2746,7 @@
   "swap_review.review_swap": "समीक्षा अदला-बदली",
   "swap_review.sign_and_submit": "लेन-देन पर हस्ताक्षर करें और सबमिट करें",
   "swap_review.transaction_failed": "लेन-देन विफल हुआ",
+  "swap_review.transaction_speed": "लेन-देन की गति",
   "swap_review.transaction_succeeded": "लेन-देन सफल रहा",
   "swap_review.tx_failed_1": "* कृपया पुनः प्रयास करें या",
   "swap_review.tx_failed_2": "समर्थन से संपर्क करें",
