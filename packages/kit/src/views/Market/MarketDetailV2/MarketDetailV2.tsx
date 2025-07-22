@@ -66,11 +66,11 @@ function MarketDetail({
           <NavBackButton onPress={handleBackPress} />
         )}
 
-        <TokenDetailHeader
+        {/* <TokenDetailHeader
           containerProps={{ p: '$0' }}
           showStats={false}
           showMediaAndSecurity={false}
-        />
+        /> */}
       </XStack>
     ),
     [handleBackPress],

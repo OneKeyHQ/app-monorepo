@@ -54,6 +54,9 @@ export function SimpleTabHeader<T = string>({
           key={item.id as string}
           onPress={() => handleTabPress(index, item.id)}
           borderBottomWidth="$0.5"
+          borderTopWidth="$0"
+          borderLeftWidth="$0"
+          borderRightWidth="$0"
           borderBottomColor={isActive ? '$text' : 'transparent'}
           opacity={isActive ? 1 : 0.6}
           py="$1.5"
