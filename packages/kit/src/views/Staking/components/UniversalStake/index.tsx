@@ -525,6 +525,9 @@ export function UniversalStake({
       amountValueBN.isLessThanOrEqualTo(0) ||
       isInsufficientBalance ||
       isCheckAmountMessageError ||
+      checkAmountAlerts.length > 0 ||
+      (transactionConfirmation?.alerts &&
+        transactionConfirmation.alerts.length > 0) ||
       isStakingCapFull
     );
     // return (
@@ -538,6 +541,8 @@ export function UniversalStake({
   }, [
     amountValue,
     isCheckAmountMessageError,
+    checkAmountAlerts.length,
+    transactionConfirmation?.alerts,
     isInsufficientBalance,
     isStakingCapFull,
   ]);

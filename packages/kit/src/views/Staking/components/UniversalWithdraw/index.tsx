@@ -283,8 +283,16 @@ export function UniversalWithdraw({
     () =>
       isNaN(amountValue) ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
+      isCheckAmountMessageError ||
+      checkAmountAlerts.length > 0 ||
+      (transactionConfirmation?.alerts &&
+        transactionConfirmation.alerts.length > 0),
+    [
+      amountValue,
       isCheckAmountMessageError,
-    [amountValue, isCheckAmountMessageError],
+      checkAmountAlerts.length,
+      transactionConfirmation?.alerts,
+    ],
   );
 
   const editable = initialAmount === undefined;
