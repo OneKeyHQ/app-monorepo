@@ -47,8 +47,12 @@ export function Carousel<T>({
     currentPage.current = previousPage;
   }, [currentPage, data.length]);
   const scrollToNextPage = useCallback(() => {
-    const nextPage =
-      currentPage.current < data.length - 1 ? currentPage.current + 1 : 0;
+    if (currentPage.current >= data.length - 1) {
+      pagerRef.current?.setPageWithoutAnimation(0);
+      currentPage.current = 0;
+      return;
+    }
+    const nextPage = currentPage.current + 1;
     pagerRef.current?.setPage(nextPage);
     currentPage.current = nextPage;
   }, [data.length, currentPage]);
@@ -110,7 +114,6 @@ export function Carousel<T>({
   });
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
-      console.log('event', event.nativeEvent.layout);
       setLayout(event.nativeEvent.layout);
     },
     [setLayout],
