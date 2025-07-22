@@ -19,7 +19,9 @@ import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import GeckoView from '@onekeyhq/shared/src/modules3rdParty/geckoview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
+import uriUtils, {
+  checkOneKeyCardGoogleOauthUrl,
+} from '@onekeyhq/shared/src/utils/uriUtils';
 
 import ErrorView from './ErrorView';
 import { createMessageInjectedScript } from './utils';
@@ -36,18 +38,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
-
-const getOrigin = (uri: string) => {
-  if (uri === 'null') {
-    return uri;
-  }
-  try {
-    const data = new URL(uri || '');
-    return data?.origin || '';
-  } catch (error) {
-    return '';
-  }
-};
 
 const NativeWebView = forwardRef(
   (
@@ -88,7 +78,7 @@ const NativeWebView = forwardRef(
       (event: WebViewMessageEvent) => {
         const { data, url } = event.nativeEvent;
         try {
-          const origin = getOrigin(url || src);
+          const origin = uriUtils.getOriginFromUrl({ url: url || src });
           if (origin) {
             jsBridge.receive(data, { origin });
           }
