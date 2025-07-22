@@ -10,7 +10,7 @@ import {
 
 import { View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
-import { useStyle } from 'tamagui';
+import { useStyle, useTheme } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -38,6 +38,7 @@ export function Carousel<T>({
 }: ICarouselProps<T>) {
   const pagerRef = useRef<NativePagerView>(undefined);
   const currentPage = useRef<number>(0);
+  const theme = useTheme();
 
   const scrollToPreviousPage = useCallback(() => {
     const previousPage =
@@ -124,7 +125,6 @@ export function Carousel<T>({
   const mergedPaginationContainerStyle = useMemo(() => {
     return {
       gap: 8,
-      marginBottom: 10,
       ...resolvedPaginationContainerStyle,
     };
   }, [resolvedPaginationContainerStyle]);
@@ -137,10 +137,10 @@ export function Carousel<T>({
   );
   const mergedActiveDotStyle = useMemo(() => {
     return {
-      backgroundColor: 'rgba(0, 0, 0, 0.88)',
+      backgroundColor: theme.bgPrimary.val,
       ...resolvedActiveDotStyle,
     } as IDotStyle;
-  }, [resolvedActiveDotStyle]);
+  }, [resolvedActiveDotStyle, theme.bgPrimary.val]);
 
   const resolvedDotStyle = useStyle(
     (dotStyle || {}) as Record<string, unknown>,
@@ -151,10 +151,10 @@ export function Carousel<T>({
   const mergedDotStyle = useMemo(() => {
     return {
       borderRadius: 9999,
-      backgroundColor: 'rgba(0, 0, 0, 0.11)',
+      backgroundColor: theme.neutral5.val,
       ...resolvedDotStyle,
     } as IDotStyle;
-  }, [resolvedDotStyle]);
+  }, [resolvedDotStyle, theme.neutral5.val]);
 
   const handleHoverIn = useCallback(() => {
     if (timerRef.current) {
