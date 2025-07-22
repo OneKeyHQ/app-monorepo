@@ -766,7 +766,7 @@ function createMainWindow() {
     }
   });
 
-  void initNobleBleSupport(browserWindow.webContents);
+  // void initNobleBleSupport(browserWindow.webContents);
 
   return browserWindow;
 }
