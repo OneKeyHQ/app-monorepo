@@ -639,7 +639,20 @@ function BulkCopyAddresses({
             rules={{
               required: true,
               min: 1,
-              max: 100,
+              validate: (value: string) => {
+                const valueNum = new BigNumber(value);
+                if (valueNum.isGreaterThan(100)) {
+                  return intl.formatMessage(
+                    {
+                      id: ETranslations.global_generate_amount_information,
+                    },
+                    {
+                      max: 100,
+                    },
+                  );
+                }
+                return true;
+              },
               onChange: (e: { target: { name: string; value: string } }) =>
                 handleFormValueOnChange({
                   name: e.target.name,

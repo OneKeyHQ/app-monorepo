@@ -65,8 +65,9 @@ function ExportAddresses({
         data.push({
           type: 'address',
           address:
-            item.account?.address ||
+            item.account?.displayAddress ||
             item.account?.addressDetail?.displayAddress ||
+            item.account?.address ||
             '',
           accountName: item.account?.name ?? '',
           deriveType: item.deriveInfo.labelKey
