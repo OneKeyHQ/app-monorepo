@@ -22,8 +22,6 @@ export interface IModalFlowNavigatorConfig<
   P extends ParamListBase,
 > extends ICommonNavigatorConfig<RouteName, P> {
   translationId?: ETranslations | string;
-  allowDisableClose?: boolean;
-  disableClose?: boolean;
   shouldPopOnClickBackdrop?: boolean;
   dismissOnOverlayPress?: boolean;
 }
@@ -83,15 +81,11 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
             component,
             options,
             translationId,
-            allowDisableClose,
-            disableClose,
             shouldPopOnClickBackdrop,
             dismissOnOverlayPress,
           }) => {
             const customOptions: IModalNavigationOptions = {
               ...options,
-              allowDisableClose,
-              disableClose,
               shouldPopOnClickBackdrop,
               dismissOnOverlayPress,
               title: translationId

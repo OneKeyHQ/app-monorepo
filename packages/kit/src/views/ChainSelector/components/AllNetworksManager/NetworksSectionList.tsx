@@ -100,7 +100,7 @@ function NetworksSectionList() {
             sections={sections}
             keyExtractor={(item) => (item as IServerNetworkMatch).id}
             renderSectionHeader={renderSectionHeader}
-            ListHeaderComponent={NetworkListHeader}
+            ListHeaderComponent={<NetworkListHeader />}
             renderItem={({ item }: { item: IServerNetworkMatch }) => (
               <NetworkListItem network={item} />
             )}
