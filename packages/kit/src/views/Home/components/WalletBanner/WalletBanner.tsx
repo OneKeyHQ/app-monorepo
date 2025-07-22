@@ -4,6 +4,8 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
 import {
   Button,
   Carousel,
@@ -76,6 +78,10 @@ function WalletBanner() {
         ...prev,
         [item.id]: true,
       }));
+      defaultLogger.wallet.walletBanner.walletBannerClicked({
+        bannerId: item.id,
+        type: 'close',
+      });
       if (item.closeForever) {
         await backgroundApiProxy.serviceWalletBanner.updateClosedForeverBanners(
           {
@@ -88,6 +94,10 @@ function WalletBanner() {
   }, []);
 
   const handleClick = useCallback((item: IWalletBanner) => {
+    defaultLogger.wallet.walletBanner.walletBannerClicked({
+      bannerId: item.id,
+      type: 'jump',
+    });
     if (item.hrefType === 'external') {
       openUrlExternal(item.href);
     } else {
@@ -203,6 +213,13 @@ function WalletBanner() {
               ) : null}
             </XStack>
           );
+        }}
+        onPageChanged={(index) => {
+          if (filteredBanners[index]) {
+            defaultLogger.wallet.walletBanner.walletBannerViewed({
+              bannerId: filteredBanners[index].id,
+            });
+          }
         }}
       />
     </Stack>
