@@ -199,7 +199,6 @@ export default class VaultAptos extends VaultBase {
       );
 
       let newTxn: AnyRawTransaction;
-      const serializer = new Serializer();
       if (originalTxn instanceof MultiAgentTransaction) {
         newTxn = new MultiAgentTransaction(
           newRawTx,
@@ -215,6 +214,7 @@ export default class VaultAptos extends VaultBase {
         );
       }
 
+      const serializer = new Serializer();
       newTxn.serialize(serializer);
       encodedTx.bcsTxn = bufferUtils.bytesToHex(serializer.toUint8Array());
     } else if (
@@ -836,7 +836,6 @@ export default class VaultAptos extends VaultBase {
     if (bcsTxn && !isEmpty(bcsTxn)) {
       rawTx = deserializeTransaction(bcsTxn);
     } else {
-      const network = await this.getNetwork();
       try {
         rawTx = await generateUnsignedTransaction(this.client, {
           encodedTx,
@@ -857,6 +856,32 @@ export default class VaultAptos extends VaultBase {
     if (!pubkey) {
       const accountOnChain = await this.client.getAccount(account.address);
       pubkey = accountOnChain.authentication_key;
+    }
+
+    const rawTxn = rawTx.rawTransaction;
+    const newRawTx = new RawTransaction(
+      rawTxn.sender,
+      rawTxn.sequence_number,
+      rawTxn.payload,
+      BigInt('200000'),
+      BigInt('0'),
+      rawTxn.expiration_timestamp_secs || getExpirationTimestampSecs(),
+      rawTxn.chain_id,
+    );
+
+    if (rawTx instanceof MultiAgentTransaction) {
+      rawTx = new MultiAgentTransaction(
+        newRawTx,
+        rawTx.secondarySignerAddresses,
+        rawTx.feePayerAddress,
+      );
+    } else if (rawTx instanceof SimpleTransaction) {
+      rawTx = new SimpleTransaction(newRawTx, rawTx.feePayerAddress);
+    } else {
+      const _exhaustiveCheck: never = rawTx;
+      throw new OneKeyLocalError(
+        `Unhandled transaction type: ${_exhaustiveCheck as string}`,
+      );
     }
 
     const rawSignTxBytes = generateSignedTransactionForSimulation({
