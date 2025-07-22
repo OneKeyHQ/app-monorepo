@@ -18,10 +18,6 @@ module.exports = {
     'entitlements': 'entitlements.mac.plist',
     'extendInfo': {
       'NSCameraUsageDescription': 'Use Camera to scan QR Code.',
-      'NSBluetoothAlwaysUsageDescription':
-        'OneKey wallet needs Bluetooth access to communicate with hardware wallets',
-      'NSBluetoothPeripheralUsageDescription':
-        'OneKey wallet needs Bluetooth access to discover and connect with hardware wallets',
     },
   },
   'mas': {
@@ -35,10 +31,6 @@ module.exports = {
     'extendInfo': {
       'ElectronTeamID': 'BVJ3FU5H2K',
       'ITSAppUsesNonExemptEncryption': false,
-      'NSBluetoothAlwaysUsageDescription':
-        'OneKey wallet needs Bluetooth access to communicate with hardware wallets',
-      'NSBluetoothPeripheralUsageDescription':
-        'OneKey wallet needs Bluetooth access to discover and connect with hardware wallets',
     },
   },
   'asarUnpack': ['**/*.node'],
