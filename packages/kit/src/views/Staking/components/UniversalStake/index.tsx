@@ -37,10 +37,12 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import type {
   IApproveConfirmFnParams,
+  ICheckAmountAlert,
   IEarnEstimateFeeResp,
   IEarnTextTooltip,
   IEarnTokenInfo,
@@ -394,11 +396,15 @@ export function UniversalStake({
   });
 
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
+  const [checkAmountAlerts, setCheckAmountAlerts] = useState<
+    ICheckAmountAlert[]
+  >([]);
+
   const checkAmount = useDebouncedCallback(async (amount: string) => {
     if (isNaN(amount)) {
       return;
     }
-    const message = await backgroundApiProxy.serviceStaking.checkAmount({
+    const response = await backgroundApiProxy.serviceStaking.checkAmount({
       accountId,
       networkId,
       symbol: tokenSymbol,
@@ -408,7 +414,14 @@ export function UniversalStake({
       protocolVault,
       withdrawAll: false,
     });
-    setCheckoutAmountMessage(message);
+
+    if (Number(response.code) === 0) {
+      setCheckoutAmountMessage('');
+      setCheckAmountAlerts(response.data?.alerts || []);
+    } else {
+      setCheckoutAmountMessage(response.message);
+      setCheckAmountAlerts([]);
+    }
   }, 300);
 
   const onChangeAmountValue = useCallback(
@@ -996,18 +1009,28 @@ export function UniversalStake({
           title={checkAmountMessage}
         />
       ) : null}
-      {isStakingCapFull ? (
-        <Alert
-          type="warning"
-          title={`Deposit cap reached (Remaining: 1,234 ${tokenSymbol || ''})`}
-          description="Continue via this exclusive link to earn 1.2x points"
-          action={{
-            primary: 'Open dApp',
-            onPrimaryPress: () => {
-              // TODO: Navigate to exclusive link for 1.2x points
-            },
-          }}
-        />
+      {checkAmountAlerts.length > 0 ? (
+        <>
+          {checkAmountAlerts.map((alert, index) => (
+            <Alert
+              key={index}
+              type="warning"
+              title={alert.text.text}
+              action={
+                alert.button
+                  ? {
+                      primary: alert.button.text.text,
+                      onPrimaryPress: () => {
+                        if (alert.button?.data?.link) {
+                          openUrlExternal(alert.button.data.link);
+                        }
+                      },
+                    }
+                  : undefined
+              }
+            />
+          ))}
+        </>
       ) : null}
 
       {/* {isLessThanMinAmount ? (

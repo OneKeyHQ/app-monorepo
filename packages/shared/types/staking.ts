@@ -21,6 +21,22 @@ export enum ECheckAmountActionType {
   CLAIM = 'claim',
 }
 
+export interface ICheckAmountAlert {
+  text: {
+    text: string;
+  };
+  button?: {
+    text: {
+      text: string;
+    };
+    type: string;
+    disabled: boolean;
+    data: {
+      link: string;
+    };
+  };
+}
+
 // export type IStakeTag = 'lido-eth' | 'lido-matic';
 export type IStakeTag = string;
 type IStakeBadgeTag = { tag: string; badge: IBadgeType };

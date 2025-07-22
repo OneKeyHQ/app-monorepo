@@ -38,6 +38,7 @@ import type {
   IBabylonPortfolioItem,
   IBuildPermit2ApproveSignDataParams,
   IBuildRegisterSignMessageParams,
+  ICheckAmountAlert,
   IClaimRecordParams,
   IClaimableListResponse,
   IEarnAccountResponse,
@@ -85,6 +86,9 @@ import type {
 interface ICheckAmountResponse {
   code: number;
   message: string;
+  data?: {
+    alerts?: ICheckAmountAlert[];
+  };
 }
 
 interface IRecommendResponse {
@@ -1068,8 +1072,7 @@ class ServiceStaking extends ServiceBase {
         withdrawAll,
       },
     });
-    const { code, message } = result.data;
-    return Number(code) === 0 ? '' : message;
+    return result.data;
   }
 
   @backgroundMethod()
