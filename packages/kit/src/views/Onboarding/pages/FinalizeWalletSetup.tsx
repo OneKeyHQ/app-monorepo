@@ -13,7 +13,6 @@ import {
   Page,
   Spinner,
   Stack,
-  Toast,
   usePreventRemove,
 } from '@onekeyhq/components';
 import { EMnemonicType } from '@onekeyhq/core/src/secret';
