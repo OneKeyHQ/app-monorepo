@@ -133,7 +133,6 @@ function WalletBanner() {
           marginBottom: 0,
         }}
         onPageChanged={(index) => {
-          console.log('onPageChanged', index);
           if (filteredBanners[index]) {
             defaultLogger.wallet.walletBanner.walletBannerViewed({
               bannerId: filteredBanners[index].id,

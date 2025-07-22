@@ -224,7 +224,6 @@ const DeriveTypesAddressItem = ({
     actionType,
     tokenFiat,
     settings.currencyInfo.symbol,
-    token?.symbol,
   ]);
 
   return (
