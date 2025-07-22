@@ -18,34 +18,37 @@ import type { RouteProp } from '@react-navigation/native';
 type ISettingName = string;
 
 export function SubSettingsPage({
-  name: title,
+  name: nameFromProps,
+  title: titleFromProps,
   settingsConfig: settingsConfigFromProps,
   route,
 }: {
   name: ISettingName;
+  title: string;
   settingsConfig: ISettingsConfig;
 } & { route?: RouteProp<any, any> }) {
   const context = useConfigContext();
   const name = useMemo(() => {
-    return (route?.name as string) || title;
-  }, [route?.name, title]);
+    return (route?.name as string) || nameFromProps;
+  }, [route?.name, nameFromProps]);
   const settingsConfig = useMemo(() => {
     return context.settingsConfig.length
       ? context.settingsConfig
       : settingsConfigFromProps;
   }, [context.settingsConfig, settingsConfigFromProps]);
   const isTabNavigator = useIsTabNavigator();
-  const configList = useMemo(() => {
+  const config = useMemo(() => {
     return settingsConfig
-      ? settingsConfig
-          ?.find((item) => item?.title === name)
-          ?.configs.filter((item) => item && item.length)
-      : [];
+      ? settingsConfig?.find((item) => item?.name === name)
+      : null;
   }, [name, settingsConfig]);
+  const configList = useMemo(() => {
+    return config?.configs.filter((item) => item && item.length) || [];
+  }, [config?.configs]);
 
   return (
     <Page>
-      <Page.Header title={name} />
+      <Page.Header title={titleFromProps || config?.title} />
       <Page.Body>
         <ScrollView
           keyboardShouldPersistTaps="handled"

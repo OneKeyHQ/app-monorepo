@@ -138,11 +138,6 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         isMEV={swapMevNetConfig?.includes(swapPanel.networkId ?? '')}
         onSlippageChange={(item) => setSlippage(item.value)}
       />
-
-      {/* AntiMEV toggle */}
-      {swapMevNetConfig?.includes(swapPanel.networkId ?? '') ? (
-        <AntiMEVToggle value />
-      ) : null}
     </YStack>
   );
 }

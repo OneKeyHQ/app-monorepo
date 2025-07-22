@@ -84,6 +84,7 @@ import type {
   IQrWalletAirGapAccountsInfo,
 } from '@onekeyhq/shared/types/account';
 import type {
+  IDeviceHomeScreen,
   IDeviceVersionCacheInfo,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
@@ -3135,6 +3136,42 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     });
 
+    await this.withTransaction(EIndexedDBBucketNames.archive, async (tx) => {
+      const isHardware =
+        accountUtils.isHwWallet({
+          walletId,
+        }) || accountUtils.isQrWallet({ walletId });
+
+      if (
+        isHardware &&
+        !isRemoveToMocked &&
+        wallet.associatedDevice &&
+        !accountUtils.isHwHiddenWallet({ wallet })
+      ) {
+        try {
+          // remove device home screen
+          const deviceHomeScreenIds = await this.txGetRecordIds({
+            tx,
+            name: ELocalDBStoreNames.HardwareHomeScreen,
+          });
+          const needRemoveDeviceHomeScreenIds = deviceHomeScreenIds.filter(
+            (id) =>
+              wallet.associatedDevice && id.startsWith(wallet.associatedDevice),
+          );
+          if (needRemoveDeviceHomeScreenIds.length) {
+            await this.txRemoveRecords({
+              tx,
+              name: ELocalDBStoreNames.HardwareHomeScreen,
+              ids: needRemoveDeviceHomeScreenIds,
+              ignoreNotFound: true,
+            });
+          }
+        } catch (error) {
+          console.log('remove device, clean home screen error');
+        }
+      }
+    });
+
     await this.removeCloudSyncPoolItems({ keys: [syncKeyInfo.key] });
 
     delete this.tempWallets[walletId];
@@ -4675,6 +4712,59 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           item.settingsRaw = JSON.stringify(settings);
           return item;
         },
+      });
+    });
+  }
+
+  async getHardwareHomeScreen({ deviceId }: { deviceId: string }) {
+    return this.withTransaction(EIndexedDBBucketNames.archive, async (tx) => {
+      const ids = await this.txGetRecordIds({
+        name: ELocalDBStoreNames.HardwareHomeScreen,
+        tx,
+      });
+      const filteredIds = ids.filter((id) => id.startsWith(deviceId));
+      const { records } = await this.txGetRecordsByIds({
+        name: ELocalDBStoreNames.HardwareHomeScreen,
+        ids: filteredIds,
+        tx,
+      });
+      return records
+        .filter((item) => item !== null && item !== undefined)
+        .filter((item) => item.deviceId === deviceId)
+        .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+    });
+  }
+
+  async addHardwareHomeScreen({
+    homeScreen,
+  }: {
+    homeScreen: IDeviceHomeScreen;
+  }) {
+    return this.withTransaction(EIndexedDBBucketNames.archive, async (tx) => {
+      const id = `${homeScreen.deviceId}--${homeScreen.name}`;
+      await this.txAddRecords({
+        name: ELocalDBStoreNames.HardwareHomeScreen,
+        tx,
+        records: [
+          {
+            ...homeScreen,
+            id,
+            createdAt: await this.timeNow(),
+          },
+        ],
+      });
+
+      return id;
+    });
+  }
+
+  async deleteHardwareHomeScreen({ homeScreenId }: { homeScreenId: string }) {
+    await this.withTransaction(EIndexedDBBucketNames.archive, async (tx) => {
+      await this.txRemoveRecords({
+        name: ELocalDBStoreNames.HardwareHomeScreen,
+        tx,
+        ids: [homeScreenId],
+        ignoreNotFound: true,
       });
     });
   }

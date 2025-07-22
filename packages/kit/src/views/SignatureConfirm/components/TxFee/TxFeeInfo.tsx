@@ -178,6 +178,14 @@ function TxFeeInfo(props: IProps) {
 
   const { result, run } = usePromiseResult(
     async () => {
+      if (!unsignedTxs || unsignedTxs.length === 0) {
+        return {
+          r: undefined,
+          e: undefined,
+          m: undefined,
+        };
+      }
+
       try {
         await backgroundApiProxy.serviceGas.abortEstimateFee();
 

@@ -2,7 +2,6 @@ import type { ComponentProps, ReactElement } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
 import type { IListViewProps } from '@onekeyhq/components';
 import {
@@ -13,7 +12,7 @@ import {
   XStack,
   renderNestedScrollView,
 } from '@onekeyhq/components';
-import { useSafeAreaInsets, useStyle } from '@onekeyhq/components/src/hooks';
+import { useStyle } from '@onekeyhq/components/src/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -183,6 +182,10 @@ function BaseTxHistoryListView(props: IProps) {
     return inTabList ? Tabs.SectionList : SectionList;
   }, [inTabList]);
 
+  const itemCounts = useMemo(() => {
+    return sections.reduce((acc, section) => acc + section.data.length, 0);
+  }, [sections]);
+
   if (!initialized && isLoading) {
     return (
       <Stack {...contentContainerStyle}>
@@ -200,7 +203,7 @@ function BaseTxHistoryListView(props: IProps) {
       contentContainerStyle={resolvedContentContainerStyle as any}
       stickySectionHeadersEnabled={false}
       sections={sections}
-      extraData={sections.length}
+      extraData={itemCounts}
       ListEmptyComponent={
         searchKey && data.length > 0 ? EmptySearch : EmptyHistory
       }

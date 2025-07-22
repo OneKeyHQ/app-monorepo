@@ -12,4 +12,5 @@ export enum ELocalDBStoreNames {
   SignedTransaction = 'SignedTransaction',
   ConnectedSite = 'ConnectedSite',
   CloudSyncItem = 'CloudSyncItem',
+  HardwareHomeScreen = 'HardwareHomeScreen',
 }

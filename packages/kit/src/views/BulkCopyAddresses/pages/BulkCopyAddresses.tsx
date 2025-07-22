@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { flatten, groupBy, isEmpty, isNaN, map } from 'lodash';
+import { flatten, groupBy, isEmpty, isNaN, isNil, map } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -25,6 +25,10 @@ import {
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
+  IBatchBuildAccountsAdvancedFlowParams,
+  IBatchBuildAccountsNormalFlowParams,
+} from '@onekeyhq/kit-bg/src/services/ServiceBatchCreateAccount/ServiceBatchCreateAccount';
+import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -37,6 +41,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type { IModalBulkCopyAddressesParamList } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IBatchCreateAccount } from '@onekeyhq/shared/types/account';
@@ -64,20 +69,19 @@ function BulkCopyAddressesProcessingInfo({
   progressTotal: number;
 }) {
   const intl = useIntl();
+
   return (
-    <Stack justifyContent="center" alignItems="center" flex={1}>
-      <SizableText size="$bodyLg">
-        {intl.formatMessage(
-          {
-            id: ETranslations.global_fetching_addresses,
-          },
-          {
-            current: progressCurrent ?? 0,
-            total: progressTotal ?? 0,
-          },
-        )}
-      </SizableText>
-    </Stack>
+    <SizableText size="$bodyLg" textAlign="center" flex={1}>
+      {intl.formatMessage(
+        {
+          id: ETranslations.global_fetching_addresses,
+        },
+        {
+          current: progressCurrent ?? 0,
+          total: progressTotal ?? 0,
+        },
+      )}
+    </SizableText>
   );
 }
 
@@ -244,21 +248,15 @@ function BulkCopyAddresses({
 
   const handleGenerateAddresses = useCallback(
     async ({
-      fromIndex,
-      toIndex,
-      deriveType,
-      excludedIndexes,
-      createAllDeriveTypes,
-      amount,
+      addressCount,
+      isAdvancedMode,
+      advancedParams,
+      normalParams,
     }: {
-      fromIndex: number;
-      toIndex: number;
-      deriveType: IAccountDeriveTypes;
-      excludedIndexes: {
-        [index: number]: true;
-      };
-      createAllDeriveTypes?: boolean;
-      amount: number;
+      addressCount: number;
+      isAdvancedMode: boolean;
+      advancedParams: IBatchBuildAccountsAdvancedFlowParams | undefined;
+      normalParams: IBatchBuildAccountsNormalFlowParams | undefined;
     }) => {
       if (!selectedWalletId || !selectedNetworkId) {
         return {};
@@ -266,21 +264,6 @@ function BulkCopyAddresses({
 
       try {
         setIsGeneratingAddresses(true);
-        const params = {
-          walletId: selectedWalletId,
-          networkId: selectedNetworkId,
-          deriveType,
-          fromIndex,
-          toIndex,
-          saveToDb: false,
-          hideCheckingDeviceLoading: false,
-          showUIProgress: true,
-          excludedIndexes,
-          createAllDeriveTypes,
-          errorMessage: intl.formatMessage({
-            id: ETranslations.global_bulk_copy_addresses_loading_error,
-          }),
-        };
 
         showBatchCreateAccountProcessingDialog({
           navigation,
@@ -290,7 +273,7 @@ function BulkCopyAddresses({
           renderProgressContent: ({ progressCurrent }) => (
             <BulkCopyAddressesProcessingInfo
               progressCurrent={progressCurrent}
-              progressTotal={amount}
+              progressTotal={addressCount}
             />
           ),
           onDialogClose: () => {
@@ -303,11 +286,17 @@ function BulkCopyAddresses({
         try {
           const { accountsForCreate } =
             await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlow(
-              {
-                mode: 'advanced',
-                saveToCache: true,
-                params,
-              },
+              isAdvancedMode
+                ? {
+                    mode: 'advanced',
+                    saveToCache: false,
+                    params: checkIsDefined(advancedParams),
+                  }
+                : {
+                    mode: 'normal',
+                    saveToCache: false,
+                    params: checkIsDefined(normalParams),
+                  },
             );
 
           // @ts-ignore
@@ -349,11 +338,15 @@ function BulkCopyAddresses({
         setIsGeneratingAddresses(false);
       }
     },
-    [selectedWalletId, selectedNetworkId, navigation, intl],
+    [selectedWalletId, selectedNetworkId, navigation],
   );
 
   const handleGenerateAddressesByRange = useCallback(async () => {
-    if (!formRangeWatchFields.deriveType) {
+    if (
+      !selectedWalletId ||
+      !selectedNetworkId ||
+      !formRangeWatchFields.deriveType
+    ) {
       return {};
     }
 
@@ -371,64 +364,97 @@ function BulkCopyAddresses({
 
     const createAllDeriveTypes = false;
 
-    return handleGenerateAddresses({
+    const advancedParams: IBatchBuildAccountsAdvancedFlowParams = {
+      walletId: selectedWalletId,
+      networkId: selectedNetworkId,
+      deriveType,
       fromIndex,
       toIndex,
-      deriveType,
+      saveToDb: false,
+      hideCheckingDeviceLoading: false,
+      showUIProgress: true,
       excludedIndexes,
       createAllDeriveTypes,
-      amount: Number(formRangeWatchFields.amount),
+      errorMessage: intl.formatMessage({
+        id: ETranslations.global_bulk_copy_addresses_loading_error,
+      }),
+    };
+
+    return handleGenerateAddresses({
+      isAdvancedMode: true,
+      advancedParams,
+      normalParams: undefined,
+      addressCount: Number(formRangeWatchFields.amount),
     });
   }, [
     formRangeWatchFields.deriveType,
     formRangeWatchFields.startIndex,
     formRangeWatchFields.amount,
+    selectedWalletId,
+    selectedNetworkId,
+    intl,
     handleGenerateAddresses,
   ]);
 
   const handleGenerateAddressesByAccounts = useCallback(async () => {
-    if (!selectedWallet || !selectedWallet.dbIndexedAccounts) {
+    if (
+      !selectedWalletId ||
+      !selectedNetworkId ||
+      !selectedWallet ||
+      !selectedWallet.dbIndexedAccounts
+    ) {
       return {};
     }
 
-    const { dbIndexedAccounts } = selectedWallet;
+    let addressCount = networkAccounts?.length ?? 0;
+    const indexes = [];
 
-    const indexes = dbIndexedAccounts.map((account) => account.index);
-
-    const fromIndex = Math.min(...indexes);
-    const toIndex = Math.max(...indexes);
-    const excludedIndexes: { [index: number]: true } = {};
-    for (let i = fromIndex; i <= toIndex; i += 1) {
+    for (const networkAccount of networkAccounts ?? []) {
       if (
-        !indexes.includes(i) ||
-        !networkAccounts?.[i].networkAccounts?.length
+        networkAccount.networkAccounts.length > 0 &&
+        !isNil(networkAccount.networkAccounts[0].account?.pathIndex)
       ) {
-        excludedIndexes[i] = true;
+        indexes.push(networkAccount.networkAccounts[0].account?.pathIndex);
       }
     }
 
-    let amount = indexes.length - Object.keys(excludedIndexes).length;
     if (vaultSettings?.mergeDeriveAssetsEnabled) {
-      amount *= Object.keys(vaultSettings?.accountDeriveInfo ?? {}).length;
+      addressCount *= Object.keys(
+        vaultSettings?.accountDeriveInfo ?? {},
+      ).length;
     }
 
-    return handleGenerateAddresses({
-      fromIndex,
-      toIndex,
+    const normalParams: IBatchBuildAccountsNormalFlowParams = {
+      walletId: selectedWalletId,
+      networkId: selectedNetworkId,
       deriveType:
         await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
           networkId: selectedNetworkId,
         }),
-      excludedIndexes,
+      saveToDb: false,
+      indexes,
       createAllDeriveTypes: true,
-      amount,
+      showUIProgress: true,
+      errorMessage: intl.formatMessage({
+        id: ETranslations.global_bulk_copy_addresses_loading_error,
+      }),
+      hideCheckingDeviceLoading: false,
+    };
+
+    return handleGenerateAddresses({
+      isAdvancedMode: false,
+      normalParams,
+      advancedParams: undefined,
+      addressCount,
     });
   }, [
+    selectedWalletId,
+    selectedNetworkId,
     selectedWallet,
     vaultSettings?.mergeDeriveAssetsEnabled,
     vaultSettings?.accountDeriveInfo,
+    intl,
     handleGenerateAddresses,
-    selectedNetworkId,
     networkAccounts,
   ]);
 
@@ -710,6 +736,7 @@ function BulkCopyAddresses({
           isEmpty(networkAccountsByDeriveType)
       : !form.formState.isValid ||
           !formRange.formState.isValid ||
+          !selectedWallet ||
           isGeneratingAddresses;
   }, [
     copyType,
@@ -718,6 +745,7 @@ function BulkCopyAddresses({
     networkAccountsByDeriveType,
     formRange.formState.isValid,
     isGeneratingAddresses,
+    selectedWallet,
   ]);
 
   useEffect(() => {
@@ -738,7 +766,7 @@ function BulkCopyAddresses({
   }, [availableWallets, selectedWallet, form]);
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.global_bulk_copy_addresses,
