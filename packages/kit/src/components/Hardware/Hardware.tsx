@@ -114,7 +114,6 @@ export function ConfirmOnDeviceToastContent({
     };
   }, []);
 
-  console.log('animationData', animationData);
   return (
     <XStack alignItems="center">
       <Stack bg="$bgStrong" btlr="$2" bblr="$2" w={72} h={72}>
