@@ -4,7 +4,6 @@ import {
   isValidElement,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
 } from 'react';
