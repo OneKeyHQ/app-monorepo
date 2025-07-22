@@ -1,7 +1,6 @@
 import { filter, forEach } from 'lodash';
 
-import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
-import { getEndpointsMapWithDynamicPrefix } from '@onekeyhq/shared/src/config/endpointsMap';
+import { getEndpointsMap } from '@onekeyhq/shared/src/config/endpointsMap';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type {
@@ -10,20 +9,8 @@ import type {
   IEndpointInfo,
 } from '@onekeyhq/shared/types/endpoint';
 
-// Track last endpoints to detect changes and clear cache
-let lastEndpointsString: string | undefined;
-
 export async function getEndpoints() {
-  const endpoints = await getEndpointsMapWithDynamicPrefix();
-
-  // Clear HTTP client cache if endpoints changed
-  const currentEndpointsString = JSON.stringify(endpoints);
-  if (lastEndpointsString !== currentEndpointsString) {
-    appApiClient.clearClientCache();
-    lastEndpointsString = currentEndpointsString;
-  }
-
-  return endpoints;
+  return getEndpointsMap();
 }
 
 export async function getEndpointInfo({
