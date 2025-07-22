@@ -1,7 +1,11 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IAccountDeriveTypes,
+  ITransferInfo,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   IEventSourceCloseEvent,
   IEventSourceDoneEvent,
@@ -411,6 +415,11 @@ export interface ISwapStep {
   skipSendTransAction?: boolean;
 }
 
+export enum ESwapNetworkFeeLevel {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+}
 export interface ISwapPreSwapData {
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
@@ -421,6 +430,9 @@ export interface ISwapPreSwapData {
   unSupportSlippage?: boolean;
   fee?: IFetchQuoteFee;
   allowanceResult?: IAllowanceResult;
+  netWorkFee?: {
+    feeLevel?: ESwapNetworkFeeLevel;
+  };
 }
 
 export interface IFetchQuoteResult {
