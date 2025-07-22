@@ -19,7 +19,7 @@ repositories {
 
 dependencies {
     compileOnly gradleApi()
-    compileOnly "com.android.tools.build:gradle:8.5.0"
+    compileOnly "com.android.tools.build:gradle:8.8.2"
     compileOnly "org.ow2.asm:asm:9.7"
     compileOnly "org.ow2.asm:asm-commons:9.7"
     compileOnly "org.jetbrains:annotations:23.0.0"
