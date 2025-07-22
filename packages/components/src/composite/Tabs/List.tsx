@@ -377,6 +377,33 @@ export function List<Item>({
     );
   }, [HeaderElement, ListEmptyComponent, FooterElement]);
 
+  const listProps = useMemo(() => {
+    return {
+      ref: listRef as any,
+      autoHeight: true,
+      height,
+      data: data?.length || sections?.length ? listData : [],
+      rowCount: data?.length || sections?.length ? listData.length : 0,
+      isScrolling: isVisible ? isScrolling : false,
+      onScroll: isVisible ? onChildScroll : undefined,
+      scrollTop: isVisible ? scrollTop : 0,
+      overscanRowCount: 10,
+      deferredMeasurementCache: cache,
+      noRowsRenderer,
+    };
+  }, [
+    height,
+    data?.length,
+    sections?.length,
+    listData,
+    isVisible,
+    isScrolling,
+    onChildScroll,
+    scrollTop,
+    cache,
+    noRowsRenderer,
+  ]);
+
   if (numColumns > 1) {
     return (
       <AutoSizer disableHeight>
@@ -387,21 +414,12 @@ export function List<Item>({
               style={contentContainerStyle as any}
             >
               <Collection
-                ref={listRef as any}
-                autoHeight
-                data={listData}
-                isScrolling={isVisible ? isScrolling : false}
-                scrollTop={isVisible ? scrollTop : 0}
-                onScroll={isVisible ? onChildScroll : undefined}
+                {...listProps}
                 width={autoSizerWidth}
-                height={height}
                 cellCount={listData.length}
-                deferredMeasurementCache={cache}
                 cellSizeAndPositionGetter={cellSizeAndPositionGetter}
                 cellRenderer={cellRenderer}
-                overscanRowCount={10}
                 rowCount={Math.ceil(listData.length / numColumns)}
-                noRowsRenderer={noRowsRenderer}
               />
             </div>
           );
@@ -419,20 +437,11 @@ export function List<Item>({
             style={contentContainerStyle as any}
           >
             <VirtualizedList
-              ref={listRef as any}
-              autoHeight
+              {...listProps}
               width={autoSizerWidth}
-              data={listData}
               height={autoSizerHeight || height || 400}
-              isScrolling={isVisible ? isScrolling : false}
-              onScroll={isVisible ? onChildScroll : undefined}
-              overscanRowCount={10}
-              scrollTop={isVisible ? scrollTop : 0}
-              rowCount={listData.length}
               rowHeight={cache.rowHeight}
-              deferredMeasurementCache={cache}
               rowRenderer={rowRenderer}
-              noRowsRenderer={noRowsRenderer}
             />
           </div>
         );
