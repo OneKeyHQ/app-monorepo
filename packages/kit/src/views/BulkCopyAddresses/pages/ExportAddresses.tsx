@@ -155,7 +155,7 @@ function ExportAddresses({
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderStrong"
       >
-        <YStack gap="$1">
+        <YStack gap="$1" pb="$5">
           {addressesData.map((item, index) => {
             return (
               <XStack key={index} alignItems="flex-start">
