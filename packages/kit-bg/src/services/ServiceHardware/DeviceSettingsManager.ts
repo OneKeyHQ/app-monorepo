@@ -235,7 +235,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         } else {
           // Pro、Touch: built-in wallpaper
           // Classic、mini、1s、pure: custom upload and built-in wallpaper
-          if (!finallyScreenHex) {
+          if (!finallyScreenHex && !isMonochrome) {
             // empty string will clear the home screen(classic,mini)
             throw new OneKeyLocalError('Invalid home screen hex');
           }
