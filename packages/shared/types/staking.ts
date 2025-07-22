@@ -227,7 +227,8 @@ export type IStakeTx =
   | IStakeTxBtcBabylon
   | IStakeTxEthEvertStake
   | IStakeTxEthLido
-  | IStakeTxCosmosAmino;
+  | IStakeTxCosmosAmino
+  | IStakeTxSui;
 
 export type IStakeTxResponse = {
   tx: IStakeTx;
@@ -274,6 +275,8 @@ export type IStakeTxCosmosAmino = {
   }[];
   readonly memo: string;
 };
+
+export type IStakeTxSui = string;
 
 export type IEarnTokenItem = {
   balance: string;
