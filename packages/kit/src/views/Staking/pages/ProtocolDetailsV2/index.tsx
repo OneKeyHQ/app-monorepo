@@ -766,7 +766,7 @@ const ProtocolDetailsPage = () => {
         symbol,
         provider,
         stakeTag: protocolInfo?.stakeTag || '',
-        morphoVault: vault,
+        protocolVault: vault,
         filterType,
       });
     };

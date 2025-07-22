@@ -67,7 +67,7 @@ type IUniversalWithdrawProps = {
 
   estimateFeeResp?: IEarnEstimateFeeResp;
 
-  morphoVault?: string;
+  protocolVault?: string;
 
   onConfirm?: ({
     amount,
@@ -96,7 +96,7 @@ export function UniversalWithdraw({
   initialAmount,
   minAmount = '0',
   decimals,
-  morphoVault,
+  protocolVault,
   estimateFeeResp,
 
   onConfirm,
@@ -149,7 +149,7 @@ export function UniversalWithdraw({
       provider: providerName,
       action: ECheckAmountActionType.UNSTAKING,
       amount,
-      morphoVault,
+      protocolVault,
       withdrawAll: withdrawAllRef.current,
     });
     setCheckoutAmountMessage(message);
@@ -165,7 +165,7 @@ export function UniversalWithdraw({
           networkId: networkId || '',
           provider: providerName || '',
           symbol: tokenSymbol || '',
-          vault: isMorphoProvider ? morphoVault || '' : '',
+          vault: isMorphoProvider ? protocolVault || '' : '',
           accountAddress,
           action: ECheckAmountActionType.UNSTAKING,
           amount,
@@ -175,7 +175,7 @@ export function UniversalWithdraw({
     [
       accountAddress,
       isMorphoProvider,
-      morphoVault,
+      protocolVault,
       networkId,
       providerName,
       tokenSymbol,

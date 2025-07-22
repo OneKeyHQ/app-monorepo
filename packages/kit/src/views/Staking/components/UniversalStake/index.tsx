@@ -252,6 +252,10 @@ export function UniversalStake({
     350,
   );
 
+  const protocolVault = useVaultProvider
+    ? protocolInfo?.approve?.approveTarget || protocolInfo?.vault
+    : undefined;
+
   const fetchEstimateFeeResp = useCallback(
     async (amount?: string) => {
       if (shouldApprove && usePermit2Approve) {
@@ -291,9 +295,7 @@ export function UniversalStake({
         symbol: tokenInfo?.token.symbol || '',
         action: shouldApprove ? 'approve' : 'stake',
         amount: amountNumber.toFixed(),
-        morphoVault: useVaultProvider
-          ? protocolInfo?.approve?.approveTarget || protocolInfo?.vault || ''
-          : undefined,
+        protocolVault,
         accountAddress: account?.address,
         ...permitParams,
       });
@@ -302,10 +304,8 @@ export function UniversalStake({
     [
       accountId,
       allowance,
-      useVaultProvider,
       networkId,
-      protocolInfo?.approve?.approveTarget,
-      protocolInfo?.vault,
+      protocolVault,
       providerName,
       shouldApprove,
       tokenInfo?.token.symbol,
@@ -394,10 +394,6 @@ export function UniversalStake({
   });
 
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
-
-  const morphoVault = useVaultProvider
-    ? protocolInfo?.approve?.approveTarget
-    : undefined;
   const checkAmount = useDebouncedCallback(async (amount: string) => {
     if (isNaN(amount)) {
       return;
@@ -409,7 +405,7 @@ export function UniversalStake({
       provider: providerName,
       action: ECheckAmountActionType.STAKING,
       amount,
-      morphoVault,
+      protocolVault,
       withdrawAll: false,
     });
     setCheckoutAmountMessage(message);

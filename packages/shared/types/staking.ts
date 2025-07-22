@@ -119,7 +119,7 @@ export type IStakeBaseParams = {
   feeRate?: number;
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
-  morphoVault?: string; // morpho vault
+  protocolVault?: string; // protocol vault
   approveType?: EApproveType;
   permitSignature?: string;
 
@@ -138,7 +138,7 @@ export type IWithdrawBaseParams = {
   identity?: string; // sol pubkey
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
-  morphoVault?: string; // morpho vault
+  protocolVault?: string; // protocol vault
   withdrawAll?: boolean;
 };
 
@@ -176,7 +176,7 @@ export type IStakeHistoryParams = {
   networkId: string;
   symbol: string;
   provider: string;
-  morphoVault?: string;
+  protocolVault?: string;
 };
 
 export type IStakeHistory = {

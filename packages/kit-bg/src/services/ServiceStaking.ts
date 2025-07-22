@@ -243,7 +243,7 @@ class ServiceStaking extends ServiceBase {
       accountId,
       provider,
       symbol,
-      morphoVault,
+      protocolVault,
       approveType,
       permitSignature,
       ...rest
@@ -280,7 +280,7 @@ class ServiceStaking extends ServiceBase {
     };
 
     if (useVaultProvider) {
-      paramsToSend.vault = morphoVault;
+      paramsToSend.vault = protocolVault;
     }
 
     const walletReferralCode =
@@ -299,7 +299,7 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async buildUnstakeTransaction(params: IWithdrawBaseParams) {
-    const { networkId, accountId, morphoVault, ...rest } = params;
+    const { networkId, accountId, protocolVault, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
@@ -323,7 +323,7 @@ class ServiceStaking extends ServiceBase {
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
-      vault: useVaultProvider ? morphoVault : '',
+      vault: useVaultProvider ? protocolVault : '',
       ...rest,
     });
     return resp.data.data;
@@ -476,7 +476,7 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async getStakeHistory(params: IStakeHistoryParams) {
-    const { networkId, accountId, morphoVault, type, ...rest } = params;
+    const { networkId, accountId, protocolVault, type, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -495,7 +495,7 @@ class ServiceStaking extends ServiceBase {
     };
 
     if (useVaultProvider) {
-      data.vault = morphoVault;
+      data.vault = protocolVault;
     }
     if (type) {
       data.type = params.type;
@@ -1030,7 +1030,7 @@ class ServiceStaking extends ServiceBase {
     action,
     withdrawAll,
     amount,
-    morphoVault,
+    protocolVault,
   }: {
     accountId?: string;
     networkId?: string;
@@ -1039,7 +1039,7 @@ class ServiceStaking extends ServiceBase {
     action: ECheckAmountActionType;
     withdrawAll: boolean;
     amount?: string;
-    morphoVault?: string;
+    protocolVault?: string;
   }) {
     if (!networkId || !accountId || !provider) {
       throw new OneKeyLocalError(
@@ -1064,7 +1064,7 @@ class ServiceStaking extends ServiceBase {
         provider: provider || '',
         action,
         amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
-        vault: useVaultProvider ? morphoVault : '',
+        vault: useVaultProvider ? protocolVault : '',
         withdrawAll,
       },
     });
@@ -1366,20 +1366,20 @@ class ServiceStaking extends ServiceBase {
     action: IEarnEstimateAction;
     amount: string;
     txId?: string;
-    morphoVault?: string;
+    protocolVault?: string;
     identity?: string;
     accountAddress?: string;
     approveType?: 'permit';
     permitSignature?: string;
   }) {
-    const { symbol, morphoVault, ...rest } = params;
+    const { symbol, protocolVault, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const sendParams: Record<string, string | undefined> = {
       symbol,
       ...rest,
     };
     if (earnUtils.useVaultProvider({ providerName: params.provider })) {
-      sendParams.vault = morphoVault;
+      sendParams.vault = protocolVault;
     }
     const resp = await client.get<{
       data: IEarnEstimateFeeResp;

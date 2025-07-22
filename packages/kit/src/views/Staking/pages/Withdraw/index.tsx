@@ -42,7 +42,8 @@ const WithdrawPage = () => {
   const active = protocolInfo?.activeBalance;
   const overflow = protocolInfo?.overflowBalance;
   const price = tokenInfo?.price ? String(tokenInfo.price) : '0';
-  const vault = protocolInfo?.approve?.approveTarget || '';
+  const vault =
+    protocolInfo?.approve?.approveTarget || protocolInfo?.vault || '';
   const actionTag = protocolInfo?.stakeTag || '';
   const appNavigation = useAppNavigation();
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
@@ -57,7 +58,7 @@ const WithdrawPage = () => {
       await handleWithdraw({
         amount,
         identity,
-        morphoVault: earnUtils.useVaultProvider({
+        protocolVault: earnUtils.useVaultProvider({
           providerName,
         })
           ? vault
@@ -112,7 +113,7 @@ const WithdrawPage = () => {
         providerName.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
           ? identity
           : undefined,
-      morphoVault: earnUtils.useVaultProvider({
+      protocolVault: earnUtils.useVaultProvider({
         providerName,
       })
         ? vault
@@ -169,7 +170,7 @@ const WithdrawPage = () => {
               : undefined
           }
           estimateFeeResp={estimateFeeResp}
-          morphoVault={vault}
+          protocolVault={vault}
         />
       </Page.Body>
     </Page>
