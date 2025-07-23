@@ -848,8 +848,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       set,
       {
         url,
-        isNewWindow,
-        isInPlace,
         title,
         favicon,
         canGoBack,
@@ -859,12 +857,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         handlePhishingUrl,
       }: IOnWebviewNavigationFnParams,
     ) => {
-      const now = Date.now();
       const tab = this.getWebTabById.call(set, id ?? '');
       if (!tab) {
         return;
       }
-      const isValidNewUrl = typeof url === 'string' && url !== tab.url;
 
       if (url) {
         const cache = get(phishingLruCacheAtom());
@@ -881,29 +877,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           handleDeepLinkUrl({ url });
           return;
         }
-      }
-
-      if (isValidNewUrl) {
-        if (tab.timestamp && now - tab.timestamp < 500) {
-          // ignore url change if it's too fast to avoid back & forth loop
-          return;
-        }
-        if (
-          homeResettingFlags[tab.id] &&
-          url !== homeTab.url &&
-          now - homeResettingFlags[tab.id] < 1000
-        ) {
-          return;
-        }
-
-        void this.gotoSite.call(set, {
-          url,
-          title,
-          favicon,
-          isNewWindow,
-          isInPlace,
-          id: tab.id,
-        });
       }
 
       this.setWebTabData.call(set, {
