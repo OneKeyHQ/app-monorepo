@@ -111,7 +111,6 @@ export type ISettingsConfig = (
 export const useSettingsConfig: () => ISettingsConfig = () => {
   const appUpdateInfo = useAppUpdateInfo();
   const intl = useIntl();
-  const { isPrimeSubscriptionActive } = usePrimeAuthV2();
   const onPressAddressBook = useShowAddressBook({
     useNewModal: false,
   });
@@ -704,7 +703,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       biometricAuthInfo.icon,
       appUpdateInfo.isNeedUpdate,
       devSettings.enabled,
-      isPrimeSubscriptionActive,
       onPressAddressBook,
       helpCenterUrl,
       userAgreementUrl,
