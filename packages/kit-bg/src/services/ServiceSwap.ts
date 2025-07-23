@@ -20,7 +20,6 @@ import {
 import EventSource from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -82,11 +81,7 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
-import {
-  inAppNotificationAtom,
-  settingsAtom,
-  settingsPersistAtom,
-} from '../states/jotai/atoms';
+import { inAppNotificationAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -355,6 +350,8 @@ export default class ServiceSwap extends ServiceBase {
               )
             ).id
           : otherWalletTypeAccountId ?? '';
+        console.log('getSupportSwapAllAccounts');
+        // const accountsInfo: IAllNetworkAccountInfo[] = [];
         const { accountsInfo } =
           await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
             accountId: allNetAccountId,
@@ -803,19 +800,6 @@ export default class ServiceSwap extends ServiceBase {
         });
       });
     }
-    const { swapEnableRecipientAddress } = await settingsAtom.get();
-    const { swapBatchApproveAndSwap } = await settingsPersistAtom.get();
-    defaultLogger.swap.swapQuote.swapQuote({
-      walletType,
-      quoteType: protocol,
-      slippageSetting: autoSlippage ? 'auto' : 'custom',
-      sourceChain: fromToken.networkId,
-      receivedChain: toToken.networkId,
-      sourceTokenSymbol: fromToken.symbol,
-      receivedTokenSymbol: toToken.symbol,
-      isAddReceiveAddress: swapEnableRecipientAddress,
-      isSmartMode: swapBatchApproveAndSwap,
-    });
   }
 
   async getDenyCrossChainProvider(fromNetworkId: string, toNetworkId: string) {
