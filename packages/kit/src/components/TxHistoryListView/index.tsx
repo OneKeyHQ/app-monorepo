@@ -189,14 +189,16 @@ function BaseTxHistoryListView(props: IProps) {
     return sections.reduce((acc, section) => acc + section.data.length, 0);
   }, [sections]);
 
-  if (!initialized && isLoading) {
-    return (
-      <Stack {...contentContainerStyle}>
-        {ListHeaderComponent}
-        <HistoryLoadingView tableLayout={tableLayout} />
-      </Stack>
-    );
-  }
+  const EmptyComponentElement = useMemo(() => {
+    if (!initialized && isLoading) {
+      return <HistoryLoadingView tableLayout={tableLayout} />;
+    }
+    if (searchKey && data.length > 0) {
+      return <EmptySearch />;
+    }
+    return <EmptyHistory />;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchKey, data.length]);
 
   return (
     <ListComponent
@@ -207,9 +209,7 @@ function BaseTxHistoryListView(props: IProps) {
       stickySectionHeadersEnabled={false}
       sections={sections}
       extraData={itemCounts}
-      ListEmptyComponent={
-        searchKey && data.length > 0 ? EmptySearch : EmptyHistory
-      }
+      ListEmptyComponent={EmptyComponentElement}
       ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
       ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       renderItem={renderItem}

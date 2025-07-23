@@ -157,9 +157,16 @@ function NFTListView(props: IProps) {
     },
   );
 
-  if (!initialized && isLoading) {
-    return <NFTListLoadingView />;
-  }
+
+  const EmptyComponentElement = useMemo(() => {
+    if (!initialized && isLoading) {
+      return <NFTListLoadingView />;
+    }
+    if (searchKey) {
+      return <EmptySearch flex={1} />;
+    }
+    return <EmptyNFT />;
+  }, [initialized, isLoading, searchKey]);
 
   return (
     <Tabs.FlatList
@@ -171,7 +178,7 @@ function NFTListView(props: IProps) {
       numColumns={numColumns}
       data={filteredNfts || []}
       renderItem={handleRenderItem}
-      ListEmptyComponent={searchKey ? <EmptySearch flex={1} /> : <EmptyNFT />}
+      ListEmptyComponent={EmptyComponentElement}
       ListFooterComponent={
         <>{addPaddingOnListFooter ? <Stack h="$16" /> : null}</>
       }
