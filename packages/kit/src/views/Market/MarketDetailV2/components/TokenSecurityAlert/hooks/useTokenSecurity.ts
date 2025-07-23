@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 
-import { analyzeSecurityData } from '../utils';
+import { analyzeSecurityData, formatSecurityData } from '../utils';
 
 import type {
   IUseTokenSecurityParams,
@@ -39,14 +39,25 @@ export const useTokenSecurity = ({
     },
   );
 
-  const { securityStatus, warningCount } = useMemo(() => {
-    const { status, count } = analyzeSecurityData(securityData);
-    return { securityStatus: status, warningCount: count };
-  }, [securityData]);
+  const { securityStatus, warningCount, shouldHide, formattedData } =
+    useMemo(() => {
+      const { status, count } = analyzeSecurityData(securityData);
+      const formatted = formatSecurityData(securityData);
+      const shouldHideAlert = formatted.some((item) => item.shouldHide);
+
+      return {
+        securityStatus: status,
+        warningCount: count,
+        shouldHide: shouldHideAlert,
+        formattedData: formatted,
+      };
+    }, [securityData]);
 
   return {
     securityData,
     securityStatus,
     warningCount,
+    shouldHide,
+    formattedData,
   };
 };
