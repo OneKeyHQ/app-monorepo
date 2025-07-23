@@ -49,7 +49,10 @@ import {
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  checkWrappedTokenPair,
+  equalTokenNoCaseSensitive,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IFetchQuoteResult,
@@ -185,8 +188,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       fromToken: ISwapToken;
       toToken: ISwapToken;
     }) => {
-      void selectFromToken(fromTokenPair, true);
-      void selectToToken(toTokenPair);
+      const skipCheckEqualToken = !equalTokenNoCaseSensitive({
+        token1: fromTokenPair,
+        token2: toTokenPair,
+      });
+      void selectFromToken(fromTokenPair, true, undefined, skipCheckEqualToken);
+      void selectToToken(toTokenPair, undefined, skipCheckEqualToken);
       defaultLogger.swap.selectToken.selectToken({
         selectFrom: ESwapSelectTokenSource.RECENT_SELECT,
       });
