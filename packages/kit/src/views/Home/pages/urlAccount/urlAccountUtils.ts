@@ -218,7 +218,7 @@ export const urlAccountNavigation = {
       realNetworkIdFallback: params.networkId || '',
       contextNetworkId: params.contextNetworkId || '',
     });
-    navigation.dispatch(
+    rootNavigationRef.current?.dispatch(
       StackActions.push(ETabHomeRoutes.TabHomeUrlAccountPage, {
         address: params.address,
         networkId: networkSegment,
