@@ -29,6 +29,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -635,7 +636,14 @@ const SwapHistoryDetailModal = () => {
             variant: 'secondary',
           }}
           onConfirm={() => {
-            onViewInBrowser(txHistory?.swapInfo.supportUrl ?? '');
+            if (
+              txHistory?.swapInfo.supportUrl ===
+              'https://help.onekey.so/hc/zh-cn/requests/new'
+            ) {
+              void showIntercom();
+            } else {
+              onViewInBrowser(txHistory?.swapInfo.supportUrl ?? '');
+            }
           }}
         />
       ) : null}
