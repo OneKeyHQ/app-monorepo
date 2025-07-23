@@ -14,6 +14,7 @@ import {
   EPageType,
   ScrollView,
   YStack,
+  useInModalDialog,
   useInTabDialog,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -137,6 +138,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   }
   const dialogRef = useRef<IDialogInstance>(null);
   const InTabDialog = useInTabDialog();
+  const InModalDialog = useInModalDialog();
   const storeName = useMemo(
     () =>
       pageType === EPageType.modal
@@ -643,38 +645,74 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     parseQuoteResultToSteps();
     setSwapBuildTxFetching(true);
     setTimeout(() => {
-      dialogRef.current = InTabDialog.show({
-        onClose: onPreSwapClose,
-        title: intl.formatMessage({ id: ETranslations.global_review_order }),
-        showFooter: false,
-        renderContent: (
-          <AccountSelectorProviderMirror
-            config={{
-              sceneName: EAccountSelectorSceneName.swap,
-              sceneUrl: '',
-            }}
-            enabledNum={[0, 1]}
-          >
-            <SwapProviderMirror
-              storeName={
-                pageType === EPageType.modal
-                  ? EJotaiContextStoreNames.swapModal
-                  : EJotaiContextStoreNames.swap
-              }
-            >
-              <PreSwapDialogContent
-                onConfirm={handleConfirm}
-                slippageItem={slippageItem}
-              />
-            </SwapProviderMirror>
-          </AccountSelectorProviderMirror>
-        ),
-        showCancelButton: false,
-        showConfirmButton: false,
-      });
+      dialogRef.current =
+        pageType === EPageType.modal
+          ? InModalDialog.show({
+              onClose: onPreSwapClose,
+              title: intl.formatMessage({
+                id: ETranslations.global_review_order,
+              }),
+              showFooter: false,
+              renderContent: (
+                <AccountSelectorProviderMirror
+                  config={{
+                    sceneName: EAccountSelectorSceneName.swap,
+                    sceneUrl: '',
+                  }}
+                  enabledNum={[0, 1]}
+                >
+                  <SwapProviderMirror
+                    storeName={
+                      pageType === EPageType.modal
+                        ? EJotaiContextStoreNames.swapModal
+                        : EJotaiContextStoreNames.swap
+                    }
+                  >
+                    <PreSwapDialogContent
+                      onConfirm={handleConfirm}
+                      slippageItem={slippageItem}
+                    />
+                  </SwapProviderMirror>
+                </AccountSelectorProviderMirror>
+              ),
+              showCancelButton: false,
+              showConfirmButton: false,
+            })
+          : InTabDialog.show({
+              onClose: onPreSwapClose,
+              title: intl.formatMessage({
+                id: ETranslations.global_review_order,
+              }),
+              showFooter: false,
+              renderContent: (
+                <AccountSelectorProviderMirror
+                  config={{
+                    sceneName: EAccountSelectorSceneName.swap,
+                    sceneUrl: '',
+                  }}
+                  enabledNum={[0, 1]}
+                >
+                  <SwapProviderMirror
+                    storeName={
+                      pageType === EPageType.modal
+                        ? EJotaiContextStoreNames.swapModal
+                        : EJotaiContextStoreNames.swap
+                    }
+                  >
+                    <PreSwapDialogContent
+                      onConfirm={handleConfirm}
+                      slippageItem={slippageItem}
+                    />
+                  </SwapProviderMirror>
+                </AccountSelectorProviderMirror>
+              ),
+              showCancelButton: false,
+              showConfirmButton: false,
+            });
     }, 100);
   }, [
     InTabDialog,
+    InModalDialog,
     currentQuoteRes,
     cleanQuoteInterval,
     setSwapShouldRefreshQuote,
