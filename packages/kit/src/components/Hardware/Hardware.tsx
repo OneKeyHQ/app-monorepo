@@ -5,7 +5,11 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IColorTokens, UseFormReturn } from '@onekeyhq/components';
+import type {
+  IColorTokens,
+  ILottieViewProps,
+  UseFormReturn,
+} from '@onekeyhq/components';
 import {
   Alert,
   Anchor,
@@ -37,6 +41,21 @@ import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export interface IConfirmOnDeviceToastContentProps {
   deviceType: IDeviceType;
+}
+
+/**
+ * Android on React Native 0.79 doesn't support dynamic source switching for LottieView
+ * @param source - The source of the LottieView
+ * @returns A LottieView component that is compatible with React Native 0.79
+ */
+function CompatibleLottieView({
+  source,
+}: {
+  source: ILottieViewProps['source'];
+}) {
+  return source ? (
+    <LottieView width="100%" height="100%" source={source} />
+  ) : null;
 }
 
 export function ConfirmOnDeviceToastContent({
@@ -97,8 +116,8 @@ export function ConfirmOnDeviceToastContent({
 
   return (
     <XStack alignItems="center">
-      <Stack bg="$bgStrong" btlr="$2" bblr="$2">
-        <LottieView width={72} height={72} source={animationData ?? ''} />
+      <Stack bg="$bgStrong" btlr="$2" bblr="$2" w={72} h={72}>
+        <CompatibleLottieView source={animationData} />
       </Stack>
       <XStack flex={1} alignItems="center" px="$3" gap="$5">
         <SizableText flex={1} size="$bodyLgMedium">
@@ -187,9 +206,7 @@ export function EnterPinOnDevice({
   return (
     // height must be specified on Sheet View.
     <Stack borderRadius="$3" bg="$bgSubdued" height={230}>
-      {animationData ? (
-        <LottieView width="100%" height="100%" source={animationData} />
-      ) : null}
+      <CompatibleLottieView source={animationData} />
     </Stack>
   );
 }
@@ -247,9 +264,7 @@ export function EnterHiddenWalletPinOnDevice({
   return (
     // height must be specified on Sheet View.
     <Stack borderRadius="$3" bg="$bgSubdued" height={230}>
-      {animationData ? (
-        <LottieView width="100%" height="100%" source={animationData} />
-      ) : null}
+      <CompatibleLottieView source={animationData} />
     </Stack>
   );
 }
@@ -757,9 +772,7 @@ export function EnterPassphraseOnDevice({
 
   return (
     <Stack borderRadius="$3" bg="$bgSubdued" height={230}>
-      {animationData ? (
-        <LottieView width="100%" height="100%" source={animationData} />
-      ) : null}
+      <CompatibleLottieView source={animationData} />
     </Stack>
   );
 }

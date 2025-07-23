@@ -233,6 +233,10 @@ export default class ServiceNotification extends ServiceBase {
     webEvent,
     eventSource,
   }: INotificationClickParams) => {
+    // Huawei Mate30  HarmonyOS will automatically trigger notificationClick event when App is launched, and notificationId is empty, so it needs to be ignored
+    if (!notificationId) {
+      return;
+    }
     this.addShowedNotificationId(notificationId);
 
     defaultLogger.notification.common.notificationClicked({
