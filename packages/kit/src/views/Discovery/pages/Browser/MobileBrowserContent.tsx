@@ -33,7 +33,6 @@ function MobileBrowserContent({
 
   const initCaptureViewRef = useCallback(
     ($ref: any) => {
-      console.log('initCaptureViewRef', id, $ref);
       captureViewRefs[id] = $ref;
     },
     [id],
