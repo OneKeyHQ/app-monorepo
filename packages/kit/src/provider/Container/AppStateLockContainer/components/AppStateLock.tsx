@@ -4,6 +4,7 @@ import { memo } from 'react';
 import { useIntl } from 'react-intl';
 import {
   Dimensions,
+  Keyboard,
   type View as IView,
   type KeyboardEvent,
 } from 'react-native';
@@ -87,6 +88,7 @@ const AppStateLock = ({
         flex={1}
         bg="$bgApp"
         pointerEvents={platformEnv.isNative ? undefined : 'auto'}
+        onPress={Keyboard.dismiss}
         {...props}
       >
         <Animated.View style={safeKeyboardAnimationStyle}>

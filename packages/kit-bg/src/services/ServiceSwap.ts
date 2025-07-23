@@ -355,6 +355,8 @@ export default class ServiceSwap extends ServiceBase {
               )
             ).id
           : otherWalletTypeAccountId ?? '';
+        console.log('getSupportSwapAllAccounts');
+        // const accountsInfo: IAllNetworkAccountInfo[] = [];
         const { accountsInfo } =
           await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
             accountId: allNetAccountId,
@@ -803,19 +805,6 @@ export default class ServiceSwap extends ServiceBase {
         });
       });
     }
-    const { swapEnableRecipientAddress } = await settingsAtom.get();
-    const { swapBatchApproveAndSwap } = await settingsPersistAtom.get();
-    defaultLogger.swap.swapQuote.swapQuote({
-      walletType,
-      quoteType: protocol,
-      slippageSetting: autoSlippage ? 'auto' : 'custom',
-      sourceChain: fromToken.networkId,
-      receivedChain: toToken.networkId,
-      sourceTokenSymbol: fromToken.symbol,
-      receivedTokenSymbol: toToken.symbol,
-      isAddReceiveAddress: swapEnableRecipientAddress,
-      isSmartMode: swapBatchApproveAndSwap,
-    });
   }
 
   async getDenyCrossChainProvider(fromNetworkId: string, toNetworkId: string) {
