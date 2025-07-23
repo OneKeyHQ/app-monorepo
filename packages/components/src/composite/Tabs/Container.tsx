@@ -224,7 +224,6 @@ export function Container({
         const index = tabNames.findIndex((name) => name === tabName);
         let scrollTop = scrollTopRef.current[tabName] || 0;
         startViewTransition(() => {
-          console.log('startViewTransition');
           updateListContainerHeight();
           const width = scrollElement?.clientWidth || 0;
           listContainerRef.current?.scrollTo({
@@ -312,8 +311,8 @@ export function Container({
                 <>
                   <YStack
                     position="relative"
-                    width="calc(100vw - 208px)"
-                    // onLayout={handlerStickyHeaderLayout}
+                    width={containerWidth || width}
+                    onLayout={handlerStickyHeaderLayout}
                   >
                     {renderHeader?.({
                       focusedTab,
