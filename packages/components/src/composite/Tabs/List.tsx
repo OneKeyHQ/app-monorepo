@@ -411,7 +411,6 @@ export function List<Item>({
     noContentRenderer,
   ]);
 
-  console.log(contentContainerStyle);
   if (numColumns > 1) {
     return (
       <AutoSizer disableHeight>
