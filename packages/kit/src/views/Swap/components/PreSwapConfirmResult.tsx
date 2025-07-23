@@ -121,7 +121,7 @@ const PreSwapConfirmResult = ({
             {statusText}
           </SizableText>
           {lastStep.status === ESwapStepStatus.FAILED ? (
-            <SizableText size="$bodySm" color="$textSubdued">
+            <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
               {lastStep.errorMessage ?? ''}
             </SizableText>
           ) : null}

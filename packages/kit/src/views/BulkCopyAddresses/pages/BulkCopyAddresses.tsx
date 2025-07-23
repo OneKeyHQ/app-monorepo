@@ -406,7 +406,6 @@ function BulkCopyAddresses({
       return {};
     }
 
-    let addressCount = networkAccounts?.length ?? 0;
     const indexes = [];
 
     for (const networkAccount of networkAccounts ?? []) {
@@ -417,6 +416,8 @@ function BulkCopyAddresses({
         indexes.push(networkAccount.networkAccounts[0].account?.pathIndex);
       }
     }
+
+    let addressCount = indexes.length;
 
     if (vaultSettings?.mergeDeriveAssetsEnabled) {
       addressCount *= Object.keys(
@@ -639,7 +640,20 @@ function BulkCopyAddresses({
             rules={{
               required: true,
               min: 1,
-              max: 100,
+              validate: (value: string) => {
+                const valueNum = new BigNumber(value);
+                if (valueNum.isGreaterThan(100)) {
+                  return intl.formatMessage(
+                    {
+                      id: ETranslations.global_generate_amount_information,
+                    },
+                    {
+                      max: 100,
+                    },
+                  );
+                }
+                return true;
+              },
               onChange: (e: { target: { name: string; value: string } }) =>
                 handleFormValueOnChange({
                   name: e.target.name,

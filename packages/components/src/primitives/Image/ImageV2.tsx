@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Image as ExpoImage, resolveSource } from 'expo-image';
 import { StyleSheet } from 'react-native';
@@ -8,7 +8,7 @@ import { Skeleton } from '../Skeleton';
 import { YStack } from '../Stack';
 
 import { AnimatedExpoImage } from './AnimatedImage';
-import { isEmptyResolvedSource } from './utils';
+import { isEmptyResolvedSource, useResetError } from './utils';
 
 import type { IImageV2Props } from './type';
 import type {
@@ -66,6 +66,8 @@ export function ImageV2({
   const resolvedSource = useMemo(() => {
     return resolveSource((source as ImageSource) || src);
   }, [source, src]);
+
+  useResetError(resolvedSource, hasError, setHasError);
 
   const skeletonTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

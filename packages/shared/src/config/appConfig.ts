@@ -66,18 +66,13 @@ export const buildServiceEndpoint = ({
   serviceName,
   env,
   isWebSocket,
-  prefix,
 }: {
   serviceName: EServiceEndpointEnum;
   env: IEndpointEnv;
   isWebSocket?: boolean;
-  prefix?: string;
 }) => {
   const baseHost = env === 'prod' ? ONEKEY_API_HOST : ONEKEY_TEST_API_HOST;
-  const prefixedServiceName = prefix ? `${prefix}-${serviceName}` : serviceName;
-  return `${
-    isWebSocket ? 'wss' : 'https'
-  }://${prefixedServiceName}.${baseHost}`;
+  return `${isWebSocket ? 'wss' : 'https'}://${serviceName}.${baseHost}`;
 };
 
 export const CHAIN_SELECTOR_LOGO =

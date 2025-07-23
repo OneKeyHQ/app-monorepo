@@ -14,6 +14,7 @@ import {
   EPageType,
   ScrollView,
   YStack,
+  useInTabDialog,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -59,12 +60,14 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapDirectionType,
+  ESwapNetworkFeeLevel,
   ESwapQuoteKind,
   ESwapSelectTokenSource,
   ESwapStepStatus,
   ESwapStepType,
   ESwapTabSwitchType,
   LIMIT_PRICE_DEFAULT_DECIMALS,
+  SwapBuildShouldFallBackNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
@@ -133,6 +136,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapSlippageRef.current = slippageItem;
   }
   const dialogRef = useRef<IDialogInstance>(null);
+  const InTabDialog = useInTabDialog();
   const storeName = useMemo(
     () =>
       pageType === EPageType.modal
@@ -449,12 +453,25 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       preSwapData: {
         fromToken: fromSelectToken,
         toToken: toSelectToken,
+        shouldFallback: SwapBuildShouldFallBackNetworkIds.includes(
+          fromSelectToken?.networkId ?? '',
+        ),
         fromTokenAmount: fromAmount.value,
         toTokenAmount: swapToAmount.value,
         providerInfo: currentQuoteRes?.info,
         slippage: swapSlippageRef.current.value,
         unSupportSlippage: currentQuoteRes?.unSupportSlippage ?? false,
         fee: currentQuoteRes?.fee,
+        ...(!(
+          steps.length > 0 &&
+          steps[steps.length - 1].type === ESwapStepType.SIGN_MESSAGE
+        )
+          ? {
+              netWorkFee: {
+                feeLevel: ESwapNetworkFeeLevel.MEDIUM,
+              },
+            }
+          : {}),
       },
       quoteResult: { ...(currentQuoteRes as IFetchQuoteResult) },
     });
@@ -624,37 +641,40 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     cleanQuoteInterval();
     setSwapShouldRefreshQuote(true);
     parseQuoteResultToSteps();
-    dialogRef.current = Dialog.show({
-      onClose: onPreSwapClose,
-      title: intl.formatMessage({ id: ETranslations.global_review_order }),
-      showFooter: false,
-      renderContent: (
-        <AccountSelectorProviderMirror
-          config={{
-            sceneName: EAccountSelectorSceneName.swap,
-            sceneUrl: '',
-          }}
-          enabledNum={[0, 1]}
-        >
-          <SwapProviderMirror
-            storeName={
-              pageType === EPageType.modal
-                ? EJotaiContextStoreNames.swapModal
-                : EJotaiContextStoreNames.swap
-            }
-          >
-            <PreSwapDialogContent
-              onConfirm={handleConfirm}
-              slippageItem={slippageItem}
-            />
-          </SwapProviderMirror>
-        </AccountSelectorProviderMirror>
-      ),
-      showCancelButton: false,
-      showConfirmButton: false,
-    });
     setSwapBuildTxFetching(true);
+    setTimeout(() => {
+      dialogRef.current = InTabDialog.show({
+        onClose: onPreSwapClose,
+        title: intl.formatMessage({ id: ETranslations.global_review_order }),
+        showFooter: false,
+        renderContent: (
+          <AccountSelectorProviderMirror
+            config={{
+              sceneName: EAccountSelectorSceneName.swap,
+              sceneUrl: '',
+            }}
+            enabledNum={[0, 1]}
+          >
+            <SwapProviderMirror
+              storeName={
+                pageType === EPageType.modal
+                  ? EJotaiContextStoreNames.swapModal
+                  : EJotaiContextStoreNames.swap
+              }
+            >
+              <PreSwapDialogContent
+                onConfirm={handleConfirm}
+                slippageItem={slippageItem}
+              />
+            </SwapProviderMirror>
+          </AccountSelectorProviderMirror>
+        ),
+        showCancelButton: false,
+        showConfirmButton: false,
+      });
+    }, 100);
   }, [
+    InTabDialog,
     currentQuoteRes,
     cleanQuoteInterval,
     setSwapShouldRefreshQuote,

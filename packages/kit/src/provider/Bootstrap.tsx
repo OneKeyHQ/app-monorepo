@@ -534,9 +534,9 @@ export function Bootstrap() {
     ) {
       const timer = setTimeout(() => {
         navigation.switchTab(autoNavigation.selectedTab as ETabRoutes);
-        navigation.pushModal(EModalRoutes.PrimeModal, {
-          screen: EPrimePages.PrimeTransfer,
-        });
+        // navigation.pushModal(EModalRoutes.PrimeModal, {
+        //   screen: EPrimePages.PrimeTransfer,
+        // });
       }, 1000);
 
       return () => clearTimeout(timer);

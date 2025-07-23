@@ -6,7 +6,6 @@ import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapProviderSort,
   mevSwapNetworks,
@@ -16,8 +15,6 @@ import type {
   ESwapDirectionType,
   ESwapQuoteKind,
   ESwapRateDifferenceUnit,
-  IFetchQuoteFee,
-  IFetchQuoteInfo,
   IFetchQuoteResult,
   ISwapAlertState,
   ISwapAutoSlippageSuggestedValue,
@@ -31,6 +28,7 @@ import type {
   ISwapTokenMetadata,
 } from '@onekeyhq/shared/types/swap/types';
 import {
+  ESwapNetworkFeeLevel,
   ESwapTabSwitchType,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   defaultLimitExpirationTime,
@@ -636,6 +634,15 @@ export const { atom: swapStepsAtom, use: useSwapStepsAtom } = contextAtom<{
 }>({
   steps: [],
   preSwapData: {},
+});
+
+export const {
+  atom: swapStepNetFeeLevelAtom,
+  use: useSwapStepNetFeeLevelAtom,
+} = contextAtom<{
+  networkFeeLevel: ESwapNetworkFeeLevel;
+}>({
+  networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
 });
 
 // swap tips
