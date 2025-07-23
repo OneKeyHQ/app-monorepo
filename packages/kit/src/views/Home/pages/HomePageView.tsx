@@ -159,6 +159,9 @@ export function HomePageView({
         shadowOpacity: 0,
         elevation: 0,
       },
+      pagerProps: {
+        scrollEnabled: false,
+      },
       renderHeader,
       renderTabBar: (props: any) => (
         <Tabs.TabBar
