@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
+import ViewShot from 'react-native-view-shot';
 
 import { Stack } from '@onekeyhq/components';
 import type { IWebViewOnScrollEvent } from '@onekeyhq/kit/src/components/WebView/types';
@@ -32,6 +33,7 @@ function MobileBrowserContent({
 
   const initCaptureViewRef = useCallback(
     ($ref: any) => {
+      console.log('initCaptureViewRef', id, $ref);
       captureViewRefs[id] = $ref;
     },
     [id],
@@ -44,24 +46,25 @@ function MobileBrowserContent({
     return (
       <>
         <Freeze key={tab.id} freeze={!isActive}>
-          <Stack
-            ref={initCaptureViewRef}
-            flex={1}
-            mt="$3"
-            // https://github.com/gre/react-native-view-shot/issues/7
-            collapsable={platformEnv.isNativeAndroid ? false : undefined}
-            bg={platformEnv.isNativeAndroid ? '$bgApp' : undefined}
-          >
-            <WebContent
-              id={tab.id}
-              url={tab.url}
-              siteMode={tab.siteMode}
-              isCurrent={isActive}
-              setBackEnabled={setBackEnabled}
-              setForwardEnabled={setForwardEnabled}
-              onScroll={onScroll}
-            />
-          </Stack>
+          <ViewShot ref={initCaptureViewRef} style={{ flex: 1 }}>
+            <Stack
+              flex={1}
+              mt="$3"
+              // https://github.com/gre/react-native-view-shot/issues/7
+              collapsable={platformEnv.isNativeAndroid ? false : undefined}
+              bg={platformEnv.isNativeAndroid ? '$bgApp' : undefined}
+            >
+              <WebContent
+                id={tab.id}
+                url={tab.url}
+                siteMode={tab.siteMode}
+                isCurrent={isActive}
+                setBackEnabled={setBackEnabled}
+                setForwardEnabled={setForwardEnabled}
+                onScroll={onScroll}
+              />
+            </Stack>
+          </ViewShot>
         </Freeze>
       </>
     );
