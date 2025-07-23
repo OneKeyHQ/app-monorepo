@@ -161,7 +161,7 @@ export function HomePageView({
       },
       pagerProps: {
         scrollSensitivity: 4,
-      },
+      } as any,
       renderHeader,
       renderTabBar: (props: any) => (
         <Tabs.TabBar
