@@ -37,7 +37,6 @@ import { useDebounce } from '../../../hooks/useDebounce';
 import {
   useSwapActions,
   useSwapAlertsAtom,
-  useSwapAutoSlippageSuggestedValueAtom,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceUseRateAtom,
@@ -52,6 +51,7 @@ import {
   useSwapSelectedFromTokenBalanceAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSilenceQuoteLoading,
+  useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 
@@ -244,6 +244,7 @@ export function useSwapActionState() {
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [shouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [swapQuoteApproveAllowanceUnLimit] =
     useSwapQuoteApproveAllowanceUnLimitAtom();
@@ -345,7 +346,12 @@ export function useSwapActionState() {
     ) {
       infoRes.disable = true;
     }
-
+    if (
+      new BigNumber(toTokenAmount.value ?? 0).isZero() ||
+      new BigNumber(toTokenAmount.value ?? 0).isNaN()
+    ) {
+      infoRes.disable = true;
+    }
     if (
       quoteLoading ||
       quoteEventFetching ||
@@ -463,21 +469,22 @@ export function useSwapActionState() {
     return infoRes;
   }, [
     hasError,
-    buildTxFetching,
     quoteCurrentSelect,
     alerts.states,
-    swapTypeSwitchValue,
     intl,
     swapFromAddressInfo.address,
     swapToAddressInfo.address,
     fromTokenAmount.value,
+    swapTypeSwitchValue,
     isRefreshQuote,
+    toTokenAmount.value,
     quoteLoading,
     quoteEventFetching,
     swapApprovingMatchLoading,
+    buildTxFetching,
+    selectedFromTokenBalance,
     fromToken,
     toToken,
-    selectedFromTokenBalance,
     quoteResultNoMatchDebounce,
     swapUseLimitPrice.rate,
   ]);
