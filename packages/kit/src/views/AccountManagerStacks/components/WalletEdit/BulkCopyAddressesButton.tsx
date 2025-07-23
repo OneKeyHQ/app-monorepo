@@ -41,6 +41,7 @@ export function BulkCopyAddressesButton({
               showAllFeatures: false,
               selectedFeature: EPrimeFeatures.BulkCopyAddresses,
               selectedSubscriptionPeriod: 'P1Y',
+              networkId,
             },
           });
           return;

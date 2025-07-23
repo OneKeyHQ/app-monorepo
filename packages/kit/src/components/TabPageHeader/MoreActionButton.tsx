@@ -453,11 +453,12 @@ function MoreActionContentGrid() {
           showAllFeatures: false,
           selectedFeature: showFeature,
           selectedSubscriptionPeriod: 'P1Y',
+          networkId: network?.id,
         },
       });
       return false;
     },
-    [navigation, user],
+    [navigation, user, network?.id],
   );
 
   const handleCustomerSupport = useCallback(() => {
