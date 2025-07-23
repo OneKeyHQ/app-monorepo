@@ -89,6 +89,16 @@ function useAspectRatioInfo(params: {
   }, [sizeInfo?.width, sizeInfo?.height, deviceType, media.gtMd]);
 }
 
+const getCountByFlexBasis = (flexBasis: DimensionValue | undefined) => {
+  if (flexBasis === '25%') {
+    return 8;
+  }
+  if (flexBasis === '33.33333%') {
+    return 9;
+  }
+  return 8; // 默认值
+};
+
 function HomeScreenImageItem({
   isLoading,
   isSelected,
@@ -319,7 +329,8 @@ function WallpaperCategorySection({
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const expandCount = onUpload ? 7 : 8;
+  const count = getCountByFlexBasis(aspectRatioInfo.flexBasis);
+  const expandCount = onUpload ? count - 1 : count;
   const displayData = isExpanded
     ? category.data
     : category.data.slice(0, expandCount);
