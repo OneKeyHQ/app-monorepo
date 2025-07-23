@@ -1,75 +1,53 @@
+import { isBoolean, isNumber, isString } from 'lodash';
+
 import type {
   IMarketTokenSecurityData,
   IMarketTokenSecurityItem,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { getSecurityConfig } from '../config/securityConfig';
+
 import type { ISecurityKeyValue, ISecurityStatus } from '../types';
 
-// Define warning keys for different chains
-const COMMON_WARNING_KEYS = [
-  'is_honeypot',
-  'is_proxy',
-  'cannot_sell_all',
-  'is_anti_whale',
-  'is_blacklisted',
-  'external_call',
-  'hidden_owner',
-  'is_mintable',
-  'can_take_back_ownership',
-  'owner_change_balance',
-  'cannot_buy',
-  'transfer_pausable',
-];
+// Helper function to check if a key should hide the security alert
+const shouldHideForKey = (key: string, value: any): boolean => {
+  const config = getSecurityConfig();
+  if (!config.hideSecurityAlertKeys.includes(key)) return false;
 
-const SOLANA_WARNING_KEYS = [
-  'is_balance_mutable_authority',
-  'closable',
-  'is_metadata_upgrade_authority',
-  'freezable',
-  'mintable',
-  'non_transferable',
-  'transfer_fee_upgradable',
-  'transfer_hook_upgradable',
-];
+  // If the property is false, hide the security alert
+  if (isBoolean(value) && !value) {
+    return true;
+  }
+  if (isString(value) && value === 'false') {
+    return true;
+  }
 
-const SUI_WARNING_KEYS = [
-  'is_blacklisted',
-  'is_contract_upgradeable',
-  'is_metadata_modifiable',
-  'is_mintable',
-];
-
-const ALL_WARNING_KEYS = [
-  ...COMMON_WARNING_KEYS,
-  ...SOLANA_WARNING_KEYS,
-  ...SUI_WARNING_KEYS,
-];
-
-const TRUST_KEYS = [
-  'trusted_token',
-  'is_trusted_token',
-  'trust_list',
-  'is_open_source',
-];
-
-const TAX_KEYS = ['buy_tax', 'sell_tax', 'transfer_tax'];
+  return false;
+};
 
 // Helper function to check if a key is a warning
 const isWarningKey = (key: string, value: any): boolean => {
+  const config = getSecurityConfig();
+  const allWarningKeys = [
+    ...config.warningKeys.common,
+    ...config.warningKeys.solana,
+    ...config.warningKeys.sui,
+  ];
+
   // Check each warning key
-  if (ALL_WARNING_KEYS.includes(key)) {
-    if (typeof value === 'boolean' && value) return true;
-    if (typeof value === 'string' && value === 'true') return true;
+  if (allWarningKeys.includes(key)) {
+    if (isBoolean(value) && value) return true;
+    if (isString(value) && value === 'true') return true;
   }
 
   // Check for trusted/open source items (warning if false)
-  if (TRUST_KEYS.includes(key)) {
-    if (typeof value === 'boolean' && !value) return true;
-    if (typeof value === 'string' && value === 'false') return true;
+  if (config.trustKeys.includes(key)) {
+    if (isBoolean(value) && !value) return true;
+    if (isString(value) && value === 'false') return true;
   }
 
   // Check tax values
-  if (TAX_KEYS.includes(key) && typeof value === 'number' && value > 0) {
+  if (config.taxKeys.includes(key) && isNumber(value) && value > 0) {
     return true;
   }
 
@@ -90,7 +68,7 @@ export const formatSecurityData = (
       const { value, content } = item;
 
       let displayValue: string;
-      if (typeof value === 'boolean') {
+      if (isBoolean(value)) {
         displayValue = ''; // Don't show yes/no text for boolean values
       } else {
         displayValue = String(value);
@@ -101,6 +79,7 @@ export const formatSecurityData = (
         label: content,
         value: displayValue,
         isWarning: isWarningKey(key, value),
+        shouldHide: shouldHideForKey(key, value),
       });
     },
   );
