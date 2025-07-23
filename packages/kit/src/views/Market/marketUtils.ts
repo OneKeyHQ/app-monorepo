@@ -66,11 +66,11 @@ export const marketNavigation = {
     {
       tokenAddress,
       networkId,
-      networkName,
+      symbol,
     }: {
       tokenAddress: string;
       networkId: string;
-      networkName?: string;
+      symbol?: string;
     },
   ) {
     await timerUtils.wait(80);
@@ -85,7 +85,7 @@ export const marketNavigation = {
         params: {
           tokenAddress,
           networkId,
-          networkName: networkName || networkId, // Use networkId as fallback
+          symbol: symbol || networkId, // Use networkId as fallback
         },
       },
     });

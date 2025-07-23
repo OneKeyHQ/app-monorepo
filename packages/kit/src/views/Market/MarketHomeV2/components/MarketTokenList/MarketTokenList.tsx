@@ -204,6 +204,7 @@ function MarketTokenList({
                   : (item) => ({
                       onPress: () =>
                         toDetailPage({
+                          symbol: item.symbol,
                           tokenAddress: item.address,
                           networkId,
                         }),

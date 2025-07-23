@@ -9,6 +9,7 @@ import type { ITabMarketV2ParamList } from '@onekeyhq/shared/src/routes';
 interface IMarketToken {
   tokenAddress: string;
   networkId: string;
+  symbol: string;
 }
 
 export function useToDetailPage() {
@@ -20,7 +21,7 @@ export function useToDetailPage() {
       navigation.push(ETabMarketV2Routes.MarketDetail, {
         tokenAddress: item.tokenAddress,
         networkId: item.networkId,
-        networkName: item.networkId,
+        symbol: item.symbol,
       });
     },
     [navigation],

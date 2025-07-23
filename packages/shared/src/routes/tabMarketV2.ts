@@ -7,7 +7,7 @@ export enum ETabMarketV2Routes {
 export type ITabMarketV2ParamList = {
   [ETabMarketV2Routes.TabMarket]: undefined;
   [ETabMarketV2Routes.MarketDetail]: {
-    networkName?: string;
+    symbol?: string;
     tokenAddress: string;
     networkId: string;
   };
