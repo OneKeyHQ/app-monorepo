@@ -38,18 +38,24 @@ export function ContainerChild({
     <TabsScrollContext.Provider value={props}>
       <XStack
         ref={listContainerRef as any}
-        maxWidth={props.width}
+        width="calc(100vw - 208px)"
         overflow="hidden"
+        style={{ scrollSnapType: 'x' }}
       >
-        <XStack w={props.width * Children.count(children)}>
-          {Children.map(children, (child, index) => {
-            return (
-              <div style={{ flex: 1 }} key={index}>
-                {child}
-              </div>
-            );
-          })}
-        </XStack>
+        {Children.map(children, (child, index) => {
+          return (
+            <div
+              style={{
+                width: '100%',
+                flexShrink: 0,
+                scrollSnapAlign: 'center',
+              }}
+              key={index}
+            >
+              {child}
+            </div>
+          );
+        })}
       </XStack>
     </TabsScrollContext.Provider>
   );
@@ -186,26 +192,26 @@ export function Container({
     };
   }, [updateListContainerHeight]);
 
-  useLayoutEffect(() => {
-    const callback = debounce(() => {
-      if (listContainerRef.current) {
-        const tabIndex = tabNames.findIndex(
-          (name) => name === focusedTab.value,
-        );
-        listContainerRef.current.scrollTo({
-          left: (scrollElement?.clientWidth || 0) * tabIndex,
-          behavior: 'smooth',
-        });
-        setTimeout(() => {
-          updateListContainerHeight();
-        });
-      }
-    }, 150);
-    window.addEventListener('resize', callback);
-    return () => {
-      window.removeEventListener('resize', callback);
-    };
-  }, [focusedTab, scrollElement, tabNames, updateListContainerHeight]);
+  // useLayoutEffect(() => {
+  //   const callback = debounce(() => {
+  //     if (listContainerRef.current) {
+  //       const tabIndex = tabNames.findIndex(
+  //         (name) => name === focusedTab.value,
+  //       );
+  //       listContainerRef.current.scrollTo({
+  //         left: (scrollElement?.clientWidth || 0) * tabIndex,
+  //         behavior: 'smooth',
+  //       });
+  //       setTimeout(() => {
+  //         updateListContainerHeight();
+  //       });
+  //     }
+  //   }, 150);
+  //   window.addEventListener('resize', callback);
+  //   return () => {
+  //     window.removeEventListener('resize', callback);
+  //   };
+  // }, [focusedTab, scrollElement, tabNames, updateListContainerHeight]);
 
   useAnimatedReaction(
     () => focusedTab.value,
@@ -215,6 +221,7 @@ export function Container({
         const index = tabNames.findIndex((name) => name === tabName);
         let scrollTop = scrollTopRef.current[tabName] || 0;
         startViewTransition(() => {
+          console.log('startViewTransition');
           updateListContainerHeight();
           const width = scrollElement?.clientWidth || 0;
           listContainerRef.current?.scrollTo({
@@ -302,7 +309,8 @@ export function Container({
                 <>
                   <YStack
                     position="relative"
-                    onLayout={handlerStickyHeaderLayout}
+                    width="calc(100vw - 208px)"
+                    // onLayout={handlerStickyHeaderLayout}
                   >
                     {renderHeader?.({
                       focusedTab,
