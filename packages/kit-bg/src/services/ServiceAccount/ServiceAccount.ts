@@ -3688,7 +3688,12 @@ class ServiceAccount extends ServiceBase {
         );
 
         if (!skipLocalSync) {
-          await this.runLocalSyncForIndexedAccount();
+          console.log('generateAllHdAndQrWalletsHashAndXfp', {
+            skipAppStatusCheck,
+          });
+          await this.runLocalSyncForIndexedAccount({
+            reason: 'generateAllHdAndQrWalletsHashAndXfp',
+          });
         }
       },
     );
@@ -3870,7 +3875,9 @@ class ServiceAccount extends ServiceBase {
       }),
     );
     if (!skipLocalSync) {
-      await this.runLocalSyncForIndexedAccount();
+      await this.runLocalSyncForIndexedAccount({
+        reason: 'generateAllQrWalletsMissingXfp',
+      });
     }
   }
 
@@ -4040,11 +4047,14 @@ class ServiceAccount extends ServiceBase {
           },
         }));
       }
-      await this.runLocalSyncForIndexedAccount();
+      await this.runLocalSyncForIndexedAccount({
+        reason: 'generateWalletsMissingMetaWithUserInteraction',
+      });
     }
   }
 
-  async runLocalSyncForIndexedAccount() {
+  async runLocalSyncForIndexedAccount({ reason }: { reason?: string } = {}) {
+    console.log('runLocalSyncForIndexedAccount', reason);
     try {
       const { servicePrimeCloudSync } = this.backgroundApi;
       await servicePrimeCloudSync.initLocalSyncItemsDBForLegacyIndexedAccount();
