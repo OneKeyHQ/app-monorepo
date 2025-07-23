@@ -24,6 +24,7 @@ import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -142,11 +143,13 @@ function EnableOneKeyCloudSwitchListItem() {
         size={ESwitchSize.small}
         onChange={async (value) => {
           if (value && !isPrimeSubscriptionActive) {
-            navigation.navigate(EPrimePages.PrimeFeatures, {
-              showAllFeatures: true,
-              selectedFeature: EPrimeFeatures.OneKeyCloud,
-              selectedSubscriptionPeriod:
-                route?.params?.selectedSubscriptionPeriod,
+            navigation?.pushFullModal(EModalRoutes.PrimeModal, {
+              screen: EPrimePages.PrimeFeatures,
+              params: {
+                showAllFeatures: false,
+                selectedFeature: EPrimeFeatures.OneKeyCloud,
+                selectedSubscriptionPeriod: 'P1Y',
+              },
             });
             return;
           }

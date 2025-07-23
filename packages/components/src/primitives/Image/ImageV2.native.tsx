@@ -8,6 +8,7 @@ import { Skeleton } from '../Skeleton';
 
 import { AnimatedExpoImage } from './AnimatedImage';
 import { useImage } from './useImage';
+import { useResetError } from './utils';
 
 import type { IImageV2Props } from './type';
 import type { ImageErrorEventData, ImageSource, ImageStyle } from 'expo-image';
@@ -77,6 +78,8 @@ export function ImageV2({
       }
     },
   });
+
+  useResetError(image, hasError, setHasError);
 
   const handleError = useCallback(
     (event: ImageErrorEventData) => {

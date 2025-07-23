@@ -48,7 +48,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -442,18 +442,24 @@ function MoreActionContentGrid() {
     });
   }, [navigation]);
 
-  const checkIsPrimeUser = useCallback(() => {
-    if (user?.primeSubscription?.isActive && user?.privyUserId) {
-      return true;
-    }
-    navigation.pushFullModal(EModalRoutes.PrimeModal, {
-      screen: EPrimePages.PrimeDashboard,
-      params: {
-        networkId: network?.id,
-      },
-    });
-    return false;
-  }, [navigation, user, network?.id]);
+  const checkIsPrimeUser = useCallback(
+    (showFeature: EPrimeFeatures) => {
+      if (user?.primeSubscription?.isActive && user?.privyUserId) {
+        return true;
+      }
+      navigation.pushFullModal(EModalRoutes.PrimeModal, {
+        screen: EPrimePages.PrimeFeatures,
+        params: {
+          showAllFeatures: false,
+          selectedFeature: showFeature,
+          selectedSubscriptionPeriod: 'P1Y',
+          networkId: network?.id,
+        },
+      });
+      return false;
+    },
+    [navigation, user, network?.id],
+  );
 
   const handleCustomerSupport = useCallback(() => {
     void showIntercom();
@@ -473,7 +479,7 @@ function MoreActionContentGrid() {
 
     if (!networkId) return;
 
-    if (!checkIsPrimeUser()) return;
+    if (!checkIsPrimeUser(EPrimeFeatures.BulkCopyAddresses)) return;
 
     navigation.pushModal(EModalRoutes.BulkCopyAddressesModal, {
       screen: EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal,
