@@ -9,6 +9,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSearchKeyAtom } from '@onekeyhq/kit/src/states/jotai/contexts/nftList';
 import useActiveTabDAppInfo from '@onekeyhq/kit/src/views/DAppConnection/hooks/useActiveTabDAppInfo';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetDetailRoutes,
   EModalRoutes,
@@ -157,7 +158,6 @@ function NFTListView(props: IProps) {
     },
   );
 
-
   const EmptyComponentElement = useMemo(() => {
     if (!initialized && isLoading) {
       return <NFTListLoadingView />;
@@ -172,6 +172,7 @@ function NFTListView(props: IProps) {
     <Tabs.FlatList
       // @ts-ignore
       horizontalPadding={20}
+      key={platformEnv.isNative ? numColumns : undefined}
       contentContainerStyle={style as any}
       ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
       ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
