@@ -535,7 +535,11 @@ function LoadingStateView({
   const intl = useIntl();
 
   if (isLoading) {
-    return <Spinner size="large" />;
+    return (
+      <YStack justifyContent="center" alignItems="center" pt="$20">
+        <Spinner size="small" />
+      </YStack>
+    );
   }
 
   if (errorMessage) {
@@ -614,33 +618,39 @@ export default function HardwareHomeScreenModal({
   } = usePromiseResult<{
     homeScreenList: IHardwareHomeScreenData[];
     isLoadingError: boolean;
-  }>(async () => {
-    const { getDeviceFirmwareVersion, getDeviceUUID } = await CoreSDKLoader();
+  }>(
+    async () => {
+      const { getDeviceFirmwareVersion, getDeviceUUID } = await CoreSDKLoader();
 
-    const serialNumber = device?.featuresInfo
-      ? getDeviceUUID(device.featuresInfo)
-      : '';
+      const serialNumber = device?.featuresInfo
+        ? getDeviceUUID(device.featuresInfo)
+        : '';
 
-    const firmwareVersion = device?.featuresInfo
-      ? getDeviceFirmwareVersion(device.featuresInfo)?.join('.')
-      : '';
+      const firmwareVersion = device?.featuresInfo
+        ? getDeviceFirmwareVersion(device.featuresInfo)?.join('.')
+        : '';
 
-    // 'unknown' | 'classic' | 'classic1s' | 'classicPure' | 'mini' | 'touch' | 'pro';
-    const deviceType: IDeviceType = device?.deviceType || 'unknown';
+      // 'unknown' | 'classic' | 'classic1s' | 'classicPure' | 'mini' | 'touch' | 'pro';
+      const deviceType: IDeviceType = device?.deviceType || 'unknown';
 
-    try {
-      const dataList =
-        await backgroundApiProxy.serviceHardware.fetchHardwareHomeScreen({
-          deviceType,
-          serialNumber,
-          firmwareVersion,
-        });
+      try {
+        const dataList =
+          await backgroundApiProxy.serviceHardware.fetchHardwareHomeScreen({
+            deviceType,
+            serialNumber,
+            firmwareVersion,
+          });
 
-      return { homeScreenList: dataList, isLoadingError: false };
-    } catch (error) {
-      return { homeScreenList: [], isLoadingError: true };
-    }
-  }, [device?.deviceType, device.featuresInfo]);
+        return { homeScreenList: dataList, isLoadingError: false };
+      } catch (error) {
+        return { homeScreenList: [], isLoadingError: true };
+      }
+    },
+    [device?.deviceType, device.featuresInfo],
+    {
+      watchLoading: true,
+    },
+  );
 
   const aspectRatioInfo = useAspectRatioInfo({
     sizeInfo: deviceInfo?.config?.size,
