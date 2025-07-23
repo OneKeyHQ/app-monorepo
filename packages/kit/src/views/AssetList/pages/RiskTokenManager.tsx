@@ -44,6 +44,7 @@ import type {
   NativeSyntheticEvent,
   TextInputFocusEventData,
 } from 'react-native';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 function RiskTokenManager() {
   const intl = useIntl();
@@ -180,6 +181,7 @@ function RiskTokenManager() {
       currentUnblockedTokens !== originalUnblockedTokens.current ||
       currentBlockedTokens !== originalBlockedTokens.current
     ) {
+      await timerUtils.wait(1000);
       appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
     }
   }, [unblockedTokensMap, blockedTokensMap]);
