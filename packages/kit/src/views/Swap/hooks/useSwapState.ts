@@ -11,6 +11,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
@@ -31,10 +32,12 @@ import {
   SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useDebounce } from '../../../hooks/useDebounce';
 import {
   useSwapActions,
   useSwapAlertsAtom,
+  useSwapAutoSlippageSuggestedValueAtom,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceUseRateAtom,
@@ -126,11 +129,49 @@ export function useSwapQuoteLoading() {
 export function useSwapQuoteEventFetching() {
   const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [quoteResult] = useSwapQuoteListAtom();
+  const [settingsAtom] = useSettingsAtom();
+  const [settingsPersistAtom] = useSettingsPersistAtom();
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
+  const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
+  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const swapQuoteEvent = useCallback(async () => {
+    const walletType =
+      await backgroundApiProxy.serviceAccountProfile._getRequestWalletType({
+        accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+      });
+    defaultLogger.swap.swapQuote.swapQuote({
+      walletType,
+      quoteType: swapTypeSwitchValue,
+      slippageSetting:
+        settingsAtom.swapSlippagePercentageMode === ESwapSlippageSegmentKey.AUTO
+          ? 'auto'
+          : 'custom',
+      sourceChain: fromToken?.networkId ?? '',
+      receivedChain: toToken?.networkId ?? '',
+      sourceTokenSymbol: fromToken?.symbol ?? '',
+      receivedTokenSymbol: toToken?.symbol ?? '',
+      isAddReceiveAddress: settingsAtom.swapEnableRecipientAddress,
+      isSmartMode: settingsPersistAtom.swapBatchApproveAndSwap,
+    });
+  }, [
+    fromToken?.networkId,
+    fromToken?.symbol,
+    settingsAtom.swapEnableRecipientAddress,
+    settingsAtom.swapSlippagePercentageMode,
+    settingsPersistAtom.swapBatchApproveAndSwap,
+    swapFromAddressInfo.accountInfo?.account?.id,
+    swapTypeSwitchValue,
+    toToken?.networkId,
+    toToken?.symbol,
+  ]);
+
   if (quoteEventTotalCount.count > 0) {
     if (
       quoteResult?.every((q) => q.eventId === quoteEventTotalCount.eventId) &&
       quoteResult.length === quoteEventTotalCount.count
     ) {
+      void swapQuoteEvent();
       return false;
     }
     return true;
