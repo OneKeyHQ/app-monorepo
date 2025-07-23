@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-pager-view/android/src/fabric/java/com/reactnativepagerview/PagerViewViewManager.kt b/node_modules/react-native-pager-view/android/src/fabric/java/com/reactnativepagerview/PagerViewViewManager.kt
-index 8ec286a..026d307 100644
+index 8ec286a..0df90be 100644
 --- a/node_modules/react-native-pager-view/android/src/fabric/java/com/reactnativepagerview/PagerViewViewManager.kt
 +++ b/node_modules/react-native-pager-view/android/src/fabric/java/com/reactnativepagerview/PagerViewViewManager.kt
 @@ -14,6 +14,7 @@ import com.facebook.react.uimanager.annotations.ReactProp
@@ -24,10 +24,18 @@ index 8ec286a..026d307 100644
          return MapBuilder.of(
                  PageScrollEvent.EVENT_NAME, MapBuilder.of("registrationName", "onPageScroll"),
 diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
-index d5b82ff..0866b96 100644
+index d5b82ff..8f5df69 100644
 --- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
 +++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
-@@ -26,6 +26,16 @@ object PagerViewViewManagerImpl {
+@@ -7,6 +7,7 @@ import com.facebook.react.uimanager.PixelUtil
+ import android.os.Handler
+ import android.os.Looper
+ import android.view.Choreographer
++import androidx.recyclerview.widget.RecyclerView
+ 
+ object PagerViewViewManagerImpl {
+     const val NAME = "RNCViewPager"
+@@ -26,6 +27,16 @@ object PagerViewViewManagerImpl {
          view.setCurrentItem(selectedTab, scrollSmooth)
      }
  
