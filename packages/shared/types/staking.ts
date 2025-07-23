@@ -789,7 +789,6 @@ export interface IEarnProvider {
 
 export interface IStakeTransactionConfirmation {
   title: IEarnText;
-  alerts?: ICheckAmountAlert[];
   rewards: Array<{
     title: IEarnText;
     description: IEarnText;
