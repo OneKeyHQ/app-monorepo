@@ -311,7 +311,14 @@ export function Container({
                 <>
                   <YStack
                     position="relative"
-                    width={containerWidth || width}
+                    width={containerWidth ? undefined : width}
+                    style={
+                      containerWidth
+                        ? {
+                            width: containerWidth,
+                          }
+                        : undefined
+                    }
                     onLayout={handlerStickyHeaderLayout}
                   >
                     {renderHeader?.({
