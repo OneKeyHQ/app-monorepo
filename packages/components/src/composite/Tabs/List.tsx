@@ -398,7 +398,6 @@ export function List<Item>({
       scrollTop: isVisible ? scrollTop : 0,
       overscanRowCount: 10,
       deferredMeasurementCache: cache,
-      noContentRenderer,
     };
   }, [
     height,
@@ -408,7 +407,6 @@ export function List<Item>({
     onChildScroll,
     scrollTop,
     cache,
-    noContentRenderer,
   ]);
 
   if (numColumns > 1) {
@@ -427,6 +425,7 @@ export function List<Item>({
                 cellSizeAndPositionGetter={cellSizeAndPositionGetter}
                 cellRenderer={cellRenderer}
                 rowCount={Math.ceil(listData.length / numColumns)}
+                noContentRenderer={noContentRenderer}
               />
             </div>
           );
@@ -449,6 +448,7 @@ export function List<Item>({
               height={autoSizerHeight || height || 400}
               rowHeight={cache.rowHeight}
               rowRenderer={rowRenderer}
+              noRowsRenderer={noContentRenderer}
             />
           </div>
         );
