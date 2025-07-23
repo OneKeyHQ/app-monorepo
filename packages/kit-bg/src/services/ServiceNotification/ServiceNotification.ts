@@ -954,7 +954,7 @@ export default class ServiceNotification extends ServiceBase {
       isWebSocketAckSuccess = await webSocketProvider?.ackMessage(params);
     }
 
-    if (!isWebSocketAckSuccess) {
+    if (!isWebSocketAckSuccess && params.msgId) {
       const client = await this.getClient(EServiceEndpointEnum.Notification);
       const res = await client.post('/notification/v1/message/ack', {
         msgId: params.msgId,
