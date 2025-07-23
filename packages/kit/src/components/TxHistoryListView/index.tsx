@@ -208,7 +208,7 @@ function BaseTxHistoryListView(props: IProps) {
       sections={sections}
       extraData={itemCounts}
       ListEmptyComponent={
-        searchKey && data.length > 0 ? EmptySearch : EmptyHistory
+        searchKey && data.length > 0 ? <EmptySearch /> : <EmptyHistory />
       }
       ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
       ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
