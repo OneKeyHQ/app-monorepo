@@ -30,26 +30,34 @@ import type { WindowScrollerChildProps } from 'react-virtualized';
 export function ContainerChild({
   children,
   listContainerRef,
+  containerWidth,
   ...props
 }: PropsWithChildren<WindowScrollerChildProps> & {
   listContainerRef: RefObject<Element>;
+  containerWidth: number | string | undefined;
 }) {
   return (
     <TabsScrollContext.Provider value={props}>
       <XStack
         ref={listContainerRef as any}
-        maxWidth={props.width}
+        width={containerWidth || props.width}
         overflow="hidden"
+        style={{ scrollSnapType: 'x' }}
       >
-        <XStack w={props.width * Children.count(children)}>
-          {Children.map(children, (child, index) => {
-            return (
-              <div style={{ flex: 1 }} key={index}>
-                {child}
-              </div>
-            );
-          })}
-        </XStack>
+        {Children.map(children, (child, index) => {
+          return (
+            <div
+              style={{
+                width: '100%',
+                flexShrink: 0,
+                scrollSnapAlign: 'center',
+              }}
+              key={index}
+            >
+              {child}
+            </div>
+          );
+        })}
       </XStack>
     </TabsScrollContext.Provider>
   );
@@ -72,6 +80,7 @@ export function Container({
   renderTabBar = renderDefaultTabBar,
   onIndexChange,
   onTabChange,
+  width: containerWidth,
   ref: containerRef,
   ...props
 }: PropsWithChildren<CollapsibleProps> & IRefProps) {
@@ -194,13 +203,13 @@ export function Container({
         );
         listContainerRef.current.scrollTo({
           left: (scrollElement?.clientWidth || 0) * tabIndex,
-          behavior: 'smooth',
+          behavior: 'instant',
         });
         setTimeout(() => {
           updateListContainerHeight();
         });
       }
-    }, 150);
+    }, 350);
     window.addEventListener('resize', callback);
     return () => {
       window.removeEventListener('resize', callback);
@@ -302,6 +311,14 @@ export function Container({
                 <>
                   <YStack
                     position="relative"
+                    width={containerWidth ? undefined : width}
+                    style={
+                      containerWidth
+                        ? {
+                            width: containerWidth,
+                          }
+                        : undefined
+                    }
                     onLayout={handlerStickyHeaderLayout}
                   >
                     {renderHeader?.({
@@ -316,6 +333,7 @@ export function Container({
                     onTabPress,
                   } as any)}
                   <ContainerChild
+                    containerWidth={containerWidth}
                     height={height}
                     isScrolling={isScrolling}
                     scrollLeft={scrollLeft}

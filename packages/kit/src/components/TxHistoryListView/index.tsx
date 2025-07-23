@@ -159,9 +159,12 @@ function BaseTxHistoryListView(props: IProps) {
     [],
   );
 
-  const resolvedContentContainerStyle = useStyle(contentContainerStyle || {}, {
-    resolveValues: 'auto',
-  });
+  const resolvedContentContainerStyle = useStyle(
+    contentContainerStyle || listViewStyleProps?.contentContainerStyle || {},
+    {
+      resolveValues: 'auto',
+    },
+  );
 
   const { ListHeaderComponentStyle, ListFooterComponentStyle } =
     listViewStyleProps || {};
