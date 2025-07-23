@@ -170,7 +170,11 @@ const ProviderFold = ({
     );
     noEvmNet = noEvmNet.map((n) => {
       const net = networkUtils.getLocalNetworkInfo(n.networkId);
-      return { ...n, name: net?.name ?? n.name, shortcode: net?.shortname };
+      return {
+        ...n,
+        name: net?.name ?? n.name,
+        shortcode: net?.shortname,
+      };
     });
     let res = noEvmNet.map((n) => ({
       networkName: n.name || n.shortcode || n.symbol,

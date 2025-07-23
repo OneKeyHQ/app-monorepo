@@ -67,7 +67,10 @@ export function TokenList({
     IEnhancedToken[]
   > => {
     if (!tokens.length || !networkAccount.result) {
-      return tokens.map((token) => ({ ...token }));
+      return tokens.map((token) => ({
+        ...token,
+        error: 'Failed to fetch details',
+      }));
     }
 
     const promises = tokens.map(async (token): Promise<IEnhancedToken> => {

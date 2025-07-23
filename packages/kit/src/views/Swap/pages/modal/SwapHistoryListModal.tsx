@@ -234,7 +234,7 @@ const SwapHistoryListModal = ({
         onClickCell={() => {
           navigation.push(EModalSwapRoutes.SwapHistoryDetail, {
             txHistoryOrderId: item.swapInfo.orderId,
-            txHistoryList: swapTxHistoryList,
+            txHistoryList: [...(swapTxHistoryList ?? [])],
           });
         }}
       />

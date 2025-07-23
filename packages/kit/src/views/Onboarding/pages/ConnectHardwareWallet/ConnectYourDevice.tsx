@@ -630,6 +630,7 @@ function ConnectByUSBOrBLE() {
       unlockedAttachPin: features.unlocked_attach_pin,
       unlocked: features.unlocked,
       passphraseEnabled: Boolean(features.passphrase_protection),
+      deviceId: features.device_id,
     }),
     [],
   );
@@ -676,6 +677,7 @@ function ConnectByUSBOrBLE() {
       const existsStandardWallet =
         await backgroundApiProxy.serviceAccount.existsHwStandardWallet({
           connectId: device.connectId ?? '',
+          deviceId: deviceState.deviceId ?? '',
         });
 
       if (existsStandardWallet) {

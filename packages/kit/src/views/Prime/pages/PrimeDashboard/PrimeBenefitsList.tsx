@@ -77,6 +77,7 @@ export function PrimeBenefitsList({
 }) {
   const navigation = useAppNavigation();
   const intl = useIntl();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { ensureOneKeyIDLoggedIn } = usePrimeRequirements();
   const { isPrimeSubscriptionActive } = usePrimeAuthV2();
 
@@ -125,27 +126,6 @@ export function PrimeBenefitsList({
           }
         }}
       /> */}
-      <PrimeBenefitsItem
-        icon="ArrowRightOutline"
-        title={intl.formatMessage({
-          id: ETranslations.global_transfer,
-        })}
-        subtitle={intl.formatMessage({
-          id: ETranslations.prime_transfer_description,
-        })}
-        onPress={() => {
-          if (isPrimeSubscriptionActive) {
-            navigation.navigate(EPrimePages.PrimeTransfer);
-          } else {
-            navigation.navigate(EPrimePages.PrimeTransfer);
-            // navigation.navigate(EPrimePages.PrimeFeatures, {
-            //   showAllFeatures: true,
-            //   selectedFeature: EPrimeFeatures.CloudTransfer,
-            //   selectedSubscriptionPeriod,
-            // });
-          }
-        }}
-      />
       <PrimeBenefitsItem
         icon="Copy3Outline"
         title={intl.formatMessage({

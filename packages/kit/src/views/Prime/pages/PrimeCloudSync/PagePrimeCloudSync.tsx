@@ -19,15 +19,19 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { AppAutoLockSettingsView } from '../../../Setting/pages/AppAutoLock';
+import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 
 function isAutoLockValueNotAllowed(value: number) {
@@ -88,6 +92,9 @@ function AutoLockUpdateDialogContent({
 
 function EnableOneKeyCloudSwitchListItem() {
   const [config] = usePrimeCloudSyncPersistAtom();
+  const { isPrimeSubscriptionActive } = usePrimeAuthV2();
+  const navigation = useAppNavigation();
+  const route = useAppRoute<IPrimeParamList, EPrimePages.PrimeCloudSync>();
 
   const isSubmittingRef = useRef(false);
 
@@ -109,6 +116,9 @@ function EnableOneKeyCloudSwitchListItem() {
     );
   }, [passwordSettings.appLockDuration, passwordSettings.isPasswordSet]);
 
+  const { user } = usePrimeAuthV2();
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.privyUserId;
+
   return (
     <ListItem
       title={intl.formatMessage({
@@ -119,10 +129,30 @@ function EnableOneKeyCloudSwitchListItem() {
         id: ETranslations.prime_last_update,
       })} : ${lastUpdateTime}`}
     >
+      {!isPrimeUser ? (
+        <Badge badgeSize="sm" badgeType="default">
+          <Badge.Text>
+            {intl.formatMessage({
+              id: ETranslations.prime_status_prime,
+            })}
+          </Badge.Text>
+        </Badge>
+      ) : null}
       <Switch
         disabled={false}
         size={ESwitchSize.small}
         onChange={async (value) => {
+          if (value && !isPrimeSubscriptionActive) {
+            navigation?.pushFullModal(EModalRoutes.PrimeModal, {
+              screen: EPrimePages.PrimeFeatures,
+              params: {
+                showAllFeatures: false,
+                selectedFeature: EPrimeFeatures.OneKeyCloud,
+                selectedSubscriptionPeriod: 'P1Y',
+              },
+            });
+            return;
+          }
           if (value) {
             await ensurePrimeSubscriptionActive();
           }
@@ -284,6 +314,7 @@ function AppDataSection() {
 function WalletSection() {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const [transferEnabled, setTransferEnabled] = useState(false);
   return (
     <Section title={intl.formatMessage({ id: ETranslations.prime_wallet })}>
       <ListItem
@@ -294,19 +325,33 @@ function WalletSection() {
         subtitle={intl.formatMessage({
           id: ETranslations.prime_transfer_description,
         })}
-        // drillIn
-        // onPress={() => {
-        //   navigation.navigate(EPrimePages.PrimeCloudSyncDebug);
-        // }}
+        drillIn={transferEnabled}
+        onPress={
+          transferEnabled
+            ? () => {
+                navigation.navigate(EPrimePages.PrimeTransfer);
+              }
+            : undefined
+        }
       >
-        <Badge badgeSize="sm">
-          <Badge.Text>
-            {intl.formatMessage({
-              id: ETranslations.id_prime_soon,
-            })}
-          </Badge.Text>
-        </Badge>
+        {transferEnabled ? null : (
+          <Badge badgeSize="sm">
+            <Badge.Text>
+              {intl.formatMessage({
+                id: ETranslations.id_prime_soon,
+              })}
+            </Badge.Text>
+          </Badge>
+        )}
       </ListItem>
+      <MultipleClickStack
+        showDevBgColor
+        onPress={() => {
+          setTransferEnabled(true);
+        }}
+      >
+        <Stack h="$20" />
+      </MultipleClickStack>
     </Section>
   );
 }

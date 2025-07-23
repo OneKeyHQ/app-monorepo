@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import type { IQRCodeProps, IShowToasterProps } from '@onekeyhq/components';
 import {
@@ -54,10 +55,13 @@ const SecureQRToastBase = ({
   const handleConfirm = useCallback(async () => {
     onConfirm?.();
   }, [onConfirm]);
+
+  const { width } = useWindowDimensions();
   return (
     <YStack
       p="$5"
       tabIndex={-1}
+      w={width - 40}
       $gtMd={{
         maxWidth: '$96',
       }}

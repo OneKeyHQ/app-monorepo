@@ -65,8 +65,9 @@ function ExportAddresses({
         data.push({
           type: 'address',
           address:
-            item.account?.address ||
+            item.account?.displayAddress ||
             item.account?.addressDetail?.displayAddress ||
+            item.account?.address ||
             '',
           accountName: item.account?.name ?? '',
           deriveType: item.deriveInfo.labelKey
@@ -154,7 +155,7 @@ function ExportAddresses({
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderStrong"
       >
-        <YStack gap="$1">
+        <YStack gap="$1" pb="$5">
           {addressesData.map((item, index) => {
             return (
               <XStack key={index} alignItems="flex-start">

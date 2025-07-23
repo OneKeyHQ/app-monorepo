@@ -33,7 +33,9 @@ export type IPrimeParamList = {
   [EPrimePages.PrimeDeviceLimit]: {
     isExceedDeviceLimit?: boolean;
   };
-  [EPrimePages.PrimeCloudSync]: undefined;
+  [EPrimePages.PrimeCloudSync]: {
+    selectedSubscriptionPeriod?: ISubscriptionPeriod;
+  };
   [EPrimePages.PrimeCloudSyncDebug]: undefined;
   [EPrimePages.PrimeCloudSyncInfo]: undefined;
   [EPrimePages.PrimeFeatures]: {

@@ -1127,7 +1127,6 @@ export default class Vault extends VaultBase {
         }
       }
     } catch (e) {
-      console.log('error: =====>>>>>: ', e);
       return Promise.resolve(encodedTx);
     }
 

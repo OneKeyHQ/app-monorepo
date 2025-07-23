@@ -18,7 +18,7 @@ import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 import { NFTListItem } from './NFTListItem';
 
-import type { ListRenderItemInfo, StyleProp, ViewStyle } from 'react-native';
+import type { ListRenderItemInfo } from 'react-native';
 
 type IProps = {
   data: IAccountNFT[];
@@ -163,7 +163,8 @@ function NFTListView(props: IProps) {
 
   return (
     <Tabs.FlatList
-      key={numColumns}
+      // @ts-ignore
+      horizontalPadding={20}
       contentContainerStyle={style as any}
       ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
       ListFooterComponentStyle={resolvedListFooterComponentStyle as any}

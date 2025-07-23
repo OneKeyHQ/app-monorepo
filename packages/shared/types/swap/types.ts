@@ -1,7 +1,11 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IAccountDeriveTypes,
+  ITransferInfo,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   IEventSourceCloseEvent,
   IEventSourceDoneEvent,
@@ -399,9 +403,6 @@ export enum ESwapBatchTransferType {
 export interface ISwapStep {
   type: ESwapStepType;
   status: ESwapStepStatus;
-  data?: IFetchQuoteResult;
-  fromToken?: ISwapToken;
-  toToken?: ISwapToken;
   stepTitle?: string;
   stepSubTitle?: string;
   stepActionsLabel?: string;
@@ -412,6 +413,27 @@ export interface ISwapStep {
   shouldWaitApproved?: boolean;
   isResetApprove?: boolean;
   skipSendTransAction?: boolean;
+}
+
+export enum ESwapNetworkFeeLevel {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+}
+export interface ISwapPreSwapData {
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+  fromTokenAmount?: string;
+  shouldFallback?: boolean;
+  toTokenAmount?: string;
+  providerInfo?: IFetchQuoteInfo;
+  slippage?: number;
+  unSupportSlippage?: boolean;
+  fee?: IFetchQuoteFee;
+  allowanceResult?: IAllowanceResult;
+  netWorkFee?: {
+    feeLevel?: ESwapNetworkFeeLevel;
+  };
 }
 
 export interface IFetchQuoteResult {
@@ -946,6 +968,8 @@ export const SwapPercentageInputStage = [25, 50, 100];
 export const SwapPercentageInputStageForNative = [25, 50, 75, 100];
 
 export const SwapBuildUseMultiplePopoversNetworkIds = ['tron--0x2b6653dc'];
+
+export const SwapBuildShouldFallBackNetworkIds = ['tron--0x2b6653dc'];
 
 export const SwapAmountInputAccessoryViewID =
   'swap-amount-input-accessory-view';

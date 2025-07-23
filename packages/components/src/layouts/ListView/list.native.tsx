@@ -98,6 +98,8 @@ function BaseListView<T>(
         renderItem={renderItem}
         estimatedItemSize={itemSize}
         disableAutoLayout={I18nManager.isRTL}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
         {...restProps}
       />
     </OptimizationView>
