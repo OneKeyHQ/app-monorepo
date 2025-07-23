@@ -42,7 +42,7 @@ import {
   EModalRoutes,
   EModalSettingRoutes,
 } from '@onekeyhq/shared/src/routes';
-import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EModalShortcutsRoutes } from '@onekeyhq/shared/src/routes/shortcuts';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -111,7 +111,6 @@ export type ISettingsConfig = (
 export const useSettingsConfig: () => ISettingsConfig = () => {
   const appUpdateInfo = useAppUpdateInfo();
   const intl = useIntl();
-  const { isPrimeSubscriptionActive } = usePrimeAuthV2();
   const onPressAddressBook = useShowAddressBook({
     useNewModal: false,
   });
@@ -157,23 +156,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     id: ETranslations.global_onekey_cloud,
                   }),
                   onPress: (navigation) => {
-                    if (isPrimeSubscriptionActive) {
-                      navigation?.pushModal(EModalRoutes.PrimeModal, {
-                        screen: EPrimePages.PrimeCloudSync,
-                      });
-                    } else {
-                      navigation?.pushModal(EModalRoutes.PrimeModal, {
-                        screen: EPrimePages.PrimeFeatures,
-                        params: {
-                          showAllFeatures: false,
-                          selectedFeature: EPrimeFeatures.OneKeyCloud,
-                          selectedSubscriptionPeriod: 'P1Y',
-                        },
-                      });
-                    }
+                    navigation?.pushModal(EModalRoutes.PrimeModal, {
+                      screen: EPrimePages.PrimeCloudSync,
+                    });
                   },
                 }
-              : null,
+              : undefined,
           ],
           [
             platformEnv.isNative
@@ -715,7 +703,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       biometricAuthInfo.icon,
       appUpdateInfo.isNeedUpdate,
       devSettings.enabled,
-      isPrimeSubscriptionActive,
       onPressAddressBook,
       helpCenterUrl,
       userAgreementUrl,
