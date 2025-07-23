@@ -108,7 +108,9 @@ export function MobileInformationTabs() {
       />
 
       {/* Tab content */}
-      <Stack flex={1}>{ActiveComponent ? <ActiveComponent /> : null}</Stack>
+      <Stack flex={1} height={600}>
+        {ActiveComponent ? <ActiveComponent /> : null}
+      </Stack>
     </Stack>
   );
 }

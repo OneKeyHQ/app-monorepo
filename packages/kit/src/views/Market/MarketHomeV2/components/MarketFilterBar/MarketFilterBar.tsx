@@ -42,7 +42,6 @@ export function MarketFilterBar({
         <MarketTokenListNetworkSelector
           selectedNetworkId={selectedNetworkId}
           onSelectNetworkId={handleNetworkIdChange}
-          size="normal"
           forceLoading={isLoading}
         />
       )}

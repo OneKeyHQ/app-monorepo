@@ -1,5 +1,3 @@
-import { XStack } from '@onekeyhq/components';
-
 import { MarketTokenListNetworkSelector } from '../MarketTokenListNetworkSelector';
 
 import type { ILiquidityFilter } from '../../types';
@@ -29,16 +27,12 @@ function MarketFilterBarSmall({
   }
 
   return (
-    <XStack alignItems="center" gap="$6" pl="$5" pr="$5" py="$3">
-      {/* Network Selector */}
-      <MarketTokenListNetworkSelector
-        selectedNetworkId={selectedNetworkId}
-        onSelectNetworkId={handleNetworkIdChange}
-        size="small"
-        forceLoading={isLoading}
-        placement="bottom-start"
-      />
-    </XStack>
+    <MarketTokenListNetworkSelector
+      selectedNetworkId={selectedNetworkId}
+      onSelectNetworkId={handleNetworkIdChange}
+      forceLoading={isLoading}
+      placement="bottom-start"
+    />
   );
 }
 

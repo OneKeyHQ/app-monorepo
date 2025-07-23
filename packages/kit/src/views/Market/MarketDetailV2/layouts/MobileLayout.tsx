@@ -38,7 +38,7 @@ export function MobileLayout() {
   const renderContent = () => {
     if (activeTab === 'chart') {
       return (
-        <ScrollView>
+        <>
           {/* Information Panel */}
           <InformationPanel />
 
@@ -50,11 +50,8 @@ export function MobileLayout() {
             />
           </Stack>
 
-          {/* Information tabs */}
-          <Stack h={300}>
-            <MobileInformationTabs />
-          </Stack>
-        </ScrollView>
+          <MobileInformationTabs />
+        </>
       );
     }
 
