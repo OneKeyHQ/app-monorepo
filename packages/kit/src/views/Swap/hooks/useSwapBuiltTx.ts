@@ -57,7 +57,6 @@ import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type {
   ESwapCancelLimitOrderSource,
   IFetchBuildTxResponse,
-  IFetchBuildTxResult,
   IFetchLimitOrderRes,
   IFetchQuoteResult,
   IOneInchOrderStruct,
