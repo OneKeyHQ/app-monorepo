@@ -23,6 +23,7 @@ import type {
   EModalAssetListRoutes,
   IModalAssetListParamList,
 } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -44,7 +45,6 @@ import type {
   NativeSyntheticEvent,
   TextInputFocusEventData,
 } from 'react-native';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 function RiskTokenManager() {
   const intl = useIntl();
