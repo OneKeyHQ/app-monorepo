@@ -408,9 +408,16 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async existsHwStandardWallet({ connectId }: { connectId: string }) {
+  async existsHwStandardWallet({
+    connectId,
+    deviceId,
+  }: {
+    connectId: string;
+    deviceId: string;
+  }) {
     const device = await this.backgroundApi.localDb.getDeviceByQuery({
       connectId,
+      featuresDeviceId: deviceId,
     });
     if (!device) {
       return false;
