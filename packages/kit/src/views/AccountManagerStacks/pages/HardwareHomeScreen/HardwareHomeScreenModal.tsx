@@ -89,6 +89,16 @@ function useAspectRatioInfo(params: {
   }, [sizeInfo?.width, sizeInfo?.height, deviceType, media.gtMd]);
 }
 
+const getCountByFlexBasis = (flexBasis: DimensionValue | undefined) => {
+  if (flexBasis === '25%') {
+    return 8;
+  }
+  if (flexBasis === '33.33333%') {
+    return 9;
+  }
+  return 8; // 默认值
+};
+
 function HomeScreenImageItem({
   isLoading,
   isSelected,
@@ -319,7 +329,8 @@ function WallpaperCategorySection({
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const expandCount = onUpload ? 7 : 8;
+  const count = getCountByFlexBasis(aspectRatioInfo.flexBasis);
+  const expandCount = onUpload ? count - 1 : count;
   const displayData = isExpanded
     ? category.data
     : category.data.slice(0, expandCount);
@@ -535,7 +546,11 @@ function LoadingStateView({
   const intl = useIntl();
 
   if (isLoading) {
-    return <Spinner size="large" />;
+    return (
+      <YStack justifyContent="center" alignItems="center" pt="$20">
+        <Spinner size="small" />
+      </YStack>
+    );
   }
 
   if (errorMessage) {
@@ -614,33 +629,39 @@ export default function HardwareHomeScreenModal({
   } = usePromiseResult<{
     homeScreenList: IHardwareHomeScreenData[];
     isLoadingError: boolean;
-  }>(async () => {
-    const { getDeviceFirmwareVersion, getDeviceUUID } = await CoreSDKLoader();
+  }>(
+    async () => {
+      const { getDeviceFirmwareVersion, getDeviceUUID } = await CoreSDKLoader();
 
-    const serialNumber = device?.featuresInfo
-      ? getDeviceUUID(device.featuresInfo)
-      : '';
+      const serialNumber = device?.featuresInfo
+        ? getDeviceUUID(device.featuresInfo)
+        : '';
 
-    const firmwareVersion = device?.featuresInfo
-      ? getDeviceFirmwareVersion(device.featuresInfo)?.join('.')
-      : '';
+      const firmwareVersion = device?.featuresInfo
+        ? getDeviceFirmwareVersion(device.featuresInfo)?.join('.')
+        : '';
 
-    // 'unknown' | 'classic' | 'classic1s' | 'classicPure' | 'mini' | 'touch' | 'pro';
-    const deviceType: IDeviceType = device?.deviceType || 'unknown';
+      // 'unknown' | 'classic' | 'classic1s' | 'classicPure' | 'mini' | 'touch' | 'pro';
+      const deviceType: IDeviceType = device?.deviceType || 'unknown';
 
-    try {
-      const dataList =
-        await backgroundApiProxy.serviceHardware.fetchHardwareHomeScreen({
-          deviceType,
-          serialNumber,
-          firmwareVersion,
-        });
+      try {
+        const dataList =
+          await backgroundApiProxy.serviceHardware.fetchHardwareHomeScreen({
+            deviceType,
+            serialNumber,
+            firmwareVersion,
+          });
 
-      return { homeScreenList: dataList, isLoadingError: false };
-    } catch (error) {
-      return { homeScreenList: [], isLoadingError: true };
-    }
-  }, [device?.deviceType, device.featuresInfo]);
+        return { homeScreenList: dataList, isLoadingError: false };
+      } catch (error) {
+        return { homeScreenList: [], isLoadingError: true };
+      }
+    },
+    [device?.deviceType, device.featuresInfo],
+    {
+      watchLoading: true,
+    },
+  );
 
   const aspectRatioInfo = useAspectRatioInfo({
     sizeInfo: deviceInfo?.config?.size,
