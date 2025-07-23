@@ -160,6 +160,20 @@ export const useAutoFocus = (
   return shouldReloadAutoFocus ? false : autoFocus;
 };
 
+// Fix for Android input not rendering value correctly on first render in React Native 0.79.x
+// This hook ensures proper value display by controlling the rendering timing
+export const useFixAndroidInputValueDisplay = platformEnv.isNativeAndroid
+  ? (value: string | undefined) => {
+      const [isRendered, setIsRendered] = useState(false);
+      useEffect(() => {
+        setTimeout(() => {
+          setIsRendered(true);
+        }, 0);
+      }, []);
+      return isRendered ? value : '';
+    }
+  : (value: string | undefined) => value;
+
 export const useOnWebPaste = platformEnv.isNative
   ? noop
   : (
@@ -330,6 +344,8 @@ function BaseInput(
     valueRef.current = value;
   }
 
+  const shownValue = useFixAndroidInputValueDisplay(value);
+
   const { scrollToView } = useScrollToLocation(inputRef);
   // workaround for selectTextOnFocus={true} not working on Native App
   const handleFocus = useCallback(
@@ -415,7 +431,7 @@ function BaseInput(
           keyboardAppearance={/dark/.test(themeName) ? 'dark' : 'light'}
           borderCurve="continuous"
           autoFocus={reloadAutoFocus}
-          value={value}
+          value={shownValue}
           onFocus={handleFocus as any}
           selectTextOnFocus={selectTextOnFocus}
           editable={editable}

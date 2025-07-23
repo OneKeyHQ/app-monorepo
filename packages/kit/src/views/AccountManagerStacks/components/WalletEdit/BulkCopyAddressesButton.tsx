@@ -8,7 +8,7 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -35,9 +35,12 @@ export function BulkCopyAddressesButton({
       })}
       onPress={async () => {
         if (!isPrimeUser) {
-          navigation.pushFullModal(EModalRoutes.PrimeModal, {
-            screen: EPrimePages.PrimeDashboard,
+          navigation?.pushFullModal(EModalRoutes.PrimeModal, {
+            screen: EPrimePages.PrimeFeatures,
             params: {
+              showAllFeatures: false,
+              selectedFeature: EPrimeFeatures.BulkCopyAddresses,
+              selectedSubscriptionPeriod: 'P1Y',
               networkId,
             },
           });
@@ -115,13 +118,15 @@ export function BulkCopyAddressesButton({
       }}
       onClose={onClose}
       extra={
-        <Badge badgeSize="sm" badgeType="default">
-          <Badge.Text>
-            {intl.formatMessage({
-              id: ETranslations.prime_status_prime,
-            })}
-          </Badge.Text>
-        </Badge>
+        isPrimeUser ? null : (
+          <Badge badgeSize="sm" badgeType="default">
+            <Badge.Text>
+              {intl.formatMessage({
+                id: ETranslations.prime_status_prime,
+              })}
+            </Badge.Text>
+          </Badge>
+        )
       }
     />
   );
