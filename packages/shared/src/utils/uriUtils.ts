@@ -31,6 +31,9 @@ function getHostNameFromUrl({ url }: { url: string }): string {
 }
 
 function getOriginFromUrl({ url }: { url: string }): string {
+  if (url === 'null') {
+    return url;
+  }
   try {
     const urlInfo = new URL(url);
     const { origin } = urlInfo;

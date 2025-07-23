@@ -10,8 +10,10 @@ import {
 
 import { Toast, ToastViewport } from '@tamagui/toast';
 import { isNil } from 'lodash';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { Stack, ThemeableStack } from '../../primitives';
@@ -109,28 +111,30 @@ function BasicShowToaster({
     event.preventDefault();
   }, []);
 
+  const screenWidth = useWindowDimensions().width;
+
   return (
     <>
-      <ToastViewport
-        name={containerName}
-        width="100%"
-        alignContent="center"
-        multipleToasts={false}
-        justifyContent="center"
-        px="$5"
-        py={top || '$5'}
-      />
-
       {isOpen ? (
         <Stack
+          position="absolute"
           width="100%"
           height="100%"
           flex={1}
           pointerEvents="auto"
-          position="absolute"
           onPress={dismissOnOverlayPress ? handleContainerClose : handleNoop}
         />
       ) : null}
+
+      <ToastViewport
+        name={containerName}
+        width="100%"
+        position="absolute"
+        alignContent="center"
+        multipleToasts={false}
+        justifyContent="center"
+        py={top || '$5'}
+      />
 
       <Toast
         unstyled
@@ -142,6 +146,9 @@ function BasicShowToaster({
         enterStyle={{ opacity: 0, scale: 0.8, y: -20 }}
         exitStyle={{ opacity: 0, scale: 0.8, y: -20 }}
         duration={duration}
+        w={platformEnv.isNative ? screenWidth : undefined}
+        maxWidth={platformEnv.isNative ? '$96' : undefined}
+        px={platformEnv.isNative ? '$5' : undefined}
         animation="quick"
         viewportName={containerName}
       >
