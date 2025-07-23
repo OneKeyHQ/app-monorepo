@@ -43,7 +43,7 @@ export function useMarketTokenList({
   } = usePromiseResult(
     async () => {
       // Fetch 3 pages in parallel
-      const promises = [1, 2, 3, 4, 5].map((page) =>
+      const promises = [1, 2, 3].map((page) =>
         backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
           networkId,
           sortBy,

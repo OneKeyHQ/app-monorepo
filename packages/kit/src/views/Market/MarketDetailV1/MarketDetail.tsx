@@ -309,8 +309,6 @@ function MarketDetail({
 export default function MarketDetailWithProvider(
   props: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>,
 ) {
-  // return <MarketDetailV2 {...(props as any)} />;
-
   return (
     <AccountSelectorProviderMirror
       config={{

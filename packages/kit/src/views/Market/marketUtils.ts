@@ -3,6 +3,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
   ETabMarketRoutes,
+  ETabMarketV2Routes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -34,7 +35,8 @@ export function buildMarketFullUrlV2({
 }
 
 export const marketNavigation = {
-  async pushDetailPageFromDeeplink(
+  // V1 version - for legacy MarketDetail page
+  async pushDetailPageFromDeeplinkV1(
     navigation: IAppNavigation,
     {
       coinGeckoId,
@@ -46,13 +48,44 @@ export const marketNavigation = {
     navigation.switchTab(ETabRoutes.Market);
     await timerUtils.wait(100);
 
-    // Then navigate to the detail page
+    // Navigate to V1 MarketDetail page
     navigation.navigate(ERootRoutes.Main, {
       screen: ETabRoutes.Market,
       params: {
         screen: ETabMarketRoutes.MarketDetail,
         params: {
           token: coinGeckoId,
+        },
+      },
+    });
+  },
+
+  // V2 version - for new MarketDetailV2 page
+  async pushDetailPageFromDeeplinkV2(
+    navigation: IAppNavigation,
+    {
+      tokenAddress,
+      networkId,
+      networkName,
+    }: {
+      tokenAddress: string;
+      networkId: string;
+      networkName?: string;
+    },
+  ) {
+    await timerUtils.wait(80);
+    navigation.switchTab(ETabRoutes.Market);
+    await timerUtils.wait(100);
+
+    // Navigate to V2 MarketDetail page
+    navigation.navigate(ERootRoutes.Main, {
+      screen: ETabRoutes.Market,
+      params: {
+        screen: ETabMarketV2Routes.MarketDetail,
+        params: {
+          tokenAddress,
+          networkId,
+          networkName: networkName || networkId, // Use networkId as fallback
         },
       },
     });

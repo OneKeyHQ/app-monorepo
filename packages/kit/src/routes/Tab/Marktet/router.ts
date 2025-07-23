@@ -35,6 +35,11 @@ export const marketRouters: ITabSubNavigatorConfig<any, any>[] = [
     rewrite: '/tokens/:token',
   },
   {
+    name: ETabMarketV2Routes.MarketDetail,
+    component: MarketDetail,
+    rewrite: '/tokens/:networkName',
+  },
+  {
     name: ETabMarketV2Routes.MarketSwap,
     component: MarketSwap,
     rewrite: '/swap',

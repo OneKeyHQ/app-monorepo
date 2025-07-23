@@ -76,14 +76,14 @@ function MarketDetail({
     [handleBackPress],
   );
 
-  const customHeaderRight = useMemo(() => null, []);
+  // const customHeaderRight = useMemo(() => null, []);
 
   return (
     <Page>
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Market}
-        customHeaderLeftItems={customHeaderRight}
+        // customHeaderLeftItems={customHeaderRight}
         customHeaderRightItems={customHeaderLeft}
         hideSearch={!media.gtMd}
       />

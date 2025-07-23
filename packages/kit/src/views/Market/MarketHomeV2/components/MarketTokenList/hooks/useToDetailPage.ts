@@ -20,6 +20,7 @@ export function useToDetailPage() {
       navigation.push(ETabMarketV2Routes.MarketDetail, {
         tokenAddress: item.tokenAddress,
         networkId: item.networkId,
+        networkName: item.networkId,
       });
     },
     [navigation],

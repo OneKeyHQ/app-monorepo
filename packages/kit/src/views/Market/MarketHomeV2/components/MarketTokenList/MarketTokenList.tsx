@@ -159,8 +159,6 @@ function MarketTokenList({
   // This provides better UX by avoiding skeleton flash during pagination
   const showSkeleton = isLoading && data.length === 0;
 
-  console.log('data', data);
-
   return (
     <Stack flex={1} width="100%">
       {/* render custom toolbar if provided */}
