@@ -90,4 +90,21 @@ export const marketNavigation = {
       },
     });
   },
+
+  // Default version - currently points to V2 for new functionality
+  async pushDetailPageFromDeeplink(
+    navigation: IAppNavigation,
+    {
+      coinGeckoId,
+    }: {
+      coinGeckoId: string;
+    },
+  ) {
+    // For backward compatibility, convert coinGeckoId to V2 format
+    return this.pushDetailPageFromDeeplinkV2(navigation, {
+      tokenAddress: coinGeckoId, // Using coinGeckoId as tokenAddress temporarily
+      networkId: 'ethereum', // Default to ethereum network temporarily
+      networkName: 'Ethereum', // Default network name
+    });
+  },
 };
