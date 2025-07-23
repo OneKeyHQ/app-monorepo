@@ -34,7 +34,7 @@ function WalletBanner() {
   } = useActiveAccount({ num: 0 });
 
   const intl = useIntl();
-  const { gtLg } = useMedia();
+  const { gtSm, gtLg } = useMedia();
 
   const [closedForeverBanners, setClosedForeverBanners] = useState<
     Record<string, boolean>
@@ -127,7 +127,7 @@ function WalletBanner() {
         data={filteredBanners}
         autoPlayInterval={3800}
         containerStyle={{
-          height: 102,
+          height: gtSm ? 86 : 76,
         }}
         paginationContainerStyle={{
           marginBottom: 0,
@@ -145,18 +145,20 @@ function WalletBanner() {
               <XStack
                 key={item.id}
                 flex={1}
-                gap="$5"
+                gap="$4"
                 alignItems="center"
                 p="$4"
-                pr="$8"
+                pr="$6"
                 bg="$bg"
                 borderWidth={StyleSheet.hairlineWidth}
                 borderColor="$borderSubdued"
-                borderRadius="$4"
+                borderRadius="$2"
                 borderCurve="continuous"
                 elevation={0.5}
                 {...(!gtLg && {
                   gap: '$3',
+                  py: '$3',
+                  pr: '$10',
                   hoverStyle: {
                     bg: '$bgHover',
                   },
@@ -174,8 +176,8 @@ function WalletBanner() {
                 })}
               >
                 <Image
-                  size="$16"
-                  borderRadius="$2"
+                  size="$12"
+                  borderRadius="$1"
                   borderCurve="continuous"
                   source={{ uri: item.src }}
                   fallback={
@@ -194,18 +196,30 @@ function WalletBanner() {
                     </Image.Fallback>
                   }
                 />
-                <YStack gap="$0.5" flex={1}>
-                  <SizableText size="$bodyLgMedium" numberOfLines={1}>
+                {gtSm ? (
+                  <YStack gap="$0.5" flex={1}>
+                    <SizableText size="$bodyLgMedium" numberOfLines={1}>
+                      {item.title}
+                    </SizableText>
+                    <SizableText
+                      size="$bodyMd"
+                      color="$textSubdued"
+                      numberOfLines={1}
+                    >
+                      {item.description}
+                    </SizableText>
+                  </YStack>
+                ) : (
+                  <SizableText size="$bodyMd" numberOfLines={2}>
                     {item.title}
+                    <SizableText size="$bodyMd" color="$textSubdued" mx="$1">
+                      -
+                    </SizableText>
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {item.description}
+                    </SizableText>
                   </SizableText>
-                  <SizableText
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    numberOfLines={2}
-                  >
-                    {item.description}
-                  </SizableText>
-                </YStack>
+                )}
 
                 <XStack
                   gap="$5"
@@ -232,14 +246,17 @@ function WalletBanner() {
                     onPress={() => handleClick(item)}
                     pointerEvents="auto"
                   >
-                    {item.button}
+                    {item.button ||
+                      intl.formatMessage({
+                        id: ETranslations.global_check_it_out,
+                      })}
                   </Button>
                 </XStack>
 
                 <IconButton
                   position="absolute"
-                  top="$3"
-                  right="$3"
+                  top="$2.5"
+                  right="$2.5"
                   size="small"
                   variant="tertiary"
                   onPress={(event: GestureResponderEvent) => {

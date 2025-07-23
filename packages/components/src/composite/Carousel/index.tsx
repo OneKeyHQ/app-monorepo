@@ -176,27 +176,31 @@ export function Carousel<T>({
           </View>
         ) : null}
       </XStack>
-      <XStack
-        gap="$0.5"
-        ai="center"
-        jc="center"
-        {...(paginationContainerStyle as any)}
-      >
-        {data.map((item, index) => {
-          return renderPaginationItem?.(
-            {
-              data: item,
-              dotStyle,
-              activeDotStyle:
-                index === pageIndex
-                  ? activeDotStyle || { bg: '$bgPrimary' }
-                  : undefined,
-              onPress: () => onPressPagination(index),
-            },
-            index,
-          );
-        })}
-      </XStack>
+      {data.length > 1 ? (
+        <XStack
+          gap="$0.5"
+          ai="center"
+          jc="center"
+          {...(paginationContainerStyle as any)}
+        >
+          {data.map((item, index) => {
+            return renderPaginationItem?.(
+              {
+                data: item,
+                dotStyle,
+                activeDotStyle:
+                  index === pageIndex
+                    ? activeDotStyle || { bg: '$bgPrimary' }
+                    : undefined,
+                onPress: () => onPressPagination(index),
+              },
+              index,
+            );
+          })}
+        </XStack>
+      ) : (
+        <XStack />
+      )}
     </YStack>
   );
 }
