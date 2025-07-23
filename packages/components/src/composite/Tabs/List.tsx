@@ -82,19 +82,25 @@ export function List<Item>({
   extraData,
   keyExtractor,
   contentContainerStyle,
+  horizontalPadding = 0,
 }: Omit<IListProps<Item>, 'ListEmptyComponent'> &
   Omit<ISectionListProps<Item>, 'ListEmptyComponent'> & {
     ListEmptyComponent?: ReactNode | ComponentType<any>;
     contentContainerStyle?: CSSProperties;
+    horizontalPadding?: number;
   }) {
   const {
     registerChild,
     height,
-    width,
+    width: tabWidth,
     isScrolling,
     onChildScroll,
     scrollTop,
   } = useTabsScrollContext();
+
+  const width = useMemo(() => {
+    return tabWidth - horizontalPadding;
+  }, [tabWidth, horizontalPadding]);
   const currentTabName = useTabNameContext();
   const { focusedTab } = useTabsContext();
 
@@ -405,6 +411,7 @@ export function List<Item>({
     noContentRenderer,
   ]);
 
+  console.log(contentContainerStyle);
   if (numColumns > 1) {
     return (
       <AutoSizer disableHeight>
@@ -416,7 +423,7 @@ export function List<Item>({
             >
               <Collection
                 {...listProps}
-                width={autoSizerWidth}
+                width={width}
                 cellCount={listData.length}
                 cellSizeAndPositionGetter={cellSizeAndPositionGetter}
                 cellRenderer={cellRenderer}
