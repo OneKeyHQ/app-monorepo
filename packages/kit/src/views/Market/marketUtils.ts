@@ -91,7 +91,7 @@ export const marketNavigation = {
     });
   },
 
-  // Default version - currently points to V2 for new functionality
+  // Default version - for backward compatibility, points to V1
   async pushDetailPageFromDeeplink(
     navigation: IAppNavigation,
     {
@@ -100,11 +100,9 @@ export const marketNavigation = {
       coinGeckoId: string;
     },
   ) {
-    // For backward compatibility, convert coinGeckoId to V2 format
-    return this.pushDetailPageFromDeeplinkV2(navigation, {
-      tokenAddress: coinGeckoId, // Using coinGeckoId as tokenAddress temporarily
-      networkId: 'ethereum', // Default to ethereum network temporarily
-      networkName: 'Ethereum', // Default network name
+    // Keep backward compatibility by using V1 version
+    return this.pushDetailPageFromDeeplinkV1(navigation, {
+      coinGeckoId,
     });
   },
 };
