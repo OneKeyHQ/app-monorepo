@@ -567,8 +567,11 @@ export default class ServicePassword extends ServiceBase {
           let skipAppStatusCheck = false;
           if (
             !this._mergeDuplicateHDWalletsExecuted &&
-            !globalThis?.$indexedDBIsMigratedToBucket?.isMigrated
+            globalThis?.$indexedDBIsMigratedToBucket?.isMigrated === false
           ) {
+            console.log('verifyPassword__mergeDuplicateHDWallets', {
+              skipAppStatusCheck,
+            });
             skipAppStatusCheck = true;
           }
           await this.backgroundApi.serviceAccount.mergeDuplicateHDWallets({

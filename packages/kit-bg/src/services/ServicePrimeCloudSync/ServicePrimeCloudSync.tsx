@@ -1356,6 +1356,7 @@ class ServicePrimeCloudSync extends ServiceBase {
   async initLocalSyncItemsDBForLegacyIndexedAccount() {
     const { indexedAccounts: allIndexedAccounts } =
       await this.backgroundApi.serviceAccount.getAllIndexedAccounts({});
+    console.log('initLocalSyncItemsDBForLegacyIndexedAccount');
     const syncItemsForIndexedAccounts: IDBCloudSyncItem[] =
       await this.syncManagers.indexedAccount._buildInitSyncDBItems({
         dbRecords: allIndexedAccounts,

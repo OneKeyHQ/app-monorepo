@@ -350,6 +350,8 @@ export default class ServiceSwap extends ServiceBase {
               )
             ).id
           : otherWalletTypeAccountId ?? '';
+        console.log('getSupportSwapAllAccounts');
+        // const accountsInfo: IAllNetworkAccountInfo[] = [];
         const { accountsInfo } =
           await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
             accountId: allNetAccountId,
