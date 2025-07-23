@@ -424,6 +424,7 @@ export interface ISwapPreSwapData {
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
   fromTokenAmount?: string;
+  shouldFallback?: boolean;
   toTokenAmount?: string;
   providerInfo?: IFetchQuoteInfo;
   slippage?: number;
@@ -967,6 +968,8 @@ export const SwapPercentageInputStage = [25, 50, 100];
 export const SwapPercentageInputStageForNative = [25, 50, 75, 100];
 
 export const SwapBuildUseMultiplePopoversNetworkIds = ['tron--0x2b6653dc'];
+
+export const SwapBuildShouldFallBackNetworkIds = ['tron--0x2b6653dc'];
 
 export const SwapAmountInputAccessoryViewID =
   'swap-amount-input-accessory-view';

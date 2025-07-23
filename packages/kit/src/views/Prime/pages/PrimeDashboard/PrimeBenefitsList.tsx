@@ -92,9 +92,15 @@ export function PrimeBenefitsList({
           id: ETranslations.prime_onekey_cloud_desc,
         })}
         onPress={() => {
-          navigation.navigate(EPrimePages.PrimeCloudSync, {
-            selectedSubscriptionPeriod,
-          });
+          if (isPrimeSubscriptionActive) {
+            navigation.navigate(EPrimePages.PrimeCloudSync);
+          } else {
+            navigation.navigate(EPrimePages.PrimeFeatures, {
+              showAllFeatures: true,
+              selectedFeature: EPrimeFeatures.OneKeyCloud,
+              selectedSubscriptionPeriod,
+            });
+          }
         }}
       />
       {/* <PrimeBenefitsItem

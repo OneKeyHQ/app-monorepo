@@ -110,6 +110,8 @@ function BaseSortableListView<T>(
       data={data}
       keyExtractor={keyExtractor}
       renderItem={renderItem as RenderItem<T>}
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
       {...restProps}
     />
   );

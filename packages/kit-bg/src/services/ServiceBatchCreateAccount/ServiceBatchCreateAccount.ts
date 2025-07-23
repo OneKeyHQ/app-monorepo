@@ -74,6 +74,7 @@ export type IBatchBuildAccountsNormalFlowParams =
   IBatchBuildAccountsBaseParams & {
     indexes: number[];
     saveToDb: boolean;
+    progressTotalCount?: number;
   };
 
 type IAdvancedModeFlowParamsBase = {
@@ -83,6 +84,7 @@ type IAdvancedModeFlowParamsBase = {
     [index: number]: true;
   };
   saveToDb: boolean;
+  progressTotalCount?: number;
 };
 export type IBatchBuildAccountsAdvancedFlowParams =
   IBatchBuildAccountsBaseParams & IAdvancedModeFlowParamsBase;
@@ -235,7 +237,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         this.progressInfo = this.buildProgressInfo({
           indexes,
           excludedIndexes,
-          progressTotalCount: hwAllNetworkPrepareAccountsResponse?.length,
+          progressTotalCount: payload.params.progressTotalCount,
         });
 
         const result: {

@@ -89,7 +89,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   isCustomTxMessageEnabled: false,
   isFloatingIconAlwaysDisplay: false,
   isFilterScamHistoryEnabled: true,
-  isFilterLowValueHistoryEnabled: false,
+  isFilterLowValueHistoryEnabled: true,
   hardwareTransportType: getDefaultHardwareTransportType(),
   hiddenWalletImmediately: true,
   showAddHiddenInWalletSidebar: true,

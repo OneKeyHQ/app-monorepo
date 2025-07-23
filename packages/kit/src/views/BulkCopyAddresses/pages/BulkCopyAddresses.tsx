@@ -440,6 +440,7 @@ function BulkCopyAddresses({
         id: ETranslations.global_bulk_copy_addresses_loading_error,
       }),
       hideCheckingDeviceLoading: false,
+      progressTotalCount: addressCount,
     };
 
     return handleGenerateAddresses({

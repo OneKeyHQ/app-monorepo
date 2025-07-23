@@ -1,0 +1,41 @@
+diff --git a/node_modules/@react-navigation/core/lib/module/index.js b/node_modules/@react-navigation/core/lib/module/index.js
+index 31900cb..2b63081 100644
+--- a/node_modules/@react-navigation/core/lib/module/index.js
++++ b/node_modules/@react-navigation/core/lib/module/index.js
+@@ -34,4 +34,8 @@ export { useRoute } from "./useRoute.js";
+ export { useStateForPath } from "./useStateForPath.js";
+ export { validatePathConfig } from "./validatePathConfig.js";
+ export * from '@react-navigation/routers';
++
++export * from './arrayStartsWith';
++export * from './getPatternParts';
++export * from './isArrayEqual';
+ //# sourceMappingURL=index.js.map
+\ No newline at end of file
+diff --git a/node_modules/@react-navigation/core/lib/typescript/src/index.d.ts b/node_modules/@react-navigation/core/lib/typescript/src/index.d.ts
+index 69b9100..7b4c509 100644
+--- a/node_modules/@react-navigation/core/lib/typescript/src/index.d.ts
++++ b/node_modules/@react-navigation/core/lib/typescript/src/index.d.ts
+@@ -32,4 +32,8 @@ export { useRoute } from './useRoute';
+ export { useStateForPath } from './useStateForPath';
+ export { validatePathConfig } from './validatePathConfig';
+ export * from '@react-navigation/routers';
++
++export * from './arrayStartsWith';
++export * from './getPatternParts';
++export * from './isArrayEqual';
+ //# sourceMappingURL=index.d.ts.map
+\ No newline at end of file
+diff --git a/node_modules/@react-navigation/core/src/index.tsx b/node_modules/@react-navigation/core/src/index.tsx
+index 3c3204c..741aa78 100644
+--- a/node_modules/@react-navigation/core/src/index.tsx
++++ b/node_modules/@react-navigation/core/src/index.tsx
+@@ -41,3 +41,7 @@ export { useRoute } from './useRoute';
+ export { useStateForPath } from './useStateForPath';
+ export { validatePathConfig } from './validatePathConfig';
+ export * from '@react-navigation/routers';
++
++export * from './arrayStartsWith';
++export * from './getPatternParts';
++export * from './isArrayEqual';
+\ No newline at end of file
