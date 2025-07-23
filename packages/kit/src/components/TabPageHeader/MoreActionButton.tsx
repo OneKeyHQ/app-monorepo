@@ -48,7 +48,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -282,18 +282,8 @@ function MoreActionContentGridItem({
     }
   }, [closePopover, onPress, trackID]);
 
-  const themeVariant = useThemeVariant();
   const { user } = usePrimeAuthV2();
   const isPrimeUser = user?.primeSubscription?.isActive && user?.privyUserId;
-
-  const primeIcon = useMemo(() => {
-    if (isPrimeUser) {
-      return themeVariant === 'light'
-        ? 'OnekeyPrimeLightColored'
-        : 'OnekeyPrimeDarkColored';
-    }
-    return 'PrimeOutline';
-  }, [isPrimeUser, themeVariant]);
 
   if (isPrimeFeature && !isPrimeAvailable) {
     return null;
@@ -369,7 +359,8 @@ function MoreActionContentGridItem({
             </Stack>
           </Stack>
         ) : null}
-        {isPrimeFeature ? (
+        {/* Only show Prime badge for non-Prime users */}
+        {isPrimeFeature && !isPrimeUser ? (
           <Stack
             position="absolute"
             left={-1}
@@ -381,10 +372,10 @@ function MoreActionContentGridItem({
             borderBottomRightRadius="$2"
           >
             <Icon
-              color={isPrimeUser ? '$icon' : '$iconDisabled'}
+              color="$iconDisabled"
               width={10}
               height={10}
-              name={primeIcon}
+              name="PrimeOutline"
             />
           </Stack>
         ) : null}
@@ -451,18 +442,24 @@ function MoreActionContentGrid() {
     });
   }, [navigation]);
 
-  const checkIsPrimeUser = useCallback(() => {
-    if (user?.primeSubscription?.isActive && user?.privyUserId) {
-      return true;
-    }
-    navigation.pushFullModal(EModalRoutes.PrimeModal, {
-      screen: EPrimePages.PrimeDashboard,
-      params: {
-        networkId: network?.id,
-      },
-    });
-    return false;
-  }, [navigation, user, network?.id]);
+  const checkIsPrimeUser = useCallback(
+    (showFeature: EPrimeFeatures) => {
+      if (user?.primeSubscription?.isActive && user?.privyUserId) {
+        return true;
+      }
+      navigation.pushFullModal(EModalRoutes.PrimeModal, {
+        screen: EPrimePages.PrimeFeatures,
+        params: {
+          showAllFeatures: false,
+          selectedFeature: showFeature,
+          selectedSubscriptionPeriod: 'P1Y',
+          networkId: network?.id,
+        },
+      });
+      return false;
+    },
+    [navigation, user, network?.id],
+  );
 
   const handleCustomerSupport = useCallback(() => {
     void showIntercom();
@@ -482,7 +479,7 @@ function MoreActionContentGrid() {
 
     if (!networkId) return;
 
-    if (!checkIsPrimeUser()) return;
+    if (!checkIsPrimeUser(EPrimeFeatures.BulkCopyAddresses)) return;
 
     navigation.pushModal(EModalRoutes.BulkCopyAddressesModal, {
       screen: EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal,

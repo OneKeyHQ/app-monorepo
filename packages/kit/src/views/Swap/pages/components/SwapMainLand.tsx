@@ -59,6 +59,7 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapDirectionType,
+  ESwapNetworkFeeLevel,
   ESwapQuoteKind,
   ESwapSelectTokenSource,
   ESwapStepStatus,
@@ -455,6 +456,16 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         slippage: swapSlippageRef.current.value,
         unSupportSlippage: currentQuoteRes?.unSupportSlippage ?? false,
         fee: currentQuoteRes?.fee,
+        ...(!(
+          steps.length > 0 &&
+          steps[steps.length - 1].type === ESwapStepType.SIGN_MESSAGE
+        )
+          ? {
+              netWorkFee: {
+                feeLevel: ESwapNetworkFeeLevel.MEDIUM,
+              },
+            }
+          : {}),
       },
       quoteResult: { ...(currentQuoteRes as IFetchQuoteResult) },
     });
