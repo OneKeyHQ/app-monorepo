@@ -2,12 +2,7 @@ import type { ForwardedRef } from 'react';
 import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
-import {
-  Dimensions,
-  type View as IView,
-  Keyboard,
-  type KeyboardEvent,
-} from 'react-native';
+import { Dimensions } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -19,6 +14,7 @@ import {
   DesktopDragZoneBox,
   Heading,
   Image,
+  Keyboard,
   Stack,
   ThemeableStack,
   updateHeightWhenKeyboardHide,
@@ -34,6 +30,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { APP_STATE_LOCK_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 import { AppStateContainer } from './AppStateContainer';
+
+import type { View as IView, KeyboardEvent } from 'react-native';
 
 interface IAppStateLockProps extends IThemeableStackProps {
   passwordVerifyContainer: React.ReactNode;

@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactNode } from 'react';
+import type { ComponentProps, ReactElement, ReactNode } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
 
 import {
@@ -7,6 +7,7 @@ import {
   SizableText,
   Stack,
   Tabs,
+  YStack,
   renderNestedScrollView,
   useStyle,
 } from '@onekeyhq/components';
@@ -304,17 +305,42 @@ function TokenListViewCmp(props: IProps) {
     return inTabList ? Tabs.FlatList : ListView;
   }, [inTabList]);
 
-  if (showSkeleton) {
-    return (
-      <NestedScrollView style={{ flex: 1 }}>
-        <ListLoading isTokenSelectorView={!tableLayout} />
-      </NestedScrollView>
+  const EmptyComponentElement = useMemo(() => {
+    if (showSkeleton) {
+      return (
+        <YStack style={{ flex: 1 }}>
+          <ListLoading isTokenSelectorView={!tableLayout} />
+        </YStack>
+      );
+    }
+    if (emptyAccountView) {
+      return emptyAccountView as ReactElement;
+    }
+    return searchKey ? (
+      <EmptySearch
+        onManageToken={onManageToken}
+        manageTokenEnabled={manageTokenEnabled}
+      />
+    ) : (
+      <EmptyToken
+        withBuyAndReceive={withBuyAndReceive}
+        isBuyTokenSupported={isBuyTokenSupported}
+        onBuy={onBuyToken}
+        onReceive={onReceiveToken}
+      />
     );
-  }
-
-  if (emptyAccountView) {
-    return emptyAccountView;
-  }
+  }, [
+    emptyAccountView,
+    isBuyTokenSupported,
+    manageTokenEnabled,
+    onBuyToken,
+    onManageToken,
+    onReceiveToken,
+    searchKey,
+    showSkeleton,
+    tableLayout,
+    withBuyAndReceive,
+  ]);
 
   return (
     <ListComponent
@@ -337,21 +363,7 @@ function TokenListViewCmp(props: IProps) {
           />
         ) : null
       }
-      ListEmptyComponent={
-        searchKey ? (
-          <EmptySearch
-            onManageToken={onManageToken}
-            manageTokenEnabled={manageTokenEnabled}
-          />
-        ) : (
-          <EmptyToken
-            withBuyAndReceive={withBuyAndReceive}
-            isBuyTokenSupported={isBuyTokenSupported}
-            onBuy={onBuyToken}
-            onReceive={onReceiveToken}
-          />
-        )
-      }
+      ListEmptyComponent={EmptyComponentElement}
       renderItem={({ item }) => (
         <TokenListItem
           hideValue={hideValue}
