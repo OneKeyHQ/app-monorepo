@@ -160,7 +160,7 @@ export function HomePageView({
         elevation: 0,
       },
       pagerProps: {
-        scrollEnabled: platformEnv.isNativeAndroid,
+        scrollEnabled: !platformEnv.isNativeAndroid,
       },
       renderHeader,
       renderTabBar: (props: any) => (
