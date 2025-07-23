@@ -4,8 +4,8 @@ import { memo } from 'react';
 import { useIntl } from 'react-intl';
 import {
   Dimensions,
-  Keyboard,
   type View as IView,
+  Keyboard,
   type KeyboardEvent,
 } from 'react-native';
 import Animated, {

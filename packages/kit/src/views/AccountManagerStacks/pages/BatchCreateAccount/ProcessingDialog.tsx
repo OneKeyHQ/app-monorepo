@@ -168,7 +168,7 @@ function ProcessingDialogContent({
               {(() => {
                 if (shouldShowCheckingDeviceLoading) {
                   return intl.formatMessage({
-                    id: ETranslations.global_checking_device,
+                    id: ETranslations.global_bulk_copy_addresses_checking_device_status,
                   });
                 }
                 if (renderProgressContent) {
