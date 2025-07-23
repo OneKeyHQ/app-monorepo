@@ -1968,8 +1968,30 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-view-shot (3.1.2):
-    - React
+  - react-native-view-shot (4.0.3):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.11.18.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - react-native-webview (13.15.0):
     - DoubleConversion
     - glog
@@ -3345,7 +3367,7 @@ SPEC CHECKSUMS:
   CheckBiometricAuthChanged: 9744da7f2c19b2f99fb1e94308a874a5c0df5d7d
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   CocoaLumberjack: 6a459bc897d6d80bd1b8c78482ec7ad05dffc3f0
-  DoubleConversion: fea03f2699887d960129cc54bba7e52542b6f953
+  DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
   EXApplication: 63b87ca5204304007fac6b1be432f8afa3731c17
   EXConstants: 9f310f44bfedba09087042756802040e464323c0
   EXImageLoader: 4d3d3284141f1a45006cc4d0844061c182daf7ee
@@ -3380,7 +3402,7 @@ SPEC CHECKSUMS:
   fast_float: 06eeec4fe712a76acc9376682e4808b05ce978b6
   FBLazyVector: d2a9cd223302b6c9aa4aa34c1a775e9db609eb52
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
-  glog: c5d68082e772fa1c511173d6b30a9de2c05a69a2
+  glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: f03b0e06d3882d71e67e45b073bb827da1a21aae
   ImageColors: 51cd79f7a9d2524b7a681c660b0a50574085563b
   JCore: 4707d226b452782383a401bea8ee2518565017e6
@@ -3440,7 +3462,7 @@ SPEC CHECKSUMS:
   react-native-tab-page-view: 16a35c02cbc698f0b592c2c2da533eb893136bf5
   react-native-tcp-socket: 120072c8020262032773f80f0daaf3964aaa08a1
   react-native-video: f906920a39ad30208bb789bdda7404f510ab422a
-  react-native-view-shot: bb8934cb93bf8ec740c81ed94f93244778797b6c
+  react-native-view-shot: aacb5b315b442a2326b1212c9de49b78c0e91cf9
   react-native-webview: 69c118d283fccfbc4fca0cd680e036ff3bf188fa
   react-native-webview-cleaner: c2d3bbb850105553c845303044234ca82062d592
   React-NativeModulesApple: 0f1cdafa0517926f47ff74dbd92a1c9bb767cc69
