@@ -117,7 +117,7 @@ function WalletBanner() {
 
   return (
     <YStack
-      pb="$5"
+      pb="$3"
       $gtLg={{
         pt: '$3',
       }}

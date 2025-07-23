@@ -1,4 +1,4 @@
-import { XStack, YStack } from '../../primitives';
+import { YStack } from '../../primitives';
 
 import type { IYStackProps } from '../../primitives';
 
@@ -19,12 +19,20 @@ export function PaginationItem<T>({
   return (
     <YStack
       onPress={onPress}
-      w="$2.5"
-      h="$2.5"
+      p="$2"
       borderRadius="$full"
-      bg="$neutral5"
-      {...dotStyle}
-      {...activeDotStyle}
-    />
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+    >
+      <YStack
+        w="$1.5"
+        h="$1.5"
+        borderRadius="$full"
+        bg="$neutral5"
+        {...dotStyle}
+        {...activeDotStyle}
+      />
+    </YStack>
   );
 }

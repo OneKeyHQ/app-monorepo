@@ -143,7 +143,7 @@ export function Carousel<T>({
   }, [startAutoPlay]);
 
   return (
-    <YStack gap="$4" userSelect="none">
+    <YStack gap="$2" userSelect="none">
       <XStack
         {...(containerStyle as any)}
         onLayout={handleLayout}
@@ -177,7 +177,7 @@ export function Carousel<T>({
         ) : null}
       </XStack>
       <XStack
-        gap="$2"
+        gap="$0.5"
         ai="center"
         jc="center"
         {...(paginationContainerStyle as any)}
