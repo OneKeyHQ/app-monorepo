@@ -30,15 +30,17 @@ import type { WindowScrollerChildProps } from 'react-virtualized';
 export function ContainerChild({
   children,
   listContainerRef,
+  containerWidth,
   ...props
 }: PropsWithChildren<WindowScrollerChildProps> & {
   listContainerRef: RefObject<Element>;
+  containerWidth: number | string | undefined;
 }) {
   return (
     <TabsScrollContext.Provider value={props}>
       <XStack
         ref={listContainerRef as any}
-        width="calc(100vw - 208px)"
+        width={containerWidth || props.width}
         overflow="hidden"
         style={{ scrollSnapType: 'x' }}
       >
@@ -78,6 +80,7 @@ export function Container({
   renderTabBar = renderDefaultTabBar,
   onIndexChange,
   onTabChange,
+  width: containerWidth,
   ref: containerRef,
   ...props
 }: PropsWithChildren<CollapsibleProps> & IRefProps) {
@@ -192,26 +195,26 @@ export function Container({
     };
   }, [updateListContainerHeight]);
 
-  // useLayoutEffect(() => {
-  //   const callback = debounce(() => {
-  //     if (listContainerRef.current) {
-  //       const tabIndex = tabNames.findIndex(
-  //         (name) => name === focusedTab.value,
-  //       );
-  //       listContainerRef.current.scrollTo({
-  //         left: (scrollElement?.clientWidth || 0) * tabIndex,
-  //         behavior: 'smooth',
-  //       });
-  //       setTimeout(() => {
-  //         updateListContainerHeight();
-  //       });
-  //     }
-  //   }, 150);
-  //   window.addEventListener('resize', callback);
-  //   return () => {
-  //     window.removeEventListener('resize', callback);
-  //   };
-  // }, [focusedTab, scrollElement, tabNames, updateListContainerHeight]);
+  useLayoutEffect(() => {
+    const callback = debounce(() => {
+      if (listContainerRef.current) {
+        const tabIndex = tabNames.findIndex(
+          (name) => name === focusedTab.value,
+        );
+        listContainerRef.current.scrollTo({
+          left: (scrollElement?.clientWidth || 0) * tabIndex,
+          behavior: 'instant',
+        });
+        setTimeout(() => {
+          updateListContainerHeight();
+        });
+      }
+    }, 350);
+    window.addEventListener('resize', callback);
+    return () => {
+      window.removeEventListener('resize', callback);
+    };
+  }, [focusedTab, scrollElement, tabNames, updateListContainerHeight]);
 
   useAnimatedReaction(
     () => focusedTab.value,
@@ -324,6 +327,7 @@ export function Container({
                     onTabPress,
                   } as any)}
                   <ContainerChild
+                    containerWidth={containerWidth}
                     height={height}
                     isScrolling={isScrolling}
                     scrollLeft={scrollLeft}
