@@ -7,11 +7,9 @@ import {
   useState,
 } from 'react';
 
-import { View } from 'react-native';
-
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { XStack, YStack } from '../../primitives';
+import { Stack, XStack, YStack } from '../../primitives';
 
 import { PagerView } from './pager';
 import { PaginationItem } from './PaginationItem';
@@ -153,7 +151,7 @@ export function Carousel<T>({
         onPressOut={platformEnv.isNative ? handleHoverOut : undefined}
       >
         {layout.width > 0 && layout.height > 0 ? (
-          <View
+          <Stack
             style={{ width: layout.width, height: layout.height }}
             key={`${layout.width}-${layout.height}`}
           >
@@ -165,15 +163,15 @@ export function Carousel<T>({
               keyboardDismissMode="on-drag"
             >
               {data.map((item, index) => (
-                <View
+                <Stack
                   key={index}
                   style={{ width: layout.width, height: layout.height }}
                 >
                   {renderItem({ item, index })}
-                </View>
+                </Stack>
               ))}
             </PagerView>
-          </View>
+          </Stack>
         ) : null}
       </XStack>
       {data.length > 1 ? (

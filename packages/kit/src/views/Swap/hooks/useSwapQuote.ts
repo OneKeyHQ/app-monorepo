@@ -1,20 +1,30 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { EPageType, usePageType } from '@onekeyhq/components';
+import { useIsModalPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import {
+  useSettingsAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
+import type { ISwapQuoteProvideResult } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapQuote';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapDirectionType,
   ESwapQuoteKind,
+  ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
+  IFetchQuotesParams,
   ISwapApproveTransaction,
+  ISwapQuoteEvent,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -70,6 +80,8 @@ export function useSwapQuote() {
   const [swapQuoteFetching] = useSwapQuoteFetchingAtom();
   const [swapShouldRefresh] = useSwapShouldRefreshQuoteAtom();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
+  const [settingsAtom] = useSettingsAtom();
+  const [settingsPersistAtom] = useSettingsPersistAtom();
 
   const swapTabSwitchTypeRef = useRef(swapTabSwitchType);
   const swapShouldRefreshRef = useRef(swapShouldRefresh);
@@ -535,14 +547,73 @@ export function useSwapQuote() {
     ],
   );
 
-  const pageType = usePageType();
+  const swapQuoteMixEvent = useCallback(
+    async (event: {
+      event: ISwapQuoteEvent;
+      type: 'done' | 'close' | 'error' | 'message' | 'open';
+      params: IFetchQuotesParams;
+      tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
+      accountId?: string;
+    }) => {
+      if (event?.type === 'done' || event?.type === 'error') {
+        const providerQuoteResult: ISwapQuoteProvideResult[] =
+          swapQuoteResultList?.map((item) => {
+            return {
+              provider: item.info.provider,
+              providerName: item.info.providerName,
+              toAmount: item.toAmount,
+              errorMessage: item.errorMessage,
+            };
+          });
+
+        defaultLogger.swap.swapQuote.swapQuote({
+          walletType: swapAddressInfo.accountInfo?.wallet?.type ?? '',
+          quoteType: swapTabSwitchType,
+          slippageSetting:
+            settingsAtom.swapSlippagePercentageMode ===
+            ESwapSlippageSegmentKey.AUTO
+              ? 'auto'
+              : 'custom',
+          sourceChain: fromToken?.networkId ?? '',
+          receivedChain: toToken?.networkId ?? '',
+          sourceTokenSymbol: fromToken?.symbol ?? '',
+          receivedTokenSymbol: toToken?.symbol ?? '',
+          isAddReceiveAddress: settingsAtom.swapEnableRecipientAddress,
+          isSmartMode: settingsPersistAtom.swapBatchApproveAndSwap,
+          status:
+            event?.type === 'done'
+              ? ESwapEventAPIStatus.SUCCESS
+              : ESwapEventAPIStatus.FAIL,
+          providerQuoteResult,
+          message:
+            event?.type === 'done' ? undefined : JSON.stringify(event.event),
+        });
+      }
+    },
+    [
+      fromToken?.networkId,
+      fromToken?.symbol,
+      settingsAtom.swapEnableRecipientAddress,
+      settingsAtom.swapSlippagePercentageMode,
+      settingsPersistAtom.swapBatchApproveAndSwap,
+      swapAddressInfo.accountInfo?.wallet?.type,
+      swapQuoteResultList,
+      swapTabSwitchType,
+      toToken?.networkId,
+      toToken?.symbol,
+    ],
+  );
+
+  const isModalPage = useIsModalPage();
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
-      if (pageType !== EPageType.modal) {
+      if (!isModalPage) {
         if (isFocus) {
           appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
           appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
+          appEventBus.on(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
           appEventBus.off(
             EAppEventBusNames.SwapApprovingSuccess,
             swapApprovingSuccessAction,
@@ -567,6 +638,7 @@ export function useSwapQuote() {
             setFromTokenAmount({ value: '', isInput: true });
           }
           appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
           appEventBus.off(
             EAppEventBusNames.SwapApprovingSuccess,
             swapApprovingSuccessAction,
@@ -574,6 +646,8 @@ export function useSwapQuote() {
         } else {
           appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
           appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
+          appEventBus.on(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
           appEventBus.off(
             EAppEventBusNames.SwapApprovingSuccess,
             swapApprovingSuccessAction,
@@ -588,10 +662,12 @@ export function useSwapQuote() {
   );
 
   useEffect(() => {
-    if (pageType === EPageType.modal) {
+    if (isModalPage) {
       if (isFocused) {
         appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
         appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
+        appEventBus.on(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
         appEventBus.off(
           EAppEventBusNames.SwapApprovingSuccess,
           swapApprovingSuccessAction,
@@ -603,13 +679,20 @@ export function useSwapQuote() {
       }
     }
     return () => {
-      if (pageType === EPageType.modal) {
+      if (isModalPage) {
         appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
         appEventBus.off(
           EAppEventBusNames.SwapApprovingSuccess,
           swapApprovingSuccessAction,
         );
       }
     };
-  }, [isFocused, pageType, quoteEventHandler, swapApprovingSuccessAction]);
+  }, [
+    isFocused,
+    isModalPage,
+    quoteEventHandler,
+    swapApprovingSuccessAction,
+    swapQuoteMixEvent,
+  ]);
 }
