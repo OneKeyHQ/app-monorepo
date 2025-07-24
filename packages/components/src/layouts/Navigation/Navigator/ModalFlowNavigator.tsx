@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { EPageType } from '../../../hocs';
+import { EPageType, usePageType } from '../../../hocs';
 import { PageTypeContext } from '../../../hocs/PageType/context';
 import { useThemeValue } from '../../../hooks';
 import { makeModalStackNavigatorOptions } from '../GlobalScreenOptions';
@@ -66,11 +66,13 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
     };
   }, [onMounted, onUnmounted]);
 
+  const pageType = usePageType();
   const contextValue = useMemo(
     () => ({
-      pageType: EPageType.modal,
+      pageType:
+        pageType === EPageType.fullScreen ? EPageType.fullScreen : pageType,
     }),
-    [],
+    [pageType],
   );
   return (
     <PageTypeContext.Provider value={contextValue}>

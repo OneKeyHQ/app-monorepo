@@ -4,15 +4,14 @@ import type { ReactNode } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  EPageType,
   Empty,
   Skeleton,
   Spinner,
   Stack,
   XStack,
   YStack,
+  useIsModalPage,
   useMedia,
-  usePageType,
 } from '@onekeyhq/components';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -47,12 +46,12 @@ export function PriceChart({
 }: IPriceChartProps) {
   const { formatDate } = useFormatDate();
   const intl = useIntl();
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
 
   const [price, setPrice] = useState<string | number | undefined>();
   const [time, setTime] = useState('');
   const { gtMd: gtMdMedia } = useMedia();
-  const gtMd = pageType === EPageType.modal ? false : gtMdMedia;
+  const gtMd = isModalPage ? false : gtMdMedia;
   const basePrice = data?.length ? data[0][1] : 0;
   const latestPrice = data?.length ? data[data.length - 1][1] : 0;
   const currentPrice = useMemo(() => {
