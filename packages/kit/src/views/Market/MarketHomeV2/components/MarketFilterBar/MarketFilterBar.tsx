@@ -32,7 +32,7 @@ export function MarketFilterBar({
   }
 
   return (
-    <YStack gap="$1" pt="$3" pl="$6">
+    <YStack gap="$1" pt="$3" px="$6">
       <XStack pl="$3">
         <MarketViewToggle />
       </XStack>

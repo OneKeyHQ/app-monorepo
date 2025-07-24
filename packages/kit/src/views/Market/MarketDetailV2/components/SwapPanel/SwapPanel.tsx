@@ -49,7 +49,7 @@ export function SwapPanel({
     }
   };
 
-  if (media.md) {
+  if (media.lg) {
     return (
       <View p="$3">
         <Button size="large" variant="primary" onPress={() => showSwapDialog()}>
