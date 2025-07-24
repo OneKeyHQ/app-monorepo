@@ -188,13 +188,14 @@ function WalletBanner() {
       $gtLg={{
         pt: '$3',
       }}
+      bg="$bgApp"
     >
       <Carousel
         loop={false}
         data={filteredBanners}
         autoPlayInterval={3800}
         containerStyle={{
-          height: gtSm ? 86 : 76,
+          height: gtSm ? 86 : 80, // plus 4
         }}
         paginationContainerStyle={{
           marginBottom: 0,
@@ -208,7 +209,12 @@ function WalletBanner() {
         }}
         renderItem={({ item }: { item: IWalletBanner }) => {
           return (
-            <YStack px="$5">
+            <YStack
+              px="$5"
+              $platform-native={{
+                h: gtSm ? 86 : 76,
+              }}
+            >
               <XStack
                 key={item.id}
                 flex={1}
@@ -221,7 +227,16 @@ function WalletBanner() {
                 borderColor="$borderSubdued"
                 borderRadius="$2"
                 borderCurve="continuous"
-                elevation={0.5}
+                $platform-android={{ elevation: 0.5 }}
+                $platform-ios={{
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 0.5 },
+                  shadowOpacity: 0.2,
+                  shadowRadius: 0.5,
+                }}
+                $platform-web={{
+                  boxShadow: '0px 1px 1px 0px rgba(0, 0, 0, 0.05)',
+                }}
                 {...(!gtLg && {
                   gap: '$3',
                   py: '$3',
@@ -277,10 +292,11 @@ function WalletBanner() {
                     </SizableText>
                   </YStack>
                 ) : (
-                  <SizableText size="$bodyMd" numberOfLines={2}>
+                  <SizableText size="$bodyMd" flex={1} numberOfLines={2}>
                     {item.title}
-                    <SizableText size="$bodyMd" color="$textSubdued" mx="$1">
-                      -
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {' '}
+                      -{' '}
                     </SizableText>
                     <SizableText size="$bodyMd" color="$textSubdued">
                       {item.description}
