@@ -35,6 +35,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
@@ -518,6 +519,7 @@ export function useSwapBuildTx() {
           };
         },
       );
+
       const res = await backgroundApiProxy.serviceSend.signAndSendTransaction({
         networkId,
         accountId,
@@ -1095,6 +1097,7 @@ export function useSwapBuildTx() {
                 swapInfo,
               );
             }
+            throw e;
           }
         } catch (e: any) {
           if (!isApprove) {
@@ -2164,8 +2167,15 @@ export function useSwapBuildTx() {
             } catch (error: any) {
               const shouldFallback =
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                error?.key === 'global.cancel' ||
-                step.type !== ESwapStepType.SIGN_MESSAGE ||
+                error?.className !==
+                  EOneKeyErrorClassNames.OneKeyHardwareError &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                !error?.$isHardwareError &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                error?.key !== 'global.cancel' &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                error?.code !== 803 &&
+                step.type !== ESwapStepType.SIGN_MESSAGE &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 error?.name !== 'buildSwapApi';
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
