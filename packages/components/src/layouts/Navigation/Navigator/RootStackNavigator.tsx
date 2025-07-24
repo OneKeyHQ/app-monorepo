@@ -4,8 +4,6 @@ import { useMedia } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { EPageType } from '../../../hocs';
-import { PageTypeContext } from '../../../hocs/PageType/context';
 import { useThemeValue } from '../../../hooks';
 import {
   clearStackNavigatorOptions,
