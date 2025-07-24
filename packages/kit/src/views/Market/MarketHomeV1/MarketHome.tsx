@@ -17,6 +17,7 @@ import {
   Spinner,
   Stack,
   Tab,
+  Tabs,
   useMedia,
 } from '@onekeyhq/components';
 import type { IColorTokens } from '@onekeyhq/components';
@@ -151,26 +152,41 @@ function MarketHome() {
         </Stack>
       );
     }
-    if (platformEnv.isNativeAndroid) {
-      return (
-        <Tab
-          disableRefresh
-          data={tabConfig}
-          onSelectedPageIndex={handleSelectedPageIndex}
-        />
-      );
-    }
+    // if (platformEnv.isNativeAndroid) {
+    //   return (
+    //     <Tab
+    //       disableRefresh
+    //       data={tabConfig}
+    //       onSelectedPageIndex={handleSelectedPageIndex}
+    //     />
+    //   );
+    // }
     return (
-      <Tab.Page
-        data={tabConfig}
-        contentItemWidth={CONTENT_ITEM_WIDTH}
-        contentWidth={screenWidth}
-        headerProps={headerProps}
-        onSelectedPageIndex={handleSelectedPageIndex}
-        windowSize={3}
-      />
+      // <Tab.Page
+      //   data={tabConfig}
+      //   contentItemWidth={CONTENT_ITEM_WIDTH}
+      //   contentWidth={screenWidth}
+      //   headerProps={headerProps}
+      //   onSelectedPageIndex={handleSelectedPageIndex}
+      //   windowSize={3}
+      // />
+      <Tabs.Container
+        pagerProps={
+          {
+            scrollSensitivity: 4,
+          } as any
+        }
+        renderTabBar={(props) => <Tabs.TabBar {...props} />}
+        onIndexChange={handleSelectedPageIndex}
+      >
+        {tabConfig.map((tab) => (
+          <Tabs.Tab key={tab.title} name={tab.title}>
+            <Tabs.ScrollView>{tab.page()}</Tabs.ScrollView>
+          </Tabs.Tab>
+        ))}
+      </Tabs.Container>
     );
-  }, [handleSelectedPageIndex, headerProps, tabConfig, screenWidth]);
+  }, [handleSelectedPageIndex, tabConfig]);
 
   return (
     <Page>
