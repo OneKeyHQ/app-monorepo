@@ -10,6 +10,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { SUPPORT_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -168,9 +169,7 @@ const PreSwapConfirmResult = ({
             color="$textSubdued"
             cursor="pointer"
             onPress={() => {
-              if (
-                supportUrl === 'https://help.onekey.so/hc/zh-cn/requests/new'
-              ) {
+              if (supportUrl?.includes(SUPPORT_URL)) {
                 void showIntercom();
               } else {
                 openUrlExternal(supportUrl ?? '');
