@@ -37,7 +37,6 @@ module.exports = ({ platform, basePath }) => {
         // optional code to be executed in the browser context if after all retries chunk is not loaded.
         // if not set - nothing will happen and error will be returned to the chunk loader.
         // lastResortScript: "window.location.href='/500.html';",
-        // lastResortScript: "window.location.href='/500.html';",
       }),
       sentryWebpackPlugin({
         org: 'onekey-bb',
