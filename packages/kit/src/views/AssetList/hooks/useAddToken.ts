@@ -157,7 +157,11 @@ export function useAddToken({
         if (
           Array.isArray(searchResult) &&
           searchResult.length > 0 &&
-          searchResult[0]?.info
+          searchResult[0]?.info &&
+          searchResult[0]?.info?.address?.trim()?.toLowerCase() ===
+            params.value.trim().toLowerCase() &&
+          searchResult[0]?.info?.networkId?.toLowerCase() ===
+            params.networkId.toLowerCase()
         ) {
           const [firstToken] = searchResult;
           const symbol = firstToken.info.symbol?.trim();
