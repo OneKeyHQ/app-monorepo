@@ -1,5 +1,5 @@
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page } from '@onekeyhq/components';
+import { Page, XStack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -20,15 +20,17 @@ export function AccountSelectorStack({
   return (
     <Page safeAreaEnabled={false}>
       <Page.Header headerShown={false} />
-      <Page.Body flexDirection="row">
-        {/* <AccountSelectorWalletListSideBarPerfTest num={num} /> */}
-        <AccountSelectorWalletListSideBar
-          num={num}
-          hideNonBackedUpWallet={hideNonBackedUpWallet}
-        />
+      <Page.Body>
+        <XStack flex={1}>
+          {/* <AccountSelectorWalletListSideBarPerfTest num={num} /> */}
+          <AccountSelectorWalletListSideBar
+            num={num}
+            hideNonBackedUpWallet={hideNonBackedUpWallet}
+          />
 
-        {/* <WalletDetailsPerfTest num={num} /> */}
-        <WalletDetails num={num} />
+          {/* <WalletDetailsPerfTest num={num} /> */}
+          <WalletDetails num={num} />
+        </XStack>
       </Page.Body>
     </Page>
   );
