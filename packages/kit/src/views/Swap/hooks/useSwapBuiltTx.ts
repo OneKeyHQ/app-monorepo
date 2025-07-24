@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 
 import {
   OrderBalance,
@@ -11,7 +11,6 @@ import { ethers } from 'ethers';
 import { cloneDeep, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   EPageType,
   Toast,
@@ -39,7 +38,6 @@ import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorT
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
-import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   numberFormat,
@@ -244,6 +242,13 @@ export function useSwapBuildTx() {
     }) => {
       // clearQuoteData();
       if (swapInfo) {
+        if (
+          accountUtils.isQrAccount({
+            accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+          })
+        ) {
+          rootNavigationRef.current?.goBack();
+        }
         setSwapSteps(
           (prevSteps: {
             steps: ISwapStep[];
@@ -267,7 +272,11 @@ export function useSwapBuildTx() {
         });
       }
     },
-    [generateSwapHistoryItem, setSwapSteps],
+    [
+      generateSwapHistoryItem,
+      setSwapSteps,
+      swapFromAddressInfo.accountInfo?.account?.id,
+    ],
   );
 
   const checkOtherFee = useCallback(
