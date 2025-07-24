@@ -32,6 +32,7 @@ import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   numberFormat,
   toBigIntHex,
@@ -82,6 +83,7 @@ import type {
 } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
 import {
   useSwapBuildTxFetchingAtom,
@@ -106,6 +108,7 @@ import { useSwapTxHistoryActions } from './useSwapTxHistory';
 
 export function useSwapBuildTx() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
@@ -197,6 +200,13 @@ export function useSwapBuildTx() {
             };
           },
         );
+        if (
+          accountUtils.isQrAccount({
+            accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+          })
+        ) {
+          navigation.popStack();
+        }
         await generateSwapHistoryItem({
           txId,
           swapTxInfo: swapInfo,
@@ -211,7 +221,12 @@ export function useSwapBuildTx() {
         }
       }
     },
-    [generateSwapHistoryItem, setSwapSteps],
+    [
+      generateSwapHistoryItem,
+      navigation,
+      setSwapSteps,
+      swapFromAddressInfo.accountInfo?.account?.id,
+    ],
   );
 
   const handleBuildTxSuccessWithSignedNoSend = useCallback(
@@ -2185,6 +2200,12 @@ export function useSwapBuildTx() {
                 !swapStepsValues?.preSwapData.shouldFallback
               ) {
                 void preSwapStepsStart(fallbackSwapStepsValues);
+              } else if (
+                accountUtils.isQrAccount({
+                  accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+                })
+              ) {
+                navigation.popStack();
               }
               break;
             }
@@ -2193,7 +2214,9 @@ export function useSwapBuildTx() {
       }
     },
     [
-      swapSteps,
+      swapSteps.steps,
+      swapSteps.preSwapData,
+      swapSteps.quoteResult,
       setSwapSteps,
       approveTxNew,
       swapActionState.approveUnLimit,
@@ -2201,10 +2224,12 @@ export function useSwapBuildTx() {
       setInAppNotificationAtom,
       swapTypeSwitch,
       swapFromAddressInfo.address,
+      swapFromAddressInfo.accountInfo?.account?.id,
       wrappedTx,
       buildTxNew,
       signMessage,
       batchApproveSwap,
+      navigation,
     ],
   );
 
