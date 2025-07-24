@@ -32,13 +32,7 @@ function useDemoAppNavigation<
     }
   };
 
-  const switchTab = <T extends EDemoTabRoutes>(
-    route: T,
-    params?: {
-      screen: keyof ITabStackParamList[T];
-      params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
-    },
-  ) => {
+  const switchTab = (route: string, params?: any) => {
     navigation.navigate(EDemoRootRoutes.Main, {
       screen: route,
       params,

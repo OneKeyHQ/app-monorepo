@@ -70,7 +70,7 @@ export enum EGalleryRoutes {
   ComponentSwipeableCell = 'component-SwipeableCell',
   ComponentSwiper = 'component-Swiper',
   ComponentSwitch = 'component-Switch',
-  ComponentTabview = 'component-TabView',
+  ComponentTabsContainer = 'component-TabsContainer',
   ComponentTextArea = 'component-TextArea',
   ComponentThemeColors = 'component-ThemeColors',
   ComponentToast = 'component-Toast',
