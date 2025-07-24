@@ -27,10 +27,8 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnAvailableAssetProtocol } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
-import type { IEarnRewardUnit } from '@onekeyhq/shared/types/staking';
 
-// Helper function to build APR text
-const buildAprText = (apr: string, unit: IEarnRewardUnit) => `${apr} ${unit}`;
+import { AprText } from './AprText';
 
 // Skeleton component for loading state
 function AvailableAssetsSkeleton() {
@@ -253,19 +251,10 @@ export function AvailableAssetsTabViewList({
               borderCurve: 'continuous',
             }}
           >
-            {assets.map(
-              (
-                {
-                  name,
-                  logoURI,
-                  aprWithoutFee,
-                  symbol,
-                  rewardUnit,
-                  badges = [],
-                  protocols,
-                },
-                index,
-              ) => (
+            {assets.map((asset, index) => {
+              const { name, logoURI, symbol, badges = [], protocols } = asset;
+
+              return (
                 <ListItem
                   userSelect="none"
                   key={`${name}-${index}`}
@@ -340,14 +329,12 @@ export function AvailableAssetsTabViewList({
                       }}
                       justifyContent="flex-end"
                     >
-                      <SizableText size="$bodyLgMedium" textAlign="right">
-                        {buildAprText(aprWithoutFee, rewardUnit)}
-                      </SizableText>
+                      <AprText asset={asset} />
                     </XStack>
                   </XStack>
                 </ListItem>
-              ),
-            )}
+              );
+            })}
           </YStack>
         )}
       </YStack>

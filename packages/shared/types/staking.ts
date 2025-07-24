@@ -5,6 +5,8 @@ import type {
   IKeyOfIcons,
 } from '@onekeyhq/components';
 
+import type { IEarnAvailableAssetAprInfo } from './earn';
+
 import type { INetworkAccount } from './account';
 import type { IFetchTokenDetailItem, IToken } from './token';
 import type { ESpotlightTour } from '../src/spotlight';
@@ -122,6 +124,9 @@ export type IStakeProviderInfo = {
   // falcon
   joinRequirement?: string;
   eventEndTime?: number;
+
+  // APR info for enhanced rendering
+  aprInfo?: IEarnAvailableAssetAprInfo;
 };
 
 export type IStakeBaseParams = {
