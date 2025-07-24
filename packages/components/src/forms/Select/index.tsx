@@ -315,6 +315,7 @@ function SelectContent() {
   );
 
   const popoverTrigger = useRenderPopoverTrigger();
+  const usingPercentSnapPoints = items?.length && items?.length > 15;
   return (
     <Popover
       title={title || ''}
@@ -323,7 +324,8 @@ function SelectContent() {
       keepChildrenMounted
       sheetProps={{
         dismissOnSnapToBottom: true,
-        snapPointsMode: 'fit',
+        snapPointsMode: usingPercentSnapPoints ? 'percent' : 'fit',
+        snapPoints: usingPercentSnapPoints ? [60] : undefined,
         ...sheetProps,
       }}
       floatingPanelProps={{
