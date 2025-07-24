@@ -27,8 +27,8 @@ export function TabItem({
   }, [name, onTabPress]);
   return (
     <YStack
-      h={49}
-      minWidth={52}
+      h={44}
+      // minWidth={52}
       ai="center"
       jc="center"
       ml={20}
