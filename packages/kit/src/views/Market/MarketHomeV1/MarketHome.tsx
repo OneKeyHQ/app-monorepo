@@ -125,13 +125,14 @@ function MarketHome() {
       <Tabs.Container
         pagerProps={
           {
-            offscreenTabLimit: 3,
+            offscreenPageLimit: 3,
             scrollSensitivity: 4,
           } as any
         }
         renderTabBar={(props) => (
           <Tabs.TabBar
             {...props}
+            scrollable
             renderItem={(
               { name, isFocused, onPress, tabItemStyle, focusedTabStyle },
               index,
