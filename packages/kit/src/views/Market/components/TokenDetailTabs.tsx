@@ -170,6 +170,7 @@ function BasicTokenDetailTabs({
         </YStack>
       )}
       renderTabBar={(props) => <Tabs.TabBar {...props} />}
+      key={tabConfigs.length}
     >
       {tabConfigs.map((tab) => (
         <Tabs.Tab key={tab.title} name={tab.title}>
