@@ -19,6 +19,7 @@ import type { IOnboardingParamList } from './onboarding';
 import type { IPrimeParamList } from './prime';
 import type { IModalReceiveParamList } from './receive';
 import type { IModalReferFriendsParamList } from './referFriends';
+import type { IModalRewardCenterParamList } from './rewardCenter';
 import type { IScanQrCodeModalParamList } from './scanQrCode';
 import type { IModalSendParamList } from './send';
 import type { IModalSettingParamList } from './setting';
@@ -82,6 +83,7 @@ export type IModalParamList = {
   [EModalRoutes.LiteCardModal]: ILiteCardParamList;
   [EModalRoutes.MainModal]: IModalAssetListParamList &
     IModalAssetDetailsParamList &
+    IModalRewardCenterParamList &
     ITabHomeUrlAccountParamList;
   [EModalRoutes.NotificationsModal]: IModalNotificationsParamList;
   [EModalRoutes.OnboardingModal]: IOnboardingParamList;

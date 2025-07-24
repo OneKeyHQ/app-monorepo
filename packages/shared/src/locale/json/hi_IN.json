@@ -3121,7 +3121,7 @@
   "wallet.subsidy_all_used": "सभी ले लिए गए",
   "wallet.subsidy_claim": "दावा",
   "wallet.subsidy_claimed": "दावा किया गया",
-  "wallet.subsidy_description": "संसाधन 10 मिनट के लिए मान्य है, पहले आओ पहले पाओ। उपयोगकर्ता प्रति माह 10 मुफ्त संसाधन प्राप्त कर सकते हैं।",
+  "wallet.subsidy_description": "संसाधन 10 मिनट के लिए मान्य है। कृपया समय सीमा के भीतर अपना लेनदेन पूरा करें। हर 24 घंटे में एक बार दावा करें (GMT+8 रीसेट), अधिकतम 10 बार प्रति माह।",
   "wallet.subsidy_label": "मुफ्त संसाधन",
   "wallet.subsidy_redeem_title": "मुफ्त संसाधन का दावा करें",
   "wallet.subsidy_remaining": "शेष {remaining} / {total}",

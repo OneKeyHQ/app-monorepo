@@ -16,6 +16,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -26,15 +27,23 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
+import { EarnNavigation } from '../../../Earn/earnUtils';
+
 import type { GestureResponderEvent } from 'react-native';
+import {
+  EModalRewardCenterRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 function WalletBanner() {
   const {
-    activeAccount: { account },
+    activeAccount: { account, network, indexedAccount },
   } = useActiveAccount({ num: 0 });
 
   const intl = useIntl();
   const { gtSm, gtLg } = useMedia();
+
+  const navigation = useAppNavigation();
 
   const [closedForeverBanners, setClosedForeverBanners] = useState<
     Record<string, boolean>
@@ -90,17 +99,75 @@ function WalletBanner() {
     }
   }, []);
 
-  const handleClick = useCallback((item: IWalletBanner) => {
-    defaultLogger.wallet.walletBanner.walletBannerClicked({
-      bannerId: item.id,
-      type: 'jump',
-    });
-    if (item.hrefType === 'external') {
-      openUrlExternal(item.href);
-    } else {
-      openUrlInApp(item.href);
-    }
-  }, []);
+  const handleClick = useCallback(
+    async (item: IWalletBanner) => {
+      defaultLogger.wallet.walletBanner.walletBannerClicked({
+        bannerId: item.id,
+        type: 'jump',
+      });
+      if (item.hrefType === 'internal' && item.href.includes('/earn/staking')) {
+        const [path, query] = item.href.split('?');
+        const paths = path.split('/');
+        const provider = paths.pop();
+        const symbol = paths.pop();
+        const params = new URLSearchParams(query);
+        const networkId = params.get('networkId');
+        const vault = params.get('vault');
+        if (provider && symbol && networkId) {
+          const earnAccount =
+            await backgroundApiProxy.serviceStaking.getEarnAccount({
+              indexedAccountId: indexedAccount?.id,
+              accountId: account?.id ?? '',
+              networkId,
+            });
+          const navigationParams: {
+            accountId?: string;
+            networkId: string;
+            indexedAccountId?: string;
+            symbol: string;
+            provider: string;
+            vault?: string;
+          } = {
+            accountId: earnAccount?.accountId || account?.id || '',
+            indexedAccountId:
+              earnAccount?.account.indexedAccountId || indexedAccount?.id,
+            provider,
+            symbol,
+            networkId,
+          };
+          if (vault) {
+            navigationParams.vault = vault;
+          }
+          void EarnNavigation.pushDetailPageFromDeeplink(
+            navigation,
+            navigationParams,
+          );
+        }
+        return;
+      }
+
+      if (
+        item.hrefType === 'internal' &&
+        item.href.includes('/reward-center')
+      ) {
+        navigation.pushModal(EModalRoutes.MainModal, {
+          screen: EModalRewardCenterRoutes.RewardCenter,
+          params: {
+            accountId: account?.id ?? '',
+            networkId: network?.id ?? '',
+          },
+        });
+        return;
+      }
+
+      if (item.hrefType === 'external') {
+        openUrlExternal(item.href);
+      } else {
+        openUrlInApp(item.href);
+      }
+    },
+    [account?.id, indexedAccount?.id, navigation, network?.id],
+  );
 
   useEffect(() => {
     const fetchClosedForeverBanners = async () => {

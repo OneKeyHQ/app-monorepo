@@ -3121,7 +3121,7 @@
   "wallet.subsidy_all_used": "Tout épuisé",
   "wallet.subsidy_claim": "Réclamer",
   "wallet.subsidy_claimed": "Réclamé",
-  "wallet.subsidy_description": "Ressource valable pendant 10 minutes, premier arrivé, premier servi. Les utilisateurs peuvent réclamer 10 ressources gratuites par mois.",
+  "wallet.subsidy_description": "La ressource est valable pendant 10 minutes. Complétez votre transaction dans le délai imparti. Réclamez une fois toutes les 24h (réinitialisation à GMT+8), maximum 10 fois par mois.",
   "wallet.subsidy_label": "Ressource gratuite",
   "wallet.subsidy_redeem_title": "Réclamer des ressources gratuites",
   "wallet.subsidy_remaining": "Restant {remaining} / {total}",

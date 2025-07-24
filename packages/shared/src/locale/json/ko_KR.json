@@ -3121,7 +3121,7 @@
   "wallet.subsidy_all_used": "모두 받음",
   "wallet.subsidy_claim": "주장하다",
   "wallet.subsidy_claimed": "수령됨",
-  "wallet.subsidy_description": "리소스는 10분 동안 유효하며, 선착순입니다. 사용자는 한 달에 10개의 무료 리소스를 청구할 수 있습니다.",
+  "wallet.subsidy_description": "리소스는 10분 동안 유효합니다. 시간 내에 거래를 완료하세요. 24시간마다 한 번씩 청구할 수 있으며(GMT+8 기준 초기화), 한 달에 최대 10회까지 가능합니다.",
   "wallet.subsidy_label": "무료 자원",
   "wallet.subsidy_redeem_title": "무료 리소스 받기",
   "wallet.subsidy_remaining": "남은 수: {remaining} / {total}",

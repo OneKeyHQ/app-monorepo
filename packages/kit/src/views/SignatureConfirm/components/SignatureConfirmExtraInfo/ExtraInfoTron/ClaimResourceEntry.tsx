@@ -6,13 +6,17 @@ import {
   SizableText,
   XStack,
 } from '@onekeyhq/components';
-import { showTronRewardCenter } from '@onekeyhq/kit/src/components/RewardCenter/TronRewardCenter';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSignatureConfirmActions } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EModalRewardCenterRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -24,6 +28,7 @@ function ClaimResourceEntry({
   networkId: string;
 }) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const { updateTronResourceRentalInfo } = useSignatureConfirmActions().current;
   return (
     <LinearGradient
@@ -41,24 +46,24 @@ function ClaimResourceEntry({
         py={2}
         backgroundColor="$bgApp"
         onPress={() => {
-          showTronRewardCenter({
-            accountId,
-            networkId,
-            onDialogClose: async ({
-              isResourceClaimed,
-              isResourceRedeemed,
-            }) => {
-              if (isResourceClaimed || isResourceRedeemed) {
-                await timerUtils.wait(1000);
-                updateTronResourceRentalInfo({
-                  isResourceClaimed,
-                  isResourceRedeemed,
-                });
-                appEventBus.emit(
-                  EAppEventBusNames.EstimateTxFeeRetry,
-                  undefined,
-                );
-              }
+          navigation.pushModal(EModalRoutes.MainModal, {
+            screen: EModalRewardCenterRoutes.RewardCenter,
+            params: {
+              accountId,
+              networkId,
+              onClose: async ({ isResourceClaimed, isResourceRedeemed }) => {
+                if (isResourceClaimed || isResourceRedeemed) {
+                  await timerUtils.wait(1000);
+                  updateTronResourceRentalInfo({
+                    isResourceClaimed,
+                    isResourceRedeemed,
+                  });
+                  appEventBus.emit(
+                    EAppEventBusNames.EstimateTxFeeRetry,
+                    undefined,
+                  );
+                }
+              },
             },
           });
         }}
