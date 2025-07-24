@@ -1,3 +1,3 @@
-import { MarketHomeV2 } from './MarketHomeV2';
+import { MarketHomeV1 } from './MarketHomeV1';
 
-export { MarketHomeV2 as default };
+export { MarketHomeV1 as default };
