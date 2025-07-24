@@ -315,7 +315,7 @@ function SelectContent() {
   );
 
   const popoverTrigger = useRenderPopoverTrigger();
-  const usingPercentSnapPoints = items?.length && items?.length > 15;
+  const usingPercentSnapPoints = items?.length && items?.length > 10;
   return (
     <Popover
       title={title || ''}
