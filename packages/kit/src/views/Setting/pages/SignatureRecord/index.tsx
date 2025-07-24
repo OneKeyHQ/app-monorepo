@@ -101,6 +101,7 @@ const PageView = () => {
         <Page.Body>
           <Tabs.Container
             renderHeader={() => <ListHeaderComponent />}
+            containerStyle={{ flex: 1 }}
             headerContainerStyle={{
               shadowOpacity: 0,
               elevation: 0,
