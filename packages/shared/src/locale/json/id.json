@@ -3121,7 +3121,7 @@
   "wallet.subsidy_all_used": "Sudah diambil semua",
   "wallet.subsidy_claim": "Mengeklaim",
   "wallet.subsidy_claimed": "Telah diklaim",
-  "wallet.subsidy_description": "Sumber daya berlaku selama 10 menit, siapa cepat dia dapat. Pengguna dapat mengklaim 10 sumber daya gratis per bulan.",
+  "wallet.subsidy_description": "Sumber daya berlaku selama 10 menit. Selesaikan transaksi Anda dalam batas waktu tersebut. Klaim sekali setiap 24 jam (reset GMT+8), maksimal 10 kali per bulan.",
   "wallet.subsidy_label": "Sumber daya gratis",
   "wallet.subsidy_redeem_title": "Klaim sumber daya gratis",
   "wallet.subsidy_remaining": "Sisa {remaining} / {total}",
