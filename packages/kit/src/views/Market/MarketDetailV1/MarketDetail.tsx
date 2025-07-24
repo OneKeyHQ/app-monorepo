@@ -4,7 +4,6 @@ import { CommonActions, StackActions } from '@react-navigation/native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
-  EPageType,
   HeaderIconButton,
   NavBackButton,
   Page,
@@ -15,8 +14,8 @@ import {
   XStack,
   YStack,
   useDeferredPromise,
+  useIsModalPage,
   useMedia,
-  usePageType,
   useShare,
 } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -57,7 +56,7 @@ function TokenDetailHeader({
 }) {
   const { gtMd: gtMdMedia } = useMedia();
 
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
 
   const {
     activeAccount: { wallet },
@@ -65,7 +64,7 @@ function TokenDetailHeader({
     num: 0,
   });
 
-  const gtMd = pageType === EPageType.modal ? false : gtMdMedia;
+  const gtMd = isModalPage ? false : gtMdMedia;
 
   const { result: token } = usePromiseResult(
     () => backgroundApiProxy.serviceMarket.fetchMarketTokenDetail(coinGeckoId),
@@ -84,7 +83,7 @@ function TokenDetailHeader({
     <YStack
       px="$5"
       $md={{ minHeight: 150 }}
-      {...(pageType === EPageType.modal ? { minHeight: 150 } : null)}
+      {...(isModalPage ? { minHeight: 150 } : null)}
     >
       <YStack flex={1}>
         <SizableText size="$headingMd" color="$textSubdued">
@@ -146,9 +145,9 @@ function MarketDetail({
   const { token: coinGeckoId } = route.params;
   const { gtMd: gtMdMedia } = useMedia();
 
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
 
-  const gtMd = pageType === EPageType.modal ? false : gtMdMedia;
+  const gtMd = isModalPage ? false : gtMdMedia;
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
