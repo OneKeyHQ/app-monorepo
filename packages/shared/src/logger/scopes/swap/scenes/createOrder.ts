@@ -1,11 +1,15 @@
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
+import type { ESwapEventAPIStatus } from './swapEstimateFee';
+
 export class CreateOrderScene extends BaseScene {
   @LogToServer({ level: 'info' })
   @LogToLocal({ level: 'info' })
   public swapCreateOrder({
     swapType,
+    message,
+    status,
     sourceChain,
     receivedChain,
     sourceTokenSymbol,
@@ -18,6 +22,8 @@ export class CreateOrderScene extends BaseScene {
     router,
     slippage,
   }: {
+    status: ESwapEventAPIStatus;
+    message?: string;
     swapType: string;
     slippage: string;
     router?: string;
@@ -32,6 +38,8 @@ export class CreateOrderScene extends BaseScene {
     createFrom: string;
   }) {
     return {
+      status,
+      message,
       isFirstTime,
       swapType,
       sourceChain,
