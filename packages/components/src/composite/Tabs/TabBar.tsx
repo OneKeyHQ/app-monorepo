@@ -100,7 +100,7 @@ export function TabBar({
   useAnimatedReaction(
     () => focusedTab.value,
     (result, previous) => {
-      if (result !== previous) {
+      if (result !== previous && previous) {
         runOnJS(setCurrentTab)(result);
         if (scrollable && scrollViewRef.current) {
           runOnJS(() => {
