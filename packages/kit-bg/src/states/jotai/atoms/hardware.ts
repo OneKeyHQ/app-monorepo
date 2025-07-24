@@ -33,6 +33,7 @@ export enum EHardwareUiStateAction {
   REQUEST_DEVICE_IN_BOOTLOADER_FOR_WEB_DEVICE = 'ui-request_select_device_in_bootloader_for_web_device',
 
   CLOSE_UI_WINDOW = 'ui-close_window',
+  CLOSE_UI_PIN_WINDOW = 'ui-close_pin_window',
   DEVICE_PROGRESS = 'ui-device_progress',
 
   BLUETOOTH_PERMISSION = 'ui-bluetooth_permission',
