@@ -2166,6 +2166,10 @@ export function useSwapBuildTx() {
             } catch (error: any) {
               const shouldFallback =
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                error?.name !== 'OneKeyHardwareError' &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                !error?.$isHardwareError &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 error?.key !== 'global.cancel' &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 error?.code !== 803 &&
