@@ -129,45 +129,12 @@ export function useSwapQuoteLoading() {
 export function useSwapQuoteEventFetching() {
   const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [quoteResult] = useSwapQuoteListAtom();
-  const [settingsAtom] = useSettingsAtom();
-  const [settingsPersistAtom] = useSettingsPersistAtom();
-  const [fromToken] = useSwapSelectFromTokenAtom();
-  const [toToken] = useSwapSelectToTokenAtom();
-  const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
-  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
-  const swapQuoteEvent = useCallback(async () => {
-    defaultLogger.swap.swapQuote.swapQuote({
-      walletType: swapFromAddressInfo.accountInfo?.wallet?.type ?? '',
-      quoteType: swapTypeSwitchValue,
-      slippageSetting:
-        settingsAtom.swapSlippagePercentageMode === ESwapSlippageSegmentKey.AUTO
-          ? 'auto'
-          : 'custom',
-      sourceChain: fromToken?.networkId ?? '',
-      receivedChain: toToken?.networkId ?? '',
-      sourceTokenSymbol: fromToken?.symbol ?? '',
-      receivedTokenSymbol: toToken?.symbol ?? '',
-      isAddReceiveAddress: settingsAtom.swapEnableRecipientAddress,
-      isSmartMode: settingsPersistAtom.swapBatchApproveAndSwap,
-    });
-  }, [
-    fromToken?.networkId,
-    fromToken?.symbol,
-    settingsAtom.swapEnableRecipientAddress,
-    settingsAtom.swapSlippagePercentageMode,
-    settingsPersistAtom.swapBatchApproveAndSwap,
-    swapFromAddressInfo.accountInfo?.wallet?.type,
-    swapTypeSwitchValue,
-    toToken?.networkId,
-    toToken?.symbol,
-  ]);
 
   if (quoteEventTotalCount.count > 0) {
     if (
       quoteResult?.every((q) => q.eventId === quoteEventTotalCount.eventId) &&
       quoteResult.length === quoteEventTotalCount.count
     ) {
-      void swapQuoteEvent();
       return false;
     }
     return true;
