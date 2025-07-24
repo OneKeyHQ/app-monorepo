@@ -3,15 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  RefreshControl,
-  Stack,
-  Tab,
-  Tabs,
-  useIsModalPage,
-  useMedia,
-  YStack,
-} from '@onekeyhq/components';
+import { Tabs, YStack, useIsModalPage, useMedia } from '@onekeyhq/components';
 import type { IDeferredPromise, ITabPageProps } from '@onekeyhq/components';
 import type { ITabInstance } from '@onekeyhq/components/src/layouts/TabView/StickyTabComponent/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -27,8 +19,6 @@ import type { LayoutChangeEvent } from 'react-native';
 function BasicTokenDetailTabs({
   token,
   listHeaderComponent,
-  isRefreshing,
-  onRefresh,
   defer,
   coinGeckoId,
 }: {
@@ -155,6 +145,11 @@ function BasicTokenDetailTabs({
 
   return (
     <Tabs.Container
+      pagerProps={
+        {
+          scrollSensitivity: 4,
+        } as any
+      }
       containerStyle={{
         ...(gtMdMedia ? { paddingRight: isModalPage ? 0 : 20 } : undefined),
         ...(md ? { marginTop: 20 } : undefined),
