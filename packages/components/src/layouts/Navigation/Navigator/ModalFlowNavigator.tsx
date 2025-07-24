@@ -40,6 +40,15 @@ const ModalStack = hasStackNavigatorModal
   ? createStackNavigator()
   : createWebModalNavigator();
 
+/**
+ * Renders a modal stack navigator with configurable screens and lifecycle hooks.
+ *
+ * Displays a sequence of modal screens defined by the provided configuration, applying theme and internationalization settings. Optionally invokes lifecycle callbacks when the navigator mounts and unmounts. The navigator adapts its page type context based on the current page type.
+ *
+ * @param config - Array of modal screen configurations to render in the navigator
+ * @param onMounted - Optional callback invoked when the navigator is mounted
+ * @param onUnmounted - Optional callback invoked when the navigator is unmounted
+ */
 function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   config,
   onMounted,

@@ -38,6 +38,13 @@ type IOnHoverFunction = ({
   price?: number | string;
 }) => void;
 
+/**
+ * Renders a responsive price chart with interactive hover details and loading or empty states.
+ *
+ * Displays the current or hovered price and time, adapts layout for different screen sizes and modal contexts, and shows loading or empty indicators as needed. Children nodes can be rendered alongside the chart for additional controls or information.
+ *
+ * @returns The rendered price chart component with interactive and responsive features.
+ */
 export function PriceChart({
   data,
   isFetching,

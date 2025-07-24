@@ -104,6 +104,14 @@ function PercentageStageOnKeyboard({
   ) : null;
 }
 
+/**
+ * Renders a page footer with action buttons and an optional percentage stage selector, adapting layout for modal pages and screen size.
+ *
+ * @param actionComponent - The main action button or component to display in the footer.
+ * @param isModalPage - Whether the current page is displayed as a modal.
+ * @param md - Indicates if the current screen size is medium.
+ * @param onSelectPercentageStage - Optional callback for selecting a percentage stage.
+ */
 function PageFooter({
   actionComponent,
   isModalPage,

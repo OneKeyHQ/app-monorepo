@@ -51,6 +51,13 @@ function Loading() {
   );
 }
 
+/**
+ * Displays a price chart for a native token using CoinGecko data, with selectable time ranges and adaptive UI for different screen sizes and modal states.
+ *
+ * Fetches and renders historical price data for the specified token, allowing users to switch between multiple time intervals. The component adapts its layout and controls based on whether it is displayed in a modal or on larger screens. Resolves a deferred promise when loading is complete and invokes a callback upon chart load.
+ *
+ * @param onLoadEnd - Callback invoked when the chart finishes loading
+ */
 function NativeTokenPriceChart({
   coinGeckoId,
   height,
@@ -185,6 +192,11 @@ const useHeight = () => {
     [fixedHeight, gtMd, height, tabHeight, top],
   );
 };
+/**
+ * Renders a TradingView chart in overview mode for the specified token pair and market identifier.
+ *
+ * Resolves the provided deferred promise on mount and calls `onLoadEnd` when the chart finishes loading. The chart layout adapts based on whether the page is a modal.
+ */
 function TradingViewChart({
   targetToken,
   identifier,
