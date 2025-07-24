@@ -3121,7 +3121,7 @@
   "wallet.subsidy_all_used": "সবগুলো নেওয়া হয়েছে",
   "wallet.subsidy_claim": "দাবি",
   "wallet.subsidy_claimed": "দাবিকৃত",
-  "wallet.subsidy_description": "রিসোর্স ১০ মিনিটের জন্য বৈধ, আগে আসলে আগে পাবেন ভিত্তিতে। ব্যবহারকারীরা প্রতি মাসে ১০টি বিনামূল্যে রিসোর্স দাবি করতে পারেন।",
+  "wallet.subsidy_description": "রিসোর্স ১০ মিনিটের জন্য বৈধ। নির্ধারিত সময়ের মধ্যে আপনার লেনদেন সম্পন্ন করুন। প্রতি ২৪ ঘণ্টায় একবার দাবি করুন (GMT+8 রিসেট), মাসে সর্বাধিক ১০ বার।",
   "wallet.subsidy_label": "বিনামূল্যে রিসোর্স",
   "wallet.subsidy_redeem_title": "বিনামূল্যে রিসোর্স দাবি করুন",
   "wallet.subsidy_remaining": "অবশিষ্ট {remaining} / {total}",

@@ -3121,7 +3121,7 @@
   "wallet.subsidy_all_used": "已領完",
   "wallet.subsidy_claim": "領取",
   "wallet.subsidy_claimed": "已領取",
-  "wallet.subsidy_description": "能量有效期為 10 分鐘，先到先得。用戶每月可領取 10 次免費能量。",
+  "wallet.subsidy_description": "能量有效期為 10 分鐘，請儘快完成交易。每 24 小時可領一次（GMT+8 重置），每月最多領取 10 次。",
   "wallet.subsidy_label": "免費能量",
   "wallet.subsidy_redeem_title": "免費能量",
   "wallet.subsidy_remaining": "剩餘 {remaining} / {total}",

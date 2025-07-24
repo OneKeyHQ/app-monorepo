@@ -39,3 +39,4 @@ export * from './tabSwap';
 export * from './testModal';
 export * from './walletAddress';
 export * from './webView';
+export * from './rewardCenter';

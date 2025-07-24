@@ -3121,7 +3121,7 @@
   "wallet.subsidy_all_used": "Alle verwendet",
   "wallet.subsidy_claim": "Beanspruchen",
   "wallet.subsidy_claimed": "Beansprucht",
-  "wallet.subsidy_description": "Ressource ist 10 Minuten gültig, FCFS. Nutzer können 10 kostenlose Ressourcen pro Monat beanspruchen.",
+  "wallet.subsidy_description": "Die Ressource ist 10 Minuten lang gültig. Schließen Sie Ihre Transaktion innerhalb des Zeitlimits ab. Anspruch einmal alle 24 Stunden (GMT+8-Reset), maximal 10 Mal pro Monat.",
   "wallet.subsidy_label": "Kostenlose Ressource",
   "wallet.subsidy_redeem_title": "Kostenlose Ressource beanspruchen",
   "wallet.subsidy_remaining": "Verbleibend {remaining} / {total}",

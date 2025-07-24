@@ -3121,7 +3121,7 @@
   "wallet.subsidy_all_used": "Все получено",
   "wallet.subsidy_claim": "Требовать",
   "wallet.subsidy_claimed": "Получено",
-  "wallet.subsidy_description": "Ресурс действителен в течение 10 минут, по принципу «кто первый — того и тапки». Пользователи могут получить 10 бесплатных ресурсов в месяц.",
+  "wallet.subsidy_description": "Ресурс действителен в течение 10 минут. Завершите транзакцию в установленный срок. Получайте один раз в 24 часа (сброс по GMT+8), максимум 10 раз в месяц.",
   "wallet.subsidy_label": "Бесплатный ресурс",
   "wallet.subsidy_redeem_title": "Получить бесплатный ресурс",
   "wallet.subsidy_remaining": "Осталось {remaining} из {total}",
