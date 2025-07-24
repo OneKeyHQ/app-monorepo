@@ -275,33 +275,28 @@ export default function PagePrimeFeatures() {
       currentIndex,
       goToNextIndex,
       gotToPrevIndex,
-    }: IRenderPaginationParams) => {
-      if (index !== currentIndex) {
-        setIndex(currentIndex);
-      }
-      return (
-        <>
-          {showPaginationButton ? (
-            <>
-              <PaginationButton
-                isVisible={currentIndex !== 0 ? isHovering : false}
-                direction="previous"
-                onPress={gotToPrevIndex}
-              />
+    }: IRenderPaginationParams) => (
+      <>
+        {showPaginationButton ? (
+          <>
+            <PaginationButton
+              isVisible={currentIndex !== 0 ? isHovering : false}
+              direction="previous"
+              onPress={gotToPrevIndex}
+            />
 
-              <PaginationButton
-                isVisible={
-                  currentIndex !== dataInfo.data.length - 1 ? isHovering : false
-                }
-                direction="next"
-                onPress={goToNextIndex}
-              />
-            </>
-          ) : null}
-        </>
-      );
-    },
-    [dataInfo.data.length, index, isHovering, showPaginationButton],
+            <PaginationButton
+              isVisible={
+                currentIndex !== dataInfo.data.length - 1 ? isHovering : false
+              }
+              direction="next"
+              onPress={goToNextIndex}
+            />
+          </>
+        ) : null}
+      </>
+    ),
+    [dataInfo.data.length, isHovering, showPaginationButton],
   );
 
   const { isPrimeSubscriptionActive } = usePrimeAuthV2();
@@ -402,6 +397,7 @@ export default function PagePrimeFeatures() {
                 position="relative"
                 index={index}
                 initialNumToRender={3}
+                onChangeIndex={({ index: newIndex }) => setIndex(newIndex)}
                 keyExtractor={keyExtractor}
                 data={dataInfo.data}
                 renderItem={renderItem}
