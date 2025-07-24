@@ -3,6 +3,7 @@ import { styled, withStaticProperties } from 'tamagui';
 import {
   Icon,
   Image,
+  SizableText,
   Stack,
   StyledSizableText,
   XStack,
