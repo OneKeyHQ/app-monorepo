@@ -22,6 +22,10 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
+  EModalRewardCenterRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
+import {
   openUrlExternal,
   openUrlInApp,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -30,10 +34,6 @@ import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 import { EarnNavigation } from '../../../Earn/earnUtils';
 
 import type { GestureResponderEvent } from 'react-native';
-import {
-  EModalRewardCenterRoutes,
-  EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
 
 function WalletBanner() {
   const {
