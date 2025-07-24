@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { EPageType } from '../../../hocs';
+import { EPageType, usePageType } from '../../../hocs';
 import { PageTypeContext } from '../../../hocs/PageType/context';
 import { useThemeValue } from '../../../hooks';
 import { makeModalStackNavigatorOptions } from '../GlobalScreenOptions';
@@ -44,7 +44,10 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   config,
   onMounted,
   onUnmounted,
-}: IModalFlowNavigatorProps<RouteName, P>) {
+  pageType: pageTypeFromProps,
+}: IModalFlowNavigatorProps<RouteName, P> & {
+  pageType?: EPageType;
+}) {
   const [bgColor, titleColor] = useThemeValue(['bgApp', 'text']);
   const intl = useIntl();
 
@@ -68,9 +71,9 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
 
   const contextValue = useMemo(
     () => ({
-      pageType: EPageType.modal,
+      pageType: pageTypeFromProps || EPageType.modal,
     }),
-    [],
+    [pageTypeFromProps],
   );
   return (
     <PageTypeContext.Provider value={contextValue}>

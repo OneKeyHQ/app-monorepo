@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { debounce } from 'lodash';
 
-import { EPageType, usePageType } from '@onekeyhq/components';
+import { useIsModalPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -128,11 +128,11 @@ export function useSwapFromAccountNetworkSync() {
     [setSettings, updateSelectedAccountNetwork],
   );
 
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
   useListenTabFocusState(
     ETabRoutes.Swap,
     async (isFocus: boolean, isHideByModal: boolean) => {
-      if (pageType !== EPageType.modal) {
+      if (!isModalPage) {
         if (isHideByModal) return;
         if (isFocus) {
           await checkTokenForAccountNetworkDebounce();
@@ -142,7 +142,7 @@ export function useSwapFromAccountNetworkSync() {
   );
 
   useEffect(() => {
-    if (pageType !== EPageType.modal) {
+    if (!isModalPage) {
       void (async () => {
         await checkTokenForAccountNetworkDebounce();
       })();
@@ -154,12 +154,12 @@ export function useSwapFromAccountNetworkSync() {
     toToken?.networkId,
     toToken?.contractAddress,
     swapProviderSupportReceiveAddress,
-    pageType,
+    isModalPage,
   ]);
 
   const isFocused = useIsFocused();
   useEffect(() => {
-    if (pageType === EPageType.modal) {
+    if (isModalPage) {
       if (isFocused) {
         void (async () => {
           await checkTokenForAccountNetworkDebounce();
@@ -169,12 +169,12 @@ export function useSwapFromAccountNetworkSync() {
   }, [
     checkTokenForAccountNetworkDebounce,
     isFocused,
-    pageType,
     fromToken?.networkId,
     fromToken?.contractAddress,
     toToken?.networkId,
     toToken?.contractAddress,
     swapProviderSupportReceiveAddress,
+    isModalPage,
   ]);
 }
 

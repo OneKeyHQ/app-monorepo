@@ -11,13 +11,7 @@ import { ethers } from 'ethers';
 import { cloneDeep, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
-import {
-  EPageType,
-  Toast,
-  rootNavigationRef,
-  usePageType,
-} from '@onekeyhq/components';
+import { Toast, rootNavigationRef, useIsModalPage } from '@onekeyhq/components';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -35,6 +29,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
@@ -138,7 +133,7 @@ export function useSwapBuildTx() {
       networkId: swapFromAddressInfo.networkId ?? '',
     });
 
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
 
   const syncRecentTokenPairs = useCallback(
     async ({
@@ -518,6 +513,7 @@ export function useSwapBuildTx() {
           };
         },
       );
+
       const res = await backgroundApiProxy.serviceSend.signAndSendTransaction({
         networkId,
         accountId,
@@ -1095,6 +1091,7 @@ export function useSwapBuildTx() {
                 swapInfo,
               );
             }
+            throw e;
           }
         } catch (e: any) {
           if (!isApprove) {
@@ -1269,7 +1266,7 @@ export function useSwapBuildTx() {
         feeType: buildSwapRes.result?.fee?.percentageFee?.toString() ?? '0',
         router: JSON.stringify(buildSwapRes.result?.routesData ?? ''),
         isFirstTime: isFirstTimeSwap,
-        createFrom: pageType === EPageType.modal ? 'modal' : 'swapPage',
+        createFrom: isModalPage ? 'modal' : 'swapPage',
       });
       setPersistSettings((prev) => ({
         ...prev,
@@ -1279,7 +1276,7 @@ export function useSwapBuildTx() {
     [
       fromToken,
       isFirstTimeSwap,
-      pageType,
+      isModalPage,
       setPersistSettings,
       slippageItem.value,
       swapFromAddressInfo.accountInfo?.account?.id,
@@ -1374,7 +1371,7 @@ export function useSwapBuildTx() {
             feeType: data?.fee?.percentageFee?.toString() ?? '0',
             router: JSON.stringify(data?.routesData ?? ''),
             isFirstTime: isFirstTimeSwap,
-            createFrom: pageType === EPageType.modal ? 'modal' : 'swapPage',
+            createFrom: isModalPage ? 'modal' : 'swapPage',
           });
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           const ne = new Error(e?.message ?? 'unknown error');
@@ -1602,7 +1599,7 @@ export function useSwapBuildTx() {
       checkOtherFee,
       intl,
       isFirstTimeSwap,
-      pageType,
+      isModalPage,
       swapBuildFinish,
       swapTypeSwitch,
       handleBuildTxSuccessWithSignedNoSend,
@@ -2164,8 +2161,15 @@ export function useSwapBuildTx() {
             } catch (error: any) {
               const shouldFallback =
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                error?.key === 'global.cancel' ||
-                step.type !== ESwapStepType.SIGN_MESSAGE ||
+                error?.className !==
+                  EOneKeyErrorClassNames.OneKeyHardwareError &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                !error?.$isHardwareError &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                error?.key !== 'global.cancel' &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                error?.code !== 803 &&
+                step.type !== ESwapStepType.SIGN_MESSAGE &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 error?.name !== 'buildSwapApi';
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
