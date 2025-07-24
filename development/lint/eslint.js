@@ -41,6 +41,11 @@ async function runParallelEslint() {
 
     results.forEach(({ result, description }) => {
       console.log(`\n=== ${description} ===`);
+      if (result.trim()) {
+        console.log(result);
+      } else {
+        console.log('No issues found.');
+      }
       combinedOutput += `\n=== ${description} ===\n${result}`;
 
       const problemsCount = result.match(/(\d+) problem/)?.[1];
