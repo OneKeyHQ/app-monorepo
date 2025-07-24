@@ -1371,7 +1371,7 @@ export function useSwapBuildTx() {
             feeType: data?.fee?.percentageFee?.toString() ?? '0',
             router: JSON.stringify(data?.routesData ?? ''),
             isFirstTime: isFirstTimeSwap,
-            createFrom: pageType === EPageType.modal ? 'modal' : 'swapPage',
+            createFrom: isModalPage ? 'modal' : 'swapPage',
           });
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           const ne = new Error(e?.message ?? 'unknown error');
@@ -1599,7 +1599,7 @@ export function useSwapBuildTx() {
       checkOtherFee,
       intl,
       isFirstTimeSwap,
-      pageType,
+      isModalPage,
       swapBuildFinish,
       swapTypeSwitch,
       handleBuildTxSuccessWithSignedNoSend,
