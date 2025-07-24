@@ -260,8 +260,6 @@ function DialogFrame({
           bg="$bg"
           borderCurve="continuous"
           disableHideBottomOverflow
-          mx={platformEnv.isNative ? 'auto' : undefined}
-          maxWidth={platformEnv.isNative ? MAX_CONTENT_WIDTH : undefined}
         >
           {!disableDrag ? <SheetGrabber /> : null}
           {renderDialogContent}
