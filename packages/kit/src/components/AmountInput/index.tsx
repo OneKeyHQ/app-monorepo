@@ -215,6 +215,7 @@ export function AmountInput({
             }}
             fallback={
               <Image.Fallback
+                borderRadius="$full"
                 alignItems="center"
                 justifyContent="center"
                 bg="$gray5"

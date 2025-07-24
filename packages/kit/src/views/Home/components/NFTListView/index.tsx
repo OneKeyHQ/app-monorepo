@@ -9,6 +9,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSearchKeyAtom } from '@onekeyhq/kit/src/states/jotai/contexts/nftList';
 import useActiveTabDAppInfo from '@onekeyhq/kit/src/views/DAppConnection/hooks/useActiveTabDAppInfo';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetDetailRoutes,
   EModalRoutes,
@@ -18,7 +19,7 @@ import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 import { NFTListItem } from './NFTListItem';
 
-import type { ListRenderItemInfo, StyleProp, ViewStyle } from 'react-native';
+import type { ListRenderItemInfo } from 'react-native';
 
 type IProps = {
   data: IAccountNFT[];
@@ -157,20 +158,28 @@ function NFTListView(props: IProps) {
     },
   );
 
-  if (!initialized && isLoading) {
-    return <NFTListLoadingView />;
-  }
+  const EmptyComponentElement = useMemo(() => {
+    if (!initialized && isLoading) {
+      return <NFTListLoadingView />;
+    }
+    if (searchKey) {
+      return <EmptySearch flex={1} />;
+    }
+    return <EmptyNFT />;
+  }, [initialized, isLoading, searchKey]);
 
   return (
     <Tabs.FlatList
-      key={numColumns}
+      // @ts-ignore
+      horizontalPadding={20}
+      key={platformEnv.isNative ? numColumns : undefined}
       contentContainerStyle={style as any}
       ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
       ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       numColumns={numColumns}
       data={filteredNfts || []}
       renderItem={handleRenderItem}
-      ListEmptyComponent={searchKey ? <EmptySearch flex={1} /> : <EmptyNFT />}
+      ListEmptyComponent={EmptyComponentElement}
       ListFooterComponent={
         <>{addPaddingOnListFooter ? <Stack h="$16" /> : null}</>
       }

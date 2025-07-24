@@ -70,6 +70,7 @@ import type ServiceToken from '../services/ServiceToken';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
+import type ServiceWalletBanner from '../services/ServiceWalletBanner';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
 
 class BackgroundApiProxy
@@ -309,6 +310,10 @@ class BackgroundApiProxy
   servicePrimeTransfer = this._createProxyService(
     'servicePrimeTransfer',
   ) as ServicePrimeTransfer;
+
+  serviceWalletBanner = this._createProxyService(
+    'serviceWalletBanner',
+  ) as ServiceWalletBanner;
 }
 
 export default BackgroundApiProxy;

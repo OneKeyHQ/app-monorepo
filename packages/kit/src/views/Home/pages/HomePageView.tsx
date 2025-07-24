@@ -1,8 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { type LayoutChangeEvent, useWindowDimensions } from 'react-native';
 
-import { Icon, Page, Stack, Tabs, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Page,
+  Stack,
+  Tabs,
+  YStack,
+  getTokens,
+  useIsHorizontalLayout,
+  useMedia,
+} from '@onekeyhq/components';
+import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderSideBarValue';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -30,8 +41,35 @@ import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
-import type { LayoutChangeEvent } from 'react-native';
-
+const useNativeTabContainerWidth = platformEnv.isNativeIOSPad
+  ? () => {
+      const isHorizontal = useIsHorizontalLayout();
+      const { width } = useWindowDimensions();
+      const sideBarWidth = useMemo(() => {
+        if (isHorizontal) {
+          return getTokens().size.sideBarWidth.val;
+        }
+        return 0;
+      }, [isHorizontal]);
+      return width - sideBarWidth;
+    }
+  : () => undefined;
+const useTabContainerWidth = platformEnv.isNative
+  ? useNativeTabContainerWidth
+  : () => {
+      const { leftSidebarCollapsed = false } = useProviderSideBarValue() || {};
+      const { md } = useMedia();
+      const sideBarWidth = useMemo(() => {
+        if (md) {
+          return 0;
+        }
+        if (!leftSidebarCollapsed) {
+          return getTokens().size.sideBarWidth.val;
+        }
+        return 0;
+      }, [md, leftSidebarCollapsed]);
+      return `calc(100vw - ${sideBarWidth}px)`;
+    };
 export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onPressHide,
@@ -126,12 +164,17 @@ export function HomePageView({
     return <HomeHeaderContainer />;
   }, []);
 
+  const tabContainerWidth: any = useTabContainerWidth();
   const tabContainerProps = useMemo(() => {
     return {
+      width: tabContainerWidth,
       headerContainerStyle: {
         shadowOpacity: 0,
         elevation: 0,
       },
+      pagerProps: {
+        scrollSensitivity: 4,
+      } as any,
       renderHeader,
       renderTabBar: (props: any) => (
         <Tabs.TabBar
@@ -142,7 +185,7 @@ export function HomePageView({
         />
       ),
     };
-  }, [renderHeader]);
+  }, [renderHeader, tabContainerWidth]);
 
   const tabs = useMemo(() => {
     const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${

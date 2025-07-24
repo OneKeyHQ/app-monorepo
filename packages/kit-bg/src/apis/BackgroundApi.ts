@@ -657,5 +657,15 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'servicePrimeTransfer', { value });
     return value;
   }
+
+  get serviceWalletBanner() {
+    const ServiceWalletBanner =
+      require('../services/ServiceWalletBanner') as typeof import('../services/ServiceWalletBanner');
+    const value = new ServiceWalletBanner.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceWalletBanner', { value });
+    return value;
+  }
 }
 export default BackgroundApi;

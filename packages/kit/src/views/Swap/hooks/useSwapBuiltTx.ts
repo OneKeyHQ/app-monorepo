@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import {
   OrderBalance,
@@ -11,7 +11,13 @@ import { ethers } from 'ethers';
 import { cloneDeep, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { EPageType, Toast, usePageType } from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components';
+import {
+  EPageType,
+  Toast,
+  rootNavigationRef,
+  usePageType,
+} from '@onekeyhq/components';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -29,9 +35,12 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
+import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   numberFormat,
   toBigIntHex,
@@ -56,6 +65,7 @@ import {
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type {
   ESwapCancelLimitOrderSource,
+  IFetchBuildTxResponse,
   IFetchLimitOrderRes,
   IFetchQuoteResult,
   IOneInchOrderStruct,
@@ -196,6 +206,13 @@ export function useSwapBuildTx() {
             };
           },
         );
+        if (
+          accountUtils.isQrAccount({
+            accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+          })
+        ) {
+          rootNavigationRef.current?.goBack();
+        }
         await generateSwapHistoryItem({
           txId,
           swapTxInfo: swapInfo,
@@ -210,7 +227,11 @@ export function useSwapBuildTx() {
         }
       }
     },
-    [generateSwapHistoryItem, setSwapSteps],
+    [
+      generateSwapHistoryItem,
+      setSwapSteps,
+      swapFromAddressInfo.accountInfo?.account?.id,
+    ],
   );
 
   const handleBuildTxSuccessWithSignedNoSend = useCallback(
@@ -498,6 +519,7 @@ export function useSwapBuildTx() {
           };
         },
       );
+
       const res = await backgroundApiProxy.serviceSend.signAndSendTransaction({
         networkId,
         accountId,
@@ -693,7 +715,7 @@ export function useSwapBuildTx() {
       accountId: string,
       buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams,
       approveUnsignedTxArr?: IUnsignedTxPro[],
-      prevStep?: ISwapStep,
+      noWaitApprovedNonce?: number,
     ) => {
       if (
         !fromToken ||
@@ -735,12 +757,12 @@ export function useSwapBuildTx() {
         });
       if (
         !approveUnsignedTxArr?.length &&
-        prevStep?.type === ESwapStepType.APPROVE_TX &&
+        noWaitApprovedNonce &&
         unsignedTx.nonce
       ) {
-        unsignedTx.nonce += 1;
+        unsignedTx.nonce = noWaitApprovedNonce + 1;
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        (unsignedTx.encodedTx as any).nonce += 1;
+        (unsignedTx.encodedTx as any).nonce = noWaitApprovedNonce + 1;
       }
       const vaultSettings =
         await backgroundApiProxy.serviceNetwork.getVaultSettings({
@@ -1075,6 +1097,7 @@ export function useSwapBuildTx() {
                 swapInfo,
               );
             }
+            throw e;
           }
         } catch (e: any) {
           if (!isApprove) {
@@ -1138,9 +1161,10 @@ export function useSwapBuildTx() {
               approveInfo,
               prevNonce,
             });
-          return unsignedTx;
+          return { unsignedTx, approveInfo };
         }
       }
+      return { unsignedTx: undefined, approveInfo: undefined };
     },
     [swapFromAddressInfo.address, swapFromAddressInfo.accountInfo?.account?.id],
   );
@@ -1153,6 +1177,7 @@ export function useSwapBuildTx() {
       data?: IFetchQuoteResult,
       shouldFallback?: boolean,
       shouldWaitApprove?: boolean,
+      noWaitApprovedNonce?: number,
     ) => {
       if (
         data?.allowanceResult?.allowanceTarget &&
@@ -1191,6 +1216,8 @@ export function useSwapBuildTx() {
                 accountId: swapFromAddressInfo.accountInfo?.account?.id,
                 approveInfo,
               },
+              undefined,
+              noWaitApprovedNonce,
             );
             return res;
           }
@@ -1233,6 +1260,7 @@ export function useSwapBuildTx() {
         swapType = ESwapTabSwitchType.BRIDGE;
       }
       defaultLogger.swap.createSwapOrder.swapCreateOrder({
+        status: ESwapEventAPIStatus.SUCCESS,
         swapProvider: buildSwapRes.result?.info.provider ?? '',
         swapProviderName: buildSwapRes.result?.info.providerName ?? '',
         swapType,
@@ -1270,8 +1298,9 @@ export function useSwapBuildTx() {
       stepIndex: number,
       data?: IFetchQuoteResult,
       approveUnsignedTxArr?: IUnsignedTxPro[],
-      prevStep?: ISwapStep,
+      noWaitApprovedNonce?: number,
       shouldFallback?: boolean,
+      fallbackApproveInfos?: IApproveInfo[],
     ) => {
       if (
         data?.fromTokenInfo &&
@@ -1307,21 +1336,55 @@ export function useSwapBuildTx() {
         if (!checkRes) {
           throw new OneKeyError('checkOtherFee failed');
         }
-        const buildSwapRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
-          fromToken: data.fromTokenInfo,
-          toToken: data.toTokenInfo,
-          toTokenAmount: data.toAmount,
-          fromTokenAmount: data.fromAmount,
-          slippagePercentage: slippageItem.value,
-          receivingAddress: swapToAddressInfo.address,
-          userAddress: swapFromAddressInfo.address,
-          provider: data?.info.provider,
-          accountId: swapFromAddressInfo.accountInfo?.account?.id,
-          quoteResultCtx: data?.quoteResultCtx,
-          protocol: data.protocol ?? EProtocolOfExchange.SWAP,
-          kind: data.kind ?? ESwapQuoteKind.SELL,
-          walletType: swapFromAddressInfo.accountInfo?.wallet?.type,
-        });
+        let buildSwapRes: IFetchBuildTxResponse | undefined;
+        try {
+          buildSwapRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
+            fromToken: data.fromTokenInfo,
+            toToken: data.toTokenInfo,
+            toTokenAmount: data.toAmount,
+            fromTokenAmount: data.fromAmount,
+            slippagePercentage: slippageItem.value,
+            receivingAddress: swapToAddressInfo.address,
+            userAddress: swapFromAddressInfo.address,
+            provider: data?.info.provider,
+            accountId: swapFromAddressInfo.accountInfo?.account?.id,
+            quoteResultCtx: data?.quoteResultCtx,
+            protocol: data.protocol ?? EProtocolOfExchange.SWAP,
+            kind: data.kind ?? ESwapQuoteKind.SELL,
+            walletType: swapFromAddressInfo.accountInfo?.wallet?.type,
+          });
+        } catch (e: any) {
+          let swapType = ESwapTabSwitchType.SWAP;
+          if (data?.protocol === EProtocolOfExchange.LIMIT) {
+            swapType = ESwapTabSwitchType.LIMIT;
+          } else if (
+            data?.fromTokenInfo.networkId !== data?.toTokenInfo.networkId
+          ) {
+            swapType = ESwapTabSwitchType.BRIDGE;
+          }
+          defaultLogger.swap.createSwapOrder.swapCreateOrder({
+            status: ESwapEventAPIStatus.FAIL,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            message: e?.message ?? 'unknown error',
+            swapProvider: data?.info.provider ?? '',
+            swapProviderName: data?.info.providerName ?? '',
+            swapType,
+            slippage: slippageItem.value.toString(),
+            sourceChain: data?.fromTokenInfo.networkId ?? '',
+            receivedChain: data?.toTokenInfo.networkId ?? '',
+            sourceTokenSymbol: data?.fromTokenInfo.symbol ?? '',
+            receivedTokenSymbol: data?.toTokenInfo.symbol ?? '',
+            feeType: data?.fee?.percentageFee?.toString() ?? '0',
+            router: JSON.stringify(data?.routesData ?? ''),
+            isFirstTime: isFirstTimeSwap,
+            createFrom: pageType === EPageType.modal ? 'modal' : 'swapPage',
+          });
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          const ne = new Error(e?.message ?? 'unknown error');
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          ne.name = 'buildSwapApi';
+          throw ne;
+        }
         let skipSendTransAction = false;
         if (buildSwapRes) {
           let transferInfo: ITransferInfo | undefined;
@@ -1479,6 +1542,10 @@ export function useSwapBuildTx() {
               isInternalSwap: true,
               transfersInfo: transferInfo ? [transferInfo] : undefined,
               encodedTx,
+              approvesInfo:
+                fallbackApproveInfos?.length && shouldFallback
+                  ? fallbackApproveInfos
+                  : undefined,
               swapInfo,
               onSuccess: (successData: ISendTxOnSuccessData[]) =>
                 handleBuildTxFallbackOnSuccess(successData, orderId),
@@ -1517,7 +1584,7 @@ export function useSwapBuildTx() {
                 swapInfo,
               },
               approveUnsignedTxArr,
-              prevStep,
+              noWaitApprovedNonce,
             );
             if (sendTxRes) {
               void onBuildTxSuccess(sendTxRes.txid, swapInfo, orderId);
@@ -1537,6 +1604,8 @@ export function useSwapBuildTx() {
       setSwapSteps,
       checkOtherFee,
       intl,
+      isFirstTimeSwap,
+      pageType,
       swapBuildFinish,
       swapTypeSwitch,
       handleBuildTxSuccessWithSignedNoSend,
@@ -1835,7 +1904,11 @@ export function useSwapBuildTx() {
   );
 
   const batchApproveSwap = useCallback(
-    async (stepIndex: number, data?: IFetchQuoteResult) => {
+    async (
+      stepIndex: number,
+      data?: IFetchQuoteResult,
+      shouldFallback?: boolean,
+    ) => {
       if (
         data?.fromTokenInfo &&
         data?.toTokenInfo &&
@@ -1848,10 +1921,14 @@ export function useSwapBuildTx() {
         swapFromAddressInfo.accountInfo?.account?.id
       ) {
         let unsignedTxArr: IUnsignedTxPro[] = [];
+        let fallbackApproveInfos: IApproveInfo[] = [];
         let prevNonce: number | undefined;
         if (data.allowanceResult) {
           if (data.allowanceResult.shouldResetApprove) {
-            const resetApproveUnsignedTx = await getApproveUnsignedTx(
+            const {
+              unsignedTx: resetApproveUnsignedTx,
+              approveInfo: resetApproveApproveInfo,
+            } = await getApproveUnsignedTx(
               '0',
               !!swapActionState.approveUnLimit,
               data,
@@ -1860,8 +1937,17 @@ export function useSwapBuildTx() {
               unsignedTxArr = [...unsignedTxArr, resetApproveUnsignedTx];
               prevNonce = resetApproveUnsignedTx.nonce;
             }
+            if (resetApproveApproveInfo) {
+              fallbackApproveInfos = [
+                ...fallbackApproveInfos,
+                resetApproveApproveInfo,
+              ];
+            }
           }
-          const approveUnsignedTx = await getApproveUnsignedTx(
+          const {
+            unsignedTx: approveUnsignedTx,
+            approveInfo: approveApproveInfo,
+          } = await getApproveUnsignedTx(
             data.fromAmount,
             !!swapActionState.approveUnLimit,
             data,
@@ -1870,8 +1956,21 @@ export function useSwapBuildTx() {
           if (approveUnsignedTx) {
             unsignedTxArr = [...unsignedTxArr, approveUnsignedTx];
           }
+          if (approveApproveInfo) {
+            fallbackApproveInfos = [
+              ...fallbackApproveInfos,
+              approveApproveInfo,
+            ];
+          }
         }
-        await buildTxNew(stepIndex, data, unsignedTxArr);
+        await buildTxNew(
+          stepIndex,
+          data,
+          unsignedTxArr,
+          undefined,
+          shouldFallback,
+          fallbackApproveInfos,
+        );
       }
     },
     [
@@ -1889,7 +1988,7 @@ export function useSwapBuildTx() {
     async (swapStepsValues?: {
       steps: ISwapStep[];
       preSwapData: ISwapPreSwapData;
-      quoteResult: IFetchQuoteResult;
+      quoteResult?: IFetchQuoteResult;
     }) => {
       const swapStepsValuesFinal = swapStepsValues?.steps ?? swapSteps.steps;
       const preSwapDataFinal =
@@ -1897,6 +1996,7 @@ export function useSwapBuildTx() {
       const quoteResultFinal =
         swapStepsValues?.quoteResult ?? swapSteps.quoteResult;
       if (swapStepsValuesFinal.length > 0) {
+        let noWaitApprovedNonce: number | undefined;
         for (let i = 0; i < swapStepsValuesFinal.length; i += 1) {
           const stepIndex = i;
           const step = swapStepsValuesFinal[i];
@@ -1944,7 +2044,14 @@ export function useSwapBuildTx() {
                     quoteResultFinal,
                     preSwapDataFinal?.shouldFallback,
                     step.shouldWaitApproved,
+                    noWaitApprovedNonce,
                   );
+                }
+                if (!step.shouldWaitApproved) {
+                  noWaitApprovedNonce =
+                    approveSendTx?.nonce ??
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                    (approveSendTx?.encodedTx as any)?.nonce;
                 }
                 if (
                   step.shouldWaitApproved ||
@@ -2021,19 +2128,21 @@ export function useSwapBuildTx() {
                   preSwapDataFinal?.toToken,
                 );
               } else if (type === ESwapStepType.SEND_TX) {
-                const prevStep =
-                  i > 0 ? swapStepsValuesFinal[i - 1] : undefined;
                 await buildTxNew(
                   stepIndex,
                   quoteResultFinal,
                   undefined,
-                  prevStep,
+                  noWaitApprovedNonce,
                   preSwapDataFinal?.shouldFallback,
                 );
               } else if (type === ESwapStepType.SIGN_MESSAGE) {
                 await signMessage(stepIndex, quoteResultFinal);
               } else if (type === ESwapStepType.BATCH_APPROVE_SWAP) {
-                await batchApproveSwap(stepIndex, quoteResultFinal);
+                await batchApproveSwap(
+                  stepIndex,
+                  quoteResultFinal,
+                  preSwapDataFinal?.shouldFallback,
+                );
               }
 
               if (i !== swapStepsValuesFinal.length - 1) {
@@ -2055,7 +2164,55 @@ export function useSwapBuildTx() {
                   },
                 );
               }
-            } catch (error) {
+            } catch (error: any) {
+              const shouldFallback =
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                error?.className !==
+                  EOneKeyErrorClassNames.OneKeyHardwareError &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                !error?.$isHardwareError &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                error?.key !== 'global.cancel' &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                error?.code !== 803 &&
+                step.type !== ESwapStepType.SIGN_MESSAGE &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                error?.name !== 'buildSwapApi';
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              let errorMessage = error?.message ?? 'Unknown error';
+              if (shouldFallback) {
+                errorMessage = undefined;
+              }
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              if (error?.key === 'global.cancel') {
+                errorMessage = intl.formatMessage({
+                  id: ETranslations.limit_cancel_order_title,
+                });
+              }
+              let fallbackSwapStepsValues: {
+                steps: ISwapStep[];
+                preSwapData: ISwapPreSwapData;
+                quoteResult?: IFetchQuoteResult | undefined;
+              } = swapStepsValues ?? {
+                steps: swapSteps.steps,
+                preSwapData: swapSteps.preSwapData,
+                quoteResult: swapSteps.quoteResult,
+              };
+              if (shouldFallback) {
+                const newSteps = [...fallbackSwapStepsValues.steps];
+                newSteps[i] = {
+                  ...newSteps[i],
+                  status: ESwapStepStatus.READY,
+                };
+                fallbackSwapStepsValues = {
+                  steps: [...newSteps],
+                  preSwapData: {
+                    ...fallbackSwapStepsValues.preSwapData,
+                    shouldFallback,
+                  },
+                  quoteResult: fallbackSwapStepsValues.quoteResult,
+                };
+              }
               setSwapSteps(
                 (prevSteps: {
                   steps: ISwapStep[];
@@ -2065,16 +2222,33 @@ export function useSwapBuildTx() {
                   const newSteps = [...prevSteps.steps];
                   newSteps[i] = {
                     ...newSteps[i],
-                    status: ESwapStepStatus.FAILED,
-                    errorMessage:
-                      error instanceof Error ? error.message : 'Unknown error',
+                    status: shouldFallback
+                      ? ESwapStepStatus.READY
+                      : ESwapStepStatus.FAILED,
+                    errorMessage,
                   };
                   return {
                     ...prevSteps,
                     steps: newSteps,
+                    preSwapData: {
+                      ...prevSteps.preSwapData,
+                      shouldFallback,
+                    },
                   };
                 },
               );
+              if (
+                shouldFallback &&
+                !swapStepsValues?.preSwapData.shouldFallback
+              ) {
+                void preSwapStepsStart(fallbackSwapStepsValues);
+              } else if (
+                accountUtils.isQrAccount({
+                  accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+                })
+              ) {
+                rootNavigationRef.current?.goBack();
+              }
               break;
             }
           }
@@ -2082,7 +2256,9 @@ export function useSwapBuildTx() {
       }
     },
     [
-      swapSteps,
+      swapSteps.steps,
+      swapSteps.preSwapData,
+      swapSteps.quoteResult,
       setSwapSteps,
       approveTxNew,
       swapActionState.approveUnLimit,
@@ -2090,6 +2266,7 @@ export function useSwapBuildTx() {
       setInAppNotificationAtom,
       swapTypeSwitch,
       swapFromAddressInfo.address,
+      swapFromAddressInfo.accountInfo?.account?.id,
       wrappedTx,
       buildTxNew,
       signMessage,

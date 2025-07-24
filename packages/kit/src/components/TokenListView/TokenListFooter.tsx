@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -15,13 +15,19 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalAssetListRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import {
   useRiskyTokenListAtom,
@@ -123,6 +129,7 @@ function TokenListFooter(props: IProps) {
           keys: riskyTokenKeys,
           map: riskyTokenListMap,
         },
+        isAllNetworks: network.isAllNetworks,
       },
     });
   }, [
@@ -133,6 +140,48 @@ function TokenListFooter(props: IProps) {
     riskyTokenListMap,
     riskyTokens,
   ]);
+
+  const { result: blockedTokensLength, run } = usePromiseResult(
+    async () => {
+      if (!network) return riskyTokens?.length ?? 0;
+
+      const unblockedTokensMap =
+        await backgroundApiProxy.serviceToken.getUnblockedTokensMap({
+          networkId: network.id,
+        });
+
+      const blockedTokens = [];
+
+      for (const token of riskyTokens) {
+        const tokenNetworkId = token.networkId ?? network.id;
+
+        if (!unblockedTokensMap?.[tokenNetworkId]?.[token.address]) {
+          blockedTokens.push({
+            ...token,
+            isBlocked: true,
+          });
+        }
+      }
+
+      return blockedTokens.length;
+    },
+    [network, riskyTokens],
+    {
+      initResult: 0,
+    },
+  );
+
+  useEffect(() => {
+    const refresh = () => {
+      void run();
+    };
+
+    appEventBus.on(EAppEventBusNames.RefreshTokenList, refresh);
+    return () => {
+      appEventBus.off(EAppEventBusNames.RefreshTokenList, refresh);
+    };
+  }, [run]);
+
   return (
     <Stack>
       {!isSearchMode && smallBalanceTokens.length > 0 ? (
@@ -220,7 +269,7 @@ function TokenListFooter(props: IProps) {
               />
             </Stack>
             <ListItem.Text
-              primary={`${riskyTokens.length} ${intl.formatMessage({
+              primary={`${blockedTokensLength} ${intl.formatMessage({
                 id: ETranslations.wallet_collapsed_risk_assets,
               })}`}
               {...(tableLayout && {

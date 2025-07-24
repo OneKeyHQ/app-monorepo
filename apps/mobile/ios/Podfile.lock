@@ -1968,8 +1968,30 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-view-shot (3.1.2):
-    - React
+  - react-native-view-shot (4.0.3):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.11.18.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - react-native-webview (13.15.0):
     - DoubleConversion
     - glog
@@ -3440,7 +3462,7 @@ SPEC CHECKSUMS:
   react-native-tab-page-view: 16a35c02cbc698f0b592c2c2da533eb893136bf5
   react-native-tcp-socket: 120072c8020262032773f80f0daaf3964aaa08a1
   react-native-video: f906920a39ad30208bb789bdda7404f510ab422a
-  react-native-view-shot: bb8934cb93bf8ec740c81ed94f93244778797b6c
+  react-native-view-shot: aacb5b315b442a2326b1212c9de49b78c0e91cf9
   react-native-webview: 69c118d283fccfbc4fca0cd680e036ff3bf188fa
   react-native-webview-cleaner: c2d3bbb850105553c845303044234ca82062d592
   React-NativeModulesApple: 0f1cdafa0517926f47ff74dbd92a1c9bb767cc69
