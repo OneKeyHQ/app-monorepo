@@ -117,27 +117,21 @@ const PageView = () => {
                 id: ETranslations.settings_transactions,
               })}
             >
-              <Tabs.ScrollView>
-                <Transactions />
-              </Tabs.ScrollView>
+              <Transactions />
             </Tabs.Tab>
             <Tabs.Tab
               name={intl.formatMessage({
                 id: ETranslations.settings_sign_text,
               })}
             >
-              <Tabs.ScrollView>
-                <SignText />
-              </Tabs.ScrollView>
+              <SignText />
             </Tabs.Tab>
             <Tabs.Tab
               name={intl.formatMessage({
                 id: ETranslations.explore_dapp_connections,
               })}
             >
-              <Tabs.ScrollView>
-                <ConnectedSites />
-              </Tabs.ScrollView>
+              <ConnectedSites />
             </Tabs.Tab>
           </Tabs.Container>
         </Page.Body>
