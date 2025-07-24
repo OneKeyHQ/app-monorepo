@@ -72,6 +72,7 @@ import type ServiceToken from '../services/ServiceToken';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
+import type ServiceWalletBanner from '../services/ServiceWalletBanner';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
 import type { EAtomNames } from '../states/jotai/atomNames';
 import type { IWebembedApiKeys } from '../webembeds/instance/IWebembedApi';
@@ -186,6 +187,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceCustomRpc: ServiceCustomRpc;
   serviceReferralCode: ServiceReferralCode;
   serviceDBBackup: ServiceDBBackup;
+  serviceWalletBanner: ServiceWalletBanner;
 
   serviceE2E: ServiceE2E;
   serviceLogger: ServiceLogger;
