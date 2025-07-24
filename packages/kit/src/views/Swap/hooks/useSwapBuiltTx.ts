@@ -35,6 +35,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
@@ -2166,7 +2167,8 @@ export function useSwapBuildTx() {
             } catch (error: any) {
               const shouldFallback =
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                error?.name !== 'OneKeyHardwareError' &&
+                error?.className !==
+                  EOneKeyErrorClassNames.OneKeyHardwareError &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 !error?.$isHardwareError &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
