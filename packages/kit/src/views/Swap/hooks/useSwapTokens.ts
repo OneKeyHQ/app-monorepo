@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
 
-import { EPageType, usePageType } from '@onekeyhq/components';
+import { useIsModalPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -393,9 +393,9 @@ export function useSwapSelectedTokenInfo({
     },
     [type, loadSwapSelectTokenDetailDeb],
   );
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
   useEffect(() => {
-    if (isFocused && pageType === EPageType.modal) {
+    if (isFocused && isModalPage) {
       appEventBus.off(
         EAppEventBusNames.SwapTxHistoryStatusUpdate,
         reloadSwapSelectTokenDetail,
@@ -405,7 +405,7 @@ export function useSwapSelectedTokenInfo({
         reloadSwapSelectTokenDetail,
       );
     }
-  }, [isFocused, pageType, reloadSwapSelectTokenDetail]);
+  }, [isFocused, isModalPage, reloadSwapSelectTokenDetail]);
 
   useEffect(() => {
     void loadSwapSelectTokenDetailDeb(type, swapAddressInfoRef.current, false);
@@ -423,7 +423,7 @@ export function useSwapSelectedTokenInfo({
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
-      if (pageType !== EPageType.modal) {
+      if (!isModalPage) {
         if (isFocus) {
           appEventBus.off(
             EAppEventBusNames.SwapTxHistoryStatusUpdate,

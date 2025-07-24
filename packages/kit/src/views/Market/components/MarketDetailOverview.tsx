@@ -8,7 +8,6 @@ import type {
   ITabPageProps,
 } from '@onekeyhq/components';
 import {
-  EPageType,
   NestedScrollView,
   NumberSizeableText,
   Popover,
@@ -16,7 +15,7 @@ import {
   SizableText,
   XStack,
   YStack,
-  usePageType,
+  useIsModalPage,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -378,13 +377,13 @@ export function MarketDetailOverview({
   token: IMarketTokenDetail;
 }) {
   const intl = useIntl();
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
   return (
     <NestedScrollView>
       <YStack
         pb="$10"
         $md={{ px: '$5' }}
-        {...(pageType === EPageType.modal ? { px: '$5' } : null)}
+        {...(isModalPage ? { px: '$5' } : null)}
       >
         <XStack
           borderWidth="$px"

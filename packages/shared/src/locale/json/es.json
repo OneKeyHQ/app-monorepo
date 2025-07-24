@@ -3121,7 +3121,7 @@
   "wallet.subsidy_all_used": "Todo usado",
   "wallet.subsidy_claim": "Afirmar",
   "wallet.subsidy_claimed": "Reclamado",
-  "wallet.subsidy_description": "Recurso válido por 10 minutos, FCFS. Los usuarios pueden reclamar 10 recursos gratuitos por mes.",
+  "wallet.subsidy_description": "El recurso es válido por 10 minutos. Completa tu transacción dentro del límite de tiempo. Reclama una vez cada 24 horas (reinicio GMT+8), máximo 10 veces al mes.",
   "wallet.subsidy_label": "Recurso gratuito",
   "wallet.subsidy_redeem_title": "Reclama recurso gratis",
   "wallet.subsidy_remaining": "Quedan {remaining} / {total}",

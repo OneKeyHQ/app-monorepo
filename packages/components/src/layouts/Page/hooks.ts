@@ -5,7 +5,7 @@ import { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { EPageType, usePageType } from '../../hocs';
+import { EPageType, useIsModalPage } from '../../hocs';
 import {
   updateHeightWhenKeyboardHide,
   updateHeightWhenKeyboardShown,
@@ -98,18 +98,18 @@ export const usePageUnMounted = (
 };
 
 export const useSafeAreaBottom = () => {
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
   const { safeAreaEnabled } = useContext(PageContext);
   const { bottom } = useSafeAreaInsets();
-  return safeAreaEnabled && pageType === EPageType.modal ? bottom : 0;
+  return safeAreaEnabled && isModalPage ? bottom : 0;
 };
 
 export const TAB_BAR_HEIGHT = 54;
 
 export const useTabBarHeight = () => {
   const { bottom } = useSafeAreaInsets();
-  const pageType = usePageType();
-  return pageType === EPageType.modal ? 0 : TAB_BAR_HEIGHT + bottom;
+  const isModalPage = useIsModalPage();
+  return isModalPage ? 0 : TAB_BAR_HEIGHT + bottom;
 };
 
 export const useSafeKeyboardAnimationStyle = () => {

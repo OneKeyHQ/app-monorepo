@@ -44,7 +44,7 @@ function useGetReferralCodeWalletInfo() {
       return null;
     }
 
-    let walletId = queryWalletId;
+    const walletId = queryWalletId;
     let wallet: IDBWallet | undefined;
 
     if (
@@ -56,20 +56,10 @@ function useGetReferralCodeWalletInfo() {
 
     try {
       wallet = await backgroundApiProxy.serviceAccount.getWallet({
-        walletId: queryWalletId,
+        walletId,
       });
-      if (
-        accountUtils.isHwHiddenWallet({ wallet }) &&
-        wallet.associatedDevice
-      ) {
-        const parentWalletId = accountUtils.buildHwWalletId({
-          dbDeviceId: wallet.associatedDevice,
-        });
-        wallet = await backgroundApiProxy.serviceAccount.getWallet({
-          walletId: parentWalletId,
-        });
-        // replace walletId with parent walletId when it's a hidden wallet
-        walletId = parentWalletId;
+      if (accountUtils.isHwHiddenWallet({ wallet })) {
+        return null;
       }
     } catch {
       return null;

@@ -3121,7 +3121,7 @@
   "wallet.subsidy_all_used": "รับหมดแล้ว",
   "wallet.subsidy_claim": "เรียกร้อง",
   "wallet.subsidy_claimed": "อ้างสิทธิ์แล้ว",
-  "wallet.subsidy_description": "ทรัพยากรมีอายุ 10 นาที มาก่อนได้ก่อน ผู้ใช้สามารถรับทรัพยากรฟรี 10 ครั้งต่อเดือน",
+  "wallet.subsidy_description": "ทรัพยากรนี้ใช้ได้เป็นเวลา 10 นาที กรุณาทำธุรกรรมให้เสร็จภายในเวลาที่กำหนด รับสิทธิ์ได้วันละครั้ง (รีเซ็ตตามเวลา GMT+8) สูงสุด 10 ครั้งต่อเดือน",
   "wallet.subsidy_label": "ทรัพยากรฟรี",
   "wallet.subsidy_redeem_title": "รับทรัพยากรฟรี",
   "wallet.subsidy_remaining": "เหลือ {remaining} / {total}",

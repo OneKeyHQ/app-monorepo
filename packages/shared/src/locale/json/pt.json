@@ -3121,7 +3121,7 @@
   "wallet.subsidy_all_used": "Esgotado",
   "wallet.subsidy_claim": "Alegar",
   "wallet.subsidy_claimed": "Reivindicado",
-  "wallet.subsidy_description": "Recurso válido por 10 minutos, por ordem de chegada. Os usuários podem reivindicar 10 recursos gratuitos por mês.",
+  "wallet.subsidy_description": "O recurso é válido por 10 minutos. Complete sua transação dentro do limite de tempo. Reivindique uma vez a cada 24h (reinício GMT+8), máximo de 10 vezes por mês.",
   "wallet.subsidy_label": "Recurso gratuito",
   "wallet.subsidy_redeem_title": "Reivindicar recurso gratuito",
   "wallet.subsidy_remaining": "Restantes {remaining} / {total}",
