@@ -70,7 +70,7 @@ function FeaturesItem({
           </SizableText>
         </Stack>
         <Divider my="$6" borderColor="$neutral3" />
-        <YStack gap="$2">
+        <YStack gap="$1.5">
           {details.map((detail, index) => {
             return (
               <ListItem
@@ -229,21 +229,21 @@ export default function PagePrimeFeatures() {
         }),
         details: [
           {
+            icon: 'GasOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_two_desc,
+            }),
+          },
+          {
             icon: 'WalletCryptoOutline',
             title: intl.formatMessage({
               id: ETranslations.prime_features_bulk_revoke_detail_one_title,
             }),
             description: intl.formatMessage({
               id: ETranslations.prime_features_bulk_revoke_detail_one_desc,
-            }),
-          },
-          {
-            icon: 'Filter1Outline',
-            title: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_two_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_two_desc,
             }),
           },
         ],
@@ -268,41 +268,40 @@ export default function PagePrimeFeatures() {
   const showPaginationButton = !platformEnv.isNative;
   const isHovering = true;
 
+  const [index, setIndex] = useState(dataInfo.index);
+
   const renderPagination = useCallback(
     ({
       currentIndex,
       goToNextIndex,
       gotToPrevIndex,
-    }: IRenderPaginationParams) => (
-      <>
-        {showPaginationButton ? (
-          <>
-            <PaginationButton
-              isVisible={currentIndex !== 0 ? isHovering : false}
-              direction="previous"
-              onPress={gotToPrevIndex}
-            />
+    }: IRenderPaginationParams) => {
+      if (index !== currentIndex) {
+        setIndex(currentIndex);
+      }
+      return (
+        <>
+          {showPaginationButton ? (
+            <>
+              <PaginationButton
+                isVisible={currentIndex !== 0 ? isHovering : false}
+                direction="previous"
+                onPress={gotToPrevIndex}
+              />
 
-            <PaginationButton
-              isVisible={
-                currentIndex !== dataInfo.data.length - 1 ? isHovering : false
-              }
-              direction="next"
-              onPress={goToNextIndex}
-            />
-          </>
-        ) : null}
-      </>
-    ),
-    [dataInfo.data, isHovering, showPaginationButton],
-  );
-
-  const [index, setIndex] = useState(dataInfo.index);
-  const onIndexChange = useCallback(
-    ({ index: newIndex }: { index: number }) => {
-      setIndex(newIndex);
+              <PaginationButton
+                isVisible={
+                  currentIndex !== dataInfo.data.length - 1 ? isHovering : false
+                }
+                direction="next"
+                onPress={goToNextIndex}
+              />
+            </>
+          ) : null}
+        </>
+      );
     },
-    [],
+    [dataInfo.data.length, index, isHovering, showPaginationButton],
   );
 
   const { isPrimeSubscriptionActive } = usePrimeAuthV2();
@@ -403,7 +402,6 @@ export default function PagePrimeFeatures() {
                 position="relative"
                 index={index}
                 initialNumToRender={3}
-                onChangeIndex={onIndexChange}
                 keyExtractor={keyExtractor}
                 data={dataInfo.data}
                 renderItem={renderItem}
