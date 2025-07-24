@@ -434,9 +434,16 @@ function AddCustomTokenModal() {
         </Form>
       </Page.Body>
       <Page.Footer
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.manage_token_custom_token_add_btn,
-        })}
+        onConfirmText={
+          isSearching
+            ? intl.formatMessage({
+                // id: ETranslations.global_pending,
+                id: ETranslations.manage_token_custom_token_add_btn,
+              })
+            : intl.formatMessage({
+                id: ETranslations.manage_token_custom_token_add_btn,
+              })
+        }
         onConfirm={onConfirm}
         confirmButtonProps={{
           loading: isLoading,
