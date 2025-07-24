@@ -66,25 +66,29 @@ function MarketDetail({
           <NavBackButton onPress={handleBackPress} />
         )}
 
-        {/* <TokenDetailHeader
-          containerProps={{ p: '$0' }}
-          showStats={false}
-          showMediaAndSecurity={false}
-        /> */}
+        <MarketWatchListProviderMirrorV2
+          storeName={EJotaiContextStoreNames.marketWatchListV2}
+        >
+          <TokenDetailHeader
+            containerProps={{ p: '$0' }}
+            showStats={false}
+            showMediaAndSecurity={false}
+          />
+        </MarketWatchListProviderMirrorV2>
       </XStack>
     ),
     [handleBackPress],
   );
 
-  // const customHeaderRight = useMemo(() => null, []);
+  const customHeaderRight = useMemo(() => null, []);
 
   return (
     <Page>
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Market}
-        // customHeaderLeftItems={customHeaderRight}
-        customHeaderRightItems={customHeaderLeft}
+        customHeaderLeftItems={customHeaderLeft}
+        customHeaderRightItems={customHeaderRight}
         hideSearch={!media.gtMd}
       />
 
