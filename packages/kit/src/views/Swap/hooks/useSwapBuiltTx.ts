@@ -518,6 +518,7 @@ export function useSwapBuildTx() {
           };
         },
       );
+
       const res = await backgroundApiProxy.serviceSend.signAndSendTransaction({
         networkId,
         accountId,
@@ -1095,6 +1096,7 @@ export function useSwapBuildTx() {
                 swapInfo,
               );
             }
+            throw e;
           }
         } catch (e: any) {
           if (!isApprove) {
@@ -2164,8 +2166,10 @@ export function useSwapBuildTx() {
             } catch (error: any) {
               const shouldFallback =
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                error?.key === 'global.cancel' ||
-                step.type !== ESwapStepType.SIGN_MESSAGE ||
+                error?.key !== 'global.cancel' &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                error?.code !== 803 &&
+                step.type !== ESwapStepType.SIGN_MESSAGE &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 error?.name !== 'buildSwapApi';
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
