@@ -5,14 +5,13 @@ import { useWindowDimensions } from 'react-native';
 
 import {
   AnimatePresence,
-  EPageType,
   SegmentControl,
   Spinner,
   Stack,
   XStack,
   YStack,
+  useIsModalPage,
   useMedia,
-  usePageType,
   useSafeAreaInsets,
   useTabBarHeight,
 } from '@onekeyhq/components';
@@ -62,8 +61,8 @@ function NativeTokenPriceChart({
   const [points, setPoints] = useState<IMarketTokenChart>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { md: mdMedia } = useMedia();
-  const pageType = usePageType();
-  const md = pageType === EPageType.modal ? true : mdMedia;
+  const isModalPage = useIsModalPage();
+  const md = isModalPage ? true : mdMedia;
 
   const options = useMemo(
     () => [
@@ -114,7 +113,7 @@ function NativeTokenPriceChart({
     void init();
   }, [init]);
   const { gtLg: gtLgMedia } = useMedia();
-  const gtLg = pageType === EPageType.modal ? false : gtLgMedia;
+  const gtLg = isModalPage ? false : gtLgMedia;
 
   return (
     <>
@@ -156,23 +155,23 @@ function NativeTokenPriceChart({
 }
 
 const useHeight = () => {
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
   const { height: windowHeight } = useWindowDimensions();
   const { top } = useSafeAreaInsets();
   const { gtMd: gtMdMedia } = useMedia();
-  const gtMd = pageType === EPageType.modal ? false : gtMdMedia;
+  const gtMd = isModalPage ? false : gtMdMedia;
 
   const height = useMemo(() => {
-    if (pageType === EPageType.modal && gtMdMedia) {
+    if (isModalPage && gtMdMedia) {
       return 640;
     }
     return windowHeight;
-  }, [pageType, windowHeight, gtMdMedia]);
+  }, [isModalPage, gtMdMedia, windowHeight]);
 
   const tabHeight = useTabBarHeight();
   const fixedHeight = useMemo(() => {
     if (platformEnv.isNativeIOS) {
-      return 268 + (pageType === EPageType.modal ? 68 : 0);
+      return 268 + (isModalPage ? 68 : 0);
     }
 
     if (platformEnv.isNativeAndroid) {
@@ -180,7 +179,7 @@ const useHeight = () => {
     }
 
     return 300;
-  }, [pageType]);
+  }, [isModalPage]);
   return useMemo(
     () => (gtMd ? 450 : height - top - tabHeight - fixedHeight),
     [fixedHeight, gtMd, height, tabHeight, top],
@@ -201,13 +200,13 @@ function TradingViewChart({
     defer.resolve(null);
   }, [defer]);
 
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
 
   return (
     <TradingView
       mode="overview"
       h={height}
-      $gtMd={{ pl: pageType === EPageType.modal ? 0 : '$5' }}
+      $gtMd={{ pl: isModalPage ? 0 : '$5' }}
       $md={{ pt: '$3' }}
       targetToken={targetToken}
       baseToken={baseToken}
