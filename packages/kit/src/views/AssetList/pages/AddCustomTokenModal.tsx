@@ -144,7 +144,7 @@ function AddCustomTokenModal() {
       selectedNetworkIdValue,
     });
 
-  const { availableNetworks, searchedTokenRef } = useAddToken({
+  const { availableNetworks, searchedTokenRef, isSearching } = useAddToken({
     token,
     walletId,
     networkId,
@@ -178,8 +178,18 @@ function AddCustomTokenModal() {
     if (isLoading) {
       return true;
     }
+    if (isSearching) {
+      return true;
+    }
     return false;
-  }, [symbolValue, decimalsValue, isEmptyContract, isLoading, hasExistAccount]);
+  }, [
+    symbolValue,
+    decimalsValue,
+    isEmptyContract,
+    isLoading,
+    hasExistAccount,
+    isSearching,
+  ]);
 
   const onConfirm = useCallback(
     async (close?: () => void) => {
