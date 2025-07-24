@@ -10,12 +10,21 @@ function runEslintCommand(command, description) {
       const result = execSync(command).toString('utf-8');
       resolve({ result, description });
     } catch (eslintError) {
-      reject(new Error(`${description} failed: ${eslintError.message}`));
+      const stdout = eslintError.stdout?.toString('utf-8') || '';
+      const stderr = eslintError.stderr?.toString('utf-8') || '';
+
+      if (stderr) {
+        console.log(`Error stderr: ${stderr}`);
+        reject(new Error(`${description} failed: ${eslintError.message}`));
+      } else {
+        resolve({ result: stdout, description });
+      }
     }
   });
 }
 
 async function runParallelEslint() {
+  const startTime = Date.now();
   const cacheLocation = '"$(yarn config get cacheFolder)"';
 
   const sharedCommand = `sh -c 'npx eslint packages/shared --ext .ts,.tsx --fix --cache --cache-location ${cacheLocation}'`;
@@ -48,7 +57,11 @@ async function runParallelEslint() {
       }
     }
 
-    console.log('\nESLint completed successfully for all packages.');
+    const endTime = Date.now();
+    const executionTime = ((endTime - startTime) / 1000).toFixed(2);
+    console.log(
+      `\nESLint completed successfully for all packages in ${executionTime} seconds.`,
+    );
   } catch (error) {
     console.log(`\n=== Error ===`);
     console.log(error.message);
