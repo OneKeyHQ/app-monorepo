@@ -5,6 +5,8 @@ import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import { SUPPORT_URL } from '@onekeyhq/shared/src/config/appConfig';
+
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Button,
@@ -636,10 +638,7 @@ const SwapHistoryDetailModal = () => {
             variant: 'secondary',
           }}
           onConfirm={() => {
-            if (
-              txHistory?.swapInfo.supportUrl ===
-              'https://help.onekey.so/hc/zh-cn/requests/new'
-            ) {
+            if (txHistory?.swapInfo.supportUrl?.includes(SUPPORT_URL)) {
               void showIntercom();
             } else {
               onViewInBrowser(txHistory?.swapInfo.supportUrl ?? '');
