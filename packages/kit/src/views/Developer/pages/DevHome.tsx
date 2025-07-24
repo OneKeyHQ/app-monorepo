@@ -169,14 +169,7 @@ function HomePage() {
         </Page.Body>
       </Page>
     ),
-    [
-      data,
-      renderHeaderView,
-      screenWidth,
-      sideBarWidth,
-      onRefresh,
-      navigateAccountManagerStacks,
-    ],
+    [navigateAccountManagerStacks],
   );
 }
 
