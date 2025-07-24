@@ -43,6 +43,8 @@ export function OneKeyHardwareWallet() {
     navigation.pop();
   }, [navigation]);
 
+  const { top } = useSafeAreaInsets();
+
   return (
     <Page safeAreaEnabled={false}>
       <Page.Body>
@@ -70,7 +72,7 @@ export function OneKeyHardwareWallet() {
             position="absolute"
             h={64}
             w={width}
-            top={0}
+            top={top}
             px={16}
             ai="center"
             $platform-ios={{
