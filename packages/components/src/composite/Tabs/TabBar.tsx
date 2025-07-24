@@ -9,22 +9,22 @@ import type { IYStackProps } from '../../primitives';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 import type { SharedValue } from 'react-native-reanimated';
 
-export function TabItem({
+export function TabBarItem({
   name,
   isFocused,
-  onTabPress,
+  onPress,
   tabItemStyle,
   focusedTabStyle,
 }: {
   name: string;
   isFocused: boolean;
-  onTabPress: (name: string) => void;
+  onPress: (name: string) => void;
   tabItemStyle?: IYStackProps;
   focusedTabStyle?: IYStackProps;
 }) {
   const handlePress = useCallback(() => {
-    onTabPress(name);
-  }, [name, onTabPress]);
+    onPress(name);
+  }, [name, onPress]);
   return (
     <YStack
       h={44}
@@ -79,13 +79,16 @@ export function TabBar({
   divider?: boolean;
   tabItemStyle?: IYStackProps;
   focusedTabStyle?: IYStackProps;
-  renderItem?: ({
-    name,
-    isFocused,
-  }: {
-    name: string;
-    isFocused: boolean;
-  }) => React.ReactNode;
+  renderItem?: (
+    props: {
+      name: string;
+      isFocused: boolean;
+      onPress: (name: string) => void;
+      tabItemStyle?: IYStackProps;
+      focusedTabStyle?: IYStackProps;
+    },
+    index: number,
+  ) => React.ReactNode;
 }) {
   const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
   useAnimatedReaction(
@@ -97,17 +100,24 @@ export function TabBar({
     },
   );
   const tabItems = useMemo(() => {
-    return tabNames.map((name) =>
+    return tabNames.map((name, index) =>
       renderItem ? (
-        <XStack key={name} onPress={() => onTabPress(name)}>
-          {renderItem({ name, isFocused: currentTab === name })}
-        </XStack>
+        renderItem(
+          {
+            name,
+            isFocused: currentTab === name,
+            onPress: onTabPress,
+            tabItemStyle,
+            focusedTabStyle,
+          },
+          index,
+        )
       ) : (
-        <TabItem
+        <TabBarItem
           key={name}
           name={name}
           isFocused={currentTab === name}
-          onTabPress={onTabPress}
+          onPress={onTabPress}
           tabItemStyle={tabItemStyle}
           focusedTabStyle={focusedTabStyle}
         />
