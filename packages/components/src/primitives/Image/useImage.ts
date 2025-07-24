@@ -38,6 +38,11 @@ export function useImage(
     return resolveSource(source);
   }, [source]);
   const cachedImage: ImageSource | null = useMemo(() => {
+    if (resolvedSource?.uri && !/^https?:\/\//.test(resolvedSource.uri)) {
+      return {
+        uri: resolvedSource.uri,
+      };
+    }
     if (platformEnv.isNativeAndroid) {
       return null;
     }

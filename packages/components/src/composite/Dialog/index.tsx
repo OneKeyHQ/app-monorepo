@@ -87,6 +87,8 @@ export const FIX_SHEET_PROPS: IYStackProps = {
   display: 'block',
 };
 
+const MAX_CONTENT_WIDTH = 400;
+
 function DialogFrame({
   title,
   open,
@@ -258,6 +260,8 @@ function DialogFrame({
           bg="$bg"
           borderCurve="continuous"
           disableHideBottomOverflow
+          mx={platformEnv.isNative ? 'auto' : undefined}
+          maxWidth={platformEnv.isNative ? MAX_CONTENT_WIDTH : undefined}
         >
           {!disableDrag ? <SheetGrabber /> : null}
           {renderDialogContent}
@@ -327,7 +331,7 @@ function DialogFrame({
               outlineStyle="solid"
               outlineWidth="$px"
               bg="$bg"
-              width={400}
+              width={MAX_CONTENT_WIDTH}
               p="$0"
               {...floatingPanelProps}
               zIndex={floatingPanelProps?.zIndex || zIndex}
