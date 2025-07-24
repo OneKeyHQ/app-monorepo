@@ -182,9 +182,17 @@ export function List<Item>({
         defaultHeight: estimatedItemSize || 60,
         keyMapper: (rowIndex, columnIndex) => {
           if (keyExtractor) {
-            const item = (listData[rowIndex] as { data: Item })?.data;
+            const item = listData[rowIndex];
+            if (
+              item.type === 'header' ||
+              item.type === 'footer' ||
+              item.type === 'section-header' ||
+              item.type === 'section-footer'
+            ) {
+              return `${rowIndex}-${columnIndex}-${item.type}`;
+            }
             return item
-              ? keyExtractor(item, rowIndex)
+              ? keyExtractor(item.data as any, rowIndex)
               : `${rowIndex}-${columnIndex}`;
           }
           return `${rowIndex}-${columnIndex}`;
@@ -280,7 +288,9 @@ export function List<Item>({
             key={key || index}
             parent={parent}
           >
-            <div style={style}>{element as React.ReactNode}</div>
+            <div style={style} key={key || index}>
+              {element as React.ReactNode}
+            </div>
           </CellMeasurer>
         );
       }
