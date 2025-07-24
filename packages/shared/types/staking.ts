@@ -424,7 +424,7 @@ export interface IEarnPopupActionIcon {
   data: {
     bulletList?: IEarnText[];
     icon?: IEarnIcon;
-    description?: IEarnText;
+    description?: IEarnText[];
     panel?: {
       title: IEarnText;
       description: IEarnText;
