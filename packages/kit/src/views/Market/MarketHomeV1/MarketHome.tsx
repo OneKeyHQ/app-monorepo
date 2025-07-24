@@ -72,25 +72,7 @@ function BasicAnimatedIcon(
 
 const AnimatedIcon = forwardRef(BasicAnimatedIcon);
 
-let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
-
 function MarketHome() {
-  const { screenWidth, pageWidth } = useHomePageWidth();
-  if (CONTENT_ITEM_WIDTH == null) {
-    CONTENT_ITEM_WIDTH = new Animated.Value(pageWidth);
-  }
-  useEffect(() => {
-    if (!CONTENT_ITEM_WIDTH) {
-      return;
-    }
-    Animated.timing(CONTENT_ITEM_WIDTH, {
-      toValue: pageWidth,
-      duration: 400,
-      easing: Easing.inOut(Easing.quad),
-      useNativeDriver: false,
-    }).start();
-  }, [pageWidth]);
-
   const { result: categories } = usePromiseResult(
     () => backgroundApiProxy.serviceMarket.fetchCategories(),
     [],
@@ -152,24 +134,7 @@ function MarketHome() {
         </Stack>
       );
     }
-    // if (platformEnv.isNativeAndroid) {
-    //   return (
-    //     <Tab
-    //       disableRefresh
-    //       data={tabConfig}
-    //       onSelectedPageIndex={handleSelectedPageIndex}
-    //     />
-    //   );
-    // }
     return (
-      // <Tab.Page
-      //   data={tabConfig}
-      //   contentItemWidth={CONTENT_ITEM_WIDTH}
-      //   contentWidth={screenWidth}
-      //   headerProps={headerProps}
-      //   onSelectedPageIndex={handleSelectedPageIndex}
-      //   windowSize={3}
-      // />
       <Tabs.Container
         pagerProps={
           {
