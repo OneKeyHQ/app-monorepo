@@ -281,16 +281,13 @@ export function UniversalWithdraw({
   const isCheckAmountMessageError =
     amountValue?.length > 0 && !!checkAmountMessage;
 
-  const isDisable = useMemo(
+  const isDisable = useMemo<boolean>(
     () =>
       isNaN(amountValue) ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
       isCheckAmountMessageError ||
-      checkAmountAlerts.length > 0 || [
-        amountValue,
-        isCheckAmountMessageError,
-        checkAmountAlerts.length,
-      ],
+      checkAmountAlerts.length > 0,
+    [amountValue, isCheckAmountMessageError, checkAmountAlerts.length],
   );
 
   const editable = initialAmount === undefined;
