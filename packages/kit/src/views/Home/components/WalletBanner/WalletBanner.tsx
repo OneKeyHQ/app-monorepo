@@ -16,25 +16,34 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EModalRewardCenterRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import {
   openUrlExternal,
   openUrlInApp,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
+import { EarnNavigation } from '../../../Earn/earnUtils';
+
 import type { GestureResponderEvent } from 'react-native';
 
 function WalletBanner() {
   const {
-    activeAccount: { account },
+    activeAccount: { account, network, indexedAccount },
   } = useActiveAccount({ num: 0 });
 
   const intl = useIntl();
   const { gtSm, gtLg } = useMedia();
+
+  const navigation = useAppNavigation();
 
   const [closedForeverBanners, setClosedForeverBanners] = useState<
     Record<string, boolean>
@@ -90,17 +99,75 @@ function WalletBanner() {
     }
   }, []);
 
-  const handleClick = useCallback((item: IWalletBanner) => {
-    defaultLogger.wallet.walletBanner.walletBannerClicked({
-      bannerId: item.id,
-      type: 'jump',
-    });
-    if (item.hrefType === 'external') {
-      openUrlExternal(item.href);
-    } else {
-      openUrlInApp(item.href);
-    }
-  }, []);
+  const handleClick = useCallback(
+    async (item: IWalletBanner) => {
+      defaultLogger.wallet.walletBanner.walletBannerClicked({
+        bannerId: item.id,
+        type: 'jump',
+      });
+      if (item.hrefType === 'internal' && item.href.includes('/earn/staking')) {
+        const [path, query] = item.href.split('?');
+        const paths = path.split('/');
+        const provider = paths.pop();
+        const symbol = paths.pop();
+        const params = new URLSearchParams(query);
+        const networkId = params.get('networkId');
+        const vault = params.get('vault');
+        if (provider && symbol && networkId) {
+          const earnAccount =
+            await backgroundApiProxy.serviceStaking.getEarnAccount({
+              indexedAccountId: indexedAccount?.id,
+              accountId: account?.id ?? '',
+              networkId,
+            });
+          const navigationParams: {
+            accountId?: string;
+            networkId: string;
+            indexedAccountId?: string;
+            symbol: string;
+            provider: string;
+            vault?: string;
+          } = {
+            accountId: earnAccount?.accountId || account?.id || '',
+            indexedAccountId:
+              earnAccount?.account.indexedAccountId || indexedAccount?.id,
+            provider,
+            symbol,
+            networkId,
+          };
+          if (vault) {
+            navigationParams.vault = vault;
+          }
+          void EarnNavigation.pushDetailPageFromDeeplink(
+            navigation,
+            navigationParams,
+          );
+        }
+        return;
+      }
+
+      if (
+        item.hrefType === 'internal' &&
+        item.href.includes('/reward-center')
+      ) {
+        navigation.pushModal(EModalRoutes.MainModal, {
+          screen: EModalRewardCenterRoutes.RewardCenter,
+          params: {
+            accountId: account?.id ?? '',
+            networkId: network?.id ?? '',
+          },
+        });
+        return;
+      }
+
+      if (item.hrefType === 'external') {
+        openUrlExternal(item.href);
+      } else {
+        openUrlInApp(item.href);
+      }
+    },
+    [account?.id, indexedAccount?.id, navigation, network?.id],
+  );
 
   useEffect(() => {
     const fetchClosedForeverBanners = async () => {
@@ -121,13 +188,14 @@ function WalletBanner() {
       $gtLg={{
         pt: '$3',
       }}
+      bg="$bgApp"
     >
       <Carousel
         loop={false}
         data={filteredBanners}
         autoPlayInterval={3800}
         containerStyle={{
-          height: gtSm ? 86 : 76,
+          height: gtSm ? 86 : 80, // plus 4
         }}
         paginationContainerStyle={{
           marginBottom: 0,
@@ -141,7 +209,12 @@ function WalletBanner() {
         }}
         renderItem={({ item }: { item: IWalletBanner }) => {
           return (
-            <YStack px="$5">
+            <YStack
+              px="$5"
+              $platform-native={{
+                h: gtSm ? 86 : 76,
+              }}
+            >
               <XStack
                 key={item.id}
                 flex={1}
@@ -154,7 +227,16 @@ function WalletBanner() {
                 borderColor="$borderSubdued"
                 borderRadius="$2"
                 borderCurve="continuous"
-                elevation={0.5}
+                $platform-android={{ elevation: 0.5 }}
+                $platform-ios={{
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 0.5 },
+                  shadowOpacity: 0.2,
+                  shadowRadius: 0.5,
+                }}
+                $platform-web={{
+                  boxShadow: '0px 1px 1px 0px rgba(0, 0, 0, 0.05)',
+                }}
                 {...(!gtLg && {
                   gap: '$3',
                   py: '$3',
@@ -210,10 +292,11 @@ function WalletBanner() {
                     </SizableText>
                   </YStack>
                 ) : (
-                  <SizableText size="$bodyMd" numberOfLines={2}>
+                  <SizableText size="$bodyMd" flex={1} numberOfLines={2}>
                     {item.title}
-                    <SizableText size="$bodyMd" color="$textSubdued" mx="$1">
-                      -
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {' '}
+                      -{' '}
                     </SizableText>
                     <SizableText size="$bodyMd" color="$textSubdued">
                       {item.description}
