@@ -925,11 +925,14 @@ function ConnectByUSBOrBLE() {
           return;
         }
 
-        if (
+        const shouldAuthenticateFirmware =
           await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmware({
-            device,
-          })
-        ) {
+            device: {
+              ...device,
+              deviceId: device.deviceId || features.device_id,
+            },
+          });
+        if (shouldAuthenticateFirmware) {
           void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
             connectId: device.connectId ?? '',
             hardClose: false,

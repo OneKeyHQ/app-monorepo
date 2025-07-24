@@ -81,7 +81,7 @@ const PreSwapInfoGroup = ({
       new BigNumber(preSwapData?.fee?.percentageFee ?? '0').isNaN()
     ) {
       return (
-        <Badge badgeSize="sm" marginRight="$2" badgeType="info">
+        <Badge badgeSize="sm" badgeType="info">
           {intl.formatMessage({
             id: ETranslations.swap_stablecoin_0_fee,
           })}
@@ -115,11 +115,11 @@ const PreSwapInfoGroup = ({
       <Select
         onChange={onSelectNetworkFeeLevel}
         renderTrigger={() => (
-          <XStack gap="$1" alignItems="center">
-            <SizableText size="$bodyMdMedium" color="$textSubdued">
+          <XStack cursor="pointer" gap="$1" alignItems="center">
+            <Icon name="ChevronGrabberVerOutline" size="$4" />
+            <SizableText size="$bodyMd" color="$text">
               {networkFeeLevelLabel}
             </SizableText>
-            <Icon name="ChevronGrabberVerOutline" size="$4" />
           </XStack>
         )}
         title={intl.formatMessage({
