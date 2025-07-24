@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
+import { ScrollView, View, useWindowDimensions } from 'react-native';
 
 import type {
   IKeyOfIcons,
@@ -10,6 +10,7 @@ import type {
 import {
   Divider,
   Image,
+  LinearGradient,
   Page,
   SizableText,
   Stack,
@@ -384,7 +385,7 @@ export default function PagePrimeFeatures() {
   const page = (
     <>
       <Page.BackButton />
-      <Page scrollEnabled>
+      <Page>
         <Theme name="dark">
           <Page.Header
             headerShown={false}
@@ -395,45 +396,57 @@ export default function PagePrimeFeatures() {
         </Theme>
 
         <Page.Body>
-          <YStack>
-            <Swiper
-              height={height}
-              position="relative"
-              index={index}
-              initialNumToRender={3}
-              onChangeIndex={onIndexChange}
-              keyExtractor={keyExtractor}
-              data={dataInfo.data}
-              renderItem={renderItem}
-              renderPagination={renderPagination}
-              overflow="hidden"
-              borderRadius="$3"
-              pt="$10"
-            />
+          <View style={{ flex: 1 }}>
+            <ScrollView>
+              <Swiper
+                height={height}
+                position="relative"
+                index={index}
+                initialNumToRender={3}
+                onChangeIndex={onIndexChange}
+                keyExtractor={keyExtractor}
+                data={dataInfo.data}
+                renderItem={renderItem}
+                renderPagination={renderPagination}
+                overflow="hidden"
+                borderRadius="$3"
+                pt="$10"
+              />
+            </ScrollView>
+
             {dataInfo.data.length > 1 ? (
-              <XStack
-                testID="prime-features-pagination"
-                gap="$1"
-                width="100%"
-                jc="center"
-                mb="$4"
-              >
-                {dataInfo.data.map((_, pageIndex) => (
-                  <Stack
-                    key={pageIndex}
-                    w="$3"
-                    $gtMd={{
-                      w: '$4',
-                    }}
-                    h="$1"
-                    borderRadius="$full"
-                    bg="$textSubdued"
-                    opacity={index === pageIndex ? 1 : 0.5}
-                  />
-                ))}
-              </XStack>
+              <View>
+                <LinearGradient
+                  colors={['transparent', '$background']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                >
+                  <XStack
+                    testID="prime-features-pagination"
+                    gap="$1"
+                    width="100%"
+                    jc="center"
+                    pt="$1"
+                    pb="$2"
+                  >
+                    {dataInfo.data.map((_, pageIndex) => (
+                      <Stack
+                        key={pageIndex}
+                        w="$3"
+                        $gtMd={{
+                          w: '$4',
+                        }}
+                        h="$1"
+                        borderRadius="$full"
+                        bg="$textSubdued"
+                        opacity={index === pageIndex ? 1 : 0.5}
+                      />
+                    ))}
+                  </XStack>
+                </LinearGradient>
+              </View>
             ) : null}
-          </YStack>
+          </View>
         </Page.Body>
         <Page.Footer
           confirmButtonProps={
