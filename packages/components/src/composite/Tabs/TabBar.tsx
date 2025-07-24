@@ -97,25 +97,32 @@ export function TabBar({
   const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
   const scrollViewRef = useRef<IScrollViewRef>(null);
   const scrollViewTimerId = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scrollToTab = useCallback(
+    (tabName: string) => {
+      if (scrollViewTimerId.current) {
+        clearTimeout(scrollViewTimerId.current);
+      }
+      if (scrollViewRef.current) {
+        const index = tabNames.findIndex((name) => name === tabName);
+        scrollViewTimerId.current = setTimeout(() => {
+          scrollViewRef.current?.scrollTo({
+            x: 44 * index,
+            animated: true,
+          });
+        }, 100);
+      }
+    },
+    [tabNames],
+  );
+
   useAnimatedReaction(
     () => focusedTab.value,
     (result, previous) => {
       if (result !== previous && previous) {
         runOnJS(setCurrentTab)(result);
         if (scrollable && scrollViewRef.current) {
-          runOnJS(() => {
-            if (scrollViewTimerId.current) {
-              clearTimeout(scrollViewTimerId.current);
-            }
-            scrollViewTimerId.current = setTimeout(() => {
-              const index = tabNames.findIndex((name) => name === result);
-              scrollViewRef.current?.scrollTo({
-                x: 44 * index,
-                y: 0,
-                animated: true,
-              });
-            }, 100);
-          })();
+          runOnJS(scrollToTab)(result);
         }
       }
     },
@@ -171,6 +178,9 @@ export function TabBar({
       cursor="pointer"
       bg="$bgApp"
       pr="$4"
+      contentContainerStyle={{
+        pr: 16,
+      }}
       className="onekey-tabs-header"
       position={'sticky' as any}
       top={0}
