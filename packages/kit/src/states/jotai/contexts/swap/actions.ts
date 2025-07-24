@@ -272,9 +272,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       token: ISwapToken,
       disableCheckToToken?: boolean,
       skipCleanManualSelectQuoteProviders?: boolean,
+      skipCheckEqualToken?: boolean,
     ) => {
       const toToken = get(swapSelectToTokenAtom());
       if (
+        !skipCheckEqualToken &&
         equalTokenNoCaseSensitive({
           token1: toToken,
           token2: token,
@@ -314,12 +316,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set,
       token: ISwapToken,
       skipCleanManualSelectQuoteProviders?: boolean,
+      skipCheckEqualToken?: boolean,
     ) => {
       if (!skipCleanManualSelectQuoteProviders) {
         this.cleanManualSelectQuoteProviders.call(set);
       }
       const fromToken = get(swapSelectFromTokenAtom());
       if (
+        !skipCheckEqualToken &&
         equalTokenNoCaseSensitive({
           token1: fromToken,
           token2: token,

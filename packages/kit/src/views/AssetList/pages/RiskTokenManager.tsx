@@ -23,6 +23,7 @@ import type {
   EModalAssetListRoutes,
   IModalAssetListParamList,
 } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -180,6 +181,7 @@ function RiskTokenManager() {
       currentUnblockedTokens !== originalUnblockedTokens.current ||
       currentBlockedTokens !== originalBlockedTokens.current
     ) {
+      await timerUtils.wait(1000);
       appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
     }
   }, [unblockedTokensMap, blockedTokensMap]);

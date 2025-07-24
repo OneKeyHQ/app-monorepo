@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { type LayoutChangeEvent, useWindowDimensions } from 'react-native';
 
 import {
   Icon,
@@ -9,6 +10,7 @@ import {
   Tabs,
   YStack,
   getTokens,
+  useIsHorizontalLayout,
   useMedia,
 } from '@onekeyhq/components';
 import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderSideBarValue';
@@ -39,10 +41,21 @@ import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
-import type { LayoutChangeEvent } from 'react-native';
-
+const useNativeTabContainerWidth = platformEnv.isNativeIOSPad
+  ? () => {
+      const isHorizontal = useIsHorizontalLayout();
+      const { width } = useWindowDimensions();
+      const sideBarWidth = useMemo(() => {
+        if (isHorizontal) {
+          return getTokens().size.sideBarWidth.val;
+        }
+        return 0;
+      }, [isHorizontal]);
+      return width - sideBarWidth;
+    }
+  : () => undefined;
 const useTabContainerWidth = platformEnv.isNative
-  ? () => undefined
+  ? useNativeTabContainerWidth
   : () => {
       const { leftSidebarCollapsed = false } = useProviderSideBarValue() || {};
       const { md } = useMedia();
@@ -159,6 +172,9 @@ export function HomePageView({
         shadowOpacity: 0,
         elevation: 0,
       },
+      pagerProps: {
+        scrollSensitivity: 4,
+      } as any,
       renderHeader,
       renderTabBar: (props: any) => (
         <Tabs.TabBar

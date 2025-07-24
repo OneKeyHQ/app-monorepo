@@ -7,13 +7,14 @@ import {
   Page,
   SizableText,
   XStack,
+  rootNavigationRef,
   useMedia,
 } from '@onekeyhq/components';
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabHomeRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -68,7 +69,19 @@ export function HeaderLeft({
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       return (
         <XStack gap="$1.5">
-          <HeaderLeftCloseButton />
+          <NavBackButton
+            onPress={() => {
+              rootNavigationRef.current?.navigate(
+                ETabRoutes.Home,
+                {
+                  screen: ETabHomeRoutes.TabHome,
+                },
+                {
+                  pop: true,
+                },
+              );
+            }}
+          />
           {platformEnv.isNativeIOS ? <UrlAccountPageHeader /> : null}
         </XStack>
       );
