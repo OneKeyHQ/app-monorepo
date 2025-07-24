@@ -5,9 +5,8 @@ import type {
   IKeyOfIcons,
 } from '@onekeyhq/components';
 
-import type { IEarnAvailableAssetAprInfo } from './earn';
-
 import type { INetworkAccount } from './account';
+import type { IEarnAvailableAssetAprInfo } from './earn';
 import type { IFetchTokenDetailItem, IToken } from './token';
 import type { ESpotlightTour } from '../src/spotlight';
 import type { FontSizeTokens } from 'tamagui';
@@ -124,9 +123,6 @@ export type IStakeProviderInfo = {
   // falcon
   joinRequirement?: string;
   eventEndTime?: number;
-
-  // APR info for enhanced rendering
-  aprInfo?: IEarnAvailableAssetAprInfo;
 };
 
 export type IStakeBaseParams = {
@@ -873,6 +869,7 @@ export type IStakeProtocolListItem = {
     logoURI: string;
   };
   isEarning: boolean;
+  aprInfo?: IEarnAvailableAssetAprInfo;
 };
 
 export type IRewardApys = {

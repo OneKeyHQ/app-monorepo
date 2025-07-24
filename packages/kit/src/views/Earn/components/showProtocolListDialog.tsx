@@ -18,10 +18,28 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EStakeProtocolGroupEnum } from '@onekeyhq/shared/types/staking';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import { capitalizeString } from '../../Staking/utils/utils';
+
+import { AprText } from './AprText';
+
+// Adapter function to convert IStakeProtocolListItem to IEarnAvailableAsset format
+const createAssetFromProtocol = (
+  item: IStakeProtocolListItem,
+): IEarnAvailableAsset => ({
+  name: item.provider.name,
+  symbol: '', // Not used in this context
+  logoURI: item.provider.logoURI,
+  apr: `${BigNumber(item.provider.aprWithoutFee || 0).toFixed(2)}%`,
+  aprWithoutFee: `${BigNumber(item.provider.aprWithoutFee || 0).toFixed(2)}%`,
+  tags: [],
+  rewardUnit: item.provider.rewardUnit,
+  protocols: [],
+  aprInfo: item.aprInfo,
+});
 
 // Section data structure for SectionList
 interface IProtocolSection {
@@ -205,14 +223,7 @@ function ProtocolListDialogContent({
         />
         <ListItem.Text
           alignSelf="flex-start"
-          primary={
-            item.provider.aprWithoutFee &&
-            Number(item.provider.aprWithoutFee) > 0
-              ? `${BigNumber(item.provider.aprWithoutFee).toFixed(2)}% ${
-                  item.provider.rewardUnit || 'APY'
-                }`
-              : null
-          }
+          primary={<AprText asset={createAssetFromProtocol(item)} />}
         />
       </ListItem>
     ),
