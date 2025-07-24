@@ -3,26 +3,37 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
-  useMemo,
   useRef,
   useState,
 } from 'react';
 
 import { View } from 'react-native';
-import { useSharedValue } from 'react-native-reanimated';
-import { useStyle } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { XStack, YStack } from '../../primitives';
 
 import { PagerView } from './pager';
-import { Pagination } from './Pagination';
+import { PaginationItem } from './PaginationItem';
 
-import type { IDotStyle } from './PaginationItem';
-import type { ICarouselProps } from './type';
+import type { ICarouselProps, IPaginationItemProps } from './type';
 import type { LayoutChangeEvent, NativeSyntheticEvent } from 'react-native';
 import type NativePagerView from 'react-native-pager-view';
+
+const defaultRenderPaginationItem = <T,>(
+  { dotStyle, activeDotStyle, onPress }: IPaginationItemProps<T>,
+  index: number,
+) => {
+  return (
+    <PaginationItem
+      key={index}
+      index={index}
+      dotStyle={dotStyle}
+      activeDotStyle={activeDotStyle}
+      onPress={onPress}
+    />
+  );
+};
 
 export function Carousel<T>({
   data = [],
@@ -35,21 +46,31 @@ export function Carousel<T>({
   activeDotStyle,
   dotStyle,
   onPageChanged,
+  renderPaginationItem = defaultRenderPaginationItem,
 }: ICarouselProps<T>) {
   const pagerRef = useRef<NativePagerView>(undefined);
+  const [pageIndex, setPageIndex] = useState<number>(0);
   const currentPage = useRef<number>(0);
+  currentPage.current = pageIndex;
 
   const scrollToPreviousPage = useCallback(() => {
     const previousPage =
       currentPage.current > 0 ? currentPage.current - 1 : data.length - 1;
     pagerRef.current?.setPage(previousPage);
     currentPage.current = previousPage;
+    setPageIndex(previousPage);
   }, [currentPage, data.length]);
   const scrollToNextPage = useCallback(() => {
-    const nextPage =
-      currentPage.current < data.length - 1 ? currentPage.current + 1 : 0;
+    if (currentPage.current >= data.length - 1) {
+      pagerRef.current?.setPageWithoutAnimation(0);
+      currentPage.current = 0;
+      setPageIndex(0);
+      return;
+    }
+    const nextPage = currentPage.current + 1;
     pagerRef.current?.setPage(nextPage);
     currentPage.current = nextPage;
+    setPageIndex(nextPage);
   }, [data.length, currentPage]);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -84,24 +105,22 @@ export function Carousel<T>({
       },
       scrollTo: ({ index }: { index: number }) => {
         pagerRef.current?.setPage(index);
+        setPageIndex(index);
       },
     };
   });
 
-  const paginationProgress = useSharedValue<number>(0);
-
   const onPressPagination = (index: number) => {
     pagerRef.current?.setPage(index);
-    paginationProgress.value = index;
+    setPageIndex(index);
   };
 
   const onPageSelected = useCallback(
     (e: NativeSyntheticEvent<Readonly<{ position: number }>>) => {
       currentPage.current = e.nativeEvent.position;
-      paginationProgress.value = currentPage.current;
       onPageChanged?.(currentPage.current);
     },
-    [paginationProgress, onPageChanged],
+    [onPageChanged],
   );
   const [layout, setLayout] = useState<{ width: number; height: number }>({
     width: 0,
@@ -109,54 +128,10 @@ export function Carousel<T>({
   });
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
-      console.log('event', event.nativeEvent.layout);
       setLayout(event.nativeEvent.layout);
     },
     [setLayout],
   );
-
-  const resolvedPaginationContainerStyle = useStyle(
-    (paginationContainerStyle || {}) as Record<string, unknown>,
-    {
-      resolveValues: 'auto',
-    },
-  );
-  const mergedPaginationContainerStyle = useMemo(() => {
-    return {
-      gap: 8,
-      marginBottom: 10,
-      ...resolvedPaginationContainerStyle,
-    };
-  }, [resolvedPaginationContainerStyle]);
-
-  const resolvedActiveDotStyle = useStyle(
-    (activeDotStyle || {}) as Record<string, unknown>,
-    {
-      resolveValues: 'auto',
-    },
-  );
-  const mergedActiveDotStyle = useMemo(() => {
-    return {
-      borderRadius: 100,
-      overflow: 'hidden',
-      backgroundColor: 'rgba(0, 0, 0, 0.88)',
-      ...resolvedActiveDotStyle,
-    } as IDotStyle;
-  }, [resolvedActiveDotStyle]);
-
-  const resolvedDotStyle = useStyle(
-    (dotStyle || {}) as Record<string, unknown>,
-    {
-      resolveValues: 'auto',
-    },
-  );
-  const mergedDotStyle = useMemo(() => {
-    return {
-      borderRadius: 100,
-      backgroundColor: 'rgba(0, 0, 0, 0.11)',
-      ...resolvedDotStyle,
-    } as IDotStyle;
-  }, [resolvedDotStyle]);
 
   const handleHoverIn = useCallback(() => {
     if (timerRef.current) {
@@ -168,7 +143,7 @@ export function Carousel<T>({
   }, [startAutoPlay]);
 
   return (
-    <YStack gap="$4" userSelect="none">
+    <YStack gap="$2" userSelect="none">
       <XStack
         {...(containerStyle as any)}
         onLayout={handleLayout}
@@ -201,16 +176,31 @@ export function Carousel<T>({
           </View>
         ) : null}
       </XStack>
-      <Pagination
-        horizontal
-        progress={paginationProgress}
-        data={data as any}
-        size={6}
-        dotStyle={mergedDotStyle}
-        activeDotStyle={mergedActiveDotStyle}
-        containerStyle={mergedPaginationContainerStyle}
-        onPress={onPressPagination}
-      />
+      {data.length > 1 ? (
+        <XStack
+          gap="$0.5"
+          ai="center"
+          jc="center"
+          {...(paginationContainerStyle as any)}
+        >
+          {data.map((item, index) => {
+            return renderPaginationItem?.(
+              {
+                data: item,
+                dotStyle,
+                activeDotStyle:
+                  index === pageIndex
+                    ? activeDotStyle || { bg: '$bgPrimary' }
+                    : undefined,
+                onPress: () => onPressPagination(index),
+              },
+              index,
+            );
+          })}
+        </XStack>
+      ) : (
+        <XStack />
+      )}
     </YStack>
   );
 }

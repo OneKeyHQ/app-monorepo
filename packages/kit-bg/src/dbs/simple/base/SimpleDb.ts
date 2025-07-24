@@ -44,6 +44,7 @@ import { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 import { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 import { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
+import { SimpleDbEntityWalletBanner } from '../entity/SimpleDbEntityWalletBanner';
 
 export class SimpleDb {
   prime = new SimpleDbEntityPrime();
@@ -137,4 +138,6 @@ export class SimpleDb {
   recentRecipients = new SimpleDbEntityRecentRecipients();
 
   riskTokenManagement = new SimpleDbEntityRiskTokenManagement();
+
+  walletBanner = new SimpleDbEntityWalletBanner();
 }
