@@ -1257,6 +1257,7 @@ export function useSwapBuildTx() {
         swapType = ESwapTabSwitchType.BRIDGE;
       }
       defaultLogger.swap.createSwapOrder.swapCreateOrder({
+        status: ESwapEventAPIStatus.SUCCESS,
         swapProvider: buildSwapRes.result?.info.provider ?? '',
         swapProviderName: buildSwapRes.result?.info.providerName ?? '',
         swapType,
@@ -1350,6 +1351,31 @@ export function useSwapBuildTx() {
             walletType: swapFromAddressInfo.accountInfo?.wallet?.type,
           });
         } catch (e: any) {
+          let swapType = ESwapTabSwitchType.SWAP;
+          if (data?.protocol === EProtocolOfExchange.LIMIT) {
+            swapType = ESwapTabSwitchType.LIMIT;
+          } else if (
+            data?.fromTokenInfo.networkId !== data?.toTokenInfo.networkId
+          ) {
+            swapType = ESwapTabSwitchType.BRIDGE;
+          }
+          defaultLogger.swap.createSwapOrder.swapCreateOrder({
+            status: ESwapEventAPIStatus.FAIL,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            message: e?.message ?? 'unknown error',
+            swapProvider: data?.info.provider ?? '',
+            swapProviderName: data?.info.providerName ?? '',
+            swapType,
+            slippage: slippageItem.value.toString(),
+            sourceChain: data?.fromTokenInfo.networkId ?? '',
+            receivedChain: data?.toTokenInfo.networkId ?? '',
+            sourceTokenSymbol: data?.fromTokenInfo.symbol ?? '',
+            receivedTokenSymbol: data?.toTokenInfo.symbol ?? '',
+            feeType: data?.fee?.percentageFee?.toString() ?? '0',
+            router: JSON.stringify(data?.routesData ?? ''),
+            isFirstTime: isFirstTimeSwap,
+            createFrom: pageType === EPageType.modal ? 'modal' : 'swapPage',
+          });
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           const ne = new Error(e?.message ?? 'unknown error');
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -1575,6 +1601,8 @@ export function useSwapBuildTx() {
       setSwapSteps,
       checkOtherFee,
       intl,
+      isFirstTimeSwap,
+      pageType,
       swapBuildFinish,
       swapTypeSwitch,
       handleBuildTxSuccessWithSignedNoSend,
