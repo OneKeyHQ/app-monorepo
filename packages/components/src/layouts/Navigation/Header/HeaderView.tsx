@@ -9,7 +9,7 @@ import { useMedia, useTheme } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { EPageType, usePageType } from '../../../hocs';
+import { EPageType, useIsModalPage } from '../../../hocs';
 import { Stack, XStack } from '../../../primitives';
 import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
 import { rootNavigationRef } from '../Navigator/NavigationContainer';
@@ -50,11 +50,9 @@ const useIsTabFocused = () => {
 const DesktopDragZoneBoxView = platformEnv.isDesktop
   ? ({ disabled, children }: IDesktopDragZoneBoxProps) => {
       const isPageFocus = useIsTabFocused();
-      const pageType = usePageType();
+      const isModalPage = useIsModalPage();
       return (
-        <DesktopDragZoneBox
-          disabled={disabled || !isPageFocus || pageType === EPageType.modal}
-        >
+        <DesktopDragZoneBox disabled={disabled || !isPageFocus || isModalPage}>
           {children}
         </DesktopDragZoneBox>
       );

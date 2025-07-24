@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { EPageType, usePageType } from '../../hocs';
+import { useIsModalPage } from '../../hocs';
 import { useThemeValue } from '../../hooks';
 import HeaderSearchBar from '../Navigation/Header/HeaderSearchBar';
 
@@ -74,9 +74,7 @@ function PageHeader(props: IPageHeaderProps) {
     }
   }, [navigation, reloadOptions]);
 
-  const pageType = usePageType();
-
-  const isModal = pageType === EPageType.modal;
+  const isModal = useIsModalPage();
   const { headerSearchBarOptions } = props;
 
   if (reloadOptions.headerShown === false) {

@@ -11,7 +11,7 @@ import { ethers } from 'ethers';
 import { cloneDeep, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { EPageType, Toast, usePageType } from '@onekeyhq/components';
+import { Toast, useIsModalPage } from '@onekeyhq/components';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -130,7 +130,7 @@ export function useSwapBuildTx() {
       networkId: swapFromAddressInfo.networkId ?? '',
     });
 
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
 
   const syncRecentTokenPairs = useCallback(
     async ({
@@ -1249,7 +1249,7 @@ export function useSwapBuildTx() {
         feeType: buildSwapRes.result?.fee?.percentageFee?.toString() ?? '0',
         router: JSON.stringify(buildSwapRes.result?.routesData ?? ''),
         isFirstTime: isFirstTimeSwap,
-        createFrom: pageType === EPageType.modal ? 'modal' : 'swapPage',
+        createFrom: isModalPage ? 'modal' : 'swapPage',
       });
       setPersistSettings((prev) => ({
         ...prev,
@@ -1259,7 +1259,7 @@ export function useSwapBuildTx() {
     [
       fromToken,
       isFirstTimeSwap,
-      pageType,
+      isModalPage,
       setPersistSettings,
       slippageItem.value,
       swapFromAddressInfo.accountInfo?.account?.id,
