@@ -323,8 +323,7 @@ function SelectContent() {
       keepChildrenMounted
       sheetProps={{
         dismissOnSnapToBottom: true,
-        snapPointsMode: 'percent',
-        snapPoints: [60],
+        snapPointsMode: 'fit',
         ...sheetProps,
       }}
       floatingPanelProps={{
