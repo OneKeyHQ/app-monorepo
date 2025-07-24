@@ -400,15 +400,15 @@ export default function EarnReward() {
   }, [amount?.pending, intl, tourTimes, tourVisited]);
 
   const Content = useMemo(() => {
-    // if (lists[0]?.length === 0 && lists[1]?.length === 0) {
-    //   return (
-    //     <YStack>
-    //       {ListHeaderComponent}
-    //       <Divider mx="$5" />
-    //       <EmptyData />
-    //     </YStack>
-    //   );
-    // }
+    if ((lists[0]?.length || 0) + (lists[1]?.length || 0) === 0) {
+      return (
+        <YStack>
+          {ListHeaderComponent}
+          <Divider mx="$5" />
+          <EmptyData />
+        </YStack>
+      );
+    }
 
     return (
       <Tabs.Container
