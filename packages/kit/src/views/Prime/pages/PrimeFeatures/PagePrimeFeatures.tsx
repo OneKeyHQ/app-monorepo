@@ -21,11 +21,11 @@ import {
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { PaginationButton } from '@onekeyhq/components/src/composite/Banner/PaginationButton';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { PaginationButton } from '@onekeyhq/kit/src/views/Prime/pages/PrimeFeatures/PrimePaginationButton';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -283,6 +283,10 @@ export default function PagePrimeFeatures() {
               isVisible={currentIndex !== 0 ? isHovering : false}
               direction="previous"
               onPress={gotToPrevIndex}
+              variant="tertiary"
+              theme="dark"
+              iconSize="small"
+              positionOffset={16}
             />
 
             <PaginationButton
@@ -291,6 +295,10 @@ export default function PagePrimeFeatures() {
               }
               direction="next"
               onPress={goToNextIndex}
+              variant="tertiary"
+              theme="dark"
+              iconSize="small"
+              positionOffset={16}
             />
           </>
         ) : null}
