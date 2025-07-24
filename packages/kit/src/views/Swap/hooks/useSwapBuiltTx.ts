@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import {
   OrderBalance,
@@ -11,7 +11,13 @@ import { ethers } from 'ethers';
 import { cloneDeep, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { EPageType, Toast, usePageType } from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components';
+import {
+  EPageType,
+  Toast,
+  rootNavigationRef,
+  usePageType,
+} from '@onekeyhq/components';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -32,6 +38,8 @@ import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
+import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   numberFormat,
   toBigIntHex,
@@ -197,6 +205,13 @@ export function useSwapBuildTx() {
             };
           },
         );
+        if (
+          accountUtils.isQrAccount({
+            accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+          })
+        ) {
+          rootNavigationRef.current?.goBack();
+        }
         await generateSwapHistoryItem({
           txId,
           swapTxInfo: swapInfo,
@@ -211,7 +226,11 @@ export function useSwapBuildTx() {
         }
       }
     },
-    [generateSwapHistoryItem, setSwapSteps],
+    [
+      generateSwapHistoryItem,
+      setSwapSteps,
+      swapFromAddressInfo.accountInfo?.account?.id,
+    ],
   );
 
   const handleBuildTxSuccessWithSignedNoSend = useCallback(
@@ -2185,6 +2204,12 @@ export function useSwapBuildTx() {
                 !swapStepsValues?.preSwapData.shouldFallback
               ) {
                 void preSwapStepsStart(fallbackSwapStepsValues);
+              } else if (
+                accountUtils.isQrAccount({
+                  accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+                })
+              ) {
+                rootNavigationRef.current?.goBack();
               }
               break;
             }
@@ -2193,7 +2218,9 @@ export function useSwapBuildTx() {
       }
     },
     [
-      swapSteps,
+      swapSteps.steps,
+      swapSteps.preSwapData,
+      swapSteps.quoteResult,
       setSwapSteps,
       approveTxNew,
       swapActionState.approveUnLimit,
@@ -2201,6 +2228,7 @@ export function useSwapBuildTx() {
       setInAppNotificationAtom,
       swapTypeSwitch,
       swapFromAddressInfo.address,
+      swapFromAddressInfo.accountInfo?.account?.id,
       wrappedTx,
       buildTxNew,
       signMessage,
