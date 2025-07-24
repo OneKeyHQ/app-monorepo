@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import {
   OrderBalance,
@@ -11,7 +11,13 @@ import { ethers } from 'ethers';
 import { cloneDeep, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { EPageType, Toast, usePageType } from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components';
+import {
+  EPageType,
+  Toast,
+  rootNavigationRef,
+  usePageType,
+} from '@onekeyhq/components';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -32,6 +38,8 @@ import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
+import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   numberFormat,
   toBigIntHex,
@@ -197,6 +205,13 @@ export function useSwapBuildTx() {
             };
           },
         );
+        if (
+          accountUtils.isQrAccount({
+            accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+          })
+        ) {
+          rootNavigationRef.current?.goBack();
+        }
         await generateSwapHistoryItem({
           txId,
           swapTxInfo: swapInfo,
@@ -211,7 +226,11 @@ export function useSwapBuildTx() {
         }
       }
     },
-    [generateSwapHistoryItem, setSwapSteps],
+    [
+      generateSwapHistoryItem,
+      setSwapSteps,
+      swapFromAddressInfo.accountInfo?.account?.id,
+    ],
   );
 
   const handleBuildTxSuccessWithSignedNoSend = useCallback(
@@ -1238,6 +1257,7 @@ export function useSwapBuildTx() {
         swapType = ESwapTabSwitchType.BRIDGE;
       }
       defaultLogger.swap.createSwapOrder.swapCreateOrder({
+        status: ESwapEventAPIStatus.SUCCESS,
         swapProvider: buildSwapRes.result?.info.provider ?? '',
         swapProviderName: buildSwapRes.result?.info.providerName ?? '',
         swapType,
@@ -1331,6 +1351,31 @@ export function useSwapBuildTx() {
             walletType: swapFromAddressInfo.accountInfo?.wallet?.type,
           });
         } catch (e: any) {
+          let swapType = ESwapTabSwitchType.SWAP;
+          if (data?.protocol === EProtocolOfExchange.LIMIT) {
+            swapType = ESwapTabSwitchType.LIMIT;
+          } else if (
+            data?.fromTokenInfo.networkId !== data?.toTokenInfo.networkId
+          ) {
+            swapType = ESwapTabSwitchType.BRIDGE;
+          }
+          defaultLogger.swap.createSwapOrder.swapCreateOrder({
+            status: ESwapEventAPIStatus.FAIL,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            message: e?.message ?? 'unknown error',
+            swapProvider: data?.info.provider ?? '',
+            swapProviderName: data?.info.providerName ?? '',
+            swapType,
+            slippage: slippageItem.value.toString(),
+            sourceChain: data?.fromTokenInfo.networkId ?? '',
+            receivedChain: data?.toTokenInfo.networkId ?? '',
+            sourceTokenSymbol: data?.fromTokenInfo.symbol ?? '',
+            receivedTokenSymbol: data?.toTokenInfo.symbol ?? '',
+            feeType: data?.fee?.percentageFee?.toString() ?? '0',
+            router: JSON.stringify(data?.routesData ?? ''),
+            isFirstTime: isFirstTimeSwap,
+            createFrom: pageType === EPageType.modal ? 'modal' : 'swapPage',
+          });
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           const ne = new Error(e?.message ?? 'unknown error');
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -1556,6 +1601,8 @@ export function useSwapBuildTx() {
       setSwapSteps,
       checkOtherFee,
       intl,
+      isFirstTimeSwap,
+      pageType,
       swapBuildFinish,
       swapTypeSwitch,
       handleBuildTxSuccessWithSignedNoSend,
@@ -2185,6 +2232,12 @@ export function useSwapBuildTx() {
                 !swapStepsValues?.preSwapData.shouldFallback
               ) {
                 void preSwapStepsStart(fallbackSwapStepsValues);
+              } else if (
+                accountUtils.isQrAccount({
+                  accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+                })
+              ) {
+                rootNavigationRef.current?.goBack();
               }
               break;
             }
@@ -2193,7 +2246,9 @@ export function useSwapBuildTx() {
       }
     },
     [
-      swapSteps,
+      swapSteps.steps,
+      swapSteps.preSwapData,
+      swapSteps.quoteResult,
       setSwapSteps,
       approveTxNew,
       swapActionState.approveUnLimit,
@@ -2201,6 +2256,7 @@ export function useSwapBuildTx() {
       setInAppNotificationAtom,
       swapTypeSwitch,
       swapFromAddressInfo.address,
+      swapFromAddressInfo.accountInfo?.account?.id,
       wrappedTx,
       buildTxNew,
       signMessage,
