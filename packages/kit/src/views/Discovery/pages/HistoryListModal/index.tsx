@@ -56,15 +56,25 @@ function HistoryListModal() {
   const handleWebSite = useWebSiteHandler();
 
   const [page, setPage] = useState(1);
+  const [lastPageDataCount, setLastPageDataCount] = useState(0);
+  const [hasMoreData, setHasMoreData] = useState(true);
+
   const { result: dataSource, run } = usePromiseResult(
     async () => {
       const data = await backgroundApiProxy.serviceDiscovery.fetchHistoryData(
         page,
       );
+
+      if (data.length === lastPageDataCount || data.length === 0) {
+        setHasMoreData(false);
+      } else {
+        setLastPageDataCount(data.length);
+      }
+
       const ret = groupDataByDate(data);
       return ret;
     },
-    [page],
+    [page, lastPageDataCount],
     {
       watchLoading: true,
     },
@@ -211,9 +221,11 @@ function HistoryListModal() {
               ) : null}
             </ListItem>
           )}
-          onEndReached={() => {
-            setPage((prev) => prev + 1);
-          }}
+          {...(hasMoreData && {
+            onEndReached: () => {
+              setPage((prev) => prev + 1);
+            },
+          })}
         />
       </Page.Body>
     </Page>
