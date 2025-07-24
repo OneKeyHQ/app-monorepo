@@ -9,10 +9,7 @@ import type {
 } from '@onekeyhq/components';
 import {
   Divider,
-  Icon,
-  IconButton,
   Image,
-  NavBackButton,
   Page,
   SizableText,
   Stack,
@@ -23,12 +20,11 @@ import {
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import CloseButton from '@onekeyhq/components/src/composite/Banner/CloseButton';
-import { PaginationButton } from '@onekeyhq/components/src/composite/Banner/PaginationButton';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { PaginationButton } from '@onekeyhq/kit/src/views/Prime/pages/PrimeFeatures/PrimePaginationButton';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -59,7 +55,7 @@ function FeaturesItem({
   details,
 }: IFeatureItemInfo) {
   return (
-    <Stack pb="$5" alignItems="center" justifyContent="center">
+    <Stack alignItems="center" justifyContent="center">
       <Stack maxWidth={432} width="100%">
         <Stack alignItems="center" justifyContent="center">
           {banner}
@@ -73,29 +69,31 @@ function FeaturesItem({
           </SizableText>
         </Stack>
         <Divider my="$6" borderColor="$neutral3" />
-        {details.map((detail, index) => {
-          return (
-            <ListItem
-              key={index}
-              drillIn={!!detail.onPress}
-              onPress={detail.onPress}
-              icon={detail.icon}
-            >
-              <ListItem.Text
-                userSelect="none"
-                flex={1}
-                primary={
-                  <XStack>
-                    <SizableText textAlign="left" size="$bodyMdMedium">
-                      {detail.title}
-                    </SizableText>
-                  </XStack>
-                }
-                secondary={detail.description}
-              />
-            </ListItem>
-          );
-        })}
+        <YStack gap="$2">
+          {details.map((detail, index) => {
+            return (
+              <ListItem
+                key={index}
+                drillIn={!!detail.onPress}
+                onPress={detail.onPress}
+                icon={detail.icon}
+              >
+                <ListItem.Text
+                  userSelect="none"
+                  flex={1}
+                  primary={
+                    <XStack>
+                      <SizableText textAlign="left" size="$bodyMdMedium">
+                        {detail.title}
+                      </SizableText>
+                    </XStack>
+                  }
+                  secondary={detail.description}
+                />
+              </ListItem>
+            );
+          })}
+        </YStack>
       </Stack>
     </Stack>
   );
@@ -105,7 +103,6 @@ export default function PagePrimeFeatures() {
   const navigation = useAppNavigation();
   const keyExtractor = useCallback((item: IFeatureItemInfo) => item.title, []);
   const renderItem = useCallback(({ item }: { item: IFeatureItemInfo }) => {
-    // return null;
     return <FeaturesItem {...item} />;
   }, []);
 
@@ -134,6 +131,7 @@ export default function PagePrimeFeatures() {
           <Image
             w="100%"
             h={bannerHeight}
+            maxWidth={393}
             source={require('@onekeyhq/kit/assets/prime/onekey_cloud_banner.png')}
           />
         ),
@@ -171,6 +169,7 @@ export default function PagePrimeFeatures() {
           <Image
             w="100%"
             h={bannerHeight}
+            maxWidth={393}
             source={require('@onekeyhq/kit/assets/prime/bulk_copy_banner.png')}
           />
         ),
@@ -217,6 +216,7 @@ export default function PagePrimeFeatures() {
           <Image
             w="100%"
             h={bannerHeight}
+            maxWidth={393}
             source={require('@onekeyhq/kit/assets/prime/bulk_revoke_banner.png')}
           />
         ),
@@ -266,7 +266,6 @@ export default function PagePrimeFeatures() {
   // PaginationButton will cause native crash
   const showPaginationButton = !platformEnv.isNative;
   const isHovering = true;
-  const showCloseButton = false;
 
   const renderPagination = useCallback(
     ({
@@ -275,41 +274,12 @@ export default function PagePrimeFeatures() {
       gotToPrevIndex,
     }: IRenderPaginationParams) => (
       <>
-        {dataInfo.data.length > 1 ? (
-          <XStack
-            testID="prime-features-pagination"
-            gap="$1"
-            // position="absolute"
-            // right={0}
-            // bottom="$10"
-            width="100%"
-            jc="center"
-            // {...hoverOpacity}
-            // {...indicatorContainerStyle}
-          >
-            {dataInfo.data.map((_, index) => (
-              <Stack
-                key={index}
-                w="$3"
-                $gtMd={{
-                  w: '$4',
-                }}
-                h="$1"
-                borderRadius="$full"
-                bg="$textSubdued"
-                opacity={currentIndex === index ? 1 : 0.5}
-              />
-            ))}
-          </XStack>
-        ) : null}
-
         {showPaginationButton ? (
           <>
             <PaginationButton
               isVisible={currentIndex !== 0 ? isHovering : false}
               direction="previous"
               onPress={gotToPrevIndex}
-              variant="tertiary"
             />
 
             <PaginationButton
@@ -318,22 +288,12 @@ export default function PagePrimeFeatures() {
               }
               direction="next"
               onPress={goToNextIndex}
-              variant="tertiary"
             />
           </>
         ) : null}
-
-        {showCloseButton ? (
-          <CloseButton
-            onPress={() => {
-              //
-            }}
-            isHovering={isHovering}
-          />
-        ) : null}
       </>
     ),
-    [dataInfo.data, isHovering, showCloseButton, showPaginationButton],
+    [dataInfo.data, isHovering, showPaginationButton],
   );
 
   const [index, setIndex] = useState(dataInfo.index);
@@ -435,30 +395,45 @@ export default function PagePrimeFeatures() {
         </Theme>
 
         <Page.Body>
-          <Stack h={60} />
-          <Swiper
-            height={height}
-            position="relative"
-            index={index}
-            initialNumToRender={3}
-            onChangeIndex={onIndexChange}
-            // autoplay
-            // autoplayLoop
-            // autoplayLoopKeepAnimation
-            // autoplayDelayMs={3000}
-            keyExtractor={keyExtractor}
-            data={dataInfo.data}
-            renderItem={renderItem}
-            renderPagination={renderPagination}
-            overflow="hidden"
-            borderRadius="$3"
-            onPointerEnter={() => {
-              // setIsHoveringThrottled(true);
-            }}
-            onPointerLeave={() => {
-              // setIsHoveringThrottled(false);
-            }}
-          />
+          <YStack>
+            <Swiper
+              height={height}
+              position="relative"
+              index={index}
+              initialNumToRender={3}
+              onChangeIndex={onIndexChange}
+              keyExtractor={keyExtractor}
+              data={dataInfo.data}
+              renderItem={renderItem}
+              renderPagination={renderPagination}
+              overflow="hidden"
+              borderRadius="$3"
+              pt="$10"
+            />
+            {dataInfo.data.length > 1 ? (
+              <XStack
+                testID="prime-features-pagination"
+                gap="$1"
+                width="100%"
+                jc="center"
+                mb="$4"
+              >
+                {dataInfo.data.map((_, pageIndex) => (
+                  <Stack
+                    key={pageIndex}
+                    w="$3"
+                    $gtMd={{
+                      w: '$4',
+                    }}
+                    h="$1"
+                    borderRadius="$full"
+                    bg="$textSubdued"
+                    opacity={index === pageIndex ? 1 : 0.5}
+                  />
+                ))}
+              </XStack>
+            ) : null}
+          </YStack>
         </Page.Body>
         <Page.Footer
           confirmButtonProps={
