@@ -3121,7 +3121,7 @@
   "wallet.subsidy_all_used": "すべて受け取り済み",
   "wallet.subsidy_claim": "請求",
   "wallet.subsidy_claimed": "受領済み",
-  "wallet.subsidy_description": "リソースは10分間有効で、先着順です。ユーザーは月に10回無料リソースを請求できます。",
+  "wallet.subsidy_description": "リソースの有効期限は10分です。時間内に取引を完了してください。24時間ごとに1回請求可能（GMT+8でリセット）、月最大10回まで。",
   "wallet.subsidy_label": "無料リソース",
   "wallet.subsidy_redeem_title": "無料リソースを受け取る",
   "wallet.subsidy_remaining": "残り {remaining} / {total}",

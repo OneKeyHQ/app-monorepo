@@ -3121,7 +3121,7 @@
   "wallet.subsidy_all_used": "Đã nhận hết",
   "wallet.subsidy_claim": "Khẳng định",
   "wallet.subsidy_claimed": "Đã nhận",
-  "wallet.subsidy_description": "Tài nguyên có hiệu lực trong 10 phút, ai đến trước được phục vụ trước. Người dùng có thể nhận 10 tài nguyên miễn phí mỗi tháng.",
+  "wallet.subsidy_description": "Tài nguyên có hiệu lực trong 10 phút. Vui lòng hoàn tất giao dịch trong thời gian quy định. Chỉ được nhận một lần mỗi 24 giờ (đặt lại theo GMT+8), tối đa 10 lần mỗi tháng.",
   "wallet.subsidy_label": "Tài nguyên miễn phí",
   "wallet.subsidy_redeem_title": "Nhận tài nguyên miễn phí",
   "wallet.subsidy_remaining": "Còn lại {remaining} / {total}",
