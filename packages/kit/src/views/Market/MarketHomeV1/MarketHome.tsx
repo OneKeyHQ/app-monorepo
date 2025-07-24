@@ -125,6 +125,7 @@ function MarketHome() {
       <Tabs.Container
         pagerProps={
           {
+            offscreenTabLimit: 3,
             scrollSensitivity: 4,
           } as any
         }
