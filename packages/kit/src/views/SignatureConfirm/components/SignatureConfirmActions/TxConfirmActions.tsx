@@ -341,11 +341,16 @@ function TxConfirmActions(props: IProps) {
 
       void dappApprove.resolve({ result: signedTx });
 
+      if (accountUtils.isQrAccount({ accountId })) {
+        navigation.popStack();
+      }
+
       if (popStack) {
         navigation.popStack();
       } else {
         navigation.pop();
       }
+
       updateSendTxStatus({ isSubmitting: false });
       onSuccess?.(result);
 
@@ -374,6 +379,9 @@ function TxConfirmActions(props: IProps) {
         }
       }
     } catch (e: any) {
+      if (accountUtils.isQrAccount({ accountId })) {
+        navigation.popStack();
+      }
       updateSendTxStatus({ isSubmitting: false });
       // show toast by @toastIfError() in background method
       // Toast.error({
