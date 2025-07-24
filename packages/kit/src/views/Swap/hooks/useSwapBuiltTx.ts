@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import {
   OrderBalance,
@@ -11,7 +11,13 @@ import { ethers } from 'ethers';
 import { cloneDeep, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { EPageType, Toast, usePageType } from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components';
+import {
+  EPageType,
+  Toast,
+  rootNavigationRef,
+  usePageType,
+} from '@onekeyhq/components';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -32,6 +38,7 @@ import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
+import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   numberFormat,
@@ -83,7 +90,6 @@ import type {
 } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
 import {
   useSwapBuildTxFetchingAtom,
@@ -108,7 +114,6 @@ import { useSwapTxHistoryActions } from './useSwapTxHistory';
 
 export function useSwapBuildTx() {
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
@@ -205,7 +210,7 @@ export function useSwapBuildTx() {
             accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
           })
         ) {
-          navigation.popStack();
+          rootNavigationRef.current?.goBack();
         }
         await generateSwapHistoryItem({
           txId,
@@ -223,7 +228,6 @@ export function useSwapBuildTx() {
     },
     [
       generateSwapHistoryItem,
-      navigation,
       setSwapSteps,
       swapFromAddressInfo.accountInfo?.account?.id,
     ],
@@ -2205,7 +2209,7 @@ export function useSwapBuildTx() {
                   accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
                 })
               ) {
-                navigation.popStack();
+                rootNavigationRef.current?.goBack();
               }
               break;
             }
@@ -2229,7 +2233,6 @@ export function useSwapBuildTx() {
       buildTxNew,
       signMessage,
       batchApproveSwap,
-      navigation,
     ],
   );
 

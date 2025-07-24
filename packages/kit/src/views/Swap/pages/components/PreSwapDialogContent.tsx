@@ -53,7 +53,6 @@ const PreSwapDialogContent = ({
       quoteResult: swapSteps.quoteResult,
     };
   }, [swapSteps]);
-  console.log('swap__preSwapData---', preSwapData);
   const { fromAmount, toAmount } = useMemo(() => {
     return {
       fromAmount: preSwapData?.fromTokenAmount || '0',
