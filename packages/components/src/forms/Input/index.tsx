@@ -554,6 +554,7 @@ function BaseInputUnControlled(
   return (
     <Input
       ref={inputRef}
+      allowFontScaling={false}
       {...(inputProps as any)}
       value={internalValue}
       onChangeText={handleChange}
