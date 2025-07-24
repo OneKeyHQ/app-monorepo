@@ -15,12 +15,21 @@ function handleProblems(result) {
 }
 
 try {
-  const result = execSync(
-    `sh -c 'npx eslint . --ext .ts,.tsx --fix --cache --cache-location "$(yarn config get cacheFolder)"'`,
-  ).toString('utf-8');
+  console.log('Running ESLint in all workspaces in parallel...');
+
+  const result = execSync('yarn workspaces foreach -p -A run lint', {
+    maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large outputs
+    stdio: 'pipe',
+  }).toString('utf-8');
+
   handleProblems(result);
 } catch (error) {
-  console.log(error.stdout.toString('utf-8'));
+  if (error.stdout) {
+    console.log(error.stdout.toString('utf-8'));
+  }
+  if (error.stderr) {
+    console.error(error.stderr.toString('utf-8'));
+  }
   exit(1);
 }
 
