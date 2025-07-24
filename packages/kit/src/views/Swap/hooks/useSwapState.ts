@@ -136,12 +136,8 @@ export function useSwapQuoteEventFetching() {
   const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapQuoteEvent = useCallback(async () => {
-    const walletType =
-      await backgroundApiProxy.serviceAccountProfile._getRequestWalletType({
-        accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
-      });
     defaultLogger.swap.swapQuote.swapQuote({
-      walletType,
+      walletType: swapFromAddressInfo.accountInfo?.wallet?.type ?? '',
       quoteType: swapTypeSwitchValue,
       slippageSetting:
         settingsAtom.swapSlippagePercentageMode === ESwapSlippageSegmentKey.AUTO
@@ -160,7 +156,7 @@ export function useSwapQuoteEventFetching() {
     settingsAtom.swapEnableRecipientAddress,
     settingsAtom.swapSlippagePercentageMode,
     settingsPersistAtom.swapBatchApproveAndSwap,
-    swapFromAddressInfo.accountInfo?.account?.id,
+    swapFromAddressInfo.accountInfo?.wallet?.type,
     swapTypeSwitchValue,
     toToken?.networkId,
     toToken?.symbol,
