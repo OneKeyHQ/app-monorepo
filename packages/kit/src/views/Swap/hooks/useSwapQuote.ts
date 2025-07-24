@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { EPageType, usePageType } from '@onekeyhq/components';
+import { useIsModalPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EAppEventBusNames,
@@ -535,11 +535,11 @@ export function useSwapQuote() {
     ],
   );
 
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
-      if (pageType !== EPageType.modal) {
+      if (!isModalPage) {
         if (isFocus) {
           appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
           appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
@@ -588,7 +588,7 @@ export function useSwapQuote() {
   );
 
   useEffect(() => {
-    if (pageType === EPageType.modal) {
+    if (isModalPage) {
       if (isFocused) {
         appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
         appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
@@ -603,7 +603,7 @@ export function useSwapQuote() {
       }
     }
     return () => {
-      if (pageType === EPageType.modal) {
+      if (isModalPage) {
         appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
         appEventBus.off(
           EAppEventBusNames.SwapApprovingSuccess,
@@ -611,5 +611,5 @@ export function useSwapQuote() {
         );
       }
     };
-  }, [isFocused, pageType, quoteEventHandler, swapApprovingSuccessAction]);
+  }, [isFocused, isModalPage, quoteEventHandler, swapApprovingSuccessAction]);
 }

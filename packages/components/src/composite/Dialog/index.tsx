@@ -260,8 +260,10 @@ function DialogFrame({
           bg="$bg"
           borderCurve="continuous"
           disableHideBottomOverflow
-          mx={platformEnv.isNative ? 'auto' : undefined}
-          maxWidth={platformEnv.isNative ? MAX_CONTENT_WIDTH : undefined}
+          // Fix width issue for portrait iPad mini - ensure proper dialog width
+          mx={platformEnv.isNativeIOSPad ? 'auto' : undefined}
+          width={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
+          maxWidth={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
         >
           {!disableDrag ? <SheetGrabber /> : null}
           {renderDialogContent}
