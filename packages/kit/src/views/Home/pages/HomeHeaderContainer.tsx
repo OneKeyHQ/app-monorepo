@@ -2,6 +2,7 @@ import { Stack } from '@onekeyhq/components';
 
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { WalletActions } from '../components/WalletActions';
+import WalletBanner from '../components/WalletBanner';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
@@ -27,6 +28,7 @@ function HomeHeaderContainer() {
           }}
         />
       </Stack>
+      <WalletBanner />
     </HomeTokenListProviderMirror>
   );
 }

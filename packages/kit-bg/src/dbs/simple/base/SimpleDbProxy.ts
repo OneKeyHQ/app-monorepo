@@ -48,6 +48,7 @@ import type { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHist
 import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 import type { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 import type { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
+import type { SimpleDbEntityWalletBanner } from '../entity/SimpleDbEntityWalletBanner';
 
 export class SimpleDbProxy
   extends BackgroundServiceProxyBase
@@ -234,4 +235,8 @@ export class SimpleDbProxy
   riskTokenManagement = this._createProxyService(
     'riskTokenManagement',
   ) as SimpleDbEntityRiskTokenManagement;
+
+  walletBanner = this._createProxyService(
+    'walletBanner',
+  ) as SimpleDbEntityWalletBanner;
 }
