@@ -1,9 +1,8 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 /* eslint-disable react/no-unstable-nested-components */
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 
 import { ListView, SizableText, Stack } from '@onekeyhq/components';
-import type { ITabHeaderInstance } from '@onekeyhq/components/src/layouts/TabView/Header';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Layout } from './utils/Layout';
