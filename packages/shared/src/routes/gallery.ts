@@ -71,6 +71,7 @@ export enum EGalleryRoutes {
   ComponentSwiper = 'component-Swiper',
   ComponentSwitch = 'component-Switch',
   ComponentTabview = 'component-TabView',
+  ComponentNewTabs = 'component-NewTabs',
   ComponentTextArea = 'component-TextArea',
   ComponentThemeColors = 'component-ThemeColors',
   ComponentToast = 'component-Toast',
