@@ -148,7 +148,7 @@ function WebDeviceAccessDialogContent({
   promptWebUsbDeviceAccess: () => Promise<void>;
   connectId?: string;
 }) {
-  const { result: deviceName } = usePromiseResult(async () => {
+  const { result: deviceBleName } = usePromiseResult(async () => {
     if (!connectId) {
       return '';
     }
@@ -157,7 +157,6 @@ function WebDeviceAccessDialogContent({
         await backgroundApiProxy.serviceHardware.getDeviceByConnectId({
           connectId,
         });
-      console.log('======>: device:  ', device);
       return (
         device?.featuresInfo?.ble_name || `OneKey ${device?.deviceType || ''}`
       );
@@ -170,11 +169,15 @@ function WebDeviceAccessDialogContent({
     <YStack gap="$5">
       <YStack gap="$2">
         <SizableText size="$bodyLg" color="$text">
-          {deviceName}
           1.{' '}
-          {intl.formatMessage({
-            id: ETranslations.device_check_connection,
-          })}
+          {intl.formatMessage(
+            {
+              id: ETranslations.device_check_connection,
+            },
+            {
+              bleName: deviceBleName,
+            },
+          )}
         </SizableText>
         <SizableText size="$bodyLg" color="$text">
           2.{' '}
