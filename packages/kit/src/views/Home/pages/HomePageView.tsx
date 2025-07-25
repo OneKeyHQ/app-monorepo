@@ -136,10 +136,6 @@ export function HomePageView({
   const supportedDeviceTypes = vaultSettings?.supportedDeviceTypes;
   const watchingAccountEnabled = vaultSettings?.watchingAccountEnabled;
 
-  const onRefresh = useCallback(() => {
-    appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-  }, []);
-
   const emptyAccountView = useMemo(
     () => (
       <EmptyAccount
