@@ -10,8 +10,9 @@ import {
 import type { ForwardedRef, PropsWithChildren } from 'react';
 
 import { useTabNameContext as useNativeTabNameContext } from './TabNameContext';
-import { useEventEmitter } from './useEventEmitter';
 import { useFocusedTab } from './useFocusedTab';
+
+import type { useEventEmitter } from './useEventEmitter';
 
 export const useTabNameContext = useNativeTabNameContext;
 
@@ -38,63 +39,6 @@ const TabRefreshingFocusedContext = createContext<
   | undefined
 >(undefined);
 
-export type IRefreshingFocusedContainerRef = {
-  setFocused: (focused: boolean) => void;
-  setIsRefreshing: (isRefreshing: boolean, isHeader: boolean) => void;
-};
-
-function RawRefreshingFocusedContainer(
-  {
-    children,
-    initialFocused,
-    setScrollHeaderIsRefreshing,
-  }: PropsWithChildren & {
-    initialFocused: boolean;
-    setScrollHeaderIsRefreshing: (isRefreshing: boolean) => void;
-  },
-  ref: ForwardedRef<IRefreshingFocusedContainerRef>,
-) {
-  const emitter = useEventEmitter<IRefreshingFocusedEventMapCore>();
-  const tabRefreshingFocusedContext = useMemo(
-    () => ({
-      ...emitter.create(''),
-      initialFocused,
-      setScrollHeaderIsRefreshing,
-    }),
-    [emitter, initialFocused, setScrollHeaderIsRefreshing],
-  );
-  const setFocused = useCallback(
-    (focused: boolean) => {
-      tabRefreshingFocusedContext.initialFocused = focused;
-      // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      emitter.emit({ type: 'changeFocused', data: focused });
-    },
-    [emitter, tabRefreshingFocusedContext],
-  );
-  const setIsRefreshing = useCallback(
-    (isRefreshing: boolean, isHeader: boolean) => {
-      // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      emitter.emit({
-        type: 'changeIsRefreshing',
-        data: { isRefreshing, isHeader },
-      });
-    },
-    [emitter],
-  );
-  useImperativeHandle(ref, () => ({
-    setFocused,
-    setIsRefreshing,
-  }));
-
-  return (
-    <TabRefreshingFocusedContext.Provider value={tabRefreshingFocusedContext}>
-      {children}
-    </TabRefreshingFocusedContext.Provider>
-  );
-}
-
 export function useTabIsRefreshingFocused() {
   const tabRefreshingFocusedContext = useContext(TabRefreshingFocusedContext);
   // const [isFocused, setIsFocused] = useState(true);
@@ -118,7 +62,3 @@ export function useTabIsRefreshingFocused() {
     setIsFooterRefreshing,
   };
 }
-
-export const RefreshingFocusedContainer = forwardRef(
-  RawRefreshingFocusedContainer,
-);
