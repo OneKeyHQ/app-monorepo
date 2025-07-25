@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import {
   OrderBalance,
@@ -33,6 +33,7 @@ import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorT
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
+import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   numberFormat,
@@ -132,6 +133,11 @@ export function useSwapBuildTx() {
       networkId: swapFromAddressInfo.networkId ?? '',
     });
 
+  const swapStepsRef = useRef(swapSteps);
+  if (swapStepsRef.current !== swapSteps) {
+    swapStepsRef.current = swapSteps;
+  }
+
   const isModalPage = useIsModalPage();
 
   const syncRecentTokenPairs = useCallback(
@@ -176,6 +182,16 @@ export function useSwapBuildTx() {
   //   setSwapToTokenAmount,
   // ]);
 
+  const goBackQrCodeModal = useCallback(() => {
+    if (
+      rootNavigationRef.current?.canGoBack() &&
+      rootNavigationRef.current?.getCurrentRoute()?.name ===
+        EScanQrCodeModalPages.ScanQrCodeStack
+    ) {
+      rootNavigationRef.current?.goBack();
+    }
+  }, []);
+
   const onBuildTxSuccess = useCallback(
     async (txId: string, swapInfo: ISwapTxInfo, orderId?: string) => {
       // clearQuoteData();
@@ -204,7 +220,7 @@ export function useSwapBuildTx() {
             accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
           })
         ) {
-          rootNavigationRef.current?.goBack();
+          void goBackQrCodeModal();
         }
         await generateSwapHistoryItem({
           txId,
@@ -221,6 +237,7 @@ export function useSwapBuildTx() {
       }
     },
     [
+      goBackQrCodeModal,
       generateSwapHistoryItem,
       setSwapSteps,
       swapFromAddressInfo.accountInfo?.account?.id,
@@ -1173,6 +1190,16 @@ export function useSwapBuildTx() {
     [swapFromAddressInfo.address, swapFromAddressInfo.accountInfo?.account?.id],
   );
 
+  const onApproveTxSuccess = useCallback(() => {
+    if (
+      accountUtils.isQrAccount({
+        accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+      })
+    ) {
+      goBackQrCodeModal();
+    }
+  }, [goBackQrCodeModal, swapFromAddressInfo.accountInfo?.account?.id]);
+
   const approveTxNew = useCallback(
     async (
       stepIndex: number,
@@ -1223,12 +1250,16 @@ export function useSwapBuildTx() {
               undefined,
               noWaitApprovedNonce,
             );
+            if (res) {
+              void onApproveTxSuccess();
+            }
             return res;
           }
         }
       }
     },
     [
+      onApproveTxSuccess,
       handleApproveFallbackOnCancel,
       handleApproveFallbackOnSuccess,
       navigationToTxConfirm,
@@ -2171,6 +2202,8 @@ export function useSwapBuildTx() {
             } catch (error: any) {
               const shouldFallback =
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                error?.name !== EOneKeyErrorClassNames.OneKeyAppError &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 error?.className !==
                   EOneKeyErrorClassNames.OneKeyHardwareError &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -2197,10 +2230,10 @@ export function useSwapBuildTx() {
                 steps: ISwapStep[];
                 preSwapData: ISwapPreSwapData;
                 quoteResult?: IFetchQuoteResult | undefined;
-              } = swapStepsValues ?? {
-                steps: swapSteps.steps,
-                preSwapData: swapSteps.preSwapData,
-                quoteResult: swapSteps.quoteResult,
+              } = {
+                steps: swapStepsRef.current.steps,
+                preSwapData: swapStepsRef.current.preSwapData,
+                quoteResult: swapStepsRef.current.quoteResult,
               };
               if (shouldFallback) {
                 const newSteps = [...fallbackSwapStepsValues.steps];
@@ -2249,9 +2282,11 @@ export function useSwapBuildTx() {
               } else if (
                 accountUtils.isQrAccount({
                   accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
-                })
+                }) &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                error?.key !== 'global.cancel'
               ) {
-                rootNavigationRef.current?.goBack();
+                void goBackQrCodeModal();
               }
               break;
             }
@@ -2260,6 +2295,7 @@ export function useSwapBuildTx() {
       }
     },
     [
+      goBackQrCodeModal,
       swapSteps.steps,
       swapSteps.preSwapData,
       swapSteps.quoteResult,
