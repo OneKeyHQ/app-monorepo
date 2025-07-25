@@ -363,6 +363,7 @@ export function UniversalStake({
   );
 
   const prevShouldApproveRef = useRef<boolean | undefined>(undefined);
+
   useEffect(() => {
     const amountValueBN = new BigNumber(amountValue);
     // Check if shouldApprove transitioned from true to false and amount is valid
@@ -423,6 +424,11 @@ export function UniversalStake({
       setCheckAmountAlerts([]);
     }
   }, 300);
+
+  // Initialize checkAmount on component mount
+  useEffect(() => {
+    void checkAmount('0');
+  }, [checkAmount]);
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
