@@ -8,6 +8,7 @@ import {
   SectionList,
   SizableText,
   Stack,
+  Tabs,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -108,9 +109,9 @@ export const ConnectedSites = () => {
   );
 
   return (
-    <SectionList
+    <Tabs.SectionList
       sections={sections}
-      estimatedItemSize={154}
+      // estimatedItemSize={154}
       ItemSeparatorComponent={null}
       SectionSeparatorComponent={null}
       renderSectionHeader={({ section }) => (

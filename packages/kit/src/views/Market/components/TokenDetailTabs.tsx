@@ -3,13 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  RefreshControl,
-  Stack,
-  Tab,
-  useIsModalPage,
-  useMedia,
-} from '@onekeyhq/components';
+import { Tabs, YStack, useIsModalPage, useMedia } from '@onekeyhq/components';
 import type { IDeferredPromise, ITabPageProps } from '@onekeyhq/components';
 import type { ITabInstance } from '@onekeyhq/components/src/layouts/TabView/StickyTabComponent/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -25,8 +19,6 @@ import type { LayoutChangeEvent } from 'react-native';
 function BasicTokenDetailTabs({
   token,
   listHeaderComponent,
-  isRefreshing,
-  onRefresh,
   defer,
   coinGeckoId,
 }: {
@@ -39,7 +31,7 @@ function BasicTokenDetailTabs({
 }) {
   const intl = useIntl();
   const isModalPage = useIsModalPage();
-  const { md: mdMedia } = useMedia();
+  const { md: mdMedia, gtMd: gtMdMedia } = useMedia();
   const md = isModalPage ? true : mdMedia;
 
   useEffect(() => {
@@ -48,7 +40,7 @@ function BasicTokenDetailTabs({
     }, 100);
   }, [defer]);
 
-  const tabConfig = useMemo(
+  const tabConfigs = useMemo(
     () =>
       [
         md && token
@@ -152,33 +144,46 @@ function BasicTokenDetailTabs({
   );
 
   return (
-    <Tab
-      ref={tabRef}
-      refreshControl={
-        <RefreshControl refreshing={!!isRefreshing} onRefresh={onRefresh} />
+    <Tabs.Container
+      headerContainerStyle={{
+        shadowOpacity: 0,
+        elevation: 0,
+      }}
+      pagerProps={
+        {
+          scrollSensitivity: 4,
+        } as any
       }
-      $gtMd={{ pr: isModalPage ? 0 : '$5' }}
-      $md={{ mt: '$5' }}
-      {...(isModalPage ? { mt: '$5' } : null)}
-      data={tabConfig}
-      disableRefresh
-      ListHeaderComponent={
-        <Stack
-          mb="$5"
+      containerStyle={{
+        ...(gtMdMedia ? { paddingRight: isModalPage ? 0 : 20 } : undefined),
+        ...(md ? { marginTop: 20 } : undefined),
+        ...(isModalPage ? { marginTop: 20 } : undefined),
+      }}
+      onIndexChange={onSelectedPageIndex}
+      renderHeader={() => (
+        <YStack
+          bg="$bgApp"
+          pb="$5"
           onLayout={handleMount}
-          h={150}
+          h={170}
           $gtMd={{
             ...(isModalPage ? null : { h: 450 }),
           }}
         >
           {listHeaderComponent}
-          {/* {pools ? null : (
-            <YStack $gtMd={{ px: '$5' }}>{renderPoolSkeleton}</YStack>
-          )} */}
-        </Stack>
-      }
-      onSelectedPageIndex={onSelectedPageIndex}
-    />
+        </YStack>
+      )}
+      renderTabBar={(props) => <Tabs.TabBar {...props} />}
+      key={tabConfigs.length}
+    >
+      {tabConfigs.map((tab) => (
+        <Tabs.Tab key={tab.title} name={tab.title}>
+          <Tabs.ScrollView>
+            {tab.page({ showWalletActions: false })}
+          </Tabs.ScrollView>
+        </Tabs.Tab>
+      ))}
+    </Tabs.Container>
   );
 }
 

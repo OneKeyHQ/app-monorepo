@@ -7,7 +7,7 @@ import {
   Page,
   SizableText,
   Spinner,
-  Tab,
+  Tabs,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -177,35 +177,43 @@ function WalletList() {
 
 export default function YourReferred() {
   const intl = useIntl();
-  const tabs = useMemo(
-    () => [
-      {
-        title: intl.formatMessage({
-          id: ETranslations.global_wallet,
-        }),
-        page: WalletList,
-      },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.referral_referred_type_3,
-        }),
-        page: HardwareSales,
-      },
-    ],
-    [intl],
-  );
-
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.referral_your_referred })}
       />
       <Page.Body>
-        <Tab.Page
-          data={tabs}
-          initialScrollIndex={0}
-          showsVerticalScrollIndicator={false}
-        />
+        <Tabs.Container
+          headerContainerStyle={{
+            shadowOpacity: 0,
+            elevation: 0,
+          }}
+          pagerProps={
+            {
+              scrollSensitivity: 4,
+            } as any
+          }
+          renderTabBar={(props) => <Tabs.TabBar {...props} />}
+        >
+          <Tabs.Tab
+            name={intl.formatMessage({
+              id: ETranslations.global_wallet,
+            })}
+          >
+            <Tabs.ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+              <WalletList />
+            </Tabs.ScrollView>
+          </Tabs.Tab>
+          <Tabs.Tab
+            name={intl.formatMessage({
+              id: ETranslations.referral_referred_type_3,
+            })}
+          >
+            <Tabs.ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+              <HardwareSales />
+            </Tabs.ScrollView>
+          </Tabs.Tab>
+        </Tabs.Container>
       </Page.Body>
     </Page>
   );

@@ -280,6 +280,7 @@ function TableSkeletonRow<T = any>({
   );
 }
 export interface ITableProps<T> {
+  scrollEnabled?: boolean;
   showHeader?: boolean;
   showBackToTopButton?: boolean;
   dataSource: T[];
@@ -478,6 +479,7 @@ function BasicTable<T>({
   draggable = false,
   onEndReached,
   onEndReachedThreshold,
+  scrollEnabled = true,
 }: ITableProps<T>) {
   const { gtMd } = useMedia();
   const [isShowBackToTopButton, setIsShowBackToTopButton] = useState(false);
@@ -582,6 +584,7 @@ function BasicTable<T>({
       draggable ? (
         <SortableListView
           enabled
+          scrollEnabled={scrollEnabled}
           ref={listViewRef as any}
           contentContainerStyle={contentContainerStyle}
           stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
@@ -616,6 +619,7 @@ function BasicTable<T>({
         />
       ) : (
         <ListView
+          scrollEnabled={scrollEnabled}
           ref={listViewRef as any}
           contentContainerStyle={contentContainerStyle}
           stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
@@ -642,6 +646,7 @@ function BasicTable<T>({
       ),
     [
       draggable,
+      scrollEnabled,
       contentContainerStyle,
       stickyHeaderHiddenOnScroll,
       estimatedListSize,
@@ -660,11 +665,11 @@ function BasicTable<T>({
       TableEmptyComponent,
       extraData,
       renderScrollComponent,
+      onEndReached,
+      onEndReachedThreshold,
       estimatedItemSize,
       handleRenderItem,
       itemSize,
-      onEndReached,
-      onEndReachedThreshold,
     ],
   );
 
