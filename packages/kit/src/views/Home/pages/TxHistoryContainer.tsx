@@ -38,7 +38,7 @@ import {
   withHistoryListProvider,
 } from '../../../states/jotai/contexts/historyList';
 
-function TxHistoryListContainer(_props: ITabPageProps) {
+function TxHistoryListContainer() {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
 
