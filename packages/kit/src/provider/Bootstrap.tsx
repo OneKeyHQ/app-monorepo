@@ -532,9 +532,12 @@ export const useRemindDevelopmentBuildExtension =
               return;
             }
             Dialog.confirm({
-              title: 'Remind Development Build',
+              title: 'RISK WARNING',
+              dismissOnOverlayPress: false,
+              disableDrag: true,
               tone: 'warning',
-              description: 'This is a development build',
+              description:
+                'This is a development build. Please note that using this development version may result in data loss. Please use with caution.',
               onConfirm: async () => {
                 await backgroundApiProxy.serviceSpotlight.firstVisitTour(
                   ESpotlightTour.showDevelopmentBuildWarningDialog,
