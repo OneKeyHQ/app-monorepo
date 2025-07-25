@@ -6,7 +6,6 @@ import { StyleSheet } from 'react-native';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
-  Alert,
   Badge,
   Button,
   Divider,
@@ -35,7 +34,7 @@ import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EStakingActionType } from '@onekeyhq/shared/types/staking';
@@ -44,7 +43,6 @@ import type {
   IEarnAlert,
   IEarnDetailActions,
   IEarnReceiveActionIcon,
-  IEarnText,
   IEarnTokenInfo,
   IEarnTradeActionIcon,
   IEarnWithdrawActionIcon,
@@ -54,6 +52,7 @@ import type {
   ISubscriptionAction,
 } from '@onekeyhq/shared/types/staking';
 
+import { showRiskNoticeDialogBeforeDepositOrWithdraw } from '../../../Earn/components/RiskNoticeDialog';
 import {
   PageFrame,
   isErrorState,
@@ -593,6 +592,7 @@ const ProtocolDetailsPage = () => {
 
           // staking
           minTransactionFee: detailInfo.nums?.minTransactionFee,
+          remainingCap: detailInfo.nums?.remainingCap,
 
           // claim
           claimable: detailInfo.nums?.claimable,
@@ -606,6 +606,7 @@ const ProtocolDetailsPage = () => {
     detailInfo?.nums?.maxUnstakeAmount,
     detailInfo?.nums?.minTransactionFee,
     detailInfo?.nums?.minUnstakeAmount,
+    detailInfo?.nums?.remainingCap,
     detailInfo?.nums?.overflow,
     detailInfo?.protocol,
     earnAccount,
@@ -614,6 +615,47 @@ const ProtocolDetailsPage = () => {
   ]);
 
   const onStake = useCallback(async () => {
+    if (
+      earnAccount?.accountAddress &&
+      protocolInfo?.provider &&
+      networkId &&
+      detailInfo?.riskNoticeDialog?.deposit
+    ) {
+      const isFirstDeposit =
+        await backgroundApiProxy.simpleDb.earnExtra.isFirstOperation(
+          networkId,
+          protocolInfo.provider,
+          earnAccount.accountAddress,
+          'deposit',
+        );
+
+      if (isFirstDeposit) {
+        showRiskNoticeDialogBeforeDepositOrWithdraw({
+          networkId,
+          providerName: protocolInfo.provider,
+          address: earnAccount.accountAddress,
+          operationType: 'deposit',
+          riskNoticeDialogContent: detailInfo?.riskNoticeDialog?.deposit,
+          onConfirm: async () => {
+            await handleStake({
+              protocolInfo,
+              tokenInfo,
+              accountId: earnAccount?.accountId,
+              networkId,
+              indexedAccountId,
+              setStakeLoading,
+              onSuccess: async () => {
+                // if (networkUtils.isBTCNetwork(networkId)) {
+                //   await run();
+                // }
+              },
+            });
+          },
+        });
+        return;
+      }
+    }
+
     await handleStake({
       protocolInfo,
       tokenInfo,
@@ -632,12 +674,56 @@ const ProtocolDetailsPage = () => {
     protocolInfo,
     tokenInfo,
     earnAccount?.accountId,
+    earnAccount?.accountAddress,
     networkId,
     indexedAccountId,
+    detailInfo?.riskNoticeDialog?.deposit,
   ]);
 
   const onWithdraw = useCallback(
     async (withdrawType: EStakingActionType) => {
+      if (
+        earnAccount?.accountAddress &&
+        protocolInfo?.provider &&
+        networkId &&
+        detailInfo?.riskNoticeDialog?.withdraw
+      ) {
+        const isFirstWithdraw =
+          await backgroundApiProxy.simpleDb.earnExtra.isFirstOperation(
+            networkId,
+            protocolInfo.provider,
+            earnAccount.accountAddress,
+            'withdraw',
+          );
+
+        if (isFirstWithdraw) {
+          showRiskNoticeDialogBeforeDepositOrWithdraw({
+            networkId,
+            providerName: protocolInfo.provider,
+            address: earnAccount.accountAddress,
+            operationType: 'withdraw',
+            riskNoticeDialogContent: detailInfo?.riskNoticeDialog?.withdraw,
+            onConfirm: async () => {
+              await handleWithdraw({
+                withdrawType,
+                protocolInfo,
+                tokenInfo,
+                accountId: earnAccount?.accountId,
+                networkId,
+                symbol,
+                provider,
+                onSuccess: async () => {
+                  // if (networkUtils.isBTCNetwork(networkId)) {
+                  //   await run();
+                  // }
+                },
+              });
+            },
+          });
+          return;
+        }
+      }
+
       await handleWithdraw({
         withdrawType,
         protocolInfo,
@@ -655,12 +741,14 @@ const ProtocolDetailsPage = () => {
     },
     [
       earnAccount?.accountId,
+      earnAccount?.accountAddress,
       handleWithdraw,
       networkId,
       protocolInfo,
       provider,
       symbol,
       tokenInfo,
+      detailInfo?.riskNoticeDialog?.withdraw,
     ],
   );
 
@@ -680,7 +768,7 @@ const ProtocolDetailsPage = () => {
         symbol,
         provider,
         stakeTag: protocolInfo?.stakeTag || '',
-        morphoVault: vault,
+        protocolVault: vault,
         filterType,
       });
     };

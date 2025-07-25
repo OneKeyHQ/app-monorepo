@@ -58,7 +58,8 @@ export const useHandleClaim = ({
     }) => {
       if (!accountId) return;
       const provider = protocolInfo?.provider || '';
-      const vault = protocolInfo?.approve?.approveTarget || '';
+      const vault =
+        protocolInfo?.approve?.approveTarget || protocolInfo?.vault || '';
       const stakingConfig =
         await backgroundApiProxy.serviceStaking.getStakingConfigs({
           networkId,
@@ -99,7 +100,7 @@ export const useHandleClaim = ({
               provider,
               stakingInfo,
               claimTokenAddress,
-              morphoVault: vault,
+              protocolVault: vault,
               vault,
             });
           },

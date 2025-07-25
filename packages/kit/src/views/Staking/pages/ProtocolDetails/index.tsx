@@ -240,7 +240,7 @@ const ProtocolDetailsPage = () => {
           providerName: result.provider.name,
           tokenSymbol: result.token.info.symbol,
         }),
-        morphoVault: vault,
+        protocolVault: vault,
         filterType,
       });
     };
