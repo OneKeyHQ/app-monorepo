@@ -107,18 +107,18 @@ function BasicTokenDetailTabs({
         ...(md ? { marginTop: 20 } : undefined),
         ...(isModalPage ? { marginTop: 20 } : undefined),
       }}
-      renderHeader={() => (
-        <YStack
-          bg="$bgApp"
-          pb="$5"
-          h={170}
-          $gtMd={{
-            ...(isModalPage ? null : { h: 450 }),
-          }}
-        >
-          {listHeaderComponent}
-        </YStack>
-      )}
+      // renderHeader={() => (
+      //   <YStack
+      //     bg="$bgApp"
+      //     pb="$5"
+      //     h={170}
+      //     $gtMd={{
+      //       ...(isModalPage ? null : { h: 450 }),
+      //     }}
+      //   >
+      //     {listHeaderComponent}
+      //   </YStack>
+      // )}
       renderTabBar={(props) => <Tabs.TabBar {...props} />}
       key={tabConfigs.length}
     >
