@@ -130,7 +130,6 @@ const toTokenProviderListPage = async (
     symbol,
     accountId: earnAccount?.accountId || accountId,
     indexedAccountId: earnAccount?.account.indexedAccountId || indexedAccountId,
-    networkId: protocols[0].networkId,
     onProtocolSelect: async (params) => {
       navigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.ProtocolDetailsV2,

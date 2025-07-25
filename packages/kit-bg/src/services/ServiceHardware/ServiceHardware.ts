@@ -566,6 +566,13 @@ class ServiceHardware extends ServiceBase {
     sdk.emit(eventMessage.event, eventMessage);
   }
 
+  @backgroundMethod()
+  async getDeviceByConnectId({ connectId }: { connectId: string }) {
+    return localDb.getDeviceByQuery({
+      connectId,
+    });
+  }
+
   // startDeviceScan
   // TODO use convertDeviceResponse()
   @backgroundMethod()

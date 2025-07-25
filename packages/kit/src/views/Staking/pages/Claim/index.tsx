@@ -40,7 +40,8 @@ const ClaimPage = () => {
   const symbol = info?.symbol || '';
   const price = tokenInfo?.price ? String(tokenInfo.price) : '0';
   const actionTag = protocolInfo?.stakeTag || '';
-  const vault = protocolInfo?.approve?.approveTarget || '';
+  const vault =
+    protocolInfo?.approve?.approveTarget || protocolInfo?.vault || '';
   const appNavigation = useAppNavigation();
   const handleClaim = useUniversalClaim({ accountId, networkId });
   const onConfirm = useCallback(
@@ -51,7 +52,7 @@ const ClaimPage = () => {
         vault,
         symbol,
         provider,
-        morphoVault: vault,
+        protocolVault: vault,
         stakingInfo: {
           label: EEarnLabels.Claim,
           protocol: earnUtils.getEarnProviderName({
@@ -98,7 +99,7 @@ const ClaimPage = () => {
       symbol,
       action: 'claim',
       amount: '1',
-      morphoVault: vault,
+      protocolVault: vault,
       accountAddress: account.address,
       identity,
     });

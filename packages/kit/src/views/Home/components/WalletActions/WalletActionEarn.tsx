@@ -43,8 +43,7 @@ export function WalletActionEarn(props: {
     const protocolList =
       await backgroundApiProxy.serviceStaking.getProtocolList({
         symbol: symbolInfo?.symbol,
-        networkId,
-        filter: true,
+        filterNetworkId: networkId,
       });
     const aprItems = protocolList
       .map((o) => Number(o.provider.aprWithoutFee))
@@ -97,7 +96,7 @@ export function WalletActionEarn(props: {
       symbol,
       accountId,
       indexedAccountId,
-      networkId: protocols[0].networkId,
+      filterNetworkId: networkId,
       onProtocolSelect: async (params) => {
         navigation.pushModal(EModalRoutes.StakingModal, {
           screen: EModalStakingRoutes.ProtocolDetailsV2,

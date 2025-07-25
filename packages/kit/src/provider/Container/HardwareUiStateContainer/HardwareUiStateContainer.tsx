@@ -679,8 +679,10 @@ function HardwareUiStateContainerCmpControlled() {
           uiRequestType ===
           EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION
         ) {
+          const connectId = stateRef.current?.connectId;
           dialogProps = buildWebDeviceAccessDialogProps({
             intl,
+            connectId,
             // @ts-expect-error
             promptWebUsbDeviceAccess: (dialogInstance?: IDialogInstance) => {
               // Use the provided instance or the current instance
