@@ -111,7 +111,12 @@ export function useSwapQuote() {
     swapQuoteFetchingRef.current = swapQuoteFetching;
   }
   const swapQuoteResultListRef = useRef(swapQuoteResultList);
-  if (swapQuoteResultListRef.current !== swapQuoteResultList) {
+  if (
+    swapQuoteResultListRef.current?.length !== swapQuoteResultList?.length ||
+    swapQuoteResultListRef.current?.some(
+      (item, index) => item.quoteId !== swapQuoteResultList?.[index]?.quoteId,
+    )
+  ) {
     swapQuoteResultListRef.current = swapQuoteResultList;
   }
   const swapQuoteEventTotalCountRef = useRef(swapQuoteEventTotalCount);
@@ -557,7 +562,7 @@ export function useSwapQuote() {
     }) => {
       if (event?.type === 'done' || event?.type === 'error') {
         const providerQuoteResult: ISwapQuoteProvideResult[] =
-          swapQuoteResultList?.map((item) => {
+          swapQuoteResultListRef.current?.map((item) => {
             return {
               provider: item.info.provider,
               providerName: item.info.providerName,
@@ -574,10 +579,10 @@ export function useSwapQuote() {
             ESwapSlippageSegmentKey.AUTO
               ? 'auto'
               : 'custom',
-          sourceChain: fromToken?.networkId ?? '',
-          receivedChain: toToken?.networkId ?? '',
-          sourceTokenSymbol: fromToken?.symbol ?? '',
-          receivedTokenSymbol: toToken?.symbol ?? '',
+          sourceChain: fromTokenRef.current?.networkId ?? '',
+          receivedChain: toTokenRef.current?.networkId ?? '',
+          sourceTokenSymbol: fromTokenRef.current?.symbol ?? '',
+          receivedTokenSymbol: toTokenRef.current?.symbol ?? '',
           isAddReceiveAddress: settingsAtom.swapEnableRecipientAddress,
           isSmartMode: settingsPersistAtom.swapBatchApproveAndSwap,
           status:
@@ -591,16 +596,11 @@ export function useSwapQuote() {
       }
     },
     [
-      fromToken?.networkId,
-      fromToken?.symbol,
       settingsAtom.swapEnableRecipientAddress,
       settingsAtom.swapSlippagePercentageMode,
       settingsPersistAtom.swapBatchApproveAndSwap,
       swapAddressInfo.accountInfo?.wallet?.type,
-      swapQuoteResultList,
       swapTabSwitchType,
-      toToken?.networkId,
-      toToken?.symbol,
     ],
   );
 
