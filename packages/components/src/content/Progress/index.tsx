@@ -74,7 +74,7 @@ export function Progress({
       value={
         // @platform android
         // passing floating point values can cause crashes as the underlying implementation expects long type
-        platformEnv.isNativeAndroid ? Math.ceil(progressValue) : progressValue
+        platformEnv.isNativeAndroid ? Math.round(progressValue) : progressValue
       }
       onLayout={onLayout}
       max={DEFAULT_MAX}
