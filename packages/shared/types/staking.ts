@@ -6,6 +6,7 @@ import type {
 } from '@onekeyhq/components';
 
 import type { INetworkAccount } from './account';
+import type { IEarnAvailableAssetAprInfo } from './earn';
 import type { IFetchTokenDetailItem, IToken } from './token';
 import type { ESpotlightTour } from '../src/spotlight';
 import type { FontSizeTokens } from 'tamagui';
@@ -19,6 +20,22 @@ export enum ECheckAmountActionType {
   STAKING = 'stake',
   UNSTAKING = 'unstake',
   CLAIM = 'claim',
+}
+
+export interface ICheckAmountAlert {
+  text: {
+    text: string;
+  };
+  button?: {
+    text: {
+      text: string;
+    };
+    type: string;
+    disabled: boolean;
+    data: {
+      link: string;
+    };
+  };
 }
 
 // export type IStakeTag = 'lido-eth' | 'lido-matic';
@@ -119,7 +136,7 @@ export type IStakeBaseParams = {
   feeRate?: number;
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
-  morphoVault?: string; // morpho vault
+  protocolVault?: string; // protocol vault
   approveType?: EApproveType;
   permitSignature?: string;
 
@@ -138,7 +155,7 @@ export type IWithdrawBaseParams = {
   identity?: string; // sol pubkey
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
-  morphoVault?: string; // morpho vault
+  protocolVault?: string; // protocol vault
   withdrawAll?: boolean;
 };
 
@@ -176,7 +193,7 @@ export type IStakeHistoryParams = {
   networkId: string;
   symbol: string;
   provider: string;
-  morphoVault?: string;
+  protocolVault?: string;
 };
 
 export type IStakeHistory = {
@@ -227,7 +244,8 @@ export type IStakeTx =
   | IStakeTxBtcBabylon
   | IStakeTxEthEvertStake
   | IStakeTxEthLido
-  | IStakeTxCosmosAmino;
+  | IStakeTxCosmosAmino
+  | IStakeTxSui;
 
 export type IStakeTxResponse = {
   tx: IStakeTx;
@@ -274,6 +292,8 @@ export type IStakeTxCosmosAmino = {
   }[];
   readonly memo: string;
 };
+
+export type IStakeTxSui = string;
 
 export type IEarnTokenItem = {
   balance: string;
@@ -325,6 +345,7 @@ export type IProtocolInfo = {
   maxUnstakeAmount?: string;
   minUnstakeAmount?: string;
   claimable?: string;
+  remainingCap?: string;
 };
 
 export interface IEarnToken {
@@ -403,7 +424,7 @@ export interface IEarnPopupActionIcon {
   data: {
     bulletList?: IEarnText[];
     icon?: IEarnIcon;
-    description?: IEarnText;
+    description?: IEarnText[];
     panel?: {
       title: IEarnText;
       description: IEarnText;
@@ -658,6 +679,12 @@ export interface IEarnAlert {
   badge: IBadgeType;
 }
 
+export interface IEarnRiskNoticeDialog {
+  title: IEarnText;
+  description: IEarnText;
+  checkboxes: IEarnText[];
+}
+
 export interface IStakeEarnDetail {
   protection?: {
     title: IEarnText;
@@ -726,6 +753,7 @@ export interface IStakeEarnDetail {
     maxUnstakeAmount: string;
     minTransactionFee: string;
     claimable: string;
+    remainingCap: string;
   };
   managers?: {
     items: {
@@ -750,6 +778,7 @@ export interface IStakeEarnDetail {
       };
     }[];
   };
+  riskNoticeDialog?: Record<string, IEarnRiskNoticeDialog>;
 }
 
 export interface IEarnProvider {
@@ -840,6 +869,7 @@ export type IStakeProtocolListItem = {
     logoURI: string;
   };
   isEarning: boolean;
+  aprInfo?: IEarnAvailableAssetAprInfo;
 };
 
 export type IRewardApys = {

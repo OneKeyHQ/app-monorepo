@@ -15,7 +15,6 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { ITabHeaderInstance } from '@onekeyhq/components/src/layouts/TabView/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -27,10 +26,8 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnAvailableAssetProtocol } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
-import type { IEarnRewardUnit } from '@onekeyhq/shared/types/staking';
 
-// Helper function to build APR text
-const buildAprText = (apr: string, unit: IEarnRewardUnit) => `${apr} ${unit}`;
+import { AprText } from './AprText';
 
 // Skeleton component for loading state
 function AvailableAssetsSkeleton() {
@@ -114,7 +111,6 @@ export function AvailableAssetsTabViewList({
   const intl = useIntl();
   const media = useMedia();
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
-  const tabHeaderRef = useRef<ITabHeaderInstance>(null);
 
   const tabData = useMemo(
     () => [
@@ -198,15 +194,6 @@ export function AvailableAssetsTabViewList({
     [focusedTab, tabData],
   );
 
-  // Update tab header when selectedTabIndex changes
-  useEffect(() => {
-    setTimeout(() => {
-      if (tabHeaderRef.current) {
-        tabHeaderRef.current.scrollToIndex(selectedTabIndex);
-      }
-    }, 0);
-  }, [selectedTabIndex]);
-
   if (assets.length || isLoading) {
     return (
       <YStack gap="$3">
@@ -253,19 +240,10 @@ export function AvailableAssetsTabViewList({
               borderCurve: 'continuous',
             }}
           >
-            {assets.map(
-              (
-                {
-                  name,
-                  logoURI,
-                  aprWithoutFee,
-                  symbol,
-                  rewardUnit,
-                  badges = [],
-                  protocols,
-                },
-                index,
-              ) => (
+            {assets.map((asset, index) => {
+              const { name, logoURI, symbol, badges = [], protocols } = asset;
+
+              return (
                 <ListItem
                   userSelect="none"
                   key={`${name}-${index}`}
@@ -340,14 +318,12 @@ export function AvailableAssetsTabViewList({
                       }}
                       justifyContent="flex-end"
                     >
-                      <SizableText size="$bodyLgMedium" textAlign="right">
-                        {buildAprText(aprWithoutFee, rewardUnit)}
-                      </SizableText>
+                      <AprText asset={asset} />
                     </XStack>
                   </XStack>
                 </ListItem>
-              ),
-            )}
+              );
+            })}
           </YStack>
         )}
       </YStack>

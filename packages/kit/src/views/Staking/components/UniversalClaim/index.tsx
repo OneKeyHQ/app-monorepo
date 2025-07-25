@@ -23,8 +23,10 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   ECheckAmountActionType,
+  type ICheckAmountAlert,
   type IEarnEstimateFeeResp,
 } from '@onekeyhq/shared/types/staking';
 
@@ -104,11 +106,14 @@ export const UniversalClaim = ({
   }, [amountValue, onConfirm]);
 
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
+  const [checkAmountAlerts, setCheckAmountAlerts] = useState<
+    ICheckAmountAlert[]
+  >([]);
   const checkAmount = useDebouncedCallback(async (amount: string) => {
     if (isNaN(amount)) {
       return;
     }
-    const message = await backgroundApiProxy.serviceStaking.checkAmount({
+    const response = await backgroundApiProxy.serviceStaking.checkAmount({
       accountId,
       networkId,
       symbol: tokenSymbol,
@@ -117,7 +122,14 @@ export const UniversalClaim = ({
       amount,
       withdrawAll: false,
     });
-    setCheckoutAmountMessage(message);
+
+    if (Number(response.code) === 0) {
+      setCheckoutAmountMessage('');
+      setCheckAmountAlerts(response.data?.alerts || []);
+    } else {
+      setCheckoutAmountMessage(response.message);
+      setCheckAmountAlerts([]);
+    }
   }, 300);
 
   const onChangeAmountValue = useCallback(
@@ -129,6 +141,8 @@ export const UniversalClaim = ({
       if (valueBN.isNaN()) {
         if (value === '') {
           setAmountValue('');
+          setCheckoutAmountMessage('');
+          setCheckAmountAlerts([]);
         }
         return;
       }
@@ -269,6 +283,29 @@ export const UniversalClaim = ({
           type="critical"
           title={checkAmountMessage}
         />
+      ) : null}
+      {checkAmountAlerts.length > 0 ? (
+        <>
+          {checkAmountAlerts.map((alert, index) => (
+            <Alert
+              key={index}
+              type="warning"
+              title={alert.text.text}
+              action={
+                alert.button
+                  ? {
+                      primary: alert.button.text.text,
+                      onPrimaryPress: () => {
+                        if (alert.button?.data?.link) {
+                          openUrlExternal(alert.button.data.link);
+                        }
+                      },
+                    }
+                  : undefined
+              }
+            />
+          ))}
+        </>
       ) : null}
       <CalculationList>
         {receiving ? (

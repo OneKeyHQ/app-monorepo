@@ -37,10 +37,12 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import type {
   IApproveConfirmFnParams,
+  ICheckAmountAlert,
   IEarnEstimateFeeResp,
   IEarnTextTooltip,
   IEarnTokenInfo,
@@ -54,7 +56,6 @@ import {
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
-import { useFalconEventEndedDialog } from '../../hooks/useFalconEventEndedDialog';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
@@ -134,8 +135,8 @@ export function UniversalStake({
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const [amountValue, setAmountValue] = useState('');
   const [approving, setApproving] = useState<boolean>(false);
-  const isMorphoProvider = useMemo(
-    () => earnUtils.isMorphoProvider({ providerName }),
+  const useVaultProvider = useMemo(
+    () => earnUtils.useVaultProvider({ providerName }),
     [providerName],
   );
   const [
@@ -225,8 +226,8 @@ export function UniversalStake({
           networkId,
           provider: providerName,
           symbol: tokenInfo?.token.symbol || '',
-          vault: isMorphoProvider
-            ? protocolInfo?.approve?.approveTarget || ''
+          vault: useVaultProvider
+            ? protocolInfo?.approve?.approveTarget || protocolInfo?.vault || ''
             : '',
           accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
           action: ECheckAmountActionType.STAKING,
@@ -238,8 +239,9 @@ export function UniversalStake({
       networkId,
       providerName,
       tokenInfo?.token.symbol,
-      isMorphoProvider,
+      useVaultProvider,
       protocolInfo?.approve?.approveTarget,
+      protocolInfo?.vault,
       protocolInfo?.earnAccount?.accountAddress,
     ],
   );
@@ -251,6 +253,10 @@ export function UniversalStake({
     },
     350,
   );
+
+  const protocolVault = useVaultProvider
+    ? protocolInfo?.approve?.approveTarget || protocolInfo?.vault
+    : undefined;
 
   const fetchEstimateFeeResp = useCallback(
     async (amount?: string) => {
@@ -291,9 +297,7 @@ export function UniversalStake({
         symbol: tokenInfo?.token.symbol || '',
         action: shouldApprove ? 'approve' : 'stake',
         amount: amountNumber.toFixed(),
-        morphoVault: isMorphoProvider
-          ? protocolInfo?.approve?.approveTarget
-          : undefined,
+        protocolVault,
         accountAddress: account?.address,
         ...permitParams,
       });
@@ -302,9 +306,8 @@ export function UniversalStake({
     [
       accountId,
       allowance,
-      isMorphoProvider,
       networkId,
-      protocolInfo?.approve?.approveTarget,
+      protocolVault,
       providerName,
       shouldApprove,
       tokenInfo?.token.symbol,
@@ -360,6 +363,7 @@ export function UniversalStake({
   );
 
   const prevShouldApproveRef = useRef<boolean | undefined>(undefined);
+
   useEffect(() => {
     const amountValueBN = new BigNumber(amountValue);
     // Check if shouldApprove transitioned from true to false and amount is valid
@@ -393,26 +397,38 @@ export function UniversalStake({
   });
 
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
+  const [checkAmountAlerts, setCheckAmountAlerts] = useState<
+    ICheckAmountAlert[]
+  >([]);
 
-  const morphoVault = isMorphoProvider
-    ? protocolInfo?.approve?.approveTarget
-    : undefined;
   const checkAmount = useDebouncedCallback(async (amount: string) => {
     if (isNaN(amount)) {
       return;
     }
-    const message = await backgroundApiProxy.serviceStaking.checkAmount({
+    const response = await backgroundApiProxy.serviceStaking.checkAmount({
       accountId,
       networkId,
       symbol: tokenSymbol,
       provider: providerName,
       action: ECheckAmountActionType.STAKING,
       amount,
-      morphoVault,
+      protocolVault,
       withdrawAll: false,
     });
-    setCheckoutAmountMessage(message);
+
+    if (Number(response.code) === 0) {
+      setCheckoutAmountMessage('');
+      setCheckAmountAlerts(response.data?.alerts || []);
+    } else {
+      setCheckoutAmountMessage(response.message);
+      setCheckAmountAlerts([]);
+    }
   }, 300);
+
+  // Initialize checkAmount on component mount
+  useEffect(() => {
+    void checkAmount('0');
+  }, [checkAmount]);
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
@@ -423,6 +439,8 @@ export function UniversalStake({
       if (valueBN.isNaN()) {
         if (value === '') {
           setAmountValue('');
+          setCheckoutAmountMessage('');
+          setCheckAmountAlerts([]);
           void debouncedFetchEstimateFeeResp();
         }
         return;
@@ -481,6 +499,14 @@ export function UniversalStake({
     [amountValue, balance],
   );
 
+  const isStakingCapFull = useMemo(() => {
+    if (!protocolInfo?.remainingCap) {
+      return false;
+    }
+    const remainingCapBN = new BigNumber(protocolInfo.remainingCap);
+    return !remainingCapBN.isNaN() && remainingCapBN.isEqualTo(0);
+  }, [protocolInfo?.remainingCap]);
+
   // const isLessThanMinAmount = useMemo<boolean>(() => {
   //   const minAmountBn = new BigNumber(minAmount);
   //   const amountValueBn = new BigNumber(amountValue);
@@ -499,13 +525,20 @@ export function UniversalStake({
 
   const isCheckAmountMessageError =
     amountValue?.length > 0 && !!checkAmountMessage;
+
+  const amountInputDisabled = useMemo(() => {
+    return isDisabled || isStakingCapFull;
+  }, [isDisabled, isStakingCapFull]);
+
   const isDisable = useMemo(() => {
     const amountValueBN = BigNumber(amountValue);
     return (
       amountValueBN.isNaN() ||
       amountValueBN.isLessThanOrEqualTo(0) ||
       isInsufficientBalance ||
-      isCheckAmountMessageError
+      isCheckAmountMessageError ||
+      checkAmountAlerts.length > 0 ||
+      isStakingCapFull
     );
     // return (
     //   amountValueBN.isNaN() ||
@@ -515,7 +548,13 @@ export function UniversalStake({
     //   isGreaterThanMaxAmount ||
     //   isReachBabylonCap
     // );
-  }, [amountValue, isCheckAmountMessageError, isInsufficientBalance]);
+  }, [
+    amountValue,
+    isCheckAmountMessageError,
+    checkAmountAlerts.length,
+    isInsufficientBalance,
+    isStakingCapFull,
+  ]);
 
   // const estAnnualRewardsState = useMemo(() => {
   //   if (Number(amountValue) > 0 && Number(apr) > 0) {
@@ -945,10 +984,10 @@ export function UniversalStake({
 
   return (
     <StakingFormWrapper>
-      <Stack position="relative" opacity={isDisabled ? 0.7 : 1}>
+      <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
         <StakingAmountInput
           title={intl.formatMessage({ id: ETranslations.earn_deposit })}
-          disabled={isDisabled}
+          disabled={amountInputDisabled}
           hasError={isInsufficientBalance || isCheckAmountMessageError}
           value={amountValue}
           onChange={onChangeAmountValue}
@@ -964,7 +1003,7 @@ export function UniversalStake({
           }}
           inputProps={{
             placeholder: '0',
-            autoFocus: !isDisabled,
+            autoFocus: !amountInputDisabled,
           }}
           valueProps={{
             value: currentValue,
@@ -973,7 +1012,7 @@ export function UniversalStake({
           enableMaxAmount
           onSelectPercentageStage={onSelectPercentageStage}
         />
-        {isDisabled ? (
+        {amountInputDisabled ? (
           <Stack position="absolute" w="100%" h="100%" zIndex={1} />
         ) : null}
       </Stack>
@@ -983,6 +1022,29 @@ export function UniversalStake({
           type="critical"
           title={checkAmountMessage}
         />
+      ) : null}
+      {checkAmountAlerts.length > 0 ? (
+        <>
+          {checkAmountAlerts.map((alert, index) => (
+            <Alert
+              key={index}
+              type="warning"
+              title={alert.text.text}
+              action={
+                alert.button
+                  ? {
+                      primary: alert.button.text.text,
+                      onPrimaryPress: () => {
+                        if (alert.button?.data?.link) {
+                          openUrlExternal(alert.button.data.link);
+                        }
+                      },
+                    }
+                  : undefined
+              }
+            />
+          ))}
+        </>
       ) : null}
 
       {/* {isLessThanMinAmount ? (

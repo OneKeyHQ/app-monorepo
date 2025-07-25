@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Tab } from '@onekeyhq/components';
+import { Tabs } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
@@ -76,5 +76,13 @@ export function DesktopInformationTabs() {
     intl,
   ]);
 
-  return <Tab data={tabs} />;
+  return (
+    <Tabs.Container renderTabBar={(props) => <Tabs.TabBar {...props} />}>
+      {tabs.map((tab) => (
+        <Tabs.Tab key={tab.id} name={tab.title}>
+          {tab.page()}
+        </Tabs.Tab>
+      ))}
+    </Tabs.Container>
+  );
 }

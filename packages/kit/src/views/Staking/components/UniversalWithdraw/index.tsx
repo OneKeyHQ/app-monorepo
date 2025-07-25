@@ -29,8 +29,10 @@ import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateA
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
 import type {
+  ICheckAmountAlert,
   IEarnEstimateFeeResp,
   IEarnTextTooltip,
   IStakeTransactionConfirmation,
@@ -67,7 +69,7 @@ type IUniversalWithdrawProps = {
 
   estimateFeeResp?: IEarnEstimateFeeResp;
 
-  morphoVault?: string;
+  protocolVault?: string;
 
   onConfirm?: ({
     amount,
@@ -96,7 +98,7 @@ export function UniversalWithdraw({
   initialAmount,
   minAmount = '0',
   decimals,
-  morphoVault,
+  protocolVault,
   estimateFeeResp,
 
   onConfirm,
@@ -138,21 +140,31 @@ export function UniversalWithdraw({
   }, [amountValue, onConfirm]);
 
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
+  const [checkAmountAlerts, setCheckAmountAlerts] = useState<
+    ICheckAmountAlert[]
+  >([]);
   const checkAmount = useDebouncedCallback(async (amount: string) => {
     if (isNaN(amount)) {
       return;
     }
-    const message = await backgroundApiProxy.serviceStaking.checkAmount({
+    const response = await backgroundApiProxy.serviceStaking.checkAmount({
       accountId,
       networkId,
       symbol: tokenSymbol,
       provider: providerName,
       action: ECheckAmountActionType.UNSTAKING,
       amount,
-      morphoVault,
+      protocolVault,
       withdrawAll: withdrawAllRef.current,
     });
-    setCheckoutAmountMessage(message);
+
+    if (Number(response.code) === 0) {
+      setCheckoutAmountMessage('');
+      setCheckAmountAlerts(response.data?.alerts || []);
+    } else {
+      setCheckoutAmountMessage(response.message);
+      setCheckAmountAlerts([]);
+    }
   }, 300);
 
   const [transactionConfirmation, setTransactionConfirmation] = useState<
@@ -165,7 +177,7 @@ export function UniversalWithdraw({
           networkId: networkId || '',
           provider: providerName || '',
           symbol: tokenSymbol || '',
-          vault: isMorphoProvider ? morphoVault || '' : '',
+          vault: isMorphoProvider ? protocolVault || '' : '',
           accountAddress,
           action: ECheckAmountActionType.UNSTAKING,
           amount,
@@ -175,7 +187,7 @@ export function UniversalWithdraw({
     [
       accountAddress,
       isMorphoProvider,
-      morphoVault,
+      protocolVault,
       networkId,
       providerName,
       tokenSymbol,
@@ -202,6 +214,8 @@ export function UniversalWithdraw({
       const valueBN = new BigNumber(value);
       if (valueBN.isNaN()) {
         if (value === '') {
+          setCheckoutAmountMessage('');
+          setCheckAmountAlerts([]);
           setAmountValue('');
         }
         return;
@@ -267,12 +281,13 @@ export function UniversalWithdraw({
   const isCheckAmountMessageError =
     amountValue?.length > 0 && !!checkAmountMessage;
 
-  const isDisable = useMemo(
+  const isDisable = useMemo<boolean>(
     () =>
       isNaN(amountValue) ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
-      isCheckAmountMessageError,
-    [amountValue, isCheckAmountMessageError],
+      isCheckAmountMessageError ||
+      checkAmountAlerts.length > 0,
+    [amountValue, isCheckAmountMessageError, checkAmountAlerts.length],
   );
 
   const editable = initialAmount === undefined;
@@ -369,6 +384,29 @@ export function UniversalWithdraw({
           type="critical"
           title={checkAmountMessage}
         />
+      ) : null}
+      {checkAmountAlerts.length > 0 ? (
+        <>
+          {checkAmountAlerts.map((alert, index) => (
+            <Alert
+              key={index}
+              type="warning"
+              title={alert.text.text}
+              action={
+                alert.button
+                  ? {
+                      primary: alert.button.text.text,
+                      onPrimaryPress: () => {
+                        if (alert.button?.data?.link) {
+                          openUrlExternal(alert.button.data.link);
+                        }
+                      },
+                    }
+                  : undefined
+              }
+            />
+          ))}
+        </>
       ) : null}
       <YStack
         p="$3.5"
