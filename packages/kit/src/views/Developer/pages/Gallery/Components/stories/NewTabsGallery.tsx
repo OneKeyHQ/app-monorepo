@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 
 import {
   IconButton,
@@ -245,103 +245,6 @@ const TabsWithHeaderDemo = () => {
   );
 };
 
-// Programmatic Control Demo
-const ProgrammaticControlDemo = () => {
-  const tabsRef = useRef<any>(null);
-
-  const data = useMemo(
-    () =>
-      new Array(15)
-        .fill({})
-        .map((_, index) => ({ id: index, title: `Control Item ${index + 1}` })),
-    [],
-  );
-
-  return (
-    <YStack gap="$3">
-      <XStack gap="$2" p="$2">
-        <IconButton
-          icon="ArrowLeftOutline"
-          size="small"
-          onPress={() => {
-            tabsRef.current?.switchTabWithIndex(0);
-            Toast.success({ title: 'Switched to Tab 1' });
-          }}
-        />
-        <IconButton
-          icon="HomeSimpleOutline"
-          size="small"
-          onPress={() => {
-            tabsRef.current?.switchTab('Dashboard');
-            Toast.success({ title: 'Switched to Dashboard' });
-          }}
-        />
-        <IconButton
-          icon="ArrowRightOutline"
-          size="small"
-          onPress={() => {
-            tabsRef.current?.switchTabWithIndex(2);
-            Toast.success({ title: 'Switched to Tab 3' });
-          }}
-        />
-      </XStack>
-      <Tabs.Container ref={tabsRef}>
-        <Tabs.Tab name="Overview">
-          <ListView
-            data={data}
-            estimatedItemSize="$10"
-            scrollEnabled={platformEnv.isWebTouchable}
-            disableScrollViewPanResponder
-            renderItem={({ item }) => (
-              <Stack
-                p="$3"
-                borderBottomWidth="$px"
-                borderBottomColor="$borderSubdued"
-              >
-                <SizableText>Overview: {item.title}</SizableText>
-              </Stack>
-            )}
-          />
-        </Tabs.Tab>
-        <Tabs.Tab name="Dashboard">
-          <ListView
-            data={data.slice(0, 8)}
-            estimatedItemSize="$10"
-            scrollEnabled={platformEnv.isWebTouchable}
-            disableScrollViewPanResponder
-            renderItem={({ item }) => (
-              <Stack
-                p="$3"
-                borderBottomWidth="$px"
-                borderBottomColor="$borderSubdued"
-              >
-                <SizableText>Dashboard: {item.title}</SizableText>
-              </Stack>
-            )}
-          />
-        </Tabs.Tab>
-        <Tabs.Tab name="Settings">
-          <ListView
-            data={data.slice(0, 5)}
-            estimatedItemSize="$10"
-            scrollEnabled={platformEnv.isWebTouchable}
-            disableScrollViewPanResponder
-            renderItem={({ item }) => (
-              <Stack
-                p="$3"
-                borderBottomWidth="$px"
-                borderBottomColor="$borderSubdued"
-              >
-                <SizableText>Settings: {item.title}</SizableText>
-              </Stack>
-            )}
-          />
-        </Tabs.Tab>
-      </Tabs.Container>
-    </YStack>
-  );
-};
-
 const NewTabsGallery = () => (
   <Layout
     filePath={__CURRENT_FILE_PATH__}
@@ -376,14 +279,6 @@ const NewTabsGallery = () => (
         element: (
           <Stack h={400}>
             <TabsWithHeaderDemo />
-          </Stack>
-        ),
-      },
-      {
-        title: 'Programmatic Tab Control',
-        element: (
-          <Stack h={400}>
-            <ProgrammaticControlDemo />
           </Stack>
         ),
       },
