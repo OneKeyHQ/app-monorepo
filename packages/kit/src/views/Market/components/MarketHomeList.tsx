@@ -375,14 +375,13 @@ function MarketMdColumn({
             borderRadius="$2"
           >
             <NumberSizeableText
-              adjustsFontSizeToFit
-              numberOfLines={platformEnv.isNative ? 1 : 2}
-              px="$1"
               userSelect="none"
               size="$bodyMdMedium"
               color="white"
               formatter="priceChange"
-              formatterOptions={{ showPlusMinusSigns: true }}
+              formatterOptions={{
+                showPlusMinusSigns: true,
+              }}
             >
               {item[mdColumnKeys[1]] as string}
             </NumberSizeableText>
