@@ -28,4 +28,13 @@ browsers.forEach((browser) => {
   zip -r ../_dist/OneKey-Wallet-${version}-${browser}.zip ./
 `;
   devUtils.execSync(cmd);
+
+  // Modify manifest.json to add DEVELOPMENT BUILD suffix using sed command
+  const manifestPath = `${browserFolder}/manifest.json`;
+  const developmentBuildCmd = `
+  cd ${browserFolder}
+  sed -i.bak 's/"name": "OneKey"/"name": "OneKey (DEVELOPMENT BUILD)"/g' ${manifestPath}
+  zip -r ../_dist/OneKey-Wallet-${version}-${browser}-development-build.zip ./
+`;
+  devUtils.execSync(developmentBuildCmd);
 });
