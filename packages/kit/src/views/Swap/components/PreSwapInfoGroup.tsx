@@ -122,6 +122,7 @@ const PreSwapInfoGroup = ({
             </SizableText>
           </XStack>
         )}
+        value={preSwapData.netWorkFee?.feeLevel}
         title={intl.formatMessage({
           id: ETranslations.swap_review_transaction_speed,
         })}
@@ -133,6 +134,7 @@ const PreSwapInfoGroup = ({
     networkFeeLevelArray,
     networkFeeLevelLabel,
     onSelectNetworkFeeLevel,
+    preSwapData.netWorkFee?.feeLevel,
   ]);
 
   return (
