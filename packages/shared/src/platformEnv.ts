@@ -119,6 +119,7 @@ export type IPlatformEnv = {
   isExtensionUiExpandTab?: boolean;
   isExtensionUiSidePanel?: boolean;
   isExtensionUiStandaloneWindow?: boolean;
+  isExtensionDevelopmentBuild?: boolean;
 
   isRuntimeBrowser?: boolean;
   isRuntimeMacOSBrowser?: boolean;
@@ -435,6 +436,13 @@ export const isExtensionUiStandaloneWindow: boolean =
   isExtensionUi &&
   globalThis.location.pathname.startsWith('/ui-standalone-window.html');
 
+export const isExtensionDevelopmentBuild: boolean =
+  isExtension &&
+  (globalThis.chrome?.runtime
+    ?.getManifest?.()
+    ?.name?.includes('DEVELOPMENT BUILD') ||
+    false);
+
 export const isManifestV3: boolean =
   // TODO firefox check v3
   isExtension && chrome?.runtime?.getManifest?.()?.manifest_version === 3;
@@ -511,6 +519,7 @@ const platformEnv: IPlatformEnv = {
   isExtensionUiSidePanel,
   isExtensionUiStandaloneWindow,
   isExtFirefoxUiPopup: isExtFirefox && isExtensionUiPopup,
+  isExtensionDevelopmentBuild,
 
   isRuntimeBrowser,
   isRuntimeMacOSBrowser,
