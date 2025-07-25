@@ -13,6 +13,9 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
+
 import type { IntlShape } from 'react-intl';
 
 export const buildBleSettingsDialogProps = (
@@ -139,14 +142,35 @@ export const RequireBlePermissionDialog = forwardRef(
 function WebDeviceAccessDialogContent({
   intl,
   promptWebUsbDeviceAccess,
+  connectId,
 }: {
   intl: IntlShape;
   promptWebUsbDeviceAccess: () => Promise<void>;
+  connectId?: string;
 }) {
+  const { result: deviceName } = usePromiseResult(async () => {
+    if (!connectId) {
+      return '';
+    }
+    try {
+      const device =
+        await backgroundApiProxy.serviceHardware.getDeviceByConnectId({
+          connectId,
+        });
+      console.log('======>: device:  ', device);
+      return (
+        device?.featuresInfo?.ble_name || `OneKey ${device?.deviceType || ''}`
+      );
+    } catch (error) {
+      console.log('======>: error:  ', error);
+      return '';
+    }
+  }, [connectId]);
   return (
     <YStack gap="$5">
       <YStack gap="$2">
         <SizableText size="$bodyLg" color="$text">
+          {deviceName}
           1.{' '}
           {intl.formatMessage({
             id: ETranslations.device_check_connection,
@@ -173,9 +197,11 @@ function WebDeviceAccessDialogContent({
 export const buildWebDeviceAccessDialogProps = ({
   intl,
   promptWebUsbDeviceAccess,
+  connectId,
 }: {
   intl: IntlShape;
   promptWebUsbDeviceAccess: () => Promise<void>;
+  connectId?: string;
 }): IDialogShowProps =>
   ({
     icon: 'UsbOutline',
@@ -186,6 +212,7 @@ export const buildWebDeviceAccessDialogProps = ({
       <WebDeviceAccessDialogContent
         intl={intl}
         promptWebUsbDeviceAccess={promptWebUsbDeviceAccess}
+        connectId={connectId}
       />
     ),
     showFooter: false,
