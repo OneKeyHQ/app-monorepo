@@ -281,7 +281,7 @@ export function ApproveBaseStake({
         symbol: token.symbol,
         action: shouldApprove ? 'approve' : 'stake',
         amount: amountNumber.toFixed(),
-        morphoVault: earnUtils.isMorphoProvider({ providerName })
+        protocolVault: earnUtils.useVaultProvider({ providerName })
           ? approveTarget.spenderAddress
           : undefined,
         accountAddress: account?.address,

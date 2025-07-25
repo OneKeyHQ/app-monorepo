@@ -65,11 +65,11 @@ export const isSupportStaking = (symbol: string) =>
 
 export const earnMainnetNetworkIds = [
   getNetworkIdsMap().eth,
-  getNetworkIdsMap().base,
   getNetworkIdsMap().cosmoshub,
   getNetworkIdsMap().apt,
   getNetworkIdsMap().sol,
   getNetworkIdsMap().btc,
+  getNetworkIdsMap().sui,
 ];
 
 export function normalizeToEarnSymbol(
@@ -153,5 +153,31 @@ export function getImportFromToken({
   return {
     importFromToken,
     swapTabSwitchType,
+  };
+}
+
+// Symbol to supported networks mapping for earn protocols
+export function getSymbolSupportedNetworks(): Record<
+  ISupportedSymbol,
+  string[]
+> {
+  const networkIdsMap = getNetworkIdsMap();
+
+  return {
+    'BTC': [networkIdsMap.btc],
+    'SBTC': [networkIdsMap.sbtc],
+    'ETH': [networkIdsMap.eth],
+    'SOL': [networkIdsMap.sol],
+    'APT': [networkIdsMap.apt],
+    'ATOM': [networkIdsMap.cosmoshub],
+    'POL': [networkIdsMap.eth],
+    'USDC': [networkIdsMap.eth, networkIdsMap.sui],
+    'USDT': [networkIdsMap.eth],
+    'DAI': [networkIdsMap.eth],
+    'WETH': [networkIdsMap.eth],
+    'cbBTC': [networkIdsMap.eth],
+    'WBTC': [networkIdsMap.eth],
+    'USDf': [networkIdsMap.eth],
+    'USDe': [networkIdsMap.eth],
   };
 }

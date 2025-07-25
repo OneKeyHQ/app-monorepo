@@ -75,7 +75,7 @@ export type IModalStakingParamList = {
     symbol: string;
     provider: string;
     stakeTag?: string;
-    morphoVault?: string;
+    protocolVault?: string;
     filterType?: string;
     title?: string;
     alerts?: IEarnAlert[];
