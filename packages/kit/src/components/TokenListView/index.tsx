@@ -3,12 +3,10 @@ import { memo, useEffect, useMemo, useState } from 'react';
 
 import {
   ListView,
-  NestedScrollView,
   SizableText,
   Stack,
   Tabs,
   YStack,
-  renderNestedScrollView,
   useStyle,
 } from '@onekeyhq/components';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
