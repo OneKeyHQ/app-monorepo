@@ -3121,6 +3121,8 @@
   wallet_risk_assets_always_visible_on_home = 'wallet.risk_assets_always_visible_on_home',
   wallet_risk_assets_description = 'wallet.risk_assets_description',
   wallet_risk_assets_hide_on_home = 'wallet.risk_assets_hide_on_home',
+  wallet_risk_assets_hide_on_home_feedback_hidden = 'wallet.risk_assets_hide_on_home_feedback_hidden',
+  wallet_risk_assets_hide_on_home_feedback_shown = 'wallet.risk_assets_hide_on_home_feedback_shown',
   wallet_risk_assets_show_on_home = 'wallet.risk_assets_show_on_home',
   wallet_save_amount = 'wallet.save_amount',
   wallet_subsidy_all_used = 'wallet.subsidy_all_used',
