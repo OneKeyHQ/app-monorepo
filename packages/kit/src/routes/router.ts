@@ -5,7 +5,7 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
-import { iOSFullScreenNavigator, ModalNavigator } from './Modal/Navigator';
+import { ModalNavigator, iOSFullScreenNavigator } from './Modal/Navigator';
 import { fullModalRouter, modalRouter } from './Modal/router';
 import { TabNavigator } from './Tab/Navigator';
 import { useTabRouterConfig } from './Tab/router';

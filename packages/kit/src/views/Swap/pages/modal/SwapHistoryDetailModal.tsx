@@ -27,8 +27,10 @@ import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { SUPPORT_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -635,7 +637,11 @@ const SwapHistoryDetailModal = () => {
             variant: 'secondary',
           }}
           onConfirm={() => {
-            onViewInBrowser(txHistory?.swapInfo.supportUrl ?? '');
+            if (txHistory?.swapInfo.supportUrl?.includes(SUPPORT_URL)) {
+              void showIntercom();
+            } else {
+              onViewInBrowser(txHistory?.swapInfo.supportUrl ?? '');
+            }
           }}
         />
       ) : null}

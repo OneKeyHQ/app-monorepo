@@ -151,7 +151,7 @@ function HomePage() {
           )}
         />
         <Page.Body alignItems="center">
-          <Tab
+          {/* <Tab
             data={data}
             ListHeaderComponent={<>{renderHeaderView()}</>}
             initialScrollIndex={3}
@@ -165,18 +165,11 @@ function HomePage() {
               <RefreshControl refreshing={false} onRefresh={onRefresh} />
             }
             showsVerticalScrollIndicator={false}
-          />
+          /> */}
         </Page.Body>
       </Page>
     ),
-    [
-      data,
-      renderHeaderView,
-      screenWidth,
-      sideBarWidth,
-      onRefresh,
-      navigateAccountManagerStacks,
-    ],
+    [navigateAccountManagerStacks],
   );
 }
 
