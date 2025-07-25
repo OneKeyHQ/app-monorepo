@@ -71,7 +71,11 @@ export function Progress({
     <TMProgress
       backgroundColor={progressColor}
       h={h}
-      value={progressValue}
+      value={
+        // @platform android
+        // passing floating point values can cause crashes as the underlying implementation expects long type
+        platformEnv.isNativeAndroid ? Math.ceil(progressValue) : progressValue
+      }
       onLayout={onLayout}
       max={DEFAULT_MAX}
       {...(props as any)}
