@@ -255,6 +255,11 @@ function TokenDetailsView() {
               shadowOpacity: 0,
               elevation: 0,
             }}
+            pagerProps={
+              {
+                scrollSensitivity: 4,
+              } as any
+            }
             renderTabBar={(props) => <Tabs.TabBar {...props} />}
           >
             {tabs}
