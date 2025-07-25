@@ -568,6 +568,7 @@ export function MarketDetailPools({
       contentContainerStyle={{
         pb: '$10',
       }}
+      scrollEnabled={false}
       TableHeaderComponent={
         <NetworkIdSelect
           options={oneKeyNetworkIds}

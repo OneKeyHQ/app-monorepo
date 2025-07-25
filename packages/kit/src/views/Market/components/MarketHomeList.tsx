@@ -1110,6 +1110,7 @@ function BasicMarketHomeList({
           keyExtractor={(item) => item.coingeckoId}
           rowProps={rowProps}
           showHeader={gtMd}
+          scrollEnabled={false}
           columns={columns}
           onDragEnd={handleDragEnd}
           dataSource={sortedListData as unknown as IMarketToken[]}
