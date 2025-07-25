@@ -68,13 +68,12 @@ function RiskNoticeDialogContent({
       ))}
 
       <Dialog.Footer
+        showConfirmButton
+        showCancelButton
         onConfirm={handleConfirm}
-        onConfirmText="Confirm"
-        onCancelText="Cancel"
         confirmButtonProps={{
           disabled: isConfirmDisabled,
         }}
-        showCancelButton
       />
     </YStack>
   );
