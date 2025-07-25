@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -20,7 +19,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { ITabHeaderInstance } from '@onekeyhq/components/src/layouts/TabView/Header';
 import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
@@ -107,7 +105,6 @@ export function UniversalSearch({
   filterTypes?: EUniversalSearchType[];
 }) {
   const intl = useIntl();
-  const tabRef = useRef<ITabHeaderInstance>(null);
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [allTokenList] = useAllTokenListAtom();
   const [allTokenListMap] = useAllTokenListMapAtom();
@@ -187,16 +184,6 @@ export function UniversalSearch({
   useEffect(() => {
     void fetchRecommendList();
   }, [fetchRecommendList]);
-
-  // Maintain selected tab when search status changes
-  useEffect(() => {
-    if (searchStatus === ESearchStatus.done && selectedIndex > 0) {
-      // Use setTimeout to ensure the Tab.Header is rendered before calling scrollToIndex
-      setTimeout(() => {
-        tabRef.current?.scrollToIndex(selectedIndex);
-      }, 0);
-    }
-  }, [searchStatus, selectedIndex]);
 
   const searchInputRef = useRef<string>('');
 
@@ -350,13 +337,7 @@ export function UniversalSearch({
       }
       if (section.showMore) {
         return (
-          <ListItem
-            onPress={() => {
-              console.log('[universalSearch] renderSectionFooter: ', section);
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-              tabRef.current?.scrollToIndex(section.tabIndex);
-            }}
-          >
+          <ListItem>
             <XStack ai="center" gap="$2">
               <SizableText size="$bodyMdMedium" color="$textSubdued">
                 {intl.formatMessage({
