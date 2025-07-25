@@ -87,7 +87,7 @@ jobs:
           name: onekey-extension-rn
           path: |
             ./apps/ext/build/_dist/*.zip
-      
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
