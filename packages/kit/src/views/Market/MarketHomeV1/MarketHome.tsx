@@ -123,6 +123,10 @@ function MarketHome() {
     }
     return (
       <Tabs.Container
+        headerContainerStyle={{
+          shadowOpacity: 0,
+          elevation: 0,
+        }}
         pagerProps={
           {
             offscreenPageLimit: 3,
