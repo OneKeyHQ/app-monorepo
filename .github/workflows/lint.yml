@@ -37,20 +37,20 @@ jobs:
           always-auth: true
           scope: '@onekeyhq'
 
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         id: yarn-cache
         with:
-          path: |
-            node_modules
-            .yarn/cache
-            .yarn/unplugged
-          key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock', '.yarnrc.yml') }}
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-
 
       - name: Install Dependency
-        if: steps.yarn-cache.outputs.cache-hit != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
@@ -63,6 +63,3 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
           yarn lint
-
-
-
