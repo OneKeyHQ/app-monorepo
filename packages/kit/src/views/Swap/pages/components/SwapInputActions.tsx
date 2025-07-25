@@ -61,8 +61,8 @@ const SwapInputActions = ({
               size="small"
               childrenAsText={false}
               label={
-                <XStack alignItems="center" gap="$1">
-                  <Icon name="CreditCardCvvOutline" size="$4" />
+                <XStack ai="center" jc="center" gap="$1">
+                  <Icon name="CreditCardCvvOutline" size="$4" mt={2} />
                   <SizableText size="$bodySmMedium" color="$textSubdued">
                     {intl.formatMessage({ id: ETranslations.global_buy })}
                   </SizableText>
