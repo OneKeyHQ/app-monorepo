@@ -516,6 +516,7 @@ const platformEnv: IPlatformEnv = {
   isExtensionUiSidePanel,
   isExtensionUiStandaloneWindow,
   isExtFirefoxUiPopup: isExtFirefox && isExtensionUiPopup,
+  isExtensionDevelopmentBuild,
 
   isRuntimeBrowser,
   isRuntimeMacOSBrowser,
