@@ -520,11 +520,11 @@ export const useClearStorageOnExtension = platformEnv.isExtension
     }
   : noop;
 
-export const useRemindDevelopmentBuildExtension = platformEnv.isExtension
-  ? () => {
-      useEffect(() => {
-        void (async () => {
-          if (platformEnv.isExtensionDevelopmentBuild) {
+export const useRemindDevelopmentBuildExtension =
+  platformEnv.isExtensionDevelopmentBuild
+    ? () => {
+        useEffect(() => {
+          void (async () => {
             const visited = await backgroundApiProxy.serviceSpotlight.isVisited(
               ESpotlightTour.showFloatingIconDialog,
             );
@@ -541,11 +541,10 @@ export const useRemindDevelopmentBuildExtension = platformEnv.isExtension
                 );
               },
             });
-          }
-        })();
-      }, []);
-    }
-  : noop;
+          })();
+        }, []);
+      }
+    : noop;
 
 export function Bootstrap() {
   const navigation = useAppNavigation();
