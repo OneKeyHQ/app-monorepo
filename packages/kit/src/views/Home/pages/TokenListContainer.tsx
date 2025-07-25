@@ -6,7 +6,6 @@ import { isEmpty, isNil, uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
 
-import type { ITabPageProps } from '@onekeyhq/components';
 import {
   Stack,
   useMedia,
@@ -76,7 +75,11 @@ import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListP
 
 const networkIdsMap = getNetworkIdsMap();
 
-function TokenListContainer(_props: ITabPageProps) {
+function TokenListContainer({
+  showWalletActions,
+}: {
+  showWalletActions: boolean;
+}) {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
 
@@ -1649,14 +1652,14 @@ function TokenListContainer(_props: ITabPageProps) {
   );
 }
 
-const TokenListContainerWithProvider = memo((props: ITabPageProps) => {
+const TokenListContainerWithProvider = memo(() => {
   const {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
 
   return (
     <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
-      <TokenListContainer showWalletActions {...props} />
+      <TokenListContainer showWalletActions />
       {/* <TokenListContainerPerfTest showWalletActions {...props} /> */}
     </HomeTokenListProviderMirrorWrapper>
   );

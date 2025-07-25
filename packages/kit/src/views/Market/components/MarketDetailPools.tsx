@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { ITabPageProps, ITableColumn } from '@onekeyhq/components';
+import type { ITableColumn } from '@onekeyhq/components';
 import {
   Dialog,
   Icon,
@@ -13,7 +13,6 @@ import {
   View,
   XStack,
   YStack,
-  renderNestedScrollView,
   useMedia,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -159,7 +158,7 @@ function MarketDetailPoolsSkeletonRow() {
 export function MarketDetailPools({
   detailPlatforms,
   tickers,
-}: ITabPageProps & {
+}: {
   tickers?: IMarketDetailTicker[];
   detailPlatforms: IMarketDetailPlatform;
 }) {
@@ -578,7 +577,6 @@ export function MarketDetailPools({
         />
       }
       TableEmptyComponent={<MarketDetailPoolsSkeletonRow />}
-      renderScrollComponent={renderNestedScrollView}
       onRow={onRow}
       onHeaderRow={onHeaderRow as any}
       rowProps={{

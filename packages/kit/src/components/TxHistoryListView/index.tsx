@@ -10,7 +10,6 @@ import {
   Stack,
   Tabs,
   XStack,
-  renderNestedScrollView,
 } from '@onekeyhq/components';
 import { useStyle } from '@onekeyhq/components/src/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -204,7 +203,6 @@ function BaseTxHistoryListView(props: IProps) {
     <ListComponent
       // @ts-ignore
       estimatedItemSize={platformEnv.isNative ? 60 : 56}
-      renderScrollComponent={renderNestedScrollView}
       contentContainerStyle={resolvedContentContainerStyle as any}
       stickySectionHeadersEnabled={false}
       sections={sections}
