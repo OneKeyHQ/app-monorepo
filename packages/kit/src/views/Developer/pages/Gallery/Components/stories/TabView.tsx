@@ -2,14 +2,7 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { useMemo, useRef } from 'react';
 
-import {
-  IconButton,
-  ListView,
-  SizableText,
-  Stack,
-  Tab,
-  Toast,
-} from '@onekeyhq/components';
+import { ListView, SizableText, Stack } from '@onekeyhq/components';
 import type { ITabHeaderInstance } from '@onekeyhq/components/src/layouts/TabView/Header';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -57,21 +50,7 @@ const TabViewScrollStickyDemo = () => {
     ],
     [],
   );
-  return (
-    <Tab
-      data={data}
-      initialScrollIndex={1}
-      ListHeaderComponent={<Stack bg="$bgInfoStrong" h={100} />}
-      style={{ height: 400 }}
-      headerProps={{
-        itemContainerStyle: { flex: 1 },
-        cursorStyle: { width: '70%', h: '$0.5', bg: '$text' },
-      }}
-      onSelectedPageIndex={(index: number) => {
-        console.log('选中', index);
-      }}
-    />
-  );
+  return null;
 };
 
 const ThirdRoute = () => (
@@ -116,27 +95,7 @@ const TabViewScrollPageDemo = () => {
     ],
     [],
   );
-  return (
-    <Tab.Page
-      data={data}
-      initialScrollIndex={2}
-      ListHeaderComponent={<Stack bg="$bgInfoStrong" h={100} />}
-      ListFooterComponent={<Stack bg="$bgInfoStrong" h={100} />}
-      headerProps={{
-        cursorStyle: { width: '70%', h: '$0.5', bg: '$text' },
-      }}
-      shouldSelectedPageIndex={(pageIndex) => {
-        const result = pageIndex !== 1;
-        if (!result) {
-          Toast.error({ title: '未登录' });
-        }
-        return result;
-      }}
-      onSelectedPageIndex={(index: number) => {
-        console.log('选中', index);
-      }}
-    />
-  );
+  return null;
 };
 
 const TabViewGallery = () => (
