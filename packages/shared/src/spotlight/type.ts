@@ -9,6 +9,7 @@ export enum ESpotlightTour {
   earnRewardAlert = 'earnRewardAlert',
   allNetworksInfo = 'allNetworksInfo',
   earnRewardHistory = 'earnRewardHistory',
+  showDevelopmentBuildWarningDialog = 'showDevelopmentBuildWarningDialog',
 }
 
 export type ITourTripTimes = number;
