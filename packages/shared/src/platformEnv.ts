@@ -438,7 +438,10 @@ export const isExtensionUiStandaloneWindow: boolean =
 
 export const isExtensionDevelopmentBuild: boolean =
   isExtension &&
-  globalThis.chrome.runtime.getManifest().name.includes('DEVELOPMENT BUILD');
+  (globalThis.chrome?.runtime
+    ?.getManifest?.()
+    ?.name?.includes('DEVELOPMENT BUILD') ||
+    false);
 
 export const isManifestV3: boolean =
   // TODO firefox check v3
