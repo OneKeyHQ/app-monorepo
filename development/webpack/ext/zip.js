@@ -9,6 +9,9 @@ const buildFolder = path.resolve(__dirname, '../../../apps/ext/build');
 devUtils.execSync(`
   rm -rf ${buildFolder}/_dist/
   mkdir -p ${buildFolder}/_dist/
+
+  rm -rf ${buildFolder}/_development_build_dist/
+  mkdir -p ${buildFolder}/_development_build_dist/
 `);
 
 const version = process.env.VERSION;
@@ -34,7 +37,7 @@ browsers.forEach((browser) => {
   const developmentBuildCmd = `
   cd ${browserFolder}
   sed -i.bak 's/"name": "OneKey"/"name": "OneKey (DEVELOPMENT BUILD)"/g' ${manifestPath}
-  zip -r ../_dist/OneKey-Wallet-${version}-${browser}-development-build.zip ./
+  zip -r ../_development_build_dist/OneKey-Wallet-${version}-${browser}-development-build.zip ./
 `;
   devUtils.execSync(developmentBuildCmd);
 });

@@ -87,6 +87,13 @@ jobs:
           name: onekey-extension-rn
           path: |
             ./apps/ext/build/_dist/*.zip
+      
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-extension-rn-development_build
+          path: |
+            ./apps/ext/build/_development_build_dist/*.zip
 
       - name: 'Notify to Slack'
         if: ${{ github.event.workflow_run }}
