@@ -1,11 +1,8 @@
-import { useMemo, useState } from 'react';
-
 import { useIntl } from 'react-intl';
 
-import { ScrollView, Stack } from '@onekeyhq/components';
+import { ScrollView, Stack, Tabs } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { SimpleTabHeader } from '../../components/SimpleTabHeader';
 import {
   InformationPanel,
   MarketTradingView,
@@ -18,27 +15,14 @@ import { useTokenDetail } from '../hooks/useTokenDetail';
 
 export function MobileLayout() {
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
-  const [activeTab, setActiveTab] = useState<'chart' | 'overview'>('chart');
   const intl = useIntl();
 
-  const tabData = useMemo(
-    () => [
-      {
-        id: 'chart' as const,
-        title: intl.formatMessage({ id: ETranslations.market_chart }),
-      },
-      {
-        id: 'overview' as const,
-        title: intl.formatMessage({ id: ETranslations.global_overview }),
-      },
-    ],
-    [intl],
-  );
+  return (
+    <>
+      {/* Header */}
 
-  const renderContent = () => {
-    if (activeTab === 'chart') {
-      return (
-        <>
+      <Tabs.Container>
+        <Tabs.Tab name={intl.formatMessage({ id: ETranslations.market_chart })}>
           {/* Information Panel */}
           <InformationPanel />
 
@@ -51,36 +35,20 @@ export function MobileLayout() {
           </Stack>
 
           <MobileInformationTabs />
-        </>
-      );
-    }
+        </Tabs.Tab>
 
-    return (
-      <ScrollView>
-        {/* Token Stats */}
-        <TokenOverview />
+        <Tabs.Tab
+          name={intl.formatMessage({ id: ETranslations.global_overview })}
+        >
+          <ScrollView>
+            {/* Token Stats */}
+            <TokenOverview />
 
-        {/* Activity overview (only in overview tab) */}
-        <TokenActivityOverview />
-      </ScrollView>
-    );
-  };
-
-  return (
-    <>
-      {/* Header */}
-
-      {/* Switch Buttons */}
-      <SimpleTabHeader
-        data={tabData}
-        activeIndex={activeTab === 'chart' ? 0 : 1}
-        onTabPress={(index: number, tabId: 'chart' | 'overview') =>
-          setActiveTab(tabId)
-        }
-      />
-
-      {/* Main Content */}
-      {renderContent()}
+            {/* Activity overview (only in overview tab) */}
+            <TokenActivityOverview />
+          </ScrollView>
+        </Tabs.Tab>
+      </Tabs.Container>
 
       {/* Swap panel placed outside the tabs for global visibility */}
       <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />

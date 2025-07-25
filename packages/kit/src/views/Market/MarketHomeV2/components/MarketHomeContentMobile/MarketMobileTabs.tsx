@@ -1,12 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, Stack } from '@onekeyhq/components';
-import { useShowWatchlistOnlyActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/actions';
+import { Stack, Tabs } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { SimpleTabHeader } from '../../../components/SimpleTabHeader';
 import { EMarketHomeTab } from '../../types';
 import { MarketFilterBarSmall } from '../MarketFilterBarSmall';
 import { MarketTokenList } from '../MarketTokenList';
@@ -37,80 +35,39 @@ export function MarketMobileTabs({
   liquidityFilter,
 }: IMarketMobileTabsProps) {
   const intl = useIntl();
-  const { current: showWatchlistOnlyActions } = useShowWatchlistOnlyActions();
 
-  const [activeIndex, setActiveIndex] = useState(
-    selectedTab === EMarketHomeTab.Watchlist ? 0 : 1,
-  );
-
-  const tabData = useMemo(
-    () => [
-      {
-        id: EMarketHomeTab.Watchlist,
-        title: intl.formatMessage({ id: ETranslations.global_watchlist }),
-      },
-      {
-        id: EMarketHomeTab.Trending,
-        title: intl.formatMessage({ id: ETranslations.market_trending }),
-      },
-    ],
+  const watchlistTabName = useMemo(
+    () => intl.formatMessage({ id: ETranslations.global_watchlist }),
     [intl],
   );
 
-  // Custom title render: star icon for watchlist tab, translated text for trending
-  const renderTitle = useCallback(
-    (
-      item: { id: IMarketHomeTabValue; title: string },
-      index: number,
-      isActive: boolean,
-    ) =>
-      item.id === EMarketHomeTab.Watchlist ? (
-        <Icon
-          name="StarOutline"
-          size="$4"
-          color={isActive ? '$text' : '$iconSubdued'}
-        />
-      ) : (
-        intl.formatMessage({ id: ETranslations.market_trending })
-      ),
+  const trendingTabName = useMemo(
+    () => intl.formatMessage({ id: ETranslations.market_trending }),
     [intl],
   );
-
-  const handleTabChange = useCallback(
-    (index: number, tabId: IMarketHomeTabValue) => {
-      if (tabId) {
-        setActiveIndex(index);
-        onTabChange?.(tabId);
-
-        // Update the showWatchlistOnly atom based on the selected tab
-        showWatchlistOnlyActions.setShowWatchlistOnly(
-          tabId === EMarketHomeTab.Watchlist,
-        );
-      }
-    },
-    [onTabChange, showWatchlistOnlyActions],
-  );
-
-  const currentTab = tabData[activeIndex]?.id;
 
   return (
     <Stack flex={1}>
-      <SimpleTabHeader<IMarketHomeTabValue>
-        data={tabData}
-        activeIndex={activeIndex}
-        onTabPress={handleTabChange}
-        renderTitle={renderTitle}
-      />
-      <Stack flex={1} position="relative">
-        {currentTab === EMarketHomeTab.Trending ? (
-          <MarketFilterBarSmall {...filterBarProps} />
-        ) : null}
+      <Tabs.Container>
+        <Tabs.Tab name={watchlistTabName}>
+          <Stack flex={1} position="relative">
+            <MarketTokenList
+              networkId={selectedNetworkId}
+              liquidityFilter={liquidityFilter}
+            />
+          </Stack>
+        </Tabs.Tab>
 
-        <MarketTokenList
-          networkId={selectedNetworkId}
-          liquidityFilter={liquidityFilter}
-        />
-      </Stack>
+        <Tabs.Tab name={trendingTabName}>
+          <Stack flex={1} position="relative">
+            <MarketFilterBarSmall {...filterBarProps} />
+            <MarketTokenList
+              networkId={selectedNetworkId}
+              liquidityFilter={liquidityFilter}
+            />
+          </Stack>
+        </Tabs.Tab>
+      </Tabs.Container>
     </Stack>
   );
 }
