@@ -83,6 +83,14 @@ export function useSwapQuote() {
   const [settingsAtom] = useSettingsAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
 
+  const settingsAtomRef = useRef(settingsAtom);
+  if (settingsAtomRef.current !== settingsAtom) {
+    settingsAtomRef.current = settingsAtom;
+  }
+  const settingsPersistAtomRef = useRef(settingsPersistAtom);
+  if (settingsPersistAtomRef.current !== settingsPersistAtom) {
+    settingsPersistAtomRef.current = settingsPersistAtom;
+  }
   const swapTabSwitchTypeRef = useRef(swapTabSwitchType);
   const swapShouldRefreshRef = useRef(swapShouldRefresh);
   const swapQuoteActionLockRef = useRef(swapQuoteActionLock);
@@ -572,10 +580,10 @@ export function useSwapQuote() {
           });
 
         defaultLogger.swap.swapQuote.swapQuote({
-          walletType: swapAddressInfo.accountInfo?.wallet?.type ?? '',
-          quoteType: swapTabSwitchType,
+          walletType: activeAccountRef.current?.accountInfo?.wallet?.type ?? '',
+          quoteType: swapTabSwitchTypeRef.current,
           slippageSetting:
-            settingsAtom.swapSlippagePercentageMode ===
+            settingsAtomRef.current.swapSlippagePercentageMode ===
             ESwapSlippageSegmentKey.AUTO
               ? 'auto'
               : 'custom',
@@ -583,8 +591,9 @@ export function useSwapQuote() {
           receivedChain: toTokenRef.current?.networkId ?? '',
           sourceTokenSymbol: fromTokenRef.current?.symbol ?? '',
           receivedTokenSymbol: toTokenRef.current?.symbol ?? '',
-          isAddReceiveAddress: settingsAtom.swapEnableRecipientAddress,
-          isSmartMode: settingsPersistAtom.swapBatchApproveAndSwap,
+          isAddReceiveAddress:
+            settingsAtomRef.current.swapEnableRecipientAddress,
+          isSmartMode: settingsPersistAtomRef.current.swapBatchApproveAndSwap,
           status:
             event?.type === 'done'
               ? ESwapEventAPIStatus.SUCCESS
@@ -595,13 +604,7 @@ export function useSwapQuote() {
         });
       }
     },
-    [
-      settingsAtom.swapEnableRecipientAddress,
-      settingsAtom.swapSlippagePercentageMode,
-      settingsPersistAtom.swapBatchApproveAndSwap,
-      swapAddressInfo.accountInfo?.wallet?.type,
-      swapTabSwitchType,
-    ],
+    [],
   );
 
   const isModalPage = useIsModalPage();
