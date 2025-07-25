@@ -6,7 +6,7 @@ import { AnimatePresence, useThemeName } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { EPageType, usePageType } from '../../hocs';
+import { EPageType, useIsModalPage } from '../../hocs';
 import { useIsIpadLandscape } from '../../hooks/useOrientation';
 import { Spinner, Stack, View } from '../../primitives';
 
@@ -25,7 +25,7 @@ function Loading() {
 // On iOS, in the tab container, when initializing the page,
 //  the elements cannot fill the container space, so a minimum height needs to be set
 const useMinHeight = (isFullPage: boolean) => {
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
   const tabHeight = useTabBarHeight();
   const isIpadLandscape = useIsIpadLandscape();
   return useMemo(() => {
@@ -35,7 +35,7 @@ const useMinHeight = (isFullPage: boolean) => {
     if (!isFullPage) {
       return undefined;
     }
-    if (pageType !== EPageType.modal) {
+    if (!isModalPage) {
       if (platformEnv.isNativeIOSPad) {
         if (isIpadLandscape) {
           return Math.min(
@@ -53,18 +53,18 @@ const useMinHeight = (isFullPage: boolean) => {
       return Dimensions.get('window').height - tabHeight;
     }
     return undefined;
-  }, [isFullPage, isIpadLandscape, pageType, tabHeight]);
+  }, [isFullPage, isIpadLandscape, isModalPage, tabHeight]);
 };
 
 function PageStatusBar() {
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
   const themeName: 'light' | 'dark' = useThemeName();
 
   if (themeName === 'dark') {
     return <StatusBar animated barStyle="light-content" />;
   }
 
-  if (pageType === EPageType.modal) {
+  if (isModalPage) {
     return <StatusBar animated barStyle="light-content" />;
   }
   return <StatusBar animated barStyle="dark-content" />;

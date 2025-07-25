@@ -1,37 +1,28 @@
 import { memo, useCallback, useMemo, useRef } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
-  Dialog,
-  EPageType,
   Icon,
   LottieView,
   Page,
-  Popover,
   SizableText,
   Stack,
   XStack,
   useIsKeyboardShown,
+  useIsModalPage,
   useMedia,
-  usePageType,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
-  useSwapFromTokenAmountAtom,
-  useSwapLimitPriceUseRateAtom,
   useSwapProviderSupportReceiveAddressAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapToTokenAmountAtom,
-  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   useInAppNotificationAtom,
@@ -39,25 +30,19 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
-  EProtocolOfExchange,
   ESwapDirectionType,
   ESwapQuoteKind,
-  ESwapTabSwitchType,
-  LIMIT_PRICE_DEFAULT_DECIMALS,
   SwapPercentageInputStageForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
-import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
 import {
   useSwapAddressInfo,
   useSwapRecipientAddressInfo,
 } from '../../hooks/useSwapAccount';
 import {
   useSwapActionState,
-  useSwapBatchTransfer,
   useSwapQuoteEventFetching,
   useSwapQuoteLoading,
   useSwapSlippagePercentageModeInfo,
@@ -119,21 +104,19 @@ function PercentageStageOnKeyboard({
 
 function PageFooter({
   actionComponent,
-  pageType,
+  isModalPage,
   md,
   onSelectPercentageStage,
 }: {
   onSelectPercentageStage?: (stage: number) => void;
-  pageType: EPageType;
+  isModalPage: boolean;
   md: boolean;
   actionComponent: React.JSX.Element;
 }) {
   return (
     <Page.Footer>
       <Page.FooterActions
-        {...(pageType === EPageType.modal && !md
-          ? { buttonContainerProps: { flex: 1 } }
-          : {})}
+        {...(isModalPage && !md ? { buttonContainerProps: { flex: 1 } } : {})}
         confirmButton={actionComponent}
       />
       <PercentageStageOnKeyboard
@@ -162,11 +145,6 @@ const SwapActionsState = ({
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
   const [{ swapEnableRecipientAddress }] = useSettingsAtom();
-  const isBatchTransfer = useSwapBatchTransfer(
-    swapFromAddressInfo.networkId,
-    swapFromAddressInfo.accountInfo?.account?.id,
-    currentQuoteRes?.providerDisableBatchTransfer,
-  );
   const quoteLoading = useSwapQuoteLoading();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
@@ -177,7 +155,7 @@ const SwapActionsState = ({
   const themeVariant = useThemeVariant();
   const quoting = useSwapQuoteEventFetching();
 
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
   const { md } = useMedia();
 
   const onActionHandlerBefore = useCallback(() => {
@@ -232,12 +210,7 @@ const SwapActionsState = ({
   const recipientComponent = useMemo(() => {
     if (shouldShowRecipient) {
       return (
-        <XStack
-          gap="$1"
-          {...(pageType === EPageType.modal && !md
-            ? { flex: 1 }
-            : { pb: '$4' })}
-        >
+        <XStack gap="$1" {...(isModalPage && !md ? { flex: 1 } : { pb: '$4' })}>
           <Stack>
             <Icon name="AddedPeopleOutline" w="$5" h="$5" />
           </Stack>
@@ -288,7 +261,7 @@ const SwapActionsState = ({
     intl,
     md,
     onOpenRecipientAddress,
-    pageType,
+    isModalPage,
     shouldShowRecipient,
     swapRecipientAddressInfo?.accountInfo?.accountName,
     swapRecipientAddressInfo?.accountInfo?.walletName,
@@ -300,7 +273,7 @@ const SwapActionsState = ({
     () => (
       <Stack
         flex={1}
-        {...(pageType === EPageType.modal && !md
+        {...(isModalPage && !md
           ? {
               flexDirection: 'row',
               justifyContent: shouldShowRecipient
@@ -313,7 +286,7 @@ const SwapActionsState = ({
         {recipientComponent}
         <Button
           onPress={onActionHandlerBefore}
-          size={pageType === EPageType.modal && !md ? 'medium' : 'large'}
+          size={isModalPage && !md ? 'medium' : 'large'}
           variant="primary"
           disabled={swapActionState.disabled || swapActionState.isLoading}
         >
@@ -340,7 +313,7 @@ const SwapActionsState = ({
     [
       md,
       onActionHandlerBefore,
-      pageType,
+      isModalPage,
       quoteLoading,
       quoting,
       recipientComponent,
@@ -368,11 +341,11 @@ const SwapActionsState = ({
 
   return (
     <>
-      {pageType === EPageType.modal && !md ? (
+      {isModalPage && !md ? (
         <PageFooter
           onSelectPercentageStage={onSelectPercentageStage}
           actionComponent={actionComponent}
-          pageType={pageType}
+          isModalPage={isModalPage}
           md={md}
         />
       ) : (

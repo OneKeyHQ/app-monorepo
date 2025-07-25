@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
+import { ScrollView, View, useWindowDimensions } from 'react-native';
 
 import type {
   IKeyOfIcons,
@@ -9,10 +9,8 @@ import type {
 } from '@onekeyhq/components';
 import {
   Divider,
-  Icon,
-  IconButton,
   Image,
-  NavBackButton,
+  LinearGradient,
   Page,
   SizableText,
   Stack,
@@ -23,7 +21,6 @@ import {
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import CloseButton from '@onekeyhq/components/src/composite/Banner/CloseButton';
 import { PaginationButton } from '@onekeyhq/components/src/composite/Banner/PaginationButton';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -59,7 +56,7 @@ function FeaturesItem({
   details,
 }: IFeatureItemInfo) {
   return (
-    <Stack pb="$5" alignItems="center" justifyContent="center">
+    <Stack alignItems="center" justifyContent="center">
       <Stack maxWidth={432} width="100%">
         <Stack alignItems="center" justifyContent="center">
           {banner}
@@ -73,29 +70,31 @@ function FeaturesItem({
           </SizableText>
         </Stack>
         <Divider my="$6" borderColor="$neutral3" />
-        {details.map((detail, index) => {
-          return (
-            <ListItem
-              key={index}
-              drillIn={!!detail.onPress}
-              onPress={detail.onPress}
-              icon={detail.icon}
-            >
-              <ListItem.Text
-                userSelect="none"
-                flex={1}
-                primary={
-                  <XStack>
-                    <SizableText textAlign="left" size="$bodyMdMedium">
-                      {detail.title}
-                    </SizableText>
-                  </XStack>
-                }
-                secondary={detail.description}
-              />
-            </ListItem>
-          );
-        })}
+        <YStack gap="$1.5">
+          {details.map((detail, index) => {
+            return (
+              <ListItem
+                key={index}
+                drillIn={!!detail.onPress}
+                onPress={detail.onPress}
+                icon={detail.icon}
+              >
+                <ListItem.Text
+                  userSelect="none"
+                  flex={1}
+                  primary={
+                    <XStack>
+                      <SizableText textAlign="left" size="$bodyMdMedium">
+                        {detail.title}
+                      </SizableText>
+                    </XStack>
+                  }
+                  secondary={detail.description}
+                />
+              </ListItem>
+            );
+          })}
+        </YStack>
       </Stack>
     </Stack>
   );
@@ -105,7 +104,6 @@ export default function PagePrimeFeatures() {
   const navigation = useAppNavigation();
   const keyExtractor = useCallback((item: IFeatureItemInfo) => item.title, []);
   const renderItem = useCallback(({ item }: { item: IFeatureItemInfo }) => {
-    // return null;
     return <FeaturesItem {...item} />;
   }, []);
 
@@ -134,6 +132,7 @@ export default function PagePrimeFeatures() {
           <Image
             w="100%"
             h={bannerHeight}
+            maxWidth={393}
             source={require('@onekeyhq/kit/assets/prime/onekey_cloud_banner.png')}
           />
         ),
@@ -171,6 +170,7 @@ export default function PagePrimeFeatures() {
           <Image
             w="100%"
             h={bannerHeight}
+            maxWidth={393}
             source={require('@onekeyhq/kit/assets/prime/bulk_copy_banner.png')}
           />
         ),
@@ -217,6 +217,7 @@ export default function PagePrimeFeatures() {
           <Image
             w="100%"
             h={bannerHeight}
+            maxWidth={393}
             source={require('@onekeyhq/kit/assets/prime/bulk_revoke_banner.png')}
           />
         ),
@@ -228,21 +229,21 @@ export default function PagePrimeFeatures() {
         }),
         details: [
           {
+            icon: 'GasOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_two_desc,
+            }),
+          },
+          {
             icon: 'WalletCryptoOutline',
             title: intl.formatMessage({
               id: ETranslations.prime_features_bulk_revoke_detail_one_title,
             }),
             description: intl.formatMessage({
               id: ETranslations.prime_features_bulk_revoke_detail_one_desc,
-            }),
-          },
-          {
-            icon: 'Filter1Outline',
-            title: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_two_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_two_desc,
             }),
           },
         ],
@@ -266,7 +267,8 @@ export default function PagePrimeFeatures() {
   // PaginationButton will cause native crash
   const showPaginationButton = !platformEnv.isNative;
   const isHovering = true;
-  const showCloseButton = false;
+
+  const [index, setIndex] = useState(dataInfo.index);
 
   const renderPagination = useCallback(
     ({
@@ -275,34 +277,6 @@ export default function PagePrimeFeatures() {
       gotToPrevIndex,
     }: IRenderPaginationParams) => (
       <>
-        {dataInfo.data.length > 1 ? (
-          <XStack
-            testID="prime-features-pagination"
-            gap="$1"
-            // position="absolute"
-            // right={0}
-            // bottom="$10"
-            width="100%"
-            jc="center"
-            // {...hoverOpacity}
-            // {...indicatorContainerStyle}
-          >
-            {dataInfo.data.map((_, index) => (
-              <Stack
-                key={index}
-                w="$3"
-                $gtMd={{
-                  w: '$4',
-                }}
-                h="$1"
-                borderRadius="$full"
-                bg="$textSubdued"
-                opacity={currentIndex === index ? 1 : 0.5}
-              />
-            ))}
-          </XStack>
-        ) : null}
-
         {showPaginationButton ? (
           <>
             <PaginationButton
@@ -310,6 +284,9 @@ export default function PagePrimeFeatures() {
               direction="previous"
               onPress={gotToPrevIndex}
               variant="tertiary"
+              theme="dark"
+              iconSize="small"
+              positionOffset={16}
             />
 
             <PaginationButton
@@ -319,29 +296,15 @@ export default function PagePrimeFeatures() {
               direction="next"
               onPress={goToNextIndex}
               variant="tertiary"
+              theme="dark"
+              iconSize="small"
+              positionOffset={16}
             />
           </>
         ) : null}
-
-        {showCloseButton ? (
-          <CloseButton
-            onPress={() => {
-              //
-            }}
-            isHovering={isHovering}
-          />
-        ) : null}
       </>
     ),
-    [dataInfo.data, isHovering, showCloseButton, showPaginationButton],
-  );
-
-  const [index, setIndex] = useState(dataInfo.index);
-  const onIndexChange = useCallback(
-    ({ index: newIndex }: { index: number }) => {
-      setIndex(newIndex);
-    },
-    [],
+    [dataInfo.data.length, isHovering, showPaginationButton],
   );
 
   const { isPrimeSubscriptionActive } = usePrimeAuthV2();
@@ -424,7 +387,7 @@ export default function PagePrimeFeatures() {
   const page = (
     <>
       <Page.BackButton />
-      <Page scrollEnabled>
+      <Page>
         <Theme name="dark">
           <Page.Header
             headerShown={false}
@@ -435,30 +398,57 @@ export default function PagePrimeFeatures() {
         </Theme>
 
         <Page.Body>
-          <Stack h={60} />
-          <Swiper
-            height={height}
-            position="relative"
-            index={index}
-            initialNumToRender={3}
-            onChangeIndex={onIndexChange}
-            // autoplay
-            // autoplayLoop
-            // autoplayLoopKeepAnimation
-            // autoplayDelayMs={3000}
-            keyExtractor={keyExtractor}
-            data={dataInfo.data}
-            renderItem={renderItem}
-            renderPagination={renderPagination}
-            overflow="hidden"
-            borderRadius="$3"
-            onPointerEnter={() => {
-              // setIsHoveringThrottled(true);
-            }}
-            onPointerLeave={() => {
-              // setIsHoveringThrottled(false);
-            }}
-          />
+          <View style={{ flex: 1 }}>
+            <ScrollView>
+              <Swiper
+                height={height}
+                position="relative"
+                index={index}
+                initialNumToRender={3}
+                onChangeIndex={({ index: newIndex }) => setIndex(newIndex)}
+                keyExtractor={keyExtractor}
+                data={dataInfo.data}
+                renderItem={renderItem}
+                renderPagination={renderPagination}
+                overflow="hidden"
+                borderRadius="$3"
+                pt="$10"
+              />
+            </ScrollView>
+
+            {dataInfo.data.length > 1 ? (
+              <View>
+                <LinearGradient
+                  colors={['transparent', '$background']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                >
+                  <XStack
+                    testID="prime-features-pagination"
+                    gap="$1"
+                    width="100%"
+                    jc="center"
+                    pt="$1"
+                    pb="$2"
+                  >
+                    {dataInfo.data.map((_, pageIndex) => (
+                      <Stack
+                        key={pageIndex}
+                        w="$3"
+                        $gtMd={{
+                          w: '$4',
+                        }}
+                        h="$1"
+                        borderRadius="$full"
+                        bg="$textSubdued"
+                        opacity={index === pageIndex ? 1 : 0.5}
+                      />
+                    ))}
+                  </XStack>
+                </LinearGradient>
+              </View>
+            ) : null}
+          </View>
         </Page.Body>
         <Page.Footer
           confirmButtonProps={
