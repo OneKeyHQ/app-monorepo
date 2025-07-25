@@ -520,6 +520,33 @@ export const useClearStorageOnExtension = platformEnv.isExtension
     }
   : noop;
 
+export const useRemindDevelopmentBuildExtension = platformEnv.isExtension
+  ? () => {
+      useEffect(() => {
+        void (async () => {
+          if (platformEnv.isExtensionDevelopmentBuild) {
+            const visited = await backgroundApiProxy.serviceSpotlight.isVisited(
+              ESpotlightTour.showFloatingIconDialog,
+            );
+            if (visited) {
+              return;
+            }
+            Dialog.confirm({
+              title: 'Remind Development Build',
+              tone: 'warning',
+              description: 'This is a development build',
+              onConfirm: async () => {
+                await backgroundApiProxy.serviceSpotlight.firstVisitTour(
+                  ESpotlightTour.showDevelopmentBuildWarningDialog,
+                );
+              },
+            });
+          }
+        })();
+      }, []);
+    }
+  : noop;
+
 export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -551,5 +578,6 @@ export function Bootstrap() {
   useCheckUpdateOnDesktop();
   useIntercomInit();
   useClearStorageOnExtension();
+  useRemindDevelopmentBuildExtension();
   return null;
 }
