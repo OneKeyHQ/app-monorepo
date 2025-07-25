@@ -15,7 +15,6 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { ITabHeaderInstance } from '@onekeyhq/components/src/layouts/TabView/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -112,7 +111,6 @@ export function AvailableAssetsTabViewList({
   const intl = useIntl();
   const media = useMedia();
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
-  const tabHeaderRef = useRef<ITabHeaderInstance>(null);
 
   const tabData = useMemo(
     () => [
@@ -195,15 +193,6 @@ export function AvailableAssetsTabViewList({
     },
     [focusedTab, tabData],
   );
-
-  // Update tab header when selectedTabIndex changes
-  useEffect(() => {
-    setTimeout(() => {
-      if (tabHeaderRef.current) {
-        tabHeaderRef.current.scrollToIndex(selectedTabIndex);
-      }
-    }, 0);
-  }, [selectedTabIndex]);
 
   if (assets.length || isLoading) {
     return (
