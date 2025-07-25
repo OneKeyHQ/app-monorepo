@@ -84,3 +84,5 @@ export const TRADING_VIEW_URL =
 
 export const FALCON_DOCS_URL = 'https://docs.falcon.finance/';
 export const ONEKEY_HEALTH_CHECK_URL = '/wallet/v1/health';
+
+export const SUPPORT_URL = 'https://help.onekey.so/hc/requests/new';

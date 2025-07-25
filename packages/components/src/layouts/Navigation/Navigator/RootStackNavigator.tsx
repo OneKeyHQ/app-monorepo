@@ -4,8 +4,6 @@ import { useMedia } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { EPageType } from '../../../hocs';
-import { PageTypeContext } from '../../../hocs/PageType/context';
 import { useThemeValue } from '../../../hooks';
 import {
   clearStackNavigatorOptions,
@@ -92,32 +90,18 @@ export function RootStackNavigator<
     [config, getOptionsWithType],
   );
 
-  const contextValue = useMemo(
-    () => ({
-      pageType: EPageType.fullScreen,
-    }),
-    [],
-  );
   return useMemo(
     () => (
-      <PageTypeContext.Provider value={contextValue}>
-        <RootStack.Navigator
-          initialRouteName={initialRouteName}
-          screenOptions={{
-            ...presetScreenOptions,
-            ...screenOptions,
-          }}
-        >
-          {renderedScreens}
-        </RootStack.Navigator>
-      </PageTypeContext.Provider>
+      <RootStack.Navigator
+        initialRouteName={initialRouteName}
+        screenOptions={{
+          ...presetScreenOptions,
+          ...screenOptions,
+        }}
+      >
+        {renderedScreens}
+      </RootStack.Navigator>
     ),
-    [
-      contextValue,
-      initialRouteName,
-      presetScreenOptions,
-      renderedScreens,
-      screenOptions,
-    ],
+    [initialRouteName, presetScreenOptions, renderedScreens, screenOptions],
   );
 }

@@ -96,6 +96,10 @@ function WalletBoundReferralCodeButtonView({
     return null;
   }
 
+  if (wallet?.isMocked) {
+    return null;
+  }
+
   if (isLoadingReferralCodeButton) {
     return <ActionList.SkeletonItem />;
   }

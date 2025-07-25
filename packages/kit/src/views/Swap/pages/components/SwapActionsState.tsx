@@ -37,14 +37,12 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
-import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
 import {
   useSwapAddressInfo,
   useSwapRecipientAddressInfo,
 } from '../../hooks/useSwapAccount';
 import {
   useSwapActionState,
-  useSwapBatchTransfer,
   useSwapQuoteEventFetching,
   useSwapQuoteLoading,
   useSwapSlippagePercentageModeInfo,
@@ -147,11 +145,6 @@ const SwapActionsState = ({
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
   const [{ swapEnableRecipientAddress }] = useSettingsAtom();
-  const isBatchTransfer = useSwapBatchTransfer(
-    swapFromAddressInfo.networkId,
-    swapFromAddressInfo.accountInfo?.account?.id,
-    currentQuoteRes?.providerDisableBatchTransfer,
-  );
   const quoteLoading = useSwapQuoteLoading();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
