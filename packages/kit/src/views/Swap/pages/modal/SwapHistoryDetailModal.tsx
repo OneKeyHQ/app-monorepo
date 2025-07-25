@@ -5,6 +5,8 @@ import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import { SUPPORT_URL } from '@onekeyhq/shared/src/config/appConfig';
+
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Button,
@@ -29,6 +31,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -635,7 +638,11 @@ const SwapHistoryDetailModal = () => {
             variant: 'secondary',
           }}
           onConfirm={() => {
-            onViewInBrowser(txHistory?.swapInfo.supportUrl ?? '');
+            if (txHistory?.swapInfo.supportUrl?.includes(SUPPORT_URL)) {
+              void showIntercom();
+            } else {
+              onViewInBrowser(txHistory?.swapInfo.supportUrl ?? '');
+            }
           }}
         />
       ) : null}
