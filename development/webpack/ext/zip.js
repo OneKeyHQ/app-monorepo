@@ -2,6 +2,11 @@ require('../../env');
 const path = require('path');
 const devUtils = require('./devUtils');
 
+const extFolder = path.resolve(__dirname, '../../../apps/ext');
+const developmentImgFolder = path.resolve(
+  extFolder,
+  './src/assets/img-development',
+);
 const buildFolder = path.resolve(__dirname, '../../../apps/ext/build');
 
 // TODO:
@@ -36,6 +41,7 @@ browsers.forEach((browser) => {
   const manifestPath = `${browserFolder}/manifest.json`;
   const developmentBuildCmd = `
   cd ${browserFolder}
+  cp -rf ${developmentImgFolder}/* ${browserFolder}/
   sed -i.bak 's/"name": "OneKey"/"name": "OneKey (DEVELOPMENT BUILD)"/g' ${manifestPath}
   zip -r ../_development_build_dist/OneKey-Wallet-${version}-${browser}-development-build.zip ./
 `;
