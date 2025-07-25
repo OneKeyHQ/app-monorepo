@@ -21,13 +21,16 @@ import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
+import { usePrimeTransferExit } from './components/hooks/usePrimeTransferExit';
 import { PrimeTransferDirection } from './components/PrimeTransferDirection';
+import { PrimeTransferExitPrevent } from './components/PrimeTransferExitPrevent';
 import { PrimeTransferHome } from './components/PrimeTransferHome';
 
 export default function PagePrimeTransfer() {
   const intl = useIntl();
   const [primeTransferAtom] = usePrimeTransferAtom();
   const navigation = useAppNavigation();
+  const { exitTransferFlow, disableExitPrevention } = usePrimeTransferExit();
 
   const [remotePairingCode, setRemotePairingCode] = useState('');
 
@@ -46,8 +49,6 @@ export default function PagePrimeTransfer() {
     // return 'https://transfer.onekey-test.com';
     return endpointInfo.endpoint;
   }, []);
-
-  console.log('endpoint', endpoint);
 
   useEffect(() => {
     if (!endpoint) {
@@ -81,13 +82,13 @@ export default function PagePrimeTransfer() {
         description: data.description,
         showCancelButton: false,
       });
-      navigation.popStack();
+      exitTransferFlow();
     };
     appEventBus.on(EAppEventBusNames.PrimeTransferForceExit, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.PrimeTransferForceExit, fn);
     };
-  }, [navigation]);
+  }, [exitTransferFlow]);
 
   const contentView = useMemo(() => {
     if (!primeTransferAtom.websocketConnected) {
@@ -126,7 +127,7 @@ export default function PagePrimeTransfer() {
           <Button
             onPress={async () => {
               const data =
-                await backgroundApiProxy.servicePrimeTransfer.getDataForTransfer();
+                await backgroundApiProxy.servicePrimeTransfer.buildTransferData();
               Dialog.debugMessage({
                 debugMessage: data,
               });
@@ -137,7 +138,7 @@ export default function PagePrimeTransfer() {
           <Button
             onPress={async () => {
               const data =
-                await backgroundApiProxy.servicePrimeTransfer.getDataForTransfer();
+                await backgroundApiProxy.servicePrimeTransfer.buildTransferData();
               const param: IPrimeParamList[EPrimePages.PrimeTransferPreview] = {
                 directionUserInfo: undefined,
                 transferData: data,
@@ -147,11 +148,22 @@ export default function PagePrimeTransfer() {
           >
             Navigate to preview
           </Button>
+          <Button
+            onPress={() => {
+              disableExitPrevention();
+            }}
+          >
+            Change shouldPreventExit to false
+          </Button>
         </>
       );
     }
     return <></>;
-  }, [navigation]);
+  }, [navigation, disableExitPrevention]);
+
+  // const shouldPreventExit =
+  //   primeTransferAtom.status === EPrimeTransferStatus.paired ||
+  //   primeTransferAtom.status === EPrimeTransferStatus.transferring;
 
   return (
     <Page scrollEnabled>
@@ -159,6 +171,10 @@ export default function PagePrimeTransfer() {
         {contentView}
         {debugButtons}
       </Page.Body>
+      <PrimeTransferExitPrevent
+        shouldPreventRemove={primeTransferAtom.shouldPreventExit}
+        // shouldPreventRemove={false}
+      />
     </Page>
   );
 }

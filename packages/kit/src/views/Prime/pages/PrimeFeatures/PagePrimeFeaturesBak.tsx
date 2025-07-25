@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { ScrollView, View, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 
 import type {
   IKeyOfIcons,
@@ -10,7 +10,10 @@ import type {
 import {
   Button,
   Divider,
+  Icon,
+  IconButton,
   Image,
+  NavBackButton,
   Page,
   Portal,
   SizableText,
@@ -22,12 +25,17 @@ import {
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import CloseButton from '@onekeyhq/components/src/composite/Banner/CloseButton';
 import { PaginationButton } from '@onekeyhq/components/src/composite/Banner/PaginationButton';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePrimeCloudSyncPersistAtom,
+  usePrimeMasterPasswordPersistAtom,
+  usePrimePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -61,45 +69,43 @@ function FeaturesItem({
   children,
 }: IFeatureItemInfo) {
   return (
-    <Stack alignItems="center" justifyContent="center">
+    <Stack pb="$5" alignItems="center" justifyContent="center">
       <Stack maxWidth={432} width="100%">
         <Stack alignItems="center" justifyContent="center">
           {banner}
         </Stack>
-        <YStack pt="$4" px="$5" gap="$0.5">
+        <Stack pt="$4" px="$5">
           <SizableText textAlign="center" size="$headingXl">
             {title}
           </SizableText>
           <SizableText textAlign="center" size="$bodyLg" color="$textSubdued">
             {description}
           </SizableText>
-        </YStack>
+        </Stack>
         <Divider my="$6" borderColor="$neutral3" />
-        <YStack gap="$1.5" pb="$4">
-          {details.map((detail, index) => {
-            return (
-              <ListItem
-                key={index}
-                drillIn={!!detail.onPress}
-                onPress={detail.onPress}
-                icon={detail.icon}
-              >
-                <ListItem.Text
-                  userSelect="none"
-                  flex={1}
-                  primary={
-                    <XStack>
-                      <SizableText textAlign="left" size="$bodyMdMedium">
-                        {detail.title}
-                      </SizableText>
-                    </XStack>
-                  }
-                  secondary={detail.description}
-                />
-              </ListItem>
-            );
-          })}
-        </YStack>
+        {details.map((detail, index) => {
+          return (
+            <ListItem
+              key={index}
+              drillIn={!!detail.onPress}
+              onPress={detail.onPress}
+              icon={detail.icon}
+            >
+              <ListItem.Text
+                userSelect="none"
+                flex={1}
+                primary={
+                  <XStack>
+                    <SizableText textAlign="left" size="$bodyMdMedium">
+                      {detail.title}
+                    </SizableText>
+                  </XStack>
+                }
+                secondary={detail.description}
+              />
+            </ListItem>
+          );
+        })}
         {children}
       </Stack>
     </Stack>
@@ -110,6 +116,7 @@ export default function PagePrimeFeatures() {
   const navigation = useAppNavigation();
   const keyExtractor = useCallback((item: IFeatureItemInfo) => item.title, []);
   const renderItem = useCallback(({ item }: { item: IFeatureItemInfo }) => {
+    // return null;
     return <FeaturesItem {...item} />;
   }, []);
 
@@ -122,7 +129,6 @@ export default function PagePrimeFeatures() {
 
   // const [primePersistData] = usePrimePersistAtom();
   // const [primeMasterPasswordPersistData] = usePrimeMasterPasswordPersistAtom();
-  const { isPrimeSubscriptionActive } = usePrimeAuthV2();
   const [primeCloudSyncPersistData] = usePrimeCloudSyncPersistAtom();
 
   const bannerHeight = useMemo(() => {
@@ -143,7 +149,6 @@ export default function PagePrimeFeatures() {
           <Image
             w="100%"
             h={bannerHeight}
-            maxWidth={393}
             source={require('@onekeyhq/kit/assets/prime/onekey_cloud_banner.png')}
           />
         ),
@@ -173,23 +178,21 @@ export default function PagePrimeFeatures() {
             }),
           },
         ],
-        children:
-          primeCloudSyncPersistData?.isCloudSyncEnabled ||
-          isPrimeSubscriptionActive ? (
-            <Stack>
-              <Button
-                mt="$2"
-                variant="tertiary"
-                onPress={() => {
-                  navigation.navigate(EPrimePages.PrimeCloudSync);
-                }}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.prime_manage_service,
-                })}
-              </Button>
-            </Stack>
-          ) : null,
+        children: primeCloudSyncPersistData?.isCloudSyncEnabled ? (
+          <Stack>
+            <Button
+              mt="$2"
+              variant="tertiary"
+              onPress={() => {
+                navigation.navigate(EPrimePages.PrimeCloudSync);
+              }}
+            >
+              {intl.formatMessage({
+                id: ETranslations.prime_manage_service,
+              })}
+            </Button>
+          </Stack>
+        ) : null,
       },
 
       {
@@ -198,7 +201,6 @@ export default function PagePrimeFeatures() {
           <Image
             w="100%"
             h={bannerHeight}
-            maxWidth={393}
             source={require('@onekeyhq/kit/assets/prime/bulk_copy_banner.png')}
           />
         ),
@@ -245,7 +247,6 @@ export default function PagePrimeFeatures() {
           <Image
             w="100%"
             h={bannerHeight}
-            maxWidth={393}
             source={require('@onekeyhq/kit/assets/prime/bulk_revoke_banner.png')}
           />
         ),
@@ -257,21 +258,21 @@ export default function PagePrimeFeatures() {
         }),
         details: [
           {
-            icon: 'GasOutline',
-            title: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_two_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_two_desc,
-            }),
-          },
-          {
             icon: 'WalletCryptoOutline',
             title: intl.formatMessage({
               id: ETranslations.prime_features_bulk_revoke_detail_one_title,
             }),
             description: intl.formatMessage({
               id: ETranslations.prime_features_bulk_revoke_detail_one_desc,
+            }),
+          },
+          {
+            icon: 'Filter1Outline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_two_desc,
             }),
           },
         ],
@@ -291,7 +292,6 @@ export default function PagePrimeFeatures() {
       index: index ?? 0,
     };
   }, [
-    isPrimeSubscriptionActive,
     bannerHeight,
     intl,
     navigation,
@@ -324,12 +324,10 @@ export default function PagePrimeFeatures() {
               position="absolute"
               right={0}
               left={0}
-              bottom={0}
+              bottom="$20"
               width="100%"
               jc="center"
-              // pt="$1"
-              // pb="$2"
-              zIndex={1}
+              zIndex={9999}
               // {...hoverOpacity}
               // {...indicatorContainerStyle}
             >
@@ -356,10 +354,7 @@ export default function PagePrimeFeatures() {
                 direction="previous"
                 onPress={gotToPrevIndex}
                 variant="tertiary"
-                zIndex={1}
-                theme="dark"
-                iconSize="small"
-                positionOffset={16}
+                zIndex={9999}
               />
 
               <PaginationButton
@@ -369,21 +364,40 @@ export default function PagePrimeFeatures() {
                 direction="next"
                 onPress={goToNextIndex}
                 variant="tertiary"
-                zIndex={1}
-                theme="dark"
-                iconSize="small"
-                positionOffset={16}
+                zIndex={999}
               />
             </>
+          ) : null}
+
+          {showCloseButton ? (
+            <CloseButton
+              onPress={() => {
+                //
+              }}
+              isHovering={isHovering}
+            />
           ) : null}
         </Theme>
       </Portal.Body>
     ),
-    [dataInfo.data, isHovering, portalContainerName, showPaginationButton],
+    [
+      dataInfo.data,
+      isHovering,
+      portalContainerName,
+      showCloseButton,
+      showPaginationButton,
+    ],
   );
 
   const [index, setIndex] = useState(dataInfo.index);
+  const onIndexChange = useCallback(
+    ({ index: newIndex }: { index: number }) => {
+      setIndex(newIndex);
+    },
+    [],
+  );
 
+  const { isPrimeSubscriptionActive } = usePrimeAuthV2();
   const shouldShowConfirmButton = !showAllFeatures
     ? true
     : !isPrimeSubscriptionActive;
@@ -463,7 +477,8 @@ export default function PagePrimeFeatures() {
   const page = (
     <>
       <Page.BackButton />
-      <Page>
+      <Portal.Container name={portalContainerName} />
+      <Page scrollEnabled>
         <Theme name="dark">
           <Page.Header
             headerShown={false}
@@ -474,25 +489,30 @@ export default function PagePrimeFeatures() {
         </Theme>
 
         <Page.Body>
-          <View style={{ flex: 1 }}>
-            <Portal.Container name={portalContainerName} />
-            <ScrollView>
-              <Stack h={gtMd ? 48 : 60} />
-              <Swiper
-                height={height}
-                position="relative"
-                index={index}
-                initialNumToRender={3}
-                onChangeIndex={({ index: newIndex }) => setIndex(newIndex)}
-                keyExtractor={keyExtractor}
-                data={dataInfo.data}
-                renderItem={renderItem}
-                renderPagination={renderPagination}
-                overflow="hidden"
-                borderRadius="$3"
-              />
-            </ScrollView>
-          </View>
+          <Stack h={60} />
+          <Swiper
+            height={height}
+            position="relative"
+            index={index}
+            initialNumToRender={3}
+            onChangeIndex={onIndexChange}
+            // autoplay
+            // autoplayLoop
+            // autoplayLoopKeepAnimation
+            // autoplayDelayMs={3000}
+            keyExtractor={keyExtractor}
+            data={dataInfo.data}
+            renderItem={renderItem}
+            renderPagination={renderPagination}
+            overflow="hidden"
+            borderRadius="$3"
+            onPointerEnter={() => {
+              // setIsHoveringThrottled(true);
+            }}
+            onPointerLeave={() => {
+              // setIsHoveringThrottled(false);
+            }}
+          />
         </Page.Body>
         <Page.Footer
           confirmButtonProps={

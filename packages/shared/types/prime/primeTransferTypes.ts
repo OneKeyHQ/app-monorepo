@@ -53,7 +53,10 @@ export type IPrimeTransferData = {
 };
 
 export type IPrimeTransferSelectedItemMapInfo = {
-  [id: string]: boolean;
+  [id: string]: {
+    checked: boolean;
+    disabled: boolean;
+  };
 };
 export type IPrimeTransferSelectedItemMap = {
   wallet: IPrimeTransferSelectedItemMapInfo;
