@@ -537,7 +537,7 @@ export const useRemindDevelopmentBuildExtension =
               disableDrag: true,
               tone: 'warning',
               description:
-                'This is a development build. Please note that using this development version may result in data loss. Please use with caution.',
+                'This is a development build for testing purposes. While we strive for stability, some features may not work as expected. Please use with caution and consider backing up important data.',
               onConfirm: async () => {
                 await backgroundApiProxy.serviceSpotlight.firstVisitTour(
                   ESpotlightTour.showDevelopmentBuildWarningDialog,
