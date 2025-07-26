@@ -1,13 +1,17 @@
 import { useCallback } from 'react';
 
-import { XStack } from '@onekeyhq/components';
+import { XStack, rootNavigationRef } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useMarketWatchListAtom } from '@onekeyhq/kit/src/states/jotai/contexts/market/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
-import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ERootRoutes,
+  ETabMarketRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type { IUniversalSearchMarketToken } from '@onekeyhq/shared/types/search';
 import { ESearchStatus } from '@onekeyhq/shared/types/search';
 
@@ -31,11 +35,16 @@ export function UniversalSearchMarketTokenItem({
   const { image, coingeckoId, price, symbol, name, lastUpdated } = item.payload;
 
   const handlePress = useCallback(() => {
-    navigation.pop();
+    rootNavigationRef.current?.goBack();
     setTimeout(async () => {
-      navigation.switchTab(ETabRoutes.Market);
-      navigation.push(ETabMarketRoutes.MarketDetail, {
-        token: coingeckoId,
+      rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.MarketDetail,
+          params: {
+            token: coingeckoId,
+          },
+        },
       });
       defaultLogger.market.token.searchToken({
         tokenSymbol: coingeckoId,
@@ -55,14 +64,7 @@ export function UniversalSearchMarketTokenItem({
         }, 10);
       }
     }, 80);
-  }, [
-    coingeckoId,
-    item.type,
-    navigation,
-    searchStatus,
-    symbol,
-    universalSearchActions,
-  ]);
+  }, [coingeckoId, item.type, searchStatus, symbol, universalSearchActions]);
 
   if (!isMounted) {
     return null;

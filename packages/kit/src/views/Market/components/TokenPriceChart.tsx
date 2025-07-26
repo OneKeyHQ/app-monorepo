@@ -141,6 +141,10 @@ function NativeTokenPriceChart({
           width="100%"
         >
           <SegmentControl
+            position="absolute"
+            left={20}
+            right={20}
+            bottom={platformEnv.isNative ? -40 : 80}
             fullWidth
             value={days}
             jc="space-between"

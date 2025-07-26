@@ -205,7 +205,7 @@ export function AvailableAssetsTabViewList({
           onTabPress={handleTabChange}
           tabNames={TabNames}
           focusedTab={focusedTab}
-          renderItem={({ name, isFocused }) => (
+          renderItem={({ name, isFocused, onPress }) => (
             <XStack
               px="$2"
               py="$1.5"
@@ -213,6 +213,7 @@ export function AvailableAssetsTabViewList({
               bg={isFocused ? '$bgActive' : '$bg'}
               borderRadius="$2"
               borderCurve="continuous"
+              onPress={() => onPress(name)}
             >
               <SizableText
                 size="$bodyMdMedium"

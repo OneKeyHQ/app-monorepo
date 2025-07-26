@@ -143,10 +143,29 @@ export function UniversalSearch({
     ];
   }, [intl]);
   const [filterType, setFilterType] = useState(tabTitles[0]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const focusedTab = useSharedValue(tabTitles[0]);
+  const handleTabPress = useCallback(
+    (name: string) => {
+      setFilterType(name);
+      focusedTab.value = name;
+    },
+    [focusedTab],
+  );
   const isInAllTab = useMemo(() => {
     return filterType === tabTitles[0];
   }, [filterType, tabTitles]);
+
+  useEffect(() => {
+    if (
+      searchStatus === ESearchStatus.done &&
+      focusedTab.value !== tabTitles[0]
+    ) {
+      // Use setTimeout to ensure the Tab.Header is rendered before calling scrollToIndex
+      setTimeout(() => {
+        focusedTab.value = tabTitles[0];
+      }, 0);
+    }
+  }, [focusedTab, searchStatus, tabTitles]);
 
   const shouldUseTokensCacheData = useMemo(() => {
     return (
@@ -337,7 +356,11 @@ export function UniversalSearch({
       }
       if (section.showMore) {
         return (
-          <ListItem>
+          <ListItem
+            onPress={() => {
+              handleTabPress(section.title);
+            }}
+          >
             <XStack ai="center" gap="$2">
               <SizableText size="$bodyMdMedium" color="$textSubdued">
                 {intl.formatMessage({
@@ -355,7 +378,7 @@ export function UniversalSearch({
       }
       return null;
     },
-    [intl, isInAllTab],
+    [handleTabPress, intl, isInAllTab],
   );
 
   const renderItem = useCallback(
@@ -389,16 +412,6 @@ export function UniversalSearch({
       }
     },
     [activeAccount?.network?.id, searchStatus],
-  );
-
-  const focusedTab = useSharedValue(tabTitles[0]);
-  const handleTabPress = useCallback(
-    (name: string) => {
-      setFilterType(name);
-      setSelectedIndex(tabTitles.findIndex((i) => i === name));
-      focusedTab.value = name;
-    },
-    [focusedTab, tabTitles],
   );
 
   const filterSections = useMemo(() => {
