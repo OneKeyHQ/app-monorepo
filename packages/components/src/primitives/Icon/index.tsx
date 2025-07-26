@@ -24,7 +24,7 @@ const ComponentMaps: Record<string, typeof Svg> = {};
 const DEFAULT_SIZE = 24;
 
 // Global promise cache to ensure only one loading promise per icon
-const loadingPromises: Record<string, Promise<typeof Svg>> = {};
+const isLoadingIcon: Record<string, boolean> = {};
 // Callback queues for each icon
 const callbackQueues: Record<
   string,
@@ -39,31 +39,24 @@ const loadIconModule = (name: IKeyOfIcons): Promise<typeof Svg> => {
       callbackQueues[name] = [resolveCallback];
     }
 
-    // If already loading, return the existing promise
-    if (loadingPromises[name] !== undefined) {
-      return loadingPromises[name];
+    if (isLoadingIcon[name]) {
+      return;
     }
 
-    // Create new loading promise
-    loadingPromises[name] = new Promise<typeof Svg>((resolve) => {
-      void ICON_CONFIG[name]?.().then((module: any) => {
+    isLoadingIcon[name] = true;
+    void ICON_CONFIG[name]?.().then((module: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (module?.default) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (module?.default) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          const component = module.default as typeof Svg;
-          ComponentMaps[name] = component;
-          delete loadingPromises[name];
+        const component = module.default as typeof Svg;
+        ComponentMaps[name] = component;
+        delete isLoadingIcon[name];
 
-          // Execute all callbacks for this icon
-          const callbacks = callbackQueues[name] || [];
-          callbacks.forEach((callback) => callback(component));
+        const callbacks = callbackQueues[name] || [];
+        callbacks.forEach((callback) => callback(component));
 
-          // Clean up
-          delete callbackQueues[name];
-
-          resolve(component);
-        }
-      });
+        delete callbackQueues[name];
+      }
     });
   });
 };
