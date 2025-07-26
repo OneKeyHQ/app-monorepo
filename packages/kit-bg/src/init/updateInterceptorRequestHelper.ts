@@ -13,9 +13,5 @@ export function updateInterceptorRequestHelper() {
     getDevSettingsPersistAtom: async () => devSettingsPersistAtom.get(),
     getSettingsPersistAtom: async () => settingsPersistAtom.get(),
     getSettingsValuePersistAtom: async () => settingsValuePersistAtom.get(),
-    getApiEndpointConfigPersistAtom: async () => {
-      // Return empty config since we now use devSettings
-      return { configs: [] };
-    },
   });
 }

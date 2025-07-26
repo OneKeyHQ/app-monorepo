@@ -54,7 +54,7 @@ export async function getEndpointInfo({
 }): Promise<IEndpointInfo> {
   // Check if dev settings are enabled before using custom config
   const devSettings = await devSettingsPersistAtom.get();
-  const endpoint = devSettings.enabled 
+  const endpoint = devSettings.enabled
     ? await getEndpointByServiceNameWithCustomConfig(name)
     : (await getEndpoints())[name];
   if (!endpoint) {
@@ -65,10 +65,10 @@ export async function getEndpointInfo({
 
 export async function getEndpointDomainWhitelist() {
   const whitelist: IEndpointDomainWhiteList = [];
-  
+
   // Check if dev settings are enabled
   const devSettings = await devSettingsPersistAtom.get();
-  const endpoints = devSettings.enabled 
+  const endpoints = devSettings.enabled
     ? await getEndpointsWithCustomConfig()
     : await getEndpoints();
   forEach(endpoints, (endpoint) => {

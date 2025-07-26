@@ -13,16 +13,6 @@ export interface IApiEndpointConfig {
   enabled: boolean;
 }
 
-// Legacy type for backward compatibility
-export type IApiEndpointConfigPersistAtom = {
-  configs: Array<{
-    id: string;
-    name: string;
-    api: string;
-    serviceModule: string;
-    enabled: boolean;
-  }>;
-};
 
 export interface IDevSettings {
   // enable test endpoint
