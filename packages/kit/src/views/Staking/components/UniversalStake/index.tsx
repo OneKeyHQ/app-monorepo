@@ -1137,8 +1137,14 @@ export function UniversalStake({
             }
 
             return (
-              <XStack key={reward.title.text} gap="$1" ai="center" mt="$1.5">
-                <XStack gap="$1" ai="center">
+              <XStack
+                key={reward.title.text}
+                gap="$1"
+                ai="flex-start"
+                mt="$1.5"
+                flexWrap="wrap"
+              >
+                <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
                   <EarnText
                     text={reward.title}
                     color={reward.title.color}
@@ -1148,6 +1154,7 @@ export function UniversalStake({
                     text={reward.description}
                     size={descriptionTextSize}
                     color={reward.description.color ?? '$textSubdued'}
+                    flexShrink={1}
                   />
                 </XStack>
                 {hasTooltip ? (
