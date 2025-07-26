@@ -103,22 +103,6 @@ export function ApiEndpointForm({
     [mode, config, onSuccess, isSubmitting],
   );
 
-  // Basic URL validation
-  const validateUrl = useCallback((url: string) => {
-    if (!url.trim()) {
-      return 'Field is required';
-    }
-
-    // Allow both domain names and IP addresses, with or without protocol
-    const urlPattern =
-      /^(https?:\/\/)?([a-zA-Z0-9-._]+|\[[0-9a-fA-F:]+\]|[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})(:[0-9]+)?(\/.*)?$/;
-    if (!urlPattern.test(url.trim())) {
-      return 'Invalid URL format';
-    }
-
-    return undefined;
-  }, []);
-
   return (
     <Form form={form}>
       <YStack gap="$4">
@@ -143,13 +127,7 @@ export function ApiEndpointForm({
           />
         </Form.Field>
 
-        <Form.Field
-          name="api"
-          label="API Endpoint"
-          rules={{
-            validate: validateUrl,
-          }}
-        >
+        <Form.Field name="api" label="API Endpoint">
           <Input placeholder="https://api.example.com or 192.168.1.100:8080" />
         </Form.Field>
 

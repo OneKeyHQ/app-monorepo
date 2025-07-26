@@ -52,10 +52,9 @@ export function ApiEndpointList({ onRefresh }: IApiEndpointListProps) {
         await backgroundApiProxy.serviceDevSetting.getDevSetting();
       const newConfigs = devSettings.settings?.customApiEndpoints || [];
       setConfigs(newConfigs);
-      void reloadConfigs();
-      onRefresh();
     } catch (error) {
       console.error('Failed to refresh configs:', error);
+    } finally {
       void reloadConfigs();
       onRefresh();
     }
@@ -64,7 +63,7 @@ export function ApiEndpointList({ onRefresh }: IApiEndpointListProps) {
   // Handle adding new configuration
   const handleAdd = useCallback(() => {
     const d = Dialog.show({
-      title: 'Add API Endpoint',
+      title: intl.formatMessage({ id: ETranslations.global_create }),
       renderContent: (
         <ApiEndpointForm
           mode="add"
@@ -85,7 +84,7 @@ export function ApiEndpointList({ onRefresh }: IApiEndpointListProps) {
   const handleEdit = useCallback(
     (config: IApiEndpointConfig) => {
       const d = Dialog.show({
-        title: 'Edit API Endpoint',
+        title: intl.formatMessage({ id: ETranslations.global_edit }),
         renderContent: (
           <ApiEndpointForm
             mode="edit"
@@ -112,7 +111,9 @@ export function ApiEndpointList({ onRefresh }: IApiEndpointListProps) {
         title: intl.formatMessage({
           id: ETranslations.global_delete,
         }),
-        description: `Are you sure you want to delete "${name}"?`,
+        description: `${intl.formatMessage({
+          id: ETranslations.global_delete,
+        })} "${name}"?`,
         onConfirmText: intl.formatMessage({
           id: ETranslations.global_delete,
         }),
@@ -136,14 +137,14 @@ export function ApiEndpointList({ onRefresh }: IApiEndpointListProps) {
 
             setConfigs((prev) => prev.filter((config) => config.id !== id));
             Toast.success({
-              title: 'Deleted',
+              title: intl.formatMessage({ id: ETranslations.global_delete }),
             });
             void refreshData();
             await close();
           } catch (error) {
             console.error('Failed to delete API endpoint config:', error);
             Toast.error({
-              title: 'Delete failed',
+              title: intl.formatMessage({ id: ETranslations.global_failed }),
             });
           }
         },
@@ -175,16 +176,20 @@ export function ApiEndpointList({ onRefresh }: IApiEndpointListProps) {
         );
         void refreshData();
         Toast.success({
-          title: enabled ? 'Enabled' : 'Disabled',
+          title: intl.formatMessage({
+            id: enabled
+              ? ETranslations.global_enabled
+              : ETranslations.global_disabled,
+          }),
         });
       } catch (error) {
         console.error('Failed to toggle API endpoint config:', error);
         Toast.error({
-          title: 'Operation failed',
+          title: intl.formatMessage({ id: ETranslations.global_failed }),
         });
       }
     },
-    [refreshData],
+    [refreshData, intl],
   );
 
   return (
@@ -194,7 +199,7 @@ export function ApiEndpointList({ onRefresh }: IApiEndpointListProps) {
           title="No API Endpoints"
           description="Add custom API endpoints for different services"
           buttonProps={{
-            children: 'Add',
+            children: intl.formatMessage({ id: ETranslations.global_create }),
             onPress: handleAdd,
           }}
         />
@@ -214,7 +219,7 @@ export function ApiEndpointList({ onRefresh }: IApiEndpointListProps) {
 
       <Stack justifyContent="flex-end" alignItems="flex-end">
         <Button size="small" onPress={handleAdd}>
-          Add
+          {intl.formatMessage({ id: ETranslations.global_create })}
         </Button>
       </Stack>
     </YStack>

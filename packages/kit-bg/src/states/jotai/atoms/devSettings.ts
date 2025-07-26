@@ -13,7 +13,6 @@ export interface IApiEndpointConfig {
   enabled: boolean;
 }
 
-
 export interface IDevSettings {
   // enable test endpoint
   enableTestEndpoint?: boolean;

@@ -33,7 +33,6 @@ class RequestHelper {
       );
     };
 
-
   overrideMethods(methods: {
     checkIsOneKeyDomain: (url: string) => Promise<boolean>;
     getDevSettingsPersistAtom: () => Promise<IDevSettingsPersistAtom>;
