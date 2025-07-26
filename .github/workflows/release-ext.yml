@@ -88,6 +88,13 @@ jobs:
           path: |
             ./apps/ext/build/_dist/*.zip
 
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-extension-rn-development-build
+          path: |
+            ./apps/ext/build/_development_build_dist/*.zip
+
       - name: 'Notify to Slack'
         if: ${{ github.event.workflow_run }}
         uses: onekeyhq/actions/slack-notify-webhook@main
