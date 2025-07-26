@@ -247,7 +247,7 @@ module.exports = {
       ],
     ],
     'spellcheck/spell-checker':
-      process.env.NODE_ENV === 'production'
+      process.env.CI === 'true'
         ? 'off'
         : [
             1,
