@@ -143,7 +143,7 @@ export async function getEndpointByServiceName(
     .filter((config) => config.enabled)
     .find((config) => config.serviceModule === serviceName);
 
-  if (enabledCustomConfig) {
+  if (enabledCustomConfig && devSettings.enabled) {
     return enabledCustomConfig.api;
   }
 
