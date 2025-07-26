@@ -48,6 +48,8 @@ import {
 } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 
+import type { FontSizeTokens } from 'tamagui';
+
 type IUniversalWithdrawProps = {
   accountAddress: string;
   balance: string;
@@ -423,15 +425,25 @@ export function UniversalWithdraw({
           />
           {transactionConfirmation?.rewards.map((reward) => {
             const hasTooltip = reward.tooltip?.type === 'text';
-            const textSize = hasTooltip ? '$bodyMd' : '$bodyLgMedium';
+            let descriptionTextSize = (
+              hasTooltip ? '$bodyMd' : '$bodyLgMedium'
+            ) as FontSizeTokens;
+            if (reward.description.size) {
+              descriptionTextSize = reward.description.size;
+            }
             return (
               <XStack key={reward.title.text} gap="$1" ai="center" mt="$1.5">
                 <XStack gap="$1" ai="center">
-                  <EarnText text={reward.title} />
+                  <EarnText
+                    text={reward.title}
+                    alignSelf="center"
+                    color={reward.title.color}
+                    size={reward.title.size}
+                  />
                   <EarnText
                     text={reward.description}
-                    size={textSize}
-                    color="$textSubdued"
+                    size={descriptionTextSize}
+                    color={reward.description.color ?? '$textSubdued'}
                   />
                 </XStack>
                 {hasTooltip ? (
