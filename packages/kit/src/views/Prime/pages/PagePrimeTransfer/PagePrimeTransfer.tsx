@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useIntl } from 'react-intl';
 
-import { Button, Dialog, Page, Spinner } from '@onekeyhq/components';
+import { Button, Dialog, Page } from '@onekeyhq/components';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -25,6 +25,7 @@ import { usePrimeTransferExit } from './components/hooks/usePrimeTransferExit';
 import { PrimeTransferDirection } from './components/PrimeTransferDirection';
 import { PrimeTransferExitPrevent } from './components/PrimeTransferExitPrevent';
 import { PrimeTransferHome } from './components/PrimeTransferHome';
+import { PrimeTransferHomeSkeleton } from './components/PrimeTransferHomeSkeleton';
 
 export default function PagePrimeTransfer() {
   const intl = useIntl();
@@ -91,9 +92,9 @@ export default function PagePrimeTransfer() {
   }, [exitTransferFlow]);
 
   const contentView = useMemo(() => {
-    if (!primeTransferAtom.websocketConnected) {
-      return <Spinner size="large" />;
-    }
+    // if (!primeTransferAtom.websocketConnected) {
+    //   return <PrimeTransferHomeSkeleton />;
+    // }
     if (primeTransferAtom.status === EPrimeTransferStatus.init) {
       return (
         <PrimeTransferHome
@@ -113,12 +114,7 @@ export default function PagePrimeTransfer() {
       );
     }
     return <></>;
-  }, [
-    primeTransferAtom.websocketConnected,
-    primeTransferAtom.status,
-    remotePairingCode,
-    setRemotePairingCode,
-  ]);
+  }, [primeTransferAtom.status, remotePairingCode, setRemotePairingCode]);
 
   const debugButtons = useMemo(() => {
     if (process.env.NODE_ENV !== 'production') {
@@ -154,6 +150,22 @@ export default function PagePrimeTransfer() {
             }}
           >
             Change shouldPreventExit to false
+          </Button>
+          <Button
+            onPress={() => {
+              void backgroundApiProxy.servicePrimeTransfer.disconnectWebSocket();
+            }}
+          >
+            Disconnect WebSocket
+          </Button>
+          <Button
+            onPress={() => {
+              void backgroundApiProxy.servicePrimeTransfer.initWebSocket({
+                endpoint: 'https://transfer.onekeytest.com',
+              });
+            }}
+          >
+            Init WebSocket
           </Button>
         </>
       );

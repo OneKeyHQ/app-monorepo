@@ -1,3 +1,4 @@
+/* eslint-disable spellcheck/spell-checker */
 import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -10,6 +11,7 @@ import {
   SizableText,
   Stack,
 } from '@onekeyhq/components';
+import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { PrimeTransferHomeEnterLink } from './PrimeTransferHomeEnterLink';
@@ -32,6 +34,8 @@ export function PrimeTransferHome({
   remotePairingCode: string;
   setRemotePairingCode: (code: string) => void;
 }) {
+  const [primeTransferAtom] = usePrimeTransferAtom();
+
   const intl = useIntl();
   const TRANSFER_OPTIONS = useMemo(
     () =>

@@ -8,6 +8,7 @@ import {
   Form,
   Input,
   SizableText,
+  Skeleton,
   Spinner,
   XStack,
   YStack,
@@ -50,6 +51,10 @@ export function PrimeTransferHomeEnterLink({
     }
   }, [watchedPairingCode, remotePairingCode, setRemotePairingCode]);
 
+  const [primeTransferAtom] = usePrimeTransferAtom();
+  const websocketConnected = primeTransferAtom.websocketConnected;
+  // const websocketConnected = false;
+
   const intl = useIntl();
   const navigation = useAppNavigation();
 
@@ -58,8 +63,6 @@ export function PrimeTransferHomeEnterLink({
   const [isConnecting, setIsConnecting] = useState(false);
   const isConnectingRef = useRef(isConnecting);
   isConnectingRef.current = isConnecting;
-
-  const [primeTransferAtom] = usePrimeTransferAtom();
 
   const connectRemoteDevice = useCallback(async (pairingCode: string) => {
     if (isConnectingRef.current) {
@@ -161,10 +164,6 @@ export function PrimeTransferHomeEnterLink({
     [connectRemoteDevice],
   );
 
-  if (!primeTransferAtom.websocketConnected) {
-    return <Spinner size="large" />;
-  }
-
   const addOns: IInputAddOnProps[] = [
     // platformEnv.isExtension
     //   ? null
@@ -192,7 +191,7 @@ export function PrimeTransferHomeEnterLink({
   ].filter(Boolean);
 
   return (
-    <Form form={form}>
+    <Form form={form} childrenGap={0}>
       <YStack gap="$1">
         <SizableText size="$bodyMdMedium">
           {intl.formatMessage({ id: ETranslations.transfer_pair_code })}
@@ -261,23 +260,27 @@ export function PrimeTransferHomeEnterLink({
             },
           }}
         >
-          <Input
-            size="large"
-            autoComplete="off"
-            autoCorrect={false}
-            spellCheck={false}
-            data-form-type="other"
-            data-lpignore="true"
-            data-1p-ignore="true"
-            maxLength={59}
-            allowSecureTextEye
-            onPaste={onPasteClearText}
-            autoCapitalize="characters"
-            textTransform="uppercase"
-            onSubmitEditing={form.handleSubmit(onSubmit)}
-            placeholder="224RU-EZ172-4B483-ZN695-RM9XC-CJ6Z9-MQ67J-ZM3B2-4LXBS-JZP7D"
-            addOns={addOns}
-          />
+          {websocketConnected ? (
+            <Input
+              size="large"
+              autoComplete="off"
+              autoCorrect={false}
+              spellCheck={false}
+              data-form-type="other"
+              data-lpignore="true"
+              data-1p-ignore="true"
+              maxLength={59}
+              allowSecureTextEye
+              onPaste={onPasteClearText}
+              autoCapitalize="characters"
+              textTransform="uppercase"
+              onSubmitEditing={form.handleSubmit(onSubmit)}
+              placeholder="224RU-EZ172-4B483-ZN695-RM9XC-CJ6Z9-MQ67J-ZM3B2-4LXBS-JZP7D"
+              addOns={addOns}
+            />
+          ) : (
+            <Skeleton h={46} w="100%" borderRadius="$2" />
+          )}
         </Form.Field>
 
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -293,7 +296,9 @@ export function PrimeTransferHomeEnterLink({
           onPress={form.handleSubmit(onSubmit)}
           variant="primary"
           loading={isConnecting}
-          disabled={!form.formState.isValid || isConnecting}
+          disabled={
+            !form.formState.isValid || isConnecting || !websocketConnected
+          }
         >
           {intl.formatMessage({ id: ETranslations.global_connect })}
         </Button>
