@@ -10,7 +10,6 @@ import type {
 import {
   Divider,
   Image,
-  LinearGradient,
   Page,
   SizableText,
   Stack,
@@ -61,16 +60,16 @@ function FeaturesItem({
         <Stack alignItems="center" justifyContent="center">
           {banner}
         </Stack>
-        <Stack pt="$4" px="$5">
+        <YStack pt="$4" px="$5" gap="$0.5">
           <SizableText textAlign="center" size="$headingXl">
             {title}
           </SizableText>
           <SizableText textAlign="center" size="$bodyLg" color="$textSubdued">
             {description}
           </SizableText>
-        </Stack>
+        </YStack>
         <Divider my="$6" borderColor="$neutral3" />
-        <YStack gap="$1.5">
+        <YStack gap="$1.5" pb="$4">
           {details.map((detail, index) => {
             return (
               <ListItem
@@ -400,6 +399,7 @@ export default function PagePrimeFeatures() {
         <Page.Body>
           <View style={{ flex: 1 }}>
             <ScrollView>
+              <Stack h={gtMd ? 48 : 60} />
               <Swiper
                 height={height}
                 position="relative"
@@ -412,40 +412,33 @@ export default function PagePrimeFeatures() {
                 renderPagination={renderPagination}
                 overflow="hidden"
                 borderRadius="$3"
-                pt="$10"
               />
             </ScrollView>
 
             {dataInfo.data.length > 1 ? (
               <View>
-                <LinearGradient
-                  colors={['transparent', '$background']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
+                <XStack
+                  testID="prime-features-pagination"
+                  gap="$1"
+                  width="100%"
+                  jc="center"
+                  pt="$1"
+                  pb="$2"
                 >
-                  <XStack
-                    testID="prime-features-pagination"
-                    gap="$1"
-                    width="100%"
-                    jc="center"
-                    pt="$1"
-                    pb="$2"
-                  >
-                    {dataInfo.data.map((_, pageIndex) => (
-                      <Stack
-                        key={pageIndex}
-                        w="$3"
-                        $gtMd={{
-                          w: '$4',
-                        }}
-                        h="$1"
-                        borderRadius="$full"
-                        bg="$textSubdued"
-                        opacity={index === pageIndex ? 1 : 0.5}
-                      />
-                    ))}
-                  </XStack>
-                </LinearGradient>
+                  {dataInfo.data.map((_, pageIndex) => (
+                    <Stack
+                      key={pageIndex}
+                      w="$3"
+                      $gtMd={{
+                        w: '$4',
+                      }}
+                      h="$1"
+                      borderRadius="$full"
+                      bg="$textSubdued"
+                      opacity={index === pageIndex ? 1 : 0.5}
+                    />
+                  ))}
+                </XStack>
               </View>
             ) : null}
           </View>
