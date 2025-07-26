@@ -1,20 +1,10 @@
 import type {
+  IApiEndpointConfigPersistAtom,
   IDevSettingsPersistAtom,
   ISettingsPersistAtom,
   ISettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-
-// Legacy type for backward compatibility
-type IApiEndpointConfigPersistAtom = {
-  configs: Array<{
-    id: string;
-    name: string;
-    api: string;
-    serviceModule: string;
-    enabled: boolean;
-  }>;
-};
 
 class RequestHelper {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
