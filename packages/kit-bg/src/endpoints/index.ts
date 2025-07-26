@@ -52,8 +52,11 @@ export async function getEndpointInfo({
 }: {
   name: EServiceEndpointEnum;
 }): Promise<IEndpointInfo> {
-  // Use enhanced endpoint resolution with custom config support
-  const endpoint = await getEndpointByServiceNameWithCustomConfig(name);
+  // Check if dev settings are enabled before using custom config
+  const devSettings = await devSettingsPersistAtom.get();
+  const endpoint = devSettings.enabled 
+    ? await getEndpointByServiceNameWithCustomConfig(name)
+    : (await getEndpoints())[name];
   if (!endpoint) {
     throw new OneKeyError(`Invalid endpoint name:${name}`);
   }
@@ -62,8 +65,12 @@ export async function getEndpointInfo({
 
 export async function getEndpointDomainWhitelist() {
   const whitelist: IEndpointDomainWhiteList = [];
-  // Use endpoints with custom config to include custom domains in whitelist
-  const endpoints = await getEndpointsWithCustomConfig();
+  
+  // Check if dev settings are enabled
+  const devSettings = await devSettingsPersistAtom.get();
+  const endpoints = devSettings.enabled 
+    ? await getEndpointsWithCustomConfig()
+    : await getEndpoints();
   forEach(endpoints, (endpoint) => {
     try {
       if (endpoint) {
