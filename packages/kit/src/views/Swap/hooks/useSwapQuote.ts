@@ -578,7 +578,17 @@ export function useSwapQuote() {
               errorMessage: item.errorMessage,
             };
           });
-
+        let finalStatus =
+          event?.type === 'done'
+            ? ESwapEventAPIStatus.SUCCESS
+            : ESwapEventAPIStatus.FAIL;
+        if (!providerQuoteResult?.length || providerQuoteResult.length === 0) {
+          finalStatus = ESwapEventAPIStatus.FAIL;
+        } else if (providerQuoteResult?.every((item) => !item.toAmount)) {
+          finalStatus = ESwapEventAPIStatus.FAIL;
+        } else if (providerQuoteResult?.some((item) => !item.toAmount)) {
+          finalStatus = ESwapEventAPIStatus.PARTIAL_SUCCESS;
+        }
         defaultLogger.swap.swapQuote.swapQuote({
           walletType: activeAccountRef.current?.accountInfo?.wallet?.type ?? '',
           quoteType: swapTabSwitchTypeRef.current,
@@ -594,10 +604,7 @@ export function useSwapQuote() {
           isAddReceiveAddress:
             settingsAtomRef.current.swapEnableRecipientAddress,
           isSmartMode: settingsPersistAtomRef.current.swapBatchApproveAndSwap,
-          status:
-            event?.type === 'done'
-              ? ESwapEventAPIStatus.SUCCESS
-              : ESwapEventAPIStatus.FAIL,
+          status: finalStatus,
           providerQuoteResult,
           message:
             event?.type === 'done' ? undefined : JSON.stringify(event.event),

@@ -10,8 +10,8 @@ import {
   SizableText as SizableTextBase,
   Spinner,
   Stack,
-  Tab,
   Table,
+  Tabs,
   Toast,
   XStack,
   YStack,
@@ -657,35 +657,39 @@ export default function PagePrimeCloudSyncDebug() {
     return <DebugPanel />;
   }, []);
 
+  const tabs = useMemo(() => {
+    return [
+      {
+        title: '本地数据',
+        page: localItemsTable,
+      },
+      {
+        title: '云端数据',
+        page: serverItemsTable,
+      },
+      {
+        title: '状态检查',
+        page: statusPanel,
+      },
+      {
+        title: '调试面板',
+        page: debugPanel,
+      },
+    ];
+  }, [debugPanel, localItemsTable, serverItemsTable, statusPanel]);
+
   return (
     <Page scrollEnabled>
       <Page.Header title="云同步数据调试" />
       <Page.Body>
         <Stack>
-          <Tab.Page
-            data={[
-              {
-                title: '本地数据',
-                page: localItemsTable,
-              },
-              {
-                title: '云端数据',
-                page: serverItemsTable,
-              },
-              {
-                title: '状态检查',
-                page: statusPanel,
-              },
-              {
-                title: '调试面板',
-                page: debugPanel,
-              },
-            ]}
-            initialScrollIndex={0}
-            onSelectedPageIndex={(index) => {
-              //   console.log('index', index);
-            }}
-          />
+          <Tabs.Container renderTabBar={(props) => <Tabs.TabBar {...props} />}>
+            {tabs.map((tab) => (
+              <Tabs.Tab key={tab.title} name={tab.title}>
+                {tab.page()}
+              </Tabs.Tab>
+            ))}
+          </Tabs.Container>
         </Stack>
       </Page.Body>
     </Page>
