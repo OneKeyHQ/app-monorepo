@@ -56,7 +56,15 @@ export function TradingViewV1(props: ITradingViewProps & WebViewProps) {
   const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
 
   return (
-    <Stack position="relative" style={style as ViewStyle}>
+    <Stack
+      position="relative"
+      paddingBottom={
+        (platformEnv.isNative && !platformEnv.isNativeIOSPad) || isIPadPortrait
+          ? 60
+          : 0
+      }
+      style={style as ViewStyle}
+    >
       <WebView
         tradingViewProps={tradingViewProps}
         style={{ flex: 1 }}
