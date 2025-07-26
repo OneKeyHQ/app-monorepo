@@ -14,13 +14,12 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { IApiEndpointConfig } from '@onekeyhq/kit-bg/src/states/jotai/atoms/apiEndpointConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { serviceModuleOptions } from '../../constants';
 
-import type { IFormData } from '../../types';
+import type { IApiEndpointConfig, IFormData } from '../../types';
 
 interface IApiEndpointFormProps {
   mode: 'add' | 'edit';
@@ -53,10 +52,22 @@ export function ApiEndpointForm({
 
       setIsSubmitting(true);
       try {
+        const devSettings =
+          await backgroundApiProxy.serviceDevSetting.getDevSetting();
+        const currentEndpoints = devSettings.settings?.customApiEndpoints || [];
+
         if (mode === 'add') {
-          await backgroundApiProxy.serviceApiEndpointConfig.addApiEndpointConfig(
-            formData,
+          const newConfig: IApiEndpointConfig = {
+            id: Date.now().toString(), // Simple ID generation
+            ...formData,
+          };
+          const updatedEndpoints = [...currentEndpoints, newConfig];
+
+          await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+            'customApiEndpoints',
+            updatedEndpoints,
           );
+
           Toast.success({
             title: 'API endpoint added',
           });
@@ -65,10 +76,16 @@ export function ApiEndpointForm({
             console.error('Config is required for edit mode');
             return;
           }
-          await backgroundApiProxy.serviceApiEndpointConfig.updateApiEndpointConfig(
-            config.id,
-            formData,
+
+          const updatedEndpoints = currentEndpoints.map((endpoint) =>
+            endpoint.id === config.id ? { ...endpoint, ...formData } : endpoint,
           );
+
+          await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+            'customApiEndpoints',
+            updatedEndpoints,
+          );
+
           Toast.success({
             title: 'API endpoint updated',
           });

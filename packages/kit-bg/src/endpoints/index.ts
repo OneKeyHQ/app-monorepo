@@ -9,7 +9,7 @@ import type {
   IEndpointInfo,
 } from '@onekeyhq/shared/types/endpoint';
 
-import { apiEndpointConfigPersistAtom } from '../states/jotai/atoms/apiEndpointConfig';
+import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
 export async function getEndpoints() {
   return getEndpointsMap();
@@ -19,8 +19,9 @@ export async function getEndpointsWithCustomConfig() {
   const baseEndpoints = await getEndpointsMap();
 
   try {
-    // Get custom endpoint configurations
-    const { configs } = await apiEndpointConfigPersistAtom.get();
+    // Get custom endpoint configurations from dev settings
+    const devSettings = await devSettingsPersistAtom.get();
+    const configs = devSettings.settings?.customApiEndpoints || [];
 
     // Override with enabled custom endpoints
     const enhancedEndpoints = { ...baseEndpoints };

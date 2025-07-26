@@ -1,8 +1,9 @@
 import { IconButton, Stack, Switch } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import type { IApiEndpointConfig } from '@onekeyhq/kit-bg/src/states/jotai/atoms/apiEndpointConfig';
 
 import { serviceModuleLabels } from '../../constants';
+
+import type { IApiEndpointConfig } from '../../types';
 
 interface IApiEndpointListItemProps {
   config: IApiEndpointConfig;

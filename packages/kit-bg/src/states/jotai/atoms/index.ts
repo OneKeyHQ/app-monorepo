@@ -19,4 +19,3 @@ export * from './activeAccountValue';
 export * from './prime';
 export * from './bannerClose';
 export * from './allNetworks';
-export * from './apiEndpointConfig';

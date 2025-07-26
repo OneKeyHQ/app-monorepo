@@ -12,11 +12,12 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import type { IApiEndpointConfig } from '@onekeyhq/kit-bg/src/states/jotai/atoms/apiEndpointConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ApiEndpointForm } from '../ApiEndpointForm';
 import { ApiEndpointListItem } from '../ApiEndpointListItem';
+
+import type { IApiEndpointConfig } from '../../types';
 
 interface IApiEndpointListProps {
   onRefresh: () => void;
@@ -26,10 +27,12 @@ export function ApiEndpointList({ onRefresh }: IApiEndpointListProps) {
   const intl = useIntl();
   const [configs, setConfigs] = useState<IApiEndpointConfig[]>([]);
 
-  // Load configurations
+  // Load configurations from dev settings
   const { result: initialConfigs, run: reloadConfigs } = usePromiseResult(
     async () => {
-      return backgroundApiProxy.serviceApiEndpointConfig.getApiEndpointConfigs();
+      const devSettings =
+        await backgroundApiProxy.serviceDevSetting.getDevSetting();
+      return devSettings.settings?.customApiEndpoints || [];
     },
     [],
     {
@@ -45,8 +48,9 @@ export function ApiEndpointList({ onRefresh }: IApiEndpointListProps) {
 
   const refreshData = useCallback(async () => {
     try {
-      const newConfigs =
-        await backgroundApiProxy.serviceApiEndpointConfig.getApiEndpointConfigs();
+      const devSettings =
+        await backgroundApiProxy.serviceDevSetting.getDevSetting();
+      const newConfigs = devSettings.settings?.customApiEndpoints || [];
       setConfigs(newConfigs);
       void reloadConfigs();
       onRefresh();
@@ -117,9 +121,19 @@ export function ApiEndpointList({ onRefresh }: IApiEndpointListProps) {
         },
         onConfirm: async ({ close }) => {
           try {
-            await backgroundApiProxy.serviceApiEndpointConfig.deleteApiEndpointConfig(
-              id,
+            const devSettings =
+              await backgroundApiProxy.serviceDevSetting.getDevSetting();
+            const currentEndpoints =
+              devSettings.settings?.customApiEndpoints || [];
+            const updatedEndpoints = currentEndpoints.filter(
+              (config) => config.id !== id,
             );
+
+            await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+              'customApiEndpoints',
+              updatedEndpoints,
+            );
+
             setConfigs((prev) => prev.filter((config) => config.id !== id));
             Toast.success({
               title: 'Deleted',
@@ -142,10 +156,18 @@ export function ApiEndpointList({ onRefresh }: IApiEndpointListProps) {
   const handleToggleEnabled = useCallback(
     async (id: string, enabled: boolean) => {
       try {
-        await backgroundApiProxy.serviceApiEndpointConfig.updateApiEndpointConfig(
-          id,
-          { enabled },
+        const devSettings =
+          await backgroundApiProxy.serviceDevSetting.getDevSetting();
+        const currentEndpoints = devSettings.settings?.customApiEndpoints || [];
+        const updatedEndpoints = currentEndpoints.map((config) =>
+          config.id === id ? { ...config, enabled } : config,
         );
+
+        await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+          'customApiEndpoints',
+          updatedEndpoints,
+        );
+
         setConfigs((prev) =>
           prev.map((config) =>
             config.id === id ? { ...config, enabled } : config,
