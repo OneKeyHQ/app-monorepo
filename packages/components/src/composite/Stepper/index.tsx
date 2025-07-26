@@ -15,7 +15,7 @@ import {
   YStack,
 } from '../../primitives';
 
-import type { IStackStyle, IYStackProps } from '../../primitives';
+import type { IYStackProps } from '../../primitives';
 
 export enum EStepItemStatus {
   Done = 'done',
