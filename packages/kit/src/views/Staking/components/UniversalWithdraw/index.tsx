@@ -145,27 +145,33 @@ export function UniversalWithdraw({
   const [checkAmountAlerts, setCheckAmountAlerts] = useState<
     ICheckAmountAlert[]
   >([]);
+  const [checkAmountLoading, setCheckAmountLoading] = useState(false);
   const checkAmount = useDebouncedCallback(async (amount: string) => {
     if (isNaN(amount)) {
       return;
     }
-    const response = await backgroundApiProxy.serviceStaking.checkAmount({
-      accountId,
-      networkId,
-      symbol: tokenSymbol,
-      provider: providerName,
-      action: ECheckAmountActionType.UNSTAKING,
-      amount,
-      protocolVault,
-      withdrawAll: withdrawAllRef.current,
-    });
+    setCheckAmountLoading(true);
+    try {
+      const response = await backgroundApiProxy.serviceStaking.checkAmount({
+        accountId,
+        networkId,
+        symbol: tokenSymbol,
+        provider: providerName,
+        action: ECheckAmountActionType.UNSTAKING,
+        amount,
+        protocolVault,
+        withdrawAll: withdrawAllRef.current,
+      });
 
-    if (Number(response.code) === 0) {
-      setCheckoutAmountMessage('');
-      setCheckAmountAlerts(response.data?.alerts || []);
-    } else {
-      setCheckoutAmountMessage(response.message);
-      setCheckAmountAlerts([]);
+      if (Number(response.code) === 0) {
+        setCheckoutAmountMessage('');
+        setCheckAmountAlerts(response.data?.alerts || []);
+      } else {
+        setCheckoutAmountMessage(response.message);
+        setCheckAmountAlerts([]);
+      }
+    } finally {
+      setCheckAmountLoading(false);
     }
   }, 300);
 
@@ -288,8 +294,14 @@ export function UniversalWithdraw({
       isNaN(amountValue) ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
       isCheckAmountMessageError ||
-      checkAmountAlerts.length > 0,
-    [amountValue, isCheckAmountMessageError, checkAmountAlerts.length],
+      checkAmountAlerts.length > 0 ||
+      checkAmountLoading,
+    [
+      amountValue,
+      isCheckAmountMessageError,
+      checkAmountAlerts.length,
+      checkAmountLoading,
+    ],
   );
 
   const editable = initialAmount === undefined;
@@ -546,7 +558,7 @@ export function UniversalWithdraw({
         })}
         confirmButtonProps={{
           onPress,
-          loading,
+          loading: loading || checkAmountLoading,
           disabled: isDisable,
         }}
       />

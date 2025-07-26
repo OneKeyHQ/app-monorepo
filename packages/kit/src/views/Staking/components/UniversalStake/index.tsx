@@ -402,28 +402,34 @@ export function UniversalStake({
   const [checkAmountAlerts, setCheckAmountAlerts] = useState<
     ICheckAmountAlert[]
   >([]);
+  const [checkAmountLoading, setCheckAmountLoading] = useState(false);
 
   const checkAmount = useDebouncedCallback(async (amount: string) => {
     if (isNaN(amount)) {
       return;
     }
-    const response = await backgroundApiProxy.serviceStaking.checkAmount({
-      accountId,
-      networkId,
-      symbol: tokenSymbol,
-      provider: providerName,
-      action: ECheckAmountActionType.STAKING,
-      amount,
-      protocolVault,
-      withdrawAll: false,
-    });
+    setCheckAmountLoading(true);
+    try {
+      const response = await backgroundApiProxy.serviceStaking.checkAmount({
+        accountId,
+        networkId,
+        symbol: tokenSymbol,
+        provider: providerName,
+        action: ECheckAmountActionType.STAKING,
+        amount,
+        protocolVault,
+        withdrawAll: false,
+      });
 
-    if (Number(response.code) === 0) {
-      setCheckoutAmountMessage('');
-      setCheckAmountAlerts(response.data?.alerts || []);
-    } else {
-      setCheckoutAmountMessage(response.message);
-      setCheckAmountAlerts([]);
+      if (Number(response.code) === 0) {
+        setCheckoutAmountMessage('');
+        setCheckAmountAlerts(response.data?.alerts || []);
+      } else {
+        setCheckoutAmountMessage(response.message);
+        setCheckAmountAlerts([]);
+      }
+    } finally {
+      setCheckAmountLoading(false);
     }
   }, 300);
 
@@ -540,7 +546,8 @@ export function UniversalStake({
       isInsufficientBalance ||
       isCheckAmountMessageError ||
       checkAmountAlerts.length > 0 ||
-      isStakingCapFull
+      isStakingCapFull ||
+      checkAmountLoading
     );
     // return (
     //   amountValueBN.isNaN() ||
@@ -556,6 +563,7 @@ export function UniversalStake({
     checkAmountAlerts.length,
     isInsufficientBalance,
     isStakingCapFull,
+    checkAmountLoading,
   ]);
 
   // const estAnnualRewardsState = useMemo(() => {
@@ -1344,7 +1352,7 @@ export function UniversalStake({
             onConfirmText={onConfirmText}
             confirmButtonProps={{
               onPress: shouldApprove ? onApprove : onSubmit,
-              loading: loadingAllowance || approving,
+              loading: loadingAllowance || approving || checkAmountLoading,
               disabled: isDisable,
             }}
           />
