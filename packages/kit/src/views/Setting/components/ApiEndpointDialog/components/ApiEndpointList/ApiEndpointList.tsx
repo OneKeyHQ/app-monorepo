@@ -78,7 +78,7 @@ export function ApiEndpointList({ onRefresh }: IApiEndpointListProps) {
       ),
       showFooter: false,
     });
-  }, [refreshData]);
+  }, [refreshData, intl]);
 
   // Handle editing configuration
   const handleEdit = useCallback(
@@ -101,7 +101,7 @@ export function ApiEndpointList({ onRefresh }: IApiEndpointListProps) {
         showFooter: false,
       });
     },
-    [refreshData],
+    [refreshData, intl],
   );
 
   // Handle deleting configuration
