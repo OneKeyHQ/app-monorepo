@@ -23,7 +23,7 @@ import type { IApiEndpointConfig } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
-// Service module options for select dropdown
+// Service module options for select component
 const serviceModuleOptions = Object.values(EServiceEndpointEnum).map(
   (value) => ({
     label: value,
@@ -89,8 +89,12 @@ function ApiEndpointForm({
             title: 'API endpoint added',
           });
         } else {
+          if (!config) {
+            console.error('Config is required for edit mode');
+            return;
+          }
           await backgroundApiProxy.serviceApiEndpointConfig.updateApiEndpointConfig(
-            config!.id,
+            config.id,
             formData,
           );
           Toast.success({
@@ -207,7 +211,8 @@ function ApiEndpointList({ onRefresh }: { onRefresh: () => void }) {
 
   const refreshData = useCallback(async () => {
     try {
-      const newConfigs = await backgroundApiProxy.serviceApiEndpointConfig.getApiEndpointConfigs();
+      const newConfigs =
+        await backgroundApiProxy.serviceApiEndpointConfig.getApiEndpointConfigs();
       setConfigs(newConfigs);
       void reloadConfigs();
       onRefresh();
@@ -220,18 +225,17 @@ function ApiEndpointList({ onRefresh }: { onRefresh: () => void }) {
 
   // Handle adding new configuration
   const handleAdd = useCallback(() => {
-    let dialog: any;
-    dialog = Dialog.show({
+    const d = Dialog.show({
       title: 'Add API Endpoint',
       renderContent: (
         <ApiEndpointForm
           mode="add"
           onSuccess={() => {
             void refreshData();
-            dialog.close();
+            void d.close();
           }}
           onCancel={() => {
-            dialog.close();
+            void d.close();
           }}
         />
       ),
@@ -242,8 +246,7 @@ function ApiEndpointList({ onRefresh }: { onRefresh: () => void }) {
   // Handle editing configuration
   const handleEdit = useCallback(
     (config: IApiEndpointConfig) => {
-      let dialog: any;
-      dialog = Dialog.show({
+      const d = Dialog.show({
         title: 'Edit API Endpoint',
         renderContent: (
           <ApiEndpointForm
@@ -251,10 +254,10 @@ function ApiEndpointList({ onRefresh }: { onRefresh: () => void }) {
             config={config}
             onSuccess={() => {
               void refreshData();
-              dialog.close();
+              void d.close();
             }}
             onCancel={() => {
-              dialog.close();
+              void d.close();
             }}
           />
         ),
