@@ -13,6 +13,7 @@ import WebView from '../../WebView';
 import { getTradingViewTimezone } from '../utils/tradingViewTimezone';
 
 import { useAutoKLineUpdate } from './useAutoKLineUpdate';
+import { useAutoTokenDetailUpdate } from './useAutoTokenDetailUpdate';
 import { fetchTradingViewV2DataWithSlicing } from './useTradingViewV2';
 
 // import { useTradingViewV2WebSocket } from './useTradingViewV2WebSocket';
@@ -128,6 +129,13 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
   );
 
   useAutoKLineUpdate({
+    tokenAddress,
+    networkId,
+    webRef,
+    enabled: mode === 'realtime',
+  });
+
+  useAutoTokenDetailUpdate({
     tokenAddress,
     networkId,
     webRef,
