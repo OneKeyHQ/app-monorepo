@@ -75,6 +75,8 @@ import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
 
+import type { FontSizeTokens } from 'tamagui';
+
 type IUniversalStakeProps = {
   accountId: string;
   networkId: string;
@@ -400,28 +402,34 @@ export function UniversalStake({
   const [checkAmountAlerts, setCheckAmountAlerts] = useState<
     ICheckAmountAlert[]
   >([]);
+  const [checkAmountLoading, setCheckAmountLoading] = useState(false);
 
   const checkAmount = useDebouncedCallback(async (amount: string) => {
     if (isNaN(amount)) {
       return;
     }
-    const response = await backgroundApiProxy.serviceStaking.checkAmount({
-      accountId,
-      networkId,
-      symbol: tokenSymbol,
-      provider: providerName,
-      action: ECheckAmountActionType.STAKING,
-      amount,
-      protocolVault,
-      withdrawAll: false,
-    });
+    setCheckAmountLoading(true);
+    try {
+      const response = await backgroundApiProxy.serviceStaking.checkAmount({
+        accountId,
+        networkId,
+        symbol: tokenSymbol,
+        provider: providerName,
+        action: ECheckAmountActionType.STAKING,
+        amount,
+        protocolVault,
+        withdrawAll: false,
+      });
 
-    if (Number(response.code) === 0) {
-      setCheckoutAmountMessage('');
-      setCheckAmountAlerts(response.data?.alerts || []);
-    } else {
-      setCheckoutAmountMessage(response.message);
-      setCheckAmountAlerts([]);
+      if (Number(response.code) === 0) {
+        setCheckoutAmountMessage('');
+        setCheckAmountAlerts(response.data?.alerts || []);
+      } else {
+        setCheckoutAmountMessage(response.message);
+        setCheckAmountAlerts([]);
+      }
+    } finally {
+      setCheckAmountLoading(false);
     }
   }, 300);
 
@@ -538,7 +546,8 @@ export function UniversalStake({
       isInsufficientBalance ||
       isCheckAmountMessageError ||
       checkAmountAlerts.length > 0 ||
-      isStakingCapFull
+      isStakingCapFull ||
+      checkAmountLoading
     );
     // return (
     //   amountValueBN.isNaN() ||
@@ -554,6 +563,7 @@ export function UniversalStake({
     checkAmountAlerts.length,
     isInsufficientBalance,
     isStakingCapFull,
+    checkAmountLoading,
   ]);
 
   // const estAnnualRewardsState = useMemo(() => {
@@ -1119,15 +1129,26 @@ export function UniversalStake({
           />
           {transactionConfirmation?.rewards.map((reward) => {
             const hasTooltip = reward.tooltip?.type === 'text';
-            const textSize = hasTooltip ? '$bodyMd' : '$bodyLgMedium';
+            let descriptionTextSize = (
+              hasTooltip ? '$bodyMd' : '$bodyLgMedium'
+            ) as FontSizeTokens;
+            if (reward.description.size) {
+              descriptionTextSize = reward.description.size;
+            }
+
             return (
               <XStack key={reward.title.text} gap="$1" ai="center" mt="$1.5">
                 <XStack gap="$1">
-                  <EarnText text={reward.title} />
+                  <EarnText
+                    text={reward.title}
+                    alignSelf="center"
+                    color={reward.title.color}
+                    size={reward.title.size}
+                  />
                   <EarnText
                     text={reward.description}
-                    size={textSize}
-                    color="$textSubdued"
+                    size={descriptionTextSize}
+                    color={reward.description.color ?? '$textSubdued'}
                   />
                 </XStack>
                 {hasTooltip ? (
@@ -1331,7 +1352,7 @@ export function UniversalStake({
             onConfirmText={onConfirmText}
             confirmButtonProps={{
               onPress: shouldApprove ? onApprove : onSubmit,
-              loading: loadingAllowance || approving,
+              loading: loadingAllowance || approving || checkAmountLoading,
               disabled: isDisable,
             }}
           />

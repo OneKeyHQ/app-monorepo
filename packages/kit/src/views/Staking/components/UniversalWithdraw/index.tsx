@@ -48,6 +48,8 @@ import {
 } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 
+import type { FontSizeTokens } from 'tamagui';
+
 type IUniversalWithdrawProps = {
   accountAddress: string;
   balance: string;
@@ -143,27 +145,33 @@ export function UniversalWithdraw({
   const [checkAmountAlerts, setCheckAmountAlerts] = useState<
     ICheckAmountAlert[]
   >([]);
+  const [checkAmountLoading, setCheckAmountLoading] = useState(false);
   const checkAmount = useDebouncedCallback(async (amount: string) => {
     if (isNaN(amount)) {
       return;
     }
-    const response = await backgroundApiProxy.serviceStaking.checkAmount({
-      accountId,
-      networkId,
-      symbol: tokenSymbol,
-      provider: providerName,
-      action: ECheckAmountActionType.UNSTAKING,
-      amount,
-      protocolVault,
-      withdrawAll: withdrawAllRef.current,
-    });
+    setCheckAmountLoading(true);
+    try {
+      const response = await backgroundApiProxy.serviceStaking.checkAmount({
+        accountId,
+        networkId,
+        symbol: tokenSymbol,
+        provider: providerName,
+        action: ECheckAmountActionType.UNSTAKING,
+        amount,
+        protocolVault,
+        withdrawAll: withdrawAllRef.current,
+      });
 
-    if (Number(response.code) === 0) {
-      setCheckoutAmountMessage('');
-      setCheckAmountAlerts(response.data?.alerts || []);
-    } else {
-      setCheckoutAmountMessage(response.message);
-      setCheckAmountAlerts([]);
+      if (Number(response.code) === 0) {
+        setCheckoutAmountMessage('');
+        setCheckAmountAlerts(response.data?.alerts || []);
+      } else {
+        setCheckoutAmountMessage(response.message);
+        setCheckAmountAlerts([]);
+      }
+    } finally {
+      setCheckAmountLoading(false);
     }
   }, 300);
 
@@ -286,8 +294,14 @@ export function UniversalWithdraw({
       isNaN(amountValue) ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
       isCheckAmountMessageError ||
-      checkAmountAlerts.length > 0,
-    [amountValue, isCheckAmountMessageError, checkAmountAlerts.length],
+      checkAmountAlerts.length > 0 ||
+      checkAmountLoading,
+    [
+      amountValue,
+      isCheckAmountMessageError,
+      checkAmountAlerts.length,
+      checkAmountLoading,
+    ],
   );
 
   const editable = initialAmount === undefined;
@@ -423,15 +437,25 @@ export function UniversalWithdraw({
           />
           {transactionConfirmation?.rewards.map((reward) => {
             const hasTooltip = reward.tooltip?.type === 'text';
-            const textSize = hasTooltip ? '$bodyMd' : '$bodyLgMedium';
+            let descriptionTextSize = (
+              hasTooltip ? '$bodyMd' : '$bodyLgMedium'
+            ) as FontSizeTokens;
+            if (reward.description.size) {
+              descriptionTextSize = reward.description.size;
+            }
             return (
               <XStack key={reward.title.text} gap="$1" ai="center" mt="$1.5">
                 <XStack gap="$1" ai="center">
-                  <EarnText text={reward.title} />
+                  <EarnText
+                    text={reward.title}
+                    alignSelf="center"
+                    color={reward.title.color}
+                    size={reward.title.size}
+                  />
                   <EarnText
                     text={reward.description}
-                    size={textSize}
-                    color="$textSubdued"
+                    size={descriptionTextSize}
+                    color={reward.description.color ?? '$textSubdued'}
                   />
                 </XStack>
                 {hasTooltip ? (
@@ -534,7 +558,7 @@ export function UniversalWithdraw({
         })}
         confirmButtonProps={{
           onPress,
-          loading,
+          loading: loading || checkAmountLoading,
           disabled: isDisable,
         }}
       />

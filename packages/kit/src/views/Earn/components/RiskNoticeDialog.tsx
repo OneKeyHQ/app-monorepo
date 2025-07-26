@@ -31,17 +31,29 @@ function RiskNoticeDialogContent({
   const handleConfirm = useCallback(
     () =>
       new Promise<void>((resolve, reject) => {
-        // Mark first operation as completed when user confirms
-        backgroundApiProxy.simpleDb.earnExtra
-          .markFirstOperation(networkId, providerName, address, operationType)
+        const persistNoShow = async () => {
+          // Only persist when checkbox is checked, regardless of operation type
+          if (checkboxState) {
+            await backgroundApiProxy.simpleDb.earnExtra.markFirstOperation(
+              networkId,
+              providerName,
+              address,
+              operationType,
+            );
+          }
+        };
+
+        persistNoShow()
           .then(() => onConfirm())
           .then(() => resolve())
           .catch(() => reject());
       }),
-    [onConfirm, networkId, providerName, address, operationType],
+    [onConfirm, networkId, providerName, address, operationType, checkboxState],
   );
 
-  const isConfirmDisabled = !checkboxState;
+  // Only withdraw operations allow confirmation without checkbox selection
+  // All other operations (deposit, etc.) require checkbox to be checked
+  const isConfirmDisabled = operationType !== 'withdraw' && !checkboxState;
 
   return (
     <YStack gap="$4">
