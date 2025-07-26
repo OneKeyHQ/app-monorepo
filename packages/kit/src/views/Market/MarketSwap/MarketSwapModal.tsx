@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { Page, View } from '@onekeyhq/components';
+import { Page, View, useMedia } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -13,6 +13,7 @@ import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirro
 
 export default function MarketSwapModal() {
   const navigation = useAppNavigation();
+  const media = useMedia();
 
   useEffect(() => {
     const handleSwapSuccess = () => {
@@ -33,6 +34,13 @@ export default function MarketSwapModal() {
       );
     };
   }, [navigation]);
+
+  // Auto close when screen size is larger than lg
+  useEffect(() => {
+    if (media.gtMd) {
+      navigation.pop();
+    }
+  }, [media.gtMd, navigation]);
 
   return (
     <Page>
