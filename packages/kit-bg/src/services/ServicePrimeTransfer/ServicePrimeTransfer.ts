@@ -19,7 +19,6 @@ import {
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   WALLET_TYPE_HD,
-  WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -38,6 +37,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import type { IBackgroundApi } from '@onekeyhq/shared/types/background';
 import type {
   IE2EESocketUserInfo,
   IPrimeTransferData,
@@ -93,8 +93,12 @@ export interface ITransferProgress {
 let connectedPairingCode: string | null = null;
 let connectedEncryptedKey: string | null = null;
 
+const PAIRING_CODE_LENGTH = 59;
+const ROOM_ID_LENGTH = 11;
+const VERIFY_STRING = 'OneKeyPrimeTransfer';
+
 class ServicePrimeTransfer extends ServiceBase {
-  constructor({ backgroundApi }: { backgroundApi: any }) {
+  constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
     super({ backgroundApi });
   }
 
@@ -307,13 +311,13 @@ class ServicePrimeTransfer extends ServiceBase {
   }
 
   checkRoomIdValid(roomId: string | undefined | null) {
-    if (!roomId || roomId.length !== 11) {
+    if (!roomId || roomId.length !== ROOM_ID_LENGTH) {
       throw new OneKeyLocalError('Invalid room ID');
     }
   }
 
   checkPairingCodeValid(pairingCode: string | undefined | null) {
-    if (!pairingCode || pairingCode.length !== 59) {
+    if (!pairingCode || pairingCode.length !== PAIRING_CODE_LENGTH) {
       const message = appLocale.intl.formatMessage({
         id: ETranslations.transfer_invalid_code,
       });
@@ -407,7 +411,7 @@ class ServicePrimeTransfer extends ServiceBase {
 
       // Generate client ECDHE key pair
       const clientKeyPair = await appCrypto.ECDHE.generateECDHEKeyPair();
-      const verifyString = 'OneKeyPrimeTransfer';
+      const verifyString = VERIFY_STRING;
 
       // Encrypt verification data with pairing code
       const encryptedData = bufferUtils.bytesToHex(
@@ -611,12 +615,47 @@ class ServicePrimeTransfer extends ServiceBase {
     }, {} as Record<string, IDBWallet>);
     let { accounts: allAccounts } = await serviceAccount.getAllAccounts();
 
+    const importedWallet = await serviceAccount.getWalletSafe({
+      walletId: WALLET_TYPE_IMPORTED,
+    });
+    const watchingWallet = await serviceAccount.getWalletSafe({
+      walletId: WALLET_TYPE_WATCHING,
+    });
+
     const sortAccounts = (accounts: IDBAccount[]) => {
       const sortedAccounts = accounts
         .map((account, walletAccountsIndex) => {
+          let walletAccountsIndexUsed: number | undefined = walletAccountsIndex;
+
+          if (
+            accountUtils.isWatchingAccount({
+              accountId: account.id,
+            })
+          ) {
+            walletAccountsIndexUsed = watchingWallet?.accounts?.findIndex(
+              (a) => a === account.id,
+            );
+          }
+
+          if (
+            accountUtils.isImportedAccount({
+              accountId: account.id,
+            })
+          ) {
+            walletAccountsIndexUsed = importedWallet?.accounts?.findIndex(
+              (a) => a === account.id,
+            );
+          }
+
           localDb.refillAccountOrderInfo({
             account,
-            walletAccountsIndex,
+            walletAccountsIndex:
+              isNil(walletAccountsIndexUsed) ||
+              isNaN(walletAccountsIndexUsed) ||
+              walletAccountsIndexUsed < 0 ||
+              walletAccountsIndexUsed === undefined
+                ? walletAccountsIndex
+                : walletAccountsIndexUsed,
           });
           return account;
         })
