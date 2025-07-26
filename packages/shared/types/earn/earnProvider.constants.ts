@@ -1,3 +1,5 @@
+import { SUI_TYPE_ARG } from '@mysten/sui/utils';
+
 import { getNetworkIdsMap } from '../../src/config/networkIds';
 import {
   EthereumCbBTC,
@@ -43,6 +45,16 @@ const earnTradeDefaultSetSOL = {
   'decimals': 6,
   'isNative': false,
   'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sol.png',
+};
+
+const earnTradeDefaultSetSui = {
+  'networkId': 'sui--mainnet',
+  'contractAddress': SUI_TYPE_ARG,
+  'name': 'SUI',
+  'symbol': 'SUI',
+  'decimals': 9,
+  'isNative': true,
+  'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sui.png',
 };
 
 export const isSupportStaking = (symbol: string) =>
@@ -146,6 +158,10 @@ export function getImportFromToken({
     case networkIdsMap.apt:
       importFromToken = earnTradeDefaultSetETH;
       swapTabSwitchType = ESwapTabSwitchType.BRIDGE;
+      break;
+    case networkIdsMap.sui:
+      importFromToken = earnTradeDefaultSetSui;
+      swapTabSwitchType = ESwapTabSwitchType.SWAP;
       break;
     default:
       break;

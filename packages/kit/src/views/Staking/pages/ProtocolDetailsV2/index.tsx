@@ -399,7 +399,6 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
                       jc="center"
                       w="$6"
                       h="$6"
-                      bg="$bgCaution"
                       borderRadius="$1"
                     >
                       <EarnIcon
