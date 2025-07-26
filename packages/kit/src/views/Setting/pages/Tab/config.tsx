@@ -50,6 +50,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { usePrimeAuthV2 } from '../../../Prime/hooks/usePrimeAuthV2';
 import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
+import { showApiEndpointDialog } from '../../components/ApiEndpointDialog';
 
 import {
   AutoLockListItem,
@@ -677,6 +678,13 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     id: ETranslations.global_dev_mode,
                   }),
                   renderElement: <DevSettingsSection />,
+                },
+                {
+                  icon: 'ApiConnectionOutline',
+                  title: 'API Endpoint Management',
+                  onPress: () => {
+                    showApiEndpointDialog();
+                  },
                 },
               ],
             ],

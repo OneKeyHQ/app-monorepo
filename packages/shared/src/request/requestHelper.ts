@@ -1,4 +1,5 @@
 import type {
+  IApiEndpointConfigPersistAtom,
   IDevSettingsPersistAtom,
   ISettingsPersistAtom,
   ISettingsValuePersistAtom,
@@ -33,16 +34,26 @@ class RequestHelper {
       );
     };
 
+  getApiEndpointConfigPersistAtom: () => Promise<IApiEndpointConfigPersistAtom> =
+    async () => {
+      throw new OneKeyLocalError(
+        'Not implemented, please call overrideMethods',
+      );
+    };
+
   overrideMethods(methods: {
     checkIsOneKeyDomain: (url: string) => Promise<boolean>;
     getDevSettingsPersistAtom: () => Promise<IDevSettingsPersistAtom>;
     getSettingsPersistAtom: () => Promise<ISettingsPersistAtom>;
     getSettingsValuePersistAtom: () => Promise<ISettingsValuePersistAtom>;
+    getApiEndpointConfigPersistAtom: () => Promise<IApiEndpointConfigPersistAtom>;
   }) {
     this.checkIsOneKeyDomain = methods.checkIsOneKeyDomain;
     this.getDevSettingsPersistAtom = methods.getDevSettingsPersistAtom;
     this.getSettingsPersistAtom = methods.getSettingsPersistAtom;
     this.getSettingsValuePersistAtom = methods.getSettingsValuePersistAtom;
+    this.getApiEndpointConfigPersistAtom =
+      methods.getApiEndpointConfigPersistAtom;
   }
 }
 

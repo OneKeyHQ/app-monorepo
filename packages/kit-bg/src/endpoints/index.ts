@@ -9,8 +9,41 @@ import type {
   IEndpointInfo,
 } from '@onekeyhq/shared/types/endpoint';
 
+import { apiEndpointConfigPersistAtom } from '../states/jotai/atoms/apiEndpointConfig';
+
 export async function getEndpoints() {
   return getEndpointsMap();
+}
+
+export async function getEndpointsWithCustomConfig() {
+  const baseEndpoints = await getEndpointsMap();
+
+  try {
+    // Get custom endpoint configurations
+    const { configs } = await apiEndpointConfigPersistAtom.get();
+
+    // Override with enabled custom endpoints
+    const enhancedEndpoints = { ...baseEndpoints };
+
+    configs
+      .filter((config) => config.enabled)
+      .forEach((config) => {
+        enhancedEndpoints[config.serviceModule] = config.api;
+      });
+
+    return enhancedEndpoints;
+  } catch (error) {
+    // Fallback to base endpoints if custom config fails
+    errorUtils.autoPrintErrorIgnore(error);
+    return baseEndpoints;
+  }
+}
+
+export async function getEndpointByServiceNameWithCustomConfig(
+  serviceName: EServiceEndpointEnum,
+) {
+  const map = await getEndpointsWithCustomConfig();
+  return map[serviceName];
 }
 
 export async function getEndpointInfo({
@@ -18,8 +51,8 @@ export async function getEndpointInfo({
 }: {
   name: EServiceEndpointEnum;
 }): Promise<IEndpointInfo> {
-  const endpoints = await getEndpoints();
-  const endpoint = endpoints[name];
+  // Use enhanced endpoint resolution with custom config support
+  const endpoint = await getEndpointByServiceNameWithCustomConfig(name);
   if (!endpoint) {
     throw new OneKeyError(`Invalid endpoint name:${name}`);
   }
@@ -28,7 +61,8 @@ export async function getEndpointInfo({
 
 export async function getEndpointDomainWhitelist() {
   const whitelist: IEndpointDomainWhiteList = [];
-  const endpoints = await getEndpoints();
+  // Use endpoints with custom config to include custom domains in whitelist
+  const endpoints = await getEndpointsWithCustomConfig();
   forEach(endpoints, (endpoint) => {
     try {
       if (endpoint) {

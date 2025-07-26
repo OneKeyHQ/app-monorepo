@@ -4,6 +4,7 @@ import {
   type IServiceEndpoint,
 } from '@onekeyhq/shared/types/endpoint';
 
+import errorUtils from '../errors/utils/errorUtils';
 import platformEnv from '../platformEnv';
 import requestHelper from '../request/requestHelper';
 
@@ -136,6 +137,22 @@ export async function getEndpointsMap() {
 export async function getEndpointByServiceName(
   serviceName: EServiceEndpointEnum,
 ) {
+  try {
+    // First try to get custom API endpoint configuration
+    const apiConfig = await requestHelper.getApiEndpointConfigPersistAtom();
+    const enabledCustomConfig = apiConfig.configs
+      .filter((config) => config.enabled)
+      .find((config) => config.serviceModule === serviceName);
+
+    if (enabledCustomConfig) {
+      return enabledCustomConfig.api;
+    }
+  } catch (error) {
+    // Fallback to default endpoints if custom config is not available
+    errorUtils.autoPrintErrorIgnore(error);
+  }
+
+  // Fallback to default endpoint
   const map = await getEndpointsMap();
   return map[serviceName];
 }

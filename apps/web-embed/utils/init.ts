@@ -44,6 +44,10 @@ const initRequestHelper = () => {
       Promise.resolve({
         hideValue: false,
       }),
+    getApiEndpointConfigPersistAtom: async () =>
+      Promise.resolve({
+        configs: [],
+      }),
   });
 };
 

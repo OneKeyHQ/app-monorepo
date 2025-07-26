@@ -50,6 +50,7 @@ export enum EAtomNames {
   primeTransferAtom = 'primeTransferAtom',
   accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',
   allNetworksPersistAtom = 'allNetworksPersistAtom',
+  apiEndpointConfigPersistAtom = 'apiEndpointConfigPersistAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<
