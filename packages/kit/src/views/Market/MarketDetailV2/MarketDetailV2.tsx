@@ -10,9 +10,9 @@ import { NavBackButton, Page, XStack, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  ETabMarketV2Routes,
+  ETabMarketRoutes,
   ETabRoutes,
-  type ITabMarketV2ParamList,
+  type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -29,12 +29,11 @@ import { MobileLayout } from './layouts/MobileLayout';
 
 function MarketDetail({
   route,
-}: IPageScreenProps<ITabMarketV2ParamList, ETabMarketV2Routes.MarketDetail>) {
+}: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>) {
   const { tokenAddress, networkId } = route.params;
   const media = useMedia();
   const tokenDetailActions = useTokenDetailActions();
-  const navigation =
-    useNavigation<IPageNavigationProp<ITabMarketV2ParamList>>();
+  const navigation = useNavigation<IPageNavigationProp<ITabMarketParamList>>();
 
   // Clear all token detail content when unmount
   useEffect(() => {
@@ -54,7 +53,7 @@ function MarketDetail({
   });
 
   const handleBackPress = useCallback(() => {
-    navigation.navigate(ETabMarketV2Routes.TabMarket);
+    navigation.navigate(ETabMarketRoutes.TabMarket);
   }, [navigation]);
 
   const customHeaderLeft = useMemo(
@@ -98,10 +97,7 @@ function MarketDetail({
 }
 
 function MarketDetailV2(
-  props: IPageScreenProps<
-    ITabMarketV2ParamList,
-    ETabMarketV2Routes.MarketDetail
-  >,
+  props: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>,
 ) {
   return (
     <AccountSelectorProviderMirror

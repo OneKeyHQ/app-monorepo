@@ -9,7 +9,6 @@ import {
   ERootRoutes,
   ETabDeveloperRoutes,
   ETabMarketRoutes,
-  ETabMarketV2Routes,
   ETabRoutes,
   ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
@@ -135,11 +134,6 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
     //     showParams: true,
     //   },
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketDetail}`]:
-      {
-        showUrl: true,
-        showParams: true,
-      },
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketV2Routes.MarketDetail}`]:
       {
         showUrl: true,
         showParams: true,

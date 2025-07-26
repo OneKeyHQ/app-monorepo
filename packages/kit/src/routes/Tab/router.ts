@@ -17,7 +17,7 @@ import {
 } from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabMarketV2Routes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useToReferFriendsModalByRootNavigation } from '../../hooks/useReferFriends';
 import { developerRouters } from '../../views/Developer/router';
@@ -90,7 +90,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           CommonActions.navigate({
             name: ETabRoutes.Market,
             params: {
-              screen: ETabMarketV2Routes.TabMarket,
+              screen: ETabMarketRoutes.TabMarket,
             },
           }),
         );

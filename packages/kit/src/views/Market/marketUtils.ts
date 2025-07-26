@@ -3,7 +3,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
   ETabMarketRoutes,
-  ETabMarketV2Routes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -30,7 +29,7 @@ export function buildMarketFullUrlV2({
     platformEnv.isWeb && !platformEnv.isDev
       ? globalThis.location.origin
       : WEB_APP_URL;
-  const path = `/market/tokens/${networkId}/${address}`;
+  const path = `/market/tokens/v2/${networkId}/${address}`;
   return `${origin}${path}`;
 }
 
@@ -55,37 +54,6 @@ export const marketNavigation = {
         screen: ETabMarketRoutes.MarketDetail,
         params: {
           token: coinGeckoId,
-        },
-      },
-    });
-  },
-
-  // V2 version - for new MarketDetailV2 page
-  async pushDetailPageFromDeeplinkV2(
-    navigation: IAppNavigation,
-    {
-      tokenAddress,
-      networkId,
-      symbol,
-    }: {
-      tokenAddress: string;
-      networkId: string;
-      symbol?: string;
-    },
-  ) {
-    await timerUtils.wait(80);
-    navigation.switchTab(ETabRoutes.Market);
-    await timerUtils.wait(100);
-
-    // Navigate to V2 MarketDetail page
-    navigation.navigate(ERootRoutes.Main, {
-      screen: ETabRoutes.Market,
-      params: {
-        screen: ETabMarketV2Routes.MarketDetail,
-        params: {
-          tokenAddress,
-          networkId,
-          symbol: symbol || networkId, // Use networkId as fallback
         },
       },
     });
