@@ -247,7 +247,7 @@ module.exports = {
       ],
     ],
     'spellcheck/spell-checker':
-      process.env.CI === 'true'
+      typeof process.env.CI !== 'undefined'
         ? 'off'
         : [
             1,
