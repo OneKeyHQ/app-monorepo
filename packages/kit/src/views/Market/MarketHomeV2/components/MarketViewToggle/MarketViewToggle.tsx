@@ -9,7 +9,7 @@ export interface IMarketViewToggleProps {
   disabled?: boolean;
 }
 
-interface IToggleButtonProps {
+export interface IToggleButtonProps {
   isActive: boolean;
   onPress: (() => void) | undefined;
   disabled: boolean;
@@ -17,7 +17,7 @@ interface IToggleButtonProps {
   defaultMessage: string;
 }
 
-function ToggleButton({
+export function ToggleButton({
   isActive,
   onPress,
   disabled,
