@@ -1,5 +1,6 @@
 import type {
   ColorTokens,
+  IAlertType,
   IBadgeType,
   IButtonProps,
   IKeyOfIcons,
@@ -23,6 +24,7 @@ export enum ECheckAmountActionType {
 }
 
 export interface ICheckAmountAlert {
+  type: IAlertType;
   text: {
     text: string;
   };
