@@ -153,6 +153,13 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
           webRef.current = ref;
         }}
         displayProgressBar={false}
+        pullToRefreshEnabled={false}
+        scrollEnabled={false}
+        bounces={false}
+        overScrollMode="never"
+        showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
+        decelerationRate="normal"
         src={tradingViewUrlWithParams}
       />
 

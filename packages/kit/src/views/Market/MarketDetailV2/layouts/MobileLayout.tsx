@@ -27,22 +27,25 @@ export function MobileLayout() {
           shadowColor: 'transparent',
         }}
         renderTabBar={(props) => <Tabs.TabBar {...props} />}
+        pagerProps={{ scrollEnabled: false }}
       >
         <Tabs.Tab name={intl.formatMessage({ id: ETranslations.market_chart })}>
-          <Stack width="100%" height={50} />
+          <ScrollView width="100%" paddingTop={50}>
+            {/* Information Panel */}
+            <InformationPanel />
 
-          {/* Information Panel */}
-          <InformationPanel />
+            <Stack h={400}>
+              <MarketTradingView
+                tokenAddress={tokenAddress}
+                networkId={networkId}
+                tokenSymbol={tokenDetail?.symbol}
+              />
+            </Stack>
 
-          <Stack h={400}>
-            <MarketTradingView
-              tokenAddress={tokenAddress}
-              networkId={networkId}
-              tokenSymbol={tokenDetail?.symbol}
-            />
-          </Stack>
-
-          <MobileInformationTabs />
+            <Stack h={400}>
+              <MobileInformationTabs />
+            </Stack>
+          </ScrollView>
         </Tabs.Tab>
 
         <Tabs.Tab
