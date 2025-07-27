@@ -54,7 +54,15 @@ export function MobileInformationTabs() {
 
   return (
     <Stack flex={1}>
-      <Tabs.Container>{tabs}</Tabs.Container>
+      <Tabs.Container
+        headerContainerStyle={{
+          width: '100%',
+          shadowColor: 'transparent',
+        }}
+        renderTabBar={(props) => <Tabs.TabBar {...props} />}
+      >
+        {tabs}
+      </Tabs.Container>
     </Stack>
   );
 }
