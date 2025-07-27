@@ -192,7 +192,7 @@ export function getSymbolSupportedNetworks(): Record<
     'DAI': [networkIdsMap.eth],
     'WETH': [networkIdsMap.eth],
     'cbBTC': [networkIdsMap.eth],
-    'WBTC': [networkIdsMap.eth],
+    'WBTC': [networkIdsMap.eth, networkIdsMap.sui],
     'USDf': [networkIdsMap.eth],
     'USDe': [networkIdsMap.eth],
   };
