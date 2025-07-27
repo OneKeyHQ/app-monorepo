@@ -11,6 +11,7 @@ import {
   Alert,
   Divider,
   Icon,
+  IconButton,
   Image,
   Page,
   Popover,
@@ -36,6 +37,7 @@ import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
 import type {
   ICheckAmountAlert,
   IEarnEstimateFeeResp,
+  IEarnText,
   IEarnTextTooltip,
   IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
@@ -445,11 +447,39 @@ export function UniversalWithdraw({
         borderColor="$borderSubdued"
       >
         <YStack gap="$2">
-          <EarnText
-            text={transactionConfirmation?.title}
-            color="$textSubdued"
-            size="$bodyMd"
-          />
+          <XStack ai="center" gap="$1">
+            <EarnText
+              text={transactionConfirmation?.title}
+              color="$textSubdued"
+              size="$bodyMd"
+            />
+            {transactionConfirmation?.tooltip ? (
+              <Popover
+                placement="top"
+                title={transactionConfirmation?.title?.text}
+                renderTrigger={
+                  <IconButton
+                    iconColor="$iconSubdued"
+                    size="small"
+                    icon="InfoCircleOutline"
+                    variant="tertiary"
+                  />
+                }
+                renderContent={
+                  <Stack p="$5">
+                    <EarnText
+                      text={
+                        transactionConfirmation?.tooltip?.type === 'text'
+                          ? transactionConfirmation.tooltip.data
+                          : undefined
+                      }
+                      size="$bodyMd"
+                    />
+                  </Stack>
+                }
+              />
+            ) : null}
+          </XStack>
           {transactionConfirmation?.rewards.map((reward) => {
             const hasTooltip = reward.tooltip?.type === 'text';
             let descriptionTextSize = (

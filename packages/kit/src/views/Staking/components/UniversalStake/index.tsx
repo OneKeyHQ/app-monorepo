@@ -14,6 +14,7 @@ import {
   Dialog,
   Divider,
   Icon,
+  IconButton,
   Image,
   Page,
   Popover,
@@ -1134,14 +1135,42 @@ export function UniversalStake({
           </XStack>
         ) : null}
         <YStack pt="$3.5" gap="$2">
-          <EarnText
-            text={transactionConfirmation?.title}
-            color="$textSubdued"
-            size="$bodyMd"
-            boldTextProps={{
-              size: '$bodyMdMedium',
-            }}
-          />
+          <XStack ai="center" gap="$1">
+            <EarnText
+              text={transactionConfirmation?.title}
+              color="$textSubdued"
+              size="$bodyMd"
+              boldTextProps={{
+                size: '$bodyMdMedium',
+              }}
+            />
+            {transactionConfirmation?.tooltip ? (
+              <Popover
+                placement="top"
+                title={transactionConfirmation?.title?.text}
+                renderTrigger={
+                  <IconButton
+                    iconColor="$iconSubdued"
+                    size="small"
+                    icon="InfoCircleOutline"
+                    variant="tertiary"
+                  />
+                }
+                renderContent={
+                  <Stack p="$5">
+                    <EarnText
+                      text={
+                        transactionConfirmation?.tooltip?.type === 'text'
+                          ? transactionConfirmation.tooltip.data
+                          : undefined
+                      }
+                      size="$bodyMd"
+                    />
+                  </Stack>
+                }
+              />
+            ) : null}
+          </XStack>
           {transactionConfirmation?.rewards.map((reward) => {
             const hasTooltip = reward.tooltip?.type === 'text';
             let descriptionTextSize = (

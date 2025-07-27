@@ -795,6 +795,7 @@ export interface IEarnProvider {
 
 export interface IStakeTransactionConfirmation {
   title: IEarnText;
+  tooltip?: IEarnTooltip;
   rewards: Array<{
     title: IEarnText;
     description: IEarnText;
