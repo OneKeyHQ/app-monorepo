@@ -73,6 +73,14 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
 
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
+      // Debug: Log all incoming messages
+      console.log('🔍 TradingView message received:', {
+        scope: data.scope,
+        method: data.method,
+        origin: data.origin,
+        dataKeys: data.data ? Object.keys(data.data) : 'no data',
+      });
+
       // {
       //     "scope": "$private",
       //     "method": "tradingview_getKLineData",
@@ -91,37 +99,87 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
         data.scope === '$private' &&
         data.method === 'tradingview_getKLineData'
       ) {
-        console.log('TradingView request received:', {
-          method: data.data.method,
-          resolution: data.data.resolution,
-          from: data.data.from,
-          to: data.data.to,
-          firstDataRequest: data.data.firstDataRequest,
-          origin: data.origin,
-        });
+        // Safely extract history data with proper type checking
+        const messageData = data.data;
+        if (
+          messageData &&
+          typeof messageData === 'object' &&
+          'method' in messageData &&
+          'resolution' in messageData &&
+          'from' in messageData &&
+          'to' in messageData
+        ) {
+          // Extract properties safely with explicit checks
+          const safeData = messageData as unknown as Record<string, unknown>;
+          const method = safeData.method as string;
+          const resolution = safeData.resolution as string;
+          const from = safeData.from as number;
+          const to = safeData.to as number;
+          const firstDataRequest = safeData.firstDataRequest as boolean;
 
-        // Use combined function to get sliced data
-        try {
-          const kLineData = await fetchTradingViewV2DataWithSlicing({
-            tokenAddress,
-            networkId,
-            interval: data.data.resolution,
-            timeFrom: data.data.from,
-            timeTo: data.data.to,
+          console.log('TradingView request received:', {
+            method,
+            resolution,
+            from,
+            to,
+            firstDataRequest,
+            origin: data.origin,
           });
 
-          if (webRef.current && kLineData) {
-            webRef.current.sendMessageViaInjectedScript({
-              type: 'kLineData',
-              payload: {
-                type: 'history',
-                kLineData,
-                requestData: data.data,
-              },
+          // Use combined function to get sliced data
+          try {
+            const kLineData = await fetchTradingViewV2DataWithSlicing({
+              tokenAddress,
+              networkId,
+              interval: resolution,
+              timeFrom: from,
+              timeTo: to,
             });
+
+            if (webRef.current && kLineData) {
+              webRef.current.sendMessageViaInjectedScript({
+                type: 'kLineData',
+                payload: {
+                  type: 'history',
+                  kLineData,
+                  requestData: messageData,
+                },
+              });
+            }
+          } catch (error) {
+            console.error('Failed to fetch and send kline data:', error);
           }
-        } catch (error) {
-          console.error('Failed to fetch and send kline data:', error);
+        }
+      }
+
+      // Handle TradingView layout update messages
+      if (
+        data.scope === '$private' &&
+        data.method === 'tradingview_layoutUpdate'
+      ) {
+        console.log('✅ Layout update method matched!');
+        // Safely extract layout data with proper type checking
+        const messageData = data.data;
+        if (
+          messageData &&
+          typeof messageData === 'object' &&
+          'layout' in messageData
+        ) {
+          // Extract layout property safely
+          const safeData = messageData as unknown as Record<string, unknown>;
+          const layoutString = safeData.layout as string;
+
+          console.log('📡 TradingView layout update received:', data);
+
+          try {
+            const parsedLayoutData = JSON.parse(layoutString);
+            console.log('🎨 Layout data parsed successfully:', {
+              keys: Object.keys(parsedLayoutData),
+              timestamp: Date.now(),
+            });
+          } catch (error) {
+            console.error('❌ Failed to parse layout data:', error);
+          }
         }
       }
     },
