@@ -10,6 +10,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import type { GestureResponderEvent } from 'react-native';
@@ -75,10 +76,30 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     onCopied?.(address);
   };
 
+  const getTokenImageUri = () => {
+    if (!platformEnv.isNative || !tokenLogoURI) {
+      return tokenLogoURI;
+    }
+
+    console.log('tokenLogoURI', tokenLogoURI);
+
+    // 在移动端只显示 PNG 和 JPG 格式的图片
+    const lowerCaseUri = tokenLogoURI.toLowerCase();
+    if (
+      lowerCaseUri.includes('png') ||
+      lowerCaseUri.includes('jpg') ||
+      lowerCaseUri.includes('jpeg')
+    ) {
+      return tokenLogoURI;
+    }
+
+    return undefined;
+  };
+
   return (
     <XStack alignItems="center" gap="$3" userSelect="none">
       <Token
-        tokenImageUri={tokenLogoURI}
+        tokenImageUri={getTokenImageUri()}
         networkImageUri={networkLogoURI}
         fallbackIcon="CryptoCoinOutline"
         size="md"

@@ -189,7 +189,7 @@ function MarketTokenList({
             <Table<IMarketToken>
               stickyHeader
               columns={marketTokenColumns}
-              dataSource={[]}
+              dataSource={data}
               keyExtractor={(item) => item.address + item.symbol + item.name}
               onHeaderRow={handleHeaderRow}
               rowProps={{
