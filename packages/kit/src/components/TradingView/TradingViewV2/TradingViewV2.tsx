@@ -12,11 +12,13 @@ import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import { getTradingViewTimezone } from '../utils/tradingViewTimezone';
 
-import { useAutoKLineUpdate } from './useAutoKLineUpdate';
-import { useAutoTokenDetailUpdate } from './useAutoTokenDetailUpdate';
-import { fetchTradingViewV2DataWithSlicing } from './useTradingViewV2';
+import {
+  fetchTradingViewV2DataWithSlicing,
+  useAutoKLineUpdate,
+  useAutoTokenDetailUpdate,
+} from './hooks';
 
-// import { useTradingViewV2WebSocket } from './useTradingViewV2WebSocket';
+// import { useTradingViewV2WebSocket } from './hooks';
 
 import type { ICustomReceiveHandlerData } from './types';
 import type { IWebViewRef } from '../../WebView/types';

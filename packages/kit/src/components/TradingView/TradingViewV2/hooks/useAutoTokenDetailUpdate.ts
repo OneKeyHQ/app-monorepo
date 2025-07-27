@@ -3,7 +3,7 @@ import { type RefObject, useCallback, useRef } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 
-import type { IWebViewRef } from '../../WebView/types';
+import type { IWebViewRef } from '../../../WebView/types';
 
 interface IAutoTokenDetailUpdateParams {
   tokenAddress: string;
