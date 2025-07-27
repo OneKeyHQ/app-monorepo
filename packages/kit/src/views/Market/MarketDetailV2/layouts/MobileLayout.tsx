@@ -21,8 +21,16 @@ export function MobileLayout() {
     <>
       {/* Header */}
 
-      <Tabs.Container>
+      <Tabs.Container
+        headerContainerStyle={{
+          width: '100%',
+          shadowColor: 'transparent',
+        }}
+        renderTabBar={(props) => <Tabs.TabBar {...props} />}
+      >
         <Tabs.Tab name={intl.formatMessage({ id: ETranslations.market_chart })}>
+          <Stack width="100%" height={50} />
+
           {/* Information Panel */}
           <InformationPanel />
 
@@ -41,6 +49,8 @@ export function MobileLayout() {
           name={intl.formatMessage({ id: ETranslations.global_overview })}
         >
           <ScrollView>
+            <Stack width="100%" height={50} />
+
             {/* Token Stats */}
             <TokenOverview />
 

@@ -96,27 +96,27 @@ const TabsWithCustomTabBarDemo = () => {
       renderTabBar={(props) => (
         <Tabs.TabBar
           {...props}
-          renderToolbar={({ focusedTab }) => (
-            <XStack ai="center" gap="$2">
-              <SizableText size="$bodySmMedium" color="$textSubdued">
-                Current: {focusedTab}
-              </SizableText>
-              <IconButton
-                icon="PlusCircleOutline"
-                size="small"
-                onPress={() => {
-                  Toast.success({ title: `Add new item to ${focusedTab}` });
-                }}
-              />
-              <IconButton
-                icon="SettingsOutline"
-                size="small"
-                onPress={() => {
-                  Toast.success({ title: `Settings for ${focusedTab}` });
-                }}
-              />
-            </XStack>
-          )}
+          // renderToolbar={({ focusedTab }) => (
+          //   <XStack ai="center" gap="$2">
+          //     <SizableText size="$bodySmMedium" color="$textSubdued">
+          //       Current: {focusedTab}
+          //     </SizableText>
+          //     <IconButton
+          //       icon="PlusCircleOutline"
+          //       size="small"
+          //       onPress={() => {
+          //         Toast.success({ title: `Add new item to ${focusedTab}` });
+          //       }}
+          //     />
+          //     <IconButton
+          //       icon="SettingsOutline"
+          //       size="small"
+          //       onPress={() => {
+          //         Toast.success({ title: `Settings for ${focusedTab}` });
+          //       }}
+          //     />
+          //   </XStack>
+          // )}
         />
       )}
     >
