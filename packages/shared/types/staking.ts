@@ -23,21 +23,23 @@ export enum ECheckAmountActionType {
   CLAIM = 'claim',
 }
 
+export interface IEarnAlertButton {
+  text: {
+    text: string;
+  };
+  type: string;
+  disabled: boolean;
+  data: {
+    link: string;
+  };
+}
+
 export interface ICheckAmountAlert {
   type: IAlertType;
   text: {
     text: string;
   };
-  button?: {
-    text: {
-      text: string;
-    };
-    type: string;
-    disabled: boolean;
-    data: {
-      link: string;
-    };
-  };
+  button?: IEarnAlertButton;
 }
 
 // export type IStakeTag = 'lido-eth' | 'lido-matic';
@@ -679,6 +681,7 @@ export interface IEarnAlert {
   alert: string;
   key: ESpotlightTour;
   badge: IBadgeType;
+  button?: IEarnAlertButton;
 }
 
 export interface IEarnRiskNoticeDialog {
