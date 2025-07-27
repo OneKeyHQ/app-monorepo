@@ -18,18 +18,20 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
 import type {
   ICheckAmountAlert,
@@ -105,6 +107,9 @@ export function UniversalWithdraw({
 
   onConfirm,
 }: PropsWithChildren<IUniversalWithdrawProps>) {
+  const navigation = useAppNavigation();
+  const { gtMd } = useMedia();
+  const { handleOpenWebSite } = useBrowserAction().current;
   const isMorphoProvider = useMemo(
     () => (providerName ? earnUtils.isMorphoProvider({ providerName }) : false),
     [providerName],
@@ -412,7 +417,17 @@ export function UniversalWithdraw({
                       primary: alert.button.text.text,
                       onPrimaryPress: () => {
                         if (alert.button?.data?.link) {
-                          openUrlExternal(alert.button.data.link);
+                          handleOpenWebSite({
+                            switchToMultiTabBrowser: gtMd,
+                            navigation,
+                            useCurrentWindow: false,
+                            webSite: {
+                              url: alert.button.data.link,
+                              title: alert.button.data.link,
+                              logo: undefined,
+                              sortIndex: undefined,
+                            },
+                          });
                         }
                       },
                     }
