@@ -1,7 +1,6 @@
-import { type RefObject, useCallback, useRef } from 'react';
+import { type RefObject, useCallback, useEffect, useRef } from 'react';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
+import { useTokenDetailAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 
 import type { IWebViewRef } from '../../../WebView/types';
 
@@ -10,7 +9,6 @@ interface IAutoTokenDetailUpdateParams {
   networkId: string;
   webRef: RefObject<IWebViewRef | null>;
   enabled?: boolean;
-  interval?: number; // in milliseconds, default 1000 (1 second)
 }
 
 export function useAutoTokenDetailUpdate({
@@ -18,13 +16,19 @@ export function useAutoTokenDetailUpdate({
   networkId,
   webRef,
   enabled = true,
-  interval = 1000, // 1 second
 }: IAutoTokenDetailUpdateParams) {
+  const [tokenDetail] = useTokenDetailAtom();
   const lastUpdateTime = useRef<number>(0);
 
-  const pushLatestTokenDetailData = useCallback(async () => {
+  const pushLatestTokenDetailData = useCallback(() => {
     // Skip if disabled or missing required params
-    if (!enabled || !tokenAddress || !networkId || !webRef.current) {
+    if (
+      !enabled ||
+      !tokenAddress ||
+      !networkId ||
+      !webRef.current ||
+      !tokenDetail
+    ) {
       return;
     }
 
@@ -36,33 +40,27 @@ export function useAutoTokenDetailUpdate({
         return;
       }
 
-      const tokenDetail =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
+      console.log('🔍 Pushing token detail update from atom:', tokenDetail);
+      webRef.current.sendMessageViaInjectedScript({
+        type: 'tokenDetailUpdate',
+        payload: {
+          tokenDetail,
+          timestamp: now,
           tokenAddress,
           networkId,
-        );
+        },
+      });
 
-      if (webRef.current && tokenDetail) {
-        webRef.current.sendMessageViaInjectedScript({
-          type: 'tokenDetailUpdate',
-          payload: {
-            tokenDetail,
-            timestamp: now,
-            tokenAddress,
-            networkId,
-          },
-        });
-
-        lastUpdateTime.current = now;
-      }
+      lastUpdateTime.current = now;
     } catch (error) {
       console.error('Failed to push auto token detail data:', error);
     }
-  }, [enabled, tokenAddress, networkId, webRef]);
+  }, [enabled, tokenAddress, networkId, webRef, tokenDetail]);
 
-  // Use the existing useInterval hook pattern
-  useInterval(
-    enabled && tokenAddress && networkId ? pushLatestTokenDetailData : () => {},
-    interval,
-  );
+  // Watch for tokenDetail changes and push updates immediately
+  useEffect(() => {
+    if (tokenDetail) {
+      pushLatestTokenDetailData();
+    }
+  }, [tokenDetail, pushLatestTokenDetailData]);
 }
