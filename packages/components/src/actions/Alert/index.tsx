@@ -7,6 +7,7 @@ import { createStyledContext, styled, useThemeName } from 'tamagui';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
 import {
   Button,
   Icon,
@@ -166,9 +167,11 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
   const themeName = useThemeName() as 'light' | 'dark';
   const dangerTextColor =
     themeName === 'light' ? '$textOnBrightColor' : '$textOnColor';
+  const { HyperlinkText } = useSettingConfig();
 
   if (!show) return null;
 
+  const Text = HyperlinkText || SizableText;
   return (
     <AlertFrame
       ref={ref}
@@ -185,7 +188,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
       ) : null}
       <YStack flex={1} gap="$1">
         {title ? (
-          <SizableText
+          <Text
             size="$bodyMdMedium"
             color={isDanger ? dangerTextColor : undefined}
             {...(titleNumberOfLines
@@ -193,7 +196,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
               : {})}
           >
             {title}
-          </SizableText>
+          </Text>
         ) : null}
         {renderTitle
           ? renderTitle({
@@ -205,12 +208,12 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
             })
           : null}
         {description ? (
-          <SizableText
+          <Text
             size="$bodyMd"
             color={isDanger ? dangerTextColor : '$textSubdued'}
           >
             {description}
-          </SizableText>
+          </Text>
         ) : null}
         {descriptionComponent || null}
 
