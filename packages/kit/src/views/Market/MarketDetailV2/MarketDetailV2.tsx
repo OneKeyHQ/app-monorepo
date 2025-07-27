@@ -16,7 +16,10 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import {
+  AccountSelectorProviderMirror,
+  AccountSelectorTriggerHome,
+} from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { HeaderLeftCloseButton } from '../../../components/TabPageHeader/HeaderLeft';
 import { useTokenDetailActions } from '../../../states/jotai/contexts/marketV2';
@@ -60,20 +63,25 @@ function MarketDetail({
     () => (
       <XStack gap="$3" ai="center">
         {platformEnv.isNative ? (
-          <HeaderLeftCloseButton />
-        ) : (
-          <NavBackButton onPress={handleBackPress} />
-        )}
+          <>
+            <HeaderLeftCloseButton />
 
-        <MarketWatchListProviderMirrorV2
-          storeName={EJotaiContextStoreNames.marketWatchListV2}
-        >
-          <TokenDetailHeader
-            containerProps={{ p: '$0' }}
-            showStats={false}
-            showMediaAndSecurity={false}
-          />
-        </MarketWatchListProviderMirrorV2>
+            <MarketWatchListProviderMirrorV2
+              storeName={EJotaiContextStoreNames.marketWatchListV2}
+            >
+              <TokenDetailHeader
+                containerProps={{ p: '$0' }}
+                showStats={false}
+                showMediaAndSecurity={false}
+              />
+            </MarketWatchListProviderMirrorV2>
+          </>
+        ) : (
+          <>
+            <NavBackButton onPress={handleBackPress} />
+            <AccountSelectorTriggerHome num={0} />
+          </>
+        )}
       </XStack>
     ),
     [handleBackPress],
@@ -87,7 +95,7 @@ function MarketDetail({
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Market}
         customHeaderLeftItems={customHeaderLeft}
-        customHeaderRightItems={customHeaderRight}
+        customHeaderRightItems={platformEnv.isNative ? customHeaderRight : null}
         hideSearch={!media.gtMd}
       />
 
