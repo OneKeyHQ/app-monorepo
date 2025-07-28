@@ -2124,7 +2124,7 @@
   "prime.wallet_diff_local": "Локальний",
   "prime.wallet_dup_confirm_desc": "Наступні гаманці є дублікатами; ви можете залишити лише один, інший буде видалено.",
   "prime.wallet_list": "Список гаманців",
-  "prime.wallet_list_description": "Назва гаманців / акаунтів, відстежувана адреса.",
+  "prime.wallet_list_description": "Назва гаманців / акаунтів",
   "prime.welcome_back": "Ласкаво просимо назад",
   "prime.what_data_included": "Які дані включено",
   "prime.what_data_included_description": "Фрази відновлення та приватні ключі НЕ включені.",

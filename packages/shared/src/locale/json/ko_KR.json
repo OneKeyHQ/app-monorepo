@@ -2124,7 +2124,7 @@
   "prime.wallet_diff_local": "로컬",
   "prime.wallet_dup_confirm_desc": "다음 지갑들은 중복됩니다; 하나만 유지할 수 있으며, 다른 하나는 삭제됩니다.",
   "prime.wallet_list": "지갑 목록",
-  "prime.wallet_list_description": "지갑 / 계정 이름, 관찰된 주소.",
+  "prime.wallet_list_description": "지갑 / 계정 이름",
   "prime.welcome_back": "다시 오신 것을 환영합니다",
   "prime.what_data_included": "어떤 데이터가 포함되어 있는지",
   "prime.what_data_included_description": "복구 구문과 개인키는 포함되지 않습니다.",

@@ -2124,7 +2124,7 @@
   "prime.wallet_diff_local": "本地",
   "prime.wallet_dup_confirm_desc": "以下錢包是重複的；您只能保留一個，另一個將被移除。",
   "prime.wallet_list": "錢包列表",
-  "prime.wallet_list_description": "錢包/帳戶名稱，觀察地址。",
+  "prime.wallet_list_description": "錢包/帳戶名稱",
   "prime.welcome_back": "歡迎回來",
   "prime.what_data_included": "包含哪些資料",
   "prime.what_data_included_description": "不包括助記詞和私鑰。",

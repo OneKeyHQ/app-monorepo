@@ -2124,7 +2124,7 @@
   "prime.wallet_diff_local": "Lokal",
   "prime.wallet_dup_confirm_desc": "Dompet berikut adalah duplikat; Anda hanya dapat menyimpan satu, yang lain akan dihapus.",
   "prime.wallet_list": "Daftar dompet",
-  "prime.wallet_list_description": "Nama Dompet / Akun, alamat yang dipantau.",
+  "prime.wallet_list_description": "Nama Dompet / Akun",
   "prime.welcome_back": "Selamat datang kembali",
   "prime.what_data_included": "Data apa yang disertakan",
   "prime.what_data_included_description": "Frasa pemulihan dan kunci pribadi TIDAK disertakan.",

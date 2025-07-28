@@ -2124,7 +2124,7 @@
   "prime.wallet_diff_local": "स्थानीय",
   "prime.wallet_dup_confirm_desc": "निम्नलिखित वॉलेट डुप्लिकेट हैं; आप केवल एक को रख सकते हैं, दूसरा हटा दिया जाएगा।",
   "prime.wallet_list": "वॉलेट सूची",
-  "prime.wallet_list_description": "वॉलेट्स / खातों का नाम, देखे गए पते।",
+  "prime.wallet_list_description": "वॉलेट्स / खातों का नाम",
   "prime.welcome_back": "वापसी पर स्वागत है",
   "prime.what_data_included": "कौन-कौन से डेटा शामिल हैं",
   "prime.what_data_included_description": "रिकवरी वाक्यांश और निजी कुंजियाँ शामिल नहीं हैं।",

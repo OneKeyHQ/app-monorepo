@@ -2124,7 +2124,7 @@
   "prime.wallet_diff_local": "ท้องถิ่น",
   "prime.wallet_dup_confirm_desc": "กระเป๋าเงินต่อไปนี้เป็นรายการซ้ำ คุณสามารถเก็บไว้ได้เพียงหนึ่งรายการเท่านั้น ส่วนที่เหลือจะถูกลบออก",
   "prime.wallet_list": "รายการกระเป๋าเงิน",
-  "prime.wallet_list_description": "ชื่อกระเป๋าเงิน / บัญชี, ที่อยู่ที่ถูกติดตาม.",
+  "prime.wallet_list_description": "ชื่อกระเป๋าเงิน / บัญชี",
   "prime.welcome_back": "ยินดีต้อนรับกลับมา",
   "prime.what_data_included": "ข้อมูลที่รวมอยู่",
   "prime.what_data_included_description": "วลีการกู้คืนและคีย์ส่วนตัวไม่ได้รวมอยู่ด้วย",

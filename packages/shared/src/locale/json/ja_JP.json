@@ -2124,7 +2124,7 @@
   "prime.wallet_diff_local": "ローカル",
   "prime.wallet_dup_confirm_desc": "次のウォレットは重複しています。1つだけを保持でき、他は削除されます。",
   "prime.wallet_list": "ウォレットリスト",
-  "prime.wallet_list_description": "ウォレット / アカウント名、監視されたアドレス。",
+  "prime.wallet_list_description": "ウォレット / アカウント名",
   "prime.welcome_back": "お帰りなさい",
   "prime.what_data_included": "どのデータが含まれているか",
   "prime.what_data_included_description": "リカバリーフレーズと秘密鍵は含まれていません。",

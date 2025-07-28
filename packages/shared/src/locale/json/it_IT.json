@@ -2124,7 +2124,7 @@
   "prime.wallet_diff_local": "Locale",
   "prime.wallet_dup_confirm_desc": "I seguenti portafogli sono duplicati; puoi tenerne solo uno, l'altro verrà rimosso.",
   "prime.wallet_list": "Elenco dei portafogli",
-  "prime.wallet_list_description": "Nome dei portafogli / account, indirizzo monitorato.",
+  "prime.wallet_list_description": "Nome dei portafogli / account",
   "prime.welcome_back": "Bentornato",
   "prime.what_data_included": "Quali dati sono inclusi",
   "prime.what_data_included_description": "Frasi di recupero e chiavi private NON incluse.",

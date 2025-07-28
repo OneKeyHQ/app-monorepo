@@ -2124,7 +2124,7 @@
   "prime.wallet_diff_local": "Local",
   "prime.wallet_dup_confirm_desc": "As seguintes carteiras são duplicadas; você só pode manter uma, a outra será removida.",
   "prime.wallet_list": "Lista de carteiras",
-  "prime.wallet_list_description": "Nome das Carteiras / Contas, endereço observado.",
+  "prime.wallet_list_description": "Nome das Carteiras / Contas",
   "prime.welcome_back": "Bem-vindo de volta",
   "prime.what_data_included": "Quais dados estão incluídos",
   "prime.what_data_included_description": "Frases de recuperação e chaves privadas NÃO incluídas.",

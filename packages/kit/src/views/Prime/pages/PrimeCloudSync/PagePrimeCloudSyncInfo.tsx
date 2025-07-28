@@ -50,6 +50,9 @@ function IncludedDataContent() {
           <UnOrderedList.Item
             icon="CheckRadioSolid"
             iconProps={{ color: '$iconSuccess' }}
+            description={intl.formatMessage({
+              id: ETranslations.prime_wallet_list_description,
+            })}
           >
             {intl.formatMessage({
               id: ETranslations.prime_wallet_list,

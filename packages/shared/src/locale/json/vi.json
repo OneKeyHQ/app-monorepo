@@ -2124,7 +2124,7 @@
   "prime.wallet_diff_local": "Địa phương",
   "prime.wallet_dup_confirm_desc": "Các ví sau đây là bản sao; bạn chỉ có thể giữ một, cái còn lại sẽ bị xóa.",
   "prime.wallet_list": "Danh sách ví",
-  "prime.wallet_list_description": "Tên Ví / Tài khoản, địa chỉ theo dõi.",
+  "prime.wallet_list_description": "Tên Ví / Tài khoản",
   "prime.welcome_back": "Chào mừng trở lại",
   "prime.what_data_included": "Dữ liệu nào được bao gồm",
   "prime.what_data_included_description": "Cụm từ khôi phục và khóa riêng KHÔNG được bao gồm.",

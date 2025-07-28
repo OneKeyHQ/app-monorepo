@@ -2124,7 +2124,7 @@
   "prime.wallet_diff_local": "Local",
   "prime.wallet_dup_confirm_desc": "Les portefeuilles suivants sont des doublons ; vous ne pouvez en conserver qu'un, l'autre sera supprimé.",
   "prime.wallet_list": "Liste des portefeuilles",
-  "prime.wallet_list_description": "Noms des portefeuilles / comptes, adresse surveillée.",
+  "prime.wallet_list_description": "Noms des portefeuilles / comptes",
   "prime.welcome_back": "Bienvenue à nouveau",
   "prime.what_data_included": "Quelles données sont incluses",
   "prime.what_data_included_description": "Les phrases de récupération et les clés privées NE sont PAS incluses.",

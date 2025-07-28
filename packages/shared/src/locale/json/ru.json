@@ -2124,7 +2124,7 @@
   "prime.wallet_diff_local": "Локальный",
   "prime.wallet_dup_confirm_desc": "Следующие кошельки являются дубликатами; вы можете оставить только один, другой будет удален.",
   "prime.wallet_list": "Список кошельков",
-  "prime.wallet_list_description": "Названия кошельков / аккаунтов, отслеживаемый адрес.",
+  "prime.wallet_list_description": "Названия кошельков / аккаунтов",
   "prime.welcome_back": "Добро пожаловать обратно",
   "prime.what_data_included": "Какие данные включены",
   "prime.what_data_included_description": "Фразы восстановления и приватные ключи НЕ включены.",

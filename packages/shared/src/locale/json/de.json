@@ -2124,7 +2124,7 @@
   "prime.wallet_diff_local": "Lokal",
   "prime.wallet_dup_confirm_desc": "Die folgenden Wallets sind Duplikate; Sie können nur eines behalten, das andere wird entfernt.",
   "prime.wallet_list": "Wallet-Liste",
-  "prime.wallet_list_description": "Wallets / Kontoname, beobachtete Adresse.",
+  "prime.wallet_list_description": "Wallets / Kontoname",
   "prime.welcome_back": "Willkommen zurück",
   "prime.what_data_included": "Welche Daten sind enthalten",
   "prime.what_data_included_description": "Wiederherstellungsphrasen und private Schlüssel NICHT enthalten.",
