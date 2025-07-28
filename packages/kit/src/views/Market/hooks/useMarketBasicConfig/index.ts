@@ -27,7 +27,7 @@ export function useMarketBasicConfig() {
     // Process all data in one place
     const defaultNetworkId = getDefaultNetworkId(configData);
     const recommendedTokens = convertRecommendedTokens(
-      configData.reommandTokens,
+      configData.recommendTokens,
     );
     const minLiquidity = getMinLiquidity(configData);
     const refreshInterval = getRefreshInterval(configData);

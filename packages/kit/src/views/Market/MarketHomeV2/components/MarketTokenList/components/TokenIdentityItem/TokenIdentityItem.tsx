@@ -81,9 +81,6 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
       return tokenLogoURI;
     }
 
-    console.log('tokenLogoURI', tokenLogoURI);
-
-    // 在移动端只显示 PNG 和 JPG 格式的图片
     const lowerCaseUri = tokenLogoURI.toLowerCase();
     if (
       lowerCaseUri.includes('png') ||

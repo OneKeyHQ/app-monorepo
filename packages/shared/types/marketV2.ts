@@ -328,7 +328,7 @@ export interface IMarketBasicConfigToken {
 
 export interface IMarketBasicConfigData {
   networkList: IMarketBasicConfigNetwork[];
-  reommandTokens: IMarketBasicConfigToken[];
+  recommendTokens: IMarketBasicConfigToken[];
   refreshInterval: number;
   minLiquidity: number;
 }
