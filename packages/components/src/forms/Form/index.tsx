@@ -1,4 +1,9 @@
-import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
+import type {
+  ComponentProps,
+  PropsWithChildren,
+  ReactElement,
+  ReactNode,
+} from 'react';
 import {
   Children,
   cloneElement,
@@ -39,6 +44,7 @@ export type IFormProps = IPropsWithTestId<{
     submit?: () => void;
   };
   header?: ReactNode;
+  childrenGap?: ComponentProps<typeof YStack>['gap'];
 }>;
 
 function HiddenSubmit() {
@@ -55,7 +61,11 @@ function HiddenSubmit() {
   );
 }
 
-export function FormWrapper({ form: formContext, children }: IFormProps) {
+export function FormWrapper({
+  form: formContext,
+  children,
+  childrenGap,
+}: IFormProps) {
   useEffect(() => {
     addFormInstance(formContext);
 
@@ -67,7 +77,7 @@ export function FormWrapper({ form: formContext, children }: IFormProps) {
   return (
     <FormProvider {...formContext}>
       <TMForm onSubmit={formContext.submit} position="relative">
-        <YStack gap="$5">{children}</YStack>
+        <YStack gap={childrenGap ?? '$5'}>{children}</YStack>
         {formContext.submit ? <HiddenSubmit /> : null}
       </TMForm>
     </FormProvider>

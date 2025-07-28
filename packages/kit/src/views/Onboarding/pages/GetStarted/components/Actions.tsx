@@ -10,11 +10,12 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 import { Action } from './Action';
 
-export function Actions() {
+export function Actions({ showTransfer }: { showTransfer: boolean }) {
   const navigation = useAppNavigation();
   const intl = useIntl();
 
@@ -145,6 +146,21 @@ export function Actions() {
         }
         {...(platformEnv.isWebDappMode ? { items } : { sections })}
       />
+
+      {showTransfer ? (
+        <Action
+          iconName="MultipleDevicesOutline"
+          label={intl.formatMessage({
+            id: ETranslations.transfer_transfer,
+          })}
+          onPress={() => {
+            navigation.pushModal(EModalRoutes.PrimeModal, {
+              screen: EPrimePages.PrimeTransfer,
+            });
+          }}
+          testID="transfer"
+        />
+      ) : null}
     </Stack>
   );
 }

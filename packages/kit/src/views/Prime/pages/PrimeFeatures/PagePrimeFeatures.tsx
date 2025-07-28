@@ -8,9 +8,11 @@ import type {
   IRenderPaginationParams,
 } from '@onekeyhq/components';
 import {
+  Button,
   Divider,
   Image,
   Page,
+  Portal,
   SizableText,
   Stack,
   Swiper,
@@ -25,11 +27,13 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
@@ -46,6 +50,7 @@ type IFeatureItemInfo = {
     description: string;
     onPress?: () => void;
   }[];
+  children?: React.ReactNode;
 };
 
 function FeaturesItem({
@@ -53,6 +58,7 @@ function FeaturesItem({
   title,
   description,
   details,
+  children,
 }: IFeatureItemInfo) {
   return (
     <Stack alignItems="center" justifyContent="center">
@@ -72,28 +78,31 @@ function FeaturesItem({
         <YStack gap="$1.5" pb="$4">
           {details.map((detail, index) => {
             return (
-              <ListItem
-                key={index}
-                drillIn={!!detail.onPress}
-                onPress={detail.onPress}
-                icon={detail.icon}
-              >
-                <ListItem.Text
-                  userSelect="none"
-                  flex={1}
-                  primary={
-                    <XStack>
-                      <SizableText textAlign="left" size="$bodyMdMedium">
-                        {detail.title}
-                      </SizableText>
-                    </XStack>
-                  }
-                  secondary={detail.description}
-                />
-              </ListItem>
+              <>
+                <ListItem
+                  key={index}
+                  drillIn={!!detail.onPress}
+                  onPress={detail.onPress}
+                  icon={detail.icon}
+                >
+                  <ListItem.Text
+                    userSelect="none"
+                    flex={1}
+                    primary={
+                      <XStack>
+                        <SizableText textAlign="left" size="$bodyMdMedium">
+                          {detail.title}
+                        </SizableText>
+                      </XStack>
+                    }
+                    secondary={detail.description}
+                  />
+                </ListItem>
+              </>
             );
           })}
         </YStack>
+        {children}
       </Stack>
     </Stack>
   );
@@ -112,6 +121,11 @@ export default function PagePrimeFeatures() {
   const selectedSubscriptionPeriod = route.params?.selectedSubscriptionPeriod;
   const intl = useIntl();
   const { gtMd } = useMedia();
+
+  // const [primePersistData] = usePrimePersistAtom();
+  // const [primeMasterPasswordPersistData] = usePrimeMasterPasswordPersistAtom();
+  const { isPrimeSubscriptionActive } = usePrimeAuthV2();
+  const [primeCloudSyncPersistData] = usePrimeCloudSyncPersistAtom();
 
   const bannerHeight = useMemo(() => {
     if (gtMd) {
@@ -161,6 +175,23 @@ export default function PagePrimeFeatures() {
             }),
           },
         ],
+        children:
+          primeCloudSyncPersistData?.isCloudSyncEnabled ||
+          isPrimeSubscriptionActive ? (
+            <Stack>
+              <Button
+                mt="$2"
+                variant="tertiary"
+                onPress={() => {
+                  navigation.navigate(EPrimePages.PrimeCloudSync);
+                }}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.prime_manage_service,
+                })}
+              </Button>
+            </Stack>
+          ) : null,
       },
 
       {
@@ -261,13 +292,24 @@ export default function PagePrimeFeatures() {
       data,
       index: index ?? 0,
     };
-  }, [bannerHeight, intl, selectedFeature, showAllFeatures]);
+  }, [
+    isPrimeSubscriptionActive,
+    bannerHeight,
+    intl,
+    navigation,
+    primeCloudSyncPersistData?.isCloudSyncEnabled,
+    selectedFeature,
+    showAllFeatures,
+  ]);
 
   // PaginationButton will cause native crash
   const showPaginationButton = !platformEnv.isNative;
   const isHovering = true;
+  const showCloseButton = false;
 
-  const [index, setIndex] = useState(dataInfo.index);
+  const portalContainerName = useMemo(() => {
+    return `prime-features-swiper-controls--${stringUtils.generateUUID()}`;
+  }, []);
 
   const renderPagination = useCallback(
     ({
@@ -275,38 +317,75 @@ export default function PagePrimeFeatures() {
       goToNextIndex,
       gotToPrevIndex,
     }: IRenderPaginationParams) => (
-      <>
-        {showPaginationButton ? (
-          <>
-            <PaginationButton
-              isVisible={currentIndex !== 0 ? isHovering : false}
-              direction="previous"
-              onPress={gotToPrevIndex}
-              variant="tertiary"
-              theme="dark"
-              iconSize="small"
-              positionOffset={16}
-            />
+      <Portal.Body container={portalContainerName as any}>
+        <Theme name="dark">
+          {dataInfo.data.length > 1 ? (
+            <XStack
+              testID="prime-features-pagination"
+              gap="$1"
+              position="absolute"
+              right={0}
+              left={0}
+              bottom={0}
+              width="100%"
+              jc="center"
+              // pt="$1"
+              // pb="$2"
+              zIndex={1}
+              // {...hoverOpacity}
+              // {...indicatorContainerStyle}
+            >
+              {dataInfo.data.map((_, index) => (
+                <Stack
+                  key={index}
+                  w="$3"
+                  $gtMd={{
+                    w: '$4',
+                  }}
+                  h="$1"
+                  borderRadius="$full"
+                  bg="$textSubdued"
+                  opacity={currentIndex === index ? 1 : 0.5}
+                />
+              ))}
+            </XStack>
+          ) : null}
 
-            <PaginationButton
-              isVisible={
-                currentIndex !== dataInfo.data.length - 1 ? isHovering : false
-              }
-              direction="next"
-              onPress={goToNextIndex}
-              variant="tertiary"
-              theme="dark"
-              iconSize="small"
-              positionOffset={16}
-            />
-          </>
-        ) : null}
-      </>
+          {showPaginationButton ? (
+            <>
+              <PaginationButton
+                isVisible={currentIndex !== 0 ? isHovering : false}
+                direction="previous"
+                onPress={gotToPrevIndex}
+                variant="tertiary"
+                zIndex={1}
+                theme="dark"
+                iconSize="small"
+                positionOffset={16}
+              />
+
+              <PaginationButton
+                isVisible={
+                  currentIndex !== dataInfo.data.length - 1 ? isHovering : false
+                }
+                direction="next"
+                onPress={goToNextIndex}
+                variant="tertiary"
+                zIndex={1}
+                theme="dark"
+                iconSize="small"
+                positionOffset={16}
+              />
+            </>
+          ) : null}
+        </Theme>
+      </Portal.Body>
     ),
-    [dataInfo.data.length, isHovering, showPaginationButton],
+    [dataInfo.data, isHovering, portalContainerName, showPaginationButton],
   );
 
-  const { isPrimeSubscriptionActive } = usePrimeAuthV2();
+  const [index, setIndex] = useState(dataInfo.index);
+
   const shouldShowConfirmButton = !showAllFeatures
     ? true
     : !isPrimeSubscriptionActive;
@@ -398,10 +477,12 @@ export default function PagePrimeFeatures() {
 
         <Page.Body>
           <View style={{ flex: 1 }}>
+            <Portal.Container name={portalContainerName} />
             <ScrollView>
               <Stack h={gtMd ? 48 : 60} />
               <Swiper
-                height={height}
+                // height={height}
+                height="100%"
                 position="relative"
                 index={index}
                 initialNumToRender={3}
@@ -414,33 +495,6 @@ export default function PagePrimeFeatures() {
                 borderRadius="$3"
               />
             </ScrollView>
-
-            {dataInfo.data.length > 1 ? (
-              <View>
-                <XStack
-                  testID="prime-features-pagination"
-                  gap="$1"
-                  width="100%"
-                  jc="center"
-                  pt="$1"
-                  pb="$2"
-                >
-                  {dataInfo.data.map((_, pageIndex) => (
-                    <Stack
-                      key={pageIndex}
-                      w="$3"
-                      $gtMd={{
-                        w: '$4',
-                      }}
-                      h="$1"
-                      borderRadius="$full"
-                      bg="$textSubdued"
-                      opacity={index === pageIndex ? 1 : 0.5}
-                    />
-                  ))}
-                </XStack>
-              </View>
-            ) : null}
           </View>
         </Page.Body>
         <Page.Footer

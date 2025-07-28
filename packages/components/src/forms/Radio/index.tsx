@@ -9,7 +9,12 @@ export type IRadioProps = IFormFieldProps<
   string,
   {
     disabled?: boolean;
-    options: { label: string; description?: string; value: string }[];
+    options: {
+      label: string;
+      description?: string;
+      value: string;
+      children?: React.ReactNode;
+    }[];
     defaultValue?: string;
   }
 >;
@@ -28,47 +33,50 @@ export function Radio({
       onValueChange={onChange}
       disabled={disabled}
     >
-      {options.map(({ label, description, value: v }, index) => (
-        <XStack py="$2" key={index}>
-          <RadioGroup.Item
-            value={v}
-            id={v}
-            unstyled
-            alignItems="center"
-            justifyContent="center"
-            my="$0.5"
-            w="$5"
-            h="$5"
-            borderWidth="$0.5"
-            borderColor={value === v ? '$transparent' : '$borderStrong'}
-            backgroundColor={value === v ? '$bgPrimary' : '$transparent'}
-            borderRadius="$full"
-            focusVisibleStyle={{
-              outlineOffset: 2,
-              outlineColor: '$focusRing',
-            }}
-            hitSlop={NATIVE_HIT_SLOP}
-          >
-            <RadioGroup.Indicator
+      {options.map(
+        ({ label, description, value: v, children: optionChildren }, index) => (
+          <XStack py="$2" key={index}>
+            <RadioGroup.Item
+              value={v}
+              id={v}
               unstyled
-              w="$2.5"
-              h="$2.5"
-              bg="$iconInverse"
+              alignItems="center"
+              justifyContent="center"
+              my="$0.5"
+              w="$5"
+              h="$5"
+              borderWidth="$0.5"
+              borderColor={value === v ? '$transparent' : '$borderStrong'}
+              backgroundColor={value === v ? '$bgPrimary' : '$transparent'}
               borderRadius="$full"
-            />
-          </RadioGroup.Item>
-          <YStack pl="$2" py="$2" my="$-2" flex={1}>
-            <Label htmlFor={v} variant="$bodyLgMedium">
-              {label}
-            </Label>
-            {description ? (
-              <SizableText size="$bodyMd" color="$textSubdued" pt="$0.5">
-                {description}
-              </SizableText>
-            ) : null}
-          </YStack>
-        </XStack>
-      ))}
+              focusVisibleStyle={{
+                outlineOffset: 2,
+                outlineColor: '$focusRing',
+              }}
+              hitSlop={NATIVE_HIT_SLOP}
+            >
+              <RadioGroup.Indicator
+                unstyled
+                w="$2.5"
+                h="$2.5"
+                bg="$iconInverse"
+                borderRadius="$full"
+              />
+            </RadioGroup.Item>
+            <YStack pl="$2" py="$2" my="$-2" flex={1}>
+              <Label htmlFor={v} variant="$bodyLgMedium">
+                {label}
+              </Label>
+              {description ? (
+                <SizableText size="$bodyMd" color="$textSubdued" pt="$0.5">
+                  {description}
+                </SizableText>
+              ) : null}
+              {optionChildren}
+            </YStack>
+          </XStack>
+        ),
+      )}
     </RadioGroup>
   );
 }
