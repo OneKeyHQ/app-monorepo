@@ -55,6 +55,7 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { HyperlinkText } from '../../../../components/HyperlinkText';
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
@@ -1039,7 +1040,9 @@ export function UniversalStake({
             <Alert
               key={index}
               type="warning"
-              title={alert.text.text}
+              renderTitle={() => {
+                return <EarnText text={alert.text} size="$bodyMdMedium" />;
+              }}
               action={
                 alert.button
                   ? {

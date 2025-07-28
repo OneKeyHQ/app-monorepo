@@ -25,6 +25,8 @@ export enum ECheckAmountActionType {
 export interface ICheckAmountAlert {
   text: {
     text: string;
+    color?: string;
+    size?: FontSizeTokens;
   };
   button?: {
     text: {
