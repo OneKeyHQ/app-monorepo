@@ -178,7 +178,7 @@ function RiskTokenManager() {
       return sectionListData;
     }
 
-    const filteredSectionListData = sectionListData?.map((section) => {
+    const result = sectionListData?.map((section) => {
       return {
         ...section,
         data: section.data.filter((token) => {
@@ -191,11 +191,11 @@ function RiskTokenManager() {
       };
     });
 
-    if (filteredSectionListData.every((section) => section.data.length === 0)) {
+    if (result.every((section) => section.data.length === 0)) {
       return [];
     }
 
-    return filteredSectionListData;
+    return result;
   }, [sectionListData, searchKey]);
 
   const handleOnClose = useCallback(async () => {
