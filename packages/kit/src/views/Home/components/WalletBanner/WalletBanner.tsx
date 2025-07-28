@@ -18,6 +18,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -31,7 +32,6 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
-import { useThemeVariant } from '../../../../hooks/useThemeVariant';
 import { EarnNavigation } from '../../../Earn/earnUtils';
 
 import type { GestureResponderEvent } from 'react-native';
