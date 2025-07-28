@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -48,6 +48,13 @@ function groupDataByDate(data: IBrowserHistory[]) {
 
 function HistoryListModal() {
   const [isEditing, setIsEditing] = useState(false);
+  const [allHistoryData, setAllHistoryData] = useState<IBrowserHistory[]>([]);
+  const [dataSource, setDataSource] = useState<
+    {
+      title: string;
+      data: IBrowserHistory[];
+    }[]
+  >([]);
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { removeBrowserHistory, removeAllBrowserHistory } =
@@ -56,33 +63,32 @@ function HistoryListModal() {
   const handleWebSite = useWebSiteHandler();
 
   const [page, setPage] = useState(1);
-  const [lastPageDataCount, setLastPageDataCount] = useState(0);
-  const [hasMoreData, setHasMoreData] = useState(true);
 
-  const { result: dataSource, run } = usePromiseResult(
-    async () => {
-      const data = await backgroundApiProxy.serviceDiscovery.fetchHistoryData(
-        page,
-      );
+  const { run } = usePromiseResult(async () => {
+    const data = await backgroundApiProxy.serviceDiscovery.fetchHistoryData(
+      page,
+    );
 
-      if (data.length === lastPageDataCount || data.length === 0) {
-        setHasMoreData(false);
-      } else {
-        setLastPageDataCount(data.length);
-      }
+    if (page === 1) {
+      setAllHistoryData(data);
+    } else {
+      setAllHistoryData((prev) => [...prev, ...data]);
+    }
 
-      const ret = groupDataByDate(data);
-      return ret;
-    },
-    [page, lastPageDataCount],
-    {
-      watchLoading: true,
-    },
-  );
+    return data;
+  }, [page]);
+
+  useEffect(() => {
+    setDataSource((prev) => {
+      const newData = groupDataByDate(prev, allHistoryData);
+      return [...prev, ...newData];
+    });
+  }, [allHistoryData]);
 
   const removeHistoryFlagRef = useRef(false);
   const handleDeleteAll = useCallback(async () => {
     await removeAllBrowserHistory();
+    setAllHistoryData([]);
     removeHistoryFlagRef.current = true;
     setTimeout(() => {
       void run();
@@ -90,11 +96,13 @@ function HistoryListModal() {
   }, [run, removeAllBrowserHistory]);
 
   useEffect(() => {
-    if (removeHistoryFlagRef.current && dataSource?.length === 0) {
+    if (removeHistoryFlagRef.current && allHistoryData.length === 0) {
       navigation.pop();
       removeHistoryFlagRef.current = false;
     }
-  }, [navigation, dataSource?.length]);
+  }, [navigation, allHistoryData.length]);
+
+  console.log('dataSource', dataSource);
 
   const headerRight = useCallback(
     () => (
@@ -207,6 +215,9 @@ function HistoryListModal() {
                   icon="DeleteOutline"
                   onPress={() => {
                     void removeBrowserHistory(item.id);
+                    setAllHistoryData((prev) =>
+                      prev.filter((historyItem) => historyItem.id !== item.id),
+                    );
                     removeHistoryFlagRef.current = true;
                     setTimeout(() => {
                       void run();
@@ -221,11 +232,11 @@ function HistoryListModal() {
               ) : null}
             </ListItem>
           )}
-          {...(hasMoreData && {
-            onEndReached: () => {
-              setPage((prev) => prev + 1);
-            },
-          })}
+          onEndReached={() => {
+            console.log('onEndReached', page);
+            setPage((prev) => prev + 1);
+          }}
+          onEndReachedThreshold={0.5}
         />
       </Page.Body>
     </Page>
