@@ -10,6 +10,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
+  IMarketBasicConfigResponse,
   IMarketChainsResponse,
   IMarketTokenBatchListResponse,
   IMarketTokenDetail,
@@ -68,6 +69,25 @@ class ServiceMarketV2 extends ServiceBase {
   @backgroundMethod()
   async fetchMarketChains() {
     return this.memoizedFetchMarketChains();
+  }
+
+  private memoizedFetchMarketBasicConfig = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<IMarketBasicConfigResponse>(
+        '/utility/v2/market/basic-config',
+      );
+      return response.data;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
+      promise: true,
+    },
+  );
+
+  @backgroundMethod()
+  async fetchMarketBasicConfig() {
+    return this.memoizedFetchMarketBasicConfig();
   }
 
   @backgroundMethod()
