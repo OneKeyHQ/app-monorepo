@@ -266,8 +266,7 @@ function BasicPhaseInput(
       const trimmedValue = v ? parseSecretRecoveryPhrase(v) : '';
       if (
         trimmedValue &&
-        trimmedValue.split(' ').filter(Boolean).length === phraseLength &&
-        validateMnemonic(trimmedValue)
+        trimmedValue.split(' ').filter(Boolean).length === phraseLength
       ) {
         if (onPasteMnemonic(trimmedValue, 0)) {
           onInputChange('');
