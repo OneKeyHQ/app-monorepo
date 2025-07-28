@@ -1,5 +1,6 @@
 import type {
   ColorTokens,
+  IAlertType,
   IBadgeType,
   IButtonProps,
   IKeyOfIcons,
@@ -22,20 +23,23 @@ export enum ECheckAmountActionType {
   CLAIM = 'claim',
 }
 
-export interface ICheckAmountAlert {
+export interface IEarnAlertButton {
   text: {
     text: string;
   };
-  button?: {
-    text: {
-      text: string;
-    };
-    type: string;
-    disabled: boolean;
-    data: {
-      link: string;
-    };
+  type: string;
+  disabled: boolean;
+  data: {
+    link: string;
   };
+}
+
+export interface ICheckAmountAlert {
+  type: IAlertType;
+  text: {
+    text: string;
+  };
+  button?: IEarnAlertButton;
 }
 
 // export type IStakeTag = 'lido-eth' | 'lido-matic';
@@ -677,6 +681,7 @@ export interface IEarnAlert {
   alert: string;
   key: ESpotlightTour;
   badge: IBadgeType;
+  button?: IEarnAlertButton;
 }
 
 export interface IEarnRiskNoticeDialog {
@@ -790,6 +795,7 @@ export interface IEarnProvider {
 
 export interface IStakeTransactionConfirmation {
   title: IEarnText;
+  tooltip?: IEarnTooltip;
   rewards: Array<{
     title: IEarnText;
     description: IEarnText;

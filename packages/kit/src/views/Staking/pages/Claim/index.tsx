@@ -20,6 +20,7 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import { UniversalClaim } from '../../components/UniversalClaim';
 import { useProviderLabel } from '../../hooks/useProviderLabel';
 import { useUniversalClaim } from '../../hooks/useUniversalHooks';
+import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 
 const ClaimPage = () => {
   const intl = useIntl();
@@ -135,4 +136,10 @@ const ClaimPage = () => {
   );
 };
 
-export default ClaimPage;
+export default function ClaimPageWithProvider() {
+  return (
+    <DiscoveryBrowserProviderMirror>
+      <ClaimPage />
+    </DiscoveryBrowserProviderMirror>
+  );
+}

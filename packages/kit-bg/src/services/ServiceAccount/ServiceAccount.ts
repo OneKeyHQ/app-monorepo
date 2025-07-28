@@ -216,6 +216,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async validateMnemonic(mnemonic: string): Promise<{
     mnemonic: string;
     mnemonicType: EMnemonicType;
