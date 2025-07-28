@@ -17,7 +17,14 @@ function ImageStateTest() {
             setUri('https://uni.onekey-asset.com/static/chain/btc.png')
           }
         >
-          set valid url
+          set btc image url
+        </Button>
+        <Button
+          onPress={() =>
+            setUri('https://uni.onekey-asset.com/static/chain/eth.png')
+          }
+        >
+          set eth image url
         </Button>
         <Button
           onPress={() =>
