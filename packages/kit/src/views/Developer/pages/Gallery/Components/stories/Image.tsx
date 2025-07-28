@@ -1,13 +1,6 @@
 import { useState } from 'react';
 
-import {
-  Button,
-  Icon,
-  Image,
-  Skeleton,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, Icon, Image, XStack, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
