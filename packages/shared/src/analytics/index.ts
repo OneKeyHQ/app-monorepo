@@ -110,12 +110,12 @@ export class Analytics {
     eventName: string,
     eventProps?: Record<string, any>,
   ) {
-    // if (
-    //   (platformEnv.isDev || platformEnv.isE2E) &&
-    //   !this.enableAnalyticsInDev
-    // ) {
-    //   return;
-    // }
+    if (
+      (platformEnv.isDev || platformEnv.isE2E) &&
+      !this.enableAnalyticsInDev
+    ) {
+      return;
+    }
     const deviceInfo = await this.lazyDeviceInfo();
     const event = {
       ...deviceInfo,
