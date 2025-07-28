@@ -109,12 +109,6 @@ export function ImageV2({
     return ExpoImage;
   }, [animated]);
 
-  console.log(
-    'hasError',
-    hasError,
-    resolvedSource,
-    isEmptyResolvedSource(resolvedSource),
-  );
   if (hasError || isEmptyResolvedSource(resolvedSource)) {
     return fallback;
   }
