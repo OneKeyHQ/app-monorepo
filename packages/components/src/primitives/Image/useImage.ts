@@ -109,9 +109,6 @@ export function useImage(
     if (!resolvedSource) {
       return;
     }
-    if (fetchImageTimesLimit.current > 3) {
-      return;
-    }
     if (resolvedSource?.uri) {
       IMAGE_CACHE_MAP.delete(resolvedSource?.uri);
     }
