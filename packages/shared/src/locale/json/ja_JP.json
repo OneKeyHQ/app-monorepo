@@ -2749,6 +2749,8 @@
   "swap_process.build_and_estimate_tx": "トランザクションを構築して見積もる",
   "swap_process.create_order": "注文を作成する",
   "swap_process.sign_and_sent_tx": "署名して取引を送信",
+  "swap_review.confirm_2_on_device": "デバイスで2回確認してください",
+  "swap_review.confirm_3_on_device": "デバイスで3回確認してください",
   "swap_review.confirm_swap": "スワップを確認",
   "swap_review.review_swap": "レビューの交換",
   "swap_review.sign_and_submit": "トランザクションに署名して送信する",

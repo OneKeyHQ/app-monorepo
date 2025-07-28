@@ -2749,6 +2749,8 @@
   "swap_process.build_and_estimate_tx": "거래를 생성하고 추정하기",
   "swap_process.create_order": "주문 생성",
   "swap_process.sign_and_sent_tx": "거래 서명 및 전송",
+  "swap_review.confirm_2_on_device": "기기에서 두 번 확인하세요",
+  "swap_review.confirm_3_on_device": "기기에서 세 번 확인하세요",
   "swap_review.confirm_swap": "스왑 확인",
   "swap_review.review_swap": "리뷰 교환",
   "swap_review.sign_and_submit": "거래 서명 및 제출",

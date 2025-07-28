@@ -2754,6 +2754,8 @@
   swap_process_build_and_estimate_tx = 'swap_process.build_and_estimate_tx',
   swap_process_create_order = 'swap_process.create_order',
   swap_process_sign_and_sent_tx = 'swap_process.sign_and_sent_tx',
+  swap_review_confirm_2_on_device = 'swap_review.confirm_2_on_device',
+  swap_review_confirm_3_on_device = 'swap_review.confirm_3_on_device',
   swap_review_confirm_swap = 'swap_review.confirm_swap',
   swap_review_review_swap = 'swap_review.review_swap',
   swap_review_sign_and_submit = 'swap_review.sign_and_submit',
