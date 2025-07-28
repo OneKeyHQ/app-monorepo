@@ -2749,6 +2749,8 @@
   "swap_process.build_and_estimate_tx": "ট্রান্স্যাকশন তৈরি করুন এবং অনুমান করুন",
   "swap_process.create_order": "অর্ডার তৈরি করুন",
   "swap_process.sign_and_sent_tx": "স্বাক্ষর করুন এবং টিএক্স পাঠান",
+  "swap_review.confirm_2_on_device": "ডিভাইসে দুইবার নিশ্চিত করুন",
+  "swap_review.confirm_3_on_device": "ডিভাইসে তিনবার নিশ্চিত করুন",
   "swap_review.confirm_swap": "বদল নিশ্চিত করুন",
   "swap_review.review_swap": "রিভিউ অদলবদল",
   "swap_review.sign_and_submit": "লেনদেন স্বাক্ষর করুন এবং জমা দিন",

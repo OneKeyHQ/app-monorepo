@@ -2749,6 +2749,8 @@
   "swap_process.build_and_estimate_tx": "Construir e estimar Tx",
   "swap_process.create_order": "Criar pedido",
   "swap_process.sign_and_sent_tx": "Assinar e enviar transação",
+  "swap_review.confirm_2_on_device": "Confirme duas vezes no dispositivo",
+  "swap_review.confirm_3_on_device": "Confirme três vezes no dispositivo",
   "swap_review.confirm_swap": "Confirmar troca",
   "swap_review.review_swap": "Troca de avaliações",
   "swap_review.sign_and_submit": "Assinar e enviar transação",

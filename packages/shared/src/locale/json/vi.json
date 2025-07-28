@@ -2749,6 +2749,8 @@
   "swap_process.build_and_estimate_tx": "Xây dựng và ước tính giao dịch",
   "swap_process.create_order": "Tạo đơn hàng",
   "swap_process.sign_and_sent_tx": "Ký và gửi giao dịch",
+  "swap_review.confirm_2_on_device": "Xác nhận hai lần trên thiết bị",
+  "swap_review.confirm_3_on_device": "Xác nhận ba lần trên thiết bị",
   "swap_review.confirm_swap": "Xác nhận hoán đổi",
   "swap_review.review_swap": "Xem lại hoán đổi",
   "swap_review.sign_and_submit": "Ký và gửi giao dịch",

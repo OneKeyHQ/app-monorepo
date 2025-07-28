@@ -2749,6 +2749,8 @@
   "swap_process.build_and_estimate_tx": "构建和预估交易",
   "swap_process.create_order": "创建订单",
   "swap_process.sign_and_sent_tx": "签名并发送交易",
+  "swap_review.confirm_2_on_device": "在设备上确认两次",
+  "swap_review.confirm_3_on_device": "在设备上确认三次",
   "swap_review.confirm_swap": "确认兑换",
   "swap_review.review_swap": "确认兑换",
   "swap_review.sign_and_submit": "签名并提交交易",

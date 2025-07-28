@@ -16,7 +16,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ESwapNetworkFeeLevel,
-  type ESwapSlippageSegmentKey,
   type ISwapPreSwapData,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -24,16 +23,11 @@ import PreSwapInfoItem from './PreSwapInfoItem';
 
 interface IPreSwapInfoGroupProps {
   preSwapData: ISwapPreSwapData;
-  slippageItem: {
-    key: ESwapSlippageSegmentKey;
-    value: number;
-  };
   onSelectNetworkFeeLevel: (value: ESwapNetworkFeeLevel) => void;
 }
 
 const PreSwapInfoGroup = ({
   preSwapData,
-  slippageItem,
   onSelectNetworkFeeLevel,
 }: IPreSwapInfoGroupProps) => {
   const intl = useIntl();
@@ -68,13 +62,16 @@ const PreSwapInfoGroup = ({
     return selectItems;
   }, [intl]);
   const slippage = useMemo(() => {
-    if (!preSwapData?.unSupportSlippage) {
-      return new BigNumber(slippageItem.value)
+    if (
+      !preSwapData?.unSupportSlippage &&
+      preSwapData?.slippage !== undefined
+    ) {
+      return new BigNumber(preSwapData?.slippage ?? 0)
         .decimalPlaces(2, BigNumber.ROUND_DOWN)
         .toNumber();
     }
     return undefined;
-  }, [preSwapData?.unSupportSlippage, slippageItem.value]);
+  }, [preSwapData?.slippage, preSwapData?.unSupportSlippage]);
   const fee = useMemo(() => {
     if (
       new BigNumber(preSwapData?.fee?.percentageFee ?? '0').isZero() ||
