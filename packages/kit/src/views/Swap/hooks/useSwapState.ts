@@ -142,29 +142,6 @@ export function useSwapQuoteEventFetching() {
   return false;
 }
 
-export function useSwapBatchTransfer(
-  networkId?: string,
-  accountId?: string,
-  providerDisableBatchTransfer?: boolean,
-) {
-  const [settingsPersistAtom] = useSettingsPersistAtom();
-  const isExternalAccount = accountUtils.isExternalAccount({
-    accountId: accountId ?? '',
-  });
-  const isHDAccount = accountUtils.isHwOrQrAccount({
-    accountId: accountId ?? '',
-  });
-  const isUnSupportBatchTransferNet =
-    SwapBuildUseMultiplePopoversNetworkIds.includes(networkId ?? '');
-  return (
-    settingsPersistAtom.swapBatchApproveAndSwap &&
-    !isUnSupportBatchTransferNet &&
-    !isExternalAccount &&
-    !isHDAccount &&
-    !providerDisableBatchTransfer
-  );
-}
-
 export enum ESwapBatchTransferType {
   CONTINUOUS_APPROVE_AND_SWAP = 'continuous_approve_and_swap',
   BATCH_APPROVE_AND_SWAP = 'batch_approve_and_swap',
@@ -175,6 +152,7 @@ export function useSwapBatchTransferType(
   networkId?: string,
   accountId?: string,
   providerDisableBatchTransfer?: boolean,
+  swapShouldSignedData?: boolean,
 ) {
   let type = ESwapBatchTransferType.NORMAL;
   const [settingsPersistAtom] = useSettingsPersistAtom();
@@ -192,7 +170,12 @@ export function useSwapBatchTransferType(
   }
   const isUnSupportBatchTransferNet =
     SwapBuildUseMultiplePopoversNetworkIds.includes(networkId ?? '');
-  if (providerDisableBatchTransfer || isUnSupportBatchTransferNet) {
+  if (
+    providerDisableBatchTransfer ||
+    isUnSupportBatchTransferNet ||
+    !settingsPersistAtom.swapBatchApproveAndSwap ||
+    swapShouldSignedData
+  ) {
     type = ESwapBatchTransferType.NORMAL;
   }
   return type;

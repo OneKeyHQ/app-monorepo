@@ -33,6 +33,7 @@ import { SimpleDbEntityMarketWatchListV2 } from '../entity/SimpleDbEntityMarketW
 import { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
 import { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
+import { SimpleDbEntityPrimeTransfer } from '../entity/SimpleDbEntityPrimeTransfer';
 import { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
 import { SimpleDbEntityRecentRecipients } from '../entity/SimpleDbEntityRecentRecipients';
 import { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
@@ -48,6 +49,8 @@ import { SimpleDbEntityWalletBanner } from '../entity/SimpleDbEntityWalletBanner
 
 export class SimpleDb {
   prime = new SimpleDbEntityPrime();
+
+  primeTransfer = new SimpleDbEntityPrimeTransfer();
 
   referralCode = new SimpleDbEntityReferralCode();
 

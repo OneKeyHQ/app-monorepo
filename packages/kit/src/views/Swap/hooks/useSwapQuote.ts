@@ -125,7 +125,7 @@ export function useSwapQuote() {
       (item, index) => item.quoteId !== swapQuoteResultList?.[index]?.quoteId,
     )
   ) {
-    swapQuoteResultListRef.current = swapQuoteResultList;
+    swapQuoteResultListRef.current = [...swapQuoteResultList];
   }
   const swapQuoteEventTotalCountRef = useRef(swapQuoteEventTotalCount);
   if (swapQuoteEventTotalCountRef.current !== swapQuoteEventTotalCount) {
@@ -560,6 +560,53 @@ export function useSwapQuote() {
     ],
   );
 
+  const swapQuoteMixEventAction = useCallback((errorMessage?: string) => {
+    if (
+      swapQuoteResultListRef.current?.length &&
+      swapQuoteResultListRef.current[0].eventId !==
+        swapQuoteEventTotalCountRef.current.eventId
+    ) {
+      return;
+    }
+    const providerQuoteResult: ISwapQuoteProvideResult[] =
+      swapQuoteResultListRef.current?.map((item) => {
+        return {
+          provider: item.info.provider,
+          providerName: item.info.providerName,
+          toAmount: item.toAmount,
+          errorMessage: item.errorMessage,
+        };
+      });
+    let finalStatus = errorMessage
+      ? ESwapEventAPIStatus.FAIL
+      : ESwapEventAPIStatus.SUCCESS;
+    if (!providerQuoteResult?.length || providerQuoteResult.length === 0) {
+      finalStatus = ESwapEventAPIStatus.FAIL;
+    } else if (providerQuoteResult?.every((item) => !item.toAmount)) {
+      finalStatus = ESwapEventAPIStatus.FAIL;
+    } else if (providerQuoteResult?.some((item) => !item.toAmount)) {
+      finalStatus = ESwapEventAPIStatus.PARTIAL_SUCCESS;
+    }
+    defaultLogger.swap.swapQuote.swapQuote({
+      walletType: activeAccountRef.current?.accountInfo?.wallet?.type ?? '',
+      quoteType: swapTabSwitchTypeRef.current,
+      slippageSetting:
+        settingsAtomRef.current.swapSlippagePercentageMode ===
+        ESwapSlippageSegmentKey.AUTO
+          ? 'auto'
+          : 'custom',
+      sourceChain: fromTokenRef.current?.networkId ?? '',
+      receivedChain: toTokenRef.current?.networkId ?? '',
+      sourceTokenSymbol: fromTokenRef.current?.symbol ?? '',
+      receivedTokenSymbol: toTokenRef.current?.symbol ?? '',
+      isAddReceiveAddress: settingsAtomRef.current.swapEnableRecipientAddress,
+      isSmartMode: settingsPersistAtomRef.current.swapBatchApproveAndSwap,
+      status: finalStatus,
+      providerQuoteResult,
+      message: errorMessage,
+    });
+  }, []);
+
   const swapQuoteMixEvent = useCallback(
     async (event: {
       event: ISwapQuoteEvent;
@@ -568,51 +615,34 @@ export function useSwapQuote() {
       tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
       accountId?: string;
     }) => {
-      if (event?.type === 'done' || event?.type === 'error') {
-        const providerQuoteResult: ISwapQuoteProvideResult[] =
-          swapQuoteResultListRef.current?.map((item) => {
-            return {
-              provider: item.info.provider,
-              providerName: item.info.providerName,
-              toAmount: item.toAmount,
-              errorMessage: item.errorMessage,
-            };
-          });
-        let finalStatus =
-          event?.type === 'done'
-            ? ESwapEventAPIStatus.SUCCESS
-            : ESwapEventAPIStatus.FAIL;
-        if (!providerQuoteResult?.length || providerQuoteResult.length === 0) {
-          finalStatus = ESwapEventAPIStatus.FAIL;
-        } else if (providerQuoteResult?.every((item) => !item.toAmount)) {
-          finalStatus = ESwapEventAPIStatus.FAIL;
-        } else if (providerQuoteResult?.some((item) => !item.toAmount)) {
-          finalStatus = ESwapEventAPIStatus.PARTIAL_SUCCESS;
-        }
-        defaultLogger.swap.swapQuote.swapQuote({
-          walletType: activeAccountRef.current?.accountInfo?.wallet?.type ?? '',
-          quoteType: swapTabSwitchTypeRef.current,
-          slippageSetting:
-            settingsAtomRef.current.swapSlippagePercentageMode ===
-            ESwapSlippageSegmentKey.AUTO
-              ? 'auto'
-              : 'custom',
-          sourceChain: fromTokenRef.current?.networkId ?? '',
-          receivedChain: toTokenRef.current?.networkId ?? '',
-          sourceTokenSymbol: fromTokenRef.current?.symbol ?? '',
-          receivedTokenSymbol: toTokenRef.current?.symbol ?? '',
-          isAddReceiveAddress:
-            settingsAtomRef.current.swapEnableRecipientAddress,
-          isSmartMode: settingsPersistAtomRef.current.swapBatchApproveAndSwap,
-          status: finalStatus,
-          providerQuoteResult,
-          message:
-            event?.type === 'done' ? undefined : JSON.stringify(event.event),
-        });
+      if (event?.type === 'error') {
+        swapQuoteMixEventAction(JSON.stringify(event.event));
       }
     },
-    [],
+    [swapQuoteMixEventAction],
   );
+
+  useEffect(() => {
+    if (
+      swapQuoteResultList?.length &&
+      swapQuoteEventTotalCount?.count &&
+      swapQuoteResultList?.length === swapQuoteEventTotalCount?.count &&
+      swapQuoteEventTotalCount?.eventId
+    ) {
+      swapQuoteMixEventAction();
+    } else if (
+      swapQuoteResultList?.length === 0 &&
+      swapQuoteEventTotalCount?.eventId &&
+      swapQuoteEventTotalCount?.count === 0
+    ) {
+      swapQuoteMixEventAction('no provider support');
+    }
+  }, [
+    swapQuoteResultList?.length,
+    swapQuoteEventTotalCount?.count,
+    swapQuoteEventTotalCount?.eventId,
+    swapQuoteMixEventAction,
+  ]);
 
   const isModalPage = useIsModalPage();
   useListenTabFocusState(
