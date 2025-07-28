@@ -13,17 +13,19 @@ import {
   SizableText,
   Stack,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   ECheckAmountActionType,
   type ICheckAmountAlert,
@@ -79,6 +81,9 @@ export const UniversalClaim = ({
   estimateFeeResp,
   onConfirm,
 }: PropsWithChildren<IUniversalClaimProps>) => {
+  const navigation = useAppNavigation();
+  const { gtMd } = useMedia();
+  const { handleOpenWebSite } = useBrowserAction().current;
   const price = Number(inputPrice) > 0 ? inputPrice : '0';
   const [loading, setLoading] = useState<boolean>(false);
   const [amountValue, setAmountValue] = useState(initialAmount ?? '');
@@ -297,7 +302,17 @@ export const UniversalClaim = ({
                       primary: alert.button.text.text,
                       onPrimaryPress: () => {
                         if (alert.button?.data?.link) {
-                          openUrlExternal(alert.button.data.link);
+                          handleOpenWebSite({
+                            switchToMultiTabBrowser: gtMd,
+                            navigation,
+                            useCurrentWindow: false,
+                            webSite: {
+                              url: alert.button.data.link,
+                              title: alert.button.data.link,
+                              logo: undefined,
+                              sortIndex: undefined,
+                            },
+                          });
                         }
                       },
                     }

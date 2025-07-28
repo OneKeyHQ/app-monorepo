@@ -18,6 +18,7 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalWithdraw } from '../../components/UniversalWithdraw';
 import { useUniversalWithdraw } from '../../hooks/useUniversalHooks';
+import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 
 const WithdrawPage = () => {
   const intl = useIntl();
@@ -185,4 +186,10 @@ const WithdrawPage = () => {
   );
 };
 
-export default WithdrawPage;
+export default function WithdrawPageWithProvider() {
+  return (
+    <DiscoveryBrowserProviderMirror>
+      <WithdrawPage />
+    </DiscoveryBrowserProviderMirror>
+  );
+}

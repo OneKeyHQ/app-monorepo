@@ -25,6 +25,7 @@ import type { IApproveConfirmFnParams } from '@onekeyhq/shared/types/staking';
 import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { UniversalStake } from '../../components/UniversalStake';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
@@ -227,7 +228,9 @@ export default function StakePage() {
       enabledNum={[0]}
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-        <BasicStakePage />
+        <DiscoveryBrowserProviderMirror>
+          <BasicStakePage />
+        </DiscoveryBrowserProviderMirror>
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );
