@@ -3,60 +3,27 @@ import { forwardRef } from 'react';
 
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import {
-  FlatList,
-  I18nManager,
+  SectionList as RNSectionList,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 
 import { OptimizationView } from '../../optimization';
 
-import type {
-  FlashList,
-  FlashListProps,
-  ListRenderItem,
-} from '@shopify/flash-list';
-import type { StackStyle, Tokens } from '@tamagui/web';
+import type { FlashList } from '@shopify/flash-list';
 
 type IListViewRef<T> = FlashList<T>;
 
-type IListViewProps<T> = Omit<
-  FlashListProps<T>,
-  | 'contentContainerStyle'
-  | 'columnWrapperStyle'
-  | 'ListHeaderComponentStyle'
-  | 'ListFooterComponentStyle'
-  | 'data'
-  | 'renderItem'
-  | 'estimatedItemSize'
-> &
-  StackStyle & {
-    contentContainerStyle?: StackStyle;
-    columnWrapperStyle?: StackStyle;
-    ListHeaderComponentStyle?: StackStyle;
-    ListFooterComponentStyle?: StackStyle;
-  } & {
-    data: ReadonlyArray<T> | null | undefined;
-    renderItem: ListRenderItem<T> | null | undefined;
-    ref?: MutableRefObject<IListViewRef<any> | null>;
-
-    /*
-      Average height of your cell
-      See https://shopify.github.io/flash-list/docs/estimated-item-size/#how-to-calculate
-    */
-    estimatedItemSize: number | `$${keyof Tokens['size']}`;
-  };
-
-function BaseListView<T>(
+function BaseSectionList<T>(
   {
-    data,
+    sections,
     renderItem,
     contentContainerStyle = {},
     ListHeaderComponentStyle = {},
     ListFooterComponentStyle = {},
     estimatedItemSize,
     ...props
-  }: IListViewProps<T>,
+  }: any,
   ref: ForwardedRef<IListViewRef<T>>,
 ) {
   const [restProps, style] = usePropsAndStyle(props, {
@@ -89,15 +56,14 @@ function BaseListView<T>(
     <OptimizationView
       style={[{ flex: 1, minHeight: 2 }, style as StyleProp<ViewStyle>]}
     >
-      <FlatList<T>
+      <RNSectionList<T>
         ref={ref as any}
         ListHeaderComponentStyle={listHeaderStyle}
         ListFooterComponentStyle={listFooterStyle}
         contentContainerStyle={contentStyle}
-        data={data}
-        renderItem={renderItem as any}
+        sections={sections}
+        renderItem={renderItem}
         // estimatedItemSize={itemSize}
-        disableAutoLayout={I18nManager.isRTL}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         {...restProps}
@@ -107,4 +73,6 @@ function BaseListView<T>(
 }
 
 // forwardRef cannot cast typescript generic
-export const ListView = forwardRef(BaseListView) as typeof BaseListView;
+export const SectionList = forwardRef(
+  BaseSectionList,
+) as typeof BaseSectionList;

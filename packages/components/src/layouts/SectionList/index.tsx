@@ -11,14 +11,11 @@ import { getTokenValue, withStaticProperties } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { SizableText, Stack, XStack } from '../../primitives';
+import { Stack } from '../../primitives';
 import { ListView } from '../ListView/list';
 
-import type {
-  ISizableTextProps,
-  IStackProps,
-  IXStackProps,
-} from '../../primitives';
+import { SectionHeader } from './SectionHeader';
+
 import type { IListViewProps, IListViewRef } from '../ListView/list';
 import type { Tokens } from '@tamagui/web';
 import type { ListRenderItem } from 'react-native';
@@ -294,36 +291,6 @@ function BaseSectionList<T>(
           })}
       {...restProps}
     />
-  );
-}
-
-function SectionHeader({
-  title,
-  titleProps,
-  children,
-  ...restProps
-}: IStackProps & {
-  title?: string;
-  titleProps?: ISizableTextProps;
-}) {
-  return (
-    <XStack
-      h="$9"
-      px="$5"
-      alignItems="center"
-      bg="$bgApp"
-      {...(restProps as IXStackProps)}
-    >
-      <SizableText
-        numberOfLines={1}
-        size="$headingSm"
-        color="$textSubdued"
-        {...titleProps}
-      >
-        {title}
-      </SizableText>
-      {children}
-    </XStack>
   );
 }
 
