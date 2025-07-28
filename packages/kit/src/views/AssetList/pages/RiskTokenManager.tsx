@@ -19,9 +19,11 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  EModalAssetListRoutes,
-  IModalAssetListParamList,
+import {
+  EModalAssetDetailRoutes,
+  type EModalAssetListRoutes,
+  EModalRoutes,
+  type IModalAssetListParamList,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
@@ -34,6 +36,7 @@ import TokenNameView from '../../../components/TokenListView/TokenNameView';
 import TokenPriceChangeView from '../../../components/TokenListView/TokenPriceChangeView';
 import TokenPriceView from '../../../components/TokenListView/TokenPriceView';
 import TokenValueView from '../../../components/TokenListView/TokenValueView';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useTokenListActions,
@@ -42,12 +45,16 @@ import {
 
 import type { RouteProp } from '@react-navigation/core';
 import type {
+  GestureResponderEvent,
   NativeSyntheticEvent,
   TextInputFocusEventData,
 } from 'react-native';
+import { useAccountData } from '../../../hooks/useAccountData';
 
 function RiskTokenManager() {
   const intl = useIntl();
+
+  const navigation = useAppNavigation();
 
   const route =
     useRoute<
@@ -57,12 +64,27 @@ function RiskTokenManager() {
       >
     >();
 
-  const { tokenList, isAllNetworks, networkId, hideValue } = route.params;
+  const {
+    tokenList,
+    isAllNetworks,
+    networkId,
+    walletId,
+    accountId,
+    deriveType,
+    deriveInfo,
+    hideValue,
+  } = route.params;
 
   const { tokens, map: tokenMap } = tokenList;
 
   const originalUnblockedTokens = useRef('');
   const originalBlockedTokens = useRef('');
+
+  const { network, wallet, account } = useAccountData({
+    networkId,
+    walletId,
+    accountId,
+  });
 
   const [unblockedTokensMap, setUnblockedTokensMap] = useState<
     Record<string, Record<string, boolean>>
@@ -250,6 +272,30 @@ function RiskTokenManager() {
     [networkId, intl],
   );
 
+  const handleOnPressToken = useCallback(
+    (token: IAccountToken & { isBlocked: boolean }) => {
+      navigation.push(EModalAssetDetailRoutes.TokenDetails, {
+        accountId: token.accountId ?? accountId,
+        networkId: token.networkId ?? networkId,
+        walletId,
+        tokenInfo: token,
+        isBlocked: token.isBlocked,
+        deriveInfo,
+        deriveType,
+        isAllNetworks,
+      });
+    },
+    [
+      accountId,
+      deriveInfo,
+      deriveType,
+      navigation,
+      networkId,
+      walletId,
+      isAllNetworks,
+    ],
+  );
+
   return (
     <Page onClose={handleOnClose}>
       <Page.Header
@@ -292,7 +338,10 @@ function RiskTokenManager() {
               isBlocked: boolean;
             };
           }) => (
-            <ListItem key={token.$key ?? token.uniqueKey}>
+            <ListItem
+              key={token.$key ?? token.uniqueKey}
+              onPress={() => handleOnPressToken(token)}
+            >
               <XStack alignItems="center" gap="$3" maxWidth="60%">
                 <TokenIconView
                   networkId={token.networkId}
@@ -330,7 +379,10 @@ function RiskTokenManager() {
                   <Button
                     size="small"
                     variant="secondary"
-                    onPress={() => handleToggleBlockedToken(token)}
+                    onPress={(e: GestureResponderEvent) => {
+                      e.stopPropagation();
+                      handleToggleBlockedToken(token);
+                    }}
                   >
                     {intl.formatMessage({
                       id: token.isBlocked

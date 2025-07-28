@@ -118,27 +118,33 @@ function TokenListFooter(props: IProps) {
   ]);
 
   const handleOnPressRiskyTokens = useCallback(() => {
-    if (!account || !network) return;
+    if (!account || !network || !wallet) return;
     navigation.pushModal(EModalRoutes.MainModal, {
       screen: EModalAssetListRoutes.RiskTokenManager,
       params: {
         accountId: account.id,
         networkId: network.id,
+        walletId: wallet.id,
         tokenList: {
           tokens: riskyTokens,
           keys: riskyTokenKeys,
           map: riskyTokenListMap,
         },
+        deriveType,
+        deriveInfo,
         isAllNetworks: network.isAllNetworks,
       },
     });
   }, [
     account,
+    deriveInfo,
+    deriveType,
     navigation,
     network,
     riskyTokenKeys,
     riskyTokenListMap,
     riskyTokens,
+    wallet,
   ]);
 
   const { result: blockedTokensLength, run } = usePromiseResult(
