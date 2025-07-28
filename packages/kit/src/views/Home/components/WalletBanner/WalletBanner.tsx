@@ -39,7 +39,7 @@ const closedBanners: Record<string, boolean> = {};
 
 function WalletBanner() {
   const {
-    activeAccount: { account, network, indexedAccount },
+    activeAccount: { account, network, wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
 
   const intl = useIntl();
@@ -158,6 +158,7 @@ function WalletBanner() {
           params: {
             accountId: account?.id ?? '',
             networkId: network?.id ?? '',
+            walletId: wallet?.id ?? '',
           },
         });
         return;
@@ -169,7 +170,7 @@ function WalletBanner() {
         openUrlInApp(item.href);
       }
     },
-    [account?.id, indexedAccount?.id, navigation, network?.id],
+    [account?.id, indexedAccount?.id, navigation, network?.id, wallet?.id],
   );
 
   useEffect(() => {
