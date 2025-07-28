@@ -14,6 +14,7 @@ import {
   Dialog,
   Divider,
   Icon,
+  IconButton,
   Image,
   Page,
   Popover,
@@ -21,15 +22,18 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -37,7 +41,6 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import type {
@@ -134,6 +137,9 @@ export function UniversalStake({
   currentAllowance,
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  const { gtMd } = useMedia();
+  const { handleOpenWebSite } = useBrowserAction().current;
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const [amountValue, setAmountValue] = useState('');
   const [approving, setApproving] = useState<boolean>(false);
@@ -1046,7 +1052,17 @@ export function UniversalStake({
                       primary: alert.button.text.text,
                       onPrimaryPress: () => {
                         if (alert.button?.data?.link) {
-                          openUrlExternal(alert.button.data.link);
+                          handleOpenWebSite({
+                            switchToMultiTabBrowser: gtMd,
+                            navigation,
+                            useCurrentWindow: false,
+                            webSite: {
+                              url: alert.button.data.link,
+                              title: alert.button.data.link,
+                              logo: undefined,
+                              sortIndex: undefined,
+                            },
+                          });
                         }
                       },
                     }
@@ -1119,14 +1135,42 @@ export function UniversalStake({
           </XStack>
         ) : null}
         <YStack pt="$3.5" gap="$2">
-          <EarnText
-            text={transactionConfirmation?.title}
-            color="$textSubdued"
-            size="$bodyMd"
-            boldTextProps={{
-              size: '$bodyMdMedium',
-            }}
-          />
+          <XStack ai="center" gap="$1">
+            <EarnText
+              text={transactionConfirmation?.title}
+              color="$textSubdued"
+              size="$bodyMd"
+              boldTextProps={{
+                size: '$bodyMdMedium',
+              }}
+            />
+            {transactionConfirmation?.tooltip ? (
+              <Popover
+                placement="top"
+                title={transactionConfirmation?.title?.text}
+                renderTrigger={
+                  <IconButton
+                    iconColor="$iconSubdued"
+                    size="small"
+                    icon="InfoCircleOutline"
+                    variant="tertiary"
+                  />
+                }
+                renderContent={
+                  <Stack p="$5">
+                    <EarnText
+                      text={
+                        transactionConfirmation?.tooltip?.type === 'text'
+                          ? transactionConfirmation.tooltip.data
+                          : undefined
+                      }
+                      size="$bodyMd"
+                    />
+                  </Stack>
+                }
+              />
+            ) : null}
+          </XStack>
           {transactionConfirmation?.rewards.map((reward) => {
             const hasTooltip = reward.tooltip?.type === 'text';
             let descriptionTextSize = (
@@ -1137,8 +1181,14 @@ export function UniversalStake({
             }
 
             return (
-              <XStack key={reward.title.text} gap="$1" ai="center" mt="$1.5">
-                <XStack gap="$1" ai="center">
+              <XStack
+                key={reward.title.text}
+                gap="$1"
+                ai="flex-start"
+                mt="$1.5"
+                flexWrap="wrap"
+              >
+                <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
                   <EarnText
                     text={reward.title}
                     color={reward.title.color}
@@ -1148,6 +1198,7 @@ export function UniversalStake({
                     text={reward.description}
                     size={descriptionTextSize}
                     color={reward.description.color ?? '$textSubdued'}
+                    flexShrink={1}
                   />
                 </XStack>
                 {hasTooltip ? (

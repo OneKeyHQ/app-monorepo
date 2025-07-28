@@ -18,6 +18,7 @@ export function PaginationButton({
   variant = 'secondary',
   iconSize = 'default',
   positionOffset = 8,
+  zIndex,
 }: {
   direction: 'previous' | 'next';
   onPress: () => void;
@@ -27,6 +28,7 @@ export function PaginationButton({
   variant?: IIconButtonProps['variant'];
   iconSize?: 'default' | 'small';
   positionOffset?: number;
+  zIndex?: number;
 }) {
   const smallIcon =
     direction === 'previous'
@@ -62,6 +64,7 @@ export function PaginationButton({
           justifyContent: 'center',
           alignItems: 'center',
           ...positionStyle,
+          zIndex,
         },
       ]}
     >

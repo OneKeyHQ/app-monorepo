@@ -51,6 +51,7 @@ function ClaimResourceEntry({
             params: {
               accountId,
               networkId,
+              showAccountSelector: false,
               onClose: async ({ isResourceClaimed, isResourceRedeemed }) => {
                 if (isResourceClaimed || isResourceRedeemed) {
                   await timerUtils.wait(1000);

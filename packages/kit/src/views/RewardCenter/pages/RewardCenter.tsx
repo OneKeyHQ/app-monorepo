@@ -24,20 +24,33 @@ import {
   TRON_SOURCE_FLAG_MAINNET,
   TRON_SOURCE_FLAG_TESTNET,
 } from '@onekeyhq/core/src/chains/tron/constants';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalRewardCenterRoutes,
   IModalRewardCenterParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAccountData } from '../../../hooks/useAccountData';
+import {
+  AccountSelectorProviderMirror,
+  AccountSelectorTriggerRewardCenter,
+} from '../../../components/AccountSelector';
+import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 import type { RouteProp } from '@react-navigation/core';
 
-function RewardCenter() {
+const networkIdsMap = getNetworkIdsMap();
+
+function RewardCenterDetails() {
   const route =
     useRoute<
       RouteProp<
@@ -46,7 +59,12 @@ function RewardCenter() {
       >
     >();
 
-  const { accountId, networkId, onClose } = route?.params ?? {};
+  const {
+    accountId,
+    networkId,
+    onClose,
+    showAccountSelector = true,
+  } = route?.params ?? {};
 
   const intl = useIntl();
   const form = useForm({
@@ -57,13 +75,121 @@ function RewardCenter() {
     reValidateMode: 'onChange',
   });
 
-  const { account, network } = useAccountData({
-    accountId,
-    networkId,
-  });
+  const { activeAccount } = useActiveAccount({ num: 0 });
+
+  const { result: rewardState, isLoading: isLoadingRewardState } =
+    usePromiseResult(
+      async () => {
+        const state: {
+          isClaimResourceAvailable: boolean;
+          isOthersAccount: boolean;
+          account: INetworkAccount | undefined;
+          network: IServerNetwork | undefined;
+        } = {
+          isClaimResourceAvailable: true,
+          isOthersAccount: false,
+          account: undefined,
+          network: undefined,
+        };
+
+        if (showAccountSelector) {
+          if (
+            accountUtils.isOthersAccount({
+              accountId: activeAccount?.account?.id ?? '',
+            }) ||
+            accountUtils.isQrAccount({
+              accountId: activeAccount?.account?.id ?? '',
+            })
+          ) {
+            state.isOthersAccount = true;
+            if (
+              networkUtils.isTronNetworkByNetworkId(activeAccount?.network?.id)
+            ) {
+              state.account = activeAccount.account;
+              state.network = activeAccount.network;
+              state.isClaimResourceAvailable = true;
+            } else {
+              state.isClaimResourceAvailable = false;
+            }
+            return state;
+          }
+
+          if (
+            networkUtils.isTronNetworkByNetworkId(activeAccount?.network?.id)
+          ) {
+            state.account = activeAccount.account;
+            state.network = activeAccount.network;
+            state.isClaimResourceAvailable = true;
+            return state;
+          }
+
+          try {
+            const { accounts } =
+              await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts(
+                {
+                  indexedAccountIds: [
+                    activeAccount?.indexedAccount?.id ??
+                      accountUtils.buildIndexedAccountId({
+                        walletId: activeAccount?.wallet?.id ?? '',
+                        index: 0,
+                      }),
+                  ],
+                  networkId: networkIdsMap.trx,
+                  deriveType:
+                    await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                      {
+                        networkId: networkIdsMap.trx,
+                      },
+                    ),
+                },
+              );
+
+            if (accounts && accounts.length > 0 && accounts[0]) {
+              state.account = accounts[0];
+              state.network =
+                await backgroundApiProxy.serviceNetwork.getNetwork({
+                  networkId: networkIdsMap.trx,
+                });
+              state.isClaimResourceAvailable = true;
+            }
+          } catch (e) {
+            // fail to get account
+          }
+
+          return state;
+        }
+
+        const [account, network] = await Promise.all([
+          backgroundApiProxy.serviceAccount.getAccount({
+            accountId,
+            networkId,
+          }),
+          backgroundApiProxy.serviceNetwork.getNetwork({
+            networkId,
+          }),
+        ]);
+
+        state.account = account;
+        state.network = network;
+        return state;
+      },
+      [activeAccount, accountId, networkId, showAccountSelector],
+      {
+        watchLoading: true,
+        initResult: {
+          isClaimResourceAvailable: true,
+          isOthersAccount: false,
+          account: undefined,
+          network: undefined,
+        },
+      },
+    );
+
+  const { account, network, isClaimResourceAvailable } = rewardState;
 
   const [isResourceClaimed, setIsResourceClaimed] = useState(false);
   const [isResourceRedeemed, setIsResourceRedeemed] = useState(false);
+  const [isCreatingTronAccount, setIsCreatingTronAccount] = useState(false);
 
   const [isClaiming, setIsClaiming] = useState(false);
   const [isRedeeming, setIsRedeeming] = useState(false);
@@ -71,13 +197,15 @@ function RewardCenter() {
   const [isClaimed, setIsClaimed] = useState(false);
   const [remaining, setRemaining] = useState(0);
 
+  const { createAddress } = useAccountSelectorCreateAddress();
+
   const claimSource = network?.isTestnet
     ? TRON_SOURCE_FLAG_TESTNET
     : TRON_SOURCE_FLAG_MAINNET;
 
   const { result, isLoading } = usePromiseResult(
     async () => {
-      if (!account || !network) {
+      if (!account || !network || isLoadingRewardState) {
         return;
       }
 
@@ -89,7 +217,7 @@ function RewardCenter() {
           error?: string;
           success: boolean;
         }>({
-          networkId,
+          networkId: network.id,
           body: {
             method: 'post',
             url: '/api/tronRent/isReceived',
@@ -106,7 +234,7 @@ function RewardCenter() {
 
       return resp;
     },
-    [account, claimSource, network, networkId],
+    [account, claimSource, network, isLoadingRewardState],
     {
       watchLoading: true,
     },
@@ -157,7 +285,7 @@ function RewardCenter() {
           success: boolean;
           error?: string;
         }>({
-          networkId,
+          networkId: network.id,
           body: {
             method: 'post',
             url: '/api/tronRent/addFreeTronRentRecord',
@@ -172,7 +300,7 @@ function RewardCenter() {
         });
 
       defaultLogger.reward.tronReward.claimResource({
-        networkId,
+        networkId: network.id,
         address: account.address,
         sourceFlag: claimSource ?? '',
         isSuccess: true,
@@ -193,7 +321,7 @@ function RewardCenter() {
     } catch (error) {
       setIsClaiming(false);
     }
-  }, [account, claimSource, intl, network, networkId]);
+  }, [account, claimSource, intl, network]);
 
   const handleRedeemCode = useCallback(async () => {
     if (!account || !network) {
@@ -214,7 +342,7 @@ function RewardCenter() {
           success: boolean;
           error?: string;
         }>({
-          networkId,
+          networkId: network.id,
           body: {
             method: 'post',
             url: '/api/v1/coupon/redeem',
@@ -228,7 +356,7 @@ function RewardCenter() {
         });
 
       defaultLogger.reward.tronReward.redeemResource({
-        networkId,
+        networkId: network.id,
         address: account.address,
         code,
         sourceFlag: claimSource,
@@ -248,12 +376,136 @@ function RewardCenter() {
     } catch (error) {
       setIsRedeeming(false);
     }
-  }, [account, claimSource, form, intl, network, networkId]);
+  }, [account, claimSource, form, intl, network]);
 
   useEffect(
     () => () => void onClose?.({ isResourceClaimed, isResourceRedeemed }),
     [onClose, isResourceClaimed, isResourceRedeemed],
   );
+
+  const renderClaimResource = useCallback(() => {
+    if (isLoading || isLoadingRewardState) {
+      return <Skeleton.BodyLg />;
+    }
+
+    if (!account) {
+      return (
+        <SizableText size="$bodyLg" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.wallet_no_tron_account,
+          })}
+        </SizableText>
+      );
+    }
+
+    return (
+      <SizableText size="$bodyLgMedium" color="$textSubdued">
+        {intl.formatMessage(
+          {
+            id: ETranslations.wallet_subsidy_remaining,
+          },
+          {
+            remaining,
+            total: result?.totalReceivedLimit,
+          },
+        )}
+      </SizableText>
+    );
+  }, [
+    isLoading,
+    isLoadingRewardState,
+    account,
+    intl,
+    remaining,
+    result?.totalReceivedLimit,
+  ]);
+
+  const handleCreateTronAccount = useCallback(async () => {
+    setIsCreatingTronAccount(true);
+    const tronNetworkId =
+      network?.id && networkUtils.isTronNetworkByNetworkId(network?.id)
+        ? network.id
+        : networkIdsMap.trx;
+
+    try {
+      await createAddress({
+        num: 0,
+        selectAfterCreate: true,
+        account: {
+          walletId: activeAccount?.wallet?.id,
+          networkId: tronNetworkId,
+          deriveType:
+            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+              {
+                networkId: tronNetworkId,
+              },
+            ),
+          indexedAccountId:
+            activeAccount?.indexedAccount?.id ??
+            accountUtils.buildIndexedAccountId({
+              walletId: activeAccount?.wallet?.id ?? '',
+              index: 0,
+            }),
+        },
+      });
+    } finally {
+      setIsCreatingTronAccount(false);
+    }
+  }, [activeAccount, createAddress, network]);
+
+  const renderClaimButton = useCallback(() => {
+    if (!isClaimResourceAvailable) {
+      return null;
+    }
+
+    if (!account) {
+      return (
+        <Button
+          size="medium"
+          variant="primary"
+          loading={isCreatingTronAccount}
+          disabled={isCreatingTronAccount}
+          onPress={handleCreateTronAccount}
+        >
+          {intl.formatMessage({
+            id: ETranslations.global_add_account,
+          })}
+        </Button>
+      );
+    }
+
+    return (
+      <Button
+        size="medium"
+        variant="primary"
+        loading={isClaiming}
+        disabled={
+          !isClaimResourceAvailable ||
+          isLoading ||
+          isClaiming ||
+          isClaimed ||
+          result?.remaining === 0 ||
+          result?.totalReceivedLimit === 0
+        }
+        onPress={handleClaimResource}
+      >
+        {renderClaimButtonText()}
+      </Button>
+    );
+  }, [
+    isClaimResourceAvailable,
+    account,
+    isClaiming,
+    isLoading,
+    isClaimed,
+    result?.remaining,
+    result?.totalReceivedLimit,
+    handleClaimResource,
+    renderClaimButtonText,
+    isCreatingTronAccount,
+    handleCreateTronAccount,
+    intl,
+  ]);
 
   const renderResourceDetails = useCallback(() => {
     return (
@@ -267,36 +519,8 @@ function RewardCenter() {
               })}
             </SizableText>
             <XStack alignItems="center" justifyContent="space-between">
-              {isLoading ? (
-                <Skeleton.BodyLg />
-              ) : (
-                <SizableText size="$bodyLgMedium" color="$textSubdued">
-                  {intl.formatMessage(
-                    {
-                      id: ETranslations.wallet_subsidy_remaining,
-                    },
-                    {
-                      remaining,
-                      total: result?.totalReceivedLimit,
-                    },
-                  )}
-                </SizableText>
-              )}
-              <Button
-                size="medium"
-                variant="primary"
-                loading={isClaiming}
-                disabled={
-                  isLoading ||
-                  isClaiming ||
-                  isClaimed ||
-                  result?.remaining === 0 ||
-                  result?.totalReceivedLimit === 0
-                }
-                onPress={handleClaimResource}
-              >
-                {renderClaimButtonText()}
-              </Button>
+              {renderClaimResource()}
+              {renderClaimButton()}
             </XStack>
           </YStack>
           <YStack gap="$2">
@@ -325,7 +549,8 @@ function RewardCenter() {
                 disabled={
                   form.formState.isSubmitting ||
                   !form.formState.isValid ||
-                  isRedeeming
+                  isRedeeming ||
+                  !isClaimResourceAvailable
                 }
               >
                 {intl.formatMessage({
@@ -338,19 +563,31 @@ function RewardCenter() {
       </Form>
     );
   }, [
-    intl,
     form,
-    isLoading,
-    isClaiming,
-    isClaimed,
-    result?.remaining,
-    result?.totalReceivedLimit,
-    handleClaimResource,
-    renderClaimButtonText,
+    intl,
+    renderClaimResource,
+    renderClaimButton,
     handleRedeemCode,
     isRedeeming,
-    remaining,
+    isClaimResourceAvailable,
   ]);
+
+  const headerRight = useCallback(() => {
+    if (!showAccountSelector) {
+      return null;
+    }
+
+    return (
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+        }}
+        enabledNum={[0]}
+      >
+        <AccountSelectorTriggerRewardCenter num={0} />
+      </AccountSelectorProviderMirror>
+    );
+  }, [showAccountSelector]);
 
   return (
     <Page>
@@ -358,6 +595,7 @@ function RewardCenter() {
         title={intl.formatMessage({
           id: ETranslations.wallet_subsidy_redeem_title,
         })}
+        headerRight={headerRight}
       />
       <Page.Body px="$5">
         <Alert
@@ -372,6 +610,19 @@ function RewardCenter() {
         {renderResourceDetails()}
       </Page.Body>
     </Page>
+  );
+}
+
+function RewardCenter() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+      enabledNum={[0]}
+    >
+      <RewardCenterDetails />
+    </AccountSelectorProviderMirror>
   );
 }
 

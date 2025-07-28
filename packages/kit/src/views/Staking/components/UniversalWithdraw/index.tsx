@@ -11,6 +11,7 @@ import {
   Alert,
   Divider,
   Icon,
+  IconButton,
   Image,
   Page,
   Popover,
@@ -18,22 +19,25 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
 import type {
   ICheckAmountAlert,
   IEarnEstimateFeeResp,
+  IEarnText,
   IEarnTextTooltip,
   IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
@@ -105,6 +109,9 @@ export function UniversalWithdraw({
 
   onConfirm,
 }: PropsWithChildren<IUniversalWithdrawProps>) {
+  const navigation = useAppNavigation();
+  const { gtMd } = useMedia();
+  const { handleOpenWebSite } = useBrowserAction().current;
   const isMorphoProvider = useMemo(
     () => (providerName ? earnUtils.isMorphoProvider({ providerName }) : false),
     [providerName],
@@ -412,7 +419,17 @@ export function UniversalWithdraw({
                       primary: alert.button.text.text,
                       onPrimaryPress: () => {
                         if (alert.button?.data?.link) {
-                          openUrlExternal(alert.button.data.link);
+                          handleOpenWebSite({
+                            switchToMultiTabBrowser: gtMd,
+                            navigation,
+                            useCurrentWindow: false,
+                            webSite: {
+                              url: alert.button.data.link,
+                              title: alert.button.data.link,
+                              logo: undefined,
+                              sortIndex: undefined,
+                            },
+                          });
                         }
                       },
                     }
@@ -430,11 +447,39 @@ export function UniversalWithdraw({
         borderColor="$borderSubdued"
       >
         <YStack gap="$2">
-          <EarnText
-            text={transactionConfirmation?.title}
-            color="$textSubdued"
-            size="$bodyMd"
-          />
+          <XStack ai="center" gap="$1">
+            <EarnText
+              text={transactionConfirmation?.title}
+              color="$textSubdued"
+              size="$bodyMd"
+            />
+            {transactionConfirmation?.tooltip ? (
+              <Popover
+                placement="top"
+                title={transactionConfirmation?.title?.text}
+                renderTrigger={
+                  <IconButton
+                    iconColor="$iconSubdued"
+                    size="small"
+                    icon="InfoCircleOutline"
+                    variant="tertiary"
+                  />
+                }
+                renderContent={
+                  <Stack p="$5">
+                    <EarnText
+                      text={
+                        transactionConfirmation?.tooltip?.type === 'text'
+                          ? transactionConfirmation.tooltip.data
+                          : undefined
+                      }
+                      size="$bodyMd"
+                    />
+                  </Stack>
+                }
+              />
+            ) : null}
+          </XStack>
           {transactionConfirmation?.rewards.map((reward) => {
             const hasTooltip = reward.tooltip?.type === 'text';
             let descriptionTextSize = (
@@ -444,8 +489,14 @@ export function UniversalWithdraw({
               descriptionTextSize = reward.description.size;
             }
             return (
-              <XStack key={reward.title.text} gap="$1" ai="center" mt="$1.5">
-                <XStack gap="$1" ai="center">
+              <XStack
+                key={reward.title.text}
+                gap="$1"
+                ai="flex-start"
+                mt="$1.5"
+                flexWrap="wrap"
+              >
+                <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
                   <EarnText
                     text={reward.title}
                     alignSelf="center"
@@ -456,6 +507,7 @@ export function UniversalWithdraw({
                     text={reward.description}
                     size={descriptionTextSize}
                     color={reward.description.color ?? '$textSubdued'}
+                    flexShrink={1}
                   />
                 </XStack>
                 {hasTooltip ? (

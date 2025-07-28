@@ -136,6 +136,18 @@ export async function getEndpointsMap() {
 export async function getEndpointByServiceName(
   serviceName: EServiceEndpointEnum,
 ) {
+  // First try to get custom API endpoint from dev settings
+  const devSettings = await requestHelper.getDevSettingsPersistAtom();
+  const customEndpoints = devSettings.settings?.customApiEndpoints || [];
+  const enabledCustomConfig = customEndpoints
+    .filter((config) => config.enabled)
+    .find((config) => config.serviceModule === serviceName);
+
+  if (enabledCustomConfig && devSettings.enabled) {
+    return enabledCustomConfig.api;
+  }
+
+  // Fallback to default endpoint
   const map = await getEndpointsMap();
   return map[serviceName];
 }
