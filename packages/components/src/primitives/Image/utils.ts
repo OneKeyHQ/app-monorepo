@@ -36,8 +36,9 @@ export const useResetError = (
 ) => {
   const hasErrorRef = useRef(hasError);
   const resolvedSourceRef = useRef<ImageSource | null>(resolvedSource);
-
+  hasErrorRef.current = hasError;
   useEffect(() => {
+    console.log('useResetError', resolvedSource, hasErrorRef.current);
     if (hasErrorRef.current && resolvedSourceRef.current !== resolvedSource) {
       setHasError(false);
     }

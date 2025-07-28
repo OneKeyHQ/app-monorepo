@@ -15,7 +15,7 @@ function ImageStateTest() {
   const [uri, setUri] = useState<string>('');
   return (
     <YStack gap={10}>
-      <XStack gap={10}>
+      <XStack gap={10} flexWrap="wrap">
         <Button onPress={() => setUri(null as any)}>set null</Button>
         <Button onPress={() => setUri(undefined as any)}>set undefined</Button>
         <Button onPress={() => setUri('')}>set empty string</Button>
