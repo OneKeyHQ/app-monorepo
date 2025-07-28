@@ -1,8 +1,17 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
+
+export interface IApiEndpointConfig {
+  id: string;
+  name: string;
+  api: string;
+  serviceModule: EServiceEndpointEnum;
+  enabled: boolean;
+}
 
 export interface IDevSettings {
   // enable test endpoint
@@ -37,6 +46,8 @@ export interface IDevSettings {
   };
   // enable desktop bluetooth functionality
   enableDesktopBluetooth?: boolean;
+  // custom API endpoints
+  customApiEndpoints?: IApiEndpointConfig[];
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
