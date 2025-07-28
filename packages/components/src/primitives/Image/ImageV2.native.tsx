@@ -8,13 +8,13 @@ import { Skeleton } from '../Skeleton';
 
 import { AnimatedExpoImage } from './AnimatedImage';
 import { useImage } from './useImage';
-import { useResetError } from './utils';
+import { isEmptyResolvedSource, useResetError } from './utils';
 
 import type { IImageV2Props } from './type';
 import type { ImageErrorEventData, ImageSource, ImageStyle } from 'expo-image';
 
 const getRandomRetryTimes = () => {
-  return Math.floor(Math.random() * 2) * 1000;
+  return Math.floor(Math.random() * 3) * 1000;
 };
 
 export function ImageV2({
@@ -61,7 +61,7 @@ export function ImageV2({
     onDisplay,
     ...imageProps
   } = restProps;
-  const retryTimesLimit = useRef<number>(defaultRetryTimes || 5);
+  const retryTimesLimit = useRef<number>(defaultRetryTimes || 1);
   const retryTimes = useRef<number>(0);
 
   const [hasError, setHasError] = useState(false);
@@ -72,14 +72,19 @@ export function ImageV2({
         retryTimes.current += 1;
         setTimeout(() => {
           retry();
-        }, getRandomRetryTimes() + retryTimes.current * 1000);
+        }, getRandomRetryTimes());
       } else {
         setHasError(true);
       }
     },
   });
 
-  useResetError(image, hasError, setHasError);
+  const onResetError = useCallback((error: boolean) => {
+    setHasError(error);
+    retryTimes.current = 0;
+  }, []);
+
+  useResetError(image, hasError, onResetError);
 
   const handleError = useCallback(
     (event: ImageErrorEventData) => {
@@ -90,7 +95,7 @@ export function ImageV2({
   );
 
   if (!image) {
-    if (hasError) {
+    if (hasError || isEmptyResolvedSource(source as ImageSource | null)) {
       return fallback;
     }
     return skeleton || <Skeleton width={style.width} height={style.height} />;

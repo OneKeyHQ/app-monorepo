@@ -412,7 +412,9 @@ export function UniversalWithdraw({
             <Alert
               key={index}
               type="warning"
-              title={alert.text.text}
+              renderTitle={() => {
+                return <EarnText text={alert.text} size="$bodyMdMedium" />;
+              }}
               action={
                 alert.button
                   ? {
@@ -499,25 +501,28 @@ export function UniversalWithdraw({
                 <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
                   <EarnText
                     text={reward.title}
-                    alignSelf="center"
                     color={reward.title.color}
                     size={reward.title.size}
                   />
-                  <EarnText
-                    text={reward.description}
-                    size={descriptionTextSize}
-                    color={reward.description.color ?? '$textSubdued'}
-                    flexShrink={1}
-                  />
+                  <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
+                    <EarnText
+                      text={reward.description}
+                      size={descriptionTextSize}
+                      color={reward.description.color ?? '$textSubdued'}
+                      flexShrink={1}
+                    />
+                    {hasTooltip ? (
+                      <Popover.Tooltip
+                        iconSize="$5"
+                        title={reward.title.text}
+                        tooltip={
+                          (reward.tooltip as IEarnTextTooltip)?.data.text
+                        }
+                        placement="top"
+                      />
+                    ) : null}
+                  </XStack>
                 </XStack>
-                {hasTooltip ? (
-                  <Popover.Tooltip
-                    iconSize="$5"
-                    title={reward.title.text}
-                    tooltip={(reward.tooltip as IEarnTextTooltip)?.data.text}
-                    placement="top"
-                  />
-                ) : null}
               </XStack>
             );
           })}

@@ -2749,6 +2749,8 @@
   "swap_process.build_and_estimate_tx": "ट्रांजैक्शन बनाएं और अनुमान लगाएं",
   "swap_process.create_order": "ऑर्डर बनाएं",
   "swap_process.sign_and_sent_tx": "साइन करें और tx भेजें",
+  "swap_review.confirm_2_on_device": "डिवाइस पर दो बार पुष्टि करें",
+  "swap_review.confirm_3_on_device": "डिवाइस पर तीन बार पुष्टि करें",
   "swap_review.confirm_swap": "स्वैप की पुष्टि करें",
   "swap_review.review_swap": "समीक्षा अदला-बदली",
   "swap_review.sign_and_submit": "लेन-देन पर हस्ताक्षर करें और सबमिट करें",

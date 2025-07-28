@@ -2749,6 +2749,8 @@
   "swap_process.build_and_estimate_tx": "สร้างและประมาณการธุรกรรม",
   "swap_process.create_order": "สร้างคำสั่งซื้อ",
   "swap_process.sign_and_sent_tx": "เซ็นและส่งธุรกรรม",
+  "swap_review.confirm_2_on_device": "ยืนยันสองครั้งบนอุปกรณ์",
+  "swap_review.confirm_3_on_device": "ยืนยันสามครั้งบนอุปกรณ์",
   "swap_review.confirm_swap": "ยืนยันการสลับ",
   "swap_review.review_swap": "ตรวจสอบการสลับ",
   "swap_review.sign_and_submit": "เซ็นและส่งธุรกรรม",

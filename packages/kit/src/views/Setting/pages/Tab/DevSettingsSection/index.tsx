@@ -64,6 +64,7 @@ import { AutoJumpSetting } from './AutoJumpSetting';
 import { AutoUpdateSection } from './AutoUpdateSection';
 import { CrashDevSettings } from './CrashDevSettings';
 import { HapticsPanel } from './HapticsPanel';
+import { ImagePanel } from './ImagePanel';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { SectionFieldItem } from './SectionFieldItem';
@@ -641,6 +642,15 @@ export const DevSettingsSection = () => {
           Dialog.cancel({
             title: 'Haptics',
             renderContent: <HapticsPanel />,
+          });
+        }}
+      />
+      <SectionPressItem
+        title="Image"
+        onPress={() => {
+          Dialog.cancel({
+            title: 'Image',
+            renderContent: <ImagePanel />,
           });
         }}
       />

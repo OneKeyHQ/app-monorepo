@@ -2749,6 +2749,8 @@
   "swap_process.build_and_estimate_tx": "Створіть та оцініть Tx",
   "swap_process.create_order": "Створити замовлення",
   "swap_process.sign_and_sent_tx": "Підписати та надіслати транзакцію",
+  "swap_review.confirm_2_on_device": "Підтвердіть двічі на пристрої",
+  "swap_review.confirm_3_on_device": "Підтвердіть тричі на пристрої",
   "swap_review.confirm_swap": "Підтвердити обмін",
   "swap_review.review_swap": "Обмін відгуками",
   "swap_review.sign_and_submit": "Підписати та надіслати транзакцію",

@@ -2749,6 +2749,8 @@
   "swap_process.build_and_estimate_tx": "Создайте и оцените транзакцию",
   "swap_process.create_order": "Создать заказ",
   "swap_process.sign_and_sent_tx": "Подписать и отправить транзакцию",
+  "swap_review.confirm_2_on_device": "Подтвердите дважды на устройстве",
+  "swap_review.confirm_3_on_device": "Подтвердите три раза на устройстве",
   "swap_review.confirm_swap": "Подтвердить обмен",
   "swap_review.review_swap": "Проверить обмен",
   "swap_review.sign_and_submit": "Подпишите и отправьте транзакцию",

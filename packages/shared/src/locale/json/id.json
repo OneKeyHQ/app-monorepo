@@ -2749,6 +2749,8 @@
   "swap_process.build_and_estimate_tx": "Bangun dan estimasi transaksi",
   "swap_process.create_order": "Buat pesanan",
   "swap_process.sign_and_sent_tx": "Tandatangani dan kirim transaksi",
+  "swap_review.confirm_2_on_device": "Konfirmasi dua kali pada perangkat",
+  "swap_review.confirm_3_on_device": "Konfirmasi tiga kali pada perangkat",
   "swap_review.confirm_swap": "Konfirmasi pertukaran",
   "swap_review.review_swap": "Tinjau pertukaran",
   "swap_review.sign_and_submit": "Tandatangani dan kirim transaksi",
