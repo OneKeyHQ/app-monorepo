@@ -130,10 +130,10 @@ async function getForceTransportType(
 ): Promise<EHardwareTransportType | undefined> {
   switch (channel) {
     case EConnectDeviceChannel.bluetooth:
-      return platformEnv.isSupportDesktopBle 
-        ? EHardwareTransportType.DesktopWebBle 
+      return platformEnv.isSupportDesktopBle
+        ? EHardwareTransportType.DesktopWebBle
         : EHardwareTransportType.BLE;
-    case EConnectDeviceChannel.usbOrBle:
+    case EConnectDeviceChannel.usbOrBle: {
       // For usbOrBle, constrain based on platform
       if (platformEnv.isNative) {
         return EHardwareTransportType.BLE;
@@ -143,8 +143,10 @@ async function getForceTransportType(
         return EHardwareTransportType.Bridge;
       }
       // For web/extension, get the current transport type setting
-      const currentTransportType = await backgroundApiProxy.serviceSetting.getHardwareTransportType();
+      const currentTransportType =
+        await backgroundApiProxy.serviceSetting.getHardwareTransportType();
       return currentTransportType;
+    }
     case EConnectDeviceChannel.qr:
       // QR code doesn't use hardware transport
       return undefined;
@@ -932,31 +934,37 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
     [handleRestoreWalletPress, handleSetupNewWalletPress, intl, requestsUrl],
   );
 
-  const connectDevice = useCallback(async (device: SearchDevice, forceTransportType?: EHardwareTransportType) => {
-    try {
-      return await backgroundApiProxy.serviceHardware.connect({
-        device,
-        forceTransportType,
-      });
-    } catch (error: any) {
-      if (error instanceof OneKeyHardwareError) {
-        const { code, message } = error;
-        // ui prop window handler
-        if (
-          code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
-          code === HardwareErrorCode.BlePermissionError ||
-          code === HardwareErrorCode.BleLocationError
-        ) {
-          return;
-        }
-        Toast.error({
-          title: message || 'DeviceConnectError',
+  const connectDevice = useCallback(
+    async (
+      device: SearchDevice,
+      forceTransportType?: EHardwareTransportType,
+    ) => {
+      try {
+        return await backgroundApiProxy.serviceHardware.connect({
+          device,
+          forceTransportType,
         });
-      } else {
-        console.error('connectDevice error:', get(error, 'message', ''));
+      } catch (error: any) {
+        if (error instanceof OneKeyHardwareError) {
+          const { code, message } = error;
+          // ui prop window handler
+          if (
+            code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
+            code === HardwareErrorCode.BlePermissionError ||
+            code === HardwareErrorCode.BleLocationError
+          ) {
+            return;
+          }
+          Toast.error({
+            title: message || 'DeviceConnectError',
+          });
+        } else {
+          console.error('connectDevice error:', get(error, 'message', ''));
+        }
       }
-    }
-  }, []);
+    },
+    [],
+  );
 
   const isSearchingRef = useRef(false);
   const [isCheckingDeviceLoading, setIsChecking] = useState(false);
@@ -970,109 +978,114 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
     [],
   );
 
-  const scanDevice = useCallback((forceTransportType?: EHardwareTransportType) => {
-    if (isSearchingRef.current) {
-      return;
-    }
-    isSearchingRef.current = true;
-    deviceScanner.startDeviceScan(
-      (response) => {
-        if (!response.success) {
-          const error = convertDeviceError(response.payload);
-          if (platformEnv.isNative) {
-            if (
-              !(error instanceof NeedBluetoothTurnedOn) &&
-              !(error instanceof NeedBluetoothPermissions) &&
-              !(error instanceof BleLocationServiceError)
+  const scanDevice = useCallback(
+    (forceTransportType?: EHardwareTransportType) => {
+      if (isSearchingRef.current) {
+        return;
+      }
+      isSearchingRef.current = true;
+      deviceScanner.startDeviceScan(
+        (response) => {
+          if (!response.success) {
+            const error = convertDeviceError(response.payload);
+            if (platformEnv.isNative) {
+              if (
+                !(error instanceof NeedBluetoothTurnedOn) &&
+                !(error instanceof NeedBluetoothPermissions) &&
+                !(error instanceof BleLocationServiceError)
+              ) {
+                Toast.error({
+                  title: error.message || 'DeviceScanError',
+                });
+              } else {
+                deviceScanner.stopScan();
+              }
+            } else if (
+              error instanceof InitIframeLoadFail ||
+              error instanceof InitIframeTimeout
             ) {
               Toast.error({
-                title: error.message || 'DeviceScanError',
+                title: intl.formatMessage({
+                  id: ETranslations.global_network_error,
+                }),
+                // error.message i18n should set InitIframeLoadFail.defaultKey, InitIframeTimeout.defaultKey
+                message: error.message || 'DeviceScanError',
+                // message: "Check your connection and retry",
               });
-            } else {
               deviceScanner.stopScan();
             }
-          } else if (
-            error instanceof InitIframeLoadFail ||
-            error instanceof InitIframeTimeout
-          ) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.global_network_error,
-              }),
-              // error.message i18n should set InitIframeLoadFail.defaultKey, InitIframeTimeout.defaultKey
-              message: error.message || 'DeviceScanError',
-              // message: "Check your connection and retry",
-            });
-            deviceScanner.stopScan();
+
+            if (
+              error instanceof BridgeTimeoutError ||
+              error instanceof BridgeTimeoutErrorForDesktop
+            ) {
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.global_connection_failed,
+                }),
+                // error.message i18n should set BridgeTimeoutError.defaultKey...
+                message: error.message || 'DeviceScanError',
+                // message: "Please reconnect the USB and try again", // USB only
+              });
+              deviceScanner.stopScan();
+            }
+
+            if (
+              error instanceof ConnectTimeoutError ||
+              error instanceof DeviceMethodCallTimeout
+            ) {
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.global_connection_failed,
+                }),
+                // error.message i18n should set ConnectTimeoutError.defaultKey...
+                message: error.message || 'DeviceScanError',
+                // message: "Please reconnect device and try again", // USB or BLE
+              });
+              deviceScanner.stopScan();
+            }
+
+            if (error instanceof NeedOneKeyBridge) {
+              Dialog.confirm({
+                icon: 'OnekeyBrand',
+                title: intl.formatMessage({
+                  id: ETranslations.onboarding_install_onekey_bridge,
+                }),
+                // error.message i18n should set NeedOneKeyBridge.defaultKey...
+                renderContent: (
+                  <BridgeNotInstalledDialogContent error={error} />
+                ),
+                onConfirmText: intl.formatMessage({
+                  id: ETranslations.global_download_and_install,
+                }),
+                onConfirm: () => Linking.openURL(HARDWARE_BRIDGE_DOWNLOAD_URL),
+              });
+
+              deviceScanner.stopScan();
+            }
+            return;
           }
 
-          if (
-            error instanceof BridgeTimeoutError ||
-            error instanceof BridgeTimeoutErrorForDesktop
-          ) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.global_connection_failed,
-              }),
-              // error.message i18n should set BridgeTimeoutError.defaultKey...
-              message: error.message || 'DeviceScanError',
-              // message: "Please reconnect the USB and try again", // USB only
-            });
-            deviceScanner.stopScan();
-          }
-
-          if (
-            error instanceof ConnectTimeoutError ||
-            error instanceof DeviceMethodCallTimeout
-          ) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.global_connection_failed,
-              }),
-              // error.message i18n should set ConnectTimeoutError.defaultKey...
-              message: error.message || 'DeviceScanError',
-              // message: "Please reconnect device and try again", // USB or BLE
-            });
-            deviceScanner.stopScan();
-          }
-
-          if (error instanceof NeedOneKeyBridge) {
-            Dialog.confirm({
-              icon: 'OnekeyBrand',
-              title: intl.formatMessage({
-                id: ETranslations.onboarding_install_onekey_bridge,
-              }),
-              // error.message i18n should set NeedOneKeyBridge.defaultKey...
-              renderContent: <BridgeNotInstalledDialogContent error={error} />,
-              onConfirmText: intl.formatMessage({
-                id: ETranslations.global_download_and_install,
-              }),
-              onConfirm: () => Linking.openURL(HARDWARE_BRIDGE_DOWNLOAD_URL),
-            });
-
-            deviceScanner.stopScan();
-          }
-          return;
-        }
-
-        const sortedDevices = response.payload.sort((a, b) =>
-          natsort({ insensitive: true })(
-            a.name || a.connectId || a.deviceId || a.uuid,
-            b.name || b.connectId || b.deviceId || b.uuid,
-          ),
-        );
-        setSearchedDevices(sortedDevices);
-        console.log('=====>>>>> startDeviceScan>>>>>', sortedDevices);
-      },
-      (state) => {
-        searchStateRef.current = state;
-      },
-      undefined, // pollIntervalRate
-      undefined, // pollInterval 
-      undefined, // maxTryCount
-      forceTransportType,
-    );
-  }, [deviceScanner, intl]);
+          const sortedDevices = response.payload.sort((a, b) =>
+            natsort({ insensitive: true })(
+              a.name || a.connectId || a.deviceId || a.uuid,
+              b.name || b.connectId || b.deviceId || b.uuid,
+            ),
+          );
+          setSearchedDevices(sortedDevices);
+          console.log('=====>>>>> startDeviceScan>>>>>', sortedDevices);
+        },
+        (state) => {
+          searchStateRef.current = state;
+        },
+        undefined, // pollIntervalRate
+        undefined, // pollInterval
+        undefined, // maxTryCount
+        forceTransportType,
+      );
+    },
+    [deviceScanner, intl],
+  );
 
   const stopScan = useCallback(() => {
     console.log('=====>>>>> stopDeviceScan>>>>>');
@@ -1300,7 +1313,13 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
   );
 
   const handleHwWalletCreateFlow = useCallback(
-    async ({ device, forceTransportType }: { device: SearchDevice; forceTransportType?: EHardwareTransportType }) => {
+    async ({
+      device,
+      forceTransportType,
+    }: {
+      device: SearchDevice;
+      forceTransportType?: EHardwareTransportType;
+    }) => {
       defaultLogger.account.wallet.addWalletStarted({
         addMethod: 'ConnectHWWallet',
         details: {
@@ -1467,7 +1486,7 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
         device: item,
         onPress: async () => {
           const forceTransportType = await getForceTransportType(tabValue);
-          await handleHwWalletCreateFlow({ 
+          await handleHwWalletCreateFlow({
             device: item,
             forceTransportType,
           });
@@ -1483,10 +1502,13 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
     return checkState === 'on';
   }, []);
 
-  const listingDevice = useCallback((forceTransportType?: EHardwareTransportType) => {
-    setConnectStatus(EConnectionStatus.listing);
-    scanDevice(forceTransportType);
-  }, [scanDevice]);
+  const listingDevice = useCallback(
+    (forceTransportType?: EHardwareTransportType) => {
+      setConnectStatus(EConnectionStatus.listing);
+      scanDevice(forceTransportType);
+    },
+    [scanDevice],
+  );
 
   const RequireBlePermissionDialogRender = useCallback(
     ({ ref }: { ref: any }) => <RequireBlePermissionDialog ref={ref} />,
