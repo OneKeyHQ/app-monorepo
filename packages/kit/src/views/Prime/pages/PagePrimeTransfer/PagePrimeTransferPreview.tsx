@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { debounce } from 'lodash';
+import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
@@ -22,10 +23,14 @@ import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EPrimePages,
   IPrimeParamList,
@@ -39,7 +44,23 @@ import type {
   IPrimeTransferSelectedItemMapInfo,
 } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
+import { usePrimeTransferExit } from './components/hooks/usePrimeTransferExit';
+import { PrimeTransferExitPrevent } from './components/PrimeTransferExitPrevent';
 import { showPrimeTransferImportProcessingDialog } from './components/PrimeTransferImportProcessingDialog';
+
+function PreviewHeader({ title }: { title: string }) {
+  return (
+    <SizableText
+      mt="$4"
+      mb="$2"
+      size="$headingLg"
+      color="$textSubdued"
+      fontWeight="bold"
+    >
+      {title}
+    </SizableText>
+  );
+}
 
 function PreviewItem({
   wallet,
@@ -55,7 +76,18 @@ function PreviewItem({
   const itemId = wallet?.id || account?.id || '';
   return (
     <XStack
-      onPress={() => onSelect?.(itemId)}
+      opacity={selectedItemMapInfo?.[itemId]?.disabled ? 0.5 : 1}
+      onPress={() => {
+        if (!selectedItemMapInfo?.[itemId]?.disabled) {
+          onSelect?.(itemId);
+        } else {
+          Toast.error({
+            title: appLocale.intl.formatMessage({
+              id: ETranslations.transfer_web_only_supports_watch_only_transfer,
+            }),
+          });
+        }
+      }}
       p="$4"
       borderRadius="$3"
       backgroundColor="$bgSubdued"
@@ -64,8 +96,9 @@ function PreviewItem({
     >
       <XStack gap="$3" alignItems="center" flex={1}>
         <Checkbox
+          disabled={selectedItemMapInfo[itemId].disabled}
           shouldStopPropagation
-          value={selectedItemMapInfo[itemId]}
+          value={selectedItemMapInfo[itemId].checked}
           onChange={() => {
             onSelect?.(itemId);
           }}
@@ -98,6 +131,12 @@ function PreviewItem({
   );
 }
 
+const accountSortFn = (a: IDBAccount, b: IDBAccount) =>
+  natsort({ insensitive: true })(
+    a.accountOrder ?? a.accountOrderSaved ?? 0,
+    b.accountOrder ?? b.accountOrderSaved ?? 0,
+  );
+
 function WalletList({
   data,
   selectedItemMap,
@@ -119,10 +158,12 @@ function WalletList({
     const _watchingAccounts = Object.values(data.privateData.watchingAccounts);
     return {
       wallets: _wallets,
-      importedAccounts: _importedAccounts,
-      watchingAccounts: _watchingAccounts,
+      importedAccounts: _importedAccounts.sort((a, b) => accountSortFn(a, b)),
+      watchingAccounts: _watchingAccounts.sort((a, b) => accountSortFn(a, b)),
     };
   }, [data]);
+
+  const intl = useIntl();
 
   return (
     <Stack gap={1}>
@@ -136,7 +177,13 @@ function WalletList({
         />
       ))}
 
-      {/* <SizableText>Imported Accounts</SizableText> */}
+      {importedAccounts?.length ? (
+        <PreviewHeader
+          title={intl.formatMessage({
+            id: ETranslations.global_import_wallet,
+          })}
+        />
+      ) : null}
       {importedAccounts.map((account) => (
         <PreviewItem
           key={account.id}
@@ -148,7 +195,13 @@ function WalletList({
         />
       ))}
 
-      {/* <SizableText>Watching Accounts</SizableText> */}
+      {watchingAccounts?.length ? (
+        <PreviewHeader
+          title={intl.formatMessage({
+            id: ETranslations.global_watched,
+          })}
+        />
+      ) : null}
       {watchingAccounts.map((account) => (
         <PreviewItem
           key={account.id}
@@ -167,7 +220,8 @@ export default function PagePrimeTransferPreview() {
   const intl = useIntl();
   const [isImporting, setIsImporting] = useState(false);
   const navigation = useAppNavigation();
-  const [, setPrimeTransferAtom] = usePrimeTransferAtom();
+  const [primeTransferAtom] = usePrimeTransferAtom();
+  const { exitTransferFlow } = usePrimeTransferExit();
   const route = useAppRoute<
     IPrimeParamList,
     EPrimePages.PrimeTransferPreview
@@ -180,27 +234,62 @@ export default function PagePrimeTransferPreview() {
     () => route?.params?.directionUserInfo || undefined,
     [route?.params],
   );
-  const selectedAllMapData = useMemo(() => {
+  const selectedAllMapData = useMemo<IPrimeTransferSelectedItemMap>(() => {
     return {
       wallet: Object.values(transferData?.privateData?.wallets || {}).reduce(
         (acc, wallet) => {
-          acc[wallet.id] = true;
+          const shouldDisabled = Boolean(
+            platformEnv.isWebDappMode &&
+              accountUtils.isHdWallet({
+                walletId: wallet?.id || '',
+              }),
+          );
+          acc[wallet.id] = {
+            checked: !shouldDisabled,
+            disabled: shouldDisabled,
+          };
           return acc;
         },
-        {} as { [id: string]: boolean },
+        {} as {
+          [id: string]: {
+            checked: boolean;
+            disabled: boolean;
+          };
+        },
       ),
       importedAccount: Object.values(
         transferData?.privateData?.importedAccounts || {},
-      ).reduce((acc, account) => {
-        acc[account.id] = true;
-        return acc;
-      }, {} as { [id: string]: boolean }),
+      ).reduce(
+        (acc, account) => {
+          const shouldDisabled = Boolean(
+            platformEnv.isWebDappMode &&
+              accountUtils.isImportedAccount({
+                accountId: account?.id || '',
+              }),
+          );
+
+          acc[account.id] = {
+            checked: !shouldDisabled,
+            disabled: shouldDisabled,
+          };
+          return acc;
+        },
+        {} as {
+          [id: string]: {
+            checked: boolean;
+            disabled: boolean;
+          };
+        },
+      ),
       watchingAccount: Object.values(
         transferData?.privateData?.watchingAccounts || {},
       ).reduce((acc, account) => {
-        acc[account.id] = true;
+        acc[account.id] = {
+          checked: true,
+          disabled: false,
+        };
         return acc;
-      }, {} as { [id: string]: boolean }),
+      }, {} as { [id: string]: { checked: boolean; disabled: boolean } }),
     };
   }, [
     transferData?.privateData?.wallets,
@@ -220,7 +309,10 @@ export default function PagePrimeTransferPreview() {
       id: string;
     }) => {
       const newSelectedItemMap = { ...selectedItemMap };
-      newSelectedItemMap[type][id] = !newSelectedItemMap[type][id];
+      newSelectedItemMap[type][id] = {
+        ...newSelectedItemMap[type][id],
+        checked: !newSelectedItemMap[type][id].checked,
+      };
       setSelectedItemMap(newSelectedItemMap);
     },
     [selectedItemMap],
@@ -249,7 +341,7 @@ export default function PagePrimeTransferPreview() {
           <Button
             onPress={() => {
               Dialog.debugMessage({
-                debugMessage: transferData,
+                debugMessage: selectedTransferData || transferData,
               });
             }}
           >
@@ -259,7 +351,7 @@ export default function PagePrimeTransferPreview() {
       );
     }
     return <></>;
-  }, [transferData]);
+  }, [selectedTransferData, transferData]);
 
   const onConfirm = useCallback(async () => {
     if (!selectedTransferData) {
@@ -310,7 +402,7 @@ export default function PagePrimeTransferPreview() {
           });
 
           const usedPassword = remoteDevicePassword || localPassword;
-          const { success } =
+          const { success, errorsInfo } =
             await backgroundApiProxy.servicePrimeTransfer.startImport({
               selectedTransferData,
               password: usedPassword
@@ -320,10 +412,12 @@ export default function PagePrimeTransferPreview() {
                 : '',
             });
 
-          await backgroundApiProxy.servicePrimeTransfer.completeImportProgress();
+          await backgroundApiProxy.servicePrimeTransfer.completeImportProgress({
+            errorsInfo,
+          });
 
           if (success) {
-            navigation?.popStack();
+            exitTransferFlow();
           }
         } catch (error) {
           console.error(error);
@@ -425,6 +519,7 @@ export default function PagePrimeTransferPreview() {
     isImporting,
     navigation,
     selectedTransferData,
+    exitTransferFlow,
   ]);
 
   return (
@@ -453,6 +548,9 @@ export default function PagePrimeTransferPreview() {
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_import,
         })}
+      />
+      <PrimeTransferExitPrevent
+        shouldPreventRemove={primeTransferAtom.shouldPreventExit}
       />
     </Page>
   );

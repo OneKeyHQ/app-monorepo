@@ -165,24 +165,29 @@ function BasicInvestmentDetails() {
       }
 
       if (list.length > 0) {
+        const response =
+          await backgroundApiProxy.serviceStaking.fetchInvestmentDetail(
+            list.map(({ networkId, accountAddress, publicKey }) => ({
+              networkId,
+              accountAddress,
+              publicKey,
+            })),
+          );
         const evmAccount = list.find((item) => item.networkId === evmNetworkId);
         if (evmAccount) {
           const earnSummary =
             await backgroundApiProxy.serviceStaking.getEarnSummary(evmAccount);
-          const response =
-            await backgroundApiProxy.serviceStaking.fetchInvestmentDetail(
-              list.map(({ networkId, accountAddress, publicKey }) => ({
-                networkId,
-                accountAddress,
-                publicKey,
-              })),
-            );
           return {
             evmAccount,
             earnSummary,
             earnInvestmentItems: response,
           };
         }
+        return {
+          earnSummary: undefined,
+          evmAccount: undefined,
+          earnInvestmentItems: response,
+        };
       }
 
       return {

@@ -17,6 +17,7 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnToken } from '@onekeyhq/shared/types/staking';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
+import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { UniversalClaim } from '../../components/UniversalClaim';
 import { useProviderLabel } from '../../hooks/useProviderLabel';
 import { useUniversalClaim } from '../../hooks/useUniversalHooks';
@@ -135,4 +136,10 @@ const ClaimPage = () => {
   );
 };
 
-export default ClaimPage;
+export default function ClaimPageWithProvider() {
+  return (
+    <DiscoveryBrowserProviderMirror>
+      <ClaimPage />
+    </DiscoveryBrowserProviderMirror>
+  );
+}

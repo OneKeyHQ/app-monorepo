@@ -2,7 +2,7 @@ import { SUI_TYPE_ARG } from '@mysten/sui/utils';
 
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { SuiUSDC } from '@onekeyhq/shared/src/consts/addresses';
+import { SuiUSDC, SuiWBTC } from '@onekeyhq/shared/src/consts/addresses';
 import {
   COINTYPE_SUI,
   IMPL_SUI,
@@ -58,11 +58,16 @@ const settings: IVaultSettings = {
     [getNetworkIdsMap().sui]: {
       providers: {
         [EEarnProviderEnum.Momentum]: {
-          supportedSymbols: ['USDC'],
+          supportedSymbols: ['USDC', 'WBTC'],
           configs: {
             USDC: {
               enabled: true,
               tokenAddress: SuiUSDC,
+              displayProfit: true,
+            },
+            WBTC: {
+              enabled: true,
+              tokenAddress: SuiWBTC,
               displayProfit: true,
             },
           },
