@@ -26,6 +26,8 @@ export enum ECheckAmountActionType {
 export interface IEarnAlertButton {
   text: {
     text: string;
+    color?: string;
+    size?: FontSizeTokens;
   };
   type: string;
   disabled: boolean;

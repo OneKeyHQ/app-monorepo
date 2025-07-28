@@ -1045,7 +1045,9 @@ export function UniversalStake({
             <Alert
               key={index}
               type="warning"
-              title={alert.text.text}
+              renderTitle={() => {
+                return <EarnText text={alert.text} size="$bodyMdMedium" />;
+              }}
               action={
                 alert.button
                   ? {
