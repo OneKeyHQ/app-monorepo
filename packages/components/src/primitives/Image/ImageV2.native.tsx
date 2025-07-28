@@ -61,7 +61,7 @@ export function ImageV2({
     onDisplay,
     ...imageProps
   } = restProps;
-  const retryTimesLimit = useRef<number>(defaultRetryTimes || 5);
+  const retryTimesLimit = useRef<number>(defaultRetryTimes || 3);
   const retryTimes = useRef<number>(0);
 
   const [hasError, setHasError] = useState(false);
