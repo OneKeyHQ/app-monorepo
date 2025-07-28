@@ -31,7 +31,6 @@ function CalculationListItemLabel({
   const content = (
     <SizableText
       color="$textSubdued"
-      maxWidth="50%"
       flex={1}
       flexWrap="wrap"
       {...rest}

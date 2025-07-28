@@ -331,11 +331,17 @@ export const UniversalClaim = ({
       <CalculationList>
         {receiving ? (
           <CalculationListItem>
-            <CalculationListItem.Label>
-              {intl.formatMessage({ id: ETranslations.earn_receive })}
-            </CalculationListItem.Label>
             {platformEnv.isNative ? (
-              receiving
+              <SizableText color="$textSubdued">
+                {intl.formatMessage({ id: ETranslations.earn_receive })}
+              </SizableText>
+            ) : (
+              <CalculationListItem.Label>
+                {intl.formatMessage({ id: ETranslations.earn_receive })}
+              </CalculationListItem.Label>
+            )}
+            {platformEnv.isNative ? (
+              <XStack flex={1}>{receiving}</XStack>
             ) : (
               <CalculationListItem.Value>{receiving}</CalculationListItem.Value>
             )}
