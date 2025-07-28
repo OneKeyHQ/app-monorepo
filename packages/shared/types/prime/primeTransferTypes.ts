@@ -10,6 +10,11 @@ import type {
 // };
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
+export enum EPrimeTransferServerType {
+  OFFICIAL = 'official',
+  CUSTOM = 'custom',
+}
+
 type IHasVersion = {
   version: number;
 };

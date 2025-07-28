@@ -16,6 +16,7 @@ import {
   XStack,
   YStack,
   useClipboard,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -25,6 +26,7 @@ export function PrimeTransferHomeQrCode() {
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [primeTransferAtom] = usePrimeTransferAtom();
   const websocketConnected = primeTransferAtom.websocketConnected;
+  const { gtMd } = useMedia();
 
   const [pairingCode, setPairingCode] = useState<string | undefined>(undefined);
   const intl = useIntl();
@@ -108,8 +110,17 @@ export function PrimeTransferHomeQrCode() {
         >
           {shouldShowSkeleton ? (
             <YStack gap="$1.5" mt="$1.5">
-              <Skeleton h="$3.5" w="$72" borderRadius="$1" />
-              <Skeleton h="$3.5" w="$24" borderRadius="$1" />
+              {gtMd ? (
+                <>
+                  <Skeleton h="$3.5" w="$72" borderRadius="$1" />
+                  {/* <Skeleton h="$3.5" w="$24" borderRadius="$1" /> */}
+                </>
+              ) : (
+                <>
+                  <Skeleton h="$3.5" w="$72" borderRadius="$1" />
+                  <Skeleton h="$3.5" w="$24" borderRadius="$1" />
+                </>
+              )}
             </YStack>
           ) : (
             <>

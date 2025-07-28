@@ -116,6 +116,8 @@ export enum EPrimeTransferStatus {
 export type IPrimeTransferAtomData = {
   shouldPreventExit: boolean;
   websocketConnected: boolean;
+  websocketError: string | undefined;
+  websocketEndpointUpdatedAt: number | undefined;
   status: EPrimeTransferStatus;
   pairedRoomId: string | undefined;
   myCreatedRoomId: string | undefined;
@@ -150,6 +152,8 @@ export const { target: primeTransferAtom, use: usePrimeTransferAtom } =
     initialValue: {
       shouldPreventExit: false,
       websocketConnected: false,
+      websocketError: undefined,
+      websocketEndpointUpdatedAt: undefined,
       status: EPrimeTransferStatus.init,
       pairedRoomId: undefined,
       myCreatedRoomId: undefined,

@@ -17,6 +17,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { PrimeTransferHomeEnterLink } from './PrimeTransferHomeEnterLink';
 import { PrimeTransferHomeQrCode } from './PrimeTransferHomeQrCode';
 import { PrimeTransferHomeSteps } from './PrimeTransferHomeSteps';
+import { PrimeTransferServerStatusBar } from './PrimeTransferServerStatusBar';
 
 export const TRANSFER_METHOD = {
   QR_CODE: 'qr-code',
@@ -64,7 +65,9 @@ export function PrimeTransferHome({
         })}
       />
 
-      <Stack px="$4" gap="$4">
+      <PrimeTransferServerStatusBar />
+
+      <Stack px="$4" gap="$4" mt="$2">
         <SegmentControl
           fullWidth
           value={value}

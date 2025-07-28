@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import axios from 'axios';
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Button, Dialog, Page } from '@onekeyhq/components';
@@ -20,6 +21,7 @@ import {
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { usePrimeTransferExit } from './components/hooks/usePrimeTransferExit';
 import { PrimeTransferDirection } from './components/PrimeTransferDirection';
@@ -42,14 +44,9 @@ export default function PagePrimeTransfer() {
   }, [primeTransferAtom.status]);
 
   const { result: endpoint } = usePromiseResult(async () => {
-    const endpointInfo = await backgroundApiProxy.serviceApp.getEndpointInfo({
-      name: EServiceEndpointEnum.Transfer,
-    });
-    // return 'http://localhost:3868';
-    // return 'https://app-monorepo.onrender.com';
-    // return 'https://transfer.onekey-test.com';
-    return endpointInfo.endpoint;
-  }, []);
+    noop(primeTransferAtom.websocketEndpointUpdatedAt);
+    return backgroundApiProxy.servicePrimeTransfer.getWebSocketEndpoint();
+  }, [primeTransferAtom.websocketEndpointUpdatedAt]);
 
   useEffect(() => {
     if (!endpoint) {
@@ -159,9 +156,14 @@ export default function PagePrimeTransfer() {
             Disconnect WebSocket
           </Button>
           <Button
-            onPress={() => {
+            onPress={async () => {
+              const endpoint2 =
+                await backgroundApiProxy.servicePrimeTransfer.getWebSocketEndpoint();
+              if (!endpoint2) {
+                return;
+              }
               void backgroundApiProxy.servicePrimeTransfer.initWebSocket({
-                endpoint: 'https://transfer.onekeytest.com',
+                endpoint: endpoint2,
               });
             }}
           >
