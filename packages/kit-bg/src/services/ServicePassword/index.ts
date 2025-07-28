@@ -23,6 +23,7 @@ import {
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import * as deviceErrorUtils from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -684,7 +685,13 @@ export default class ServicePassword extends ServiceBase {
             hardwareCallContext,
           });
       } catch (error) {
-        //
+        // Check if this is a hardware error that should be thrown
+        if (
+          deviceErrorUtils.isHardwareError({ error: error as IOneKeyError })
+        ) {
+          throw error;
+        }
+        // ignore other errors
       }
     }
 

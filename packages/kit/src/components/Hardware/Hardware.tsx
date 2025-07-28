@@ -964,6 +964,11 @@ export function BluetoothDevicePairingContent({
         id: promiseId,
         error: error as Error,
       });
+      // Close the dialog after reject
+      await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
+        connectId: usbConnectId,
+        reason: 'Bluetooth pairing failed',
+      });
     } finally {
       isProcessingRef.current = false;
     }

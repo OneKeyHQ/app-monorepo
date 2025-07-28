@@ -158,7 +158,7 @@ function HardwareSingletonDialogCmp(
         eventType ===
         EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION
       ) {
-        title = 'Communicating...';
+        title = 'Requesting Bluetooth Permission...';
         content = (
           <DesktopBluetoothPermissionContent
             promiseId={state?.payload?.promiseId}
