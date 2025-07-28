@@ -81,16 +81,11 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
       return tokenLogoURI;
     }
 
-    const lowerCaseUri = tokenLogoURI.toLowerCase();
-    if (
-      lowerCaseUri.includes('png') ||
-      lowerCaseUri.includes('jpg') ||
-      lowerCaseUri.includes('jpeg')
-    ) {
-      return tokenLogoURI;
+    if (tokenLogoURI.toLowerCase().includes('svg')) {
+      return undefined;
     }
 
-    return undefined;
+    return tokenLogoURI;
   };
 
   return (
