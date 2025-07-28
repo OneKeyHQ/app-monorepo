@@ -26,6 +26,7 @@ import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discov
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ECheckAmountActionType,
   type ICheckAmountAlert,
@@ -225,8 +226,10 @@ export const UniversalClaim = ({
   );
 
   const receiving = useMemo(() => {
+    console.log('receiving', amountValue, rate, price);
     if (Number(amountValue) > 0) {
       const receivingAmount = BigNumber(amountValue).dividedBy(rate);
+      console.log('receivingAmount', receivingAmount);
       return (
         <ValuePriceListItem
           amount={receivingAmount.toFixed()}
@@ -331,7 +334,11 @@ export const UniversalClaim = ({
             <CalculationListItem.Label>
               {intl.formatMessage({ id: ETranslations.earn_receive })}
             </CalculationListItem.Label>
-            <CalculationListItem.Value>{receiving}</CalculationListItem.Value>
+            {platformEnv.isNative ? (
+              receiving
+            ) : (
+              <CalculationListItem.Value>{receiving}</CalculationListItem.Value>
+            )}
           </CalculationListItem>
         ) : null}
         {providerName && providerLogo ? (
