@@ -33,6 +33,7 @@ import {
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationList, CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
+import { EarnText } from '../ProtocolDetails/EarnText';
 import {
   StakingAmountInput,
   useOnBlurAmountValue,
@@ -290,7 +291,9 @@ export const UniversalClaim = ({
             <Alert
               key={index}
               type="warning"
-              title={alert.text.text}
+              renderTitle={() => {
+                return <EarnText text={alert.text} size="$bodyMdMedium" />;
+              }}
               action={
                 alert.button
                   ? {
