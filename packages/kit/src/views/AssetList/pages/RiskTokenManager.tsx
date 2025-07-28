@@ -50,6 +50,7 @@ import type {
   TextInputFocusEventData,
 } from 'react-native';
 import { useAccountData } from '../../../hooks/useAccountData';
+import { EmptySearch } from '../../../components/Empty';
 
 function RiskTokenManager() {
   const intl = useIntl();
@@ -177,7 +178,7 @@ function RiskTokenManager() {
       return sectionListData;
     }
 
-    return sectionListData.map((section) => {
+    const filteredSectionListData = sectionListData?.map((section) => {
       return {
         ...section,
         data: section.data.filter((token) => {
@@ -189,6 +190,12 @@ function RiskTokenManager() {
         }),
       };
     });
+
+    if (filteredSectionListData.every((section) => section.data.length === 0)) {
+      return [];
+    }
+
+    return filteredSectionListData;
   }, [sectionListData, searchKey]);
 
   const handleOnClose = useCallback(async () => {
@@ -331,6 +338,7 @@ function RiskTokenManager() {
             />
           )}
           estimatedItemSize={60}
+          ListEmptyComponent={<EmptySearch />}
           renderItem={({
             item: token,
           }: {
