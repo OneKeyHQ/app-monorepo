@@ -78,25 +78,27 @@ function FeaturesItem({
         <YStack gap="$1.5" pb="$4">
           {details.map((detail, index) => {
             return (
-              <ListItem
-                key={index}
-                drillIn={!!detail.onPress}
-                onPress={detail.onPress}
-                icon={detail.icon}
-              >
-                <ListItem.Text
-                  userSelect="none"
-                  flex={1}
-                  primary={
-                    <XStack>
-                      <SizableText textAlign="left" size="$bodyMdMedium">
-                        {detail.title}
-                      </SizableText>
-                    </XStack>
-                  }
-                  secondary={detail.description}
-                />
-              </ListItem>
+              <>
+                <ListItem
+                  key={index}
+                  drillIn={!!detail.onPress}
+                  onPress={detail.onPress}
+                  icon={detail.icon}
+                >
+                  <ListItem.Text
+                    userSelect="none"
+                    flex={1}
+                    primary={
+                      <XStack>
+                        <SizableText textAlign="left" size="$bodyMdMedium">
+                          {detail.title}
+                        </SizableText>
+                      </XStack>
+                    }
+                    secondary={detail.description}
+                  />
+                </ListItem>
+              </>
             );
           })}
         </YStack>
@@ -479,7 +481,8 @@ export default function PagePrimeFeatures() {
             <ScrollView>
               <Stack h={gtMd ? 48 : 60} />
               <Swiper
-                height={height}
+                // height={height}
+                height="100%"
                 position="relative"
                 index={index}
                 initialNumToRender={3}
