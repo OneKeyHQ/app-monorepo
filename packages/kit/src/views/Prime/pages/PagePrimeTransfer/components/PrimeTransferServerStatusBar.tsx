@@ -7,6 +7,7 @@ import {
   Alert,
   Icon,
   SizableText,
+  Stack,
   XStack,
   useClipboard,
 } from '@onekeyhq/components';
@@ -97,7 +98,9 @@ export function PrimeTransferServerStatusBar() {
                 )}
               </SizableText>
               {isCustomServer ? (
-                <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
+                <Stack w="$4">
+                  <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
+                </Stack>
               ) : null}
             </XStack>
           ),
