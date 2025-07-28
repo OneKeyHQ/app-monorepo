@@ -213,8 +213,6 @@ PODS:
     - React
   - JPush (2.9.2):
     - React
-  - JXCategoryView (1.6.8)
-  - JXPagingView/Pager (2.1.3)
   - libavif/core (0.11.1)
   - libavif/libdav1d (0.11.1):
     - libavif/core
@@ -1887,10 +1885,6 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-tab-page-view (1.1.3):
-    - JXCategoryView (~> 1.6.1)
-    - JXPagingView/Pager (~> 2.1.2)
-    - React
   - react-native-tcp-socket (6.3.0):
     - CocoaAsyncSocket
     - React-Core
@@ -2980,7 +2974,6 @@ DEPENDENCIES:
   - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
   - "react-native-slider (from `../../../node_modules/@react-native-community/slider`)"
-  - "react-native-tab-page-view (from `../../../node_modules/@onekeyfe/react-native-tab-page-view`)"
   - react-native-tcp-socket (from `../../../node_modules/react-native-tcp-socket`)
   - react-native-video (from `../../../node_modules/react-native-video`)
   - react-native-view-shot (from `../../../node_modules/react-native-view-shot`)
@@ -3043,8 +3036,6 @@ SPEC REPOS:
   trunk:
     - CocoaAsyncSocket
     - CocoaLumberjack
-    - JXCategoryView
-    - JXPagingView
     - libavif
     - libdav1d
     - libwebp
@@ -3243,8 +3234,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-safe-area-context"
   react-native-slider:
     :path: "../../../node_modules/@react-native-community/slider"
-  react-native-tab-page-view:
-    :path: "../../../node_modules/@onekeyfe/react-native-tab-page-view"
   react-native-tcp-socket:
     :path: "../../../node_modules/react-native-tcp-socket"
   react-native-video:
@@ -3407,8 +3396,6 @@ SPEC CHECKSUMS:
   ImageColors: 51cd79f7a9d2524b7a681c660b0a50574085563b
   JCore: 4707d226b452782383a401bea8ee2518565017e6
   JPush: 7888dd3b0b4b2acaec7e1368eb8a9e3418e311d1
-  JXCategoryView: 262d503acea0b1278c79a1c25b7332ffaef4d518
-  JXPagingView: afdd2e9af09c90160dd232b970d603cc6e7ddd0e
   libavif: 84bbb62fb232c3018d6f1bab79beea87e35de7b7
   libdav1d: 23581a4d8ec811ff171ed5e2e05cd27bad64c39f
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
@@ -3459,7 +3446,6 @@ SPEC CHECKSUMS:
   react-native-pager-view: 38d37b9c7dcddfacf97ad4a0a1ee7a6db7b85b76
   react-native-safe-area-context: 8cf8caf5fc0f5a5d3581b650579af9c85c16be04
   react-native-slider: 0c0125010b5299e647eb5d955b58133fb4eb34e4
-  react-native-tab-page-view: 16a35c02cbc698f0b592c2c2da533eb893136bf5
   react-native-tcp-socket: 120072c8020262032773f80f0daaf3964aaa08a1
   react-native-video: f906920a39ad30208bb789bdda7404f510ab422a
   react-native-view-shot: aacb5b315b442a2326b1212c9de49b78c0e91cf9

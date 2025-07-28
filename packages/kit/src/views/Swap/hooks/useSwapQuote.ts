@@ -83,6 +83,14 @@ export function useSwapQuote() {
   const [settingsAtom] = useSettingsAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
 
+  const settingsAtomRef = useRef(settingsAtom);
+  if (settingsAtomRef.current !== settingsAtom) {
+    settingsAtomRef.current = settingsAtom;
+  }
+  const settingsPersistAtomRef = useRef(settingsPersistAtom);
+  if (settingsPersistAtomRef.current !== settingsPersistAtom) {
+    settingsPersistAtomRef.current = settingsPersistAtom;
+  }
   const swapTabSwitchTypeRef = useRef(swapTabSwitchType);
   const swapShouldRefreshRef = useRef(swapShouldRefresh);
   const swapQuoteActionLockRef = useRef(swapQuoteActionLock);
@@ -111,7 +119,12 @@ export function useSwapQuote() {
     swapQuoteFetchingRef.current = swapQuoteFetching;
   }
   const swapQuoteResultListRef = useRef(swapQuoteResultList);
-  if (swapQuoteResultListRef.current !== swapQuoteResultList) {
+  if (
+    swapQuoteResultListRef.current?.length !== swapQuoteResultList?.length ||
+    swapQuoteResultListRef.current?.some(
+      (item, index) => item.quoteId !== swapQuoteResultList?.[index]?.quoteId,
+    )
+  ) {
     swapQuoteResultListRef.current = swapQuoteResultList;
   }
   const swapQuoteEventTotalCountRef = useRef(swapQuoteEventTotalCount);
@@ -557,7 +570,7 @@ export function useSwapQuote() {
     }) => {
       if (event?.type === 'done' || event?.type === 'error') {
         const providerQuoteResult: ISwapQuoteProvideResult[] =
-          swapQuoteResultList?.map((item) => {
+          swapQuoteResultListRef.current?.map((item) => {
             return {
               provider: item.info.provider,
               providerName: item.info.providerName,
@@ -565,43 +578,40 @@ export function useSwapQuote() {
               errorMessage: item.errorMessage,
             };
           });
-
+        let finalStatus =
+          event?.type === 'done'
+            ? ESwapEventAPIStatus.SUCCESS
+            : ESwapEventAPIStatus.FAIL;
+        if (!providerQuoteResult?.length || providerQuoteResult.length === 0) {
+          finalStatus = ESwapEventAPIStatus.FAIL;
+        } else if (providerQuoteResult?.every((item) => !item.toAmount)) {
+          finalStatus = ESwapEventAPIStatus.FAIL;
+        } else if (providerQuoteResult?.some((item) => !item.toAmount)) {
+          finalStatus = ESwapEventAPIStatus.PARTIAL_SUCCESS;
+        }
         defaultLogger.swap.swapQuote.swapQuote({
-          walletType: swapAddressInfo.accountInfo?.wallet?.type ?? '',
-          quoteType: swapTabSwitchType,
+          walletType: activeAccountRef.current?.accountInfo?.wallet?.type ?? '',
+          quoteType: swapTabSwitchTypeRef.current,
           slippageSetting:
-            settingsAtom.swapSlippagePercentageMode ===
+            settingsAtomRef.current.swapSlippagePercentageMode ===
             ESwapSlippageSegmentKey.AUTO
               ? 'auto'
               : 'custom',
-          sourceChain: fromToken?.networkId ?? '',
-          receivedChain: toToken?.networkId ?? '',
-          sourceTokenSymbol: fromToken?.symbol ?? '',
-          receivedTokenSymbol: toToken?.symbol ?? '',
-          isAddReceiveAddress: settingsAtom.swapEnableRecipientAddress,
-          isSmartMode: settingsPersistAtom.swapBatchApproveAndSwap,
-          status:
-            event?.type === 'done'
-              ? ESwapEventAPIStatus.SUCCESS
-              : ESwapEventAPIStatus.FAIL,
+          sourceChain: fromTokenRef.current?.networkId ?? '',
+          receivedChain: toTokenRef.current?.networkId ?? '',
+          sourceTokenSymbol: fromTokenRef.current?.symbol ?? '',
+          receivedTokenSymbol: toTokenRef.current?.symbol ?? '',
+          isAddReceiveAddress:
+            settingsAtomRef.current.swapEnableRecipientAddress,
+          isSmartMode: settingsPersistAtomRef.current.swapBatchApproveAndSwap,
+          status: finalStatus,
           providerQuoteResult,
           message:
             event?.type === 'done' ? undefined : JSON.stringify(event.event),
         });
       }
     },
-    [
-      fromToken?.networkId,
-      fromToken?.symbol,
-      settingsAtom.swapEnableRecipientAddress,
-      settingsAtom.swapSlippagePercentageMode,
-      settingsPersistAtom.swapBatchApproveAndSwap,
-      swapAddressInfo.accountInfo?.wallet?.type,
-      swapQuoteResultList,
-      swapTabSwitchType,
-      toToken?.networkId,
-      toToken?.symbol,
-    ],
+    [],
   );
 
   const isModalPage = useIsModalPage();

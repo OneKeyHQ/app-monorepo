@@ -20,6 +20,7 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import { UniversalClaim } from '../../components/UniversalClaim';
 import { useProviderLabel } from '../../hooks/useProviderLabel';
 import { useUniversalClaim } from '../../hooks/useUniversalHooks';
+import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 
 const ClaimPage = () => {
   const intl = useIntl();
@@ -40,7 +41,8 @@ const ClaimPage = () => {
   const symbol = info?.symbol || '';
   const price = tokenInfo?.price ? String(tokenInfo.price) : '0';
   const actionTag = protocolInfo?.stakeTag || '';
-  const vault = protocolInfo?.approve?.approveTarget || '';
+  const vault =
+    protocolInfo?.approve?.approveTarget || protocolInfo?.vault || '';
   const appNavigation = useAppNavigation();
   const handleClaim = useUniversalClaim({ accountId, networkId });
   const onConfirm = useCallback(
@@ -51,7 +53,7 @@ const ClaimPage = () => {
         vault,
         symbol,
         provider,
-        morphoVault: vault,
+        protocolVault: vault,
         stakingInfo: {
           label: EEarnLabels.Claim,
           protocol: earnUtils.getEarnProviderName({
@@ -98,7 +100,7 @@ const ClaimPage = () => {
       symbol,
       action: 'claim',
       amount: '1',
-      morphoVault: vault,
+      protocolVault: vault,
       accountAddress: account.address,
       identity,
     });
@@ -134,4 +136,10 @@ const ClaimPage = () => {
   );
 };
 
-export default ClaimPage;
+export default function ClaimPageWithProvider() {
+  return (
+    <DiscoveryBrowserProviderMirror>
+      <ClaimPage />
+    </DiscoveryBrowserProviderMirror>
+  );
+}

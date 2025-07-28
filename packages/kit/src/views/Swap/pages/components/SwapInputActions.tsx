@@ -59,9 +59,14 @@ const SwapInputActions = ({
               pt={platformEnv.isNativeIOS ? '$1' : '$0'}
               bg="$bgSubdued"
               size="small"
+              childrenAsText={false}
               label={
-                <XStack alignItems="center" gap="$1">
-                  <Icon name="CreditCardCvvOutline" size="$4" />
+                <XStack ai="center" jc="center" gap="$1">
+                  <Icon
+                    name="CreditCardCvvOutline"
+                    size="$4"
+                    mt={platformEnv.isNative ? 2 : undefined}
+                  />
                   <SizableText size="$bodySmMedium" color="$textSubdued">
                     {intl.formatMessage({ id: ETranslations.global_buy })}
                   </SizableText>

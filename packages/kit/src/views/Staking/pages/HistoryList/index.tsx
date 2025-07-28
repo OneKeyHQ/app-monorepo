@@ -299,7 +299,7 @@ function HistoryList() {
     symbol,
     provider,
     stakeTag,
-    morphoVault,
+    protocolVault,
     title,
     alerts,
     filterType: defaultFilterType,
@@ -314,7 +314,7 @@ function HistoryList() {
           networkId,
           symbol,
           provider,
-          morphoVault,
+          protocolVault,
           type: filterType,
         });
       const listMap = groupBy(historyResp.list, (item) =>
@@ -402,7 +402,7 @@ function HistoryList() {
       networkId,
       symbol,
       provider,
-      morphoVault,
+      protocolVault,
       filterType,
       stakeTag,
       labelFn,

@@ -12,11 +12,10 @@ import {
   Icon,
   NumberSizeableText,
   Page,
-  ScrollView,
   SizableText,
   Spinner,
   Stack,
-  Tab,
+  Tabs,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -55,6 +54,7 @@ function EmptyData() {
   const intl = useIntl();
   return (
     <Empty
+      mt="$5"
       icon="GiftOutline"
       title={intl.formatMessage({
         id: ETranslations.referral_referred_empty,
@@ -370,35 +370,9 @@ export default function EarnReward() {
     void onRefresh();
   }, [fetchSales, onRefresh]);
 
-  const tabs = useMemo(
-    () => [
-      {
-        title: intl.formatMessage({
-          id: ETranslations.earn_referral_undistributed,
-        }),
-        // eslint-disable-next-line react/no-unstable-nested-components
-        page: () =>
-          lists[0] ? (
-            <List listData={lists[0]} vaultAmount={vaultAmount} />
-          ) : null,
-      },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.referral_referred_total,
-        }),
-        // eslint-disable-next-line react/no-unstable-nested-components
-        page: () =>
-          lists[1] ? (
-            <List listData={lists[1]} vaultAmount={vaultAmount} />
-          ) : null,
-      },
-    ],
-    [intl, lists, vaultAmount],
-  );
-
   const ListHeaderComponent = useMemo(() => {
     return (
-      <YStack>
+      <YStack bg="$bgApp">
         {tourTimes === 0 ? (
           <Alert
             closable
@@ -426,7 +400,7 @@ export default function EarnReward() {
   }, [amount?.pending, intl, tourTimes, tourVisited]);
 
   const Content = useMemo(() => {
-    if (lists[0]?.length === 0 && lists[1]?.length === 0) {
+    if ((lists[0]?.length || 0) + (lists[1]?.length || 0) === 0) {
       return (
         <YStack>
           {ListHeaderComponent}
@@ -437,16 +411,40 @@ export default function EarnReward() {
     }
 
     return (
-      <ScrollView contentContainerStyle={{ pb: '$10' }}>
-        <Tab.Page
-          ListHeaderComponent={ListHeaderComponent}
-          data={tabs}
-          initialScrollIndex={0}
-          showsVerticalScrollIndicator={false}
-        />
-      </ScrollView>
+      <Tabs.Container
+        renderHeader={() => ListHeaderComponent}
+        headerContainerStyle={{
+          shadowOpacity: 0,
+          elevation: 0,
+        }}
+        pagerProps={
+          {
+            scrollSensitivity: 4,
+          } as any
+        }
+        renderTabBar={(props) => <Tabs.TabBar {...props} />}
+      >
+        <Tabs.Tab
+          name={intl.formatMessage({
+            id: ETranslations.earn_referral_undistributed,
+          })}
+        >
+          <Tabs.ScrollView style={{ paddingBottom: 40 }}>
+            <List listData={lists[0] || []} vaultAmount={vaultAmount} />
+          </Tabs.ScrollView>
+        </Tabs.Tab>
+        <Tabs.Tab
+          name={intl.formatMessage({
+            id: ETranslations.referral_referred_total,
+          })}
+        >
+          <Tabs.ScrollView style={{ paddingBottom: 40 }}>
+            <List listData={lists[1] || []} vaultAmount={vaultAmount} />
+          </Tabs.ScrollView>
+        </Tabs.Tab>
+      </Tabs.Container>
     );
-  }, [ListHeaderComponent, lists, tabs]);
+  }, [ListHeaderComponent, intl, lists, vaultAmount]);
 
   return (
     <Page>

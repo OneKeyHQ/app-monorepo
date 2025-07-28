@@ -18,6 +18,7 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalWithdraw } from '../../components/UniversalWithdraw';
 import { useUniversalWithdraw } from '../../hooks/useUniversalHooks';
+import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 
 const WithdrawPage = () => {
   const intl = useIntl();
@@ -42,7 +43,8 @@ const WithdrawPage = () => {
   const active = protocolInfo?.activeBalance;
   const overflow = protocolInfo?.overflowBalance;
   const price = tokenInfo?.price ? String(tokenInfo.price) : '0';
-  const vault = protocolInfo?.approve?.approveTarget || '';
+  const vault =
+    protocolInfo?.approve?.approveTarget || protocolInfo?.vault || '';
   const actionTag = protocolInfo?.stakeTag || '';
   const appNavigation = useAppNavigation();
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
@@ -57,7 +59,7 @@ const WithdrawPage = () => {
       await handleWithdraw({
         amount,
         identity,
-        morphoVault: earnUtils.isMorphoProvider({
+        protocolVault: earnUtils.useVaultProvider({
           providerName,
         })
           ? vault
@@ -97,32 +99,6 @@ const WithdrawPage = () => {
     ],
   );
 
-  const { result: estimateFeeResp } = usePromiseResult(async () => {
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      accountId,
-      networkId,
-    });
-    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
-      networkId,
-      provider: providerName,
-      symbol: tokenSymbol,
-      action: 'unstake',
-      amount: '1',
-      txId:
-        providerName.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
-          ? identity
-          : undefined,
-      morphoVault: earnUtils.isMorphoProvider({
-        providerName,
-      })
-        ? vault
-        : undefined,
-      identity,
-      accountAddress: account.address,
-    });
-    return resp;
-  }, [accountId, networkId, providerName, tokenSymbol, identity, vault]);
-
   const balance = useMemo(() => {
     if (fromPage === EModalStakingRoutes.WithdrawOptions) {
       return BigNumber(initialAmount ?? 0).toFixed();
@@ -139,6 +115,40 @@ const WithdrawPage = () => {
     active,
     overflow,
     initialAmount,
+  ]);
+
+  const { result: estimateFeeResp } = usePromiseResult(async () => {
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
+    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+      networkId,
+      provider: providerName,
+      symbol: tokenSymbol,
+      action: 'unstake',
+      amount: earnUtils.isMomentumProvider({ providerName }) ? balance : '1',
+      txId:
+        providerName.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
+          ? identity
+          : undefined,
+      protocolVault: earnUtils.useVaultProvider({
+        providerName,
+      })
+        ? vault
+        : undefined,
+      identity,
+      accountAddress: account.address,
+    });
+    return resp;
+  }, [
+    accountId,
+    networkId,
+    providerName,
+    tokenSymbol,
+    identity,
+    vault,
+    balance,
   ]);
 
   return (
@@ -169,11 +179,17 @@ const WithdrawPage = () => {
               : undefined
           }
           estimateFeeResp={estimateFeeResp}
-          morphoVault={vault}
+          protocolVault={vault}
         />
       </Page.Body>
     </Page>
   );
 };
 
-export default WithdrawPage;
+export default function WithdrawPageWithProvider() {
+  return (
+    <DiscoveryBrowserProviderMirror>
+      <WithdrawPage />
+    </DiscoveryBrowserProviderMirror>
+  );
+}

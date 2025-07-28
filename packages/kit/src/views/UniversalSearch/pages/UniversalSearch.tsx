@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -20,7 +19,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { ITabHeaderInstance } from '@onekeyhq/components/src/layouts/TabView/Header';
 import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
@@ -107,7 +105,6 @@ export function UniversalSearch({
   filterTypes?: EUniversalSearchType[];
 }) {
   const intl = useIntl();
-  const tabRef = useRef<ITabHeaderInstance>(null);
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [allTokenList] = useAllTokenListAtom();
   const [allTokenListMap] = useAllTokenListMapAtom();
@@ -146,10 +143,29 @@ export function UniversalSearch({
     ];
   }, [intl]);
   const [filterType, setFilterType] = useState(tabTitles[0]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const focusedTab = useSharedValue(tabTitles[0]);
+  const handleTabPress = useCallback(
+    (name: string) => {
+      setFilterType(name);
+      focusedTab.value = name;
+    },
+    [focusedTab],
+  );
   const isInAllTab = useMemo(() => {
     return filterType === tabTitles[0];
   }, [filterType, tabTitles]);
+
+  useEffect(() => {
+    if (
+      searchStatus === ESearchStatus.done &&
+      focusedTab.value !== tabTitles[0]
+    ) {
+      // Use setTimeout to ensure the Tab.Header is rendered before calling scrollToIndex
+      setTimeout(() => {
+        focusedTab.value = tabTitles[0];
+      }, 0);
+    }
+  }, [focusedTab, searchStatus, tabTitles]);
 
   const shouldUseTokensCacheData = useMemo(() => {
     return (
@@ -187,16 +203,6 @@ export function UniversalSearch({
   useEffect(() => {
     void fetchRecommendList();
   }, [fetchRecommendList]);
-
-  // Maintain selected tab when search status changes
-  useEffect(() => {
-    if (searchStatus === ESearchStatus.done && selectedIndex > 0) {
-      // Use setTimeout to ensure the Tab.Header is rendered before calling scrollToIndex
-      setTimeout(() => {
-        tabRef.current?.scrollToIndex(selectedIndex);
-      }, 0);
-    }
-  }, [searchStatus, selectedIndex]);
 
   const searchInputRef = useRef<string>('');
 
@@ -352,9 +358,7 @@ export function UniversalSearch({
         return (
           <ListItem
             onPress={() => {
-              console.log('[universalSearch] renderSectionFooter: ', section);
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-              tabRef.current?.scrollToIndex(section.tabIndex);
+              handleTabPress(section.title);
             }}
           >
             <XStack ai="center" gap="$2">
@@ -374,7 +378,7 @@ export function UniversalSearch({
       }
       return null;
     },
-    [intl, isInAllTab],
+    [handleTabPress, intl, isInAllTab],
   );
 
   const renderItem = useCallback(
@@ -408,16 +412,6 @@ export function UniversalSearch({
       }
     },
     [activeAccount?.network?.id, searchStatus],
-  );
-
-  const focusedTab = useSharedValue(tabTitles[0]);
-  const handleTabPress = useCallback(
-    (name: string) => {
-      setFilterType(name);
-      setSelectedIndex(tabTitles.findIndex((i) => i === name));
-      focusedTab.value = name;
-    },
-    [focusedTab, tabTitles],
   );
 
   const filterSections = useMemo(() => {

@@ -250,7 +250,18 @@ function TokenDetailsView() {
     ) {
       if (tabs && !isEmpty(tabs) && tabs.length > 1) {
         return (
-          <Tabs.Container renderTabBar={(props) => <Tabs.TabBar {...props} />}>
+          <Tabs.Container
+            headerContainerStyle={{
+              shadowOpacity: 0,
+              elevation: 0,
+            }}
+            pagerProps={
+              {
+                scrollSensitivity: 4,
+              } as any
+            }
+            renderTabBar={(props) => <Tabs.TabBar {...props} />}
+          >
             {tabs}
           </Tabs.Container>
         );

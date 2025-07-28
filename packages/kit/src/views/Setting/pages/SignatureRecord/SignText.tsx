@@ -10,6 +10,7 @@ import {
   SectionList,
   SizableText,
   Stack,
+  Tabs,
   TextArea,
   XStack,
   YStack,
@@ -136,10 +137,10 @@ export const SignText = () => {
   );
 
   return (
-    <SectionList
+    <Tabs.SectionList
       sections={sections}
       keyExtractor={keyExtractor}
-      estimatedItemSize={191}
+      // estimatedItemSize={191}
       ItemSeparatorComponent={null}
       SectionSeparatorComponent={null}
       renderSectionHeader={({ section }) => (

@@ -14,6 +14,7 @@ import {
   Dialog,
   Divider,
   Icon,
+  IconButton,
   Image,
   Page,
   Popover,
@@ -21,15 +22,18 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -41,6 +45,7 @@ import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import type {
   IApproveConfirmFnParams,
+  ICheckAmountAlert,
   IEarnEstimateFeeResp,
   IEarnTextTooltip,
   IEarnTokenInfo,
@@ -54,7 +59,6 @@ import {
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
-import { useFalconEventEndedDialog } from '../../hooks/useFalconEventEndedDialog';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
@@ -73,6 +77,8 @@ import {
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
+
+import type { FontSizeTokens } from 'tamagui';
 
 type IUniversalStakeProps = {
   accountId: string;
@@ -131,11 +137,14 @@ export function UniversalStake({
   currentAllowance,
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  const { gtMd } = useMedia();
+  const { handleOpenWebSite } = useBrowserAction().current;
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const [amountValue, setAmountValue] = useState('');
   const [approving, setApproving] = useState<boolean>(false);
-  const isMorphoProvider = useMemo(
-    () => earnUtils.isMorphoProvider({ providerName }),
+  const useVaultProvider = useMemo(
+    () => earnUtils.useVaultProvider({ providerName }),
     [providerName],
   );
   const [
@@ -225,8 +234,8 @@ export function UniversalStake({
           networkId,
           provider: providerName,
           symbol: tokenInfo?.token.symbol || '',
-          vault: isMorphoProvider
-            ? protocolInfo?.approve?.approveTarget || ''
+          vault: useVaultProvider
+            ? protocolInfo?.approve?.approveTarget || protocolInfo?.vault || ''
             : '',
           accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
           action: ECheckAmountActionType.STAKING,
@@ -238,8 +247,9 @@ export function UniversalStake({
       networkId,
       providerName,
       tokenInfo?.token.symbol,
-      isMorphoProvider,
+      useVaultProvider,
       protocolInfo?.approve?.approveTarget,
+      protocolInfo?.vault,
       protocolInfo?.earnAccount?.accountAddress,
     ],
   );
@@ -251,6 +261,10 @@ export function UniversalStake({
     },
     350,
   );
+
+  const protocolVault = useVaultProvider
+    ? protocolInfo?.approve?.approveTarget || protocolInfo?.vault
+    : undefined;
 
   const fetchEstimateFeeResp = useCallback(
     async (amount?: string) => {
@@ -291,9 +305,7 @@ export function UniversalStake({
         symbol: tokenInfo?.token.symbol || '',
         action: shouldApprove ? 'approve' : 'stake',
         amount: amountNumber.toFixed(),
-        morphoVault: isMorphoProvider
-          ? protocolInfo?.approve?.approveTarget
-          : undefined,
+        protocolVault,
         accountAddress: account?.address,
         ...permitParams,
       });
@@ -302,9 +314,8 @@ export function UniversalStake({
     [
       accountId,
       allowance,
-      isMorphoProvider,
       networkId,
-      protocolInfo?.approve?.approveTarget,
+      protocolVault,
       providerName,
       shouldApprove,
       tokenInfo?.token.symbol,
@@ -360,6 +371,7 @@ export function UniversalStake({
   );
 
   const prevShouldApproveRef = useRef<boolean | undefined>(undefined);
+
   useEffect(() => {
     const amountValueBN = new BigNumber(amountValue);
     // Check if shouldApprove transitioned from true to false and amount is valid
@@ -393,26 +405,44 @@ export function UniversalStake({
   });
 
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
+  const [checkAmountAlerts, setCheckAmountAlerts] = useState<
+    ICheckAmountAlert[]
+  >([]);
+  const [checkAmountLoading, setCheckAmountLoading] = useState(false);
 
-  const morphoVault = isMorphoProvider
-    ? protocolInfo?.approve?.approveTarget
-    : undefined;
   const checkAmount = useDebouncedCallback(async (amount: string) => {
     if (isNaN(amount)) {
       return;
     }
-    const message = await backgroundApiProxy.serviceStaking.checkAmount({
-      accountId,
-      networkId,
-      symbol: tokenSymbol,
-      provider: providerName,
-      action: ECheckAmountActionType.STAKING,
-      amount,
-      morphoVault,
-      withdrawAll: false,
-    });
-    setCheckoutAmountMessage(message);
+    setCheckAmountLoading(true);
+    try {
+      const response = await backgroundApiProxy.serviceStaking.checkAmount({
+        accountId,
+        networkId,
+        symbol: tokenSymbol,
+        provider: providerName,
+        action: ECheckAmountActionType.STAKING,
+        amount,
+        protocolVault,
+        withdrawAll: false,
+      });
+
+      if (Number(response.code) === 0) {
+        setCheckoutAmountMessage('');
+        setCheckAmountAlerts(response.data?.alerts || []);
+      } else {
+        setCheckoutAmountMessage(response.message);
+        setCheckAmountAlerts([]);
+      }
+    } finally {
+      setCheckAmountLoading(false);
+    }
   }, 300);
+
+  // Initialize checkAmount on component mount
+  useEffect(() => {
+    void checkAmount('0');
+  }, [checkAmount]);
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
@@ -423,6 +453,8 @@ export function UniversalStake({
       if (valueBN.isNaN()) {
         if (value === '') {
           setAmountValue('');
+          setCheckoutAmountMessage('');
+          setCheckAmountAlerts([]);
           void debouncedFetchEstimateFeeResp();
         }
         return;
@@ -481,6 +513,14 @@ export function UniversalStake({
     [amountValue, balance],
   );
 
+  const isStakingCapFull = useMemo(() => {
+    if (!protocolInfo?.remainingCap) {
+      return false;
+    }
+    const remainingCapBN = new BigNumber(protocolInfo.remainingCap);
+    return !remainingCapBN.isNaN() && remainingCapBN.isEqualTo(0);
+  }, [protocolInfo?.remainingCap]);
+
   // const isLessThanMinAmount = useMemo<boolean>(() => {
   //   const minAmountBn = new BigNumber(minAmount);
   //   const amountValueBn = new BigNumber(amountValue);
@@ -499,13 +539,21 @@ export function UniversalStake({
 
   const isCheckAmountMessageError =
     amountValue?.length > 0 && !!checkAmountMessage;
+
+  const amountInputDisabled = useMemo(() => {
+    return isDisabled || isStakingCapFull;
+  }, [isDisabled, isStakingCapFull]);
+
   const isDisable = useMemo(() => {
     const amountValueBN = BigNumber(amountValue);
     return (
       amountValueBN.isNaN() ||
       amountValueBN.isLessThanOrEqualTo(0) ||
       isInsufficientBalance ||
-      isCheckAmountMessageError
+      isCheckAmountMessageError ||
+      checkAmountAlerts.length > 0 ||
+      isStakingCapFull ||
+      checkAmountLoading
     );
     // return (
     //   amountValueBN.isNaN() ||
@@ -515,7 +563,14 @@ export function UniversalStake({
     //   isGreaterThanMaxAmount ||
     //   isReachBabylonCap
     // );
-  }, [amountValue, isCheckAmountMessageError, isInsufficientBalance]);
+  }, [
+    amountValue,
+    isCheckAmountMessageError,
+    checkAmountAlerts.length,
+    isInsufficientBalance,
+    isStakingCapFull,
+    checkAmountLoading,
+  ]);
 
   // const estAnnualRewardsState = useMemo(() => {
   //   if (Number(amountValue) > 0 && Number(apr) > 0) {
@@ -945,10 +1000,10 @@ export function UniversalStake({
 
   return (
     <StakingFormWrapper>
-      <Stack position="relative" opacity={isDisabled ? 0.7 : 1}>
+      <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
         <StakingAmountInput
           title={intl.formatMessage({ id: ETranslations.earn_deposit })}
-          disabled={isDisabled}
+          disabled={amountInputDisabled}
           hasError={isInsufficientBalance || isCheckAmountMessageError}
           value={amountValue}
           onChange={onChangeAmountValue}
@@ -964,7 +1019,7 @@ export function UniversalStake({
           }}
           inputProps={{
             placeholder: '0',
-            autoFocus: !isDisabled,
+            autoFocus: !amountInputDisabled,
           }}
           valueProps={{
             value: currentValue,
@@ -973,7 +1028,7 @@ export function UniversalStake({
           enableMaxAmount
           onSelectPercentageStage={onSelectPercentageStage}
         />
-        {isDisabled ? (
+        {amountInputDisabled ? (
           <Stack position="absolute" w="100%" h="100%" zIndex={1} />
         ) : null}
       </Stack>
@@ -983,6 +1038,39 @@ export function UniversalStake({
           type="critical"
           title={checkAmountMessage}
         />
+      ) : null}
+      {checkAmountAlerts.length > 0 ? (
+        <>
+          {checkAmountAlerts.map((alert, index) => (
+            <Alert
+              key={index}
+              type="warning"
+              title={alert.text.text}
+              action={
+                alert.button
+                  ? {
+                      primary: alert.button.text.text,
+                      onPrimaryPress: () => {
+                        if (alert.button?.data?.link) {
+                          handleOpenWebSite({
+                            switchToMultiTabBrowser: gtMd,
+                            navigation,
+                            useCurrentWindow: false,
+                            webSite: {
+                              url: alert.button.data.link,
+                              title: alert.button.data.link,
+                              logo: undefined,
+                              sortIndex: undefined,
+                            },
+                          });
+                        }
+                      },
+                    }
+                  : undefined
+              }
+            />
+          ))}
+        </>
       ) : null}
 
       {/* {isLessThanMinAmount ? (
@@ -1047,25 +1135,70 @@ export function UniversalStake({
           </XStack>
         ) : null}
         <YStack pt="$3.5" gap="$2">
-          <EarnText
-            text={transactionConfirmation?.title}
-            color="$textSubdued"
-            size="$bodyMd"
-            boldTextProps={{
-              size: '$bodyMdMedium',
-            }}
-          />
+          <XStack ai="center" gap="$1">
+            <EarnText
+              text={transactionConfirmation?.title}
+              color="$textSubdued"
+              size="$bodyMd"
+              boldTextProps={{
+                size: '$bodyMdMedium',
+              }}
+            />
+            {transactionConfirmation?.tooltip ? (
+              <Popover
+                placement="top"
+                title={transactionConfirmation?.title?.text}
+                renderTrigger={
+                  <IconButton
+                    iconColor="$iconSubdued"
+                    size="small"
+                    icon="InfoCircleOutline"
+                    variant="tertiary"
+                  />
+                }
+                renderContent={
+                  <Stack p="$5">
+                    <EarnText
+                      text={
+                        transactionConfirmation?.tooltip?.type === 'text'
+                          ? transactionConfirmation.tooltip.data
+                          : undefined
+                      }
+                      size="$bodyMd"
+                    />
+                  </Stack>
+                }
+              />
+            ) : null}
+          </XStack>
           {transactionConfirmation?.rewards.map((reward) => {
             const hasTooltip = reward.tooltip?.type === 'text';
-            const textSize = hasTooltip ? '$bodyMd' : '$bodyLgMedium';
+            let descriptionTextSize = (
+              hasTooltip ? '$bodyMd' : '$bodyLgMedium'
+            ) as FontSizeTokens;
+            if (reward.description.size) {
+              descriptionTextSize = reward.description.size;
+            }
+
             return (
-              <XStack key={reward.title.text} gap="$1" ai="center" mt="$1.5">
-                <XStack gap="$1">
-                  <EarnText text={reward.title} />
+              <XStack
+                key={reward.title.text}
+                gap="$1"
+                ai="flex-start"
+                mt="$1.5"
+                flexWrap="wrap"
+              >
+                <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
+                  <EarnText
+                    text={reward.title}
+                    color={reward.title.color}
+                    size={reward.title.size}
+                  />
                   <EarnText
                     text={reward.description}
-                    size={textSize}
-                    color="$textSubdued"
+                    size={descriptionTextSize}
+                    color={reward.description.color ?? '$textSubdued'}
+                    flexShrink={1}
                   />
                 </XStack>
                 {hasTooltip ? (
@@ -1269,7 +1402,7 @@ export function UniversalStake({
             onConfirmText={onConfirmText}
             confirmButtonProps={{
               onPress: shouldApprove ? onApprove : onSubmit,
-              loading: loadingAllowance || approving,
+              loading: loadingAllowance || approving || checkAmountLoading,
               disabled: isDisable,
             }}
           />

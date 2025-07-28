@@ -5,6 +5,7 @@ import { StyleSheet } from 'react-native';
 import type { IIconButtonProps, IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
+  Divider,
   Icon,
   IconButton,
   Image,
@@ -136,10 +137,12 @@ export function ActionPopupContent({
   bulletList,
   items,
   panel,
+  description,
 }: {
   bulletList: IEarnPopupActionIcon['data']['bulletList'];
   items: IEarnPopupActionIcon['data']['items'];
   panel: IEarnPopupActionIcon['data']['panel'];
+  description: IEarnPopupActionIcon['data']['description'];
 }) {
   return (
     <YStack p="$5">
@@ -213,6 +216,19 @@ export function ActionPopupContent({
             </YStack>
           ))}
         </XStack>
+      ) : null}
+      {description?.length ? (
+        <>
+          <Divider my="$4" />
+          {description.map((text) => (
+            <EarnText
+              key={text.text}
+              text={text}
+              size="$bodySm"
+              color={text.color || '$textSubdued'}
+            />
+          ))}
+        </>
       ) : null}
     </YStack>
   );
@@ -463,6 +479,7 @@ function BasicEarnActionIcon({
               bulletList={actionIcon.data.bulletList}
               items={actionIcon.data.items}
               panel={actionIcon.data.panel}
+              description={actionIcon.data.description}
             />
           }
           placement="top"

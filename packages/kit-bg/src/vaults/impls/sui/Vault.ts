@@ -30,6 +30,8 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
+import type { IStakeTxSui } from '@onekeyhq/shared/types/staking';
+import { IStakeTx } from '@onekeyhq/shared/types/staking';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -563,5 +565,18 @@ export default class Vault extends VaultBase {
       sender: params.okxTx.from,
     };
     return Promise.resolve(encodedTx);
+  }
+
+  override async buildStakeEncodedTx(
+    params: IStakeTxSui,
+  ): Promise<IEncodedTxSui> {
+    const account = await this.getAccount();
+    const transactionBytes = Buffer.from(params, 'base64');
+    const transaction = Transaction.fromKind(transactionBytes);
+    transaction.setSender(account.address);
+    return Promise.resolve({
+      rawTx: transaction.serialize(),
+      sender: account.address,
+    });
   }
 }

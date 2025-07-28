@@ -29,6 +29,7 @@ function BaseSwiperFlatList<T>(
     autoplayLoopKeepAnimation = false,
     disableGesture = false,
     initialNumToRender = 1,
+    onChangeIndex,
     ...restProps
   }: ISwiperProps<T>,
   ref: ForwardedRef<ISwiperRef>,
@@ -76,6 +77,7 @@ function BaseSwiperFlatList<T>(
     autoplayLoop,
     autoplayLoopKeepAnimation,
     dataLength,
+    onChangeIndex,
   });
 
   useImperativeHandle(ref, () => ({

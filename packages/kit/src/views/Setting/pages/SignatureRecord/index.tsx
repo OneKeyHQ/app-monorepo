@@ -2,7 +2,7 @@ import { memo, useCallback, useContext, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, SearchBar, Stack, Tab, XStack } from '@onekeyhq/components';
+import { Page, SearchBar, Stack, Tabs, XStack } from '@onekeyhq/components';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -13,13 +13,11 @@ import { SignatureContext } from './Context';
 import { SignText } from './SignText';
 import { Transactions } from './Transactions';
 
-const contentContainerStyle = { paddingTop: 10 };
-
 const ListHeaderComponent = () => {
   const intl = useIntl();
   const { searchContent, setSearchContent } = useContext(SignatureContext);
   return (
-    <Stack px="$4" w="100%">
+    <Stack px="$4" w="100%" bg="$bgApp" pt="$2.5">
       <SearchBar
         value={searchContent}
         onChangeText={setSearchContent}
@@ -91,26 +89,6 @@ const PageView = () => {
     [onPress, networkId],
   );
 
-  const tabConfig = useMemo(
-    () => [
-      {
-        title: intl.formatMessage({ id: ETranslations.settings_transactions }),
-        page: Transactions,
-      },
-      {
-        title: intl.formatMessage({ id: ETranslations.settings_sign_text }),
-        page: SignText,
-      },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.explore_dapp_connections,
-        }),
-        page: ConnectedSites,
-      },
-    ],
-    [intl],
-  );
-
   return (
     <Page>
       <Page.Header
@@ -121,12 +99,42 @@ const PageView = () => {
       />
       <SignatureContext.Provider value={values}>
         <Page.Body>
-          <Tab.Page
-            ListHeaderComponent={<ListHeaderComponent />}
-            data={tabConfig}
-            contentContainerStyle={contentContainerStyle}
-            initialScrollIndex={0}
-          />
+          <Tabs.Container
+            renderHeader={() => <ListHeaderComponent />}
+            containerStyle={{ flex: 1 }}
+            headerContainerStyle={{
+              shadowOpacity: 0,
+              elevation: 0,
+            }}
+            pagerProps={
+              {
+                scrollSensitivity: 4,
+              } as any
+            }
+            renderTabBar={(props) => <Tabs.TabBar {...props} />}
+          >
+            <Tabs.Tab
+              name={intl.formatMessage({
+                id: ETranslations.settings_transactions,
+              })}
+            >
+              <Transactions />
+            </Tabs.Tab>
+            <Tabs.Tab
+              name={intl.formatMessage({
+                id: ETranslations.settings_sign_text,
+              })}
+            >
+              <SignText />
+            </Tabs.Tab>
+            <Tabs.Tab
+              name={intl.formatMessage({
+                id: ETranslations.explore_dapp_connections,
+              })}
+            >
+              <ConnectedSites />
+            </Tabs.Tab>
+          </Tabs.Container>
         </Page.Body>
       </SignatureContext.Provider>
     </Page>
