@@ -124,6 +124,35 @@ function getHardwareCommunicationTypeString(
   return platformEnv.isNative ? 'Bluetooth' : 'USB';
 }
 
+// Helper function to map user-selected channel to forced transport type
+async function getForceTransportType(
+  channel: EConnectDeviceChannel,
+): Promise<EHardwareTransportType | undefined> {
+  switch (channel) {
+    case EConnectDeviceChannel.bluetooth:
+      return platformEnv.isSupportDesktopBle 
+        ? EHardwareTransportType.DesktopWebBle 
+        : EHardwareTransportType.BLE;
+    case EConnectDeviceChannel.usbOrBle:
+      // For usbOrBle, constrain based on platform
+      if (platformEnv.isNative) {
+        return EHardwareTransportType.BLE;
+      }
+      // For desktop/web/extension, use system setting transport type
+      if (platformEnv.isDesktop) {
+        return EHardwareTransportType.Bridge;
+      }
+      // For web/extension, get the current transport type setting
+      const currentTransportType = await backgroundApiProxy.serviceSetting.getHardwareTransportType();
+      return currentTransportType;
+    case EConnectDeviceChannel.qr:
+      // QR code doesn't use hardware transport
+      return undefined;
+    default:
+      return undefined;
+  }
+}
+
 const trackHardwareWalletConnection = async ({
   status,
   deviceType,
@@ -765,7 +794,7 @@ const getTroubleshootingSolutions = (intl: ReturnType<typeof useIntl>) => {
   };
 };
 
-function ConnectByUSBOrBLE() {
+function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
   const intl = useIntl();
   const isFocused = useIsFocused();
   const searchStateRef = useRef<'start' | 'stop'>('stop');
@@ -903,10 +932,11 @@ function ConnectByUSBOrBLE() {
     [handleRestoreWalletPress, handleSetupNewWalletPress, intl, requestsUrl],
   );
 
-  const connectDevice = useCallback(async (device: SearchDevice) => {
+  const connectDevice = useCallback(async (device: SearchDevice, forceTransportType?: EHardwareTransportType) => {
     try {
       return await backgroundApiProxy.serviceHardware.connect({
         device,
+        forceTransportType,
       });
     } catch (error: any) {
       if (error instanceof OneKeyHardwareError) {
@@ -940,7 +970,7 @@ function ConnectByUSBOrBLE() {
     [],
   );
 
-  const scanDevice = useCallback(() => {
+  const scanDevice = useCallback((forceTransportType?: EHardwareTransportType) => {
     if (isSearchingRef.current) {
       return;
     }
@@ -1037,6 +1067,10 @@ function ConnectByUSBOrBLE() {
       (state) => {
         searchStateRef.current = state;
       },
+      undefined, // pollIntervalRate
+      undefined, // pollInterval 
+      undefined, // maxTryCount
+      forceTransportType,
     );
   }, [deviceScanner, intl]);
 
@@ -1049,12 +1083,15 @@ function ConnectByUSBOrBLE() {
   useEffect(() => {
     if (isFocused) {
       if (connectStatus === EConnectionStatus.listing) {
-        scanDevice();
+        void (async () => {
+          const forceTransportType = await getForceTransportType(tabValue);
+          scanDevice(forceTransportType);
+        })();
       }
     } else if (!isFocused) {
       stopScan();
     }
-  }, [connectStatus, isFocused, scanDevice, stopScan]);
+  }, [connectStatus, isFocused, scanDevice, stopScan, tabValue]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
@@ -1263,7 +1300,7 @@ function ConnectByUSBOrBLE() {
   );
 
   const handleHwWalletCreateFlow = useCallback(
-    async ({ device }: { device: SearchDevice }) => {
+    async ({ device, forceTransportType }: { device: SearchDevice; forceTransportType?: EHardwareTransportType }) => {
       defaultLogger.account.wallet.addWalletStarted({
         addMethod: 'ConnectHWWallet',
         details: {
@@ -1311,7 +1348,7 @@ function ConnectByUSBOrBLE() {
           return;
         }
 
-        const features = await connectDevice(device);
+        const features = await connectDevice(device, forceTransportType);
 
         if (!features) {
           await trackHardwareWalletConnection({
@@ -1404,7 +1441,7 @@ function ConnectByUSBOrBLE() {
         await selectAddWalletType({ device, features });
       } catch (error) {
         console.error('handleHwWalletCreateFlow error:', error);
-        scanDevice();
+        scanDevice(forceTransportType);
         throw error;
       }
     },
@@ -1428,11 +1465,17 @@ function ConnectByUSBOrBLE() {
         title: item.name,
         src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
         device: item,
-        onPress: () => handleHwWalletCreateFlow({ device: item }),
+        onPress: async () => {
+          const forceTransportType = await getForceTransportType(tabValue);
+          await handleHwWalletCreateFlow({ 
+            device: item,
+            forceTransportType,
+          });
+        },
         opacity: 1,
       })),
     ],
-    [handleHwWalletCreateFlow, searchedDevices],
+    [handleHwWalletCreateFlow, searchedDevices, tabValue],
   );
 
   const checkBLEState = useCallback(async () => {
@@ -1440,9 +1483,9 @@ function ConnectByUSBOrBLE() {
     return checkState === 'on';
   }, []);
 
-  const listingDevice = useCallback(() => {
+  const listingDevice = useCallback((forceTransportType?: EHardwareTransportType) => {
     setConnectStatus(EConnectionStatus.listing);
-    scanDevice();
+    scanDevice(forceTransportType);
   }, [scanDevice]);
 
   const RequireBlePermissionDialogRender = useCallback(
@@ -1475,12 +1518,14 @@ function ConnectByUSBOrBLE() {
     }
 
     setIsChecking(false);
-    listingDevice();
+    const forceTransportType = await getForceTransportType(tabValue);
+    listingDevice(forceTransportType);
   }, [
     OpenBleSettingsDialogRender,
     RequireBlePermissionDialogRender,
     checkBLEState,
     listingDevice,
+    tabValue,
   ]);
 
   // web-usb connect
@@ -1495,8 +1540,10 @@ function ConnectByUSBOrBLE() {
             deviceSerialNumberFromUI: device.serialNumber,
           });
         if (connectedDevice.device) {
+          const forceTransportType = await getForceTransportType(tabValue);
           void handleHwWalletCreateFlow({
             device: connectedDevice.device as SearchDevice,
+            forceTransportType,
           });
         }
       }
@@ -1504,7 +1551,7 @@ function ConnectByUSBOrBLE() {
       console.error('onConnectWebDevice error:', error);
       setIsChecking(false);
     }
-  }, [handleHwWalletCreateFlow, promptWebUsbDeviceAccess]);
+  }, [handleHwWalletCreateFlow, promptWebUsbDeviceAccess, tabValue]);
 
   useEffect(() => {
     if (
@@ -1513,8 +1560,11 @@ function ConnectByUSBOrBLE() {
     ) {
       return;
     }
-    listingDevice();
-  }, [listingDevice, hardwareTransportType]);
+    void (async () => {
+      const forceTransportType = await getForceTransportType(tabValue);
+      listingDevice(forceTransportType);
+    })();
+  }, [listingDevice, hardwareTransportType, tabValue]);
 
   useEffect(
     () =>
@@ -1725,7 +1775,7 @@ export function ConnectYourDevicePage() {
         <Divider />
 
         {tabValue === EConnectDeviceChannel.usbOrBle ? (
-          <ConnectByUSBOrBLE />
+          <ConnectByUSBOrBLE tabValue={tabValue} />
         ) : null}
 
         {tabValue === EConnectDeviceChannel.bluetooth ? (

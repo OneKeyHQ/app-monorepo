@@ -32,6 +32,7 @@ export class DeviceScannerUtils {
     pollIntervalRate = POLL_INTERVAL_RATE,
     pollInterval = POLL_INTERVAL,
     maxTryCount = MAX_SEARCH_TRY_COUNT,
+    forceTransportType?: import('@onekeyhq/shared/types').EHardwareTransportType,
   ) {
     const MaxTryCount = maxTryCount ?? MAX_SEARCH_TRY_COUNT;
     const searchDevices = async () => {
@@ -47,7 +48,9 @@ export class DeviceScannerUtils {
       let searchResponse;
       try {
         searchResponse =
-          await this.backgroundApi.serviceHardware.searchDevices();
+          await this.backgroundApi.serviceHardware.searchDevices({
+            forceTransportType,
+          });
       } finally {
         searchPromise?.resolve();
         searchPromise = null;

@@ -233,12 +233,27 @@ export class HardwareConnectionManager {
   shouldSwitchTransportType = memoizee(
     async ({
       hardwareCallContext,
+      forceTransportType,
     }: {
       hardwareCallContext?: IHardwareCallContext;
+      forceTransportType?: EHardwareTransportType;
     }): Promise<{
       shouldSwitch: boolean;
       targetType: EHardwareTransportType;
     }> => {
+      // If a specific transport type is forced (e.g., for onboarding), use it directly
+      if (forceTransportType) {
+        console.log(
+          '🔒 Using forced transport type: ',
+          forceTransportType,
+        );
+        const shouldSwitch = this.actualTransportType !== forceTransportType;
+        return {
+          shouldSwitch,
+          targetType: forceTransportType,
+        };
+      }
+
       // only if context is not background task or sdk initialization, we will detect optimal transport type
       if (
         [
@@ -278,7 +293,7 @@ export class HardwareConnectionManager {
       promise: true,
       maxAge: timerUtils.getTimeDurationMs({ seconds: 2 }),
       max: 1,
-      normalizer: (args) => args[0].hardwareCallContext || 'default',
+      normalizer: (args) => `${args[0].hardwareCallContext || 'default'}-${args[0].forceTransportType || 'none'}`,
     },
   );
 
