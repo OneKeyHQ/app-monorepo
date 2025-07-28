@@ -195,7 +195,7 @@ function TokenListFooter(props: IProps) {
               <Icon
                 name="ControllerRoundUpSolid"
                 color="$iconSubdued"
-                size={tableLayout ? '$6' : '$7'}
+                size={tableLayout ? '$8' : '$7'}
               />
             </Stack>
             <ListItem.Text
@@ -265,7 +265,7 @@ function TokenListFooter(props: IProps) {
               <Icon
                 name="ErrorSolid"
                 color="$iconSubdued"
-                size={tableLayout ? '$6' : '$7'}
+                size={tableLayout ? '$8' : '$7'}
               />
             </Stack>
             <ListItem.Text
