@@ -42,15 +42,6 @@ function getHeaderTitle(
     : fallback;
 }
 
-const useIsTabFocused = () => {
-  const isFocused = useIsFocused();
-
-  if ((rootNavigationRef.current?.getState().routes.length || 0) > 1) {
-    return true;
-  }
-  return isFocused;
-};
-
 const DesktopDragZoneBoxView = platformEnv.isDesktop
   ? ({ disabled, children }: IDesktopDragZoneBoxProps) => {
       const isModalPage = useIsModalPage();
