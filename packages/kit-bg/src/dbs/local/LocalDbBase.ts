@@ -3285,42 +3285,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     });
 
-    await this.withTransaction(EIndexedDBBucketNames.archive, async (tx) => {
-      const isHardware =
-        accountUtils.isHwWallet({
-          walletId,
-        }) || accountUtils.isQrWallet({ walletId });
-
-      if (
-        isHardware &&
-        !isRemoveToMocked &&
-        wallet.associatedDevice &&
-        !accountUtils.isHwHiddenWallet({ wallet })
-      ) {
-        try {
-          // remove device home screen
-          const deviceHomeScreenIds = await this.txGetRecordIds({
-            tx,
-            name: ELocalDBStoreNames.HardwareHomeScreen,
-          });
-          const needRemoveDeviceHomeScreenIds = deviceHomeScreenIds.filter(
-            (id) =>
-              wallet.associatedDevice && id.startsWith(wallet.associatedDevice),
-          );
-          if (needRemoveDeviceHomeScreenIds.length) {
-            await this.txRemoveRecords({
-              tx,
-              name: ELocalDBStoreNames.HardwareHomeScreen,
-              ids: needRemoveDeviceHomeScreenIds,
-              ignoreNotFound: true,
-            });
-          }
-        } catch (error) {
-          console.log('remove device, clean home screen error');
-        }
-      }
-    });
-
     await this.removeCloudSyncPoolItems({ keys: [syncKeyInfo.key] });
 
     delete this.tempWallets[walletId];

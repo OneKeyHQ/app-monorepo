@@ -50,6 +50,7 @@ const resizeImage = (
 function BasicImageCrop({
   src,
   onConfirm,
+  onCancel,
   defaultSize,
 }: {
   src: string;
@@ -58,6 +59,7 @@ function BasicImageCrop({
     width: number;
   };
   onConfirm: (data: IPickerImage) => void;
+  onCancel?: () => void;
 }) {
   const cropperRef = useRef<CropperRef>(null);
 
@@ -108,6 +110,7 @@ function BasicImageCrop({
         />
       </Stack>
       <Dialog.Footer
+        onCancel={onCancel}
         onConfirm={async () => {
           if (cropperRef.current && cropperRef.current.getCanvas()) {
             const canvas = cropperRef.current.getCanvas();
@@ -178,6 +181,34 @@ const openPicker: IOpenPickerFunc = ({ width, height }) =>
     input.click();
   });
 
+export const openCropImage = (
+  image: string,
+  width: number,
+  height: number,
+): Promise<IPickerImage> =>
+  new Promise((resolve, reject) => {
+    Dialog.show({
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.global_crop_image,
+      }),
+      sheetProps: {
+        disableDrag: true,
+      },
+      renderContent: (
+        <BasicImageCrop
+          src={image}
+          defaultSize={{
+            width,
+            height,
+          }}
+          onConfirm={resolve as any}
+          onCancel={reject}
+        />
+      ),
+    });
+  });
+
 export const ImageCrop = withStaticProperties(BasicImageCrop, {
   openPicker,
+  openCropImage,
 });

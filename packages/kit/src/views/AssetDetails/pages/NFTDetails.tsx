@@ -9,11 +9,13 @@ import type { IActionListItemProps } from '@onekeyhq/components';
 import {
   ActionList,
   Button,
+  ImageCrop,
   Page,
   Spinner,
   Stack,
   Toast,
 } from '@onekeyhq/components';
+import type { IPickerImage } from '@onekeyhq/components/src/composite/ImageCrop/type';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -27,6 +29,8 @@ import type {
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
+import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
 import { generateUploadNFTParams } from '@onekeyhq/shared/src/utils/nftUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -116,10 +120,74 @@ export default function NFTDetails() {
 
       setIsCollecting(true);
       let uploadResParams: DeviceUploadResourceParams | undefined;
+
+      const config =
+        await backgroundApiProxy.serviceHardware.getDeviceHomeScreenConfig({
+          dbDeviceId: device?.id,
+          homeScreenType: 'Nft',
+        });
+
+      if (!config || !config.size) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_unknown_error,
+          }),
+        });
+        return;
+      }
+
+      let croppedImage: IPickerImage | undefined;
+      try {
+        croppedImage = await ImageCrop.openCropImage(
+          nft.metadata.image,
+          config.size?.width,
+          config.size?.height,
+        );
+      } catch (error) {
+        // ignore error
+      }
+
+      if (!croppedImage) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_unknown_error,
+          }),
+        });
+      }
+
       try {
         const name = nft.metadata?.name;
+
+        const imgBase64: string = croppedImage?.data ?? '';
+        const originW = croppedImage?.width ?? 0;
+        const originH = croppedImage?.height ?? 0;
+
+        const img = await imageUtils.resizeImage({
+          uri: imgBase64,
+
+          width: config.size?.width,
+          height: config.size?.height,
+
+          originW,
+          originH,
+        });
+
+        const {
+          screenHex: customScreenHex,
+          thumbnailHex: customThumbnailHex,
+          blurScreenHex: customBlurScreenHex,
+        } = await deviceHomeScreenUtils.buildCustomScreenHex(
+          device.id,
+          img.uri,
+          device.deviceType,
+          true,
+          config,
+        );
+
         uploadResParams = await generateUploadNFTParams({
-          imageUri: nft.metadata?.image ?? '',
+          screenHex: customScreenHex,
+          thumbnailHex: customThumbnailHex ?? '',
+          blurScreenHex: customBlurScreenHex ?? '',
           metadata: {
             header:
               name && name?.length > 0 ? name : `#${nft.collectionAddress}`,
@@ -127,7 +195,6 @@ export default function NFTDetails() {
             network: network?.name ?? '',
             owner: accountAddress,
           },
-          deviceType: device.deviceType,
         });
       } catch (e) {
         Toast.error({

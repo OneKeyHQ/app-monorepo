@@ -25,10 +25,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import type {
-  IDBDevice,
-  IDBHardwareHomeScreen,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
   IDeviceHomeScreenConfig,
   IDeviceHomeScreenSizeInfo,
@@ -45,8 +42,12 @@ import type {
   IAccountManagerStacksParamList,
 } from '@onekeyhq/shared/src/routes';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import type { IDeviceHomeScreen } from '@onekeyhq/shared/types/device';
+
+import UploadedHomeScreenCache from './uploadedHomeScreenCache';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { DimensionValue } from 'react-native';
@@ -407,14 +408,10 @@ function WallpaperCustomCategorySection({
 }) {
   const { result: deviceHomeScreens, run: runGetDeviceHomeScreens } =
     usePromiseResult<IHardwareHomeScreenData[]>(async () => {
-      const data = await backgroundApiProxy.serviceHardware.getDeviceHomeScreen(
-        {
-          deviceId: device.id,
-        },
-      );
+      const data = UploadedHomeScreenCache.getCacheList(device.id);
       return (
-        data?.map((item: IDBHardwareHomeScreen) => ({
-          id: item.id,
+        data?.map((item: IDeviceHomeScreen) => ({
+          id: item.name,
           uri: imageUtils.prefixBase64Uri(item.imgBase64, 'image/jpeg'), // base64 data uri
           screenHex: Buffer.from(item.imgBase64, 'base64').toString('hex'),
 
@@ -447,7 +444,6 @@ function WallpaperCustomCategorySection({
       width: config.size?.width,
       height: config.size?.height,
     });
-    console.log('cropImage:', data);
     if (!data.data) {
       return;
     }
@@ -474,14 +470,14 @@ function WallpaperCustomCategorySection({
 
     const name = `${USER_UPLOAD_IMG_NAME_PREFIX}${generateUUID()}`;
 
-    const id = await backgroundApiProxy.serviceHardware.saveDeviceHomeScreen({
+    UploadedHomeScreenCache.saveCache(device.id, {
       deviceId: device.id,
       imgBase64: img?.base64 ?? '',
       name,
     });
 
     const uploadItem: IHardwareHomeScreenData = {
-      id,
+      id: name,
       uri: imageUtils.prefixBase64Uri(img?.base64 || imgBase64, 'image/jpeg'), // base64 data uri
       screenHex: img?.hex,
       isUserUpload: true,
@@ -513,10 +509,10 @@ function WallpaperCustomCategorySection({
       if (selectedItem && 'id' in selectedItem && selectedItem.id === item.id) {
         onItemSelected(undefined);
       }
-      await backgroundApiProxy.serviceHardware.deleteDeviceHomeScreen(item.id);
+      UploadedHomeScreenCache.removeCache(device.id, item.id);
       await runGetDeviceHomeScreens();
     },
-    [onItemSelected, runGetDeviceHomeScreens, selectedItem],
+    [onItemSelected, runGetDeviceHomeScreens, selectedItem, device.id],
   );
 
   return (
@@ -686,14 +682,20 @@ export default function HardwareHomeScreenModal({
       (item) => item.wallpaperType === 'cobranding',
     );
 
-    const categories = [
-      {
+    const categories: IWallpaperCategory[] = [];
+
+    if (
+      defaultWallpapers.length > 0 &&
+      deviceInfo?.deviceType &&
+      !deviceUtils.isTouchDevice(deviceInfo?.deviceType)
+    ) {
+      categories.push({
         title: appLocale.intl.formatMessage({
-          id: ETranslations.global_wallpaper_classic,
+          id: ETranslations.global_wallpaper_collection,
         }),
         data: defaultWallpapers,
-      },
-    ];
+      });
+    }
 
     if (cobrandingWallpapers.length > 0) {
       categories.push({
@@ -705,7 +707,7 @@ export default function HardwareHomeScreenModal({
     }
 
     return categories;
-  }, [result?.homeScreenList]);
+  }, [deviceInfo?.deviceType, result?.homeScreenList]);
 
   const ScreenContent = useMemo(() => {
     if (isHardwareHomeScreenLoading || result?.isLoadingError) {
@@ -784,8 +786,14 @@ export default function HardwareHomeScreenModal({
             }
             setIsUploadLoading(true);
 
-            const { nameHex, screenHex, thumbnailHex, resType, isUserUpload } =
-              selectedItem;
+            const {
+              nameHex,
+              screenHex,
+              thumbnailHex,
+              blurScreenHex,
+              resType,
+              isUserUpload,
+            } = selectedItem;
 
             const isCustomScreen = resType === 'custom' || isUserUpload;
 
@@ -793,6 +801,7 @@ export default function HardwareHomeScreenModal({
 
             let finallyScreenHex = '';
             let finallyThumbnailHex: string | undefined;
+            let finallyBlurScreenHex: string | undefined;
             try {
               if (isCustomScreen) {
                 // case 1: custom upload wallpaper from uri
@@ -800,6 +809,7 @@ export default function HardwareHomeScreenModal({
                 const {
                   screenHex: customScreenHex,
                   thumbnailHex: customThumbnailHex,
+                  blurScreenHex: customBlurScreenHex,
                 } = await deviceHomeScreenUtils.buildCustomScreenHex(
                   device.id,
                   selectedItem.uri || selectedItem.url,
@@ -810,9 +820,11 @@ export default function HardwareHomeScreenModal({
 
                 finallyScreenHex = customScreenHex || '';
                 finallyThumbnailHex = customThumbnailHex;
+                finallyBlurScreenHex = customBlurScreenHex;
               } else {
                 finallyScreenHex = screenHex || nameHex || '';
                 finallyThumbnailHex = thumbnailHex;
+                finallyBlurScreenHex = blurScreenHex;
               }
             } catch (error) {
               buildCustomHexError = (error as Error | undefined)?.message;
@@ -826,6 +838,8 @@ export default function HardwareHomeScreenModal({
               imgName: selectedItem.id,
               imgResType: resType,
               imgHex: finallyScreenHex,
+              thumbnailHex: finallyThumbnailHex || '',
+              blurScreenHex: finallyBlurScreenHex || '',
               isUserUpload,
             });
 
@@ -835,12 +849,16 @@ export default function HardwareHomeScreenModal({
                 ...selectedItem,
                 screenHex: finallyScreenHex,
                 thumbnailHex: finallyThumbnailHex,
+                blurScreenHex: finallyBlurScreenHex,
               },
             });
             // setSelectedItem(undefined);
             Toast.success({
               title: appLocale.intl.formatMessage({
-                id: ETranslations.feedback_change_saved,
+                id: ETranslations.hardware_wallpaper_add_success,
+              }),
+              message: appLocale.intl.formatMessage({
+                id: ETranslations.hardware_wallpaper_add_success_information,
               }),
             });
             // Do not close the current page, let the user switch wallpapers and preview them on the device
