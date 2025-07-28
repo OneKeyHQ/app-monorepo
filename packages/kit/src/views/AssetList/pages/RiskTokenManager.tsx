@@ -218,6 +218,20 @@ function RiskTokenManager() {
     (token: IAccountToken & { isBlocked: boolean }) => {
       const tokenNetworkId = token.networkId ?? networkId;
       const tokenAddress = token.address;
+
+      Toast.success({
+        title: intl.formatMessage(
+          {
+            id: token.isBlocked
+              ? ETranslations.wallet_risk_assets_hide_on_home_feedback_shown
+              : ETranslations.wallet_risk_assets_hide_on_home_feedback_hidden,
+          },
+          {
+            tokenSymbol: token.symbol,
+          },
+        ),
+      });
+
       setUnblockedTokensMap((prev) => ({
         ...prev,
         [tokenNetworkId]: {
@@ -232,13 +246,8 @@ function RiskTokenManager() {
           [tokenAddress]: !token.isBlocked,
         },
       }));
-      Toast.success({
-        title: `${token.symbol} is now ${
-          token.isBlocked ? 'show on home' : 'hidden from home'
-        }`,
-      });
     },
-    [networkId],
+    [networkId, intl],
   );
 
   return (
