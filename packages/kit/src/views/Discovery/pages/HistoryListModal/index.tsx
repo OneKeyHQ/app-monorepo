@@ -29,7 +29,10 @@ import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserHistory } from '../../types';
 
-function groupDataByDate(data: IBrowserHistory[]) {
+function groupDataByDate(
+  prev: { title: string; data: IBrowserHistory[] }[],
+  data: IBrowserHistory[],
+) {
   const groups = data.reduce<{ [date: string]: IBrowserHistory[] }>(
     (result, item) => {
       const date = formatRelativeDate(new Date(item.createdAt));
@@ -80,8 +83,8 @@ function HistoryListModal() {
 
   useEffect(() => {
     setDataSource((prev) => {
-      const newData = groupDataByDate(prev, allHistoryData);
-      return [...prev, ...newData];
+      groupDataByDate(prev, allHistoryData);
+      return prev;
     });
   }, [allHistoryData]);
 
