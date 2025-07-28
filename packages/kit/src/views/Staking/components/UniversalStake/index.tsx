@@ -55,7 +55,6 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { HyperlinkText } from '../../../../components/HyperlinkText';
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
