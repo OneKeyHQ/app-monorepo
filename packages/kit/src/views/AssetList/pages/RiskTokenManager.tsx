@@ -29,6 +29,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { EmptySearch } from '../../../components/Empty';
 import { ListItem } from '../../../components/ListItem';
 import TokenBalanceView from '../../../components/TokenListView/TokenBalanceView';
 import TokenIconView from '../../../components/TokenListView/TokenIconView';
@@ -36,6 +37,7 @@ import TokenNameView from '../../../components/TokenListView/TokenNameView';
 import TokenPriceChangeView from '../../../components/TokenListView/TokenPriceChangeView';
 import TokenPriceView from '../../../components/TokenListView/TokenPriceView';
 import TokenValueView from '../../../components/TokenListView/TokenValueView';
+import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
@@ -49,8 +51,6 @@ import type {
   NativeSyntheticEvent,
   TextInputFocusEventData,
 } from 'react-native';
-import { useAccountData } from '../../../hooks/useAccountData';
-import { EmptySearch } from '../../../components/Empty';
 
 function RiskTokenManager() {
   const intl = useIntl();
