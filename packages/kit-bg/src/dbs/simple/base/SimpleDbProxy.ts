@@ -37,6 +37,7 @@ import type { SimpleDbEntityMarketWatchListV2 } from '../entity/SimpleDbEntityMa
 import type { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import type { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
 import type { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
+import type { SimpleDbEntityPrimeTransfer } from '../entity/SimpleDbEntityPrimeTransfer';
 import type { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
 import type { SimpleDbEntityRecentRecipients } from '../entity/SimpleDbEntityRecentRecipients';
 import type { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
@@ -239,4 +240,8 @@ export class SimpleDbProxy
   walletBanner = this._createProxyService(
     'walletBanner',
   ) as SimpleDbEntityWalletBanner;
+
+  primeTransfer = this._createProxyService(
+    'primeTransfer',
+  ) as SimpleDbEntityPrimeTransfer;
 }

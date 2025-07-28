@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
@@ -33,13 +33,15 @@ export function GetStarted({
     };
   }, []);
 
+  const [showTransfer, setShowTransfer] = useState(false);
+
   return (
     <Page safeAreaEnabled>
       <Page.Header headerShown={false} />
       <Page.Body bg="$background">
-        <Welcome />
+        <Welcome setShowTransfer={setShowTransfer} />
 
-        <Actions />
+        <Actions showTransfer={showTransfer} />
 
         <TermsAndPrivacy />
 
