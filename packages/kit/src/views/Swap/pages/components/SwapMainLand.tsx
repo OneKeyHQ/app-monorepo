@@ -291,6 +291,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapFromAddressInfo.networkId,
     swapFromAddressInfo.accountInfo?.account?.id,
     currentQuoteRes?.providerDisableBatchTransfer,
+    Boolean(currentQuoteRes?.swapShouldSignedData),
   );
 
   const createWrapStep = useCallback(
@@ -321,12 +322,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         canRetry: true,
         stepActionsLabel,
         stepTitle,
-        shouldWaitApproved:
-          swapBatchTransferType !==
-          ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP,
+        shouldWaitApproved: true,
       };
     },
-    [swapBatchTransferType],
+    [],
   );
 
   const createSignStep = useCallback(() => {
@@ -346,14 +345,26 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     return {
       type: ESwapStepType.BATCH_APPROVE_SWAP,
       status: ESwapStepStatus.READY,
-      stepTitle: intl.formatMessage({
-        id: ETranslations.swap_page_approve_and_swap,
-      }),
+      stepTitle:
+        swapBatchTransferType ===
+        ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP
+          ? `${intl.formatMessage({
+              id: ETranslations.swap_page_approve_and_swap,
+            })} [ 0 / ${
+              currentQuoteRes?.allowanceResult?.shouldResetApprove ? 3 : 2
+            } ]`
+          : intl.formatMessage({
+              id: ETranslations.swap_page_approve_and_swap,
+            }),
       stepActionsLabel: intl.formatMessage({
         id: ETranslations.swap_page_approve_and_swap,
       }),
     };
-  }, [intl]);
+  }, [
+    swapBatchTransferType,
+    intl,
+    currentQuoteRes?.allowanceResult?.shouldResetApprove,
+  ]);
 
   const createSendTxStep = useCallback(() => {
     return {
@@ -412,7 +423,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       }
       steps = [...steps, createSignStep()];
     } else if (
-      swapBatchTransferType === ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP &&
+      (swapBatchTransferType ===
+        ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP ||
+        swapBatchTransferType ===
+          ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP) &&
       currentQuoteRes?.allowanceResult
     ) {
       steps = [createBatchApproveSwapStep()];
@@ -468,8 +482,15 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         fromTokenAmount: fromAmount.value,
         toTokenAmount: swapToAmount.value,
         providerInfo: currentQuoteRes?.info,
-        slippage: swapSlippageRef.current.value,
+        slippage:
+          currentQuoteRes?.protocol === EProtocolOfExchange.LIMIT ||
+          currentQuoteRes?.unSupportSlippage
+            ? undefined
+            : swapSlippageRef.current.value,
         unSupportSlippage: currentQuoteRes?.unSupportSlippage ?? false,
+        isHWAndExBatchTransfer:
+          swapBatchTransferType ===
+          ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP,
         fee: currentQuoteRes?.fee,
         ...(!(
           steps.length > 0 &&
@@ -675,10 +696,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
                         : EJotaiContextStoreNames.swap
                     }
                   >
-                    <PreSwapDialogContent
-                      onConfirm={handleConfirm}
-                      slippageItem={slippageItem}
-                    />
+                    <PreSwapDialogContent onConfirm={handleConfirm} />
                   </SwapProviderMirror>
                 </AccountSelectorProviderMirror>
               ),
@@ -706,10 +724,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
                         : EJotaiContextStoreNames.swap
                     }
                   >
-                    <PreSwapDialogContent
-                      onConfirm={handleConfirm}
-                      slippageItem={slippageItem}
-                    />
+                    <PreSwapDialogContent onConfirm={handleConfirm} />
                   </SwapProviderMirror>
                 </AccountSelectorProviderMirror>
               ),
@@ -728,7 +743,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     intl,
     pageType,
     handleConfirm,
-    slippageItem,
     setSwapBuildTxFetching,
   ]);
 

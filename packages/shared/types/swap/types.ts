@@ -427,6 +427,7 @@ export interface ISwapPreSwapData {
   shouldFallback?: boolean;
   toTokenAmount?: string;
   providerInfo?: IFetchQuoteInfo;
+  isHWAndExBatchTransfer?: boolean;
   slippage?: number;
   unSupportSlippage?: boolean;
   fee?: IFetchQuoteFee;
