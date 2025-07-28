@@ -1,4 +1,4 @@
-import { XStack } from '../../primitives';
+import { SizableText, XStack } from '../../primitives';
 
 import type {
   ISizableTextProps,
