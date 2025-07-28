@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { isNil } from 'lodash';
-
 import { useIsModalPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
