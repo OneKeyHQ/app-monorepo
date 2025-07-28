@@ -254,9 +254,12 @@ class ServiceHardware extends ServiceBase {
 
   async getSDKInstance(options?: {
     hardwareCallContext?: EHardwareCallContext;
+    forceTransportType?: EHardwareTransportType;
   }) {
-    const { hardwareCallContext = EHardwareCallContext.USER_INTERACTION } =
-      options || {};
+    const { 
+      hardwareCallContext = EHardwareCallContext.USER_INTERACTION,
+      forceTransportType,
+    } = options || {};
     this.checkSdkVersionValid();
 
     const { hardwareConnectSrc } = await settingsPersistAtom.get();
@@ -278,6 +281,7 @@ class ServiceHardware extends ServiceBase {
       // Check if we should switch transport type based on optimal connection strategy
       const result = await this.connectionManager.shouldSwitchTransportType({
         hardwareCallContext,
+        forceTransportType,
       });
       shouldSwitch = result.shouldSwitch;
       hardwareTransportType = result.targetType;
@@ -584,8 +588,14 @@ class ServiceHardware extends ServiceBase {
   // startDeviceScan
   // TODO use convertDeviceResponse()
   @backgroundMethod()
-  async searchDevices() {
-    const hardwareSDK = await this.getSDKInstance();
+  async searchDevices({
+    forceTransportType,
+  }: {
+    forceTransportType?: EHardwareTransportType;
+  } = {}) {
+    const hardwareSDK = await this.getSDKInstance({
+      forceTransportType,
+    });
     const response = await hardwareSDK?.searchDevices();
     console.log('searchDevices response: ', response);
     return response;
@@ -617,8 +627,10 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async connect({
     device,
+    forceTransportType,
   }: {
     device: SearchDevice;
+    forceTransportType?: EHardwareTransportType;
   }): Promise<Features | undefined> {
     const { connectId } = device;
     if (!connectId) {
@@ -632,6 +644,7 @@ class ServiceHardware extends ServiceBase {
       connectId,
       featuresDeviceId: device.deviceId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      forceTransportType,
     });
 
     if (platformEnv.isNative) {
@@ -1488,11 +1501,13 @@ class ServiceHardware extends ServiceBase {
     connectId,
     featuresDeviceId,
     features,
+    forceTransportType,
   }: {
     hardwareCallContext: EHardwareCallContext;
     connectId?: string;
     featuresDeviceId?: string | undefined | null; // rawDeviceId
     features?: IOneKeyDeviceFeatures;
+    forceTransportType?: EHardwareTransportType;
   }) {
     if (!connectId) {
       throw new OneKeyLocalError('connectId is required');
@@ -1512,6 +1527,7 @@ class ServiceHardware extends ServiceBase {
     // Determine the transport type to use
     const result = await this.connectionManager.shouldSwitchTransportType({
       hardwareCallContext,
+      forceTransportType,
     });
     const targetTransportType = result.targetType;
 
