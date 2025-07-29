@@ -142,9 +142,6 @@ const usePassKeyOperations = () => {
 
 function PassKeyContainer() {
   useEffect(() => {
-    setTimeout(() => {
-      window.close();
-    }, 5 * 60 * 1000);
     setupExtUIEventOnPassKeyPage();
   }, []);
   usePassKeyOperations();
