@@ -427,23 +427,25 @@ function BasicMarketHomeList({
 
   const fetchCategory = useCallback(async () => {
     const now = Date.now();
+    console.log('fetchCategory', now, now - updateAtRef.current);
+
     if (
-      now - updateAtRef.current >
-        timerUtils.getTimeDurationMs({ seconds: 45 }) ||
-      prevCoingeckoIdsLength !== category.coingeckoIds.length ||
-      (prevCoingeckoIdsLength === 0 && category.coingeckoIds.length === 0)
+      now - updateAtRef.current <
+      timerUtils.getTimeDurationMs({ seconds: 45 })
     ) {
-      updateAtRef.current = now;
-      const response = await backgroundApiProxy.serviceMarket.fetchCategory(
-        category.categoryId,
-        category.coingeckoIds,
-        true,
-      );
-      void InteractionManager.runAfterInteractions(() => {
-        setListData(response);
-      });
+      return;
     }
-  }, [category.categoryId, category.coingeckoIds, prevCoingeckoIdsLength]);
+
+    updateAtRef.current = now;
+    const response = await backgroundApiProxy.serviceMarket.fetchCategory(
+      category.categoryId,
+      category.coingeckoIds,
+      true,
+    );
+    void InteractionManager.runAfterInteractions(() => {
+      setListData(response);
+    });
+  }, [category.categoryId, category.coingeckoIds]);
 
   usePromiseResult(
     async () => {
@@ -464,7 +466,7 @@ function BasicMarketHomeList({
     }
   }, [fetchCategory, isFocused, listData.length]);
 
-  const { md, gtMd, gt2Md, gtLg, gtXl, gt2xl } = useMedia();
+  const { gtMd, gt2Md, gtLg, gtXl, gt2xl } = useMedia();
 
   const filterCoingeckoIdsListData = useMemo(() => {
     const filterListData = category.coingeckoIds?.length
@@ -549,19 +551,6 @@ function BasicMarketHomeList({
     ),
     [],
   );
-
-  // const handleSettingsContentChange = useCallback(
-  //   ({
-  //     dataDisplay,
-  //     priceChange,
-  //   }: {
-  //     dataDisplay: IKeyOfMarketToken;
-  //     priceChange: IKeyOfMarketToken;
-  //   }) => {
-  //     setMdColumnKeys([dataDisplay, priceChange]);
-  //   },
-  //   [],
-  // );
 
   const [mdSortByType, setMdSortByType] = useState<string | undefined>(
     'Default',
