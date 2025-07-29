@@ -34,10 +34,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
@@ -52,7 +48,7 @@ import type {
 
 import { useReviewControl } from '../../../components/ReviewControl';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { usePrevious } from '../../../hooks/usePrevious';
+import { useDebounce } from '../../../hooks/useDebounce';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -414,7 +410,8 @@ function BasicMarketHomeList({
   const navigation = useAppNavigation();
   const watchListAction = useWatchListAction();
 
-  const isFocused = useIsFocusedTab();
+  const isFocusedTab = useIsFocusedTab();
+  const isFocused = useDebounce(isFocusedTab, 100);
   const prevExtraData = useRef(extraData);
 
   const {
