@@ -2577,6 +2577,7 @@
   "swap.network_cost_dialog_description": "নেটওয়ার্ক খরচ অর্ডার পরিমাণের {number} এর বেশি।",
   "swap.network_cost_dialog_title": "অর্ডারের পরিমাণ খুবই কম",
   "swap.provider_manage_unavailable": "*The provider is temporarily unavailable.",
+  "swap.revoke_successful": "অনুমোদন প্রত্যাহার সফল হয়েছে",
   "swap.stablecoin_0_fee": "০ ফি",
   "swap.step_1": "1. ",
   "swap.toast_go_to_swap": "স্বাপে যান",

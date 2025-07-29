@@ -2577,6 +2577,7 @@
   "swap.network_cost_dialog_description": "网络费用超过订单金额的{number}",
   "swap.network_cost_dialog_title": "订单金额太小",
   "swap.provider_manage_unavailable": "*The provider is temporarily unavailable.",
+  "swap.revoke_successful": "取消授权成功",
   "swap.stablecoin_0_fee": "0 手续费",
   "swap.step_1": "1. ",
   "swap.toast_go_to_swap": "前往兑换",

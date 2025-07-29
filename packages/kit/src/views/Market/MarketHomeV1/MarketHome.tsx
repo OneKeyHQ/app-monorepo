@@ -25,39 +25,6 @@ import { MarketHomeList } from '../components/MarketHomeList';
 import { MarketWatchList } from '../components/MarketWatchList';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
-// type IAnimatedIconRef = { setIsSelected: (isSelected: boolean) => void };
-// function BasicAnimatedIcon(
-//   {
-//     normalColor,
-//     selectedColor,
-//   }: {
-//     normalColor: IColorTokens;
-//     selectedColor: IColorTokens;
-//   },
-//   ref: ForwardedRef<IAnimatedIconRef>,
-// ) {
-//   const [color, setColor] = useState(selectedColor);
-//   const isSelectedValue = useRef(false);
-//   useImperativeHandle(
-//     ref,
-//     () => ({
-//       setIsSelected: (isSelected: boolean) => {
-//         isSelectedValue.current = isSelected;
-//         setColor(isSelected ? selectedColor : normalColor);
-//       },
-//     }),
-//     [normalColor, selectedColor],
-//   );
-//   useEffect(() => {
-//     if (color !== normalColor && color !== selectedColor) {
-//       setColor(isSelectedValue.current ? selectedColor : normalColor);
-//     }
-//   }, [selectedColor, normalColor, color]);
-//   return <Icon name="StarOutline" color={color} size="$4.5" px="$1" />;
-// }
-
-// const AnimatedIcon = forwardRef(BasicAnimatedIcon);
-
 function MarketHome() {
   const { result: categories } = usePromiseResult(
     () => backgroundApiProxy.serviceMarket.fetchCategories(),
@@ -66,8 +33,6 @@ function MarketHome() {
       revalidateOnReconnect: true,
     },
   );
-
-  // const { gtMd } = useMedia();
 
   const tabConfig = useMemo(
     () =>
@@ -83,28 +48,6 @@ function MarketHome() {
       })) || [],
     [categories],
   );
-
-  // const ref = useRef<IAnimatedIconRef>(null);
-  // const headerProps = useMemo(
-  //   () => ({
-  //     showHorizontalScrollButton: !gtMd && platformEnv.isRuntimeBrowser,
-  //     renderItem: (item: any, index: any, titleStyle: any) =>
-  //       index === 0 && !gtMd ? (
-  //         <AnimatedIcon
-  //           ref={ref}
-  //           normalColor={
-  //             (titleStyle as { normalColor: IColorTokens })?.normalColor
-  //           }
-  //           selectedColor={
-  //             (titleStyle as { selectedColor: IColorTokens })?.selectedColor
-  //           }
-  //         />
-  //       ) : (
-  //         <Tab.SelectedLabel {...titleStyle} />
-  //       ),
-  //   }),
-  //   [gtMd],
-  // );
 
   const { gtMd } = useMedia();
   const handleSelectedPageIndex = useCallback((index: number) => {
@@ -129,7 +72,7 @@ function MarketHome() {
         }}
         pagerProps={
           {
-            offscreenPageLimit: 3,
+            offscreenPageLimit: 8,
             scrollSensitivity: 4,
           } as any
         }

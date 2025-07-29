@@ -2577,6 +2577,7 @@
   "swap.network_cost_dialog_description": "Os custos de rede excedem {number} do valor do pedido",
   "swap.network_cost_dialog_title": "O valor do pedido é muito pequeno",
   "swap.provider_manage_unavailable": "*The provider is temporarily unavailable.",
+  "swap.revoke_successful": "Aprovação de revogação bem-sucedida",
   "swap.stablecoin_0_fee": "0 Taxa",
   "swap.step_1": "1. ",
   "swap.toast_go_to_swap": "Ir para swap",

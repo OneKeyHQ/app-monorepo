@@ -26,6 +26,7 @@ import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discov
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ECheckAmountActionType,
   type ICheckAmountAlert,
@@ -328,10 +329,20 @@ export const UniversalClaim = ({
       <CalculationList>
         {receiving ? (
           <CalculationListItem>
-            <CalculationListItem.Label>
-              {intl.formatMessage({ id: ETranslations.earn_receive })}
-            </CalculationListItem.Label>
-            <CalculationListItem.Value>{receiving}</CalculationListItem.Value>
+            {platformEnv.isNative ? (
+              <SizableText color="$textSubdued">
+                {intl.formatMessage({ id: ETranslations.earn_receive })}
+              </SizableText>
+            ) : (
+              <CalculationListItem.Label>
+                {intl.formatMessage({ id: ETranslations.earn_receive })}
+              </CalculationListItem.Label>
+            )}
+            {platformEnv.isNative ? (
+              <XStack flex={1}>{receiving}</XStack>
+            ) : (
+              <CalculationListItem.Value>{receiving}</CalculationListItem.Value>
+            )}
           </CalculationListItem>
         ) : null}
         {providerName && providerLogo ? (
