@@ -2577,6 +2577,7 @@
   "swap.network_cost_dialog_description": "नेटवर्क लागत आदेश राशि के {number} से अधिक है",
   "swap.network_cost_dialog_title": "आदेश की राशि बहुत कम है",
   "swap.provider_manage_unavailable": "*The provider is temporarily unavailable.",
+  "swap.revoke_successful": "अनुमोदन रद्द करना सफल रहा",
   "swap.stablecoin_0_fee": "0 शुल्क",
   "swap.step_1": "1. ",
   "swap.toast_go_to_swap": "स्वैप पर जाएं",

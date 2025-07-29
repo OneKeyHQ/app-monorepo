@@ -2577,6 +2577,7 @@
   "swap.network_cost_dialog_description": "ネットワークコストが注文金額の{number}を超えています",
   "swap.network_cost_dialog_title": "注文金額が小さすぎます",
   "swap.provider_manage_unavailable": "*The provider is temporarily unavailable.",
+  "swap.revoke_successful": "承認の取り消しに成功しました",
   "swap.stablecoin_0_fee": "0 手数料",
   "swap.step_1": "1. ",
   "swap.toast_go_to_swap": "スワップに行く",

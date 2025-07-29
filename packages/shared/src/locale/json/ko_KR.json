@@ -2577,6 +2577,7 @@
   "swap.network_cost_dialog_description": "네트워크 비용이 주문 금액의 {number}을 초과합니다",
   "swap.network_cost_dialog_title": "주문 금액이 너무 적습니다",
   "swap.provider_manage_unavailable": "*The provider is temporarily unavailable.",
+  "swap.revoke_successful": "승인 취소 성공",
   "swap.stablecoin_0_fee": "0 수수료",
   "swap.step_1": "1. ",
   "swap.toast_go_to_swap": "스왑으로 이동",
