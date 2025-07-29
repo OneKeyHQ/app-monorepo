@@ -29,7 +29,7 @@ export function FAQPanel({
   faqList,
   isLoading = false,
 }: {
-  faqList: Array<{ question: string; answer: string }>;
+  faqList?: Array<{ question: string; answer: string }>;
   isLoading?: boolean;
 }) {
   const intl = useIntl();
