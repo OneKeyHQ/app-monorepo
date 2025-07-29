@@ -904,6 +904,7 @@ export function useSwapBuildTx() {
               gasEIP1559: gasEIP1559Let,
             };
             try {
+              updateStepTitle(stepIndex, i, approveUnsignedTxArr);
               const res = await updateUnsignedTxAndSendTx({
                 stepIndex,
                 networkId,
@@ -914,7 +915,6 @@ export function useSwapBuildTx() {
               if (i === unsignedTxArr.length - 1) {
                 lastTxRes = res;
               }
-              updateStepTitle(stepIndex, i, approveUnsignedTxArr);
               if (!isApprove && i === unsignedTxArr.length - 1) {
                 void swapSendTxEvent(
                   ESwapEventAPIStatus.SUCCESS,
@@ -1007,6 +1007,7 @@ export function useSwapBuildTx() {
                   }
                 : undefined,
             };
+            updateStepTitle(stepIndex, i, approveUnsignedTxArr);
             lastTxRes = await updateUnsignedTxAndSendTx({
               stepIndex,
               networkId,
@@ -1014,7 +1015,6 @@ export function useSwapBuildTx() {
               unsignedTxItem,
               gasInfo: lastTxGasInfo,
             });
-            updateStepTitle(stepIndex, i, approveUnsignedTxArr);
           } else {
             const estimateFeeParams =
               await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
@@ -1047,6 +1047,7 @@ export function useSwapBuildTx() {
               feeDot: gasRes.feeDot?.[1] ?? gasRes.feeDot?.[0],
               feeBudget: gasRes.feeBudget?.[1] ?? gasRes.feeBudget?.[0],
             };
+            updateStepTitle(stepIndex, i, approveUnsignedTxArr);
             await updateUnsignedTxAndSendTx({
               stepIndex,
               networkId,
@@ -1054,7 +1055,6 @@ export function useSwapBuildTx() {
               unsignedTxItem,
               gasInfo: gasParseInfo,
             });
-            updateStepTitle(stepIndex, i, approveUnsignedTxArr);
           }
         }
       } else {
