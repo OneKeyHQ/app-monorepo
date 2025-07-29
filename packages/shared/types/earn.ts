@@ -121,4 +121,5 @@ export interface IEarnAvailableAsset {
   protocols: IEarnAvailableAssetProtocol[];
   badges?: IEarnAvailableAssetBadge[];
   aprInfo?: IEarnAvailableAssetAprInfo;
+  bgColor?: string;
 }

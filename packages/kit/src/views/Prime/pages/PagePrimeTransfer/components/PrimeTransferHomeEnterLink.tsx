@@ -1,23 +1,32 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
+  Form,
   Input,
   SizableText,
+  Skeleton,
   Spinner,
-  Toast,
   XStack,
   YStack,
   useClipboard,
+  useForm,
 } from '@onekeyhq/components';
+import type { IInputAddOnProps } from '@onekeyhq/components/src/forms/Input/InputAddOnItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+
+interface IPrimeTransferForm {
+  pairingCode: string;
+}
 
 export function PrimeTransferHomeEnterLink({
   remotePairingCode,
@@ -26,84 +35,87 @@ export function PrimeTransferHomeEnterLink({
   remotePairingCode: string;
   setRemotePairingCode: (code: string) => void;
 }) {
+  // Initialize form
+  const form = useForm<IPrimeTransferForm>({
+    mode: 'onBlur',
+    reValidateMode: 'onBlur',
+    defaultValues: { pairingCode: remotePairingCode || '' },
+  });
+
+  // Watch form value and sync with existing state
+  const watchedPairingCode = form.watch('pairingCode');
+
+  useEffect(() => {
+    if (watchedPairingCode !== remotePairingCode) {
+      setRemotePairingCode(watchedPairingCode);
+    }
+  }, [watchedPairingCode, remotePairingCode, setRemotePairingCode]);
+
+  const [primeTransferAtom] = usePrimeTransferAtom();
+  const websocketConnected = primeTransferAtom.websocketConnected;
+  // const websocketConnected = false;
+
   const intl = useIntl();
   const navigation = useAppNavigation();
 
   const { start } = useScanQrCode();
   const { onPasteClearText, clearText, getClipboard } = useClipboard();
   const [isConnecting, setIsConnecting] = useState(false);
+  const isConnectingRef = useRef(isConnecting);
+  isConnectingRef.current = isConnecting;
 
-  const [primeTransferAtom] = usePrimeTransferAtom();
-
-  const connectRemoteDevice = useCallback(async () => {
-    const remoteRoomId =
-      await backgroundApiProxy.servicePrimeTransfer.getRoomIdFromPairingCode(
-        remotePairingCode,
-      );
-    if (!remoteRoomId || !remotePairingCode) {
-      Toast.error({
-        title: intl.formatMessage({ id: ETranslations.transfer_invalid_code }),
-      });
-      return;
-    }
-    if (
-      remoteRoomId &&
-      primeTransferAtom.myCreatedRoomId &&
-      remoteRoomId.toUpperCase() ===
-        primeTransferAtom.myCreatedRoomId.toUpperCase()
-    ) {
-      Toast.error({
-        title: intl.formatMessage({
-          id: ETranslations.transfer_pair_code_own_error,
-        }),
-      });
+  const connectRemoteDevice = useCallback(async (pairingCode: string) => {
+    if (isConnectingRef.current) {
       return;
     }
     setIsConnecting(true);
     try {
-      await backgroundApiProxy.servicePrimeTransfer.checkPairingCodeValidAsync(
-        remotePairingCode,
-      );
+      // Validation is now handled by Form validate rules
+      // Get room ID for connection
+      const remoteRoomId =
+        await backgroundApiProxy.servicePrimeTransfer.getRoomIdFromPairingCode(
+          pairingCode,
+        );
+
       await backgroundApiProxy.servicePrimeTransfer.joinRoom({
         roomId: remoteRoomId,
       });
       await backgroundApiProxy.servicePrimeTransfer.verifyPairingCode({
-        pairingCode: remotePairingCode.toUpperCase(),
+        pairingCode: pairingCode.toUpperCase(),
       });
     } finally {
       setIsConnecting(false);
     }
-  }, [intl, primeTransferAtom.myCreatedRoomId, remotePairingCode]);
+  }, []);
 
   const cleanTextFn = useCallback((text: string) => {
     return text.replace(/[^a-zA-Z0-9-]/g, '').replace(/-/g, '');
   }, []);
 
   const handlePairingCodeChange = useCallback(
-    (text: string) => {
+    (text: string, skipPreviousCheck = false) => {
       // Check if this is deletion by comparing lengths
-      const previousCleanText = (remotePairingCode || '').replace(
-        /[^a-zA-Z0-9-]/g,
-        '',
-      );
+      const previousCleanText = skipPreviousCheck
+        ? ''
+        : (remotePairingCode || '').replace(/[^a-zA-Z0-9-]/g, '');
       const currentCleanText = text.replace(/[^a-zA-Z0-9-]/g, '');
       const isDeleting = currentCleanText.length < previousCleanText.length;
 
+      let formattedText = '';
       if (isDeleting) {
         // During deletion, only filter invalid characters and convert to uppercase
         // Don't do any separator manipulation to preserve cursor position
-        setRemotePairingCode(currentCleanText);
+        formattedText = currentCleanText;
       } else {
         const groupSize = 5;
         const isAppendingInput = currentCleanText.startsWith(previousCleanText);
         if (isAppendingInput) {
           // During input, apply full formatting
-          const formattedText = stringUtils.addSeparatorToString({
+          formattedText = stringUtils.addSeparatorToString({
             str: cleanTextFn(text),
             groupSize,
             separator: '-',
           });
-          setRemotePairingCode(formattedText);
         } else {
           let keepPrevious = false;
           if (currentCleanText.includes('--')) {
@@ -119,59 +131,157 @@ export function PrimeTransferHomeEnterLink({
             }
           }
           if (keepPrevious) {
-            setRemotePairingCode(previousCleanText);
+            formattedText = previousCleanText;
           } else {
-            setRemotePairingCode(currentCleanText);
+            formattedText = currentCleanText;
           }
         }
       }
+
+      const currentFormValue = form.getValues('pairingCode');
+      if (formattedText !== currentFormValue) {
+        // Update form value
+        form.setValue('pairingCode', formattedText, {
+          // shouldValidate: true,
+          // shouldDirty: true,
+        });
+      }
+      // Keep existing state sync for compatibility
+      setRemotePairingCode(formattedText);
+
+      if (skipPreviousCheck) {
+        void form.trigger('pairingCode');
+      }
     },
-    [cleanTextFn, remotePairingCode, setRemotePairingCode],
+    [cleanTextFn, remotePairingCode, setRemotePairingCode, form],
   );
 
-  if (!primeTransferAtom.websocketConnected) {
-    return <Spinner size="large" />;
-  }
+  // Form submit handler
+  const onSubmit = useCallback(
+    (data: IPrimeTransferForm) => {
+      void connectRemoteDevice(data.pairingCode);
+    },
+    [connectRemoteDevice],
+  );
+
+  const addOns: IInputAddOnProps[] = [
+    // platformEnv.isExtension
+    //   ? null
+    //   :
+    {
+      iconName: 'ClipboardOutline' as IKeyOfIcons,
+      onPress: async () => {
+        const text = await getClipboard();
+        if (text) {
+          handlePairingCodeChange(text || '', true);
+          clearText();
+        }
+      },
+    },
+    {
+      iconName: 'ScanOutline' as IKeyOfIcons,
+      onPress: async () => {
+        const result = await start({
+          handlers: [],
+          autoHandleResult: false,
+        });
+        handlePairingCodeChange(result?.raw || '', true);
+      },
+    },
+  ].filter(Boolean);
 
   return (
-    <>
+    <Form form={form} childrenGap={0}>
       <YStack gap="$1">
         <SizableText size="$bodyMdMedium">
           {intl.formatMessage({ id: ETranslations.transfer_pair_code })}
         </SizableText>
 
-        <Input
-          size="large"
-          maxLength={59}
-          value={remotePairingCode}
-          onChangeText={handlePairingCodeChange}
-          onPaste={onPasteClearText}
-          autoCapitalize="characters"
-          textTransform="uppercase"
-          placeholder="224RU-EZ172-4B483-ZN695-RM9XC-CJ6Z9-MQ67J-ZM3B2-4LXBS-JZP7D"
-          addOns={[
-            {
-              iconName: 'ClipboardOutline',
-              onPress: async () => {
-                const text = await getClipboard();
-                if (text) {
-                  handlePairingCodeChange(text || '');
-                  clearText();
+        <Form.Field
+          name="pairingCode"
+          rules={{
+            required: {
+              value: true,
+              message: intl.formatMessage({
+                id: ETranslations.transfer_invalid_code,
+              }),
+            },
+            onChange: (e) => {
+              handlePairingCodeChange(
+                (e as { target: { value: string } })?.target?.value || '',
+                false,
+              );
+            },
+            validate: {
+              notSelfPairing: async (value) => {
+                if (!value) {
+                  return intl.formatMessage({
+                    id: ETranslations.transfer_invalid_code,
+                  });
+                }
+                try {
+                  const remoteRoomId =
+                    await backgroundApiProxy.servicePrimeTransfer.getRoomIdFromPairingCode(
+                      value,
+                    );
+                  if (!remoteRoomId) {
+                    return intl.formatMessage({
+                      id: ETranslations.transfer_invalid_code,
+                    });
+                  }
+                  if (
+                    remoteRoomId &&
+                    primeTransferAtom.myCreatedRoomId &&
+                    remoteRoomId.toUpperCase() ===
+                      primeTransferAtom.myCreatedRoomId.toUpperCase()
+                  ) {
+                    return intl.formatMessage({
+                      id: ETranslations.transfer_pair_code_own_error,
+                    });
+                  }
+                  return undefined;
+                } catch {
+                  return undefined;
+                }
+              },
+              validPairingCode: async (value) => {
+                if (!value) return undefined;
+                try {
+                  await backgroundApiProxy.servicePrimeTransfer.checkPairingCodeValidAsync(
+                    value,
+                  );
+                  return undefined;
+                } catch {
+                  return intl.formatMessage({
+                    id: ETranslations.transfer_invalid_code,
+                  });
                 }
               },
             },
-            {
-              iconName: 'ScanOutline',
-              onPress: async () => {
-                const result = await start({
-                  handlers: [],
-                  autoHandleResult: false,
-                });
-                handlePairingCodeChange(result?.raw || '');
-              },
-            },
-          ]}
-        />
+          }}
+        >
+          {websocketConnected ? (
+            <Input
+              size="large"
+              autoComplete="off"
+              autoCorrect={false}
+              spellCheck={false}
+              data-form-type="other"
+              data-lpignore="true"
+              data-1p-ignore="true"
+              maxLength={59}
+              allowSecureTextEye
+              onPaste={onPasteClearText}
+              autoCapitalize="characters"
+              textTransform="uppercase"
+              onSubmitEditing={form.handleSubmit(onSubmit)}
+              placeholder="224RU-EZ172-4B483-ZN695-RM9XC-CJ6Z9-MQ67J-ZM3B2-4LXBS-JZP7D"
+              addOns={addOns}
+            />
+          ) : (
+            <Skeleton h={46} w="100%" borderRadius="$2" />
+          )}
+        </Form.Field>
 
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({
@@ -183,14 +293,16 @@ export function PrimeTransferHomeEnterLink({
       <XStack>
         <Button
           mt="$4"
-          onPress={connectRemoteDevice}
+          onPress={form.handleSubmit(onSubmit)}
           variant="primary"
           loading={isConnecting}
-          disabled={isConnecting}
+          disabled={
+            !form.formState.isValid || isConnecting || !websocketConnected
+          }
         >
           {intl.formatMessage({ id: ETranslations.global_connect })}
         </Button>
       </XStack>
-    </>
+    </Form>
   );
 }

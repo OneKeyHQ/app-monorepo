@@ -408,7 +408,7 @@ function TxHistoryListContainer() {
       })}
       listViewStyleProps={{
         contentContainerStyle: {
-          pt: '$3',
+          mt: '$3',
         },
       }}
     />
