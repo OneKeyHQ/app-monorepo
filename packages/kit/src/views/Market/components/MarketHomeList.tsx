@@ -420,6 +420,8 @@ function BasicMarketHomeList({
     num: 0,
   });
 
+  const FETCH_COOLDOWN_DURATION = timerUtils.getTimeDurationMs({ seconds: 45 });
+
   const updateAtRef = useRef(0);
 
   const [listData, setListData] = useState<IMarketToken[]>([]);
@@ -428,10 +430,7 @@ function BasicMarketHomeList({
     const now = Date.now();
     console.log('fetchCategory', now, now - updateAtRef.current);
 
-    if (
-      now - updateAtRef.current <
-      timerUtils.getTimeDurationMs({ seconds: 45 })
-    ) {
+    if (now - updateAtRef.current < FETCH_COOLDOWN_DURATION) {
       return;
     }
 
