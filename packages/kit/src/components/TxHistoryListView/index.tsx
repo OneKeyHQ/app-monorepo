@@ -29,6 +29,7 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import { useSearchKeyAtom } from '../../states/jotai/contexts/historyList';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { withBrowserProvider } from '../../views/Discovery/pages/Browser/WithBrowserProvider';
+import { PullToRefresh } from '../../views/Home/components/PullToRefresh';
 import { EmptySearch } from '../Empty';
 import { EmptyHistory } from '../Empty/EmptyHistory';
 import { HistoryLoadingView } from '../Loading';
@@ -47,6 +48,7 @@ type IProps = {
   inTabList?: boolean;
   contentContainerStyle?: IListViewProps<IAccountHistoryTx>['contentContainerStyle'];
   hideValue?: boolean;
+  onRefresh?: () => void;
   listViewStyleProps?: Pick<
     ComponentProps<typeof SectionList>,
     | 'ListHeaderComponentStyle'
@@ -106,6 +108,7 @@ function BaseTxHistoryListView(props: IProps) {
     inTabList = false,
     hideValue,
     listViewStyleProps,
+    onRefresh,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
@@ -200,21 +203,10 @@ function BaseTxHistoryListView(props: IProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchKey, data.length]);
 
-  const [refreshing, setRefreshing] = useState(false);
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1200);
-  }, []);
-
   return (
     <ListComponent
       refreshControl={
-        inTabList ? (
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        ) : undefined
+        onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }
       // @ts-ignore
       estimatedItemSize={platformEnv.isNative ? 60 : 56}

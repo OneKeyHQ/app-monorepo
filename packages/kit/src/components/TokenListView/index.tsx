@@ -40,6 +40,7 @@ import {
   useTokenListStateAtom,
 } from '../../states/jotai/contexts/tokenList';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
+import { PullToRefresh } from '../../views/Home/components/PullToRefresh';
 import { EmptySearch } from '../Empty';
 import { EmptyToken } from '../Empty/EmptyToken';
 import { ListLoading } from '../Loading';
@@ -80,6 +81,7 @@ type IProps = {
   };
   emptyAccountView?: ReactNode;
   showActiveAccountTokenList?: boolean;
+  onRefresh?: () => void;
   listViewStyleProps?: Pick<
     ComponentProps<typeof ListView>,
     | 'ListHeaderComponentStyle'
@@ -115,6 +117,7 @@ function TokenListViewCmp(props: IProps) {
     emptyAccountView,
     showActiveAccountTokenList = false,
     listViewStyleProps,
+    onRefresh,
   } = props;
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
@@ -341,24 +344,12 @@ function TokenListViewCmp(props: IProps) {
     withBuyAndReceive,
   ]);
 
-
-  const [refreshing, setRefreshing] = useState(false);
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1200);
-  }, []);
-
   return (
     <ListComponent
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
       refreshControl={
-        inTabList ? (
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        ) : undefined
+        onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }
       extraData={filteredTokens.length}
       data={filteredTokens}
