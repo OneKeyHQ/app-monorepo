@@ -22,6 +22,7 @@ import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetDetailRoutes,
   type EModalStakingRoutes,
@@ -281,6 +282,7 @@ const HistoryContent = ({
         ListEmptyComponent={
           <Empty
             pt={40}
+            h={platformEnv.isNativeAndroid ? 300 : undefined}
             icon="ClockTimeHistoryOutline"
             title={intl.formatMessage({
               id: ETranslations.global_no_transactions_yet,
