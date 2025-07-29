@@ -428,8 +428,6 @@ function BasicMarketHomeList({
 
   const fetchCategory = useCallback(async () => {
     const now = Date.now();
-    console.log('fetchCategory', now, now - updateAtRef.current);
-
     if (now - updateAtRef.current < FETCH_COOLDOWN_DURATION) {
       return;
     }
