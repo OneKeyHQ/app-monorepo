@@ -187,7 +187,7 @@ function WalletBanner() {
     void fetchClosedForeverBanners();
   }, []);
 
-  const { gmtMd } = useMedia();
+  const { gtMd } = useMedia();
 
   if (filteredBanners.length === 0) {
     return null;
@@ -197,7 +197,7 @@ function WalletBanner() {
     <YStack py="$2.5" bg="$bgApp">
       <Carousel
         loop={false}
-        marginRatio={gmtMd ? 0.28 : 0.08}
+        marginRatio={gtMd ? 0.28 : 0.08}
         data={filteredBanners}
         autoPlayInterval={3800}
         containerStyle={{
