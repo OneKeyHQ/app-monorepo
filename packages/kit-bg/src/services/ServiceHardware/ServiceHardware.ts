@@ -113,6 +113,8 @@ export type IDeviceGetFeaturesOptions = {
 const SKIPPED_EVENTS = [
   EHardwareUiStateAction.CLOSE_UI_WINDOW,
   EHardwareUiStateAction.PREVIOUS_ADDRESS,
+  EHardwareUiStateAction.BLUETOOTH_UNSUPPORTED,
+  EHardwareUiStateAction.BLUETOOTH_POWERED_OFF,
 ];
 
 const NEW_DIALOG_EVENTS = [
@@ -256,7 +258,7 @@ class ServiceHardware extends ServiceBase {
     hardwareCallContext?: EHardwareCallContext;
     forceTransportType?: EHardwareTransportType;
   }) {
-    const { 
+    const {
       hardwareCallContext = EHardwareCallContext.USER_INTERACTION,
       forceTransportType,
     } = options || {};
