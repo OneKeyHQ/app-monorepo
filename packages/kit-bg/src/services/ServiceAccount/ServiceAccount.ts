@@ -2441,20 +2441,26 @@ class ServiceAccount extends ServiceBase {
   }) {
     const dbDevice = await this.getWalletDevice({ walletId });
     const { connectId } = dbDevice;
+    const compatibleConnectId =
+      await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+        connectId,
+        featuresDeviceId: dbDevice.deviceId,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      });
 
     // createHWHiddenWallet
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
         const passphraseState =
           await this.backgroundApi.serviceHardware.getPassphraseState({
-            connectId,
+            connectId: compatibleConnectId,
             forceInputPassphrase: true,
           });
 
         if (!passphraseState) {
           const deviceNotOpenedPassphraseError = new DeviceNotOpenedPassphrase({
             payload: {
-              connectId,
+              connectId: compatibleConnectId,
               deviceId: dbDevice.deviceId ?? undefined,
             },
           });
@@ -2524,9 +2530,10 @@ class ServiceAccount extends ServiceBase {
   @toastIfError()
   async createHWWallet(params: IDBCreateHwWalletParamsBase) {
     // createHWWallet
-    // Get current transport type to set correct connectId fields
+    // Use forceTransportType if provided, otherwise fallback to current transport type setting
     const transportType =
-      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+      params.forceTransportType ||
+      (await this.backgroundApi.serviceSetting.getHardwareTransportType());
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
@@ -2558,6 +2565,7 @@ class ServiceAccount extends ServiceBase {
       passphraseState,
       fillingXfpByCallingSdk,
       isMockedStandardHwWallet,
+      transportType,
     } = params;
     if (!features) {
       throw new OneKeyLocalError(
@@ -2584,6 +2592,7 @@ class ServiceAccount extends ServiceBase {
         deviceId,
         passphraseState,
         throwError: true,
+        forceTransportType: transportType,
       });
       console.log('createHWWalletBase xfp', xfp, connectId, deviceId);
     }
