@@ -1096,6 +1096,9 @@ function ConnectByBluetooth({
 
       const available =
         await globalThis?.desktopApi?.nobleBle?.checkAvailability();
+      if (available.state === 'unknown') {
+        return;
+      }
       if (available.state === 'unauthorized') {
         console.log('onboarding checkBluetoothStatus: noSystemPermission');
         setBluetoothStatus('noSystemPermission');
