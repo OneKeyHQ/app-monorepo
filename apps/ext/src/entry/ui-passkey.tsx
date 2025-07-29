@@ -23,7 +23,6 @@ const uiJsBridge = require('../ui/uiJsBridge')
 
 uiJsBridge.init();
 
-console.log('uiJsBridge', uiJsBridge);
 const renderApp: typeof import('../ui/renderPassKeyPage').default =
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   require('../ui/renderPassKeyPage').default;
