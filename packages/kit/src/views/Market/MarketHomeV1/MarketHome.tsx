@@ -84,28 +84,6 @@ function MarketHome() {
     [categories],
   );
 
-  // const ref = useRef<IAnimatedIconRef>(null);
-  // const headerProps = useMemo(
-  //   () => ({
-  //     showHorizontalScrollButton: !gtMd && platformEnv.isRuntimeBrowser,
-  //     renderItem: (item: any, index: any, titleStyle: any) =>
-  //       index === 0 && !gtMd ? (
-  //         <AnimatedIcon
-  //           ref={ref}
-  //           normalColor={
-  //             (titleStyle as { normalColor: IColorTokens })?.normalColor
-  //           }
-  //           selectedColor={
-  //             (titleStyle as { selectedColor: IColorTokens })?.selectedColor
-  //           }
-  //         />
-  //       ) : (
-  //         <Tab.SelectedLabel {...titleStyle} />
-  //       ),
-  //   }),
-  //   [gtMd],
-  // );
-
   const { gtMd } = useMedia();
   const handleSelectedPageIndex = useCallback((index: number) => {
     // ref?.current?.setIsSelected?.(index === 0);
@@ -129,7 +107,7 @@ function MarketHome() {
         }}
         pagerProps={
           {
-            offscreenPageLimit: 3,
+            offscreenPageLimit: 8,
             scrollSensitivity: 4,
           } as any
         }
