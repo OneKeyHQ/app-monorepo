@@ -411,7 +411,7 @@ function BasicMarketHomeList({
   const watchListAction = useWatchListAction();
 
   const isFocusedTab = useIsFocusedTab();
-  const isFocused = useDebounce(isFocusedTab, 100);
+  const isFocused = useDebounce(isFocusedTab, platformEnv.isNative ? 120 : 50);
   const prevExtraData = useRef(extraData);
 
   const {
