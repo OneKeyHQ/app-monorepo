@@ -1,3 +1,4 @@
+/* eslint-disable spellcheck/spell-checker */
 import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -10,11 +11,13 @@ import {
   SizableText,
   Stack,
 } from '@onekeyhq/components';
+import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { PrimeTransferHomeEnterLink } from './PrimeTransferHomeEnterLink';
 import { PrimeTransferHomeQrCode } from './PrimeTransferHomeQrCode';
 import { PrimeTransferHomeSteps } from './PrimeTransferHomeSteps';
+import { PrimeTransferServerStatusBar } from './PrimeTransferServerStatusBar';
 
 export const TRANSFER_METHOD = {
   QR_CODE: 'qr-code',
@@ -32,6 +35,8 @@ export function PrimeTransferHome({
   remotePairingCode: string;
   setRemotePairingCode: (code: string) => void;
 }) {
+  const [primeTransferAtom] = usePrimeTransferAtom();
+
   const intl = useIntl();
   const TRANSFER_OPTIONS = useMemo(
     () =>
@@ -60,7 +65,9 @@ export function PrimeTransferHome({
         })}
       />
 
-      <Stack px="$4" gap="$4">
+      <PrimeTransferServerStatusBar />
+
+      <Stack px="$4" gap="$4" mt="$2">
         <SegmentControl
           fullWidth
           value={value}

@@ -16,9 +16,9 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
+import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { UniversalWithdraw } from '../../components/UniversalWithdraw';
 import { useUniversalWithdraw } from '../../hooks/useUniversalHooks';
-import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 
 const WithdrawPage = () => {
   const intl = useIntl();

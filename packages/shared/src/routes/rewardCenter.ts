@@ -6,6 +6,8 @@ export type IModalRewardCenterParamList = {
   [EModalRewardCenterRoutes.RewardCenter]: {
     accountId: string;
     networkId: string;
+    walletId?: string;
+    showAccountSelector?: boolean;
     onClose?: ({
       isResourceClaimed,
       isResourceRedeemed,

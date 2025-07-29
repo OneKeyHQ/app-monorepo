@@ -51,12 +51,21 @@ function RawCheckbox({
         event.stopPropagation();
         event.preventDefault();
       }
+      if (checkboxProps.disabled) {
+        return;
+      }
       if (isUncontrolled) {
         setInnerValue(!usedValue);
       }
       onChange?.(!usedValue);
     },
-    [isUncontrolled, onChange, usedValue, shouldStopPropagation],
+    [
+      isUncontrolled,
+      onChange,
+      usedValue,
+      shouldStopPropagation,
+      checkboxProps.disabled,
+    ],
   );
   return (
     <XStack

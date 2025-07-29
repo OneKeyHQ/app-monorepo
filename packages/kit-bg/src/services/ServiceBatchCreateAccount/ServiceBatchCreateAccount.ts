@@ -90,6 +90,7 @@ type IAdvancedModeFlowParamsBase = {
 export type IBatchBuildAccountsAdvancedFlowParams =
   IBatchBuildAccountsBaseParams & IAdvancedModeFlowParamsBase;
 export type IBatchBuildAccountsAdvancedFlowForAllNetworkParams = {
+  includingDefaultNetworks?: boolean;
   walletId: string;
   customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
   autoHandleExitError?: boolean;
@@ -705,7 +706,17 @@ class ServiceBatchCreateAccount extends ServiceBase {
   @toastIfError()
   async startBatchCreateAccountsFlowForAllNetwork(
     params: IBatchBuildAccountsAdvancedFlowForAllNetworkParams,
-  ) {
+  ): Promise<{
+    addedAccounts: {
+      networkId: string;
+      deriveType: IAccountDeriveTypes;
+    }[];
+    failedAccounts: {
+      networkId: string;
+      deriveType: IAccountDeriveTypes;
+      error: IOneKeyError;
+    }[];
+  }> {
     this.beforeStartFlow();
 
     const deviceParams =
@@ -720,7 +731,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
           await this.buildBatchCreateAccountsNetworksParams({
             walletId: params.walletId,
             customNetworks: params.customNetworks,
-            includingDefaultNetworks: true,
+            includingDefaultNetworks: params.includingDefaultNetworks ?? true,
           });
 
         const { saveToDb } = params;

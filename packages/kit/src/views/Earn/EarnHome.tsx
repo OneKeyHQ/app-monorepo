@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -32,7 +32,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
+// import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -172,14 +172,14 @@ function RecommendedItem({
 }: { token?: IEarnAvailableAsset } & IYStackProps) {
   const accountInfo = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
-  const [decorationColor, setDecorationColor] = useState<string | null>(null);
 
-  useEffect(() => {
-    const url = token?.logoURI;
-    if (url) {
-      void getPrimaryColor(url, '$bgSubdued').then(setDecorationColor);
-    }
-  }, [token?.logoURI]);
+  // if you want to use the primary color, you can uncomment the following code
+  // useEffect(() => {
+  //   const url = token?.logoURI;
+  //   if (url) {
+  //     void getPrimaryColor(url, '$bgSubdued').then(setDecorationColor);
+  //   }
+  // }, [token?.logoURI]);
 
   const onPress = useCallback(async () => {
     const {
@@ -215,7 +215,7 @@ function RecommendedItem({
       py="$3.5"
       borderRadius="$3"
       borderCurve="continuous"
-      bg={decorationColor}
+      bg={token.bgColor}
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
       animation="quick"

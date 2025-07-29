@@ -1573,6 +1573,10 @@ class ServiceAccount extends ServiceBase {
       accounts?.[0]?.address &&
       accounts?.[0]?.address !== skipAddIfNotEqualToAddress
     ) {
+      console.error('addWatchingAccount skipAddIfNotEqualToAddress', {
+        skipAddIfNotEqualToAddress,
+        address: accounts?.[0]?.address,
+      });
       return {
         networkId,
         walletId,
