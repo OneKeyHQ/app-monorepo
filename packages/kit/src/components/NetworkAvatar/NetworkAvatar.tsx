@@ -12,6 +12,8 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { LetterAvatar } from '../LetterAvatar';
 
+import type { FontSizeTokens } from 'tamagui';
+
 export const NetworkAvatarBase = ({
   logoURI,
   size,
@@ -55,7 +57,13 @@ export const NetworkAvatarBase = ({
       src={logoURI}
       borderRadius="$full"
       source={{ uri: logoURI }}
-      fallback={<Icon name="GlobusOutline" color="$iconSubdued" />}
+      fallback={
+        <Icon
+          size={size as FontSizeTokens}
+          name="GlobusOutline"
+          color="$iconSubdued"
+        />
+      }
     />
   );
 };
