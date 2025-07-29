@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 
 import { RefreshControl } from '@onekeyhq/components';
 import {
@@ -16,7 +16,7 @@ export interface IPullToRefreshProps {
   onRefresh: () => void;
 }
 
-function PullToNativeRefresh({ onRefresh }: IPullToRefreshProps) {
+function BasePullToRefresh({ onRefresh }: IPullToRefreshProps) {
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = useCallback(() => {
@@ -30,6 +30,13 @@ function PullToNativeRefresh({ onRefresh }: IPullToRefreshProps) {
   return <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />;
 }
 
-export const PullToRefresh = platformEnv.isNative
-  ? PullToNativeRefresh
-  : (_props: IPullToRefreshProps) => null;
+const MemoPullToRefresh = memo(BasePullToRefresh);
+const EmptyPullToRefresh = (_props: IPullToRefreshProps) => null;
+
+export const PullToRefreshOnIOS = platformEnv.isNativeIOS
+  ? MemoPullToRefresh
+  : EmptyPullToRefresh;
+
+export const PullToRefreshOnAndroid = platformEnv.isNativeAndroid
+  ? MemoPullToRefresh
+  : EmptyPullToRefresh;

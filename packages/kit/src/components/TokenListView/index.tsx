@@ -1,9 +1,8 @@
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
 import {
   ListView,
-  RefreshControl,
   SizableText,
   Stack,
   Tabs,
@@ -40,7 +39,7 @@ import {
   useTokenListStateAtom,
 } from '../../states/jotai/contexts/tokenList';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
-import { PullToRefresh } from '../../views/Home/components/PullToRefresh';
+import { PullToRefreshOnIOS } from '../../views/Home/components/PullToRefresh';
 import { EmptySearch } from '../Empty';
 import { EmptyToken } from '../Empty/EmptyToken';
 import { ListLoading } from '../Loading';
@@ -348,7 +347,7 @@ function TokenListViewCmp(props: IProps) {
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
       refreshControl={
-        onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
+        onRefresh ? <PullToRefreshOnIOS onRefresh={onRefresh} /> : undefined
       }
       extraData={filteredTokens.length}
       data={filteredTokens}

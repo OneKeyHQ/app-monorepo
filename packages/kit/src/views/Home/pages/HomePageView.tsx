@@ -6,6 +6,7 @@ import { type LayoutChangeEvent, useWindowDimensions } from 'react-native';
 import {
   Icon,
   Page,
+  ScrollView,
   Stack,
   Tabs,
   YStack,
@@ -29,6 +30,10 @@ import { WalletBackupAlert } from '../../../components/WalletBackup';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
+import {
+  PullToRefreshOnAndroid,
+  onHomePageRefresh,
+} from '../components/PullToRefresh';
 
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
@@ -276,7 +281,19 @@ export function HomePageView({
       );
     }
 
-    return tabs;
+    return platformEnv.isNativeAndroid ? (
+      <ScrollView
+        flex={1}
+        nestedScrollEnabled
+        refreshControl={
+          <PullToRefreshOnAndroid onRefresh={onHomePageRefresh} />
+        }
+      >
+        {tabs}
+      </ScrollView>
+    ) : (
+      tabs
+    );
   }, [
     softwareAccountDisabled,
     wallet?.id,
