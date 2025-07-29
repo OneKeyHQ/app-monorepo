@@ -1278,11 +1278,13 @@ class ServiceHardware extends ServiceBase {
     deviceId,
     passphraseState,
     throwError,
+    forceTransportType,
   }: {
     connectId: string | undefined | null;
     deviceId: string | undefined | null;
     passphraseState: string | undefined;
     throwError: boolean;
+    forceTransportType?: EHardwareTransportType;
   }): Promise<string | undefined> {
     if (!connectId) {
       return;
@@ -1292,6 +1294,7 @@ class ServiceHardware extends ServiceBase {
         connectId,
         featuresDeviceId: deviceId,
         hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+        forceTransportType,
       });
       const hardwareSDK = await this.getSDKInstance();
       await timerUtils.wait(600);
