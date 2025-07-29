@@ -29,12 +29,7 @@ function CalculationListItemLabel({
   ...rest
 }: ISizableTextProps & { tooltip?: string }) {
   const content = (
-    <SizableText
-      color="$textSubdued"
-      flex={1}
-      flexWrap="wrap"
-      {...rest}
-    >
+    <SizableText color="$textSubdued" flex={1} flexWrap="wrap" {...rest}>
       {children}
     </SizableText>
   );
