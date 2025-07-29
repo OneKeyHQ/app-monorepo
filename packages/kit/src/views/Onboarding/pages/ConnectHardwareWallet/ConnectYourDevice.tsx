@@ -1765,14 +1765,6 @@ function ConnectByBluetooth() {
     [stopBluetoothStatusPolling],
   );
 
-  if (bluetoothStatus === 'checking') {
-    return (
-      <Stack flex={1} alignItems="center" justifyContent="center">
-        <CommonDeviceLoading />
-      </Stack>
-    );
-  }
-
   if (bluetoothStatus === 'disabledInApp') {
     return (
       <Empty
