@@ -2577,6 +2577,7 @@
   "swap.network_cost_dialog_description": "Biaya jaringan melebihi {number} dari jumlah pesanan",
   "swap.network_cost_dialog_title": "Jumlah pesanan terlalu kecil",
   "swap.provider_manage_unavailable": "*The provider is temporarily unavailable.",
+  "swap.revoke_successful": "Pencabutan persetujuan berhasil",
   "swap.stablecoin_0_fee": "0 Biaya",
   "swap.step_1": "1. ",
   "swap.toast_go_to_swap": "Pergi ke swap",

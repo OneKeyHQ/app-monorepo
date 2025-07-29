@@ -2577,6 +2577,7 @@
   "swap.network_cost_dialog_description": "Сетевые расходы превышают {number} от суммы заказа",
   "swap.network_cost_dialog_title": "Сумма заказа слишком мала",
   "swap.provider_manage_unavailable": "*The provider is temporarily unavailable.",
+  "swap.revoke_successful": "Отзыв одобрения успешен",
   "swap.stablecoin_0_fee": "0 Плата",
   "swap.step_1": "1. ",
   "swap.toast_go_to_swap": "Перейти к обмену",
