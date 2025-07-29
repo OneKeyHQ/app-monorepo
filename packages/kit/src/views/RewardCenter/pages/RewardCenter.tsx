@@ -44,7 +44,10 @@ import {
 } from '../../../components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '../../../states/jotai/contexts/accountSelector';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -62,6 +65,7 @@ function RewardCenterDetails() {
   const {
     accountId,
     networkId,
+    walletId,
     onClose,
     showAccountSelector = true,
   } = route?.params ?? {};
@@ -76,6 +80,7 @@ function RewardCenterDetails() {
   });
 
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const actions = useAccountSelectorActions();
 
   const { result: rewardState, isLoading: isLoadingRewardState } =
     usePromiseResult(
@@ -378,6 +383,58 @@ function RewardCenterDetails() {
     }
   }, [account, claimSource, form, intl, network]);
 
+  useEffect(() => {
+    const initActiveAccount = async () => {
+      const [initAccount, initWallet] = await Promise.all([
+        accountId && networkId
+          ? backgroundApiProxy.serviceAccount.getAccount({
+              accountId,
+              networkId,
+            })
+          : undefined,
+        walletId
+          ? backgroundApiProxy.serviceAccount.getWallet({
+              walletId,
+            })
+          : undefined,
+      ]);
+
+      const isOthersAccount = accountUtils.isOthersAccount({
+        accountId,
+      });
+      if (isOthersAccount) {
+        let autoChangeToAccountMatchedNetworkId = networkId;
+        if (
+          networkId &&
+          networkUtils.isAllNetwork({
+            networkId,
+          })
+        ) {
+          autoChangeToAccountMatchedNetworkId = networkId;
+        }
+        await actions.current.confirmAccountSelect({
+          num: 0,
+          indexedAccount: undefined,
+          othersWalletAccount: initAccount,
+          autoChangeToAccountMatchedNetworkId,
+        });
+      } else if (initWallet) {
+        const indexedAccount =
+          await backgroundApiProxy.serviceAccount.getIndexedAccountByAccount({
+            account: initAccount,
+          });
+        await actions.current.confirmAccountSelect({
+          num: 0,
+          indexedAccount,
+          othersWalletAccount: undefined,
+          autoChangeToAccountMatchedNetworkId: undefined,
+        });
+      }
+    };
+
+    void initActiveAccount();
+  }, [accountId, actions, networkId, walletId]);
+
   useEffect(
     () => () => void onClose?.({ isResourceClaimed, isResourceRedeemed }),
     [onClose, isResourceClaimed, isResourceRedeemed],
@@ -580,7 +637,7 @@ function RewardCenterDetails() {
     return (
       <AccountSelectorProviderMirror
         config={{
-          sceneName: EAccountSelectorSceneName.home,
+          sceneName: EAccountSelectorSceneName.rewardCenter,
         }}
         enabledNum={[0]}
       >
@@ -617,7 +674,7 @@ function RewardCenter() {
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: EAccountSelectorSceneName.home,
+        sceneName: EAccountSelectorSceneName.rewardCenter,
       }}
       enabledNum={[0]}
     >
