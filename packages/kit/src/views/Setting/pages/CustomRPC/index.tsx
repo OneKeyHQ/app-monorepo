@@ -36,6 +36,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { ICustomRpcItem } from '@onekeyhq/shared/types/customRpc';
@@ -319,7 +320,13 @@ function CustomRPC() {
       showChainSelector({
         networkIds: customRpcData?.supportNetworks?.map((i) => i.id),
         onSelect: (network: IServerNetwork) => {
-          onAddOrEditRpc({ network, rpcInfo: params?.rpcInfo });
+          setTimeout(
+            () => {
+              onAddOrEditRpc({ network, rpcInfo: params?.rpcInfo });
+            },
+            // Prevent screen flicker on native platforms by adding delay
+            platformEnv.isNative ? 350 : 0,
+          );
         },
       });
     },
