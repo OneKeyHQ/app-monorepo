@@ -6,6 +6,8 @@ import { useThrottledCallback } from 'use-debounce';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   AnimatePresence,
+  Button,
+  Dialog,
   Heading,
   Icon,
   NavBackButton,
@@ -32,6 +34,7 @@ import type {
   IOnboardingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -98,6 +101,14 @@ function FinalizeWalletSetupPage({
 
   const created = useRef(false);
 
+  const popPage = useCallback(
+    async ({ delay }: { delay?: number } = {}) => {
+      await timerUtils.wait(delay || 0);
+      navigation.pop();
+    },
+    [navigation],
+  );
+
   useEffect(() => {
     void (async () => {
       try {
@@ -126,11 +137,11 @@ function FinalizeWalletSetupPage({
         }
         setShowStep(true);
       } catch (error) {
-        navigation.pop();
+        void popPage({ delay: 300 });
         throw error;
       }
     })();
-  }, [actions, intl, mnemonic, mnemonicType, navigation, isWalletBackedUp]);
+  }, [actions, intl, mnemonic, mnemonicType, popPage, isWalletBackedUp]);
 
   useEffect(() => {
     const fn = (
@@ -152,10 +163,6 @@ function FinalizeWalletSetupPage({
     isFirstCreateWallet.current = !isOnboardingDone;
   };
 
-  const popPage = useCallback(() => {
-    navigation.pop();
-  }, [navigation]);
-
   const closePage = useCallback(() => {
     closePageCalled.current = true;
     navigation.navigate(ERootRoutes.Main, undefined, {
@@ -175,7 +182,7 @@ function FinalizeWalletSetupPage({
             event.error instanceof OneKeyHardwareError ||
             event.error?.name === 'OneKeyHardwareError'
           ) {
-            popPage();
+            void popPage();
           }
         },
         platformEnv.isNative ? 450 : 200,
@@ -232,7 +239,7 @@ function FinalizeWalletSetupPage({
     return (
       <NavBackButton
         opacity={showCloseButton ? 1 : 0}
-        onPress={showCloseButton ? popPage : undefined}
+        onPress={showCloseButton ? () => void popPage() : undefined}
       />
     );
   }, [showCloseButton, shouldBondReferralCode, popPage, closePage]);
@@ -316,7 +323,7 @@ function FinalizeWalletSetupPage({
         <Page.Footer
           onCancel={() => {
             //
-            navigation.pop();
+            void popPage();
           }}
         />
       ) : null}
