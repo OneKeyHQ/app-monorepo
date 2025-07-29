@@ -3,7 +3,7 @@ import { memo } from 'react';
 import { StyleSheet } from 'react-native';
 
 import type { IImageProps } from '@onekeyhq/components';
-import { Icon, Image, Skeleton, Stack } from '@onekeyhq/components';
+import { Icon, Image, Skeleton } from '@onekeyhq/components';
 
 function BasicDiscoveryIcon({
   uri,
@@ -27,9 +27,7 @@ function BasicDiscoveryIcon({
       source={{ uri: decodeURIComponent(uri) }}
       fallback={
         <Image.Fallback>
-          <Stack bg="$bgStrong" alignItems="center" justifyContent="center">
-            <Icon name="GlobusOutline" w={size} h={size} />
-          </Stack>
+          <Icon color="$iconSubdued" name="GlobusOutline" w={size} h={size} />
         </Image.Fallback>
       }
     />
