@@ -229,7 +229,6 @@ export const UniversalClaim = ({
     console.log('receiving', amountValue, rate, price);
     if (Number(amountValue) > 0) {
       const receivingAmount = BigNumber(amountValue).dividedBy(rate);
-      console.log('receivingAmount', receivingAmount);
       return (
         <ValuePriceListItem
           amount={receivingAmount.toFixed()}
