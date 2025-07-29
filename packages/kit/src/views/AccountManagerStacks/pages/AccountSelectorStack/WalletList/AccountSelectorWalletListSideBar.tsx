@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { StyleSheet } from 'react-native';
 
+import type { ISortableListViewRef } from '@onekeyhq/components';
 import {
   Page,
   SortableListView,
@@ -212,6 +213,8 @@ export function AccountSelectorWalletListSideBar({
 
   const { md } = useMedia();
 
+  const listViewRef = useRef<ISortableListViewRef<IDBWallet>>(null);
+
   const isShowCloseButton = md && !platformEnv.isNativeIOS;
   return (
     <Stack
@@ -239,6 +242,7 @@ export function AccountSelectorWalletListSideBar({
       ) : null}
       {/* Primary wallets */}
       <SortableListView
+        ref={listViewRef}
         px="$2"
         contentContainerStyle={{ py: '$2' }}
         showsVerticalScrollIndicator={false}
