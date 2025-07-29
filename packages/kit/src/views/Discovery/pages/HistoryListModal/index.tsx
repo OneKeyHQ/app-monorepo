@@ -137,7 +137,7 @@ function HistoryListModal() {
   );
 
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.browser_recently_closed,
@@ -145,80 +145,78 @@ function HistoryListModal() {
         headerRight={headerRight}
       />
       <Page.Body>
-        <Stack height={500}>
-          <SectionList
-            testID="History-SectionList"
-            height="100%"
-            ListEmptyComponent={
-              <Empty
-                py="$32"
-                my="$4"
-                icon="ClockTimeHistoryOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.browser_no_closed_tabs,
-                })}
-              />
-            }
-            estimatedItemSize="$16"
-            extraData={isEditing}
-            sections={isNil(dataSource) ? [] : dataSource}
-            renderSectionHeader={({ section: { title } }) => (
-              <SectionList.SectionHeader title={title} />
-            )}
-            keyExtractor={keyExtractor}
-            renderItem={({ item }: { item: IBrowserHistory }) => (
-              <ListItem
-                key={item.id}
-                renderAvatar={<DiscoveryIcon uri={item.logo} size="$10" />}
-                title={item.title}
-                titleProps={{
-                  numberOfLines: 1,
-                }}
-                subtitle={item.url}
-                subtitleProps={{
-                  numberOfLines: 1,
-                }}
-                testID={`search-modal-${item.url.toLowerCase()}`}
-                {...(!isEditing && {
-                  onPress: () => {
-                    handleWebSite({
-                      webSite: {
-                        url: item.url,
-                        title: item.title,
-                        logo: item.logo,
-                        sortIndex: undefined,
-                      },
-                      shouldPopNavigation: true,
-                      enterMethod: EEnterMethod.history,
+        <SectionList
+          testID="History-SectionList"
+          height="100%"
+          ListEmptyComponent={
+            <Empty
+              py="$32"
+              my="$4"
+              icon="ClockTimeHistoryOutline"
+              title={intl.formatMessage({
+                id: ETranslations.browser_no_closed_tabs,
+              })}
+            />
+          }
+          estimatedItemSize="$16"
+          extraData={isEditing}
+          sections={isNil(dataSource) ? [] : dataSource}
+          renderSectionHeader={({ section: { title } }) => (
+            <SectionList.SectionHeader title={title} />
+          )}
+          keyExtractor={keyExtractor}
+          renderItem={({ item }: { item: IBrowserHistory }) => (
+            <ListItem
+              key={item.id}
+              renderAvatar={<DiscoveryIcon uri={item.logo} size="$10" />}
+              title={item.title}
+              titleProps={{
+                numberOfLines: 1,
+              }}
+              subtitle={item.url}
+              subtitleProps={{
+                numberOfLines: 1,
+              }}
+              testID={`search-modal-${item.url.toLowerCase()}`}
+              {...(!isEditing && {
+                onPress: () => {
+                  handleWebSite({
+                    webSite: {
+                      url: item.url,
+                      title: item.title,
+                      logo: item.logo,
+                      sortIndex: undefined,
+                    },
+                    shouldPopNavigation: true,
+                    enterMethod: EEnterMethod.history,
+                  });
+                },
+              })}
+            >
+              {isEditing ? (
+                <ListItem.IconButton
+                  icon="DeleteOutline"
+                  onPress={() => {
+                    void removeBrowserHistory(item.id);
+                    removeHistoryFlagRef.current = true;
+                    setTimeout(() => {
+                      void run();
+                    }, 200);
+                    Toast.success({
+                      title: intl.formatMessage({
+                        id: ETranslations.explore_removed_success,
+                      }),
                     });
-                  },
-                })}
-              >
-                {isEditing ? (
-                  <ListItem.IconButton
-                    icon="DeleteOutline"
-                    onPress={() => {
-                      void removeBrowserHistory(item.id);
-                      removeHistoryFlagRef.current = true;
-                      setTimeout(() => {
-                        void run();
-                      }, 200);
-                      Toast.success({
-                        title: intl.formatMessage({
-                          id: ETranslations.explore_removed_success,
-                        }),
-                      });
-                    }}
-                  />
-                ) : null}
-              </ListItem>
-            )}
-            onEndReached={() => {
-              console.log('onEndReached');
-              setPage((prev) => prev + 1);
-            }}
-          />
-        </Stack>
+                  }}
+                />
+              ) : null}
+            </ListItem>
+          )}
+          onEndReached={() => {
+            console.log('onEndReached');
+            setPage((prev) => prev + 1);
+          }}
+        />
       </Page.Body>
     </Page>
   );
