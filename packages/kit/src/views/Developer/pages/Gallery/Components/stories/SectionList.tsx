@@ -241,7 +241,7 @@ const OnEndReachedSectionListDemo = () => {
           </SizableText>
         </Stack>
       )}
-      renderItem={({ item, index }) => (
+      renderItem={({ item }) => (
         <Stack
           p="$3"
           borderBottomWidth="$px"
