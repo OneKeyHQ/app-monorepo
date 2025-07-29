@@ -2,7 +2,6 @@
 // https://github.com/mrousavy/react-native-mmkv/issues/794
 // eslint-disable-next-line no-undef
 if (typeof globalThis.global === 'undefined') {
-  console.log('global is undefined');
   // eslint-disable-next-line no-undef
   globalThis.global = globalThis;
 }

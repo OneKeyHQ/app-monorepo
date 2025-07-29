@@ -68,7 +68,6 @@ export default function MobileBottomTabBar({
       isActive: boolean,
       options: BottomTabNavigationOptions,
     ) => {
-      console.log('onTabPress', route.name, Date.now());
       const event = navigation.emit({
         type: 'tabPress',
         target: route.key,
