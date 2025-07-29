@@ -51,6 +51,8 @@ export enum EHardwareUiStateAction {
   DESKTOP_REQUEST_BLUETOOTH_PERMISSION = 'ui-desktop_request_bluetooth_permission',
   BLUETOOTH_PERMISSION_UNAUTHORIZED = 'ui-bluetooth_permission_unauthorized',
   BLUETOOTH_DEVICE_PAIRING = 'ui-bluetooth_device_pairing',
+  BLUETOOTH_UNSUPPORTED = 'ui-bluetooth_unsupported',
+  BLUETOOTH_POWERED_OFF = 'ui-bluetooth_powered_off',
 }
 
 export type IHardwareUiPayload = {
