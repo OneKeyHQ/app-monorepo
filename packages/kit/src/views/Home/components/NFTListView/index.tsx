@@ -17,7 +17,7 @@ import {
 import { getFilteredNftsBySearchKey } from '@onekeyhq/shared/src/utils/nftUtils';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
-import { PullToRefreshOnIOS } from '../PullToRefresh';
+import { PullToRefresh } from '../PullToRefresh';
 
 import { NFTListItem } from './NFTListItem';
 
@@ -181,7 +181,7 @@ function NFTListView(props: IProps) {
       // @ts-ignore
       horizontalPadding={20}
       refreshControl={
-        onRefresh ? <PullToRefreshOnIOS onRefresh={onRefresh} /> : undefined
+        onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }
       key={platformEnv.isNative ? numColumns : undefined}
       contentContainerStyle={style as any}

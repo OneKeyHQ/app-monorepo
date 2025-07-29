@@ -16,7 +16,7 @@ export interface IPullToRefreshProps {
   onRefresh: () => void;
 }
 
-function BasePullToRefresh({ onRefresh }: IPullToRefreshProps) {
+function BasePullToRefresh({ onRefresh, ...props }: IPullToRefreshProps) {
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = useCallback(() => {
@@ -27,16 +27,18 @@ function BasePullToRefresh({ onRefresh }: IPullToRefreshProps) {
     }, 1200);
   }, [onRefresh]);
 
-  return <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />;
+  return (
+    <RefreshControl
+      {...props}
+      refreshing={refreshing}
+      onRefresh={handleRefresh}
+    />
+  );
 }
 
 const MemoPullToRefresh = memo(BasePullToRefresh);
 const EmptyPullToRefresh = (_props: IPullToRefreshProps) => null;
 
-export const PullToRefreshOnIOS = platformEnv.isNativeIOS
-  ? MemoPullToRefresh
-  : EmptyPullToRefresh;
-
-export const PullToRefreshOnAndroid = platformEnv.isNativeAndroid
+export const PullToRefresh = platformEnv.isNative
   ? MemoPullToRefresh
   : EmptyPullToRefresh;

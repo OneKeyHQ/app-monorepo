@@ -39,7 +39,7 @@ import {
   useTokenListStateAtom,
 } from '../../states/jotai/contexts/tokenList';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
-import { PullToRefreshOnIOS } from '../../views/Home/components/PullToRefresh';
+import { PullToRefresh } from '../../views/Home/components/PullToRefresh';
 import { EmptySearch } from '../Empty';
 import { EmptyToken } from '../Empty/EmptyToken';
 import { ListLoading } from '../Loading';
@@ -347,7 +347,7 @@ function TokenListViewCmp(props: IProps) {
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
       refreshControl={
-        onRefresh ? <PullToRefreshOnIOS onRefresh={onRefresh} /> : undefined
+        onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }
       extraData={filteredTokens.length}
       data={filteredTokens}
