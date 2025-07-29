@@ -56,19 +56,12 @@ function HistoryListModal() {
   const handleWebSite = useWebSiteHandler();
 
   const [page, setPage] = useState(1);
-  const { result: dataSource, run } = usePromiseResult(
-    async () => {
-      const data = await backgroundApiProxy.serviceDiscovery.fetchHistoryData(
-        page,
-      );
-      const ret = groupDataByDate(data);
-      return ret;
-    },
-    [page],
-    {
-      watchLoading: true,
-    },
-  );
+  const { result: dataSource, run } = usePromiseResult(async () => {
+    const data = await backgroundApiProxy.serviceDiscovery.fetchHistoryData(
+      page,
+    );
+    return groupDataByDate(data);
+  }, [page]);
 
   const removeHistoryFlagRef = useRef(false);
   const handleDeleteAll = useCallback(async () => {
@@ -136,7 +129,7 @@ function HistoryListModal() {
   );
 
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.browser_recently_closed,

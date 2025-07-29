@@ -13,24 +13,30 @@ import {
   SizableText,
   Stack,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ECheckAmountActionType,
+  type ICheckAmountAlert,
   type IEarnEstimateFeeResp,
 } from '@onekeyhq/shared/types/staking';
 
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationList, CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
+import { EarnText } from '../ProtocolDetails/EarnText';
 import {
   StakingAmountInput,
   useOnBlurAmountValue,
@@ -77,6 +83,9 @@ export const UniversalClaim = ({
   estimateFeeResp,
   onConfirm,
 }: PropsWithChildren<IUniversalClaimProps>) => {
+  const navigation = useAppNavigation();
+  const { gtMd } = useMedia();
+  const { handleOpenWebSite } = useBrowserAction().current;
   const price = Number(inputPrice) > 0 ? inputPrice : '0';
   const [loading, setLoading] = useState<boolean>(false);
   const [amountValue, setAmountValue] = useState(initialAmount ?? '');
@@ -104,11 +113,14 @@ export const UniversalClaim = ({
   }, [amountValue, onConfirm]);
 
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
+  const [checkAmountAlerts, setCheckAmountAlerts] = useState<
+    ICheckAmountAlert[]
+  >([]);
   const checkAmount = useDebouncedCallback(async (amount: string) => {
     if (isNaN(amount)) {
       return;
     }
-    const message = await backgroundApiProxy.serviceStaking.checkAmount({
+    const response = await backgroundApiProxy.serviceStaking.checkAmount({
       accountId,
       networkId,
       symbol: tokenSymbol,
@@ -117,7 +129,14 @@ export const UniversalClaim = ({
       amount,
       withdrawAll: false,
     });
-    setCheckoutAmountMessage(message);
+
+    if (Number(response.code) === 0) {
+      setCheckoutAmountMessage('');
+      setCheckAmountAlerts(response.data?.alerts || []);
+    } else {
+      setCheckoutAmountMessage(response.message);
+      setCheckAmountAlerts([]);
+    }
   }, 300);
 
   const onChangeAmountValue = useCallback(
@@ -129,6 +148,8 @@ export const UniversalClaim = ({
       if (valueBN.isNaN()) {
         if (value === '') {
           setAmountValue('');
+          setCheckoutAmountMessage('');
+          setCheckAmountAlerts([]);
         }
         return;
       }
@@ -270,13 +291,58 @@ export const UniversalClaim = ({
           title={checkAmountMessage}
         />
       ) : null}
+      {checkAmountAlerts.length > 0 ? (
+        <>
+          {checkAmountAlerts.map((alert, index) => (
+            <Alert
+              key={index}
+              type="warning"
+              renderTitle={() => {
+                return <EarnText text={alert.text} size="$bodyMdMedium" />;
+              }}
+              action={
+                alert.button
+                  ? {
+                      primary: alert.button.text.text,
+                      onPrimaryPress: () => {
+                        if (alert.button?.data?.link) {
+                          handleOpenWebSite({
+                            switchToMultiTabBrowser: gtMd,
+                            navigation,
+                            useCurrentWindow: false,
+                            webSite: {
+                              url: alert.button.data.link,
+                              title: alert.button.data.link,
+                              logo: undefined,
+                              sortIndex: undefined,
+                            },
+                          });
+                        }
+                      },
+                    }
+                  : undefined
+              }
+            />
+          ))}
+        </>
+      ) : null}
       <CalculationList>
         {receiving ? (
           <CalculationListItem>
-            <CalculationListItem.Label>
-              {intl.formatMessage({ id: ETranslations.earn_receive })}
-            </CalculationListItem.Label>
-            <CalculationListItem.Value>{receiving}</CalculationListItem.Value>
+            {platformEnv.isNative ? (
+              <SizableText color="$textSubdued">
+                {intl.formatMessage({ id: ETranslations.earn_receive })}
+              </SizableText>
+            ) : (
+              <CalculationListItem.Label>
+                {intl.formatMessage({ id: ETranslations.earn_receive })}
+              </CalculationListItem.Label>
+            )}
+            {platformEnv.isNative ? (
+              <XStack flex={1}>{receiving}</XStack>
+            ) : (
+              <CalculationListItem.Value>{receiving}</CalculationListItem.Value>
+            )}
           </CalculationListItem>
         ) : null}
         {providerName && providerLogo ? (

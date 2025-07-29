@@ -147,6 +147,10 @@ const clearClientCache = () => {
   Object.keys(oneKeyIdAuthClients).forEach((key) => {
     oneKeyIdAuthClients[key as EServiceEndpointEnum] = null;
   });
+  // Clear memoizee caches
+  getClient.clear?.();
+  getRawDataClient.clear?.();
+  getOneKeyIdAuthClient.clear?.();
 };
 
 const appApiClient = {

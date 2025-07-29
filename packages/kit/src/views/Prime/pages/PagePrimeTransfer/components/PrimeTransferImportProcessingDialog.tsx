@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -21,9 +22,12 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { usePrimeTransferExit } from './hooks/usePrimeTransferExit';
 
 function PrimeTransferImportProcessingDialogContent({
-  navigation,
+  navigation: _navigation,
   closeAfterDone,
   closeAfterCancel,
   closeAfterError,
@@ -36,19 +40,20 @@ function PrimeTransferImportProcessingDialogContent({
   const intl = useIntl();
   const dialogInstance = useDialogInstance();
   const [primeTransferAtom] = usePrimeTransferAtom();
+  const { exitTransferFlow, disableExitPrevention } = usePrimeTransferExit();
   const [isCancelled, setIsCancelled] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [hasError, setHasError] = useState(false);
 
   const { importProgress } = primeTransferAtom;
-  const isDone = useMemo(
-    () =>
-      Boolean(
-        importProgress &&
-          !importProgress.isImporting &&
-          importProgress.current === importProgress.total,
-      ),
-    [importProgress],
-  );
+  const isDone = useMemo(() => {
+    // return false;
+    return Boolean(
+      importProgress &&
+        !importProgress.isImporting &&
+        importProgress.current === importProgress.total,
+    );
+  }, [importProgress]);
 
   useEffect(() => {
     if (closeAfterDone && isDone) {
@@ -139,33 +144,45 @@ function PrimeTransferImportProcessingDialogContent({
           ) : null}
 
           <XStack mt="$5" alignItems="center" gap="$2">
-            <SizableText size="$bodyLg" textAlign="center">
-              {(() => {
-                if (isDone || importProgress) {
-                  return intl.formatMessage(
-                    {
-                      id: ETranslations.global_bulk_accounts_loading,
-                    },
-                    {
-                      amount: importProgress?.current ?? 0,
-                    },
-                  );
-                }
-                if (isCancelled) {
-                  return intl.formatMessage({
-                    id: ETranslations.global_cancel,
-                  });
-                }
-                if (hasError) {
-                  return intl.formatMessage({
-                    id: ETranslations.global_an_error_occurred,
-                  });
-                }
-                return intl.formatMessage({
-                  id: ETranslations.transfer_transfer_loading,
+            <MultipleClickStack
+              onPress={() => {
+                Dialog.debugMessage({
+                  debugMessage: importProgress?.stats,
                 });
-              })()}
-            </SizableText>
+              }}
+            >
+              <SizableText size="$bodyLg" textAlign="center">
+                {(() => {
+                  if (isDone || importProgress) {
+                    return intl.formatMessage(
+                      {
+                        id: ETranslations.global_bulk_accounts_loading,
+                      },
+                      {
+                        amount: platformEnv.isDev
+                          ? `${importProgress?.current || 0}/${
+                              importProgress?.total || 0
+                            } ${progressPercentage}%`
+                          : importProgress?.current ?? 0,
+                      },
+                    );
+                  }
+                  if (isCancelled) {
+                    return intl.formatMessage({
+                      id: ETranslations.global_cancel,
+                    });
+                  }
+                  if (hasError) {
+                    return intl.formatMessage({
+                      id: ETranslations.global_an_error_occurred,
+                    });
+                  }
+                  return intl.formatMessage({
+                    id: ETranslations.transfer_transfer_loading,
+                  });
+                })()}
+              </SizableText>
+            </MultipleClickStack>
           </XStack>
         </Stack>
       </Stack>
@@ -186,7 +203,9 @@ function PrimeTransferImportProcessingDialogContent({
           isFlowEnded
             ? async () => {
                 if (!isCancelled) {
-                  navigation?.popStack();
+                  exitTransferFlow();
+                } else {
+                  disableExitPrevention();
                 }
                 setTimeout(async () => {
                   await backgroundApiProxy.servicePrimeTransfer.resetImportProgress();

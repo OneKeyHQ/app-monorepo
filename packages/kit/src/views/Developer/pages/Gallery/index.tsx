@@ -323,6 +323,12 @@ const TabViewGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TabView'
     ),
 );
+const NewTabsGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NewTabsGallery'
+    ),
+);
 const TextAreaGallery = LazyLoadPage(
   () =>
     import(
@@ -733,6 +739,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentTabview,
     component: TabViewGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentNewTabs,
+    component: NewTabsGallery,
   },
   {
     name: EGalleryRoutes.ComponentQRCode,

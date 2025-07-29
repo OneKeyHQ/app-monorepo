@@ -16,6 +16,9 @@ export function PaginationButton({
   isHovering,
   theme,
   variant = 'secondary',
+  iconSize = 'default',
+  positionOffset = 8,
+  zIndex,
 }: {
   direction: 'previous' | 'next';
   onPress: () => void;
@@ -23,10 +26,21 @@ export function PaginationButton({
   isHovering?: boolean;
   theme?: 'light' | 'dark';
   variant?: IIconButtonProps['variant'];
+  iconSize?: 'default' | 'small';
+  positionOffset?: number;
+  zIndex?: number;
 }) {
-  const icon =
+  const smallIcon =
+    direction === 'previous'
+      ? 'ChevronLeftSmallOutline'
+      : 'ChevronRightSmallOutline';
+  const defaultIcon =
     direction === 'previous' ? 'ChevronLeftOutline' : 'ChevronRightOutline';
-  const positionStyle = direction === 'previous' ? { left: 8 } : { right: 8 };
+  const icon = iconSize === 'small' ? smallIcon : defaultIcon;
+  const positionStyle =
+    direction === 'previous'
+      ? { left: positionOffset }
+      : { right: positionOffset };
   const hoverOpacity = useHoverOpacity(isHovering);
 
   const opacity = useSharedValue(isVisible ? 1 : 0);
@@ -50,6 +64,7 @@ export function PaginationButton({
           justifyContent: 'center',
           alignItems: 'center',
           ...positionStyle,
+          zIndex,
         },
       ]}
     >

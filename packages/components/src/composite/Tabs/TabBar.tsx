@@ -1,30 +1,32 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 
 import { Divider } from '../../content';
+import { ScrollView } from '../../layouts';
 import { SizableText, XStack, YStack } from '../../primitives';
 
+import type { IScrollViewRef } from '../../layouts';
 import type { IYStackProps } from '../../primitives';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 import type { SharedValue } from 'react-native-reanimated';
 
-export function TabItem({
+export function TabBarItem({
   name,
   isFocused,
-  onTabPress,
+  onPress,
   tabItemStyle,
   focusedTabStyle,
 }: {
   name: string;
   isFocused: boolean;
-  onTabPress: (name: string) => void;
+  onPress: (name: string) => void;
   tabItemStyle?: IYStackProps;
   focusedTabStyle?: IYStackProps;
 }) {
   const handlePress = useCallback(() => {
-    onTabPress(name);
-  }, [name, onTabPress]);
+    onPress(name);
+  }, [name, onPress]);
   return (
     <YStack
       h={44}
@@ -72,6 +74,7 @@ export function TabBar({
   divider = true,
   tabItemStyle,
   focusedTabStyle,
+  scrollable = false,
 }: Omit<Partial<ITabBarProps>, 'focusedTab' | 'tabNames'> & {
   focusedTab: SharedValue<string>;
   tabNames: string[];
@@ -79,35 +82,70 @@ export function TabBar({
   divider?: boolean;
   tabItemStyle?: IYStackProps;
   focusedTabStyle?: IYStackProps;
-  renderItem?: ({
-    name,
-    isFocused,
-  }: {
-    name: string;
-    isFocused: boolean;
-  }) => React.ReactNode;
+  renderItem?: (
+    props: {
+      name: string;
+      isFocused: boolean;
+      onPress: (name: string) => void;
+      tabItemStyle?: IYStackProps;
+      focusedTabStyle?: IYStackProps;
+    },
+    index: number,
+  ) => React.ReactNode;
+  scrollable?: boolean;
 }) {
   const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
+  const scrollViewRef = useRef<IScrollViewRef>(null);
+  const scrollViewTimerId = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scrollToTab = useCallback(
+    (tabName: string) => {
+      if (scrollViewTimerId.current) {
+        clearTimeout(scrollViewTimerId.current);
+      }
+      if (scrollViewRef.current) {
+        const index = tabNames.findIndex((name) => name === tabName);
+        scrollViewTimerId.current = setTimeout(() => {
+          scrollViewRef.current?.scrollTo({
+            x: 44 * index,
+            animated: true,
+          });
+        }, 100);
+      }
+    },
+    [tabNames],
+  );
+
   useAnimatedReaction(
     () => focusedTab.value,
     (result, previous) => {
-      if (result !== previous) {
+      if (result !== previous && previous) {
         runOnJS(setCurrentTab)(result);
+        if (scrollable && scrollViewRef.current) {
+          runOnJS(scrollToTab)(result);
+        }
       }
     },
   );
   const tabItems = useMemo(() => {
-    return tabNames.map((name) =>
+    return tabNames.map((name, index) =>
       renderItem ? (
-        <XStack key={name} onPress={() => onTabPress(name)}>
-          {renderItem({ name, isFocused: currentTab === name })}
-        </XStack>
+        renderItem(
+          {
+            name,
+            isFocused: currentTab === name,
+            onPress: onTabPress,
+            tabItemStyle,
+            focusedTabStyle,
+          },
+          index,
+        )
       ) : (
-        <TabItem
+        <TabBarItem
           key={name}
           name={name}
           isFocused={currentTab === name}
-          onTabPress={onTabPress}
+          onPress={onTabPress}
           tabItemStyle={tabItemStyle}
           focusedTabStyle={focusedTabStyle}
         />
@@ -121,7 +159,37 @@ export function TabBar({
     tabItemStyle,
     tabNames,
   ]);
-  return (
+  const content = useMemo(() => {
+    return (
+      <>
+        <XStack ai="center" jc="space-between">
+          <XStack>{tabItems}</XStack>
+          {renderToolbar?.({ focusedTab: currentTab })}
+        </XStack>
+        {divider ? <Divider /> : null}
+      </>
+    );
+  }, [currentTab, divider, renderToolbar, tabItems]);
+  return scrollable ? (
+    <ScrollView
+      ref={scrollViewRef}
+      horizontal
+      userSelect="none"
+      cursor="pointer"
+      bg="$bgApp"
+      pr="$4"
+      contentContainerStyle={{
+        pr: 16,
+      }}
+      className="onekey-tabs-header"
+      position={'sticky' as any}
+      top={0}
+      zIndex={10}
+      showsHorizontalScrollIndicator={false}
+    >
+      {content}
+    </ScrollView>
+  ) : (
     <YStack
       userSelect="none"
       cursor="pointer"
@@ -131,11 +199,7 @@ export function TabBar({
       top={0}
       zIndex={10}
     >
-      <XStack ai="center" jc="space-between">
-        <XStack>{tabItems}</XStack>
-        {renderToolbar?.({ focusedTab: currentTab })}
-      </XStack>
-      {divider ? <Divider /> : null}
+      {content}
     </YStack>
   );
 }

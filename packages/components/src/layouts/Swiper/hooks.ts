@@ -51,6 +51,7 @@ export const useScrollEvent = ({
   autoplayLoop,
   autoplayLoopKeepAnimation,
   dataLength,
+  onChangeIndex,
 }: {
   initialIndex: number;
   autoplay: ISwiperProps<any>['autoplay'];
@@ -58,6 +59,7 @@ export const useScrollEvent = ({
   autoplayLoop: ISwiperProps<any>['autoplayLoop'];
   autoplayLoopKeepAnimation: ISwiperProps<any>['autoplayLoopKeepAnimation'];
   dataLength: number;
+  onChangeIndex: ISwiperProps<any>['onChangeIndex'];
 }) => {
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
 
@@ -73,6 +75,13 @@ export const useScrollEvent = ({
     index: initialIndex,
     prevIndex: initialIndex,
   });
+
+  useEffect(() => {
+    if (onChangeIndex) {
+      onChangeIndex(currentIndexes);
+    }
+  }, [currentIndexes, onChangeIndex]);
+
   const scrollToIndex = useCallback(
     (params: IScrollToIndexParams) => {
       const { index: indexToScroll, animated = true } = params;

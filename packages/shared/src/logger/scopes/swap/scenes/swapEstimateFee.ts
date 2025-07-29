@@ -4,6 +4,7 @@ import { LogToLocal, LogToServer } from '../../../base/decorators';
 export enum ESwapEventAPIStatus {
   SUCCESS = 'success',
   FAIL = 'fail',
+  PARTIAL_SUCCESS = 'partial_success',
 }
 
 export class SwapEstimateFeeScene extends BaseScene {

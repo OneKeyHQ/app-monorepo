@@ -18,6 +18,7 @@ import {
 import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyRequestDeviceQR } from '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 interface ISecureQRToastBaseProps {
   title?: string;
@@ -61,10 +62,15 @@ const SecureQRToastBase = ({
     <YStack
       p="$5"
       tabIndex={-1}
-      w={width - 40}
-      $gtMd={{
-        maxWidth: '$96',
-      }}
+      // Web platform needs specified width, but native can inherit parent width
+      w={platformEnv.isNative ? '100%' : width - 40}
+      $gtMd={
+        platformEnv.isNative
+          ? undefined
+          : {
+              maxWidth: '$96',
+            }
+      }
     >
       <XStack ai="center" pb="$3">
         <SizableText size="$headingLg" flex={1}>

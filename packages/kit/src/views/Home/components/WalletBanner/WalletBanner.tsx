@@ -16,25 +16,38 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EModalRewardCenterRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import {
   openUrlExternal,
   openUrlInApp,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
+import { EarnNavigation } from '../../../Earn/earnUtils';
+
 import type { GestureResponderEvent } from 'react-native';
+
+const closedBanners: Record<string, boolean> = {};
 
 function WalletBanner() {
   const {
-    activeAccount: { account },
+    activeAccount: { account, network, wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
 
   const intl = useIntl();
   const { gtSm, gtLg } = useMedia();
+  const themeVariant = useThemeVariant();
+
+  const navigation = useAppNavigation();
 
   const [closedForeverBanners, setClosedForeverBanners] = useState<
     Record<string, boolean>
@@ -71,6 +84,7 @@ function WalletBanner() {
 
   const handleDismiss = useCallback(async (item: IWalletBanner) => {
     if (item.closeable) {
+      closedBanners[item.id] = true;
       setClosedForeverBanners((prev) => ({
         ...prev,
         [item.id]: true,
@@ -90,23 +104,85 @@ function WalletBanner() {
     }
   }, []);
 
-  const handleClick = useCallback((item: IWalletBanner) => {
-    defaultLogger.wallet.walletBanner.walletBannerClicked({
-      bannerId: item.id,
-      type: 'jump',
-    });
-    if (item.hrefType === 'external') {
-      openUrlExternal(item.href);
-    } else {
-      openUrlInApp(item.href);
-    }
-  }, []);
+  const handleClick = useCallback(
+    async (item: IWalletBanner) => {
+      defaultLogger.wallet.walletBanner.walletBannerClicked({
+        bannerId: item.id,
+        type: 'jump',
+      });
+      if (item.hrefType === 'internal' && item.href.includes('/earn/staking')) {
+        const [path, query] = item.href.split('?');
+        const paths = path.split('/');
+        const provider = paths.pop();
+        const symbol = paths.pop();
+        const params = new URLSearchParams(query);
+        const networkId = params.get('networkId');
+        const vault = params.get('vault');
+        if (provider && symbol && networkId) {
+          const earnAccount =
+            await backgroundApiProxy.serviceStaking.getEarnAccount({
+              indexedAccountId: indexedAccount?.id,
+              accountId: account?.id ?? '',
+              networkId,
+            });
+          const navigationParams: {
+            accountId?: string;
+            networkId: string;
+            indexedAccountId?: string;
+            symbol: string;
+            provider: string;
+            vault?: string;
+          } = {
+            accountId: earnAccount?.accountId || account?.id || '',
+            indexedAccountId:
+              earnAccount?.account.indexedAccountId || indexedAccount?.id,
+            provider,
+            symbol,
+            networkId,
+          };
+          if (vault) {
+            navigationParams.vault = vault;
+          }
+          void EarnNavigation.pushDetailPageFromDeeplink(
+            navigation,
+            navigationParams,
+          );
+        }
+        return;
+      }
+
+      if (
+        item.hrefType === 'internal' &&
+        item.href.includes('/reward-center')
+      ) {
+        navigation.pushModal(EModalRoutes.MainModal, {
+          screen: EModalRewardCenterRoutes.RewardCenter,
+          params: {
+            accountId: account?.id ?? '',
+            networkId: network?.id ?? '',
+            walletId: wallet?.id ?? '',
+          },
+        });
+        return;
+      }
+
+      if (item.hrefType === 'external') {
+        openUrlExternal(item.href);
+      } else {
+        openUrlInApp(item.href);
+      }
+    },
+    [account?.id, indexedAccount?.id, navigation, network?.id, wallet?.id],
+  );
 
   useEffect(() => {
     const fetchClosedForeverBanners = async () => {
       const resp =
         await backgroundApiProxy.serviceWalletBanner.getClosedForeverBanners();
-      setClosedForeverBanners(resp);
+      setClosedForeverBanners({
+        ...closedBanners,
+        ...resp,
+      });
     };
     void fetchClosedForeverBanners();
   }, []);
@@ -116,18 +192,13 @@ function WalletBanner() {
   }
 
   return (
-    <YStack
-      pb="$3"
-      $gtLg={{
-        pt: '$3',
-      }}
-    >
+    <YStack py="$2.5" bg="$bgApp">
       <Carousel
         loop={false}
         data={filteredBanners}
         autoPlayInterval={3800}
         containerStyle={{
-          height: gtSm ? 86 : 76,
+          height: gtSm ? 98 : 90,
         }}
         paginationContainerStyle={{
           marginBottom: 0,
@@ -141,7 +212,13 @@ function WalletBanner() {
         }}
         renderItem={({ item }: { item: IWalletBanner }) => {
           return (
-            <YStack px="$5">
+            <YStack
+              px="$5"
+              pt="$0.5"
+              $platform-native={{
+                h: gtSm ? 82 : 73,
+              }}
+            >
               <XStack
                 key={item.id}
                 flex={1}
@@ -150,11 +227,27 @@ function WalletBanner() {
                 p="$4"
                 pr="$6"
                 bg="$bg"
-                borderWidth={StyleSheet.hairlineWidth}
-                borderColor="$borderSubdued"
                 borderRadius="$2"
-                borderCurve="continuous"
-                elevation={0.5}
+                $platform-native={{
+                  borderWidth: StyleSheet.hairlineWidth,
+                  borderColor: '$borderSubdued',
+                  borderCurve: 'continuous',
+                }}
+                $platform-android={{ elevation: 0.5 }}
+                $platform-ios={{
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 0.5 },
+                  shadowOpacity: 0.2,
+                  shadowRadius: 0.5,
+                }}
+                $platform-web={{
+                  boxShadow:
+                    '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.10), 0 1px 2px 0 rgba(0, 0, 0, 0.10)',
+                  ...(themeVariant === 'dark' && {
+                    borderWidth: 1,
+                    borderColor: '$borderSubdued',
+                  }),
+                }}
                 {...(!gtLg && {
                   gap: '$3',
                   py: '$3',
@@ -210,10 +303,11 @@ function WalletBanner() {
                     </SizableText>
                   </YStack>
                 ) : (
-                  <SizableText size="$bodyMd" numberOfLines={2}>
+                  <SizableText size="$bodyMd" flex={1} numberOfLines={2}>
                     {item.title}
-                    <SizableText size="$bodyMd" color="$textSubdued" mx="$1">
-                      -
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {' '}
+                      -{' '}
                     </SizableText>
                     <SizableText size="$bodyMd" color="$textSubdued">
                       {item.description}

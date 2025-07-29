@@ -31,6 +31,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalFiatCryptoRoutes,
+  EModalRewardCenterRoutes,
   EModalRoutes,
   EModalWalletAddressRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -104,6 +105,19 @@ export function WalletActionMore() {
   }, [network?.id]).result;
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
+
+  const handleRewardCenter = useCallback(() => {
+    if (rewardCenterConfig) {
+      navigation.pushModal(EModalRoutes.MainModal, {
+        screen: EModalRewardCenterRoutes.RewardCenter,
+        params: {
+          accountId: account?.id ?? '',
+          networkId: network?.id ?? '',
+          walletId: wallet?.id ?? '',
+        },
+      });
+    }
+  }, [rewardCenterConfig, navigation, account?.id, network?.id, wallet?.id]);
   const handleCopyAddress = useCallback(async () => {
     if (
       await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
@@ -343,7 +357,7 @@ export function WalletActionMore() {
               {
                 label: rewardCenterConfig.title,
                 icon: rewardCenterConfig.icon,
-                onPress: rewardCenterConfig.handler,
+                onPress: handleRewardCenter,
               },
             ]
           : ([] as any)),

@@ -2,12 +2,7 @@ import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import {
-  NumberSizeableText,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { NumberSizeableText, XStack, YStack } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -33,9 +28,15 @@ const PreSwapTokenItem = ({ token, amount }: IPreSwapTokenItemProps) => {
       mr="$0.5"
     >
       <YStack gap="$1" flex={1}>
-        <SizableText size="$heading3xl" numberOfLines={2}>
-          {`${amount} ${token?.symbol ?? '-'}`}
-        </SizableText>
+        <NumberSizeableText
+          size="$heading3xl"
+          formatter="balance"
+          formatterOptions={{
+            tokenSymbol: token?.symbol ?? '-',
+          }}
+        >
+          {amount}
+        </NumberSizeableText>
         <NumberSizeableText
           size="$bodyMd"
           color="$textSubdued"

@@ -1,9 +1,4 @@
-import {
-  Empty,
-  ListView,
-  Stack,
-  renderNestedScrollView,
-} from '@onekeyhq/components';
+import { Empty, ListView, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountDefi } from '@onekeyhq/shared/types/defi';
 
@@ -29,7 +24,6 @@ function DefiListView(props: IProps) {
 
   return (
     <ListView
-      renderScrollComponent={renderNestedScrollView}
       h="100%"
       estimatedItemSize={76}
       scrollEnabled={platformEnv.isWebTouchable}

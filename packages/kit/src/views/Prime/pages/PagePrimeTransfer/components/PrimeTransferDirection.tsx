@@ -38,6 +38,9 @@ import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IE2EESocketUserInfo } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
+
+import { usePrimeTransferExit } from './hooks/usePrimeTransferExit';
 
 interface IDeviceItemProps {
   userInfo: IE2EESocketUserInfo | undefined;
@@ -158,8 +161,10 @@ export function PrimeTransferDirection({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [primeTransferAtom, setPrimeTransferAtom] = usePrimeTransferAtom();
+  const { exitTransferFlow } = usePrimeTransferExit();
   const [isCheckingCode, setIsCheckingCode] = useState(false);
   const [waitingAlertVisible, setWaitingAlertVisible] = useState(false);
+  const [isSendingData, setIsSendingData] = useState(false);
 
   const getRoomUsers = useCallback(async () => {
     let result: IE2EESocketUserInfo[] = [];
@@ -214,6 +219,11 @@ export function PrimeTransferDirection({
     }
   }, [roomUsers, primeTransferAtom.pairedRoomId, directionUserInfo]);
 
+  const isTransferFromMe = useMemo(
+    () => primeTransferAtom?.myUserId === directionUserInfo?.fromUser?.id,
+    [primeTransferAtom?.myUserId, directionUserInfo?.fromUser?.id],
+  );
+
   const handleStartTransfer = useCallback(async () => {
     if (!directionUserInfo?.fromUser || !directionUserInfo?.toUser) {
       Toast.error({
@@ -227,8 +237,10 @@ export function PrimeTransferDirection({
       roomId: primeTransferAtom.pairedRoomId || '',
       fromUserId: directionUserInfo?.fromUser.id || '',
       toUserId: directionUserInfo?.toUser.id || '',
+      isTransferFromMe,
     });
   }, [
+    isTransferFromMe,
     directionUserInfo?.fromUser,
     directionUserInfo?.toUser,
     primeTransferAtom.pairedRoomId,
@@ -272,121 +284,159 @@ export function PrimeTransferDirection({
       inputCode: string;
       verifyCode: string;
     }) => {
-      if (!verifyCode) {
-        throw new OneKeyLocalError('Verification code does not exist');
-      }
-      if (inputCode !== verifyCode) {
-        throw new OneKeyLocalError('Verification code is incorrect');
-      }
+      try {
+        // const { password } =
+        //   await backgroundApiProxy.servicePassword.promptPasswordVerify({
+        //     reason: EReasonForNeedPassword.Security,
+        //   });
 
-      await timerUtils.wait(120);
-      // await onConfirm({ code, uuid });
-      void dialogRef.current?.close();
-      const transferData =
-        await backgroundApiProxy.servicePrimeTransfer.getDataForTransfer();
-      if (transferData?.isEmptyData) {
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.transfer_no_data,
-          }),
-        });
-        return;
-      }
+        // if (!password) {
+        //   throw new OneKeyLocalError('Password is required');
+        // }
 
-      await backgroundApiProxy.servicePrimeTransfer.sendTransferData({
-        transferData,
-      });
-      setWaitingAlertVisible(true);
-      isClosedBySendData.current = true;
-      // resolve();
-
-      navigation.popStack();
-      Dialog.show({
-        title: intl.formatMessage({
-          id: ETranslations.transfer_transfer_loading,
-        }),
-        description: intl.formatMessage(
-          {
-            id: ETranslations.transfer_data_sent_to_target,
-          },
-          {
-            'deviceType': directionUserInfo?.toUser?.appPlatformName,
-          },
-        ),
-        showCancelButton: false,
-        showConfirmButton: false,
-        disableDrag: true,
-        dismissOnOverlayPress: false,
-      });
-    },
-    [intl, navigation, directionUserInfo?.toUser?.appPlatformName],
-  );
-
-  useEffect(() => {
-    if (primeTransferAtom.status === EPrimeTransferStatus.transferring) {
-      const isTransferFromMe =
-        primeTransferAtom?.myUserId === directionUserInfo?.fromUser?.id;
-      if (isTransferFromMe) {
-        const verifyCode = buildVerifyCode({
-          userId: directionUserInfo?.toUser?.id || '',
-          randomNumber: primeTransferAtom.transferDirection?.randomNumber || '',
-        });
+        setIsSendingData(true);
         if (!verifyCode) {
           throw new OneKeyLocalError('Verification code does not exist');
         }
-        isClosedBySendData.current = false;
+        if (inputCode !== verifyCode) {
+          throw new OneKeyLocalError('Verification code is incorrect');
+        }
+
+        await timerUtils.wait(120);
+        // await onConfirm({ code, uuid });
+        isClosedBySendData.current = true;
         void dialogRef.current?.close();
-        dialogRef.current = Dialog.show({
-          disableDrag: true,
-          dismissOnOverlayPress: false,
-          onClose: dialogOnClose,
-          renderContent: (
-            <EmailOTPDialog
-              title={intl.formatMessage({
-                id: ETranslations.prime_enter_verification_code,
-              })}
-              description="Please enter the verification code from the other device"
-              hideResendButton
-              onConfirm={async (code: string) => {
-                await verifyCodeAndSendData({
-                  inputCode: code,
-                  verifyCode,
-                });
-              }}
-              sendCode={async () => {
-                // const result =
-                //   await backgroundApiProxy.servicePrime.sendEmailOTP(scene);
-                // uuid = result.uuid;
-                // return result;
-              }}
-            />
+        const transferData =
+          await backgroundApiProxy.servicePrimeTransfer.buildTransferData();
+        if (transferData?.isEmptyData) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.transfer_no_data,
+            }),
+          });
+          throw new OneKeyLocalError('No data to transfer');
+        }
+
+        await backgroundApiProxy.servicePrimeTransfer.sendTransferData({
+          transferData,
+        });
+        setWaitingAlertVisible(true);
+        // resolve();
+
+        exitTransferFlow();
+        Dialog.show({
+          title: intl.formatMessage({
+            id: ETranslations.global_sent_successfully,
+          }),
+          description: intl.formatMessage(
+            {
+              id: ETranslations.transfer_data_sent_to_target,
+            },
+            {
+              'deviceType': directionUserInfo?.toUser?.appPlatformName,
+            },
           ),
-        });
-      } else {
-        const verifyCode = buildVerifyCode({
-          userId: primeTransferAtom?.myUserId || '',
-          randomNumber: primeTransferAtom.transferDirection?.randomNumber || '',
-        });
-        isClosedBySendData.current = false;
-        void dialogRef.current?.close();
-        dialogRef.current = Dialog.show({
           showCancelButton: false,
-          showConfirmButton: false,
-          // title: intl.formatMessage({
-          //   id: ETranslations.prime_enter_verification_code,
-          // }),
-          title: 'Verification code',
-          description:
-            'Please enter the verification code on the other device to continue',
-          renderContent: (
-            <SizableText size="$heading4xl">{verifyCode}</SizableText>
-          ),
+          showConfirmButton: true,
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_i_got_it,
+          }),
           disableDrag: true,
           dismissOnOverlayPress: false,
-          onClose: dialogOnClose,
         });
+      } catch (error) {
+        console.error(error);
+        void backgroundApiProxy.servicePrimeTransfer.cancelTransfer();
+        throw error;
+      } finally {
+        setIsSendingData(false);
       }
-    }
+    },
+    [intl, directionUserInfo?.toUser?.appPlatformName, exitTransferFlow],
+  );
+
+  useEffect(() => {
+    const fn = async () => {
+      if (primeTransferAtom.status === EPrimeTransferStatus.transferring) {
+        if (isTransferFromMe) {
+          const verifyCode = buildVerifyCode({
+            userId: directionUserInfo?.toUser?.id || '',
+            randomNumber:
+              primeTransferAtom.transferDirection?.randomNumber || '',
+          });
+          if (!verifyCode) {
+            throw new OneKeyLocalError('Verification code does not exist');
+          }
+
+          // const { password } =
+          //   await backgroundApiProxy.servicePassword.promptPasswordVerify({
+          //     reason: EReasonForNeedPassword.Security,
+          //   });
+
+          // if (!password) {
+          //   throw new OneKeyLocalError('Password is required');
+          // }
+
+          isClosedBySendData.current = false;
+          void dialogRef.current?.close();
+          dialogRef.current = Dialog.show({
+            disableDrag: true,
+            dismissOnOverlayPress: false,
+            onClose: dialogOnClose,
+            renderContent: (
+              <EmailOTPDialog
+                title={intl.formatMessage({
+                  id: ETranslations.prime_enter_verification_code,
+                })}
+                description="Please enter the verification code from the other device"
+                hideResendButton
+                onConfirm={async (code: string) => {
+                  await verifyCodeAndSendData({
+                    inputCode: code,
+                    verifyCode,
+                  });
+                }}
+                sendCode={async () => {
+                  // const result =
+                  //   await backgroundApiProxy.servicePrime.sendEmailOTP(scene);
+                  // uuid = result.uuid;
+                  // return result;
+                }}
+              />
+            ),
+          });
+        } else {
+          const verifyCode = buildVerifyCode({
+            userId: primeTransferAtom?.myUserId || '',
+            randomNumber:
+              primeTransferAtom.transferDirection?.randomNumber || '',
+          });
+          isClosedBySendData.current = false;
+          void dialogRef.current?.close();
+          dialogRef.current = Dialog.show({
+            showCancelButton: false,
+            showConfirmButton: false,
+            // title: intl.formatMessage({
+            //   id: ETranslations.prime_enter_verification_code,
+            // }),
+            title: 'Verification code',
+            description:
+              'Please enter the verification code on the other device to continue',
+            renderContent: (
+              <SizableText size="$heading4xl">{verifyCode}</SizableText>
+            ),
+            disableDrag: true,
+            dismissOnOverlayPress: false,
+            onClose: dialogOnClose,
+          });
+        }
+      }
+    };
+    void fn().catch((error) => {
+      console.error(error);
+      void dialogOnClose();
+      throw error;
+    });
   }, [
     remotePairingCode,
     directionUserInfo?.fromUser?.id,
@@ -397,6 +447,7 @@ export function PrimeTransferDirection({
     dialogOnClose,
     verifyCodeAndSendData,
     primeTransferAtom.transferDirection?.randomNumber,
+    isTransferFromMe,
   ]);
 
   useEffect(() => {
@@ -499,6 +550,7 @@ export function PrimeTransferDirection({
         confirmButtonProps={{
           disabled: primeTransferAtom.status !== EPrimeTransferStatus.paired,
           loading:
+            isSendingData ||
             primeTransferAtom.status === EPrimeTransferStatus.transferring,
         }}
         onConfirm={() => {

@@ -432,6 +432,9 @@ function HardwareUiStateContainerCmpControlled() {
       if (currentState?.action === EHardwareUiStateAction.CLOSE_UI_WINDOW) {
         return true;
       }
+      if (currentState?.action === EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW) {
+        return true;
+      }
 
       if (currentState?.action === EHardwareUiStateAction.FIRMWARE_TIP) {
         if (
@@ -536,6 +539,7 @@ function HardwareUiStateContainerCmpControlled() {
         EHardwareUiStateAction.FIRMWARE_TIP,
         EHardwareUiStateAction.FIRMWARE_PROGRESS,
         EHardwareUiStateAction.FIRMWARE_PROCESSING,
+        EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW,
       ].includes(action)
     ) {
       return true;
@@ -675,8 +679,10 @@ function HardwareUiStateContainerCmpControlled() {
           uiRequestType ===
           EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION
         ) {
+          const connectId = stateRef.current?.connectId;
           dialogProps = buildWebDeviceAccessDialogProps({
             intl,
+            connectId,
             // @ts-expect-error
             promptWebUsbDeviceAccess: (dialogInstance?: IDialogInstance) => {
               // Use the provided instance or the current instance
