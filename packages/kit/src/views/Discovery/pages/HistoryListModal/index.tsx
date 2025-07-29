@@ -11,7 +11,6 @@ import {
   IconButton,
   Page,
   SectionList,
-  Stack,
   Toast,
   XStack,
 } from '@onekeyhq/components';
