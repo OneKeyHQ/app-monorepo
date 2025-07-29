@@ -53,7 +53,7 @@ if (!(Buffer.alloc(1).subarray(0, 1) instanceof Buffer)) {
   };
 }
 
-if (!platformEnv.isExtension) {
+if (!platformEnv.isNative) {
   require('./globalShim');
 }
 
