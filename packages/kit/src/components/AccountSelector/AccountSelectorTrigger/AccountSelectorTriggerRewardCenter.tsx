@@ -7,7 +7,6 @@ export function AccountSelectorTriggerRewardCenter({ num }: { num: number }) {
       autoWidthForHome
       num={num}
       linkNetwork={false}
-      editable
     />
   );
 }
