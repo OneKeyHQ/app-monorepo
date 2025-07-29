@@ -66,6 +66,7 @@ export function TabBarItem({
 }
 
 export interface ITabBarProps extends TabBarProps<string> {
+  containerStyle?: IYStackProps;
   renderToolbar?: ({ focusedTab }: { focusedTab: string }) => React.ReactNode;
 }
 
@@ -78,6 +79,7 @@ export function TabBar({
   divider = true,
   tabItemStyle,
   focusedTabStyle,
+  containerStyle,
   scrollable = false,
 }: Omit<Partial<ITabBarProps>, 'focusedTab' | 'tabNames'> & {
   focusedTab: SharedValue<string>;
@@ -207,6 +209,7 @@ export function TabBar({
       position={'sticky' as any}
       top={0}
       zIndex={10}
+      {...containerStyle}
     >
       {content}
     </YStack>

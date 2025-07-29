@@ -53,6 +53,10 @@ if (!(Buffer.alloc(1).subarray(0, 1) instanceof Buffer)) {
   };
 }
 
+if (!platformEnv.isNative) {
+  require('./globalShim');
+}
+
 // Crypto polyfill
 
 if (typeof crypto === 'undefined') {
