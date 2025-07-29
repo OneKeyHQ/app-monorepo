@@ -1558,6 +1558,8 @@ function ConnectByBluetooth() {
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
   const isSearchingRef = useRef(false);
   const nobleInitializedRef = useRef(false);
+  const isConnectingRef = useRef(false);
+  const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const deviceScanner = useMemo(
     () =>
@@ -1574,8 +1576,19 @@ function ConnectByBluetooth() {
         src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
         device: item,
         onPress: async () => {
-          // TODO: Implement device connection logic
-          console.log('Connect to device:', item);
+          try {
+            // Set connecting state to pause polling
+            isConnectingRef.current = true;
+            console.log('Connecting to device:', item);
+
+            // TODO: Implement actual device connection logic here
+            // This is where you would call the hardware connection APIs
+          } catch (error) {
+            console.error('Device connection failed:', error);
+          } finally {
+            // Reset connecting state to resume polling
+            isConnectingRef.current = false;
+          }
         },
         opacity: 1,
       })),
@@ -1676,12 +1689,62 @@ function ConnectByBluetooth() {
     deviceScanner.stopScan();
   }, [deviceScanner]);
 
-  // Check bluetooth status on mount and when focused
+  const handleOpenPrivacySettings = useCallback(() => {
+    void globalThis.desktopApiProxy.bluetooth.openPrivacySettings();
+  }, []);
+
+  const handleAppEnableDesktopBluetooth = useCallback(async () => {
+    try {
+      await backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(true);
+      // Re-check bluetooth status after enabling
+      void checkBluetoothStatus();
+    } catch (error) {
+      console.error('Failed to enable desktop bluetooth:', error);
+    }
+  }, [checkBluetoothStatus]);
+
+  const handleOpenBleSettings = useCallback(() => {
+    void globalThis.desktopApiProxy.bluetooth.openBluetoothSettings();
+  }, []);
+
+  const startBluetoothStatusPolling = useCallback(() => {
+    if (pollingTimerRef.current) {
+      clearInterval(pollingTimerRef.current);
+    }
+
+    pollingTimerRef.current = setInterval(() => {
+      // Don't poll if connecting to a device
+      if (!isConnectingRef.current) {
+        void checkBluetoothStatus();
+      }
+    }, 1500); // Poll every 3 seconds
+  }, [checkBluetoothStatus]);
+
+  const stopBluetoothStatusPolling = useCallback(() => {
+    if (pollingTimerRef.current) {
+      clearInterval(pollingTimerRef.current);
+      pollingTimerRef.current = null;
+    }
+  }, []);
+
+  // Check bluetooth status on mount and when focused, start polling
   useEffect(() => {
     if (isFocused) {
       void checkBluetoothStatus();
+      startBluetoothStatusPolling();
+    } else {
+      stopBluetoothStatusPolling();
     }
-  }, [checkBluetoothStatus, isFocused]);
+
+    return () => {
+      stopBluetoothStatusPolling();
+    };
+  }, [
+    checkBluetoothStatus,
+    isFocused,
+    startBluetoothStatusPolling,
+    stopBluetoothStatusPolling,
+  ]);
 
   // Start scanning when bluetooth is enabled and focused
   useEffect(() => {
@@ -1696,9 +1759,10 @@ function ConnectByBluetooth() {
   useEffect(
     () => () => {
       deviceScanner?.stopScan();
+      stopBluetoothStatusPolling();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [stopBluetoothStatusPolling],
   );
 
   if (bluetoothStatus === 'checking') {
@@ -1723,7 +1787,7 @@ function ConnectByBluetooth() {
           children: intl.formatMessage({
             id: ETranslations.onboarding_enable_bluetooth,
           }),
-          onPress: checkBluetoothStatus,
+          onPress: handleAppEnableDesktopBluetooth,
         }}
       />
     );
@@ -1756,7 +1820,7 @@ function ConnectByBluetooth() {
           children: intl.formatMessage({
             id: ETranslations.global_go_to_settings,
           }),
-          onPress: checkBluetoothStatus,
+          onPress: handleOpenPrivacySettings,
         }}
       />
     );
@@ -1776,7 +1840,7 @@ function ConnectByBluetooth() {
           children: intl.formatMessage({
             id: ETranslations.onboarding_enable_bluetooth,
           }),
-          onPress: checkBluetoothStatus,
+          onPress: handleOpenBleSettings,
         }}
       />
     );
