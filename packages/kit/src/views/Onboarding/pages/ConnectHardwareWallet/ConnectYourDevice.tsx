@@ -1159,7 +1159,9 @@ function ConnectByBluetooth({
       }
     },
     connectionType: 'bluetooth',
-    forceTransportType: EHardwareTransportType.DesktopWebBle,
+    forceTransportType: platformEnv.isSupportDesktopBle
+      ? EHardwareTransportType.DesktopWebBle
+      : EHardwareTransportType.BLE,
   });
 
   const { devicesData, scanDevice, stopScan } = deviceConnection;
@@ -1635,10 +1637,12 @@ export function ConnectYourDevicePage() {
     async ({
       device,
       isFirmwareVerified,
+      forceTransportType,
     }: {
       device: SearchDevice;
       features: IOneKeyDeviceFeatures;
       isFirmwareVerified?: boolean;
+      forceTransportType?: EHardwareTransportType;
     }) => {
       setIsChecking(true);
 
@@ -1652,6 +1656,7 @@ export function ConnectYourDevicePage() {
         features =
           await backgroundApiProxy.serviceHardware.getFeaturesWithUnlock({
             connectId: device.connectId ?? '',
+            forceTransportType,
           });
       } catch (error) {
         await closeDialogAndReturn(device, { skipDelayClose: true });
@@ -1732,10 +1737,13 @@ export function ConnectYourDevicePage() {
         }
 
         // Determine transport type based on tab
-        const forceTransportType =
-          tabValue === EConnectDeviceChannel.bluetooth
-            ? EHardwareTransportType.DesktopWebBle
-            : await getForceTransportType(tabValue);
+        // For bluetooth tab, always force bluetooth connection even if USB is connected
+        let forceTransportType: EHardwareTransportType | undefined;
+        if (tabValue === EConnectDeviceChannel.bluetooth) {
+          forceTransportType = EHardwareTransportType.DesktopWebBle;
+        } else {
+          forceTransportType = await getForceTransportType(tabValue);
+        }
 
         const features = await connectDevice(device, forceTransportType);
 
@@ -1814,6 +1822,7 @@ export function ConnectYourDevicePage() {
                 device,
                 isFirmwareVerified: checked,
                 features,
+                forceTransportType,
               });
             },
             onClose: () => {
@@ -1828,7 +1837,7 @@ export function ConnectYourDevicePage() {
           return;
         }
 
-        await selectAddWalletType({ device, features });
+        await selectAddWalletType({ device, features, forceTransportType });
       } catch (error) {
         console.error('handleDeviceConnect error:', error);
         throw error;
@@ -1868,7 +1877,7 @@ export function ConnectYourDevicePage() {
                   : 'USB',
                 value: EConnectDeviceChannel.usbOrBle,
               },
-              ...(platformEnv.isDesktopMac
+              ...(platformEnv.isSupportDesktopBle
                 ? [
                     {
                       label: intl.formatMessage({
@@ -1894,7 +1903,8 @@ export function ConnectYourDevicePage() {
           />
         ) : null}
 
-        {tabValue === EConnectDeviceChannel.bluetooth ? (
+        {tabValue === EConnectDeviceChannel.bluetooth &&
+        platformEnv.isSupportDesktopBle ? (
           <ConnectByBluetooth onDeviceConnect={handleDeviceConnect} />
         ) : null}
 
