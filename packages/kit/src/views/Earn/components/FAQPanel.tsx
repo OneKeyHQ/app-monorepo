@@ -38,6 +38,10 @@ export function FAQPanel({
     return <FAQPanelSkeleton />;
   }
 
+  if (!faqList?.length) {
+    return null;
+  }
+
   return (
     <YStack gap="$4">
       <SizableText size="$headingLg">
