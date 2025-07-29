@@ -375,9 +375,7 @@ export function SearchResultContent({
             src: item.logo || item.originLogo,
             loading: LoadingSkeleton,
             fallbackProps: {
-              bg: '$bgStrong',
-              justifyContent: 'center',
-              alignItems: 'center',
+              bg: '$transparent',
               children: <Icon name="GlobusOutline" />,
             },
             borderWidth: StyleSheet.hairlineWidth,
