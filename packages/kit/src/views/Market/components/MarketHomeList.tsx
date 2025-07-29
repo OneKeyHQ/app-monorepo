@@ -441,7 +441,7 @@ function BasicMarketHomeList({
     void InteractionManager.runAfterInteractions(() => {
       setListData(response);
     });
-  }, [category.categoryId, category.coingeckoIds]);
+  }, [FETCH_COOLDOWN_DURATION, category.categoryId, category.coingeckoIds]);
 
   useEffect(() => {
     if (prevExtraData.current !== extraData) {
