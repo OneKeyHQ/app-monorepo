@@ -8,7 +8,7 @@ function EmptyNFT() {
   const intl = useIntl();
   return (
     <Empty
-      flex={platformEnv.isNativeAndroid ? 1 : undefined}
+      h={platformEnv.isNativeAndroid ? 300 : undefined}
       testID="Wallet-No-NFT-Empty"
       icon="AiImagesOutline"
       title={intl.formatMessage({ id: ETranslations.nft_no_nfts })}

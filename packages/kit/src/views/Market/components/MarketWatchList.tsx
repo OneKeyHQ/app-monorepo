@@ -248,6 +248,12 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
   return watchListCoingeckoIds?.length === 0 ? (
     renderRecommend()
   ) : (
-    <MarketHomeList showMoreAction ordered draggable category={listCategory} />
+    <MarketHomeList
+      showMoreAction
+      ordered
+      draggable
+      category={listCategory}
+      extraData={watchListCoingeckoIds.length}
+    />
   );
 }

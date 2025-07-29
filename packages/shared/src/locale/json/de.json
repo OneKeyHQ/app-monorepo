@@ -2577,6 +2577,7 @@
   "swap.network_cost_dialog_description": "Netzwerkkosten übersteigen {number} des Bestellbetrags",
   "swap.network_cost_dialog_title": "Bestellmenge ist zu klein",
   "swap.provider_manage_unavailable": "*The provider is temporarily unavailable.",
+  "swap.revoke_successful": "Widerruf der Genehmigung erfolgreich",
   "swap.stablecoin_0_fee": "0 Gebühr",
   "swap.step_1": "1. ",
   "swap.toast_go_to_swap": "Zum Tausch gehen",
