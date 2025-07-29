@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -11,6 +11,7 @@ import {
   IconButton,
   Page,
   SectionList,
+  Stack,
   Toast,
   XStack,
 } from '@onekeyhq/components';
@@ -29,10 +30,7 @@ import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserHistory } from '../../types';
 
-function groupDataByDate(
-  prev: { title: string; data: IBrowserHistory[] }[],
-  data: IBrowserHistory[],
-) {
+function groupDataByDate(data: IBrowserHistory[]) {
   const groups = data.reduce<{ [date: string]: IBrowserHistory[] }>(
     (result, item) => {
       const date = formatRelativeDate(new Date(item.createdAt));
@@ -51,13 +49,6 @@ function groupDataByDate(
 
 function HistoryListModal() {
   const [isEditing, setIsEditing] = useState(false);
-  const [allHistoryData, setAllHistoryData] = useState<IBrowserHistory[]>([]);
-  const [dataSource, setDataSource] = useState<
-    {
-      title: string;
-      data: IBrowserHistory[];
-    }[]
-  >([]);
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { removeBrowserHistory, removeAllBrowserHistory } =
@@ -66,32 +57,23 @@ function HistoryListModal() {
   const handleWebSite = useWebSiteHandler();
 
   const [page, setPage] = useState(1);
-
-  const { run } = usePromiseResult(async () => {
-    const data = await backgroundApiProxy.serviceDiscovery.fetchHistoryData(
-      page,
-    );
-
-    if (page === 1) {
-      setAllHistoryData(data);
-    } else {
-      setAllHistoryData((prev) => [...prev, ...data]);
-    }
-
-    return data;
-  }, [page]);
-
-  useEffect(() => {
-    setDataSource((prev) => {
-      groupDataByDate(prev, allHistoryData);
-      return prev;
-    });
-  }, [allHistoryData]);
+  const { result: dataSource, run } = usePromiseResult(
+    async () => {
+      const data = await backgroundApiProxy.serviceDiscovery.fetchHistoryData(
+        page,
+      );
+      const ret = groupDataByDate(data);
+      return ret;
+    },
+    [page],
+    {
+      watchLoading: true,
+    },
+  );
 
   const removeHistoryFlagRef = useRef(false);
   const handleDeleteAll = useCallback(async () => {
     await removeAllBrowserHistory();
-    setAllHistoryData([]);
     removeHistoryFlagRef.current = true;
     setTimeout(() => {
       void run();
@@ -99,13 +81,11 @@ function HistoryListModal() {
   }, [run, removeAllBrowserHistory]);
 
   useEffect(() => {
-    if (removeHistoryFlagRef.current && allHistoryData.length === 0) {
+    if (removeHistoryFlagRef.current && dataSource?.length === 0) {
       navigation.pop();
       removeHistoryFlagRef.current = false;
     }
-  }, [navigation, allHistoryData.length]);
-
-  console.log('dataSource', dataSource);
+  }, [navigation, dataSource?.length]);
 
   const headerRight = useCallback(
     () => (
@@ -165,82 +145,80 @@ function HistoryListModal() {
         headerRight={headerRight}
       />
       <Page.Body>
-        <SectionList
-          testID="History-SectionList"
-          height="100%"
-          ListEmptyComponent={
-            <Empty
-              py="$32"
-              my="$4"
-              icon="ClockTimeHistoryOutline"
-              title={intl.formatMessage({
-                id: ETranslations.browser_no_closed_tabs,
-              })}
-            />
-          }
-          estimatedItemSize="$16"
-          extraData={isEditing}
-          sections={isNil(dataSource) ? [] : dataSource}
-          renderSectionHeader={({ section: { title } }) => (
-            <SectionList.SectionHeader title={title} />
-          )}
-          keyExtractor={keyExtractor}
-          renderItem={({ item }: { item: IBrowserHistory }) => (
-            <ListItem
-              key={item.id}
-              renderAvatar={<DiscoveryIcon uri={item.logo} size="$10" />}
-              title={item.title}
-              titleProps={{
-                numberOfLines: 1,
-              }}
-              subtitle={item.url}
-              subtitleProps={{
-                numberOfLines: 1,
-              }}
-              testID={`search-modal-${item.url.toLowerCase()}`}
-              {...(!isEditing && {
-                onPress: () => {
-                  handleWebSite({
-                    webSite: {
-                      url: item.url,
-                      title: item.title,
-                      logo: item.logo,
-                      sortIndex: undefined,
-                    },
-                    shouldPopNavigation: true,
-                    enterMethod: EEnterMethod.history,
-                  });
-                },
-              })}
-            >
-              {isEditing ? (
-                <ListItem.IconButton
-                  icon="DeleteOutline"
-                  onPress={() => {
-                    void removeBrowserHistory(item.id);
-                    setAllHistoryData((prev) =>
-                      prev.filter((historyItem) => historyItem.id !== item.id),
-                    );
-                    removeHistoryFlagRef.current = true;
-                    setTimeout(() => {
-                      void run();
-                    }, 200);
-                    Toast.success({
-                      title: intl.formatMessage({
-                        id: ETranslations.explore_removed_success,
-                      }),
+        <Stack height={500}>
+          <SectionList
+            testID="History-SectionList"
+            height="100%"
+            ListEmptyComponent={
+              <Empty
+                py="$32"
+                my="$4"
+                icon="ClockTimeHistoryOutline"
+                title={intl.formatMessage({
+                  id: ETranslations.browser_no_closed_tabs,
+                })}
+              />
+            }
+            estimatedItemSize="$16"
+            extraData={isEditing}
+            sections={isNil(dataSource) ? [] : dataSource}
+            renderSectionHeader={({ section: { title } }) => (
+              <SectionList.SectionHeader title={title} />
+            )}
+            keyExtractor={keyExtractor}
+            renderItem={({ item }: { item: IBrowserHistory }) => (
+              <ListItem
+                key={item.id}
+                renderAvatar={<DiscoveryIcon uri={item.logo} size="$10" />}
+                title={item.title}
+                titleProps={{
+                  numberOfLines: 1,
+                }}
+                subtitle={item.url}
+                subtitleProps={{
+                  numberOfLines: 1,
+                }}
+                testID={`search-modal-${item.url.toLowerCase()}`}
+                {...(!isEditing && {
+                  onPress: () => {
+                    handleWebSite({
+                      webSite: {
+                        url: item.url,
+                        title: item.title,
+                        logo: item.logo,
+                        sortIndex: undefined,
+                      },
+                      shouldPopNavigation: true,
+                      enterMethod: EEnterMethod.history,
                     });
-                  }}
-                />
-              ) : null}
-            </ListItem>
-          )}
-          onEndReached={() => {
-            console.log('onEndReached', page);
-            setPage((prev) => prev + 1);
-          }}
-          onEndReachedThreshold={0.5}
-        />
+                  },
+                })}
+              >
+                {isEditing ? (
+                  <ListItem.IconButton
+                    icon="DeleteOutline"
+                    onPress={() => {
+                      void removeBrowserHistory(item.id);
+                      removeHistoryFlagRef.current = true;
+                      setTimeout(() => {
+                        void run();
+                      }, 200);
+                      Toast.success({
+                        title: intl.formatMessage({
+                          id: ETranslations.explore_removed_success,
+                        }),
+                      });
+                    }}
+                  />
+                ) : null}
+              </ListItem>
+            )}
+            onEndReached={() => {
+              console.log('onEndReached');
+              setPage((prev) => prev + 1);
+            }}
+          />
+        </Stack>
       </Page.Body>
     </Page>
   );
