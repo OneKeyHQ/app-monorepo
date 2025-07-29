@@ -282,7 +282,6 @@ const HistoryContent = ({
         ListEmptyComponent={
           <Empty
             pt={40}
-            h={platformEnv.isNativeAndroid ? 300 : undefined}
             icon="ClockTimeHistoryOutline"
             title={intl.formatMessage({
               id: ETranslations.global_no_transactions_yet,
