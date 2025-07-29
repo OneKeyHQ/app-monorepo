@@ -1,13 +1,13 @@
 import { AccountSelectorTriggerBase } from './AccountSelectorTriggerBase';
 
-import type { ISpotlightViewProps } from '../../Spotlight';
+import type { ISpotlightProps } from '../../Spotlight';
 
 export function AccountSelectorTriggerHome({
   num,
   spotlightProps,
 }: {
   num: number;
-  spotlightProps?: ISpotlightViewProps;
+  spotlightProps?: ISpotlightProps;
 }) {
   return (
     <AccountSelectorTriggerBase
