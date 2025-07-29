@@ -351,7 +351,7 @@ export const UniversalClaim = ({
               {providerLabel ??
                 intl.formatMessage({ id: ETranslations.global_protocol })}
             </CalculationListItem.Label>
-            <CalculationListItem.Value>
+            <XStack>
               <XStack gap="$2" alignItems="center">
                 <Image
                   width="$5"
@@ -363,7 +363,7 @@ export const UniversalClaim = ({
                   {capitalizeString(providerName)}
                 </SizableText>
               </XStack>
-            </CalculationListItem.Value>
+            </XStack>
           </CalculationListItem>
         ) : null}
         {estimateFeeResp ? (
