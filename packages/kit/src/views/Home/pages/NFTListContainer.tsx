@@ -30,6 +30,7 @@ import {
   withNFTListProvider,
 } from '../../../states/jotai/contexts/nftList';
 import { NFTListView } from '../components/NFTListView';
+import { onHomePageRefresh } from '../components/PullToRefresh';
 
 const networkIdsMap = getNetworkIdsMap();
 
@@ -325,6 +326,7 @@ function NFTListContainer() {
 
   return (
     <NFTListView
+      onRefresh={onHomePageRefresh}
       data={nftList ?? []}
       isLoading={nftListState.isRefreshing}
       initialized={nftListState.initialized}
