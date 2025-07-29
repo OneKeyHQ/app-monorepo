@@ -49,6 +49,7 @@ import {
   EHardwareCallContext,
   EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import localDb from '../../dbs/local/localDb';
 import simpleDb from '../../dbs/simple/simpleDb';
@@ -610,8 +611,8 @@ class ServiceHardware extends ServiceBase {
   }
 
   private connectDevice = (
-    connectId: string, 
-    forceTransportType?: EHardwareTransportType
+    connectId: string,
+    forceTransportType?: EHardwareTransportType,
   ) =>
     this.getFeaturesWithoutCache({
       connectId,
@@ -656,7 +657,10 @@ class ServiceHardware extends ServiceBase {
 
     if (platformEnv.isNative) {
       try {
-        return await this.connectDevice(compatibleConnectId, forceTransportType);
+        return await this.connectDevice(
+          compatibleConnectId,
+          forceTransportType,
+        );
       } catch (e: any) {
         this.handlerConnectError(e);
       }
@@ -665,7 +669,10 @@ class ServiceHardware extends ServiceBase {
        * USB does not need the extra getFeatures call
        */
       try {
-        return await this.connectDevice(compatibleConnectId, forceTransportType);
+        return await this.connectDevice(
+          compatibleConnectId,
+          forceTransportType,
+        );
       } catch (e: any) {
         return (device as KnownDevice).features;
       }
@@ -674,10 +681,10 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async unlockDevice({ 
-    connectId, 
-    forceTransportType 
-  }: { 
+  async unlockDevice({
+    connectId,
+    forceTransportType,
+  }: {
     connectId: string;
     forceTransportType?: EHardwareTransportType;
   }) {
@@ -693,10 +700,10 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getFeaturesWithUnlock({ 
-    connectId, 
-    forceTransportType 
-  }: { 
+  async getFeaturesWithUnlock({
+    connectId,
+    forceTransportType,
+  }: {
     connectId: string;
     forceTransportType?: EHardwareTransportType;
   }) {
@@ -712,9 +719,9 @@ class ServiceHardware extends ServiceBase {
 
     if (!features.unlocked) {
       // unlock device
-      features = await this.unlockDevice({ 
-        connectId: compatibleConnectId, 
-        forceTransportType 
+      features = await this.unlockDevice({
+        connectId: compatibleConnectId,
+        forceTransportType,
       });
     }
 
@@ -1284,7 +1291,7 @@ class ServiceHardware extends ServiceBase {
       const compatibleConnectId = await this.getCompatibleConnectId({
         connectId,
         featuresDeviceId: deviceId,
-        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        hardwareCallContext: EHardwareCallContext.SILENT_CALL,
       });
       const hardwareSDK = await this.getSDKInstance();
       await timerUtils.wait(600);
@@ -1552,7 +1559,10 @@ class ServiceHardware extends ServiceBase {
     }
 
     // Determine the transport type to use
-    console.log('🔍 getCompatibleConnectId called with forceTransportType:', forceTransportType);
+    console.log(
+      '🔍 getCompatibleConnectId called with forceTransportType:',
+      forceTransportType,
+    );
     const result = await this.connectionManager.shouldSwitchTransportType({
       hardwareCallContext,
       forceTransportType,
@@ -1568,6 +1578,13 @@ class ServiceHardware extends ServiceBase {
       }
       if (!device) {
         return connectId;
+      }
+      // onboarding flow
+      if (
+        device.connectId &&
+        forceTransportType === EHardwareTransportType.DesktopWebBle
+      ) {
+        return device.connectId;
       }
       if (device && !device.bleConnectId) {
         // Use servicePromise to wait for UI dialog to complete BLE pairing
