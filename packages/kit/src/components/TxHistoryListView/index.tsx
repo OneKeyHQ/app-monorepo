@@ -1,10 +1,11 @@
 import type { ComponentProps, ReactElement } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { IListViewProps } from '@onekeyhq/components';
 import {
+  RefreshControl,
   SectionList,
   SizableText,
   Stack,
@@ -199,8 +200,22 @@ function BaseTxHistoryListView(props: IProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchKey, data.length]);
 
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1200);
+  }, []);
+
   return (
     <ListComponent
+      refreshControl={
+        inTabList ? (
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        ) : undefined
+      }
       // @ts-ignore
       estimatedItemSize={platformEnv.isNative ? 60 : 56}
       contentContainerStyle={resolvedContentContainerStyle as any}

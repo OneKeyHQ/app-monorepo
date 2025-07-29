@@ -1,8 +1,9 @@
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   ListView,
+  RefreshControl,
   SizableText,
   Stack,
   Tabs,
@@ -340,10 +341,25 @@ function TokenListViewCmp(props: IProps) {
     withBuyAndReceive,
   ]);
 
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1200);
+  }, []);
+
   return (
     <ListComponent
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
+      refreshControl={
+        inTabList ? (
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        ) : undefined
+      }
       extraData={filteredTokens.length}
       data={filteredTokens}
       contentContainerStyle={resolvedContentContainerStyle as any}

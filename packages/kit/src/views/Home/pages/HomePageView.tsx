@@ -187,6 +187,7 @@ export function HomePageView({
     return (
       <Tabs.Container
         key={key}
+        allowHeaderOverscroll
         width={tabContainerWidth}
         headerContainerStyle={{
           shadowOpacity: 0,
