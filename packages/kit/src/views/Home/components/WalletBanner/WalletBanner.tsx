@@ -36,9 +36,11 @@ import { EarnNavigation } from '../../../Earn/earnUtils';
 
 import type { GestureResponderEvent } from 'react-native';
 
+const closedBanners: Record<string, boolean> = {};
+
 function WalletBanner() {
   const {
-    activeAccount: { account, network, indexedAccount },
+    activeAccount: { account, network, wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
 
   const intl = useIntl();
@@ -82,6 +84,7 @@ function WalletBanner() {
 
   const handleDismiss = useCallback(async (item: IWalletBanner) => {
     if (item.closeable) {
+      closedBanners[item.id] = true;
       setClosedForeverBanners((prev) => ({
         ...prev,
         [item.id]: true,
@@ -157,6 +160,7 @@ function WalletBanner() {
           params: {
             accountId: account?.id ?? '',
             networkId: network?.id ?? '',
+            walletId: wallet?.id ?? '',
           },
         });
         return;
@@ -168,14 +172,17 @@ function WalletBanner() {
         openUrlInApp(item.href);
       }
     },
-    [account?.id, indexedAccount?.id, navigation, network?.id],
+    [account?.id, indexedAccount?.id, navigation, network?.id, wallet?.id],
   );
 
   useEffect(() => {
     const fetchClosedForeverBanners = async () => {
       const resp =
         await backgroundApiProxy.serviceWalletBanner.getClosedForeverBanners();
-      setClosedForeverBanners(resp);
+      setClosedForeverBanners({
+        ...closedBanners,
+        ...resp,
+      });
     };
     void fetchClosedForeverBanners();
   }, []);
