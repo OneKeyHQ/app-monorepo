@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -243,6 +244,9 @@ const InAppNotification = () => {
           Number(swapApprovingTransactionRef.current?.resetApproveValue) > 0
         )
       ) {
+        let title = intl.formatMessage({
+          id: ETranslations.swap_page_toast_approve_successful,
+        });
         let message = intl.formatMessage(
           {
             id: ETranslations.swap_toast_go_to_swap_desc,
@@ -264,6 +268,23 @@ const InAppNotification = () => {
             },
           );
         }
+        if (
+          new BigNumber(
+            swapApprovingTransactionRef.current?.amount ?? 0,
+          ).isZero()
+        ) {
+          message = intl.formatMessage(
+            {
+              id: ETranslations.global_revoke_approve,
+            },
+            {
+              symbol: swapApprovingTransactionRef.current?.fromToken.symbol,
+            },
+          );
+          title = intl.formatMessage({
+            id: ETranslations.swap_revoke_successful,
+          });
+        }
         handleSwapNavigation(
           ({ isInSwapTab, isHasSwapModal, isSwapModalOnTheTop, hasModal }) => {
             if (
@@ -277,16 +298,12 @@ const InAppNotification = () => {
                 });
               }
               Toast.success({
-                title: intl.formatMessage({
-                  id: ETranslations.swap_page_toast_approve_successful,
-                }),
+                title,
                 message,
               });
             } else {
               toastRef.current = Toast.success({
-                title: intl.formatMessage({
-                  id: ETranslations.swap_page_toast_approve_successful,
-                }),
+                title,
                 message,
                 duration: 10_000,
                 actions: approvingSuccessAction,
