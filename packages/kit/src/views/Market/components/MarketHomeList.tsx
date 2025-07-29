@@ -1021,16 +1021,20 @@ function BasicMarketHomeList({
     [watchListAction],
   );
 
-  if (!isFocused) {
-    return null;
-  }
-
-  if (platformEnv.isNativeAndroid && !sortedListData?.length) {
+  const spinner = useMemo(() => {
     return (
       <YStack flex={1} ai="center" jc="center">
         <Spinner size="large" />
       </YStack>
     );
+  }, []);
+
+  if (!isFocused) {
+    return platformEnv.isNative ? spinner : null;
+  }
+
+  if (listData.length === 0) {
+    return spinner;
   }
 
   return (
