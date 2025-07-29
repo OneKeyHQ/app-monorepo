@@ -7,6 +7,8 @@ import {
   useState,
 } from 'react';
 
+import { useDebouncedCallback } from 'use-debounce';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Stack, XStack, YStack } from '../../primitives';
@@ -51,25 +53,27 @@ export function Carousel<T>({
   const currentPage = useRef<number>(0);
   currentPage.current = pageIndex;
 
+  const debouncedSetPageIndex = useDebouncedCallback(setPageIndex, 50);
+
   const scrollToPreviousPage = useCallback(() => {
     const previousPage =
       currentPage.current > 0 ? currentPage.current - 1 : data.length - 1;
     pagerRef.current?.setPage(previousPage);
     currentPage.current = previousPage;
-    setPageIndex(previousPage);
-  }, [currentPage, data.length]);
+    debouncedSetPageIndex(previousPage);
+  }, [data.length, debouncedSetPageIndex]);
   const scrollToNextPage = useCallback(() => {
     if (currentPage.current >= data.length - 1) {
       pagerRef.current?.setPageWithoutAnimation(0);
       currentPage.current = 0;
-      setPageIndex(0);
+      debouncedSetPageIndex(0);
       return;
     }
     const nextPage = currentPage.current + 1;
     pagerRef.current?.setPage(nextPage);
     currentPage.current = nextPage;
-    setPageIndex(nextPage);
-  }, [data.length, currentPage]);
+    debouncedSetPageIndex(nextPage);
+  }, [data.length, debouncedSetPageIndex]);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -103,22 +107,23 @@ export function Carousel<T>({
       },
       scrollTo: ({ index }: { index: number }) => {
         pagerRef.current?.setPage(index);
-        setPageIndex(index);
+        debouncedSetPageIndex(index);
       },
     };
   });
 
   const onPressPagination = (index: number) => {
     pagerRef.current?.setPage(index);
-    setPageIndex(index);
+    debouncedSetPageIndex(index);
   };
 
   const onPageSelected = useCallback(
     (e: NativeSyntheticEvent<Readonly<{ position: number }>>) => {
       currentPage.current = e.nativeEvent.position;
+      debouncedSetPageIndex(currentPage.current);
       onPageChanged?.(currentPage.current);
     },
-    [onPageChanged],
+    [debouncedSetPageIndex, onPageChanged],
   );
   const [layout, setLayout] = useState<{ width: number; height: number }>({
     width: 0,
