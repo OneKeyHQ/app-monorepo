@@ -52,7 +52,6 @@ import { TokenListItem } from './TokenListItem';
 
 type IProps = {
   tableLayout?: boolean;
-  onRefresh?: () => void;
   onPressToken?: (token: IAccountToken) => void;
   withHeader?: boolean;
   withFooter?: boolean;
