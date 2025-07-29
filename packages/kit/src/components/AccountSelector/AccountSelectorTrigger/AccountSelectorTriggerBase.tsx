@@ -10,10 +10,10 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
 import { AccountAvatar } from '../../AccountAvatar';
-import { Spotlight } from '../../Spotlight';
+import { SpotlightView } from '../../Spotlight';
 import { useAccountSelectorTrigger } from '../hooks/useAccountSelectorTrigger';
 
-import type { ISpotlightProps } from '../../Spotlight';
+import type { ISpotlightViewProps } from '../../Spotlight';
 
 export function AccountSelectorTriggerBase({
   num,
@@ -25,7 +25,7 @@ export function AccountSelectorTriggerBase({
 }: {
   num: number;
   autoWidthForHome?: boolean;
-  spotlightProps?: ISpotlightProps;
+  spotlightProps?: ISpotlightViewProps;
   horizontalLayout?: boolean;
   showWalletAvatar?: boolean;
   showWalletName?: boolean;
@@ -137,7 +137,7 @@ export function AccountSelectorTriggerBase({
   );
 
   return spotlightProps ? (
-    <Spotlight {...spotlightProps}>{content}</Spotlight>
+    <SpotlightView {...spotlightProps}>{content}</SpotlightView>
   ) : (
     content
   );
