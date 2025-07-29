@@ -613,40 +613,6 @@ function BasicMarketHomeList({
   );
 
   const containerRef = useRef<IElement>(null);
-  const onSwitchMarketHomeTabCallback = useCallback(
-    ({ tabIndex: index }: { tabIndex: number }) => {
-      setTimeout(
-        () => {
-          if (!platformEnv.isNative && containerRef.current) {
-            (containerRef.current as HTMLElement).style.contentVisibility =
-              index === tabIndex ? 'visible' : 'hidden';
-          }
-          if (index !== tabIndex) {
-            if (md) {
-              handleMdSortByTypeChange('Default');
-            }
-          } else {
-            void fetchCategory();
-          }
-        },
-        platformEnv.isNative ? 10 : 0,
-      );
-    },
-    [fetchCategory, handleMdSortByTypeChange, md, tabIndex],
-  );
-
-  useEffect(() => {
-    appEventBus.on(
-      EAppEventBusNames.SwitchMarketHomeTab,
-      onSwitchMarketHomeTabCallback,
-    );
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.SwitchMarketHomeTab,
-        onSwitchMarketHomeTabCallback,
-      );
-    };
-  }, [md, onSwitchMarketHomeTabCallback, tabIndex]);
 
   const theme = useThemeVariant();
   const lineColors = lineColorMap[theme];
