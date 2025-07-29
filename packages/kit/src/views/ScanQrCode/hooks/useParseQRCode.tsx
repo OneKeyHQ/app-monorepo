@@ -25,6 +25,7 @@ import type {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EModalRewardCenterRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   EModalSignatureConfirmRoutes,
@@ -172,8 +173,19 @@ const useParseQRCode = () => {
         }
         return result;
       }
-
       switch (result.type) {
+        case EQRCodeHandlerType.REWARD_CENTER: {
+          await closeScanPage();
+          navigation.pushModal(EModalRoutes.MainModal, {
+            screen: EModalRewardCenterRoutes.RewardCenter,
+            params: {
+              accountId: options?.account?.id ?? '',
+              networkId: options?.network?.id ?? '',
+              walletId: options?.wallet?.id ?? '',
+            },
+          });
+          break;
+        }
         case EQRCodeHandlerType.URL_ACCOUNT: {
           const urlAccountData = result.data as IUrlAccountValue;
           await closeScanPage();

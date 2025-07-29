@@ -1,6 +1,7 @@
 import {
   WEB_APP_URL,
   WEB_APP_URL_DEV,
+  WEB_APP_URL_SHORT,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
@@ -14,7 +15,7 @@ const rewardCenter: IQRCodeHandler<IBaseValue> = async (value, options) => {
   if (urlValue?.data?.urlParamList) {
     const origin = urlValue?.data?.origin;
     if (
-      [WEB_APP_URL, WEB_APP_URL_DEV].includes(origin) &&
+      [WEB_APP_URL, WEB_APP_URL_DEV, WEB_APP_URL_SHORT].includes(origin) &&
       urlValue?.data?.pathname === '/reward-center'
     ) {
       return {

@@ -555,7 +555,7 @@ function WalletAddressContent({
         sections={sections}
         renderSectionHeader={renderSectionHeader}
         renderItem={renderItem}
-        ListHeaderComponent={WalletAddressListHeader}
+        ListHeaderComponent={<WalletAddressListHeader />}
         ListEmptyComponent={
           <Empty
             icon="SearchOutline"
