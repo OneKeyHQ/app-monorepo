@@ -1557,6 +1557,7 @@ function ConnectByBluetooth() {
   >('checking');
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
   const isSearchingRef = useRef(false);
+  const nobleInitializedRef = useRef(false);
 
   const deviceScanner = useMemo(
     () =>
@@ -1583,6 +1584,22 @@ function ConnectByBluetooth() {
 
   const checkBluetoothStatus = useCallback(async () => {
     try {
+      // Ensure Noble is initialized before checking status
+      if (!nobleInitializedRef.current) {
+        try {
+          console.log(
+            'onboarding checkBluetoothStatus: noble pre-initialization',
+          );
+          await globalThis?.desktopApi?.nobleBle?.checkAvailability();
+        } catch (error) {
+          console.log(
+            'Noble pre-initialization completed with expected error:',
+            error,
+          );
+        }
+        nobleInitializedRef.current = true;
+      }
+
       // Desktop platform: check desktop bluetooth availability
       const enableDesktopBluetoothInApp =
         await backgroundApiProxy.serviceSetting.getEnableDesktopBluetooth();
