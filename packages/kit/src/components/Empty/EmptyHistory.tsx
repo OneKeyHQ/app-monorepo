@@ -9,7 +9,7 @@ function EmptyHistory() {
 
   return (
     <Empty
-      flex={platformEnv.isNativeAndroid ? 1 : undefined}
+      h={platformEnv.isNativeAndroid ? 300 : undefined}
       testID="Wallet-No-History-Empty"
       icon="ClockTimeHistoryOutline"
       title={intl.formatMessage({ id: ETranslations.no_transaction_title })}
