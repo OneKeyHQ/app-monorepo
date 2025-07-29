@@ -5,28 +5,24 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Icon,
-  IconButton,
-  Image,
   QRCode,
   SizableText,
   Skeleton,
-  Spinner,
   Stack,
-  Toast,
   XStack,
   YStack,
   useClipboard,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function PrimeTransferHomeQrCode() {
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [primeTransferAtom] = usePrimeTransferAtom();
+  const themeVariant = useThemeVariant();
   const websocketConnected = primeTransferAtom.websocketConnected;
-  const { gtMd } = useMedia();
 
   const [pairingCode, setPairingCode] = useState<string | undefined>(undefined);
   const intl = useIntl();
@@ -76,31 +72,67 @@ export function PrimeTransferHomeQrCode() {
   }, [pairingCode]);
 
   return (
-    <YStack gap="$2.5" alignItems="center">
-      {shouldShowSkeleton ? (
-        <Skeleton h={210} w={210} borderRadius="$2" />
-      ) : (
-        <QRCode value={pairingCode} size={200} />
-      )}
+    <YStack
+      borderRadius="$4"
+      borderWidth={1}
+      borderColor={themeVariant === 'light' ? '$neutral3' : '$neutral2'}
+      maxWidth={400}
+      alignSelf="center"
+      width="100%"
+      overflow="hidden"
+    >
+      <YStack gap="$3" w="100%" py="$4">
+        <YStack gap="$2" ai="center">
+          <SizableText color="$textDisabled" size="$bodyMd">
+            {intl.formatMessage({
+              id: ETranslations.transfer_transfer_scan_tips,
+            })}
+          </SizableText>
+          {shouldShowSkeleton ? (
+            <Skeleton h={232} w={232} borderRadius="$3" />
+          ) : (
+            <Stack
+              p="$1.5"
+              bg="#ffffff"
+              borderRadius="$3"
+              borderWidth={1}
+              borderColor="$neutral2"
+            >
+              <QRCode value={pairingCode} size={208} />
+            </Stack>
+          )}
+        </YStack>
+        <Button
+          variant="tertiary"
+          icon="RefreshCwOutline"
+          size="small"
+          onPress={buildPairingCode}
+          loading={isGeneratingCode}
+          disabled={isGeneratingCode || !websocketConnected}
+          title={intl.formatMessage({ id: ETranslations.global_refresh })}
+          alignSelf="center"
+        >
+          {intl.formatMessage({ id: ETranslations.global_refresh })}
+        </Button>
+      </YStack>
 
-      <Button
-        variant="tertiary"
-        icon="RefreshCwOutline"
-        onPress={buildPairingCode}
-        loading={isGeneratingCode}
-        disabled={isGeneratingCode || !websocketConnected}
-        title={intl.formatMessage({ id: ETranslations.global_refresh })}
+      <YStack
+        flex={1}
+        alignItems="flex-start"
+        w="100%"
+        gap="$1"
+        bg={themeVariant === 'light' ? '$neutral1' : '$neutral2'}
+        borderTopWidth={1}
+        borderTopColor={themeVariant === 'light' ? '$neutral3' : '$neutral2'}
+        px="$5"
+        py="$4"
       >
-        {intl.formatMessage({ id: ETranslations.global_refresh })}
-      </Button>
-
-      <YStack flex={1} alignItems="flex-start" w="100%">
-        <SizableText color="$text" size="$bodyLgMedium">
+        <SizableText color="$text" size="$headingSm">
           {intl.formatMessage({ id: ETranslations.transfer_pair_code })}
         </SizableText>
 
         <XStack
-          gap="$2"
+          gap="$1"
           onPress={copyLink}
           alignItems="center"
           hoverStyle={{
@@ -109,18 +141,9 @@ export function PrimeTransferHomeQrCode() {
           }}
         >
           {shouldShowSkeleton ? (
-            <YStack gap="$1.5" mt="$1.5">
-              {gtMd ? (
-                <>
-                  <Skeleton h="$3.5" w="$72" borderRadius="$1" />
-                  {/* <Skeleton h="$3.5" w="$24" borderRadius="$1" /> */}
-                </>
-              ) : (
-                <>
-                  <Skeleton h="$3.5" w="$72" borderRadius="$1" />
-                  <Skeleton h="$3.5" w="$24" borderRadius="$1" />
-                </>
-              )}
+            <YStack>
+              <Skeleton.BodyMd w={230} />
+              <Skeleton.BodyMd w={114} />
             </YStack>
           ) : (
             <>

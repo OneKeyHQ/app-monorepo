@@ -133,7 +133,7 @@ export function PrimeTransferServerStatusBar() {
   };
 
   return (
-    <XStack mx="$5" alignItems="center" gap="$2">
+    <XStack mx="$5" alignItems="center" gap="$2" py="$1.5">
       <Stack
         p="$1"
         borderRadius="$full"
