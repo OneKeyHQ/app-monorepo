@@ -199,7 +199,6 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
   const typingTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const onChangeText = useCallback((value: string) => {
-    console.log('listRef', listRef);
     clearTimeout(typingTimerRef.current);
     if (!platformEnv.isNative) {
       // @ts-ignore
