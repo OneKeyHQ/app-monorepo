@@ -133,32 +133,35 @@ export function PrimeTransferServerStatusBar() {
   };
 
   return (
-    <XStack mx="$5" alignItems="center" gap="$2" py="$1.5">
-      <Stack
-        p="$1"
-        borderRadius="$full"
-        backgroundColor={statusInfo?.bgColor || '$bgSubdued'}
-      >
+    <XStack mx="$5" ai="center" gap="$3" py="$1.5">
+      <XStack flex={1} gap="$2" ai="center">
         <Stack
+          p="$1"
           borderRadius="$full"
-          w="$2"
-          h="$2"
-          backgroundColor={statusInfo?.iconColor || '$iconSubdued'}
-        />
-      </Stack>
+          backgroundColor={statusInfo?.bgColor || '$bgSubdued'}
+        >
+          <Stack
+            borderRadius="$full"
+            w="$2"
+            h="$2"
+            backgroundColor={statusInfo?.iconColor || '$iconSubdued'}
+          />
+        </Stack>
 
-      <SizableText
-        flex={1}
-        size="$bodyMd"
-        color="$text"
-        {...(statusInfo?.isCustomServer && {
-          onPress: handleTextPress,
-          hoverStyle: { opacity: 0.8, cursor: 'pointer' },
-          pressStyle: { opacity: 0.6 },
-        })}
-      >
-        {statusInfo?.text}
-      </SizableText>
+        <SizableText
+          flex={1}
+          size="$bodyMd"
+          color="$text"
+          numberOfLines={2}
+          {...(statusInfo?.isCustomServer && {
+            onPress: handleTextPress,
+            hoverStyle: { opacity: 0.8, cursor: 'pointer' },
+            pressStyle: { opacity: 0.6 },
+          })}
+        >
+          {statusInfo?.text}
+        </SizableText>
+      </XStack>
 
       <Button size="small" variant="tertiary" onPress={handleManagePress}>
         {intl.formatMessage({

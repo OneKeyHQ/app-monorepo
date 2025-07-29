@@ -12,6 +12,7 @@ import {
   XStack,
   YStack,
   useClipboard,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
@@ -23,6 +24,7 @@ export function PrimeTransferHomeQrCode() {
   const [primeTransferAtom] = usePrimeTransferAtom();
   const themeVariant = useThemeVariant();
   const websocketConnected = primeTransferAtom.websocketConnected;
+  const { gtMd } = useMedia();
 
   const [pairingCode, setPairingCode] = useState<string | undefined>(undefined);
   const intl = useIntl();
@@ -76,7 +78,6 @@ export function PrimeTransferHomeQrCode() {
       borderRadius="$4"
       borderWidth={1}
       borderColor={themeVariant === 'light' ? '$neutral3' : '$neutral2'}
-      maxWidth={400}
       alignSelf="center"
       width="100%"
       overflow="hidden"
@@ -102,18 +103,23 @@ export function PrimeTransferHomeQrCode() {
             </Stack>
           )}
         </YStack>
-        <Button
-          variant="tertiary"
-          icon="RefreshCwOutline"
-          size="small"
-          onPress={buildPairingCode}
-          loading={isGeneratingCode}
-          disabled={isGeneratingCode || !websocketConnected}
-          title={intl.formatMessage({ id: ETranslations.global_refresh })}
-          alignSelf="center"
-        >
-          {intl.formatMessage({ id: ETranslations.global_refresh })}
-        </Button>
+        {shouldShowSkeleton ? (
+          <Stack alignSelf="center">
+            <Skeleton h={20} w={88} />
+          </Stack>
+        ) : (
+          <Button
+            variant="tertiary"
+            icon="RefreshCwOutline"
+            size="small"
+            onPress={buildPairingCode}
+            disabled={isGeneratingCode || !websocketConnected}
+            title={intl.formatMessage({ id: ETranslations.global_refresh })}
+            alignSelf="center"
+          >
+            {intl.formatMessage({ id: ETranslations.global_refresh })}
+          </Button>
+        )}
       </YStack>
 
       <YStack
@@ -134,16 +140,24 @@ export function PrimeTransferHomeQrCode() {
         <XStack
           gap="$1"
           onPress={copyLink}
-          alignItems="center"
+          ai="center"
+          jc="space-between"
           hoverStyle={{
             opacity: 0.8,
             cursor: 'pointer',
           }}
+          w="100%"
         >
           {shouldShowSkeleton ? (
             <YStack>
-              <Skeleton.BodyMd w={230} />
-              <Skeleton.BodyMd w={114} />
+              {gtMd ? (
+                <Skeleton.BodyMd w={320} />
+              ) : (
+                <>
+                  <Skeleton.BodyMd w={230} />
+                  <Skeleton.BodyMd w={114} />
+                </>
+              )}
             </YStack>
           ) : (
             <>
