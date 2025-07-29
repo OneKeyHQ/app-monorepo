@@ -226,7 +226,6 @@ export const UniversalClaim = ({
   );
 
   const receiving = useMemo(() => {
-    console.log('receiving', amountValue, rate, price);
     if (Number(amountValue) > 0) {
       const receivingAmount = BigNumber(amountValue).dividedBy(rate);
       return (
