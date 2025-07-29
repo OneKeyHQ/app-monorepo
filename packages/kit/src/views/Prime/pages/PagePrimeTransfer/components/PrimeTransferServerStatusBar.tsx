@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  IconButton,
+  Button,
   SizableText,
   Stack,
   XStack,
@@ -160,12 +160,11 @@ export function PrimeTransferServerStatusBar() {
         {statusInfo?.text}
       </SizableText>
 
-      <IconButton
-        icon="ServerOutline"
-        size="small"
-        variant="tertiary"
-        onPress={handleManagePress}
-      />
+      <Button size="small" variant="tertiary" onPress={handleManagePress}>
+        {intl.formatMessage({
+          id: ETranslations.global_manage,
+        })}
+      </Button>
     </XStack>
   );
 }
