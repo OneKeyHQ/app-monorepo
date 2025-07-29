@@ -30,7 +30,7 @@ export function PagerView({
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { contentOffset } = event.nativeEvent;
-    const page = width ? Math.round(contentOffset.x / width) : 0;
+    const page = width ? Math.ceil(contentOffset.x / width) : 0;
     pageIndex.current = page;
     void onPageSelected?.({
       nativeEvent: {

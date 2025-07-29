@@ -195,6 +195,7 @@ function WalletBanner() {
     <YStack py="$2.5" bg="$bgApp">
       <Carousel
         loop={false}
+        marginRatio={0.28}
         data={filteredBanners}
         autoPlayInterval={3800}
         containerStyle={{

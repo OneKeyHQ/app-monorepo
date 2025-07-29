@@ -46,6 +46,7 @@ export function Carousel<T>({
   activeDotStyle,
   dotStyle,
   onPageChanged,
+  marginRatio = 0,
   renderPaginationItem = defaultRenderPaginationItem,
 }: ICarouselProps<T>) {
   const pagerRef = useRef<NativePagerView>(undefined);
@@ -170,7 +171,12 @@ export function Carousel<T>({
               {data.map((item, index) => (
                 <Stack
                   key={index}
-                  style={{ width: layout.width, height: layout.height }}
+                  style={{
+                    width:
+                      layout.width -
+                      (platformEnv.isNative ? 0 : marginRatio * layout.width),
+                    height: '100%',
+                  }}
                 >
                   {renderItem({ item, index })}
                 </Stack>
