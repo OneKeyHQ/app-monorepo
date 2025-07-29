@@ -28,15 +28,12 @@ import {
   View,
   XStack,
   YStack,
+  useIsFocusedTab,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
@@ -51,7 +48,7 @@ import type {
 
 import { useReviewControl } from '../../../components/ReviewControl';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { usePrevious } from '../../../hooks/usePrevious';
+import { useDebounce } from '../../../hooks/useDebounce';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -400,16 +397,22 @@ function BasicMarketHomeList({
   showMoreAction = false,
   ordered,
   draggable,
+  extraData,
 }: {
   tabIndex?: number;
   category: IMarketCategory;
   showMoreAction?: boolean;
   ordered?: boolean;
   draggable?: boolean;
+  extraData?: any;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const watchListAction = useWatchListAction();
+
+  const isFocusedTab = useIsFocusedTab();
+  const isFocused = useDebounce(isFocusedTab, platformEnv.isNative ? 120 : 50);
+  const prevExtraData = useRef(extraData);
 
   const {
     activeAccount: { wallet },
@@ -417,46 +420,57 @@ function BasicMarketHomeList({
     num: 0,
   });
 
+  const FETCH_COOLDOWN_DURATION = timerUtils.getTimeDurationMs({ seconds: 45 });
+
   const updateAtRef = useRef(0);
 
   const [listData, setListData] = useState<IMarketToken[]>([]);
-  const prevCoingeckoIdsLength = usePrevious(category.coingeckoIds.length);
 
   const fetchCategory = useCallback(async () => {
     const now = Date.now();
-    if (
-      now - updateAtRef.current >
-        timerUtils.getTimeDurationMs({ seconds: 45 }) ||
-      prevCoingeckoIdsLength !== category.coingeckoIds.length ||
-      (prevCoingeckoIdsLength === 0 && category.coingeckoIds.length === 0)
-    ) {
-      updateAtRef.current = now;
-      const response = await backgroundApiProxy.serviceMarket.fetchCategory(
-        category.categoryId,
-        category.coingeckoIds,
-        true,
-      );
-      void InteractionManager.runAfterInteractions(() => {
-        setListData(response);
-      });
+    if (now - updateAtRef.current < FETCH_COOLDOWN_DURATION) {
+      return;
     }
-  }, [category.categoryId, category.coingeckoIds, prevCoingeckoIdsLength]);
+
+    updateAtRef.current = now;
+    const response = await backgroundApiProxy.serviceMarket.fetchCategory(
+      category.categoryId,
+      category.coingeckoIds,
+      true,
+    );
+    void InteractionManager.runAfterInteractions(() => {
+      setListData(response);
+    });
+  }, [FETCH_COOLDOWN_DURATION, category.categoryId, category.coingeckoIds]);
+
+  useEffect(() => {
+    if (prevExtraData.current !== extraData) {
+      updateAtRef.current = 0;
+      void fetchCategory();
+    }
+    prevExtraData.current = extraData;
+  }, [extraData, fetchCategory]);
 
   usePromiseResult(
     async () => {
-      await fetchCategory();
+      if (isFocused) {
+        await fetchCategory();
+      }
     },
-    [fetchCategory],
+    [fetchCategory, isFocused],
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 50 }),
+      overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
     },
   );
 
   useEffect(() => {
-    void fetchCategory();
-  }, [fetchCategory]);
+    if (isFocused && listData.length === 0) {
+      void fetchCategory();
+    }
+  }, [fetchCategory, isFocused, listData.length]);
 
-  const { md, gtMd, gt2Md, gtLg, gtXl, gt2xl } = useMedia();
+  const { gtMd, gt2Md, gtLg, gtXl, gt2xl } = useMedia();
 
   const filterCoingeckoIdsListData = useMemo(() => {
     const filterListData = category.coingeckoIds?.length
@@ -542,19 +556,6 @@ function BasicMarketHomeList({
     [],
   );
 
-  // const handleSettingsContentChange = useCallback(
-  //   ({
-  //     dataDisplay,
-  //     priceChange,
-  //   }: {
-  //     dataDisplay: IKeyOfMarketToken;
-  //     priceChange: IKeyOfMarketToken;
-  //   }) => {
-  //     setMdColumnKeys([dataDisplay, priceChange]);
-  //   },
-  //   [],
-  // );
-
   const [mdSortByType, setMdSortByType] = useState<string | undefined>(
     'Default',
   );
@@ -605,40 +606,6 @@ function BasicMarketHomeList({
   );
 
   const containerRef = useRef<IElement>(null);
-  const onSwitchMarketHomeTabCallback = useCallback(
-    ({ tabIndex: index }: { tabIndex: number }) => {
-      setTimeout(
-        () => {
-          if (!platformEnv.isNative && containerRef.current) {
-            (containerRef.current as HTMLElement).style.contentVisibility =
-              index === tabIndex ? 'visible' : 'hidden';
-          }
-          if (index !== tabIndex) {
-            if (md) {
-              handleMdSortByTypeChange('Default');
-            }
-          } else {
-            void fetchCategory();
-          }
-        },
-        platformEnv.isNative ? 10 : 0,
-      );
-    },
-    [fetchCategory, handleMdSortByTypeChange, md, tabIndex],
-  );
-
-  useEffect(() => {
-    appEventBus.on(
-      EAppEventBusNames.SwitchMarketHomeTab,
-      onSwitchMarketHomeTabCallback,
-    );
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.SwitchMarketHomeTab,
-        onSwitchMarketHomeTabCallback,
-      );
-    };
-  }, [md, onSwitchMarketHomeTabCallback, tabIndex]);
 
   const theme = useThemeVariant();
   const lineColors = lineColorMap[theme];
@@ -1051,12 +1018,20 @@ function BasicMarketHomeList({
     [watchListAction],
   );
 
-  if (platformEnv.isNativeAndroid && !sortedListData?.length) {
+  const spinner = useMemo(() => {
     return (
       <YStack flex={1} ai="center" jc="center">
         <Spinner size="large" />
       </YStack>
     );
+  }, []);
+
+  if (!isFocused) {
+    return platformEnv.isNative ? spinner : null;
+  }
+
+  if (listData.length === 0) {
+    return spinner;
   }
 
   return (

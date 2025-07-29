@@ -81,7 +81,11 @@ function RewardCenterDetails() {
   });
 
   const { activeAccount } = useActiveAccount({ num: 0 });
+<<<<<<< HEAD
   const { confirmAccountSelect } = useAccountSelectorActions().current;
+=======
+  const actions = useAccountSelectorActions();
+>>>>>>> x
 
   const { result: rewardState, isLoading: isLoadingRewardState } =
     usePromiseResult(
