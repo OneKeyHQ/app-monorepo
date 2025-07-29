@@ -9,7 +9,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const onHomePageRefresh = () => {
   appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-  console.log('onHomePageRefresh');
 };
 
 export interface IPullToRefreshProps {
