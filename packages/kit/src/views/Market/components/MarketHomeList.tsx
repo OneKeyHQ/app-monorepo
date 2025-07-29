@@ -401,18 +401,21 @@ function BasicMarketHomeList({
   showMoreAction = false,
   ordered,
   draggable,
+  extraData,
 }: {
   tabIndex?: number;
   category: IMarketCategory;
   showMoreAction?: boolean;
   ordered?: boolean;
   draggable?: boolean;
+  extraData?: any;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const watchListAction = useWatchListAction();
 
   const isFocused = useIsFocusedTab();
+  const prevExtraData = useRef(extraData);
 
   const {
     activeAccount: { wallet },
@@ -423,7 +426,6 @@ function BasicMarketHomeList({
   const updateAtRef = useRef(0);
 
   const [listData, setListData] = useState<IMarketToken[]>([]);
-  const prevCoingeckoIdsLength = usePrevious(category.coingeckoIds.length);
 
   const fetchCategory = useCallback(async () => {
     const now = Date.now();
@@ -446,6 +448,14 @@ function BasicMarketHomeList({
       setListData(response);
     });
   }, [category.categoryId, category.coingeckoIds]);
+
+  useEffect(() => {
+    if (prevExtraData.current !== extraData) {
+      updateAtRef.current = 0;
+      void fetchCategory();
+    }
+    prevExtraData.current = extraData;
+  }, [extraData, fetchCategory]);
 
   usePromiseResult(
     async () => {
