@@ -38,7 +38,6 @@ import ConnectByUSBAnim from '@onekeyhq/kit/assets/animations/connect_by_usb.jso
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
-import { CommonDeviceLoading } from '@onekeyhq/kit/src/components/Hardware/Hardware';
 import {
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
@@ -367,6 +366,173 @@ enum EConnectionStatus {
   listing = 'listing',
 }
 
+// Common device connection logic
+interface IDeviceConnectionProps {
+  tabValue: EConnectDeviceChannel;
+  onDeviceConnect: (device: SearchDevice) => Promise<void>;
+  connectionType: 'usb' | 'bluetooth';
+  forceTransportType?: EHardwareTransportType;
+}
+
+// Common device list and connection logic
+function useDeviceConnection({
+  tabValue,
+  onDeviceConnect,
+  connectionType,
+  forceTransportType,
+}: IDeviceConnectionProps) {
+  const intl = useIntl();
+  const isFocused = useIsFocused();
+  const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
+  const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
+  const [isCheckingDeviceLoading, setIsChecking] = useState(false);
+
+  const searchStateRef = useRef<'start' | 'stop'>('stop');
+  const isSearchingRef = useRef(false);
+
+  const deviceScanner = useMemo(
+    () =>
+      deviceUtils.getDeviceScanner({
+        backgroundApi: backgroundApiProxy,
+      }),
+    [],
+  );
+
+  const scanDevice = useCallback(
+    (transportType?: EHardwareTransportType) => {
+      if (isSearchingRef.current) {
+        return;
+      }
+      isSearchingRef.current = true;
+      deviceScanner.startDeviceScan(
+        (response) => {
+          if (!response.success) {
+            const error = convertDeviceError(response.payload);
+            if (platformEnv.isNative) {
+              if (
+                !(error instanceof NeedBluetoothTurnedOn) &&
+                !(error instanceof NeedBluetoothPermissions) &&
+                !(error instanceof BleLocationServiceError)
+              ) {
+                Toast.error({
+                  title: error.message || 'DeviceScanError',
+                });
+              } else {
+                deviceScanner.stopScan();
+              }
+            } else if (
+              error instanceof InitIframeLoadFail ||
+              error instanceof InitIframeTimeout
+            ) {
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.global_network_error,
+                }),
+                message: error.message || 'DeviceScanError',
+              });
+              deviceScanner.stopScan();
+            }
+
+            if (
+              error instanceof BridgeTimeoutError ||
+              error instanceof BridgeTimeoutErrorForDesktop
+            ) {
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.global_connection_failed,
+                }),
+                message: error.message || 'DeviceScanError',
+              });
+              deviceScanner.stopScan();
+            }
+
+            if (
+              error instanceof ConnectTimeoutError ||
+              error instanceof DeviceMethodCallTimeout
+            ) {
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.global_connection_failed,
+                }),
+                message: error.message || 'DeviceScanError',
+              });
+              deviceScanner.stopScan();
+            }
+
+            if (error instanceof NeedOneKeyBridge) {
+              Dialog.confirm({
+                icon: 'OnekeyBrand',
+                title: intl.formatMessage({
+                  id: ETranslations.onboarding_install_onekey_bridge,
+                }),
+                renderContent: (
+                  <BridgeNotInstalledDialogContent error={error} />
+                ),
+                onConfirmText: intl.formatMessage({
+                  id: ETranslations.global_download_and_install,
+                }),
+                onConfirm: () => Linking.openURL(HARDWARE_BRIDGE_DOWNLOAD_URL),
+              });
+
+              deviceScanner.stopScan();
+            }
+            return;
+          }
+
+          const sortedDevices = response.payload.sort((a, b) =>
+            natsort({ insensitive: true })(
+              a.name || a.connectId || a.deviceId || a.uuid,
+              b.name || b.connectId || b.deviceId || b.uuid,
+            ),
+          );
+          setSearchedDevices(sortedDevices);
+        },
+        (state) => {
+          searchStateRef.current = state;
+        },
+        undefined, // pollIntervalRate
+        undefined, // pollInterval
+        undefined, // maxTryCount
+        transportType || forceTransportType,
+      );
+    },
+    [deviceScanner, intl, forceTransportType],
+  );
+
+  const stopScan = useCallback(() => {
+    isSearchingRef.current = false;
+    deviceScanner.stopScan();
+  }, [deviceScanner]);
+
+  const devicesData = useMemo<IConnectYourDeviceItem[]>(
+    () => [
+      ...searchedDevices.map((item) => ({
+        title: item.name,
+        src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
+        device: item,
+        onPress: async () => {
+          stopScan();
+          await onDeviceConnect(item);
+        },
+        opacity: 1,
+      })),
+    ],
+    [searchedDevices, onDeviceConnect, stopScan],
+  );
+
+  return {
+    connectStatus,
+    setConnectStatus,
+    searchedDevices,
+    devicesData,
+    isCheckingDeviceLoading,
+    setIsChecking,
+    scanDevice,
+    stopScan,
+    deviceScanner,
+  };
+}
+
 export function ConnectionTroubleShootingAccordion({
   connectionType,
   indent = true,
@@ -684,19 +850,490 @@ function DeviceListView({
   );
 }
 
-function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
+function ConnectByUSBOrBLE({
+  tabValue,
+  onDeviceConnect,
+}: {
+  tabValue: EConnectDeviceChannel;
+  onDeviceConnect: (device: SearchDevice) => Promise<void>;
+}) {
   const intl = useIntl();
   const isFocused = useIsFocused();
-  const searchStateRef = useRef<'start' | 'stop'>('stop');
-  const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
 
-  const actions = useAccountSelectorActions();
+  // Use the shared device connection logic
+  const deviceConnection = useDeviceConnection({
+    tabValue,
+    onDeviceConnect,
+    connectionType: platformEnv.isNative ? 'bluetooth' : 'usb',
+  });
 
+  const {
+    connectStatus,
+    setConnectStatus,
+    devicesData,
+    isCheckingDeviceLoading,
+    setIsChecking,
+    scanDevice,
+    stopScan,
+  } = deviceConnection;
+
+  // USB/BLE specific logic only
+  const checkBLEState = useCallback(async () => {
+    const checkState = await bleManagerInstance.checkState();
+    return checkState === 'on';
+  }, []);
+
+  const listingDevice = useCallback(
+    async (forceTransportType?: EHardwareTransportType) => {
+      setConnectStatus(EConnectionStatus.listing);
+      const transportType =
+        forceTransportType || (await getForceTransportType(tabValue));
+      scanDevice(transportType);
+    },
+    [scanDevice, setConnectStatus, tabValue],
+  );
+
+  useEffect(() => {
+    if (isFocused) {
+      if (connectStatus === EConnectionStatus.listing) {
+        void listingDevice();
+      }
+    } else if (!isFocused) {
+      stopScan();
+    }
+  }, [connectStatus, isFocused, listingDevice, stopScan]);
+
+  const RequireBlePermissionDialogRender = useCallback(
+    ({ ref }: { ref: any }) => <RequireBlePermissionDialog ref={ref} />,
+    [],
+  );
+  const OpenBleSettingsDialogRender = useCallback(
+    ({ ref }: { ref: any }) => <OpenBleSettingsDialog ref={ref} />,
+    [],
+  );
+
+  const startBLEConnection = useCallback(async () => {
+    setIsChecking(true);
+    const isGranted = await checkBLEPermissions();
+    if (!isGranted) {
+      Dialog.show({
+        dialogContainer: RequireBlePermissionDialogRender,
+        onClose: () => setIsChecking(false),
+      });
+      return;
+    }
+
+    const checkState = await checkBLEState();
+    if (!checkState) {
+      Dialog.show({
+        dialogContainer: OpenBleSettingsDialogRender,
+        onClose: async () => setIsChecking(false),
+      });
+      return;
+    }
+
+    setIsChecking(false);
+    const forceTransportType = await getForceTransportType(tabValue);
+    void listingDevice(forceTransportType);
+  }, [
+    OpenBleSettingsDialogRender,
+    RequireBlePermissionDialogRender,
+    checkBLEState,
+    listingDevice,
+    tabValue,
+    setIsChecking,
+  ]);
+
+  // web-usb connect
+  const { promptWebUsbDeviceAccess } = usePromptWebDeviceAccess();
+  const onConnectWebDevice = useCallback(async () => {
+    setIsChecking(true);
+    try {
+      const device = await promptWebUsbDeviceAccess();
+      if (device?.serialNumber) {
+        const connectedDevice =
+          await backgroundApiProxy.serviceHardware.promptWebDeviceAccess({
+            deviceSerialNumberFromUI: device.serialNumber,
+          });
+        if (connectedDevice.device) {
+          const forceTransportType = await getForceTransportType(tabValue);
+          void onDeviceConnect(connectedDevice.device as SearchDevice);
+        }
+      }
+    } catch (error) {
+      console.error('onConnectWebDevice error:', error);
+      setIsChecking(false);
+    }
+  }, [onDeviceConnect, promptWebUsbDeviceAccess, tabValue, setIsChecking]);
+
+  useEffect(() => {
+    if (
+      platformEnv.isNative ||
+      hardwareTransportType === EHardwareTransportType.WEBUSB
+    ) {
+      return;
+    }
+    void (async () => {
+      const forceTransportType = await getForceTransportType(tabValue);
+      void listingDevice(forceTransportType);
+    })();
+  }, [listingDevice, hardwareTransportType, tabValue]);
+
+  useEffect(
+    () =>
+      // unmount page stop scan
+      () => {
+        stopScan();
+      },
+    [stopScan],
+  );
+
+  return (
+    <>
+      <AnimationView
+        lottieSource={
+          platformEnv.isNative ? ConnectByBluetoothAnim : ConnectByUSBAnim
+        }
+        connectStatus={connectStatus}
+        connectionType={platformEnv.isNative ? 'bluetooth' : 'usb'}
+      />
+
+      {connectStatus === EConnectionStatus.init ? (
+        <YStack pt="$8">
+          <Heading size="$headingMd" textAlign="center">
+            {intl.formatMessage({
+              id:
+                hardwareTransportType === EHardwareTransportType.WEBUSB
+                  ? ETranslations.device_connect_via_usb
+                  : ETranslations.onboarding_bluetooth_prepare_to_connect,
+            })}
+          </Heading>
+          <SizableText
+            pt="$2"
+            pb="$5"
+            color="$textSubdued"
+            textAlign="center"
+            maxWidth="$80"
+            mx="auto"
+          >
+            {intl.formatMessage({
+              id:
+                hardwareTransportType === EHardwareTransportType.WEBUSB
+                  ? ETranslations.device_select_device_popup
+                  : ETranslations.onboarding_bluetooth_prepare_to_connect_help_text,
+            })}
+          </SizableText>
+          <Button
+            mx="auto"
+            size="large"
+            variant="primary"
+            loading={isCheckingDeviceLoading}
+            onPress={
+              hardwareTransportType === EHardwareTransportType.WEBUSB
+                ? onConnectWebDevice
+                : startBLEConnection
+            }
+          >
+            {intl.formatMessage({ id: ETranslations.global_start_connection })}
+          </Button>
+        </YStack>
+      ) : null}
+
+      {connectStatus === EConnectionStatus.listing ? (
+        <DeviceListView devicesData={devicesData} />
+      ) : null}
+    </>
+  );
+}
+
+function ConnectByBluetooth({
+  onDeviceConnect,
+}: {
+  onDeviceConnect: (device: SearchDevice) => Promise<void>;
+}) {
+  const intl = useIntl();
+  const isFocused = useIsFocused();
+  const [bluetoothStatus, setBluetoothStatus] = useState<
+    | 'enabled'
+    | 'disabledInSystem'
+    | 'disabledInApp'
+    | 'checking'
+    | 'unsupported'
+    | 'noSystemPermission'
+  >('checking');
+
+  const nobleInitializedRef = useRef(false);
+  const isConnectingRef = useRef(false);
+  const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const checkBluetoothStatus = useCallback(async () => {
+    try {
+      // Ensure Noble is initialized before checking status
+      if (!nobleInitializedRef.current) {
+        try {
+          console.log(
+            'onboarding checkBluetoothStatus: noble pre-initialization',
+          );
+          await globalThis?.desktopApi?.nobleBle?.checkAvailability();
+        } catch (error) {
+          console.log(
+            'Noble pre-initialization completed with expected error:',
+            error,
+          );
+        }
+        nobleInitializedRef.current = true;
+      }
+
+      // Desktop platform: check desktop bluetooth availability
+      const enableDesktopBluetoothInApp =
+        await backgroundApiProxy.serviceSetting.getEnableDesktopBluetooth();
+      if (!enableDesktopBluetoothInApp) {
+        console.log('onboarding checkBluetoothStatus: disabledInApp');
+        setBluetoothStatus('disabledInApp');
+        return;
+      }
+
+      const available =
+        await globalThis?.desktopApi?.nobleBle?.checkAvailability();
+      if (available.state === 'unauthorized') {
+        console.log('onboarding checkBluetoothStatus: noSystemPermission');
+        setBluetoothStatus('noSystemPermission');
+        return;
+      }
+      if (available.unsupported) {
+        console.log('onboarding checkBluetoothStatus: unsupported');
+        setBluetoothStatus('unsupported');
+        return;
+      }
+      if (!available?.available) {
+        console.log('onboarding checkBluetoothStatus: disabledInSystem');
+        setBluetoothStatus('disabledInSystem');
+        return;
+      }
+
+      console.log('onboarding checkBluetoothStatus: enabled');
+      // All checks passed
+      setBluetoothStatus('enabled');
+    } catch (error) {
+      console.error('Desktop bluetooth check failed:', error);
+      setBluetoothStatus('disabledInSystem');
+    }
+  }, []);
+
+  const startBluetoothStatusPolling = useCallback(() => {
+    if (pollingTimerRef.current) {
+      clearInterval(pollingTimerRef.current);
+    }
+
+    pollingTimerRef.current = setInterval(() => {
+      // Don't poll if connecting to a device
+      if (!isConnectingRef.current) {
+        void checkBluetoothStatus();
+      }
+    }, 1500);
+  }, [checkBluetoothStatus]);
+
+  const stopBluetoothStatusPolling = useCallback(() => {
+    if (pollingTimerRef.current) {
+      clearInterval(pollingTimerRef.current);
+      pollingTimerRef.current = null;
+    }
+  }, []);
+
+  // Use shared device connection logic for Bluetooth
+  const deviceConnection = useDeviceConnection({
+    tabValue: EConnectDeviceChannel.bluetooth,
+    onDeviceConnect: async (device: SearchDevice) => {
+      // Stop bluetooth polling when connecting
+      isConnectingRef.current = true;
+      stopBluetoothStatusPolling();
+      try {
+        await onDeviceConnect(device);
+      } catch (error) {
+        // Resume polling on error
+        startBluetoothStatusPolling();
+        throw error;
+      } finally {
+        isConnectingRef.current = false;
+      }
+    },
+    connectionType: 'bluetooth',
+    forceTransportType: platformEnv.isSupportDesktopBle
+      ? EHardwareTransportType.DesktopWebBle
+      : EHardwareTransportType.BLE,
+  });
+
+  const { devicesData, scanDevice, stopScan } = deviceConnection;
+
+  const handleOpenPrivacySettings = useCallback(() => {
+    void globalThis.desktopApiProxy.bluetooth.openPrivacySettings();
+  }, []);
+
+  const handleAppEnableDesktopBluetooth = useCallback(async () => {
+    try {
+      await backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(true);
+      // Re-check bluetooth status after enabling
+      void checkBluetoothStatus();
+    } catch (error) {
+      console.error('Failed to enable desktop bluetooth:', error);
+    }
+  }, [checkBluetoothStatus]);
+
+  const handleOpenBleSettings = useCallback(() => {
+    void globalThis.desktopApiProxy.bluetooth.openBluetoothSettings();
+  }, []);
+
+  // Check bluetooth status on mount and when focused, start polling
+  useEffect(() => {
+    if (isFocused) {
+      void checkBluetoothStatus();
+      startBluetoothStatusPolling();
+    } else {
+      stopBluetoothStatusPolling();
+    }
+
+    return () => {
+      stopBluetoothStatusPolling();
+    };
+  }, [
+    checkBluetoothStatus,
+    isFocused,
+    startBluetoothStatusPolling,
+    stopBluetoothStatusPolling,
+  ]);
+
+  // Start scanning when bluetooth is enabled and focused
+  useEffect(() => {
+    if (isFocused && bluetoothStatus === 'enabled') {
+      scanDevice();
+    } else if (!isFocused) {
+      stopScan();
+    }
+  }, [bluetoothStatus, isFocused, scanDevice, stopScan]);
+
+  // Cleanup on unmount
+  useEffect(
+    () => () => {
+      stopScan();
+      stopBluetoothStatusPolling();
+    },
+    [stopScan, stopBluetoothStatusPolling],
+  );
+
+  if (bluetoothStatus === 'disabledInApp') {
+    return (
+      <Empty
+        flex={1}
+        icon="BluetoothOutline"
+        title={intl.formatMessage({ id: ETranslations.bluetooth_disabled })}
+        description={intl.formatMessage({
+          id: ETranslations.bluetooth_enable_in_app_settings,
+        })}
+        buttonProps={{
+          variant: 'primary',
+          children: intl.formatMessage({
+            id: ETranslations.onboarding_enable_bluetooth,
+          }),
+          onPress: handleAppEnableDesktopBluetooth,
+        }}
+      />
+    );
+  }
+
+  if (bluetoothStatus === 'unsupported') {
+    return (
+      <Empty
+        flex={1}
+        icon="BluetoothOutline"
+        title="unsupported"
+        description="unsupported description"
+      />
+    );
+  }
+
+  if (bluetoothStatus === 'noSystemPermission') {
+    return (
+      <Empty
+        flex={1}
+        icon="BluetoothOutline"
+        title={intl.formatMessage({
+          id: ETranslations.onboarding_bluetooth_permission_needed,
+        })}
+        description={intl.formatMessage({
+          id: ETranslations.bluetooth_permission_prompt,
+        })}
+        buttonProps={{
+          variant: 'primary',
+          children: intl.formatMessage({
+            id: ETranslations.global_go_to_settings,
+          }),
+          onPress: handleOpenPrivacySettings,
+        }}
+      />
+    );
+  }
+
+  if (bluetoothStatus === 'disabledInSystem') {
+    return (
+      <Empty
+        flex={1}
+        icon="BluetoothOutline"
+        title={intl.formatMessage({ id: ETranslations.bluetooth_disabled })}
+        description={intl.formatMessage({
+          id: ETranslations.bluetooth_enable_in_system_settings,
+        })}
+        buttonProps={{
+          variant: 'primary',
+          children: intl.formatMessage({
+            id: ETranslations.onboarding_enable_bluetooth,
+          }),
+          onPress: handleOpenBleSettings,
+        }}
+      />
+    );
+  }
+
+  return (
+    <>
+      <AnimationView
+        lottieSource={BluetoothSignalSpreading}
+        connectStatus={EConnectionStatus.listing}
+        connectionType="bluetooth"
+      />
+      <DeviceListView
+        description={intl.formatMessage({
+          id: ETranslations.bluetooth_keep_near,
+        })}
+        devicesData={devicesData}
+      />
+    </>
+  );
+}
+
+export function ConnectYourDevicePage() {
+  const intl = useIntl();
+  const route =
+    useRoute<
+      RouteProp<IOnboardingParamList, EOnboardingPages.ConnectYourDevice>
+    >();
+  const { channel } = route?.params ?? {};
+
+  const [tabValue, setTabValue] = useState<EConnectDeviceChannel>(
+    channel ?? EConnectDeviceChannel.usbOrBle,
+  );
+
+  const { headerRight } = useBuyOneKeyHeaderRightButton();
+
+  // Shared connection logic - extract from ConnectByUSBOrBLE
+  const navigation = useAppNavigation();
+  const actions = useAccountSelectorActions();
   const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
   const { showSelectAddWalletTypeDialog } = useSelectAddWalletTypeDialog();
   const fwUpdateActions = useFirmwareUpdateActions();
-  const navigation = useAppNavigation();
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
+  const [{ hardwareTransportType }] = useSettingsPersistAtom();
+  const [isCheckingDeviceLoading, setIsChecking] = useState(false);
 
   const handleSetupNewWalletPress = useCallback(
     ({ deviceType }: { deviceType: IDeviceType }) => {
@@ -721,7 +1358,6 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
   const requestsUrl = useHelpLink({ path: 'requests/new' });
 
   const handleNotActivatedDevicePress = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ({ deviceType }: { deviceType: IDeviceType }) => {
       const dialog = Dialog.show({
         icon: 'WalletCryptoOutline',
@@ -835,7 +1471,6 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
       } catch (error: any) {
         if (error instanceof OneKeyHardwareError) {
           const { code, message } = error;
-          // ui prop window handler
           if (
             code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
             code === HardwareErrorCode.BlePermissionError ||
@@ -854,149 +1489,6 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
     [],
   );
 
-  const isSearchingRef = useRef(false);
-  const [isCheckingDeviceLoading, setIsChecking] = useState(false);
-  const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
-
-  const deviceScanner = useMemo(
-    () =>
-      deviceUtils.getDeviceScanner({
-        backgroundApi: backgroundApiProxy,
-      }),
-    [],
-  );
-
-  const scanDevice = useCallback(
-    (forceTransportType?: EHardwareTransportType) => {
-      if (isSearchingRef.current) {
-        return;
-      }
-      isSearchingRef.current = true;
-      deviceScanner.startDeviceScan(
-        (response) => {
-          if (!response.success) {
-            const error = convertDeviceError(response.payload);
-            if (platformEnv.isNative) {
-              if (
-                !(error instanceof NeedBluetoothTurnedOn) &&
-                !(error instanceof NeedBluetoothPermissions) &&
-                !(error instanceof BleLocationServiceError)
-              ) {
-                Toast.error({
-                  title: error.message || 'DeviceScanError',
-                });
-              } else {
-                deviceScanner.stopScan();
-              }
-            } else if (
-              error instanceof InitIframeLoadFail ||
-              error instanceof InitIframeTimeout
-            ) {
-              Toast.error({
-                title: intl.formatMessage({
-                  id: ETranslations.global_network_error,
-                }),
-                // error.message i18n should set InitIframeLoadFail.defaultKey, InitIframeTimeout.defaultKey
-                message: error.message || 'DeviceScanError',
-                // message: "Check your connection and retry",
-              });
-              deviceScanner.stopScan();
-            }
-
-            if (
-              error instanceof BridgeTimeoutError ||
-              error instanceof BridgeTimeoutErrorForDesktop
-            ) {
-              Toast.error({
-                title: intl.formatMessage({
-                  id: ETranslations.global_connection_failed,
-                }),
-                // error.message i18n should set BridgeTimeoutError.defaultKey...
-                message: error.message || 'DeviceScanError',
-                // message: "Please reconnect the USB and try again", // USB only
-              });
-              deviceScanner.stopScan();
-            }
-
-            if (
-              error instanceof ConnectTimeoutError ||
-              error instanceof DeviceMethodCallTimeout
-            ) {
-              Toast.error({
-                title: intl.formatMessage({
-                  id: ETranslations.global_connection_failed,
-                }),
-                // error.message i18n should set ConnectTimeoutError.defaultKey...
-                message: error.message || 'DeviceScanError',
-                // message: "Please reconnect device and try again", // USB or BLE
-              });
-              deviceScanner.stopScan();
-            }
-
-            if (error instanceof NeedOneKeyBridge) {
-              Dialog.confirm({
-                icon: 'OnekeyBrand',
-                title: intl.formatMessage({
-                  id: ETranslations.onboarding_install_onekey_bridge,
-                }),
-                // error.message i18n should set NeedOneKeyBridge.defaultKey...
-                renderContent: (
-                  <BridgeNotInstalledDialogContent error={error} />
-                ),
-                onConfirmText: intl.formatMessage({
-                  id: ETranslations.global_download_and_install,
-                }),
-                onConfirm: () => Linking.openURL(HARDWARE_BRIDGE_DOWNLOAD_URL),
-              });
-
-              deviceScanner.stopScan();
-            }
-            return;
-          }
-
-          const sortedDevices = response.payload.sort((a, b) =>
-            natsort({ insensitive: true })(
-              a.name || a.connectId || a.deviceId || a.uuid,
-              b.name || b.connectId || b.deviceId || b.uuid,
-            ),
-          );
-          setSearchedDevices(sortedDevices);
-          console.log('=====>>>>> startDeviceScan>>>>>', sortedDevices);
-        },
-        (state) => {
-          searchStateRef.current = state;
-        },
-        undefined, // pollIntervalRate
-        undefined, // pollInterval
-        undefined, // maxTryCount
-        forceTransportType,
-      );
-    },
-    [deviceScanner, intl],
-  );
-
-  const stopScan = useCallback(() => {
-    console.log('=====>>>>> stopDeviceScan>>>>>');
-    isSearchingRef.current = false;
-    deviceScanner.stopScan();
-  }, [deviceScanner]);
-
-  useEffect(() => {
-    if (isFocused) {
-      if (connectStatus === EConnectionStatus.listing) {
-        void (async () => {
-          const forceTransportType = await getForceTransportType(tabValue);
-          scanDevice(forceTransportType);
-        })();
-      }
-    } else if (!isFocused) {
-      stopScan();
-    }
-  }, [connectStatus, isFocused, scanDevice, stopScan, tabValue]);
-
-  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
-
-  // Helper functions for selectAddWalletType
   const extractDeviceState = useCallback(
     (features: IOneKeyDeviceFeatures) => ({
       unlockedAttachPin: features.unlocked_attach_pin,
@@ -1029,7 +1521,6 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
       deviceState: ReturnType<typeof extractDeviceState>,
       device: SearchDevice,
     ): Promise<IWalletCreationStrategy | null> => {
-      // Device is locked - can only create standard wallet
       if (!deviceState.unlocked) {
         return {
           createHiddenWalletOnly: false,
@@ -1037,7 +1528,6 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
         };
       }
 
-      // Attach PIN unlocked - hidden wallet mode
       if (deviceState.unlockedAttachPin) {
         return {
           createHiddenWalletOnly: deviceState.passphraseEnabled,
@@ -1045,7 +1535,6 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
         };
       }
 
-      // Main PIN unlocked - check existing wallets and user preference
       const existsStandardWallet =
         await backgroundApiProxy.serviceAccount.existsHwStandardWallet({
           connectId: device.connectId ?? '',
@@ -1053,23 +1542,19 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
         });
 
       if (existsStandardWallet) {
-        // Standard wallet exists, can only create hidden wallet if passphrase is enabled
         return {
           createHiddenWalletOnly: deviceState.passphraseEnabled,
           createStandardWalletOnly: !deviceState.passphraseEnabled,
         };
       }
 
-      // No standard wallet exists
       if (!deviceState.passphraseEnabled) {
-        // No passphrase support, can only create standard wallet
         return {
           createHiddenWalletOnly: false,
           createStandardWalletOnly: true,
         };
       }
 
-      // Passphrase is enabled, let user choose
       const walletType = await showSelectAddWalletTypeDialog();
       if (walletType === 'Standard') {
         return {
@@ -1084,7 +1569,6 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
         };
       }
 
-      // User cancelled
       return null;
     },
     [showSelectAddWalletTypeDialog],
@@ -1102,7 +1586,6 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
 
         const params: IDBCreateHwWalletParamsBase = {
           device,
-          // device checking loading is not need for onboarding, use FinalizeWalletSetup instead
           hideCheckingDeviceLoading: true,
           features,
           isFirmwareVerified,
@@ -1154,10 +1637,12 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
     async ({
       device,
       isFirmwareVerified,
+      forceTransportType,
     }: {
       device: SearchDevice;
       features: IOneKeyDeviceFeatures;
       isFirmwareVerified?: boolean;
+      forceTransportType?: EHardwareTransportType;
     }) => {
       setIsChecking(true);
 
@@ -1171,6 +1656,7 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
         features =
           await backgroundApiProxy.serviceHardware.getFeaturesWithUnlock({
             connectId: device.connectId ?? '',
+            forceTransportType,
           });
       } catch (error) {
         await closeDialogAndReturn(device, { skipDelayClose: true });
@@ -1178,7 +1664,6 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
       }
 
       const deviceState = extractDeviceState(features);
-
       const strategy = await determineWalletCreationStrategy(
         deviceState,
         device,
@@ -1200,24 +1685,21 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
     ],
   );
 
-  const handleHwWalletCreateFlow = useCallback(
-    async ({
-      device,
-      forceTransportType,
-    }: {
-      device: SearchDevice;
-      forceTransportType?: EHardwareTransportType;
-    }) => {
+  // Shared device connection handler
+  const handleDeviceConnect = useCallback(
+    async (device: SearchDevice) => {
       defaultLogger.account.wallet.addWalletStarted({
         addMethod: 'ConnectHWWallet',
         details: {
           hardwareWalletType: 'Standard',
-          communication: getHardwareCommunicationTypeString(
-            hardwareTransportType,
-          ),
+          communication:
+            tabValue === EConnectDeviceChannel.bluetooth
+              ? 'Bluetooth'
+              : getHardwareCommunicationTypeString(hardwareTransportType),
         },
         isSoftwareWalletOnlyUser,
       });
+
       if (device.deviceType === 'unknown') {
         Toast.error({
           title: intl.formatMessage({
@@ -1228,8 +1710,6 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
       }
 
       try {
-        stopScan();
-
         void backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
           connectId: device.connectId ?? '',
         });
@@ -1242,6 +1722,7 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
           console.log('Device is in bootloader mode', device);
           throw new OneKeyLocalError('Device is in bootloader mode');
         };
+
         if (
           await deviceUtils.isBootloaderModeFromSearchDevice({
             device: device as any,
@@ -1255,6 +1736,15 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
           return;
         }
 
+        // Determine transport type based on tab
+        // For bluetooth tab, always force bluetooth connection even if USB is connected
+        let forceTransportType: EHardwareTransportType | undefined;
+        if (tabValue === EConnectDeviceChannel.bluetooth) {
+          forceTransportType = EHardwareTransportType.DesktopWebBle;
+        } else {
+          forceTransportType = await getForceTransportType(tabValue);
+        }
+
         const features = await connectDevice(device, forceTransportType);
 
         if (!features) {
@@ -1263,7 +1753,7 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
             isSoftwareWalletOnlyUser,
             deviceType: device.deviceType,
             features,
-            hardwareTransportType,
+            hardwareTransportType: forceTransportType || hardwareTransportType,
           });
           throw new OneKeyHardwareError(
             'connect device failed, no features returned',
@@ -1288,14 +1778,14 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
         const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
           features,
         });
-        // const deviceMode = EOneKeyDeviceMode.notInitialized;
+
         if (deviceMode === EOneKeyDeviceMode.backupMode) {
           await trackHardwareWalletConnection({
             status: 'failure',
             deviceType,
             isSoftwareWalletOnlyUser,
             features,
-            hardwareTransportType,
+            hardwareTransportType: forceTransportType || hardwareTransportType,
           });
           Toast.error({
             title: 'Device is in backup mode',
@@ -1310,6 +1800,7 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
               deviceId: device.deviceId || features.device_id,
             },
           });
+
         if (shouldAuthenticateFirmware) {
           void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
             connectId: device.connectId ?? '',
@@ -1320,7 +1811,7 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
           await showFirmwareVerifyDialog({
             device,
             features,
-            onContinue: async ({ checked }) => {
+            onContinue: async ({ checked }: { checked: boolean }) => {
               setIsChecking(false);
               if (deviceMode === EOneKeyDeviceMode.notInitialized) {
                 handleNotActivatedDevicePress({ deviceType });
@@ -1331,6 +1822,7 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
                 device,
                 isFirmwareVerified: checked,
                 features,
+                forceTransportType,
               });
             },
             onClose: () => {
@@ -1345,529 +1837,24 @@ function ConnectByUSBOrBLE({ tabValue }: { tabValue: EConnectDeviceChannel }) {
           return;
         }
 
-        await selectAddWalletType({ device, features });
+        await selectAddWalletType({ device, features, forceTransportType });
       } catch (error) {
-        console.error('handleHwWalletCreateFlow error:', error);
-        scanDevice(forceTransportType);
+        console.error('handleDeviceConnect error:', error);
         throw error;
       }
     },
     [
-      connectDevice,
-      selectAddWalletType,
-      fwUpdateActions,
-      handleNotActivatedDevicePress,
-      intl,
-      scanDevice,
-      showFirmwareVerifyDialog,
-      stopScan,
+      tabValue,
       hardwareTransportType,
       isSoftwareWalletOnlyUser,
+      intl,
+      fwUpdateActions,
+      connectDevice,
+      showFirmwareVerifyDialog,
+      handleNotActivatedDevicePress,
+      selectAddWalletType,
     ],
   );
-
-  const devicesData = useMemo<IConnectYourDeviceItem[]>(
-    () => [
-      ...searchedDevices.map((item) => ({
-        title: item.name,
-        src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
-        device: item,
-        onPress: async () => {
-          const forceTransportType = await getForceTransportType(tabValue);
-          await handleHwWalletCreateFlow({
-            device: item,
-            forceTransportType,
-          });
-        },
-        opacity: 1,
-      })),
-    ],
-    [handleHwWalletCreateFlow, searchedDevices, tabValue],
-  );
-
-  const checkBLEState = useCallback(async () => {
-    const checkState = await bleManagerInstance.checkState();
-    return checkState === 'on';
-  }, []);
-
-  const listingDevice = useCallback(
-    (forceTransportType?: EHardwareTransportType) => {
-      setConnectStatus(EConnectionStatus.listing);
-      scanDevice(forceTransportType);
-    },
-    [scanDevice],
-  );
-
-  const RequireBlePermissionDialogRender = useCallback(
-    ({ ref }: { ref: any }) => <RequireBlePermissionDialog ref={ref} />,
-    [],
-  );
-  const OpenBleSettingsDialogRender = useCallback(
-    ({ ref }: { ref: any }) => <OpenBleSettingsDialog ref={ref} />,
-    [],
-  );
-
-  const startBLEConnection = useCallback(async () => {
-    setIsChecking(true);
-    const isGranted = await checkBLEPermissions();
-    if (!isGranted) {
-      Dialog.show({
-        dialogContainer: RequireBlePermissionDialogRender,
-        onClose: () => setIsChecking(false),
-      });
-      return;
-    }
-
-    const checkState = await checkBLEState();
-    if (!checkState) {
-      Dialog.show({
-        dialogContainer: OpenBleSettingsDialogRender,
-        onClose: async () => setIsChecking(false),
-      });
-      return;
-    }
-
-    setIsChecking(false);
-    const forceTransportType = await getForceTransportType(tabValue);
-    listingDevice(forceTransportType);
-  }, [
-    OpenBleSettingsDialogRender,
-    RequireBlePermissionDialogRender,
-    checkBLEState,
-    listingDevice,
-    tabValue,
-  ]);
-
-  // web-usb connect
-  const { promptWebUsbDeviceAccess } = usePromptWebDeviceAccess();
-  const onConnectWebDevice = useCallback(async () => {
-    setIsChecking(true);
-    try {
-      const device = await promptWebUsbDeviceAccess();
-      if (device?.serialNumber) {
-        const connectedDevice =
-          await backgroundApiProxy.serviceHardware.promptWebDeviceAccess({
-            deviceSerialNumberFromUI: device.serialNumber,
-          });
-        if (connectedDevice.device) {
-          const forceTransportType = await getForceTransportType(tabValue);
-          void handleHwWalletCreateFlow({
-            device: connectedDevice.device as SearchDevice,
-            forceTransportType,
-          });
-        }
-      }
-    } catch (error) {
-      console.error('onConnectWebDevice error:', error);
-      setIsChecking(false);
-    }
-  }, [handleHwWalletCreateFlow, promptWebUsbDeviceAccess, tabValue]);
-
-  useEffect(() => {
-    if (
-      platformEnv.isNative ||
-      hardwareTransportType === EHardwareTransportType.WEBUSB
-    ) {
-      return;
-    }
-    void (async () => {
-      const forceTransportType = await getForceTransportType(tabValue);
-      listingDevice(forceTransportType);
-    })();
-  }, [listingDevice, hardwareTransportType, tabValue]);
-
-  useEffect(
-    () =>
-      // unmount page stop scan
-      () => {
-        deviceScanner?.stopScan();
-      },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
-
-  return (
-    <>
-      <AnimationView
-        lottieSource={
-          platformEnv.isNative ? ConnectByBluetoothAnim : ConnectByUSBAnim
-        }
-        connectStatus={connectStatus}
-        connectionType={platformEnv.isNative ? 'bluetooth' : 'usb'}
-      />
-
-      {connectStatus === EConnectionStatus.init ? (
-        <YStack pt="$8">
-          <Heading size="$headingMd" textAlign="center">
-            {intl.formatMessage({
-              id:
-                hardwareTransportType === EHardwareTransportType.WEBUSB
-                  ? ETranslations.device_connect_via_usb
-                  : ETranslations.onboarding_bluetooth_prepare_to_connect,
-            })}
-          </Heading>
-          <SizableText
-            pt="$2"
-            pb="$5"
-            color="$textSubdued"
-            textAlign="center"
-            maxWidth="$80"
-            mx="auto"
-          >
-            {intl.formatMessage({
-              id:
-                hardwareTransportType === EHardwareTransportType.WEBUSB
-                  ? ETranslations.device_select_device_popup
-                  : ETranslations.onboarding_bluetooth_prepare_to_connect_help_text,
-            })}
-          </SizableText>
-          <Button
-            mx="auto"
-            size="large"
-            variant="primary"
-            loading={isCheckingDeviceLoading}
-            onPress={
-              hardwareTransportType === EHardwareTransportType.WEBUSB
-                ? onConnectWebDevice
-                : startBLEConnection
-            }
-          >
-            {intl.formatMessage({ id: ETranslations.global_start_connection })}
-          </Button>
-        </YStack>
-      ) : null}
-
-      {connectStatus === EConnectionStatus.listing ? (
-        <DeviceListView devicesData={devicesData} />
-      ) : null}
-    </>
-  );
-}
-
-function ConnectByBluetooth() {
-  const intl = useIntl();
-  const isFocused = useIsFocused();
-  const [bluetoothStatus, setBluetoothStatus] = useState<
-    | 'enabled'
-    | 'disabledInSystem'
-    | 'disabledInApp'
-    | 'checking'
-    | 'unsupported'
-    | 'noSystemPermission'
-  >('checking');
-  const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
-  const isSearchingRef = useRef(false);
-  const nobleInitializedRef = useRef(false);
-  const isConnectingRef = useRef(false);
-  const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const deviceScanner = useMemo(
-    () =>
-      deviceUtils.getDeviceScanner({
-        backgroundApi: backgroundApiProxy,
-      }),
-    [],
-  );
-
-  const devicesData = useMemo<IConnectYourDeviceItem[]>(
-    () =>
-      searchedDevices.map((item) => ({
-        title: item.name,
-        src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
-        device: item,
-        onPress: async () => {
-          try {
-            // Set connecting state to pause polling
-            isConnectingRef.current = true;
-            console.log('Connecting to device:', item);
-
-            // TODO: Implement actual device connection logic here
-            // This is where you would call the hardware connection APIs
-          } catch (error) {
-            console.error('Device connection failed:', error);
-          } finally {
-            // Reset connecting state to resume polling
-            isConnectingRef.current = false;
-          }
-        },
-        opacity: 1,
-      })),
-    [searchedDevices],
-  );
-
-  const checkBluetoothStatus = useCallback(async () => {
-    try {
-      // Ensure Noble is initialized before checking status
-      if (!nobleInitializedRef.current) {
-        try {
-          console.log(
-            'onboarding checkBluetoothStatus: noble pre-initialization',
-          );
-          await globalThis?.desktopApi?.nobleBle?.checkAvailability();
-        } catch (error) {
-          console.log(
-            'Noble pre-initialization completed with expected error:',
-            error,
-          );
-        }
-        nobleInitializedRef.current = true;
-      }
-
-      // Desktop platform: check desktop bluetooth availability
-      const enableDesktopBluetoothInApp =
-        await backgroundApiProxy.serviceSetting.getEnableDesktopBluetooth();
-      if (!enableDesktopBluetoothInApp) {
-        console.log('onboarding checkBluetoothStatus: disabledInApp');
-        setBluetoothStatus('disabledInApp');
-        return;
-      }
-
-      const available =
-        await globalThis?.desktopApi?.nobleBle?.checkAvailability();
-      if (available.state === 'unauthorized') {
-        console.log('onboarding checkBluetoothStatus: noSystemPermission');
-        setBluetoothStatus('noSystemPermission');
-        return;
-      }
-      if (available.unsupported) {
-        console.log('onboarding checkBluetoothStatus: unsupported');
-        setBluetoothStatus('unsupported');
-        return;
-      }
-      if (!available?.available) {
-        console.log('onboarding checkBluetoothStatus: disabledInSystem');
-        setBluetoothStatus('disabledInSystem');
-        return;
-      }
-
-      console.log('onboarding checkBluetoothStatus: enabled');
-      // All checks passed
-      setBluetoothStatus('enabled');
-    } catch (error) {
-      console.error('Desktop bluetooth check failed:', error);
-      setBluetoothStatus('disabledInSystem');
-    }
-  }, []);
-
-  const scanBluetoothDevices = useCallback(() => {
-    if (isSearchingRef.current) {
-      return;
-    }
-    isSearchingRef.current = true;
-
-    deviceScanner.startDeviceScan(
-      (response) => {
-        if (!response.success) {
-          const error = convertDeviceError(response.payload);
-          Toast.error({
-            title: error.message || 'DeviceScanError',
-          });
-          deviceScanner.stopScan();
-          return;
-        }
-
-        const sortedDevices = response.payload.sort((a, b) =>
-          natsort({ insensitive: true })(
-            a.name || a.connectId || a.deviceId || a.uuid,
-            b.name || b.connectId || b.deviceId || b.uuid,
-          ),
-        );
-        setSearchedDevices(sortedDevices);
-      },
-      (state) => {
-        isSearchingRef.current = state === 'start';
-      },
-      undefined, // pollIntervalRate
-      undefined, // pollInterval
-      undefined, // maxTryCount
-      EHardwareTransportType.DesktopWebBle, // force desktop bluetooth transport
-    );
-  }, [deviceScanner]);
-
-  const stopScan = useCallback(() => {
-    isSearchingRef.current = false;
-    deviceScanner.stopScan();
-  }, [deviceScanner]);
-
-  const handleOpenPrivacySettings = useCallback(() => {
-    void globalThis.desktopApiProxy.bluetooth.openPrivacySettings();
-  }, []);
-
-  const handleAppEnableDesktopBluetooth = useCallback(async () => {
-    try {
-      await backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(true);
-      // Re-check bluetooth status after enabling
-      void checkBluetoothStatus();
-    } catch (error) {
-      console.error('Failed to enable desktop bluetooth:', error);
-    }
-  }, [checkBluetoothStatus]);
-
-  const handleOpenBleSettings = useCallback(() => {
-    void globalThis.desktopApiProxy.bluetooth.openBluetoothSettings();
-  }, []);
-
-  const startBluetoothStatusPolling = useCallback(() => {
-    if (pollingTimerRef.current) {
-      clearInterval(pollingTimerRef.current);
-    }
-
-    pollingTimerRef.current = setInterval(() => {
-      // Don't poll if connecting to a device
-      if (!isConnectingRef.current) {
-        void checkBluetoothStatus();
-      }
-    }, 1500); // Poll every 3 seconds
-  }, [checkBluetoothStatus]);
-
-  const stopBluetoothStatusPolling = useCallback(() => {
-    if (pollingTimerRef.current) {
-      clearInterval(pollingTimerRef.current);
-      pollingTimerRef.current = null;
-    }
-  }, []);
-
-  // Check bluetooth status on mount and when focused, start polling
-  useEffect(() => {
-    if (isFocused) {
-      void checkBluetoothStatus();
-      startBluetoothStatusPolling();
-    } else {
-      stopBluetoothStatusPolling();
-    }
-
-    return () => {
-      stopBluetoothStatusPolling();
-    };
-  }, [
-    checkBluetoothStatus,
-    isFocused,
-    startBluetoothStatusPolling,
-    stopBluetoothStatusPolling,
-  ]);
-
-  // Start scanning when bluetooth is enabled and focused
-  useEffect(() => {
-    if (isFocused && bluetoothStatus === 'enabled') {
-      scanBluetoothDevices();
-    } else if (!isFocused) {
-      stopScan();
-    }
-  }, [bluetoothStatus, isFocused, scanBluetoothDevices, stopScan]);
-
-  // Cleanup on unmount
-  useEffect(
-    () => () => {
-      deviceScanner?.stopScan();
-      stopBluetoothStatusPolling();
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [stopBluetoothStatusPolling],
-  );
-
-  if (bluetoothStatus === 'disabledInApp') {
-    return (
-      <Empty
-        flex={1}
-        icon="BluetoothOutline"
-        title={intl.formatMessage({ id: ETranslations.bluetooth_disabled })}
-        description={intl.formatMessage({
-          id: ETranslations.bluetooth_enable_in_app_settings,
-        })}
-        buttonProps={{
-          variant: 'primary',
-          children: intl.formatMessage({
-            id: ETranslations.onboarding_enable_bluetooth,
-          }),
-          onPress: handleAppEnableDesktopBluetooth,
-        }}
-      />
-    );
-  }
-
-  if (bluetoothStatus === 'unsupported') {
-    return (
-      <Empty
-        flex={1}
-        icon="BluetoothOutline"
-        title="unsupported"
-        description="unsupported description"
-      />
-    );
-  }
-
-  if (bluetoothStatus === 'noSystemPermission') {
-    return (
-      <Empty
-        flex={1}
-        icon="BluetoothOutline"
-        title={intl.formatMessage({
-          id: ETranslations.onboarding_bluetooth_permission_needed,
-        })}
-        description={intl.formatMessage({
-          id: ETranslations.bluetooth_permission_prompt,
-        })}
-        buttonProps={{
-          variant: 'primary',
-          children: intl.formatMessage({
-            id: ETranslations.global_go_to_settings,
-          }),
-          onPress: handleOpenPrivacySettings,
-        }}
-      />
-    );
-  }
-
-  if (bluetoothStatus === 'disabledInSystem') {
-    return (
-      <Empty
-        flex={1}
-        icon="BluetoothOutline"
-        title={intl.formatMessage({ id: ETranslations.bluetooth_disabled })}
-        description={intl.formatMessage({
-          id: ETranslations.bluetooth_enable_in_system_settings,
-        })}
-        buttonProps={{
-          variant: 'primary',
-          children: intl.formatMessage({
-            id: ETranslations.onboarding_enable_bluetooth,
-          }),
-          onPress: handleOpenBleSettings,
-        }}
-      />
-    );
-  }
-
-  return (
-    <>
-      <AnimationView
-        lottieSource={BluetoothSignalSpreading}
-        connectStatus={EConnectionStatus.listing}
-        connectionType="bluetooth"
-      />
-      <DeviceListView
-        description={intl.formatMessage({
-          id: ETranslations.bluetooth_keep_near,
-        })}
-        devicesData={devicesData}
-      />
-    </>
-  );
-}
-
-export function ConnectYourDevicePage() {
-  const intl = useIntl();
-  const route =
-    useRoute<
-      RouteProp<IOnboardingParamList, EOnboardingPages.ConnectYourDevice>
-    >();
-  const { channel } = route?.params ?? {};
-
-  const [tabValue, setTabValue] = useState<EConnectDeviceChannel>(
-    channel ?? EConnectDeviceChannel.usbOrBle,
-  );
-
-  const { headerRight } = useBuyOneKeyHeaderRightButton();
 
   return (
     <Page>
@@ -1890,7 +1877,7 @@ export function ConnectYourDevicePage() {
                   : 'USB',
                 value: EConnectDeviceChannel.usbOrBle,
               },
-              ...(platformEnv.isDesktopMac
+              ...(platformEnv.isSupportDesktopBle
                 ? [
                     {
                       label: intl.formatMessage({
@@ -1910,11 +1897,15 @@ export function ConnectYourDevicePage() {
         <Divider />
 
         {tabValue === EConnectDeviceChannel.usbOrBle ? (
-          <ConnectByUSBOrBLE tabValue={tabValue} />
+          <ConnectByUSBOrBLE
+            tabValue={tabValue}
+            onDeviceConnect={handleDeviceConnect}
+          />
         ) : null}
 
-        {tabValue === EConnectDeviceChannel.bluetooth ? (
-          <ConnectByBluetooth />
+        {tabValue === EConnectDeviceChannel.bluetooth &&
+        platformEnv.isSupportDesktopBle ? (
+          <ConnectByBluetooth onDeviceConnect={handleDeviceConnect} />
         ) : null}
 
         {tabValue === EConnectDeviceChannel.qr ? (

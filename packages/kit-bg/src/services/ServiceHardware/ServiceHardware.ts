@@ -107,6 +107,7 @@ export type IDeviceGetFeaturesOptions = {
   params?: CommonParams & {
     allowEmptyConnectId?: boolean;
   };
+  forceTransportType?: EHardwareTransportType;
 };
 
 // skip events
@@ -608,9 +609,13 @@ class ServiceHardware extends ServiceBase {
     // return Promise.reject(deviceError);
   }
 
-  private connectDevice = (connectId: string) =>
+  private connectDevice = (
+    connectId: string, 
+    forceTransportType?: EHardwareTransportType
+  ) =>
     this.getFeaturesWithoutCache({
       connectId,
+      forceTransportType,
     });
 
   private handlerConnectError = (e: any) => {
@@ -651,7 +656,7 @@ class ServiceHardware extends ServiceBase {
 
     if (platformEnv.isNative) {
       try {
-        return await this.connectDevice(compatibleConnectId);
+        return await this.connectDevice(compatibleConnectId, forceTransportType);
       } catch (e: any) {
         this.handlerConnectError(e);
       }
@@ -660,7 +665,7 @@ class ServiceHardware extends ServiceBase {
        * USB does not need the extra getFeatures call
        */
       try {
-        return await this.connectDevice(compatibleConnectId);
+        return await this.connectDevice(compatibleConnectId, forceTransportType);
       } catch (e: any) {
         return (device as KnownDevice).features;
       }
@@ -669,11 +674,18 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async unlockDevice({ connectId }: { connectId: string }) {
+  async unlockDevice({ 
+    connectId, 
+    forceTransportType 
+  }: { 
+    connectId: string;
+    forceTransportType?: EHardwareTransportType;
+  }) {
     const hardwareSDK = await this.getSDKInstance();
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      forceTransportType,
     });
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceUnlock(compatibleConnectId, {}),
@@ -681,18 +693,29 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getFeaturesWithUnlock({ connectId }: { connectId: string }) {
+  async getFeaturesWithUnlock({ 
+    connectId, 
+    forceTransportType 
+  }: { 
+    connectId: string;
+    forceTransportType?: EHardwareTransportType;
+  }) {
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      forceTransportType,
     });
     let features = await this.getFeaturesWithoutCache({
       connectId: compatibleConnectId,
+      forceTransportType,
     });
 
     if (!features.unlocked) {
       // unlock device
-      features = await this.unlockDevice({ connectId: compatibleConnectId });
+      features = await this.unlockDevice({ 
+        connectId: compatibleConnectId, 
+        forceTransportType 
+      });
     }
 
     return features;
@@ -823,14 +846,16 @@ class ServiceHardware extends ServiceBase {
   }
 
   _getFeaturesLowLevel = async (options: IDeviceGetFeaturesOptions) => {
-    const { connectId, params } = options;
+    const { connectId, params, forceTransportType } = options;
     serviceHardwareUtils.hardwareLog('call getFeatures()', connectId);
     if (!params?.allowEmptyConnectId && !connectId) {
       throw new OneKeyLocalError(
         'hardware getFeatures ERROR: connectId is undefined',
       );
     }
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      forceTransportType,
+    });
     const features = await convertDeviceResponse(() =>
       hardwareSDK?.getFeatures(connectId, params),
     );
@@ -1527,10 +1552,12 @@ class ServiceHardware extends ServiceBase {
     }
 
     // Determine the transport type to use
+    console.log('🔍 getCompatibleConnectId called with forceTransportType:', forceTransportType);
     const result = await this.connectionManager.shouldSwitchTransportType({
       hardwareCallContext,
       forceTransportType,
     });
+    console.log('🔍 shouldSwitchTransportType result:', result);
     const targetTransportType = result.targetType;
 
     // Handle connection logic based on transport type

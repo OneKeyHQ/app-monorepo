@@ -241,6 +241,7 @@ export class HardwareConnectionManager {
       shouldSwitch: boolean;
       targetType: EHardwareTransportType;
     }> => {
+      console.log('🔍 shouldSwitchTransportType called with:', { hardwareCallContext, forceTransportType });
       // If a specific transport type is forced (e.g., for onboarding), use it directly
       if (forceTransportType) {
         console.log(
