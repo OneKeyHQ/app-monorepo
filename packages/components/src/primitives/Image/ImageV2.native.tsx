@@ -5,6 +5,7 @@ import { StyleSheet } from 'react-native';
 import { usePropsAndStyle } from 'tamagui';
 
 import { Skeleton } from '../Skeleton';
+import { Stack } from '../Stack';
 
 import { AnimatedExpoImage } from './AnimatedImage';
 import { useImage } from './useImage';
@@ -96,7 +97,19 @@ export function ImageV2({
 
   if (!image) {
     if (hasError || isEmptyResolvedSource(source as ImageSource | null)) {
-      return fallback;
+      return (
+        <Stack
+          style={{
+            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            ...style,
+          }}
+        >
+          {fallback}
+        </Stack>
+      );
     }
     return skeleton || <Skeleton width={style.width} height={style.height} />;
   }

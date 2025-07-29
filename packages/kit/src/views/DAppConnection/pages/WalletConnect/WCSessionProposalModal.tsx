@@ -55,10 +55,26 @@ function SessionProposalModal() {
   const [accountChangedParamsMap, setAccountChangedParamsMap] = useState<{
     [num: number]: IHandleAccountChangedParams;
   }>({});
+
+  const isAllAccountsSelected = useMemo(() => {
+    const accountChangedParamsValues = Object.values(accountChangedParamsMap);
+    if (accountChangedParamsValues.length !== sessionAccountsInfo?.length) {
+      return false;
+    }
+    const hasEmptyAddressAccount = accountChangedParamsValues.find(
+      (item) => !item.activeAccount?.account?.address,
+    );
+    if (hasEmptyAddressAccount) {
+      return false;
+    }
+    return true;
+  }, [accountChangedParamsMap, sessionAccountsInfo]);
+
   const confirmDisabled = useMemo(() => {
     if (!continueOperate) return true;
+    if (!isAllAccountsSelected) return true;
     return false;
-  }, [continueOperate]);
+  }, [continueOperate, isAllAccountsSelected]);
 
   const onApproval = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {
