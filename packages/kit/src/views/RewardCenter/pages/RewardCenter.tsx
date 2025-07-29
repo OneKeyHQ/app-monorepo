@@ -80,7 +80,7 @@ function RewardCenterDetails() {
   });
 
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const actions = useAccountSelectorActions();
+  const { confirmAccountSelect } = useAccountSelectorActions().current;
 
   const { result: rewardState, isLoading: isLoadingRewardState } =
     usePromiseResult(
@@ -412,7 +412,7 @@ function RewardCenterDetails() {
         ) {
           autoChangeToAccountMatchedNetworkId = networkId;
         }
-        await actions.current.confirmAccountSelect({
+        await confirmAccountSelect({
           num: 0,
           indexedAccount: undefined,
           othersWalletAccount: initAccount,
@@ -423,7 +423,7 @@ function RewardCenterDetails() {
           await backgroundApiProxy.serviceAccount.getIndexedAccountByAccount({
             account: initAccount,
           });
-        await actions.current.confirmAccountSelect({
+        await confirmAccountSelect({
           num: 0,
           indexedAccount,
           othersWalletAccount: undefined,
@@ -433,7 +433,7 @@ function RewardCenterDetails() {
     };
 
     void initActiveAccount();
-  }, [accountId, actions, networkId, walletId]);
+  }, [accountId, confirmAccountSelect, networkId, walletId]);
 
   useEffect(
     () => () => void onClose?.({ isResourceClaimed, isResourceRedeemed }),
