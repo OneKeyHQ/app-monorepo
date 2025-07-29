@@ -17,6 +17,8 @@ import {
 import { getFilteredNftsBySearchKey } from '@onekeyhq/shared/src/utils/nftUtils';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
+import { PullToRefresh } from '../PullToRefresh';
+
 import { NFTListItem } from './NFTListItem';
 
 import type { ListRenderItemInfo } from 'react-native';
@@ -78,8 +80,14 @@ const useMumColumns: () => {
 };
 
 function NFTListView(props: IProps) {
-  const { data, isLoading, initialized, isAllNetworks, listViewStyleProps } =
-    props;
+  const {
+    data,
+    isLoading,
+    initialized,
+    isAllNetworks,
+    listViewStyleProps,
+    onRefresh,
+  } = props;
 
   const [searchKey] = useSearchKeyAtom();
 
@@ -172,6 +180,9 @@ function NFTListView(props: IProps) {
     <Tabs.FlatList
       // @ts-ignore
       horizontalPadding={20}
+      refreshControl={
+        onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
+      }
       key={platformEnv.isNative ? numColumns : undefined}
       contentContainerStyle={style as any}
       ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}

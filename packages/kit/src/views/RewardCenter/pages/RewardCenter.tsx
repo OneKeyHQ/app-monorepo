@@ -33,6 +33,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -80,7 +81,7 @@ function RewardCenterDetails() {
   });
 
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const actions = useAccountSelectorActions();
+  const { confirmAccountSelect } = useAccountSelectorActions().current;
 
   const { result: rewardState, isLoading: isLoadingRewardState } =
     usePromiseResult(
@@ -190,6 +191,8 @@ function RewardCenterDetails() {
       },
     );
 
+  const [isLoadingResourceState, setIsLoadingResourceState] = useState(true);
+
   const { account, network, isClaimResourceAvailable } = rewardState;
 
   const [isResourceClaimed, setIsResourceClaimed] = useState(false);
@@ -208,42 +211,45 @@ function RewardCenterDetails() {
     ? TRON_SOURCE_FLAG_TESTNET
     : TRON_SOURCE_FLAG_MAINNET;
 
-  const { result, isLoading } = usePromiseResult(
-    async () => {
-      if (!account || !network || isLoadingRewardState) {
-        return;
-      }
+  const { result } = usePromiseResult(async () => {
+    if (!account || !network || isLoadingRewardState) {
+      return;
+    }
 
-      const resp =
-        await backgroundApiProxy.serviceAccountProfile.sendProxyRequestWithTrxRes<{
-          totalReceivedLimit: number;
-          remaining: number;
-          isReceived: boolean;
-          error?: string;
-          success: boolean;
-        }>({
-          networkId: network.id,
-          body: {
-            method: 'post',
-            url: '/api/tronRent/isReceived',
-            data: {
-              fromAddress: account.address,
-              sourceFlag: claimSource,
-            },
-            params: {},
+    setIsLoadingResourceState(true);
+    const start = Date.now();
+
+    const resp =
+      await backgroundApiProxy.serviceAccountProfile.sendProxyRequestWithTrxRes<{
+        totalReceivedLimit: number;
+        remaining: number;
+        isReceived: boolean;
+        error?: string;
+        success: boolean;
+      }>({
+        networkId: network.id,
+        body: {
+          method: 'post',
+          url: '/api/tronRent/isReceived',
+          data: {
+            fromAddress: account.address,
+            sourceFlag: claimSource,
           },
-        });
+          params: {},
+        },
+      });
 
-      setIsClaimed(resp.isReceived);
-      setRemaining(resp.remaining);
+    const end = Date.now();
+    if (end - start < 800) {
+      await timerUtils.wait(800 - (end - start));
+    }
+    setIsLoadingResourceState(false);
 
-      return resp;
-    },
-    [account, claimSource, network, isLoadingRewardState],
-    {
-      watchLoading: true,
-    },
-  );
+    setIsClaimed(resp.isReceived);
+    setRemaining(resp.remaining);
+
+    return resp;
+  }, [account, claimSource, network, isLoadingRewardState]);
 
   const renderClaimButtonText = useCallback(() => {
     if (result?.remaining === 0 || result?.totalReceivedLimit === 0) {
@@ -412,7 +418,7 @@ function RewardCenterDetails() {
         ) {
           autoChangeToAccountMatchedNetworkId = networkId;
         }
-        await actions.current.confirmAccountSelect({
+        await confirmAccountSelect({
           num: 0,
           indexedAccount: undefined,
           othersWalletAccount: initAccount,
@@ -423,7 +429,7 @@ function RewardCenterDetails() {
           await backgroundApiProxy.serviceAccount.getIndexedAccountByAccount({
             account: initAccount,
           });
-        await actions.current.confirmAccountSelect({
+        await confirmAccountSelect({
           num: 0,
           indexedAccount,
           othersWalletAccount: undefined,
@@ -433,7 +439,7 @@ function RewardCenterDetails() {
     };
 
     void initActiveAccount();
-  }, [accountId, actions, networkId, walletId]);
+  }, [accountId, confirmAccountSelect, networkId, walletId]);
 
   useEffect(
     () => () => void onClose?.({ isResourceClaimed, isResourceRedeemed }),
@@ -441,7 +447,7 @@ function RewardCenterDetails() {
   );
 
   const renderClaimResource = useCallback(() => {
-    if (isLoading || isLoadingRewardState) {
+    if (isLoadingResourceState || isLoadingRewardState) {
       return <Skeleton.BodyLg />;
     }
 
@@ -469,7 +475,7 @@ function RewardCenterDetails() {
       </SizableText>
     );
   }, [
-    isLoading,
+    isLoadingResourceState,
     isLoadingRewardState,
     account,
     intl,
@@ -515,7 +521,7 @@ function RewardCenterDetails() {
       return null;
     }
 
-    if (!account) {
+    if (!account && !isLoadingRewardState && !isLoadingResourceState) {
       return (
         <Button
           size="medium"
@@ -538,7 +544,7 @@ function RewardCenterDetails() {
         loading={isClaiming}
         disabled={
           !isClaimResourceAvailable ||
-          isLoading ||
+          isLoadingResourceState ||
           isClaiming ||
           isClaimed ||
           result?.remaining === 0 ||
@@ -552,8 +558,9 @@ function RewardCenterDetails() {
   }, [
     isClaimResourceAvailable,
     account,
+    isLoadingRewardState,
+    isLoadingResourceState,
     isClaiming,
-    isLoading,
     isClaimed,
     result?.remaining,
     result?.totalReceivedLimit,

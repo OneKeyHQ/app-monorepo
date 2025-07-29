@@ -22,17 +22,12 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
-  EModalRewardCenterRoutes,
-  EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
-import {
-  openUrlExternal,
-  openUrlInApp,
-} from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 import { EarnNavigation } from '../../../Earn/earnUtils';
+import useParseQRCode from '../../../ScanQrCode/hooks/useParseQRCode';
 
 import type { GestureResponderEvent } from 'react-native';
 
@@ -48,6 +43,8 @@ function WalletBanner() {
   const themeVariant = useThemeVariant();
 
   const navigation = useAppNavigation();
+
+  const parseQRCode = useParseQRCode();
 
   const [closedForeverBanners, setClosedForeverBanners] = useState<
     Record<string, boolean>
@@ -151,28 +148,21 @@ function WalletBanner() {
         return;
       }
 
-      if (
-        item.hrefType === 'internal' &&
-        item.href.includes('/reward-center')
-      ) {
-        navigation.pushModal(EModalRoutes.MainModal, {
-          screen: EModalRewardCenterRoutes.RewardCenter,
-          params: {
-            accountId: account?.id ?? '',
-            networkId: network?.id ?? '',
-            walletId: wallet?.id ?? '',
-          },
-        });
-        return;
-      }
-
-      if (item.hrefType === 'external') {
-        openUrlExternal(item.href);
-      } else {
-        openUrlInApp(item.href);
-      }
+      await parseQRCode.parse(item.href, {
+        handlers: [
+          EQRCodeHandlerNames.marketDetail,
+          EQRCodeHandlerNames.sendProtection,
+          EQRCodeHandlerNames.rewardCenter,
+        ],
+        qrWalletScene: false,
+        autoHandleResult: true,
+        defaultHandler: openUrlExternal,
+        account,
+        network,
+        wallet,
+      });
     },
-    [account?.id, indexedAccount?.id, navigation, network?.id, wallet?.id],
+    [account, indexedAccount?.id, navigation, network, parseQRCode, wallet],
   );
 
   useEffect(() => {
