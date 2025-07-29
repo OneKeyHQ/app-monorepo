@@ -13,7 +13,9 @@ import {
   Empty,
   SearchBar,
   SectionList,
+  Spinner,
   Stack,
+  YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type {
@@ -23,6 +25,7 @@ import type {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -192,26 +195,38 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
   const intl = useIntl();
   const [isPending, setIsPending] = usePending();
   const listRef = useRef<ISortableSectionListRef<any> | null>(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const onChangeText = useCallback((value: string) => {
-    // @ts-ignore
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    listRef?.current?._listRef?._scrollRef?.scrollTo?.({
-      y: 0,
-      animated: false,
-    });
-    // @ts-ignore
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (listRef?.current?._listRef?._hasDoneInitialScroll) {
+    clearTimeout(typingTimerRef.current);
+    if (!platformEnv.isNative) {
       // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      listRef.current._listRef._hasDoneInitialScroll = false;
-    }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      if (listRef?.current?._listRef?._scrollRef) {
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        listRef?.current?._listRef?._scrollRef?.scrollTo?.({
+          y: 0,
+          animated: false,
+        });
+      }
 
+      if (listRef?.current && listRef.current.scrollToOffset) {
+        listRef.current.scrollToOffset({
+          offset: 0,
+          animated: false,
+        });
+      }
+    }
+    setIsTyping(true);
+    typingTimerRef.current = setTimeout(() => {
+      setIsTyping(false);
+    }, 100);
     setText(value.trim());
   }, []);
 
-  const { result: frequentlyUsedNetworks } = usePromiseResult(
+  const { result: frequentlyUsedNetworks, isLoading } = usePromiseResult(
     async () => {
       const _frequentlyUsed =
         await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworks();
@@ -225,6 +240,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
     [networks],
     {
       initResult: [],
+      watchLoading: true,
     },
   );
 
@@ -311,6 +327,23 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
       networks,
     ],
   );
+
+  const loading = useMemo(() => {
+    return platformEnv.isNative
+      ? isPending || isLoading || isTyping
+      : isPending || isLoading;
+  }, [isLoading, isPending, isTyping]);
+
+  const loadingElement = useMemo(
+    () =>
+      platformEnv.isNative ? (
+        <YStack flex={1} justifyContent="center" alignItems="center">
+          <Spinner size="large" />
+        </YStack>
+      ) : null,
+    [],
+  );
+
   return (
     <Stack flex={1}>
       <Stack px="$5" pb="$4">
@@ -322,7 +355,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
         />
       </Stack>
       {/* Re-render the entire list after each text update */}
-      {isPending ? null : renderSections()}
+      {loading ? loadingElement : renderSections()}
     </Stack>
   );
 };

@@ -37,6 +37,7 @@ import {
   useHistoryListActions,
   withHistoryListProvider,
 } from '../../../states/jotai/contexts/historyList';
+import { onHomePageRefresh } from '../components/PullToRefresh';
 
 function TxHistoryListContainer() {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
@@ -398,6 +399,7 @@ function TxHistoryListContainer() {
       showIcon
       inTabList
       hideValue
+      onRefresh={onHomePageRefresh}
       data={historyData ?? []}
       onPressHistory={handleHistoryItemPress}
       showHeader

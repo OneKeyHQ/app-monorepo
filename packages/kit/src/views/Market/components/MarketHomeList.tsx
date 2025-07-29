@@ -1030,7 +1030,7 @@ function BasicMarketHomeList({
     return platformEnv.isNative ? spinner : null;
   }
 
-  if (listData.length === 0) {
+  if (platformEnv.isNative && listData.length === 0) {
     return spinner;
   }
 
