@@ -28,6 +28,7 @@ import {
   View,
   XStack,
   YStack,
+  useIsFocusedTab,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -411,6 +412,8 @@ function BasicMarketHomeList({
   const navigation = useAppNavigation();
   const watchListAction = useWatchListAction();
 
+  const isFocused = useIsFocusedTab();
+
   const {
     activeAccount: { wallet },
   } = useActiveAccount({
@@ -444,17 +447,22 @@ function BasicMarketHomeList({
 
   usePromiseResult(
     async () => {
-      await fetchCategory();
+      if (isFocused) {
+        await fetchCategory();
+      }
     },
-    [fetchCategory],
+    [fetchCategory, isFocused],
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 50 }),
+      overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
     },
   );
 
   useEffect(() => {
-    void fetchCategory();
-  }, [fetchCategory]);
+    if (isFocused && listData.length === 0) {
+      void fetchCategory();
+    }
+  }, [fetchCategory, isFocused, listData.length]);
 
   const { md, gtMd, gt2Md, gtLg, gtXl, gt2xl } = useMedia();
 
@@ -1050,6 +1058,10 @@ function BasicMarketHomeList({
     },
     [watchListAction],
   );
+
+  if (!isFocused) {
+    return null;
+  }
 
   if (platformEnv.isNativeAndroid && !sortedListData?.length) {
     return (
