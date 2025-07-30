@@ -129,7 +129,7 @@ function MarketHome() {
             {platformEnv.isNative ? (
               tab.page
             ) : (
-              <Tabs.ScrollView>{tab.page}</Tabs.ScrollView>
+              <YStack flex={1}>{tab.page}</YStack>
             )}
           </Tabs.Tab>
         ))}
