@@ -130,8 +130,7 @@ function BasicShowToaster({
 
   const screenWidth = useWindowDimensions().width;
 
-  const overlayZIndex = useOverlayZIndex(isOpen, containerName);
-  const zIndex = platformEnv.isNative ? overlayZIndex : undefined;
+  const zIndex = useOverlayZIndex(isOpen, containerName);
   const isShowToast = useHackIsShowToast(isOpen);
 
   return (
