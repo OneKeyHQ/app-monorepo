@@ -1,14 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { useWindowDimensions } from 'react-native';
 import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { Divider } from '../../content';
-import { ListView, ScrollView } from '../../layouts';
+import { ListView } from '../../layouts';
 import { SizableText, XStack, YStack } from '../../primitives';
 
-import type { IListViewRef, IlistViewRef } from '../../layouts';
+import type { IListViewRef } from '../../layouts';
 import type { IYStackProps } from '../../primitives';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 import type { SharedValue } from 'react-native-reanimated';
@@ -72,11 +71,13 @@ export function TabBar({
   onTabPress,
   tabNames,
   focusedTab,
+  // eslint-disable-next-line react/prop-types
   renderToolbar,
   renderItem,
   divider = true,
   tabItemStyle,
   focusedTabStyle,
+  // eslint-disable-next-line react/prop-types
   containerStyle,
   scrollable = false,
 }: Omit<Partial<ITabBarProps>, 'focusedTab' | 'tabNames'> & {
