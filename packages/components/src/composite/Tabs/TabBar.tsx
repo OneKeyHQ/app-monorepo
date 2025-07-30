@@ -111,7 +111,7 @@ export function TabBar({
         const index = tabNames.findIndex((name) => name === tabName);
         listViewTimerId.current = setTimeout(() => {
           listViewRef.current?.scrollToIndex({
-            index,
+            index: index < 3 ? 0 : index,
           });
         }, 100);
       }
