@@ -4,13 +4,11 @@ import { useWindowDimensions } from 'react-native';
 import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 import { useDebouncedCallback } from 'use-debounce';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { Divider } from '../../content';
-import { ScrollView } from '../../layouts';
+import { ListView, ScrollView } from '../../layouts';
 import { SizableText, XStack, YStack } from '../../primitives';
 
-import type { IScrollViewRef } from '../../layouts';
+import type { IListViewRef, IlistViewRef } from '../../layouts';
 import type { IYStackProps } from '../../primitives';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 import type { SharedValue } from 'react-native-reanimated';
@@ -101,28 +99,24 @@ export function TabBar({
   scrollable?: boolean;
 }) {
   const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
-  const scrollViewRef = useRef<IScrollViewRef>(null);
-  const scrollViewTimerId = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const windowWidth = useWindowDimensions().width;
+  const listViewRef = useRef<IListViewRef<string>>(null);
+  const listViewTimerId = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scrollToTab = useCallback(
     (tabName: string) => {
-      if (scrollViewTimerId.current) {
-        clearTimeout(scrollViewTimerId.current);
+      if (listViewTimerId.current) {
+        clearTimeout(listViewTimerId.current);
       }
-      if (scrollViewRef.current) {
+      if (listViewRef.current) {
         const index = tabNames.findIndex((name) => name === tabName);
-        const distance = 44 * index;
-        scrollViewTimerId.current = setTimeout(() => {
-          const diff = (windowWidth / 3) * 2 - distance;
-          scrollViewRef.current?.scrollTo({
-            x: diff > 0 ? 0 : distance,
-            animated: true,
+        listViewTimerId.current = setTimeout(() => {
+          listViewRef.current?.scrollToIndex({
+            index,
           });
         }, 100);
       }
     },
-    [tabNames, windowWidth],
+    [tabNames],
   );
 
   const debouncedScrollToTab = useDebouncedCallback(scrollToTab, 50);
@@ -132,7 +126,7 @@ export function TabBar({
     (result, previous) => {
       if (result !== previous && previous) {
         runOnJS(debouncedSetCurrentTab)(result);
-        if (scrollable && scrollViewRef.current) {
+        if (scrollable && listViewRef.current) {
           runOnJS(debouncedScrollToTab)(result);
         }
       }
@@ -181,9 +175,40 @@ export function TabBar({
       </>
     );
   }, [currentTab, divider, renderToolbar, tabItems]);
+
+  const handleRenderItem = useCallback(
+    ({ item, index }: { item: string; index: number }) => {
+      const name = item;
+      return renderItem ? (
+        renderItem(
+          {
+            name,
+            isFocused: currentTab === name,
+            onPress: onTabPress,
+            tabItemStyle,
+            focusedTabStyle,
+          },
+          index,
+        )
+      ) : (
+        <TabBarItem
+          key={name}
+          name={name}
+          isFocused={currentTab === name}
+          onPress={onTabPress}
+          tabItemStyle={tabItemStyle}
+          focusedTabStyle={focusedTabStyle}
+        />
+      );
+    },
+    [currentTab, focusedTabStyle, onTabPress, renderItem, tabItemStyle],
+  );
+
   return scrollable ? (
-    <ScrollView
-      ref={scrollViewRef}
+    <ListView
+      data={tabNames}
+      estimatedItemSize={44}
+      ref={listViewRef}
       horizontal
       userSelect="none"
       cursor="pointer"
@@ -192,14 +217,14 @@ export function TabBar({
       contentContainerStyle={{
         pr: 16,
       }}
-      className="onekey-tabs-header"
+      renderItem={handleRenderItem as any}
       position={'sticky' as any}
       top={0}
       zIndex={10}
       showsHorizontalScrollIndicator={false}
     >
       {content}
-    </ScrollView>
+    </ListView>
   ) : (
     <YStack
       userSelect="none"
