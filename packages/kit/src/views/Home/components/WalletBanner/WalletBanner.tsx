@@ -190,6 +190,7 @@ function WalletBanner() {
         marginRatio={gtMd ? 0.28 : 0}
         data={filteredBanners}
         autoPlayInterval={3800}
+        maxPageWidth={840}
         containerStyle={{
           height: gtSm ? 98 : 90,
         }}
