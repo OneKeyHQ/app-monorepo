@@ -31,6 +31,7 @@ import type {
   IEarnText,
   IEarnToken,
   IEarnTokenInfo,
+  IEarnTooltip,
   IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
 
@@ -44,14 +45,20 @@ function useHandleClaimAction({
   protocolInfo,
   tokenInfo,
   token,
+  rewardsTooltip,
 }: {
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
   token?: IEarnToken;
+  rewardsTooltip?: IEarnTooltip;
 }) {
+  const earnClaimRewardsMorphoDesc =
+    rewardsTooltip?.type === 'text' ? rewardsTooltip?.data?.text : undefined;
+
   const handleClaim = useHandleClaim({
     accountId: protocolInfo?.earnAccount?.accountId || '',
     networkId: tokenInfo?.networkId || '',
+    earnClaimRewardsMorphoDesc,
   });
 
   return useCallback(
@@ -278,17 +285,20 @@ function BasicClaimActionIcon({
   protocolInfo,
   tokenInfo,
   token,
+  rewardsTooltip,
 }: {
   actionIcon: IEarnClaimActionIcon;
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
   token?: IEarnToken;
+  rewardsTooltip?: IEarnTooltip;
 }) {
   const [loading, setLoading] = useState(false);
   const handleClaimAction = useHandleClaimAction({
     protocolInfo,
     tokenInfo,
     token,
+    rewardsTooltip,
   });
 
   return (
@@ -416,6 +426,7 @@ function BasicEarnActionIcon({
   protocolInfo,
   tokenInfo,
   token,
+  rewardsTooltip,
   onHistory,
 }: {
   title?: string;
@@ -423,6 +434,7 @@ function BasicEarnActionIcon({
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
   token?: IEarnToken;
+  rewardsTooltip?: IEarnTooltip;
   onHistory?: (params?: { filterType?: string }) => void;
 }) {
   if (!actionIcon) {
@@ -450,6 +462,7 @@ function BasicEarnActionIcon({
           tokenInfo={tokenInfo}
           token={token}
           actionIcon={actionIcon}
+          rewardsTooltip={rewardsTooltip}
         />
       );
     case 'claimWithKyc':

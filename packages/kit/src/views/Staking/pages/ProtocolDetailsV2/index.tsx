@@ -225,6 +225,7 @@ function ProtocolRewards({
                   protocolInfo={protocolInfo}
                   tokenInfo={tokenInfo}
                   token={token.token.info}
+                  rewardsTooltip={rewards?.tooltip}
                 />
               </XStack>
               <XStack>
