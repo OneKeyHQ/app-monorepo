@@ -48,6 +48,7 @@ export function Carousel<T>({
   dotStyle,
   onPageChanged,
   marginRatio = 0,
+  maxPageWidth,
   renderPaginationItem = defaultRenderPaginationItem,
 }: ICarouselProps<T>) {
   const pagerRef = useRef<NativePagerView>(undefined);
@@ -133,10 +134,15 @@ export function Carousel<T>({
   });
 
   const pageWidth = useMemo(() => {
-    return (
-      layout.width - (platformEnv.isNative ? 0 : marginRatio * layout.width)
-    );
-  }, [layout.width, marginRatio]);
+    if (platformEnv.isNative) {
+      return layout.width;
+    }
+    const width = layout.width - marginRatio * layout.width;
+    if (maxPageWidth) {
+      return Math.min(width, maxPageWidth);
+    }
+    return width;
+  }, [layout.width, marginRatio, maxPageWidth]);
 
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
