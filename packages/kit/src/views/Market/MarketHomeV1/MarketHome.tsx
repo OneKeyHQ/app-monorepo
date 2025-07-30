@@ -14,6 +14,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -39,7 +40,7 @@ function MarketHome() {
       categories?.map((category, index) => ({
         title: category.name,
         // eslint-disable-next-line react/no-unstable-nested-components
-        page: () =>
+        page:
           index === 0 ? (
             <MarketWatchList category={category} />
           ) : (
@@ -125,7 +126,11 @@ function MarketHome() {
       >
         {tabConfig.map((tab) => (
           <Tabs.Tab key={tab.title} name={tab.title}>
-            <Tabs.ScrollView>{tab.page()}</Tabs.ScrollView>
+            {platformEnv.isNative ? (
+              tab.page
+            ) : (
+              <Tabs.ScrollView>{tab.page}</Tabs.ScrollView>
+            )}
           </Tabs.Tab>
         ))}
       </Tabs.Container>
