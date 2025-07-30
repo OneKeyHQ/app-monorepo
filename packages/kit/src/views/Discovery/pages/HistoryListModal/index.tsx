@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { isNil } from 'lodash';
+import { isEqual, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Button,
@@ -56,12 +57,42 @@ function HistoryListModal() {
   const handleWebSite = useWebSiteHandler();
 
   const [page, setPage] = useState(1);
-  const { result: dataSource, run } = usePromiseResult(async () => {
+  const { result: dataSource = [], run } = usePromiseResult(async () => {
     const data = await backgroundApiProxy.serviceDiscovery.fetchHistoryData(
       page,
     );
-    return groupDataByDate(data);
+
+    return data;
   }, [page]);
+
+  const previousDataRef = useRef<IBrowserHistory[] | undefined>(undefined);
+  const cachedResultRef = useRef<{ title: string; data: IBrowserHistory[] }[]>(
+    [],
+  );
+
+  const memoizedDataSource = useMemo(() => {
+    // Only recalculate if data actually changed
+    if (!dataSource || dataSource.length === 0) {
+      previousDataRef.current = dataSource;
+      cachedResultRef.current = [];
+      return [];
+    }
+
+    // Use deep comparison to check if data really changed
+    if (
+      previousDataRef.current &&
+      isEqual(dataSource, previousDataRef.current)
+    ) {
+      return cachedResultRef.current;
+    }
+
+    // Data changed, recalculate
+    const newResult = groupDataByDate(dataSource);
+    previousDataRef.current = dataSource;
+    cachedResultRef.current = newResult;
+
+    return newResult;
+  }, [dataSource]);
 
   const removeHistoryFlagRef = useRef(false);
   const handleDeleteAll = useCallback(async () => {
@@ -128,6 +159,10 @@ function HistoryListModal() {
     [],
   );
 
+  const debouncedOnEndReached = useDebouncedCallback(() => {
+    setPage((prev) => prev + 1);
+  }, 500);
+
   return (
     <Page lazyLoad>
       <Page.Header
@@ -139,7 +174,7 @@ function HistoryListModal() {
       <Page.Body>
         <SectionList
           testID="History-SectionList"
-          height="100%"
+          flex={1}
           ListEmptyComponent={
             <Empty
               py="$32"
@@ -152,7 +187,7 @@ function HistoryListModal() {
           }
           estimatedItemSize="$16"
           extraData={isEditing}
-          sections={isNil(dataSource) ? [] : dataSource}
+          sections={isNil(memoizedDataSource) ? [] : memoizedDataSource}
           renderSectionHeader={({ section: { title } }) => (
             <SectionList.SectionHeader title={title} />
           )}
@@ -204,9 +239,8 @@ function HistoryListModal() {
               ) : null}
             </ListItem>
           )}
-          onEndReached={() => {
-            setPage((prev) => prev + 1);
-          }}
+          onEndReached={debouncedOnEndReached}
+          onEndReachedThreshold={0.2}
         />
       </Page.Body>
     </Page>
