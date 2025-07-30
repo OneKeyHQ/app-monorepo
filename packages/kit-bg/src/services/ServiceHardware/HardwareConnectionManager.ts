@@ -169,6 +169,13 @@ export class HardwareConnectionManager {
         return false;
       }
 
+      try {
+        // first call to ensure nobleBle is initialized
+        await globalThis?.desktopApi?.nobleBle?.checkAvailability();
+      } catch {
+        // ignore error
+      }
+
       const bleAvailableState =
         await globalThis?.desktopApi?.nobleBle?.checkAvailability();
 
@@ -241,13 +248,13 @@ export class HardwareConnectionManager {
       shouldSwitch: boolean;
       targetType: EHardwareTransportType;
     }> => {
-      console.log('🔍 shouldSwitchTransportType called with:', { hardwareCallContext, forceTransportType });
+      console.log('🔍 shouldSwitchTransportType called with:', {
+        hardwareCallContext,
+        forceTransportType,
+      });
       // If a specific transport type is forced (e.g., for onboarding), use it directly
       if (forceTransportType) {
-        console.log(
-          '🔒 Using forced transport type: ',
-          forceTransportType,
-        );
+        console.log('🔒 Using forced transport type: ', forceTransportType);
         const shouldSwitch = this.actualTransportType !== forceTransportType;
         return {
           shouldSwitch,
@@ -294,7 +301,10 @@ export class HardwareConnectionManager {
       promise: true,
       maxAge: timerUtils.getTimeDurationMs({ seconds: 2 }),
       max: 1,
-      normalizer: (args) => `${args[0].hardwareCallContext || 'default'}-${args[0].forceTransportType || 'none'}`,
+      normalizer: (args) =>
+        `${args[0].hardwareCallContext || 'default'}-${
+          args[0].forceTransportType || 'none'
+        }`,
     },
   );
 
