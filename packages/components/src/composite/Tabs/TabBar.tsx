@@ -226,9 +226,7 @@ export function TabBar({
       top={0}
       zIndex={10}
       showsHorizontalScrollIndicator={false}
-    >
-      {content}
-    </ListView>
+    />
   ) : (
     <YStack
       userSelect="none"
