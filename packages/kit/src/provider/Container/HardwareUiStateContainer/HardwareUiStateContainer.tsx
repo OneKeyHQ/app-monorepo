@@ -723,11 +723,11 @@ function HardwareUiStateContainerCmpControlled() {
 
   return (
     <>
-      <Portal.Body container={Portal.Constant.TOASTER_OVERLAY_PORTAL}>
-        {toastElement}
-      </Portal.Body>
       <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
         {dialogElement}
+      </Portal.Body>
+      <Portal.Body container={Portal.Constant.TOASTER_OVERLAY_PORTAL}>
+        {toastElement}
       </Portal.Body>
     </>
   );
