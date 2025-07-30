@@ -265,8 +265,8 @@ const SwapInputContainer = ({
   const balancePopoverContent = useMemo(() => {
     if (fromToken?.isNative) {
       return (
-        <XStack alignItems="center" p="$2">
-          <SizableText>
+        <XStack alignItems="center" p="$4">
+          <SizableText size="$bodyMd">
             {intl.formatMessage({
               id: ETranslations.swap_native_token_max_tip,
             })}
@@ -284,6 +284,7 @@ const SwapInputContainer = ({
           onClickNetwork={onSelectToken}
         />
         <SwapInputActions
+          stagePopoverContent={balancePopoverContent}
           fromToken={fromToken}
           accountInfo={accountInfo}
           showPercentageInput={showPercentageInputDebounce}
