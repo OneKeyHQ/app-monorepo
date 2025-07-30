@@ -922,12 +922,10 @@ export function UniversalStake({
           >
             {transactionConfirmation.receive.title.text}
           </CalculationListItem.Label>
-          <CalculationListItem.Value>
-            <EarnText
-              text={transactionConfirmation.receive.description}
-              size="$bodyMdMedium"
-            />
-          </CalculationListItem.Value>
+          <EarnText
+            text={transactionConfirmation.receive.description}
+            size="$bodyMdMedium"
+          />
         </CalculationListItem>,
       );
     }
