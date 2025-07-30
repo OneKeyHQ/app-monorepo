@@ -49,6 +49,8 @@ const useHackIsShowToast = (isOpen: boolean) => {
       setTimeout(() => {
         setShow(true);
       }, 350);
+    } else {
+      setShow(false);
     }
   }, [isOpen]);
   return show;
