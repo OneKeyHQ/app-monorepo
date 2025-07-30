@@ -17,6 +17,8 @@ import {
 import { getFilteredNftsBySearchKey } from '@onekeyhq/shared/src/utils/nftUtils';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
+import { PullToRefresh } from '../PullToRefresh';
+
 import { NFTListItem } from './NFTListItem';
 
 import type { ListRenderItemInfo } from 'react-native';
@@ -78,12 +80,16 @@ const useMumColumns: () => {
 };
 
 function NFTListView(props: IProps) {
-  const { data, isLoading, initialized, isAllNetworks, listViewStyleProps } =
-    props;
+  const {
+    data,
+    isLoading,
+    initialized,
+    isAllNetworks,
+    listViewStyleProps,
+    onRefresh,
+  } = props;
 
   const [searchKey] = useSearchKeyAtom();
-
-  const filteredNfts = getFilteredNftsBySearchKey({ nfts: data, searchKey });
 
   const navigation = useAppNavigation();
   const {
@@ -108,22 +114,39 @@ function NFTListView(props: IProps) {
   );
 
   const { flexBasis, numColumns } = useMumColumns();
+  const filteredNfts: (IAccountNFT | null)[] = useMemo(() => {
+    const list: (IAccountNFT | null)[] = getFilteredNftsBySearchKey({
+      nfts: data,
+      searchKey,
+    });
+    const placeholderCount = numColumns - (list.length % numColumns);
+    if (list?.length && placeholderCount) {
+      return [
+        ...list,
+        ...Array(placeholderCount).fill(null),
+      ] as (IAccountNFT | null)[];
+    }
+    return list;
+  }, [data, searchKey, numColumns]);
 
   const handleRenderItem = useCallback(
-    ({ item }: ListRenderItemInfo<IAccountNFT>) => (
-      <NFTListItem
-        nft={item}
-        flexBasis={flexBasis}
-        key={`${item.collectionAddress}-${item.itemId}`}
-        onPress={handleOnPressNFT}
-        isAllNetworks={isAllNetworks}
-      />
-    ),
+    ({ item }: ListRenderItemInfo<IAccountNFT | null>) =>
+      item ? (
+        <NFTListItem
+          nft={item}
+          flexBasis={flexBasis}
+          key={`${item.collectionAddress}-${item.itemId}`}
+          onPress={handleOnPressNFT}
+          isAllNetworks={isAllNetworks}
+        />
+      ) : (
+        <Stack flex={1} />
+      ),
     [flexBasis, handleOnPressNFT, isAllNetworks],
   );
   const contentContainerStyle = useMemo(
     () => ({
-      pt: '$3',
+      mt: '$3',
       pb: '$6',
       px: '$2.5',
     }),
@@ -172,6 +195,9 @@ function NFTListView(props: IProps) {
     <Tabs.FlatList
       // @ts-ignore
       horizontalPadding={20}
+      refreshControl={
+        onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
+      }
       key={platformEnv.isNative ? numColumns : undefined}
       contentContainerStyle={style as any}
       ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}

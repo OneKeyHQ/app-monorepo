@@ -14,6 +14,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -25,39 +26,6 @@ import { MarketHomeList } from '../components/MarketHomeList';
 import { MarketWatchList } from '../components/MarketWatchList';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
-// type IAnimatedIconRef = { setIsSelected: (isSelected: boolean) => void };
-// function BasicAnimatedIcon(
-//   {
-//     normalColor,
-//     selectedColor,
-//   }: {
-//     normalColor: IColorTokens;
-//     selectedColor: IColorTokens;
-//   },
-//   ref: ForwardedRef<IAnimatedIconRef>,
-// ) {
-//   const [color, setColor] = useState(selectedColor);
-//   const isSelectedValue = useRef(false);
-//   useImperativeHandle(
-//     ref,
-//     () => ({
-//       setIsSelected: (isSelected: boolean) => {
-//         isSelectedValue.current = isSelected;
-//         setColor(isSelected ? selectedColor : normalColor);
-//       },
-//     }),
-//     [normalColor, selectedColor],
-//   );
-//   useEffect(() => {
-//     if (color !== normalColor && color !== selectedColor) {
-//       setColor(isSelectedValue.current ? selectedColor : normalColor);
-//     }
-//   }, [selectedColor, normalColor, color]);
-//   return <Icon name="StarOutline" color={color} size="$4.5" px="$1" />;
-// }
-
-// const AnimatedIcon = forwardRef(BasicAnimatedIcon);
-
 function MarketHome() {
   const { result: categories } = usePromiseResult(
     () => backgroundApiProxy.serviceMarket.fetchCategories(),
@@ -67,14 +35,12 @@ function MarketHome() {
     },
   );
 
-  // const { gtMd } = useMedia();
-
   const tabConfig = useMemo(
     () =>
       categories?.map((category, index) => ({
         title: category.name,
         // eslint-disable-next-line react/no-unstable-nested-components
-        page: () =>
+        page:
           index === 0 ? (
             <MarketWatchList category={category} />
           ) : (
@@ -83,28 +49,6 @@ function MarketHome() {
       })) || [],
     [categories],
   );
-
-  // const ref = useRef<IAnimatedIconRef>(null);
-  // const headerProps = useMemo(
-  //   () => ({
-  //     showHorizontalScrollButton: !gtMd && platformEnv.isRuntimeBrowser,
-  //     renderItem: (item: any, index: any, titleStyle: any) =>
-  //       index === 0 && !gtMd ? (
-  //         <AnimatedIcon
-  //           ref={ref}
-  //           normalColor={
-  //             (titleStyle as { normalColor: IColorTokens })?.normalColor
-  //           }
-  //           selectedColor={
-  //             (titleStyle as { selectedColor: IColorTokens })?.selectedColor
-  //           }
-  //         />
-  //       ) : (
-  //         <Tab.SelectedLabel {...titleStyle} />
-  //       ),
-  //   }),
-  //   [gtMd],
-  // );
 
   const { gtMd } = useMedia();
   const handleSelectedPageIndex = useCallback((index: number) => {
@@ -129,7 +73,7 @@ function MarketHome() {
         }}
         pagerProps={
           {
-            offscreenPageLimit: 3,
+            offscreenPageLimit: 8,
             scrollSensitivity: 4,
           } as any
         }
@@ -182,7 +126,16 @@ function MarketHome() {
       >
         {tabConfig.map((tab) => (
           <Tabs.Tab key={tab.title} name={tab.title}>
-            <Tabs.ScrollView>{tab.page()}</Tabs.ScrollView>
+            {platformEnv.isNative ? (
+              tab.page
+            ) : (
+              <Tabs.ScrollView
+                scrollEnabled={false}
+                contentContainerStyle={{ overflow: 'hidden' }}
+              >
+                {tab.page}
+              </Tabs.ScrollView>
+            )}
           </Tabs.Tab>
         ))}
       </Tabs.Container>

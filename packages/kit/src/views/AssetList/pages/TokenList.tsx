@@ -60,6 +60,7 @@ function TokenList() {
     deriveInfo,
     deriveType,
     isAllNetworks,
+    hideValue,
   } = route.params;
   const { tokens, map: tokenMap, keys } = tokenList;
 
@@ -173,6 +174,7 @@ function TokenList() {
           withPrice
           withNetwork={isAllNetworks}
           isAllNetworks={isAllNetworks}
+          hideValue={hideValue}
         />
       </Page.Body>
     </Page>

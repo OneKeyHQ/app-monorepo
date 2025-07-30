@@ -487,7 +487,7 @@ const SwapTokenSelectPage = () => {
     return popularTokens;
   }, [currentSelectNetwork?.networkId, swapTypeSwitch]);
   return (
-    <Page skipLoading={platformEnv.isNativeIOS} safeAreaEnabled={false}>
+    <Page lazyLoad={!platformEnv.isNativeIOS} safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.token_selector_title })}
         headerSearchBarOptions={{

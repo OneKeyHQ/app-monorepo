@@ -440,7 +440,7 @@ function WalletAccordionItem({
                 img={wallet.avatarInfo?.img}
                 wallet={wallet as IDBWallet & Partial<IDBWalletExtended>}
               />
-              <XStack gap="$1" flex={1}>
+              <XStack gap="$1" flex={1} ai="center">
                 <SizableText
                   size="$bodyLgMedium"
                   numberOfLines={1}

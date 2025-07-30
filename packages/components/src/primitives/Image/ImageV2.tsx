@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { Image as ExpoImage, resolveSource } from 'expo-image';
@@ -5,7 +6,7 @@ import { StyleSheet } from 'react-native';
 import { usePropsAndStyle } from 'tamagui';
 
 import { Skeleton } from '../Skeleton';
-import { YStack } from '../Stack';
+import { Stack, YStack } from '../Stack';
 
 import { AnimatedExpoImage } from './AnimatedImage';
 import { isEmptyResolvedSource, useResetError } from './utils';
@@ -109,15 +110,17 @@ export function ImageV2({
     return ExpoImage;
   }, [animated]);
 
-  if (hasError || isEmptyResolvedSource(resolvedSource)) {
-    return fallback;
-  }
-
-  return (
-    <YStack style={style}>
+  const content = useMemo(() => {
+    if (fallback && (hasError || isEmptyResolvedSource(resolvedSource))) {
+      return fallback as ReactElement;
+    }
+    return (
       <ImageComponent
         source={resolvedSource}
-        style={style}
+        style={{
+          width: '100%',
+          height: '100%',
+        }}
         onError={handleError}
         onLoad={handleLoad}
         onLoadEnd={handleLoadEnd}
@@ -125,6 +128,32 @@ export function ImageV2({
         onLoadStart={onLoadStart}
         {...(imageProps as any)}
       />
+    );
+  }, [
+    ImageComponent,
+    fallback,
+    handleError,
+    handleLoad,
+    handleLoadEnd,
+    hasError,
+    imageProps,
+    onDisplay,
+    onLoadStart,
+    resolvedSource,
+  ]);
+
+  return (
+    <YStack
+      style={{
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        ...style,
+      }}
+    >
+      {content}
+
       {isLoading ? (
         <Skeleton
           position="absolute"

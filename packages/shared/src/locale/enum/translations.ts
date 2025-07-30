@@ -2582,6 +2582,7 @@
   swap_network_cost_dialog_description = 'swap.network_cost_dialog_description',
   swap_network_cost_dialog_title = 'swap.network_cost_dialog_title',
   swap_provider_manage_unavailable = 'swap.provider_manage_unavailable',
+  swap_revoke_successful = 'swap.revoke_successful',
   swap_stablecoin_0_fee = 'swap.stablecoin_0_fee',
   swap_step_1 = 'swap.step_1',
   swap_toast_go_to_swap = 'swap.toast_go_to_swap',

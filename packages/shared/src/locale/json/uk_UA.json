@@ -2577,6 +2577,7 @@
   "swap.network_cost_dialog_description": "Витрати на мережу перевищують {number} від суми замовлення",
   "swap.network_cost_dialog_title": "Сума замовлення занадто мала",
   "swap.provider_manage_unavailable": "*The provider is temporarily unavailable.",
+  "swap.revoke_successful": "Скасування схвалення успішне",
   "swap.stablecoin_0_fee": "0 комісій",
   "swap.step_1": "1. ",
   "swap.toast_go_to_swap": "Перейти до обміну",

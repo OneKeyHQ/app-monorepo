@@ -65,7 +65,7 @@ const SwapMainLandModalPage = () => {
   }, [swapSource]);
 
   return (
-    <Page skipLoading={platformEnv.isNativeIOS}>
+    <Page lazyLoad={!platformEnv.isNativeIOS}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_trade })}
       />
