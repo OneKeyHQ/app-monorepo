@@ -298,7 +298,7 @@ function TokenDetailsView() {
   ]);
 
   return (
-    <Page safeAreaEnabled={false}>
+    <Page lazyLoad safeAreaEnabled={false}>
       <Page.Header
         headerTitle={tokenInfo.name}
         headerTitleStyle={headerTitleStyle}
