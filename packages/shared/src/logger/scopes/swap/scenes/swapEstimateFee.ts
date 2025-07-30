@@ -28,6 +28,7 @@ export class SwapEstimateFeeScene extends BaseScene {
     networkId,
     accountId,
     encodedTx,
+    isBatch,
   }: {
     orderId: string;
     status: ESwapEventAPIStatus;
@@ -46,6 +47,7 @@ export class SwapEstimateFeeScene extends BaseScene {
     networkId: string;
     accountId: string;
     encodedTx: string;
+    isBatch?: boolean;
   }) {
     return {
       status,
@@ -65,6 +67,7 @@ export class SwapEstimateFeeScene extends BaseScene {
       networkId,
       accountId,
       encodedTx,
+      isBatch,
     };
   }
 }

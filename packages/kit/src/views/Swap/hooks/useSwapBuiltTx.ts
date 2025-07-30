@@ -560,6 +560,7 @@ export function useSwapBuildTx() {
       message?: string,
       encodedTx?: string,
       swapInfo?: ISwapTxInfo,
+      isBatch?: boolean,
     ) => {
       let swapType = ESwapTabSwitchType.SWAP;
       if (swapInfo?.protocol === EProtocolOfExchange.LIMIT) {
@@ -589,6 +590,7 @@ export function useSwapBuildTx() {
         networkId,
         accountId,
         encodedTx: encodedTx ?? '',
+        isBatch,
       });
     },
     [slippageItem.value],
@@ -872,6 +874,7 @@ export function useSwapBuildTx() {
                 estimateFeeParamsArr.map((o) => o.encodedTx ?? {}) ?? '',
               ),
               swapInfo,
+              true,
             );
           }
           for (let i = 0; i < unsignedTxArr.length; i += 1) {
@@ -952,6 +955,7 @@ export function useSwapBuildTx() {
                 estimateFeeParamsArr.map((o) => o.encodedTx ?? {}) ?? '',
               ),
               swapInfo,
+              true,
             );
           }
           throw e;
