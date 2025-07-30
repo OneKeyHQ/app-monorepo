@@ -166,6 +166,9 @@ export function TabBar({
     tabNames,
   ]);
   const content = useMemo(() => {
+    if (scrollable) {
+      return null;
+    }
     return (
       <>
         <XStack ai="center" jc="space-between">
@@ -175,7 +178,7 @@ export function TabBar({
         {divider ? <Divider /> : null}
       </>
     );
-  }, [currentTab, divider, renderToolbar, tabItems]);
+  }, [currentTab, divider, renderToolbar, scrollable, tabItems]);
 
   const handleRenderItem = useCallback(
     ({ item, index }: { item: string; index: number }) => {
