@@ -262,6 +262,20 @@ const SwapInputContainer = ({
     }
     return false;
   }, [direction, swapTypeSwitch, fromToken, toToken]);
+  const balancePopoverContent = useMemo(() => {
+    if (fromToken?.isNative) {
+      return (
+        <XStack alignItems="center" p="$2">
+          <SizableText>
+            {intl.formatMessage({
+              id: ETranslations.swap_native_token_max_tip,
+            })}
+          </SizableText>
+        </XStack>
+      );
+    }
+    return undefined;
+  }, [intl, fromToken?.isNative]);
   return (
     <YStack borderRadius="$3" backgroundColor="$bgSubdued" borderWidth="$0">
       <XStack justifyContent="space-between" pt="$2.5" px="$3.5">
@@ -287,6 +301,7 @@ const SwapInputContainer = ({
         }
         balanceProps={{
           value: balance,
+          popoverContent: balancePopoverContent,
           onPress:
             direction === ESwapDirectionType.FROM
               ? onBalanceMaxPress
