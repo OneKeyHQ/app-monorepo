@@ -6,7 +6,7 @@ import { AnimatePresence, useThemeName } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { EPageType, useIsModalPage } from '../../hocs';
+import { useIsModalPage } from '../../hocs';
 import { useIsIpadLandscape } from '../../hooks/useOrientation';
 import { Spinner, Stack, View } from '../../primitives';
 
