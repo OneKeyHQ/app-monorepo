@@ -15,6 +15,7 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useOverlayZIndex } from '../../hooks';
 import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { Stack, ThemeableStack } from '../../primitives';
 import { Trigger } from '../Trigger';
@@ -113,6 +114,8 @@ function BasicShowToaster({
 
   const screenWidth = useWindowDimensions().width;
 
+  const overlayZIndex = useOverlayZIndex(isOpen, containerName);
+  const zIndex = platformEnv.isNative ? overlayZIndex : undefined;
   return (
     <>
       {isOpen ? (
@@ -121,12 +124,14 @@ function BasicShowToaster({
           width="100%"
           height="100%"
           flex={1}
+          zIndex={zIndex}
           pointerEvents="auto"
           onPress={dismissOnOverlayPress ? handleContainerClose : handleNoop}
         />
       ) : null}
 
       <ToastViewport
+        zIndex={zIndex}
         name={containerName}
         width="100%"
         position="absolute"
@@ -137,6 +142,7 @@ function BasicShowToaster({
       />
 
       <Toast
+        zIndex={zIndex}
         unstyled
         onEscapeKeyDown={handleEscapeKeyDown as any}
         onSwipeEnd={handleSwipeEnd}
