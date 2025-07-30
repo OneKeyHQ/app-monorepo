@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 
 import emojiRegex from 'emoji-regex';
 import { useIntl } from 'react-intl';
@@ -16,7 +16,6 @@ import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 function DeviceLabelDialogContent(props: {
   wallet: IDBWallet | undefined;
