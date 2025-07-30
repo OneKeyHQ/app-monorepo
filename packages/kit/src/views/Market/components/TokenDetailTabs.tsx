@@ -53,7 +53,7 @@ function BasicTokenDetailTabs({
               }),
               // eslint-disable-next-line react/no-unstable-nested-components
               page: (
-                <Stack flex={1} bg="$red3">
+                <Stack flex={1}>
                   <TokenPriceChart
                     fallbackToChart={!!token?.fallbackToChart}
                     tvPlatform={token?.tvPlatform}
