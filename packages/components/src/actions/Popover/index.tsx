@@ -496,6 +496,7 @@ function BasicPopover({
       sheetProps={{ ...sheetProps, modal: true }}
       renderTrigger={renderTrigger}
       trackID={trackID}
+      keepChildrenMounted={keepChildrenMounted}
       {...rest}
     />
   );
