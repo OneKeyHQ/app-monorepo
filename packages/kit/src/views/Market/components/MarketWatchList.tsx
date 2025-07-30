@@ -30,6 +30,8 @@ import { MarketHomeList } from './MarketHomeList';
 import { MarketTokenIcon } from './MarketTokenIcon';
 import { useWatchListAction } from './watchListHooks';
 
+import type { GetThemeValueForKey } from 'tamagui';
+
 function RecommendItem({
   icon,
   checked = false,
@@ -173,13 +175,17 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
   );
   const renderRecommend = useCallback(() => {
     if (category?.recommendedTokens) {
+      let pt: GetThemeValueForKey<'paddingTop'> = '$8';
+
+      if (platformEnv.isExtensionUiPopup) {
+        pt = '$5';
+      } else if (platformEnv.isNative) {
+        pt = '$20';
+      }
+
       return (
         <>
-          <ScrollView
-            contentContainerStyle={{ ai: 'center' }}
-            px="$5"
-            py={platformEnv.isExtensionUiPopup ? '$5' : '$8'}
-          >
+          <ScrollView contentContainerStyle={{ ai: 'center' }} px="$5" pt={pt}>
             <SizableText
               size={
                 platformEnv.isExtensionUiPopup ? '$headingXl' : '$heading3xl'
