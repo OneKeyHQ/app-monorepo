@@ -175,7 +175,6 @@ const SwapQuoteInput = ({
         balance={fromTokenBalance}
       />
       <Stack
-        bg="$bgApp"
         borderRadius="$full"
         style={{
           position: 'absolute',
@@ -187,23 +186,20 @@ const SwapQuoteInput = ({
       >
         <IconButton
           alignSelf="center"
-          bg="$bgSubdued"
+          bg="$bgApp"
+          variant="tertiary"
           icon="SwapVerOutline"
           iconProps={{
             color: '$icon',
           }}
-          size="medium"
+          size="small"
           disabled={swapTokenDetailLoading.from || swapTokenDetailLoading.to}
           onPress={alternationToken}
-          hoverStyle={{
-            bg: '$bgStrongHover',
-          }}
-          pressStyle={{
-            bg: '$bgStrongActive',
-          }}
-          borderRadius="$full"
-          borderWidth="$1.5"
-          borderColor="$bgApp"
+          borderWidth="$1"
+          cursor="pointer"
+          hoverStyle={{}}
+          pressStyle={{}}
+          opacity={1}
         />
       </Stack>
       <SwapInputContainer
