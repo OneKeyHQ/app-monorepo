@@ -2847,7 +2847,7 @@
   "transfer.qr_step2": "扫描二维码或在此页面输入配对码",
   "transfer.qr_step3": "请按照说明完成",
   "transfer.qr_stepall_desc": "OneKey 不支持备份硬件钱包，请记录并妥善保管您的助记词。",
-  "transfer.qr_stepall_desc2": "整个转账过程端到端加密、完全开源且可验证。 <link>进一步了解我们的安全措施</link>。",
+  "transfer.qr_stepall_desc2": "整个传输过程端到端加密、完全开源且可验证。 <link>进一步了解我们的安全措施</link>。",
   "transfer.recent_transfers": "最近转账",
   "transfer.recent_transfers_empty": "最近的收款方将显示在此处",
   "transfer.security_alert_new_device_re_pair": "检测到新设备。为保障安全，连接已中断。请重新配对您的设备。",
