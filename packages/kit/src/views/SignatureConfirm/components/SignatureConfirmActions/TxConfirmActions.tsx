@@ -51,8 +51,8 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
-import TxFeeInfo from '../TxFee';
 import { showCustomHexDataAlert } from '../CustomHexDataAlert';
+import TxFeeInfo from '../TxFee';
 
 type IProps = {
   accountId: string;
@@ -465,8 +465,6 @@ function TxConfirmActions(props: IProps) {
     return false;
   }, [decodedTxs]);
 
-  console.log('decodedTxs', decodedTxs);
-
   const isSubmitDisabled = useMemo(() => {
     if (showTakeRiskAlert && !continueOperate) return true;
 
@@ -507,7 +505,7 @@ function TxConfirmActions(props: IProps) {
     <Page.Footer disableKeyboardAnimation>
       <Page.FooterActions
         confirmButtonProps={{
-          disabled: false,
+          disabled: isSubmitDisabled,
           loading: sendTxStatus.isSubmitting,
           variant: showTakeRiskAlert ? 'destructive' : 'primary',
         }}
