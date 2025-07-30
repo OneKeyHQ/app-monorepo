@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import emojiRegex from 'emoji-regex';
 import { useIntl } from 'react-intl';
 
 import type { IDialogShowProps } from '@onekeyhq/components';
-import { Dialog, Spinner, Stack, Toast } from '@onekeyhq/components';
+import { Dialog, Keyboard, Spinner, Stack, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { RenameInputWithNameSelector } from '@onekeyhq/kit/src/components/RenameDialog';
 import { MAX_LENGTH_HW_LABEL_NAME } from '@onekeyhq/kit/src/components/RenameDialog/renameConsts';
@@ -16,6 +16,7 @@ import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 function DeviceLabelDialogContent(props: {
   wallet: IDBWallet | undefined;
@@ -51,7 +52,6 @@ function DeviceLabelDialogContent(props: {
   }
 
   const maxLength = MAX_LENGTH_HW_LABEL_NAME;
-
   return (
     <>
       <Dialog.Form formProps={{ values: { name: result || '' } }}>
@@ -110,7 +110,9 @@ function DeviceLabelDialogContent(props: {
         confirmButtonProps={{
           loading: isLoading,
         }}
+        onCancel={Keyboard.dismiss}
         onConfirm={async ({ getForm, close }) => {
+          await Keyboard.dismissWithDelay(350);
           try {
             setIsLoading(true);
             const form = getForm();
