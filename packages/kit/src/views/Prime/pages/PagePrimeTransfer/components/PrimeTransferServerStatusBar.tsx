@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  IconButton,
   SizableText,
   Stack,
   XStack,
@@ -156,18 +157,27 @@ export function PrimeTransferServerStatusBar() {
           {...(statusInfo?.isCustomServer && {
             onPress: handleTextPress,
             hoverStyle: { opacity: 0.8, cursor: 'pointer' },
-            pressStyle: { opacity: 0.6 },
           })}
         >
           {statusInfo?.text}
         </SizableText>
       </XStack>
 
-      <Button size="small" variant="tertiary" onPress={handleManagePress}>
-        {intl.formatMessage({
-          id: ETranslations.global_manage,
-        })}
-      </Button>
+      <XStack gap="$4">
+        {statusInfo?.isCustomServer ? (
+          <IconButton
+            variant="tertiary"
+            icon="Copy3Outline"
+            size="small"
+            onPress={handleTextPress}
+          />
+        ) : null}
+        <Button size="small" variant="tertiary" onPress={handleManagePress}>
+          {intl.formatMessage({
+            id: ETranslations.global_manage,
+          })}
+        </Button>
+      </XStack>
     </XStack>
   );
 }

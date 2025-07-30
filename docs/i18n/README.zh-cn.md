@@ -19,11 +19,11 @@ yarn
 
 在根目录执行以下命令，从而开发不同的业务代码
 
-- `yarn web`: 开发网页模式，会启动静态服务器在本地 3000 端口
-- `yarn ios`: 通过 USB 连接 iphone 设备进行开发调试
-- `yarn android`: 调试安卓
-- `yarn desktop`: 开发桌面端模式
-- `yarn ext`: 开发浏览器插件
+- `yarn app:web`: 开发网页模式，会启动静态服务器在本地 3000 端口
+- `yarn app:ios`: 通过 USB 连接 iphone 设备进行开发调试
+- `yarn app:android`: 调试安卓
+- `yarn app:desktop`: 开发桌面端模式
+- `yarn app:ext`: 开发浏览器插件
 
 ### Android 项目配置
 
