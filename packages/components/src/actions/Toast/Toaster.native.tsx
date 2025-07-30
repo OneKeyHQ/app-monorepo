@@ -6,7 +6,7 @@ import { TOAST_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 import { View } from '../../primitives';
 
 function ToastContainer() {
-  return platformEnv.isNative ? (
+  return platformEnv.isNativeIOS ? (
     <Toasts />
   ) : (
     <View
