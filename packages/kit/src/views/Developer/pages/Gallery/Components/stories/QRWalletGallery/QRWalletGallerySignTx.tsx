@@ -23,10 +23,9 @@ import {
   getAirGapSdk,
 } from '@onekeyhq/qr-wallet-sdk';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
-import type { FeeMarketEIP1559TxData } from '@ethereumjs/tx';
+// import type { FeeMarketEIP1559TxData } from '@ethereumjs/tx';
 
 const txShared = {
   to: '0x02bA7fd1b0aCdd0E4F8c6DA7C4bA8Fd7F963bA50',
