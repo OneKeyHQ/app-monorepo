@@ -120,8 +120,11 @@ function NFTListView(props: IProps) {
       searchKey,
     });
     const placeholderCount = numColumns - (list.length % numColumns);
-    if (placeholderCount !== 0) {
-      list.push(...Array(placeholderCount).fill(null));
+    if (list?.length && placeholderCount) {
+      return [
+        ...list,
+        ...Array(placeholderCount).fill(null),
+      ] as (IAccountNFT | null)[];
     }
     return list;
   }, [data, searchKey, numColumns]);
