@@ -195,7 +195,7 @@ function ServerConfigContent({
         ),
       },
     ];
-  }, [customServer, intl, serverType, isLoading]);
+  }, [customServer, intl, serverType, isLoading, gtMd]);
 
   if (isLoading) {
     return (
