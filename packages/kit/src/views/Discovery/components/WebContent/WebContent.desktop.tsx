@@ -41,7 +41,7 @@ function WebContent({ id, url }: IWebContentProps) {
 
   const getNavStatusInfo = useCallback(() => {
     const ref = webviewRefs[id];
-    const webviewRef = ref.innerRef as IElectronWebView;
+    const webviewRef = ref.innerRef as unknown as IElectronWebView;
     if (!webviewRef) {
       return;
     }
