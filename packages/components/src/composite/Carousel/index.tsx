@@ -54,7 +54,6 @@ export function Carousel<T>({
   const [pageIndex, setPageIndex] = useState<number>(0);
   const currentPage = useRef<number>(0);
   currentPage.current = pageIndex;
-  
 
   const debouncedSetPageIndex = useDebouncedCallback(setPageIndex, 50);
 
@@ -154,7 +153,6 @@ export function Carousel<T>({
   const handleHoverOut = useCallback(() => {
     startAutoPlay();
   }, [startAutoPlay]);
-
 
   return (
     <YStack userSelect="none">
