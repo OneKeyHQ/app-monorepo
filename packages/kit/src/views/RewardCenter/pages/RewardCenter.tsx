@@ -45,6 +45,7 @@ import {
   AccountSelectorTriggerRewardCenter,
 } from '../../../components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
@@ -52,7 +53,6 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 
 import type { RouteProp } from '@react-navigation/core';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 
 const networkIdsMap = getNetworkIdsMap();
 
