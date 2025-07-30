@@ -126,11 +126,10 @@ export function PrimeTransferHomeQrCode() {
         flex={1}
         alignItems="flex-start"
         w="100%"
-        gap="$1"
         bg="$neutral2"
         borderTopWidth={1}
         borderTopColor="$neutral3"
-        px="$5"
+        px="$4"
         py="$4"
       >
         <SizableText color="$text" size="$headingSm">
