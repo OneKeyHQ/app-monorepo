@@ -144,6 +144,14 @@ const HistoryItem = ({
     <ListItem
       avatarProps={{
         src: logoURI,
+        fallbackProps: {
+          w: '$10',
+          h: '$10',
+          bg: '$bgStrong',
+          justifyContent: 'center',
+          alignItems: 'center',
+          children: <Icon name="GlobusOutline" />,
+        },
       }}
       title={item.title}
       subtitle={subtitle}

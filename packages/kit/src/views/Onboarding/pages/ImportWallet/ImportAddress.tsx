@@ -273,12 +273,20 @@ function ImportAddress() {
 
   const isEnable = useMemo(() => {
     // filter out error parameters from different segments.
-    const errors = Object.values(form.formState.errors).filter(
-      (i) =>
-        method === EImportMethod.PublicKey &&
-        (i?.ref as { name: string })?.name !== 'addressValue',
+
+    const errorsCount = Object.keys(form.formState.errors).reduce(
+      (count, name) => {
+        if (method === EImportMethod.PublicKey) {
+          return name !== 'addressValue' ? count + 1 : count;
+        }
+        if (method === EImportMethod.Address) {
+          return name !== 'publicKeyValue' ? count + 1 : count;
+        }
+        return count;
+      },
+      0,
     );
-    if (errors.length) {
+    if (errorsCount > 0) {
       return false;
     }
     if (method === EImportMethod.Address) {

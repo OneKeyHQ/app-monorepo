@@ -28,6 +28,7 @@ import type { IEarnAvailableAssetProtocol } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { AprText } from './AprText';
+import { FAQPanel } from './FAQPanel';
 
 // Skeleton component for loading state
 function AvailableAssetsSkeleton() {
@@ -327,6 +328,187 @@ export function AvailableAssetsTabViewList({
             })}
           </YStack>
         )}
+      </YStack>
+    );
+  }
+  return null;
+}
+
+export function AvailableAssetsTabViewListMobile({
+  onTokenPress,
+  assetType,
+  faqList,
+  onRefresh,
+}: IAvailableAssetsTabViewListProps & {
+  assetType: EAvailableAssetsTypeEnum;
+  faqList?: Array<{ question: string; answer: string }>;
+  onRefresh?: () => void;
+}) {
+  const {
+    activeAccount: { account, indexedAccount },
+  } = useActiveAccount({ num: 0 });
+  const [{ availableAssetsByType = {}, refreshTrigger = 0 }] = useEarnAtom();
+  const actions = useEarnActions();
+  const media = useMedia();
+
+  // Get filtered assets based on selected tab
+  const assets = useMemo(() => {
+    return availableAssetsByType[assetType] || [];
+  }, [assetType, availableAssetsByType]);
+
+  // Throttled function to fetch assets data
+  const fetchAssetsData = useThrottledCallback(
+    async (tabType: EAvailableAssetsTypeEnum) => {
+      const loadingKey = `availableAssets-${tabType}`;
+      actions.current.setLoadingState(loadingKey, true);
+
+      try {
+        const tabAssets =
+          await backgroundApiProxy.serviceStaking.getAvailableAssets({
+            type: tabType,
+          });
+
+        // Update the corresponding data in atom
+        actions.current.updateAvailableAssetsByType(tabType, tabAssets);
+        return tabAssets;
+      } finally {
+        actions.current.setLoadingState(loadingKey, false);
+      }
+    },
+    200,
+    { leading: true, trailing: false },
+  );
+
+  // Load data for the selected tab
+  const { isLoading } = usePromiseResult(
+    async () => {
+      if (assetType) {
+        const result = await fetchAssetsData(assetType);
+        return result || [];
+      }
+      return [];
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refreshTrigger, fetchAssetsData],
+    {
+      watchLoading: true,
+    },
+  );
+
+  if (assets.length || isLoading) {
+    return (
+      <YStack>
+        <YStack gap="$3" mt="$2">
+          {isLoading && assets.length === 0 ? (
+            <YStack mx="$5">
+              <AvailableAssetsSkeleton />
+            </YStack>
+          ) : (
+            <YStack
+              $gtLg={{
+                mx: 0,
+                overflow: 'hidden',
+                bg: '$bg',
+                borderRadius: '$3',
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: '$borderSubdued',
+                borderCurve: 'continuous',
+              }}
+            >
+              {assets.map((asset, index) => {
+                const { name, logoURI, symbol, badges = [], protocols } = asset;
+
+                return (
+                  <ListItem
+                    userSelect="none"
+                    key={`${name}-${index}`}
+                    onPress={async () => {
+                      await onTokenPress?.({
+                        networkId: protocols[0]?.networkId || '',
+                        accountId: account?.id ?? '',
+                        indexedAccountId: indexedAccount?.id,
+                        symbol,
+                        protocols,
+                      });
+                    }}
+                    avatarProps={{
+                      src: logoURI,
+                      fallbackProps: {
+                        borderRadius: '$full',
+                      },
+                      ...(media.gtLg
+                        ? {
+                            size: '$8',
+                          }
+                        : {}),
+                    }}
+                    {...(media.gtLg
+                      ? {
+                          drillIn: true,
+                          mx: '$0',
+                          px: '$4',
+                          borderRadius: '$0',
+                        }
+                      : {})}
+                    {...(index !== 0 && media.gtLg
+                      ? {
+                          borderTopWidth: StyleSheet.hairlineWidth,
+                          borderTopColor: '$borderSubdued',
+                        }
+                      : {})}
+                  >
+                    <ListItem.Text
+                      flexGrow={1}
+                      flexBasis={0}
+                      primary={
+                        <XStack gap="$2" alignItems="center">
+                          <SizableText size="$bodyLgMedium">
+                            {symbol}
+                          </SizableText>
+                          <XStack gap="$1">
+                            {badges.map((badge) => (
+                              <Badge
+                                key={badge.tag}
+                                badgeType={badge.badgeType}
+                                badgeSize="sm"
+                                userSelect="none"
+                              >
+                                <Badge.Text>{badge.tag}</Badge.Text>
+                              </Badge>
+                            ))}
+                          </XStack>
+                        </XStack>
+                      }
+                    />
+                    <XStack
+                      flex={1}
+                      ai="center"
+                      jc="flex-end"
+                      $gtLg={{
+                        jc: 'flex-start',
+                      }}
+                    >
+                      <XStack
+                        flexShrink={0}
+                        $gtLg={{
+                          width: 120,
+                        }}
+                        justifyContent="flex-end"
+                      >
+                        <AprText asset={asset} />
+                      </XStack>
+                    </XStack>
+                  </ListItem>
+                );
+              })}
+            </YStack>
+          )}
+        </YStack>
+        {faqList?.length ? (
+          <YStack mt="$4" mx="$5">
+            <FAQPanel faqList={faqList} isLoading={false} />
+          </YStack>
+        ) : null}
       </YStack>
     );
   }
