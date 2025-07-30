@@ -129,7 +129,7 @@ function HistoryListModal() {
   );
 
   return (
-    <Page>
+    <Page lazyLoad>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.browser_recently_closed,
