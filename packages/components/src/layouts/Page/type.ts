@@ -22,7 +22,9 @@ export type IBasicPageProps = PropsWithChildren<
     /* enable the insets that you use to determine the safe area for this view. the default value is true  */
     safeAreaEnabled?: boolean;
     /* @platform native */
-    /* lazy load. the default value is false  */
+    /* lazy load. the default value is false. 
+    Mainly used to reduce stuttering when heavy rendering Native pages.
+    If the page doesn't have much content on initial render, this doesn't need to be enabled. */
     lazyLoad?: boolean;
     /* scrollEnabled. When false, the view cannot be scrolled via interaction.  */
     scrollEnabled?: boolean;
