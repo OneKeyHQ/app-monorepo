@@ -983,7 +983,7 @@ function BasicEarnHome() {
               } as any
             }
             renderHeader={() => (
-              <YStack flex={1} gap="$4" pt="$5">
+              <YStack flex={1} gap="$4" pt="$5" bg="$bgApp">
                 {/* overview and banner */}
                 <YStack gap="$8">
                   <Overview

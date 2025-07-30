@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { Image as ExpoImage, resolveSource } from 'expo-image';
@@ -109,25 +110,37 @@ export function ImageV2({
     return ExpoImage;
   }, [animated]);
 
-  let content = (
-    <ImageComponent
-      source={resolvedSource}
-      style={{
-        width: '100%',
-        height: '100%',
-      }}
-      onError={handleError}
-      onLoad={handleLoad}
-      onLoadEnd={handleLoadEnd}
-      onDisplay={onDisplay}
-      onLoadStart={onLoadStart}
-      {...(imageProps as any)}
-    />
-  );
-
-  if (fallback && (hasError || isEmptyResolvedSource(resolvedSource))) {
-    content = <Stack>{fallback}</Stack>;
-  }
+  const content = useMemo(() => {
+    if (fallback && (hasError || isEmptyResolvedSource(resolvedSource))) {
+      return fallback as ReactElement;
+    }
+    return (
+      <ImageComponent
+        source={resolvedSource}
+        style={{
+          width: '100%',
+          height: '100%',
+        }}
+        onError={handleError}
+        onLoad={handleLoad}
+        onLoadEnd={handleLoadEnd}
+        onDisplay={onDisplay}
+        onLoadStart={onLoadStart}
+        {...(imageProps as any)}
+      />
+    );
+  }, [
+    ImageComponent,
+    fallback,
+    handleError,
+    handleLoad,
+    handleLoadEnd,
+    hasError,
+    imageProps,
+    onDisplay,
+    onLoadStart,
+    resolvedSource,
+  ]);
 
   return (
     <YStack

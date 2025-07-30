@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -130,6 +131,13 @@ export function Carousel<T>({
     width: 0,
     height: 0,
   });
+
+  const pageWidth = useMemo(() => {
+    return (
+      layout.width - (platformEnv.isNative ? 0 : marginRatio * layout.width)
+    );
+  }, [layout.width, marginRatio]);
+
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
       setLayout(event.nativeEvent.layout);
@@ -165,6 +173,7 @@ export function Carousel<T>({
               ref={pagerRef as RefObject<NativePagerView>}
               style={{ width: layout.width, height: layout.height }}
               initialPage={0}
+              pageWidth={pageWidth}
               onPageSelected={onPageSelected}
               keyboardDismissMode="on-drag"
             >
@@ -172,9 +181,7 @@ export function Carousel<T>({
                 <Stack
                   key={index}
                   style={{
-                    width:
-                      layout.width -
-                      (platformEnv.isNative ? 0 : marginRatio * layout.width),
+                    width: pageWidth,
                     height: '100%',
                   }}
                 >

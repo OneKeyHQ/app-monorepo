@@ -338,11 +338,9 @@ export function AvailableAssetsTabViewListMobile({
   onTokenPress,
   assetType,
   faqList,
-  onRefresh,
 }: IAvailableAssetsTabViewListProps & {
   assetType: EAvailableAssetsTypeEnum;
   faqList?: Array<{ question: string; answer: string }>;
-  onRefresh?: () => void;
 }) {
   const {
     activeAccount: { account, indexedAccount },
@@ -505,7 +503,7 @@ export function AvailableAssetsTabViewListMobile({
           )}
         </YStack>
         {faqList?.length ? (
-          <YStack mt="$4" mx="$5">
+          <YStack py="$4" px="$5">
             <FAQPanel faqList={faqList} isLoading={false} />
           </YStack>
         ) : null}
