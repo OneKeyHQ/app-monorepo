@@ -71,6 +71,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const keepAllOtherAccounts = route.params?.keepAllOtherAccounts;
   const allowSelectEmptyAccount = route.params?.allowSelectEmptyAccount;
   const linkedNetworkId = linkNetwork ? selectedAccount?.networkId : undefined;
+  const selectedNetworkId = selectedAccount?.networkId;
   const [searchText, setSearchText] = useState('');
   const { createQrWallet } = useCreateQrWallet();
 
@@ -105,6 +106,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         await serviceAccountSelector.buildAccountSelectorAccountsListData({
           focusedWallet: selectedAccount?.focusedWallet,
           linkedNetworkId,
+          selectedNetworkId,
           deriveType: selectedAccount.deriveType,
           othersNetworkId: selectedAccount?.networkId,
           keepAllOtherAccounts,
@@ -115,6 +117,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     [
       keepAllOtherAccounts,
       linkedNetworkId,
+      selectedNetworkId,
       selectedAccount.deriveType,
       selectedAccount?.focusedWallet,
       selectedAccount?.networkId,
@@ -510,6 +513,9 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               accountsCount={accountsCount}
               focusedWalletInfo={focusedWalletInfo}
               allowSelectEmptyAccount={allowSelectEmptyAccount}
+              mergeDeriveAssetsEnabled={
+                listDataResult?.mergeDeriveAssetsEnabled
+              }
             />
           )}
           renderSectionFooter={({
@@ -574,6 +580,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     isOthersUniversal,
     linkNetwork,
     linkedNetworkId,
+    listDataResult?.mergeDeriveAssetsEnabled,
     listViewLayout.height,
     num,
     searchText,

@@ -58,6 +58,7 @@ export function AccountSelectorAccountListItem({
   editable,
   accountsCount,
   focusedWalletInfo,
+  mergeDeriveAssetsEnabled,
 }: {
   num: number;
   linkedNetworkId: string | undefined;
@@ -81,6 +82,7 @@ export function AccountSelectorAccountListItem({
         device: IDBDevice | undefined;
       }
     | undefined;
+  mergeDeriveAssetsEnabled: boolean | undefined;
 }) {
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
@@ -284,6 +286,7 @@ export function AccountSelectorAccountListItem({
           indexedAccountId={indexedAccount?.id}
           linkedAccountId={indexedAccount?.associateAccount?.id ?? item.id}
           linkedNetworkId={avatarNetworkId ?? network?.id}
+          mergeDeriveAssetsEnabled={mergeDeriveAssetsEnabled}
         />
         {subTitleInfo.address ? (
           <Stack
@@ -307,6 +310,7 @@ export function AccountSelectorAccountListItem({
     item.id,
     avatarNetworkId,
     network?.id,
+    mergeDeriveAssetsEnabled,
   ]);
 
   return (

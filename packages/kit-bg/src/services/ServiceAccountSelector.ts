@@ -771,12 +771,14 @@ class ServiceAccountSelector extends ServiceBase {
     focusedWallet,
     othersNetworkId,
     linkedNetworkId,
+    selectedNetworkId,
     deriveType,
     keepAllOtherAccounts,
   }: {
     focusedWallet: IAccountSelectorFocusedWallet;
     othersNetworkId?: string;
     linkedNetworkId?: string;
+    selectedNetworkId?: string;
     deriveType: IAccountDeriveTypes;
     keepAllOtherAccounts?: boolean;
   }) {
@@ -815,6 +817,16 @@ class ServiceAccountSelector extends ServiceBase {
       value: Record<string, string> | string | undefined;
       currency: string | undefined;
     }[] = [];
+
+    let mergeDeriveAssetsEnabled = false;
+    if (selectedNetworkId) {
+      mergeDeriveAssetsEnabled =
+        (
+          await this.backgroundApi.serviceNetwork.getVaultSettings({
+            networkId: selectedNetworkId,
+          })
+        )?.mergeDeriveAssetsEnabled ?? false;
+    }
 
     try {
       const accountsForValuesQuery: {
@@ -855,6 +867,7 @@ class ServiceAccountSelector extends ServiceBase {
       focusedWalletInfo,
       accountsCount,
       accountsValue,
+      mergeDeriveAssetsEnabled,
     };
   }
 }
