@@ -3,6 +3,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useState,
@@ -15,8 +16,8 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useOverlayZIndex } from '../../hooks';
 import { useSafeAreaInsets } from '../../hooks/useLayout';
+import { useOverlayZIndex } from '../../hooks/useStyle';
 import { Stack, ThemeableStack } from '../../primitives';
 import { Trigger } from '../Trigger';
 
@@ -39,6 +40,21 @@ export interface IShowToasterInstance {
 export type IContextType = {
   close: IShowToasterInstance['close'];
 };
+
+// Fix issue where toast renders before overlay, causing lower z-index layer problem
+const useHackIsShowToast = platformEnv.isNativeIOS
+  ? (isOpen: boolean) => {
+      const [show, setShow] = useState(false);
+      useEffect(() => {
+        if (isOpen) {
+          setTimeout(() => {
+            setShow(true);
+          }, 350);
+        }
+      }, [isOpen]);
+      return show;
+    }
+  : () => true;
 
 const CustomToasterContext = createContext({} as IContextType);
 const SHOW_TOAST_VIEWPORT_NAME = 'SHOW_TOAST_VIEWPORT_NAME';
@@ -116,6 +132,8 @@ function BasicShowToaster({
 
   const overlayZIndex = useOverlayZIndex(isOpen, containerName);
   const zIndex = platformEnv.isNative ? overlayZIndex : undefined;
+  const isShowToast = useHackIsShowToast(isOpen);
+
   return (
     <>
       {isOpen ? (
@@ -129,48 +147,50 @@ function BasicShowToaster({
           onPress={dismissOnOverlayPress ? handleContainerClose : handleNoop}
         />
       ) : null}
-
-      <ToastViewport
-        zIndex={zIndex}
-        name={containerName}
-        width="100%"
-        position="absolute"
-        alignContent="center"
-        multipleToasts={false}
-        justifyContent="center"
-        py={top || '$5'}
-      />
-
-      <Toast
-        zIndex={zIndex}
-        unstyled
-        onEscapeKeyDown={handleEscapeKeyDown as any}
-        onSwipeEnd={handleSwipeEnd}
-        justifyContent="center"
-        open={isOpen}
-        borderRadius={0}
-        enterStyle={{ opacity: 0, scale: 0.8, y: -20 }}
-        exitStyle={{ opacity: 0, scale: 0.8, y: -20 }}
-        duration={duration}
-        w={platformEnv.isNative ? screenWidth : undefined}
-        maxWidth={platformEnv.isNative ? '$96' : undefined}
-        px={platformEnv.isNative ? '$5' : undefined}
-        animation="quick"
-        viewportName={containerName}
-      >
-        <CustomToasterContext.Provider value={value}>
-          <Stack
-            testID="confirm-on-device-toast-container"
-            borderRadius="$2.5"
-            borderWidth={StyleSheet.hairlineWidth}
-            borderColor="$borderSubdued"
+      {isShowToast ? (
+        <>
+          <ToastViewport
+            zIndex={zIndex}
+            name={containerName}
+            width="100%"
+            position="absolute"
+            alignContent="center"
+            multipleToasts={false}
+            justifyContent="center"
+            py={top || '$5'}
+          />
+          <Toast
+            zIndex={zIndex}
+            unstyled
+            onEscapeKeyDown={handleEscapeKeyDown as any}
+            onSwipeEnd={handleSwipeEnd}
+            justifyContent="center"
+            open={isOpen}
+            borderRadius={0}
+            enterStyle={{ opacity: 0, scale: 0.8, y: -20 }}
+            exitStyle={{ opacity: 0, scale: 0.8, y: -20 }}
+            duration={duration}
+            w={platformEnv.isNative ? screenWidth : undefined}
+            maxWidth={platformEnv.isNative ? '$96' : undefined}
+            px={platformEnv.isNative ? '$5' : undefined}
+            animation="quick"
+            viewportName={containerName}
           >
-            <ThemeableStack bg="$bg" borderRadius="$2.5" elevation={44}>
-              {children}
-            </ThemeableStack>
-          </Stack>
-        </CustomToasterContext.Provider>
-      </Toast>
+            <CustomToasterContext.Provider value={value}>
+              <Stack
+                testID="confirm-on-device-toast-container"
+                borderRadius="$2.5"
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="$borderSubdued"
+              >
+                <ThemeableStack bg="$bg" borderRadius="$2.5" elevation={44}>
+                  {children}
+                </ThemeableStack>
+              </Stack>
+            </CustomToasterContext.Provider>
+          </Toast>
+        </>
+      ) : null}
     </>
   );
 }
