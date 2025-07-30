@@ -1082,14 +1082,6 @@ function BasicMarketHomeList({
         headerRowProps={HEADER_ROW_PROPS}
         showBackToTopButton
         stickyHeaderHiddenOnScroll
-        contentContainerStyle={
-          platformEnv.isNative
-            ? undefined
-            : {
-                height: `calc(100vh - ${gtMd ? 128 : 238}px)`,
-                overflow: 'scroll',
-              }
-        }
         onRow={onRow}
         onHeaderRow={onHeaderRow}
         keyExtractor={(item) => item.coingeckoId}

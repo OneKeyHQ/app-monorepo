@@ -134,7 +134,7 @@ function MarketHome() {
                 contentContainerStyle={{ overflow: 'hidden' }}
               >
                 {tab.page}
-              </Tabs.ScrollView>>
+              </Tabs.ScrollView>
             )}
           </Tabs.Tab>
         ))}
