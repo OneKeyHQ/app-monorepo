@@ -4,8 +4,6 @@
   "private": true,
   "main": "src/index.tsx",
   "dependencies": {
-    "@ethereumjs/common": "^10.0.0",
-    "@ethereumjs/tx": "^10.0.0",
     "@onekeyhq/components": "*",
     "@types/url-parse": "^1.4.8",
     "date-fns": "^2.29.3",

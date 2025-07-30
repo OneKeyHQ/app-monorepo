@@ -3514,53 +3514,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ethereumjs/common@npm:^10.0.0":
-  version: 10.0.0
-  resolution: "@ethereumjs/common@npm:10.0.0"
-  dependencies:
-    "@ethereumjs/util": "npm:^10.0.0"
-    eventemitter3: "npm:^5.0.1"
-  checksum: 10/fc56c436f2452867d41ee880d50bd7cad7188369657dd76c23a2d2171a945a53e11a4d61c4935838c3c1b9d800d2707e61fd74fe3c21800e9f0e0e0fa7581ab6
-  languageName: node
-  linkType: hard
-
-"@ethereumjs/rlp@npm:^10.0.0":
-  version: 10.0.0
-  resolution: "@ethereumjs/rlp@npm:10.0.0"
-  bin:
-    rlp: bin/rlp.cjs
-  checksum: 10/3232f40ecc8dcd440994194925f9b8e74bf8f5eb995f98db9715b924358485ad5f332d529776537cc57e0c3393d1f0955014edbaefffa6935d4919de5f47c47d
-  languageName: node
-  linkType: hard
-
 "@ethereumjs/rlp@npm:^4.0.1":
   version: 4.0.1
   resolution: "@ethereumjs/rlp@npm:4.0.1"
   bin:
     rlp: bin/rlp
   checksum: 10/bfdffd634ce72f3b17e3d085d071f2fe7ce9680aebdf10713d74b30afd80ef882d17f19ff7175fcb049431a56e800bd3558d3b028bd0d82341927edb303ab450
-  languageName: node
-  linkType: hard
-
-"@ethereumjs/tx@npm:^10.0.0":
-  version: 10.0.0
-  resolution: "@ethereumjs/tx@npm:10.0.0"
-  dependencies:
-    "@ethereumjs/common": "npm:^10.0.0"
-    "@ethereumjs/rlp": "npm:^10.0.0"
-    "@ethereumjs/util": "npm:^10.0.0"
-    ethereum-cryptography: "npm:^3.2.0"
-  checksum: 10/e8dcc31109b921a4e8abd09b735fcc6e26baee80715f55b1caf870189450ebf3b896690487ed22e7408db476080eef655aafdb3551af8cd126743ebf2c46dbb6
-  languageName: node
-  linkType: hard
-
-"@ethereumjs/util@npm:^10.0.0":
-  version: 10.0.0
-  resolution: "@ethereumjs/util@npm:10.0.0"
-  dependencies:
-    "@ethereumjs/rlp": "npm:^10.0.0"
-    ethereum-cryptography: "npm:^3.2.0"
-  checksum: 10/9fa6f50a87978bcbcc8555762089b594dd5d28816dcbbfd24b226c929ee689eb860cb4e7d0385d3a3fcd83a146d8db42a9f17587818296d0964d5a3a1f9039a6
   languageName: node
   linkType: hard
 
@@ -6554,15 +6513,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/curves@npm:1.9.0, @noble/curves@npm:^1.8.1":
-  version: 1.9.0
-  resolution: "@noble/curves@npm:1.9.0"
-  dependencies:
-    "@noble/hashes": "npm:1.8.0"
-  checksum: 10/f2c5946310722fee23e04ed747f21ce72e0436e38e1fa620d226a8c613262e7d0dbab5341f14caf92936089d01d9e9231964c409cd1ac2a73a075f3cdb1acc41
-  languageName: node
-  linkType: hard
-
 "@noble/curves@npm:1.9.1":
   version: 1.9.1
   resolution: "@noble/curves@npm:1.9.1"
@@ -6596,6 +6546,15 @@ __metadata:
   dependencies:
     "@noble/hashes": "npm:1.4.0"
   checksum: 10/b21b30a36ff02bfcc0f5e6163d245cdbaf7f640511fff97ccf83fc207ee79cfd91584b4d97977374de04cb118a55eb63a7964c82596a64162bbc42bc685ae6d9
+  languageName: node
+  linkType: hard
+
+"@noble/curves@npm:^1.8.1":
+  version: 1.9.0
+  resolution: "@noble/curves@npm:1.9.0"
+  dependencies:
+    "@noble/hashes": "npm:1.8.0"
+  checksum: 10/f2c5946310722fee23e04ed747f21ce72e0436e38e1fa620d226a8c613262e7d0dbab5341f14caf92936089d01d9e9231964c409cd1ac2a73a075f3cdb1acc41
   languageName: node
   linkType: hard
 
@@ -7848,8 +7807,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/kit@workspace:packages/kit"
   dependencies:
-    "@ethereumjs/common": "npm:^10.0.0"
-    "@ethereumjs/tx": "npm:^10.0.0"
     "@onekeyhq/components": "npm:*"
     "@react-navigation/devtools": "npm:7.0.34"
     "@types/d3-scale": "npm:^4.0.3"
@@ -24451,19 +24408,6 @@ __metadata:
     "@scure/bip32": "npm:1.3.1"
     "@scure/bip39": "npm:1.2.1"
   checksum: 10/78983d01ac95047158ec03237ba318152b2c707ccc6a44225da11c72ed6ca575ca0c1630eaf9878fc82fe26272d6624939ef6f020cc89ddddfb941a7393ab909
-  languageName: node
-  linkType: hard
-
-"ethereum-cryptography@npm:^3.2.0":
-  version: 3.2.0
-  resolution: "ethereum-cryptography@npm:3.2.0"
-  dependencies:
-    "@noble/ciphers": "npm:1.3.0"
-    "@noble/curves": "npm:1.9.0"
-    "@noble/hashes": "npm:1.8.0"
-    "@scure/bip32": "npm:1.7.0"
-    "@scure/bip39": "npm:1.6.0"
-  checksum: 10/35c72fdfe26861e20b6a37bca9b4f22517d0fe130370d2b0071890225ca10a30848c8c784a1389544de2b5308f22a76a6e60c234449b8a504c5a4c092a04785c
   languageName: node
   linkType: hard
 
