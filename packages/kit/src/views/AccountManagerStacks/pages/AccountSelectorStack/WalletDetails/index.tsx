@@ -68,6 +68,8 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const route = useAccountSelectorRoute();
   const linkNetwork = route.params?.linkNetwork;
   const isEditableRouteParams = route.params?.editable;
+  const keepAllOtherAccounts = route.params?.keepAllOtherAccounts;
+  const allowSelectEmptyAccount = route.params?.allowSelectEmptyAccount;
   const linkedNetworkId = linkNetwork ? selectedAccount?.networkId : undefined;
   const [searchText, setSearchText] = useState('');
   const { createQrWallet } = useCreateQrWallet();
@@ -105,11 +107,13 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
           linkedNetworkId,
           deriveType: selectedAccount.deriveType,
           othersNetworkId: selectedAccount?.networkId,
+          keepAllOtherAccounts,
         });
 
       return accountSelectorAccountsListData;
     },
     [
+      keepAllOtherAccounts,
       linkedNetworkId,
       selectedAccount.deriveType,
       selectedAccount?.focusedWallet,
@@ -505,6 +509,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               editable={editable}
               accountsCount={accountsCount}
               focusedWalletInfo={focusedWalletInfo}
+              allowSelectEmptyAccount={allowSelectEmptyAccount}
             />
           )}
           renderSectionFooter={({
@@ -552,6 +557,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     accountsCount,
     accountsValue,
     actions,
+    allowSelectEmptyAccount,
     createQrWallet,
     editable,
     focusedWalletInfo,

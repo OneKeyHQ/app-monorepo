@@ -54,6 +54,7 @@ export function AccountSelectorAccountListItem({
   selectedAccount,
   accountsValue,
   linkNetwork,
+  allowSelectEmptyAccount,
   editable,
   accountsCount,
   focusedWalletInfo,
@@ -71,6 +72,7 @@ export function AccountSelectorAccountListItem({
     currency: string | undefined;
   }[];
   linkNetwork: boolean | undefined;
+  allowSelectEmptyAccount: boolean | undefined;
   editable: boolean;
   accountsCount: number;
   focusedWalletInfo:
@@ -265,8 +267,8 @@ export function AccountSelectorAccountListItem({
   ]);
 
   const canConfirmAccountSelectPress = useMemo(
-    () => !shouldShowCreateAddressButton,
-    [shouldShowCreateAddressButton],
+    () => allowSelectEmptyAccount || !shouldShowCreateAddressButton,
+    [allowSelectEmptyAccount, shouldShowCreateAddressButton],
   );
 
   const renderAccountValue = useCallback(() => {
@@ -356,7 +358,7 @@ export function AccountSelectorAccountListItem({
         {...(canConfirmAccountSelectPress && {
           onPress: async () => {
             // show CreateAddress Button here, disabled confirmAccountSelect()
-            if (shouldShowCreateAddressButton) {
+            if (!allowSelectEmptyAccount && shouldShowCreateAddressButton) {
               return;
             }
             if (isOthersUniversal) {
