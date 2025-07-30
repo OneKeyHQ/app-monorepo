@@ -21,6 +21,7 @@ import {
   Icon,
   IconButton,
   Input,
+  LinearGradient,
   LottieView,
   Popover,
   SizableText,
@@ -37,6 +38,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { SHOW_CLOSE_ACTION_MIN_DURATION } from '../../provider/Container/HardwareUiStateContainer/constants';
 import { isPassphraseValid } from '../../utils/passphraseUtils';
 
@@ -936,6 +938,7 @@ export function BluetoothDevicePairingContent({
   promiseId,
 }: IBluetoothDevicePairingContentProps) {
   const isProcessingRef = useRef(false);
+  const themeVariant = useThemeVariant();
 
   // 执行设备配对流程（后台静默执行）
   const executePairingProcess = useCallback(async () => {
@@ -979,34 +982,142 @@ export function BluetoothDevicePairingContent({
   }, [executePairingProcess]);
 
   return (
-    <XStack
-      p="$3"
-      gap="$3"
-      alignItems="flex-start"
-      borderRadius="$2"
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor="$borderInfoSubdued"
-      bg="$bgInfoSubdued"
-    >
-      <Stack
-        w="$10"
-        h="$10"
-        ai="center"
-        jc="center"
-        borderRadius="$1"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderInfo"
-        background="linear-gradient(180deg, rgba(0, 130, 230, 0.63) 0%, rgba(0, 125, 234, 0.97) 100%)"
+    <YStack gap="$5">
+      <YStack
+        p="$8"
+        pt="$2"
+        bg={themeVariant === 'dark' ? '$bgApp' : '$bgSubdued'}
+        borderRadius="$3"
+        borderWidth={1}
+        borderColor={themeVariant === 'dark' ? '$whiteA2' : '$neutral3'}
+        overflow="hidden"
       >
-        <Icon name="BluetoothOutline" size="$6" color="$iconOnColor" />
-      </Stack>
-      <YStack gap="$4" flex={1}>
-        <SizableText size="$bodyMd" color="$text">
-          USB not detected. OneKey tried Bluetooth but the device isn’t paired.
-          Please complete the pairing process.
-        </SizableText>
+        <YStack
+          zIndex={0}
+          position="absolute"
+          left="$4"
+          right="$4"
+          top={68}
+          h={100}
+          bg={themeVariant === 'dark' ? '$whiteA1' : '$bg'}
+          borderRadius="$2"
+          $platform-web={{
+            boxShadow:
+              '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.1)',
+          }}
+          {...(themeVariant === 'dark' && {
+            outlineWidth: 1,
+            outlineColor: '$whiteA2',
+            outlineStyle: 'solid',
+            outlineOffset: 0,
+          })}
+        />
+        <YStack
+          alignSelf="stretch"
+          alignItems="flex-end"
+          gap="$3"
+          p="$3"
+          bg={themeVariant === 'dark' ? '$gray2' : '$bg'}
+          borderRadius="$2"
+          $platform-web={{
+            boxShadow:
+              '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.1)',
+          }}
+          {...(themeVariant === 'dark' && {
+            outlineWidth: 1,
+            outlineColor: '$whiteA2',
+            outlineStyle: 'solid',
+            outlineOffset: 0,
+          })}
+        >
+          <XStack gap="$3" alignSelf="stretch" alignItems="center">
+            <LinearGradient
+              colors={['$info8', '$info10']}
+              p="$1"
+              borderWidth={1}
+              borderColor="$info7"
+              borderRadius="$2"
+              $platform-web={{
+                boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.10)',
+              }}
+            >
+              <Icon name="BluetoothOutline" color="$iconOnColor" />
+            </LinearGradient>
+            <YStack pt="$1" gap="$1.5">
+              <YStack borderRadius={2} bg="$neutral6" h="$1.5" w={145} />
+              <XStack gap="$2" alignItems="center">
+                <YStack borderRadius={2} bg="$neutral6" h="$1.5" w={35} />
+                <XStack
+                  w={102}
+                  p={3}
+                  gap="$1"
+                  borderRadius={2}
+                  borderWidth={2}
+                  borderColor="$borderInfo"
+                  bg="$bg"
+                >
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <YStack
+                      key={index}
+                      borderRadius={2}
+                      bg="$neutral11"
+                      h="$1.5"
+                      w="$1.5"
+                    />
+                  ))}
+                </XStack>
+              </XStack>
+            </YStack>
+          </XStack>
+          <XStack gap="$2">
+            <YStack
+              bg={themeVariant === 'dark' ? '$whiteA1' : '$bg'}
+              borderRadius="$1"
+              w="$12"
+              h={15}
+              borderWidth={1}
+              borderColor="$borderSubdued"
+              $platform-web={{
+                boxShadow:
+                  '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.10), 0 1px 2px 0 rgba(0, 0, 0, 0.10)',
+              }}
+            />
+            <LinearGradient
+              colors={['$info8', '$info10']}
+              borderRadius="$1"
+              w="$12"
+              h={15}
+              borderWidth={1}
+              borderColor="$info7"
+              $platform-web={{
+                boxShadow:
+                  '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.10), 0 1px 2px 0 rgba(0, 0, 0, 0.10)',
+              }}
+            />
+          </XStack>
+        </YStack>
       </YStack>
-    </XStack>
+      <SizableText size="$bodyMdMedium">
+        USB not detected. Switching to Bluetooth pairing.
+      </SizableText>
+      <YStack gap="$2" pr="$5">
+        <XStack gap="$2" alignItems="flex-start">
+          <YStack w="$5" alignItems="center" justifyContent="center">
+            <SizableText color="$textDisabled">1.</SizableText>
+          </YStack>
+          <SizableText>Unlock your device with PIN</SizableText>
+        </XStack>
+        <XStack gap="$2" alignItems="flex-start">
+          <YStack w="$5" alignItems="center" justifyContent="center">
+            <SizableText color="$textDisabled">2.</SizableText>
+          </YStack>
+          <SizableText>
+            Enter the pair code shown on your device into the prompt, then click
+            “Connect”
+          </SizableText>
+        </XStack>
+      </YStack>
+    </YStack>
   );
 }
 
