@@ -21,8 +21,9 @@ export type IBasicPageProps = PropsWithChildren<
     fullPage?: boolean;
     /* enable the insets that you use to determine the safe area for this view. the default value is true  */
     safeAreaEnabled?: boolean;
-    /* skip loading view. the default value is false  */
-    skipLoading?: boolean;
+    /* @platform native */
+    /* lazy load. the default value is false  */
+    lazyLoad?: boolean;
     /* scrollEnabled. When false, the view cannot be scrolled via interaction.  */
     scrollEnabled?: boolean;
     scrollProps?: Omit<IScrollViewProps, 'children'>;

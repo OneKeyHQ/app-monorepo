@@ -116,18 +116,17 @@ function LoadingScreen({
 
 export function BasicPage({
   children,
-  skipLoading = true,
+  lazyLoad = false,
   fullPage = false,
 }: IBasicPageProps) {
   return (
     <Stack bg="$bgApp" flex={1}>
       {platformEnv.isNativeIOS ? <PageStatusBar /> : undefined}
-      {/* {skipLoading ? (
-        children
-      ) : (
+      {lazyLoad ? (
         <LoadingScreen fullPage={fullPage}>{children}</LoadingScreen>
-      )} */}
-      {children}
+      ) : (
+        children
+      )}
     </Stack>
   );
 }
