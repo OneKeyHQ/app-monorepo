@@ -12,6 +12,7 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -96,11 +97,11 @@ export function PrimeTransferHome({
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.transfer_qr_stepall_desc })}
           </SizableText>
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.transfer_qr_stepall_desc2,
-            })}
-          </SizableText>
+          <HyperlinkText
+            size="$bodySm"
+            color="$textSubdued"
+            translationId={ETranslations.transfer_qr_stepall_desc2}
+          />
         </YStack>
         <Stack h="$4" />
       </Stack>
