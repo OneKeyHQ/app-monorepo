@@ -42,19 +42,17 @@ export type IContextType = {
 };
 
 // Fix issue where toast renders before overlay, causing lower z-index layer problem
-const useHackIsShowToast = platformEnv.isNativeIOS
-  ? (isOpen: boolean) => {
-      const [show, setShow] = useState(false);
-      useEffect(() => {
-        if (isOpen) {
-          setTimeout(() => {
-            setShow(true);
-          }, 350);
-        }
-      }, [isOpen]);
-      return show;
+const useHackIsShowToast = (isOpen: boolean) => {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        setShow(true);
+      }, 350);
     }
-  : () => true;
+  }, [isOpen]);
+  return show;
+};
 
 const CustomToasterContext = createContext({} as IContextType);
 const SHOW_TOAST_VIEWPORT_NAME = 'SHOW_TOAST_VIEWPORT_NAME';
