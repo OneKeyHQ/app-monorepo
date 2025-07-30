@@ -99,6 +99,8 @@ function HardwareSingletonDialogCmp(
   const { serviceHardwareUI, serviceSetting } = backgroundApiProxy;
   const intl = useIntl();
   const [showCloseButton, setIsShowExitButton] = useState(false);
+  const [persistBluetoothUnauthorized, setPersistBluetoothUnauthorized] =
+    useState(false);
 
   // TODO make sure toast is last session action
   // TODO pin -> passpharse -> confirm -> address -> sign -> confirm
@@ -143,8 +145,21 @@ function HardwareSingletonDialogCmp(
   useEffect(() => {
     if (!open) {
       setIsShowExitButton(false);
+      setPersistBluetoothUnauthorized(false);
     }
   }, [open]);
+
+  // Track when bluetooth unauthorized state is shown
+  useEffect(() => {
+    if (action === EHardwareUiStateAction.DeviceChecking) {
+      const eventType = state?.payload?.eventType;
+      if (
+        eventType === EHardwareUiStateAction.BLUETOOTH_PERMISSION_UNAUTHORIZED
+      ) {
+        setPersistBluetoothUnauthorized(true);
+      }
+    }
+  }, [action, state?.payload?.eventType]);
 
   const result = useMemo<{ title: string; content: React.ReactNode }>(() => {
     let title = intl.formatMessage({ id: ETranslations.global_processing });
@@ -153,7 +168,6 @@ function HardwareSingletonDialogCmp(
 
     if (action === EHardwareUiStateAction.DeviceChecking) {
       const eventType = state?.payload?.eventType;
-
       if (
         eventType ===
         EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION
@@ -165,6 +179,8 @@ function HardwareSingletonDialogCmp(
           />
         );
       } else if (
+        // If bluetooth unauthorized is persisted, keep showing it
+        persistBluetoothUnauthorized ||
         eventType === EHardwareUiStateAction.BLUETOOTH_PERMISSION_UNAUTHORIZED
       ) {
         title = 'Communicating...';
@@ -320,6 +336,7 @@ function HardwareSingletonDialogCmp(
     serviceSetting,
     state?.connectId,
     state?.payload,
+    persistBluetoothUnauthorized,
   ]);
 
   const getDialogKey = (params: {
