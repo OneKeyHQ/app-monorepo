@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -53,6 +54,7 @@ export function Carousel<T>({
   const [pageIndex, setPageIndex] = useState<number>(0);
   const currentPage = useRef<number>(0);
   currentPage.current = pageIndex;
+  
 
   const debouncedSetPageIndex = useDebouncedCallback(setPageIndex, 50);
 
@@ -130,6 +132,13 @@ export function Carousel<T>({
     width: 0,
     height: 0,
   });
+
+  const layoutWidth = useMemo(() => {
+    return (
+      layout.width - (platformEnv.isNative ? 0 : marginRatio * layout.width)
+    );
+  }, [layout.width, marginRatio]);
+
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
       setLayout(event.nativeEvent.layout);
@@ -145,6 +154,7 @@ export function Carousel<T>({
   const handleHoverOut = useCallback(() => {
     startAutoPlay();
   }, [startAutoPlay]);
+
 
   return (
     <YStack userSelect="none">
@@ -172,9 +182,7 @@ export function Carousel<T>({
                 <Stack
                   key={index}
                   style={{
-                    width:
-                      layout.width -
-                      (platformEnv.isNative ? 0 : marginRatio * layout.width),
+                    width: layoutWidth,
                     height: '100%',
                   }}
                 >
