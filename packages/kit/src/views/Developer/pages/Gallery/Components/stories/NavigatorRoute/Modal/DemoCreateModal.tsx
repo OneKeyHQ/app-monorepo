@@ -41,7 +41,6 @@ function DemoCreateViewModal({
   return (
     <Layout
       description="这是一个普通的 Modal 测试"
-      skipLoading
       suggestions={[
         'Modal 可以通过点击空白处关闭或返回上一级',
         'Modal 可以通过按 ESC 键关闭或返回上一级',
@@ -110,7 +109,6 @@ function DemoCreateSearchModal({
 
   return (
     <Layout
-      skipLoading
       contentInsetAdjustmentBehavior="automatic"
       description="这是一个带搜索框的 Modal"
       suggestions={['使用方式与 @react-navigation/native-stack 相同']}
@@ -182,7 +180,6 @@ function DemoCreateOptionsModal({
 
   return (
     <Layout
-      skipLoading
       contentInsetAdjustmentBehavior="automatic"
       description="这是一个带有搜索框和 RightButton 的 Demo"
       suggestions={['使用方式与 @react-navigation/native-stack 相同']}

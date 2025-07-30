@@ -361,6 +361,7 @@ export const Transactions = () => {
 
   return (
     <Tabs.SectionList
+      stickySectionHeadersEnabled={false}
       contentContainerStyle={{ paddingBottom: 40 }}
       sections={sections}
       // estimatedItemSize={158}

@@ -5,6 +5,7 @@ import type {
   IButtonProps,
   IKeyOfIcons,
 } from '@onekeyhq/components';
+import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
 
 import type { INetworkAccount } from './account';
 import type { IEarnAvailableAssetAprInfo } from './earn';
@@ -455,6 +456,7 @@ export interface IEarnLinkActionIcon {
   icon?: IEarnIcon;
   disabled?: boolean;
   text: IEarnText;
+  showIntercom?: boolean;
 }
 
 export interface IEarnDepositActionIcon {
@@ -545,6 +547,7 @@ export interface IEarnClaimWithKycActionIcon {
     title?: IEarnText;
     description?: IEarnText[];
     button?: IEarnActionIcon;
+    tone?: IDialogProps['tone'];
   };
 }
 

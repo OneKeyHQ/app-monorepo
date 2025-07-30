@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Popover,
   SizableText,
@@ -24,6 +26,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
@@ -230,6 +233,7 @@ function HeaderRightToolBar() {
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabDataById(activeTabId ?? '');
   const origin = tab?.url ? new URL(tab.url).origin : null;
+  const intl = useIntl();
 
   // Use ref to always get the latest value in callbacks
   const connectedAccountsInfoRef = useRef<
@@ -361,7 +365,9 @@ function HeaderRightToolBar() {
           key={`popover-${connectedAccountsInfo.length}-${connectedAccountsInfo
             .map((a) => a.num)
             .join('-')}`}
-          title="Connected Accounts"
+          title={intl.formatMessage({
+            id: ETranslations.explore_connected_accounts,
+          })}
           keepChildrenMounted
           open={isOpen}
           onOpenChange={handleOpenChange}
@@ -376,10 +382,11 @@ function HeaderRightToolBar() {
     isLoading,
     connectedAccountsInfo,
     origin,
+    intl,
     isOpen,
     handleOpenChange,
-    afterChangeAccount,
     renderPopoverContent,
+    afterChangeAccount,
   ]);
 
   return <>{content}</>;

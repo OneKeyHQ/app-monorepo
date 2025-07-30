@@ -138,6 +138,7 @@ export const SignText = () => {
 
   return (
     <Tabs.SectionList
+      stickySectionHeadersEnabled={false}
       sections={sections}
       keyExtractor={keyExtractor}
       // estimatedItemSize={191}
