@@ -9,7 +9,10 @@ import { Token, TokenName } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsPersistAtom,
+  useSettingsValuePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EModalAssetDetailRoutes,
   EModalRoutes,
@@ -29,6 +32,7 @@ export function UniversalSearchAccountAssetItem({
   const { activeAccount } = useActiveAccount({ num: 0 });
   const universalSearchActions = useUniversalSearchActions();
   const [settings] = useSettingsPersistAtom();
+  const [{ hideValue }] = useSettingsValuePersistAtom();
   const { token, tokenFiat } = item.payload;
   const priceChange = tokenFiat?.price24h ?? 0;
   const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
@@ -117,6 +121,7 @@ export function UniversalSearchAccountAssetItem({
           formatterOptions={{ tokenSymbol: token?.symbol }}
           size="$bodyMd"
           color="$textSubdued"
+          hideValue={hideValue}
         >
           {tokenFiat?.balanceParsed ?? '0'}
         </NumberSizeableTextWrapper>
@@ -126,6 +131,7 @@ export function UniversalSearchAccountAssetItem({
           formatter="value"
           formatterOptions={{ currency: settings.currencyInfo.symbol }}
           size="$bodyLgMedium"
+          hideValue={hideValue}
         >
           {fiatValue.isNaN() ? 0 : fiatValue.toFixed()}
         </NumberSizeableTextWrapper>

@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, memo, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabHomeRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -35,6 +36,47 @@ export function HeaderLeftCloseButton() {
   );
 }
 
+function AccountSelectorTriggerWithSpotlight({
+  isFocus,
+}: {
+  isFocus: boolean;
+}) {
+  const intl = useIntl();
+  const { tourTimes, tourVisited } = useSpotlight(
+    ESpotlightTour.switchDappAccount,
+  );
+  const [isLocked] = useAppIsLockedAtom();
+
+  const spotlightVisible = useMemo(
+    () => tourTimes === 1 && isFocus && !isLocked,
+    [isFocus, isLocked, tourTimes],
+  );
+  return (
+    <AccountSelectorTriggerHome
+      num={0}
+      key="accountSelectorTrigger"
+      spotlightProps={{
+        visible: spotlightVisible,
+        content: (
+          <SizableText size="$bodyMd">
+            {intl.formatMessage({
+              id: ETranslations.spotlight_account_alignment_desc,
+            })}
+          </SizableText>
+        ),
+        onConfirm: () => {
+          void tourVisited(2);
+        },
+        childrenPaddingVertical: 0,
+      }}
+    />
+  );
+}
+
+const MemoizedAccountSelectorTriggerWithSpotlight = memo(
+  AccountSelectorTriggerWithSpotlight,
+);
+
 export function HeaderLeft({
   sceneName,
   tabRoute,
@@ -45,9 +87,6 @@ export function HeaderLeft({
   customHeaderLeftItems?: ReactNode;
 }) {
   const intl = useIntl();
-  const { tourTimes, tourVisited } = useSpotlight(
-    ESpotlightTour.switchDappAccount,
-  );
   const { gtMd } = useMedia();
 
   const [isFocus, setIsFocus] = useState(false);
@@ -57,10 +96,6 @@ export function HeaderLeft({
     async (focus: boolean, hideByModal: boolean) => {
       setIsFocus(!hideByModal && focus);
     },
-  );
-  const spotlightVisible = useMemo(
-    () => tourTimes === 1 && isFocus,
-    [isFocus, tourTimes],
   );
   const items = useMemo(() => {
     if (customHeaderLeftItems) {
@@ -88,24 +123,7 @@ export function HeaderLeft({
     }
 
     const accountSelectorTrigger = (
-      <AccountSelectorTriggerHome
-        num={0}
-        key="accountSelectorTrigger"
-        spotlightProps={{
-          visible: spotlightVisible,
-          content: (
-            <SizableText size="$bodyMd">
-              {intl.formatMessage({
-                id: ETranslations.spotlight_account_alignment_desc,
-              })}
-            </SizableText>
-          ),
-          onConfirm: () => {
-            void tourVisited(2);
-          },
-          childrenPaddingVertical: 0,
-        }}
-      />
+      <MemoizedAccountSelectorTriggerWithSpotlight isFocus={isFocus} />
     );
 
     if (tabRoute === ETabRoutes.Discovery) {
@@ -136,15 +154,7 @@ export function HeaderLeft({
         />
       </XStack>
     );
-  }, [
-    gtMd,
-    intl,
-    sceneName,
-    spotlightVisible,
-    tabRoute,
-    tourVisited,
-    customHeaderLeftItems,
-  ]);
+  }, [customHeaderLeftItems, sceneName, isFocus, tabRoute, gtMd]);
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}

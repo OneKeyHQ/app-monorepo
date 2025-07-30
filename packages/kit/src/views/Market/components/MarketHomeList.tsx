@@ -1030,7 +1030,7 @@ function BasicMarketHomeList({
     return platformEnv.isNative ? spinner : null;
   }
 
-  if (listData.length === 0) {
+  if (platformEnv.isNative && listData.length === 0) {
     return spinner;
   }
 
@@ -1084,7 +1084,7 @@ function BasicMarketHomeList({
           keyExtractor={(item) => item.coingeckoId}
           rowProps={rowProps}
           showHeader={gtMd}
-          scrollEnabled={false}
+          scrollEnabled={platformEnv.isNative}
           columns={columns}
           onDragEnd={handleDragEnd}
           dataSource={sortedListData as unknown as IMarketToken[]}

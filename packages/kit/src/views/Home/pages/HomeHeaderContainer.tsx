@@ -19,7 +19,7 @@ function HomeHeaderContainer() {
           justifyContent: 'space-between',
         }}
       >
-        <Stack gap="$2.5">
+        <Stack gap="$2.5" flex={1}>
           <HomeOverviewContainer />
         </Stack>
         <WalletActions

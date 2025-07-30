@@ -33,7 +33,7 @@ class MarketTokenPriceEvent {
     lastUpdated: number;
   }) {
     const cacheKey = this.buildKey(tokenName, tokenSymbol);
-    const { lastUpdated = 0 } = this.tokenPriceMap.get(tokenName) || {};
+    const { lastUpdated = 0 } = this.tokenPriceMap.get(cacheKey) || {};
     if (tokenLastUpdated > lastUpdated) {
       this.tokenPriceMap.set(cacheKey, {
         price: tokenPrice,
