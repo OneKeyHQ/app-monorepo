@@ -41,7 +41,7 @@ export type IContextType = {
   close: IShowToasterInstance['close'];
 };
 
-// Fix issue where toast renders before overlay, causing lower z-index layer problem
+// Fix issue where toast renders before overlay, causing lower z-index layer problem on iOS
 const useHackIsShowToast = (isOpen: boolean) => {
   const [show, setShow] = useState(false);
   useEffect(() => {
