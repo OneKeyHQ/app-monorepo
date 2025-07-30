@@ -77,7 +77,7 @@ export function PrimeTransferHomeQrCode() {
     <YStack
       borderRadius="$4"
       borderWidth={1}
-      borderColor={themeVariant === 'light' ? '$neutral3' : '$neutral2'}
+      borderColor="$neutral3"
       alignSelf="center"
       width="100%"
       overflow="hidden"
@@ -127,9 +127,9 @@ export function PrimeTransferHomeQrCode() {
         alignItems="flex-start"
         w="100%"
         gap="$1"
-        bg={themeVariant === 'light' ? '$neutral1' : '$neutral2'}
+        bg="$neutral2"
         borderTopWidth={1}
-        borderTopColor={themeVariant === 'light' ? '$neutral3' : '$neutral2'}
+        borderTopColor="$neutral3"
         px="$5"
         py="$4"
       >
