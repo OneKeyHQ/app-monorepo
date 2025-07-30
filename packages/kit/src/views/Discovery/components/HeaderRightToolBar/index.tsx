@@ -24,7 +24,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
@@ -238,53 +237,19 @@ function HeaderRightToolBar() {
   >(null);
   const originRef = useRef<string | null>(null);
 
-  defaultLogger.discovery.browser.headerRightToolBarDebug({
-    event: 'Component_initialized',
-    activeTabId,
-    hasTab: !!tab,
-    tabUrl: tab?.url,
-    origin,
-    isOpen,
-  });
-
   const {
     result: connectedAccountsInfo,
     isLoading,
     run,
   } = usePromiseResult(
     async () => {
-      defaultLogger.discovery.browser.headerRightToolBarDebug({
-        event: 'UsePromiseResult_triggered',
-        activeTabId,
-        origin,
-        hasOrigin: !!origin,
-      });
-      
       if (!origin) {
-        defaultLogger.discovery.browser.headerRightToolBarDebug({
-          event: 'UsePromiseResult_no_origin',
-          activeTabId,
-          origin,
-        });
         return;
       }
-      
       const connectedAccount =
         await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
           origin,
         );
-
-      defaultLogger.discovery.browser.headerRightToolBarDebug({
-        event: 'UsePromiseResult_found_connected_accounts',
-        activeTabId,
-        origin,
-        accountsCount: connectedAccount?.length || 0,
-        accounts: connectedAccount?.map(acc => ({
-          num: acc.num,
-          accountId: acc.accountId,
-          networkId: acc.networkId,
-        })),
-      });
 
       return connectedAccount;
     },
@@ -295,26 +260,14 @@ function HeaderRightToolBar() {
   );
 
   const afterChangeAccount = useCallback(() => {
-    defaultLogger.discovery.browser.headerRightToolBarDebug({
-      event: 'AfterChangeAccount_triggered',
-      activeTabId,
-      origin,
-    });
     void run();
-  }, [run, activeTabId, origin]);
+  }, [run]);
 
   // Update refs with latest values
   useEffect(() => {
-    defaultLogger.discovery.browser.headerRightToolBarDebug({
-      event: 'Refs_updated',
-      activeTabId,
-      origin,
-      connectedAccountsCount: connectedAccountsInfo?.length || 0,
-      hasConnectedAccounts: !!connectedAccountsInfo,
-    });
     connectedAccountsInfoRef.current = connectedAccountsInfo || null;
     originRef.current = origin;
-  }, [connectedAccountsInfo, origin, activeTabId]);
+  }, [connectedAccountsInfo, origin]);
 
   useEffect(() => {
     appEventBus.on(EAppEventBusNames.DAppConnectUpdate, afterChangeAccount);
@@ -354,18 +307,6 @@ function HeaderRightToolBar() {
   }, [afterChangeAccount]);
 
   const content = useMemo(() => {
-    defaultLogger.discovery.browser.headerRightToolBarDebug({
-      event: 'Content_render_decision',
-      activeTabId,
-      origin,
-      isLoading,
-      hasConnectedAccounts: !!connectedAccountsInfo,
-      accountsCount: connectedAccountsInfo?.length || 0,
-      renderType: isLoading ? 'spinner' : 
-                  (!connectedAccountsInfo || !origin) ? 'shortcuts_only' :
-                  connectedAccountsInfo.length === 1 ? 'single_account' : 'multi_account',
-    });
-
     if (isLoading) {
       return <Spinner />;
     }
@@ -439,7 +380,6 @@ function HeaderRightToolBar() {
     handleOpenChange,
     afterChangeAccount,
     renderPopoverContent,
-    activeTabId,
   ]);
 
   return <>{content}</>;
