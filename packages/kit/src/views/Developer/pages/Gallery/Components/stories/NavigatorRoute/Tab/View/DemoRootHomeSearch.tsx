@@ -45,7 +45,6 @@ const DemoRootHomeSearch = () => {
 
   return (
     <Layout
-      skipLoading={platformEnv.isNativeIOS}
       description="这是一个带搜索的路由 Header"
       suggestions={['使用方式与 @react-navigation/native-stack 相同']}
       boundaryConditions={['无']}
@@ -54,7 +53,7 @@ const DemoRootHomeSearch = () => {
           title: '使用说明',
           element: (
             <SizableText size="$bodyLg">{`这是一个简单的使用场景
-            1. 需要给 Screen 或者 Layout 设置一个 skipLoading={platformEnv.isNativeIOS} 以确保 iOS controller.headerSearch 动画正常
+            1. 需要给 Screen 或者 Layout 设置一个 lazLoad={!platformEnv.isNativeIOS} 以确保 iOS controller.headerSearch 动画正常
 
             2. useEffect(() => {
                 navigation.setOptions({
