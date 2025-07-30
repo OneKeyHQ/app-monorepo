@@ -452,7 +452,7 @@ function RewardCenterDetails() {
 
     if (!account) {
       return (
-        <SizableText size="$bodyLg" color="$textSubdued">
+        <SizableText size="$bodyLg" color="$textSubdued" flex={1}>
           {intl.formatMessage({
             id: ETranslations.wallet_no_tron_account,
           })}
@@ -579,7 +579,7 @@ function RewardCenterDetails() {
                 id: ETranslations.wallet_subsidy_label,
               })}
             </SizableText>
-            <XStack alignItems="center" justifyContent="space-between">
+            <XStack alignItems="center" justifyContent="space-between" gap="$2">
               {renderClaimResource()}
               {renderClaimButton()}
             </XStack>
