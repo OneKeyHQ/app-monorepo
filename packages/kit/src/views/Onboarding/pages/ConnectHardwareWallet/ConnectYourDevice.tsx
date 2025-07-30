@@ -1096,6 +1096,9 @@ function ConnectByBluetooth({
 
       const available =
         await globalThis?.desktopApi?.nobleBle?.checkAvailability();
+      if (available.state === 'unknown') {
+        return;
+      }
       if (available.state === 'unauthorized') {
         console.log('onboarding checkBluetoothStatus: noSystemPermission');
         setBluetoothStatus('noSystemPermission');
@@ -1580,6 +1583,7 @@ export function ConnectYourDevicePage() {
       strategy: IWalletCreationStrategy,
       features: IOneKeyDeviceFeatures,
       isFirmwareVerified?: boolean,
+      forceTransportType?: EHardwareTransportType,
     ) => {
       try {
         navigation.push(EOnboardingPages.FinalizeWalletSetup);
@@ -1590,6 +1594,7 @@ export function ConnectYourDevicePage() {
           features,
           isFirmwareVerified,
           defaultIsTemp: true,
+          forceTransportType,
         };
         if (strategy.createStandardWalletOnly) {
           await actions.current.createHWWalletWithoutHidden(params);
@@ -1675,7 +1680,13 @@ export function ConnectYourDevicePage() {
         return;
       }
 
-      await createHwWallet(device, strategy, features, isFirmwareVerified);
+      await createHwWallet(
+        device,
+        strategy,
+        features,
+        isFirmwareVerified,
+        forceTransportType,
+      );
     },
     [
       extractDeviceState,
