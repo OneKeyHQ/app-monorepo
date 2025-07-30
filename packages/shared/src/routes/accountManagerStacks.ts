@@ -20,6 +20,8 @@ export type IAccountSelectorRouteParamsExtraConfig = {
   linkNetwork?: boolean;
   editable?: boolean;
   hideNonBackedUpWallet?: boolean;
+  keepAllOtherAccounts?: boolean;
+  allowSelectEmptyAccount?: boolean;
 };
 
 export type IExportAccountSecretKeysRouteParams = {
