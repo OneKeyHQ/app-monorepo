@@ -10,6 +10,7 @@ import {
   SegmentControl,
   SizableText,
   Stack,
+  YStack,
 } from '@onekeyhq/components';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -67,7 +68,7 @@ export function PrimeTransferHome({
 
       <PrimeTransferServerStatusBar />
 
-      <Stack px="$4" gap="$4" mt="$2">
+      <Stack px="$4" gap="$5" mt="$2">
         <SegmentControl
           fullWidth
           value={value}
@@ -91,12 +92,16 @@ export function PrimeTransferHome({
 
         <Divider />
 
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.transfer_qr_stepall_desc })}
-        </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.transfer_qr_stepall_desc2 })}
-        </SizableText>
+        <YStack gap="$1.5">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.transfer_qr_stepall_desc })}
+          </SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.transfer_qr_stepall_desc2,
+            })}
+          </SizableText>
+        </YStack>
         <Stack h="$4" />
       </Stack>
     </>
