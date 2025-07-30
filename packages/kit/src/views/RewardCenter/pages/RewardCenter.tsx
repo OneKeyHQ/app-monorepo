@@ -11,6 +11,7 @@ import {
   Divider,
   Form,
   Input,
+  NavCloseButton,
   Page,
   SizableText,
   Skeleton,
@@ -51,6 +52,7 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 
 import type { RouteProp } from '@react-navigation/core';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 
 const networkIdsMap = getNetworkIdsMap();
 
@@ -82,6 +84,8 @@ function RewardCenterDetails() {
 
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { confirmAccountSelect } = useAccountSelectorActions().current;
+
+  const navigation = useAppNavigation();
 
   const { result: rewardState, isLoading: isLoadingRewardState } =
     usePromiseResult(
@@ -636,7 +640,7 @@ function RewardCenterDetails() {
     isClaimResourceAvailable,
   ]);
 
-  const headerRight = useCallback(() => {
+  const renderHeaderRight = useCallback(() => {
     if (!showAccountSelector) {
       return null;
     }
@@ -653,13 +657,34 @@ function RewardCenterDetails() {
     );
   }, [showAccountSelector]);
 
+  const renderHeaderLeft = useCallback(() => {
+    if (showAccountSelector) {
+      return (
+        <XStack alignItems="center" gap="$4">
+          <NavCloseButton onPress={() => navigation.pop()} />
+          <SizableText size="$headingLg">
+            {intl.formatMessage({
+              id: ETranslations.wallet_subsidy_redeem_title,
+            })}
+          </SizableText>
+        </XStack>
+      );
+    }
+    return null;
+  }, [showAccountSelector, intl, navigation]);
+
   return (
     <Page>
       <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.wallet_subsidy_redeem_title,
-        })}
-        headerRight={headerRight}
+        title={
+          showAccountSelector
+            ? ''
+            : intl.formatMessage({
+                id: ETranslations.wallet_subsidy_redeem_title,
+              })
+        }
+        headerRight={renderHeaderRight}
+        headerLeft={renderHeaderLeft}
       />
       <Page.Body px="$5">
         <Alert
