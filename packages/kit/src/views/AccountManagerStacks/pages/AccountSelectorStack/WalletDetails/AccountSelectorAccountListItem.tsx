@@ -2,12 +2,10 @@ import { useCallback, useMemo } from 'react';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import { IconButton, SizableText, Stack, XStack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
   useActiveAccount,
@@ -56,9 +54,11 @@ export function AccountSelectorAccountListItem({
   selectedAccount,
   accountsValue,
   linkNetwork,
+  allowSelectEmptyAccount,
   editable,
   accountsCount,
   focusedWalletInfo,
+  mergeDeriveAssetsEnabled,
 }: {
   num: number;
   linkedNetworkId: string | undefined;
@@ -73,6 +73,7 @@ export function AccountSelectorAccountListItem({
     currency: string | undefined;
   }[];
   linkNetwork: boolean | undefined;
+  allowSelectEmptyAccount: boolean | undefined;
   editable: boolean;
   accountsCount: number;
   focusedWalletInfo:
@@ -81,6 +82,7 @@ export function AccountSelectorAccountListItem({
         device: IDBDevice | undefined;
       }
     | undefined;
+  mergeDeriveAssetsEnabled: boolean | undefined;
 }) {
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
@@ -165,56 +167,6 @@ export function AccountSelectorAccountListItem({
   ]);
 
   const subTitleInfo = useMemo(() => buildSubTitleInfo(), [buildSubTitleInfo]);
-
-  const currentNetworkAccount = usePromiseResult(async () => {
-    if (
-      !subTitleInfo.isEmptyAddress &&
-      !subTitleInfo.linkedNetworkId &&
-      !subTitleInfo.address &&
-      network &&
-      network.id &&
-      !networkUtils.isAllNetwork({
-        networkId: network.id,
-      }) &&
-      indexedAccount?.id
-    ) {
-      const [deriveType, vaultSettings] = await Promise.all([
-        backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId: network.id,
-        }),
-        backgroundApiProxy.serviceNetwork.getVaultSettings({
-          networkId: network.id,
-        }),
-      ]);
-
-      const { accounts: currentNetworkAccounts } =
-        await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
-          indexedAccountIds: [indexedAccount?.id],
-          networkId: network.id,
-          deriveType,
-        });
-
-      if (currentNetworkAccounts[0]) {
-        return {
-          address:
-            currentNetworkAccounts?.[0]?.address &&
-            !vaultSettings.mergeDeriveAssetsEnabled
-              ? accountUtils.shortenAddress({
-                  address: currentNetworkAccounts[0]?.address,
-                })
-              : '',
-          accountId: currentNetworkAccounts?.[0]?.id,
-          mergeDeriveAssetsEnabled: vaultSettings.mergeDeriveAssetsEnabled,
-        };
-      }
-    }
-  }, [
-    indexedAccount?.id,
-    network,
-    subTitleInfo.address,
-    subTitleInfo.isEmptyAddress,
-    subTitleInfo.linkedNetworkId,
-  ]).result;
 
   // TODO performance
   const accountValue = useMemo(
@@ -317,15 +269,12 @@ export function AccountSelectorAccountListItem({
   ]);
 
   const canConfirmAccountSelectPress = useMemo(
-    () => !shouldShowCreateAddressButton,
-    [shouldShowCreateAddressButton],
+    () => allowSelectEmptyAccount || !shouldShowCreateAddressButton,
+    [allowSelectEmptyAccount, shouldShowCreateAddressButton],
   );
 
   const renderAccountValue = useCallback(() => {
-    if (
-      platformEnv.isE2E ||
-      (linkNetwork && !currentNetworkAccount?.address && !subTitleInfo.address)
-    )
+    if (platformEnv.isE2E || (linkNetwork && !subTitleInfo.address))
       return null;
 
     return (
@@ -335,17 +284,11 @@ export function AccountSelectorAccountListItem({
           index={index}
           accountValue={accountValue}
           indexedAccountId={indexedAccount?.id}
-          linkedAccountId={
-            indexedAccount?.associateAccount?.id ??
-            currentNetworkAccount?.accountId ??
-            item.id
-          }
+          linkedAccountId={indexedAccount?.associateAccount?.id ?? item.id}
           linkedNetworkId={avatarNetworkId ?? network?.id}
-          mergeDeriveAssetsEnabled={
-            currentNetworkAccount?.mergeDeriveAssetsEnabled
-          }
+          mergeDeriveAssetsEnabled={mergeDeriveAssetsEnabled}
         />
-        {currentNetworkAccount?.address || subTitleInfo.address ? (
+        {subTitleInfo.address ? (
           <Stack
             mx="$1.5"
             w="$1"
@@ -358,9 +301,6 @@ export function AccountSelectorAccountListItem({
     );
   }, [
     linkNetwork,
-    currentNetworkAccount?.address,
-    currentNetworkAccount?.accountId,
-    currentNetworkAccount?.mergeDeriveAssetsEnabled,
     subTitleInfo.address,
     isOthersUniversal,
     index,
@@ -370,6 +310,7 @@ export function AccountSelectorAccountListItem({
     item.id,
     avatarNetworkId,
     network?.id,
+    mergeDeriveAssetsEnabled,
   ]);
 
   return (
@@ -399,7 +340,7 @@ export function AccountSelectorAccountListItem({
             secondary={
               <XStack
                 key={`${focusedWalletInfo?.wallet?.id || ''}-${item.id}-${
-                  currentNetworkAccount?.address || subTitleInfo.address
+                  subTitleInfo.address
                 }`}
                 alignItems="center"
               >
@@ -408,8 +349,7 @@ export function AccountSelectorAccountListItem({
                   num={num}
                   linkedNetworkId={subTitleInfo.linkedNetworkId}
                   address={accountUtils.shortenAddress({
-                    address:
-                      currentNetworkAccount?.address || subTitleInfo.address,
+                    address: subTitleInfo.address,
                     leadingLength: 6,
                     trailingLength: 4,
                   })}
@@ -422,7 +362,7 @@ export function AccountSelectorAccountListItem({
         {...(canConfirmAccountSelectPress && {
           onPress: async () => {
             // show CreateAddress Button here, disabled confirmAccountSelect()
-            if (shouldShowCreateAddressButton) {
+            if (!allowSelectEmptyAccount && shouldShowCreateAddressButton) {
               return;
             }
             if (isOthersUniversal) {
