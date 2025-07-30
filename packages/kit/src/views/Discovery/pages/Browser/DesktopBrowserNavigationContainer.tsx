@@ -42,12 +42,12 @@ function DesktopBrowserNavigationBar({
     removeBrowserBookmark,
   } = useBrowserBookmarkAction().current;
   const [innerRef, setInnerRef] = useState<IElectronWebView>(
-    webviewRefs[id]?.innerRef as unknown as IElectronWebView,
+    webviewRefs[id]?.innerRef as IElectronWebView,
   );
 
   useEffect(() => {
     if (tab?.refReady) {
-      setInnerRef(webviewRefs[id]?.innerRef as unknown as IElectronWebView);
+      setInnerRef(webviewRefs[id]?.innerRef as IElectronWebView);
     }
   }, [id, tab?.refReady]);
 

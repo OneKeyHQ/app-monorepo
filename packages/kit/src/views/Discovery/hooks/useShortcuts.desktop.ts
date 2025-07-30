@@ -60,8 +60,7 @@ export const useDiscoveryShortcuts = () => {
           if (isAtBrowserTab.current) {
             try {
               const url = (
-                webviewRefs[activeTabId ?? '']
-                  ?.innerRef as unknown as IElectronWebView
+                webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
               )?.getURL();
               if (url) {
                 copyText(url);
@@ -75,8 +74,7 @@ export const useDiscoveryShortcuts = () => {
           if (isAtBrowserTab.current) {
             try {
               (
-                webviewRefs[activeTabId ?? '']
-                  ?.innerRef as unknown as IElectronWebView
+                webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
               )?.goForward();
             } catch {
               // empty
@@ -87,8 +85,7 @@ export const useDiscoveryShortcuts = () => {
           if (isAtBrowserTab.current) {
             try {
               (
-                webviewRefs[activeTabId ?? '']
-                  ?.innerRef as unknown as IElectronWebView
+                webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
               )?.goBack();
             } catch {
               // empty
@@ -99,8 +96,7 @@ export const useDiscoveryShortcuts = () => {
           if (isAtBrowserTab.current) {
             try {
               (
-                webviewRefs[activeTabId ?? '']
-                  ?.innerRef as unknown as IElectronWebView
+                webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
               )?.reload();
             } catch {
               // empty

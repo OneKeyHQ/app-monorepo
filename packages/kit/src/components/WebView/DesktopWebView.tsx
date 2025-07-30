@@ -240,7 +240,7 @@ const DesktopWebView = forwardRef(
         },
       };
       jsBridgeHost.webviewWrapper = wrapper;
-      return wrapper as unknown as IWebViewRef;
+      return wrapper as IWebViewRef;
     });
 
     const initWebviewByRef = useCallback(($ref: any) => {
