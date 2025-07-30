@@ -104,7 +104,6 @@ export type IStackNavigationOptions = Omit<
   NativeStackNavigationOptions,
   'headerRight' | 'headerSearchBarOptions'
 > & {
-  // If this property is set, please ensure that `Page.skipLoading` is set to `platformEnv.isNativeIOS`.
   headerSearchBarOptions?: INavSearchBarProps;
   headerRight?: (
     props: any,
