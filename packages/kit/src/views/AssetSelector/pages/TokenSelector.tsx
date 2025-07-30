@@ -311,6 +311,7 @@ function TokenSelector() {
 
   return (
     <Page
+      lazyLoad
       safeAreaEnabled={false}
       onClose={() => setSearchKey('')}
       onUnmounted={() => setSearchKey('')}

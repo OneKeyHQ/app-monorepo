@@ -6,7 +6,7 @@ import { AnimatePresence, useThemeName } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { EPageType, useIsModalPage } from '../../hocs';
+import { useIsModalPage } from '../../hocs';
 import { useIsIpadLandscape } from '../../hooks/useOrientation';
 import { Spinner, Stack, View } from '../../primitives';
 
@@ -116,18 +116,17 @@ function LoadingScreen({
 
 export function BasicPage({
   children,
-  skipLoading = true,
+  lazyLoad = false,
   fullPage = false,
 }: IBasicPageProps) {
   return (
     <Stack bg="$bgApp" flex={1}>
       {platformEnv.isNativeIOS ? <PageStatusBar /> : undefined}
-      {/* {skipLoading ? (
-        children
-      ) : (
+      {lazyLoad ? (
         <LoadingScreen fullPage={fullPage}>{children}</LoadingScreen>
-      )} */}
-      {children}
+      ) : (
+        children
+      )}
     </Stack>
   );
 }

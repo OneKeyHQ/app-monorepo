@@ -438,6 +438,7 @@ function BasicPopover({
   renderTrigger,
   sheetProps,
   trackID,
+  keepChildrenMounted,
   ...rest
 }: IPopoverProps) {
   const { isOpen, onOpenChange, openPopover, closePopover } = usePopoverValue(
@@ -470,7 +471,7 @@ function BasicPopover({
         {renderTrigger ? (
           <Trigger onPress={openPopover}>{renderTrigger}</Trigger>
         ) : null}
-        {isOpen ? (
+        {isOpen || keepChildrenMounted ? (
           <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
             <ModalNavigatorContext.Provider value={modalNavigatorContext}>
               <PageContext.Provider value={pageContextValue}>
