@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Page } from '@onekeyhq/components';
 import {
@@ -45,6 +45,13 @@ function PageFirmwareUpdateInstall() {
 
             */
 
+  const [isShowExitPrevent, setIsShowExitPrevent] = useState(false);
+  useEffect(() => {
+    setTimeout(() => {
+      setIsShowExitPrevent(true);
+    }, 1000);
+  }, []);
+  console.log('stepInfo.step', stepInfo);
   const content = useMemo(() => {
     if (
       stepInfo.step === EFirmwareUpdateSteps.updateStart ||
@@ -56,7 +63,7 @@ function PageFirmwareUpdateInstall() {
       const isDone = stepInfo.step === EFirmwareUpdateSteps.updateDone;
       return (
         <>
-          {!isDone ? (
+          {!isDone && isShowExitPrevent ? (
             <>
               <FirmwareUpdateWarningMessage />
               <FirmwareUpdateExitPrevent />
@@ -68,9 +75,9 @@ function PageFirmwareUpdateInstall() {
     }
 
     if (stepInfo.step === EFirmwareUpdateSteps.error) {
-      requestAnimationFrame(() => {
+      setTimeout(() => {
         navigation.pop();
-      });
+      }, 350);
       return <FirmwareUpdateExitPrevent shouldPreventRemove={false} />;
     }
 
@@ -79,7 +86,7 @@ function PageFirmwareUpdateInstall() {
         <FirmwareLatestVersionInstalled />
       </>
     );
-  }, [stepInfo.step, result, navigation]);
+  }, [stepInfo.step, isShowExitPrevent, result, navigation]);
 
   return (
     <Page
