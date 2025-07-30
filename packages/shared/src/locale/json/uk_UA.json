@@ -2372,6 +2372,7 @@
   "send.password_validation": "Пароль повинен містити від 8 до 128 символів.",
   "send.preview_button": "Попередній перегляд",
   "send.recipient_invalid": "Неправильний отримувач. Будь ласка, перевірте та введіть знову",
+  "send.send_to_this_address": "Надіслати на цю адресу",
   "send.sending_str_requires_an_account_balance_of_at_least_str_str": "Для відправлення {0} потрібно мати на балансі рахунку принаймні {1} {2}.",
   "send.str_minimum_balance_is_str": "Невдала спроба відправки. Мінімальний баланс для {token} становить {amount}.",
   "send.str_minimum_transfer": "Мінімальна сума переказу становить {0}.",

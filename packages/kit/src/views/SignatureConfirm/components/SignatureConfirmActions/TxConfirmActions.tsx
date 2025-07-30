@@ -52,6 +52,7 @@ import {
 
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 import TxFeeInfo from '../TxFee';
+import { showCustomHexDataAlert } from '../CustomHexDataAlert';
 
 type IProps = {
   accountId: string;
@@ -125,7 +126,7 @@ function TxConfirmActions(props: IProps) {
       networkId,
     });
 
-  const handleOnConfirm = useCallback(async () => {
+  const submitTxs = useCallback(async () => {
     const { serviceSend, serviceAccount } = backgroundApiProxy;
 
     if (sourceInfo) {
@@ -423,6 +424,20 @@ function TxConfirmActions(props: IProps) {
     shouldRejectDappAction,
   ]);
 
+  const handleOnConfirm = useCallback(async () => {
+    if (decodedTxs[0]?.isCustomHexData) {
+      showCustomHexDataAlert({
+        decodedTx: decodedTxs[0],
+        toAddress: transferPayload?.originalRecipient ?? decodedTxs[0].to ?? '',
+        onConfirm: async () => {
+          await submitTxs();
+        },
+      });
+    } else {
+      await submitTxs();
+    }
+  }, [decodedTxs, submitTxs, transferPayload?.originalRecipient]);
+
   const cancelCalledRef = useRef(false);
   const onCancelOnce = useCallback(() => {
     if (cancelCalledRef.current) {
@@ -449,6 +464,8 @@ function TxConfirmActions(props: IProps) {
     if (decodedTxs?.some((tx) => tx.isConfirmationRequired)) return true;
     return false;
   }, [decodedTxs]);
+
+  console.log('decodedTxs', decodedTxs);
 
   const isSubmitDisabled = useMemo(() => {
     if (showTakeRiskAlert && !continueOperate) return true;
@@ -490,7 +507,7 @@ function TxConfirmActions(props: IProps) {
     <Page.Footer disableKeyboardAnimation>
       <Page.FooterActions
         confirmButtonProps={{
-          disabled: isSubmitDisabled,
+          disabled: false,
           loading: sendTxStatus.isSubmitting,
           variant: showTakeRiskAlert ? 'destructive' : 'primary',
         }}

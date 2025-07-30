@@ -2372,6 +2372,7 @@
   "send.password_validation": "Password must be between 8 and 128 characters.",
   "send.preview_button": "Preview",
   "send.recipient_invalid": "Invalid recipient. Please check and re-enter",
+  "send.send_to_this_address": "Send to this address",
   "send.sending_str_requires_an_account_balance_of_at_least_str_str": "Sending {0} requires an account balance of at least {1} {2}.",
   "send.str_minimum_balance_is_str": "Sending failed. Minimum balance for {token} is {amount}.",
   "send.str_minimum_transfer": "Minimum transfer amount is {0}.",

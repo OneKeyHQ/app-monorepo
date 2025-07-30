@@ -2372,6 +2372,7 @@
   "send.password_validation": "パスワードは8文字から128文字の間でなければなりません。",
   "send.preview_button": "プレビュー",
   "send.recipient_invalid": "無効な受信者です。確認して再入力してください",
+  "send.send_to_this_address": "このアドレスに送信",
   "send.sending_str_requires_an_account_balance_of_at_least_str_str": "{0}を送信するには、少なくとも{1} {2}のアカウント残高が必要です。",
   "send.str_minimum_balance_is_str": "送信に失敗しました。{token}の最低残高は{amount}です。",
   "send.str_minimum_transfer": "最小転送量は{0}です。",

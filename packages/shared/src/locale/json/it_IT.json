@@ -2372,6 +2372,7 @@
   "send.password_validation": "La password deve essere compresa tra 8 e 128 caratteri.",
   "send.preview_button": "Anteprima",
   "send.recipient_invalid": "Destinatario non valido. Si prega di controllare e reinserire",
+  "send.send_to_this_address": "Invia a questo indirizzo",
   "send.sending_str_requires_an_account_balance_of_at_least_str_str": "Per inviare {0} è necessario un saldo contabile di almeno {1} {2}.",
   "send.str_minimum_balance_is_str": "Invio non riuscito. Il saldo minimo per {token} è di {amount}.",
   "send.str_minimum_transfer": "L'importo minimo del trasferimento è {0}.",

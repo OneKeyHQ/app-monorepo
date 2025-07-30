@@ -2372,6 +2372,7 @@
   "send.password_validation": "Mật khẩu phải từ 8 đến 128 ký tự.",
   "send.preview_button": "Xem trước",
   "send.recipient_invalid": "Người nhận không hợp lệ. Vui lòng kiểm tra và nhập lại",
+  "send.send_to_this_address": "Gửi đến địa chỉ này",
   "send.sending_str_requires_an_account_balance_of_at_least_str_str": "Gửi {0} yêu cầu số dư tài khoản tối thiểu là {1} {2}.",
   "send.str_minimum_balance_is_str": "Gửi thất bại. Số dư tối thiểu cho {token} là {amount}.",
   "send.str_minimum_transfer": "Số tiền chuyển tối thiểu là {0}.",

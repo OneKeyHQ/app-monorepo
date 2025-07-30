@@ -2372,6 +2372,7 @@
   "send.password_validation": "รหัสผ่านต้องมีความยาวระหว่าง 8 ถึง 128 ตัวอักษร",
   "send.preview_button": "ดูตัวอย่าง",
   "send.recipient_invalid": "ผู้รับไม่ถูกต้อง กรุณาตรวจสอบและป้อนใหม่",
+  "send.send_to_this_address": "ส่งไปยังที่อยู่นี้",
   "send.sending_str_requires_an_account_balance_of_at_least_str_str": "การส่ง {0} ต้องมียอดเงินในบัญชีอย่างน้อย {1} {2}.",
   "send.str_minimum_balance_is_str": "การส่งไม่สำเร็จ ยอดเงินขั้นต่ำสำหรับ {token} คือ {amount}",
   "send.str_minimum_transfer": "จำนวนเงินที่โอนขั้นต่ำคือ {0}.",
