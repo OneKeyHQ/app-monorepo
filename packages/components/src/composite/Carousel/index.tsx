@@ -132,7 +132,7 @@ export function Carousel<T>({
     height: 0,
   });
 
-  const layoutWidth = useMemo(() => {
+  const pageWidth = useMemo(() => {
     return (
       layout.width - (platformEnv.isNative ? 0 : marginRatio * layout.width)
     );
@@ -173,6 +173,7 @@ export function Carousel<T>({
               ref={pagerRef as RefObject<NativePagerView>}
               style={{ width: layout.width, height: layout.height }}
               initialPage={0}
+              pageWidth={pageWidth}
               onPageSelected={onPageSelected}
               keyboardDismissMode="on-drag"
             >
@@ -180,7 +181,7 @@ export function Carousel<T>({
                 <Stack
                   key={index}
                   style={{
-                    width: layoutWidth,
+                    width: pageWidth,
                     height: '100%',
                   }}
                 >
