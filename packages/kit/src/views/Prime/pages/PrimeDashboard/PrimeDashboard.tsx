@@ -18,7 +18,9 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -179,11 +181,38 @@ export default function PrimeDashboard({
 
         // TODO There was a problem with the store.
         return errorToastUtils.withErrorAutoToast(async () => {
-          const pkgList = await (platformEnv.isNative
-            ? getPackagesNative?.()
-            : getPackagesWeb?.());
-          console.log('pkgList1111111', pkgList);
-          return pkgList;
+          try {
+            const pkgList = await (platformEnv.isNative
+              ? getPackagesNative?.()
+              : getPackagesWeb?.());
+            console.log('pkgList1111111', pkgList);
+            return pkgList;
+          } catch (error) {
+            const e = error as IOneKeyError | undefined;
+
+            console.log(
+              'revenueCatSDK.getPackages() ERROR >>>>>>> ',
+              e,
+              errorUtils.toPlainErrorObject(e),
+            );
+            let shouldThrow = true;
+            if (
+              platformEnv.isNativeAndroid &&
+              e &&
+              e?.code === ('3' as unknown as number) &&
+              e?.message ===
+                'The device or user is not allowed to make the purchase.'
+            ) {
+              // SDK errors:
+              // - There was a problem with the store. (maybe network issue, or not login GooglePlayStore\AppStore)
+              // - The device or user is not allowed to make the purchase.
+              //    (GooglePlay Service not available on this device, so we should not throw error)
+              shouldThrow = false;
+            }
+            if (shouldThrow) {
+              throw error;
+            }
+          }
         });
       },
       [

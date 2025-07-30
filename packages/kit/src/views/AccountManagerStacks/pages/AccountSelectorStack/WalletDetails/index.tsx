@@ -68,7 +68,10 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const route = useAccountSelectorRoute();
   const linkNetwork = route.params?.linkNetwork;
   const isEditableRouteParams = route.params?.editable;
+  const keepAllOtherAccounts = route.params?.keepAllOtherAccounts;
+  const allowSelectEmptyAccount = route.params?.allowSelectEmptyAccount;
   const linkedNetworkId = linkNetwork ? selectedAccount?.networkId : undefined;
+  const selectedNetworkId = selectedAccount?.networkId;
   const [searchText, setSearchText] = useState('');
   const { createQrWallet } = useCreateQrWallet();
 
@@ -103,14 +106,18 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         await serviceAccountSelector.buildAccountSelectorAccountsListData({
           focusedWallet: selectedAccount?.focusedWallet,
           linkedNetworkId,
+          selectedNetworkId,
           deriveType: selectedAccount.deriveType,
           othersNetworkId: selectedAccount?.networkId,
+          keepAllOtherAccounts,
         });
 
       return accountSelectorAccountsListData;
     },
     [
+      keepAllOtherAccounts,
       linkedNetworkId,
+      selectedNetworkId,
       selectedAccount.deriveType,
       selectedAccount?.focusedWallet,
       selectedAccount?.networkId,
@@ -505,6 +512,10 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               editable={editable}
               accountsCount={accountsCount}
               focusedWalletInfo={focusedWalletInfo}
+              allowSelectEmptyAccount={allowSelectEmptyAccount}
+              mergeDeriveAssetsEnabled={
+                listDataResult?.mergeDeriveAssetsEnabled
+              }
             />
           )}
           renderSectionFooter={({
@@ -552,6 +563,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     accountsCount,
     accountsValue,
     actions,
+    allowSelectEmptyAccount,
     createQrWallet,
     editable,
     focusedWalletInfo,
@@ -568,6 +580,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     isOthersUniversal,
     linkNetwork,
     linkedNetworkId,
+    listDataResult?.mergeDeriveAssetsEnabled,
     listViewLayout.height,
     num,
     searchText,
