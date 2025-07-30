@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -74,34 +75,42 @@ export function usePrimePurchaseCallback({
         }
 
         if (platformEnv.isNativeAndroid) {
-          ActionList.show({
-            title: intl.formatMessage({
-              id: ETranslations.prime_subscribe,
-            }),
-            onClose: () => {},
-            sections: [
-              {
-                items: [
-                  {
-                    label: 'Purchase by AppStore/GooglePlay',
-                    onPress: () => {
-                      void handleNativePurchase({
-                        selectedSubscriptionPeriod,
-                      });
+          const isGooglePlayServiceAvailable =
+            await googlePlayService.isAvailable();
+          if (isGooglePlayServiceAvailable) {
+            ActionList.show({
+              title: intl.formatMessage({
+                id: ETranslations.prime_subscribe,
+              }),
+              onClose: () => {},
+              sections: [
+                {
+                  items: [
+                    {
+                      label: 'Purchase by GooglePlay',
+                      onPress: () => {
+                        void handleNativePurchase({
+                          selectedSubscriptionPeriod,
+                        });
+                      },
                     },
-                  },
-                  {
-                    label: 'Purchase by Webview',
-                    onPress: () => {
-                      void purchasePackageWebview({
-                        selectedSubscriptionPeriod,
-                      });
+                    {
+                      label: 'Purchase by Webview',
+                      onPress: () => {
+                        void purchasePackageWebview({
+                          selectedSubscriptionPeriod,
+                        });
+                      },
                     },
-                  },
-                ],
-              },
-            ],
-          });
+                  ],
+                },
+              ],
+            });
+          } else {
+            void purchasePackageWebview({
+              selectedSubscriptionPeriod,
+            });
+          }
           return;
         }
 
