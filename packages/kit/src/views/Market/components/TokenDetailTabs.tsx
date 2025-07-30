@@ -3,7 +3,13 @@ import { memo, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Tabs, YStack, useIsModalPage, useMedia } from '@onekeyhq/components';
+import {
+  Stack,
+  Tabs,
+  YStack,
+  useIsModalPage,
+  useMedia,
+} from '@onekeyhq/components';
 import type { IDeferredPromise } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
@@ -47,15 +53,17 @@ function BasicTokenDetailTabs({
               }),
               // eslint-disable-next-line react/no-unstable-nested-components
               page: (
-                <TokenPriceChart
-                  fallbackToChart={!!token?.fallbackToChart}
-                  tvPlatform={token?.tvPlatform}
-                  isFetching={!token}
-                  tickers={token?.tickers}
-                  coinGeckoId={coinGeckoId}
-                  defer={defer}
-                  symbol={token?.symbol}
-                />
+                <Stack flex={1}>
+                  <TokenPriceChart
+                    fallbackToChart={!!token?.fallbackToChart}
+                    tvPlatform={token?.tvPlatform}
+                    isFetching={!token}
+                    tickers={token?.tickers}
+                    coinGeckoId={coinGeckoId}
+                    defer={defer}
+                    symbol={token?.symbol}
+                  />
+                </Stack>
               ),
             }
           : undefined,
