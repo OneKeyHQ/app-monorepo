@@ -22,7 +22,10 @@ import type { MessageDescriptor } from 'react-intl';
  */
 export function toPlainErrorObject(error: IOneKeyError | undefined) {
   if (!error) {
-    return error;
+    return {
+      name: 'UnknownEmptyError',
+      message: 'Unknown empty error',
+    };
   }
   return omitBy(
     {
