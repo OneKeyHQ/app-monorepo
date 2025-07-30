@@ -68,4 +68,9 @@ export class BrowserScene extends BaseScene {
   public tabDragSorting() {
     return {};
   }
+
+  @LogToLocal()
+  public debugLog(log: string) {
+    return log;
+  }
 }

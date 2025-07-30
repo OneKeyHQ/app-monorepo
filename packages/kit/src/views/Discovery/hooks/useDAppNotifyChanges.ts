@@ -4,6 +4,7 @@ import { throttle } from 'lodash';
 
 import { useIsMounted } from '@onekeyhq/components/src/hocs/Provider/hooks/useIsMounted';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -69,21 +70,30 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
   useEffect(() => {
     if (!platformEnv.isNative && !platformEnv.isDesktop) {
       console.log('not native or not desktop');
+      defaultLogger.discovery.browser.debugLog('not native or not desktop');
       return;
     }
 
     if (!isMountedRef.current) {
       console.log('not mounted');
+      defaultLogger.discovery.browser.debugLog('not mounted');
       return;
     }
 
     if (!tab?.url || !isFocusedInDiscoveryTab) {
       console.log('no url or not focused');
+      if (!tab?.url) {
+        defaultLogger.discovery.browser.debugLog('no url');
+      }
+      if (!isFocusedInDiscoveryTab) {
+        defaultLogger.discovery.browser.debugLog('not focused');
+      }
       return;
     }
 
     if (!webviewRef) {
       console.log('no webviewRef');
+      defaultLogger.discovery.browser.debugLog('no webviewRef');
       return;
     }
 
@@ -91,11 +101,15 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
       const preUrl = new URL(previousUrl);
       const curUrl = new URL(tab.url);
       if (preUrl.origin === curUrl.origin) {
+        defaultLogger.discovery.browser.debugLog('same origin');
         return;
       }
     }
 
     console.log('webview isFocused and notifyChanges: ', tab.url);
+    defaultLogger.discovery.browser.debugLog(
+      `webview isFocused and notifyChanges: ${tab.url}`,
+    );
     if (platformEnv.isDesktop) {
       const innerRef = webviewRef?.innerRef as IElectronWebView | undefined;
 
@@ -121,6 +135,9 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
         };
       }
     } else if (platformEnv.isNative) {
+      defaultLogger.discovery.browser.debugLog(
+        'native platform, notifyChanges, immediately',
+      );
       notifyChanges(tab?.url, 'immediately');
     }
   }, [
