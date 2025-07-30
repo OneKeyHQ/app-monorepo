@@ -11,6 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   IEarnActivateActionIcon,
@@ -194,8 +195,14 @@ function ClaimWithKycDialogContent({
   }, [data?.button]);
 
   const handleLinkPress = useCallback(() => {
-    if (button?.type === 'link' && button.data?.link) {
-      void openUrlExternal(button.data.link);
+    if (button?.type === 'link') {
+      if (button.showIntercom) {
+        void showIntercom();
+        return;
+      }
+      if (button.data?.link) {
+        void openUrlExternal(button.data.link);
+      }
     }
   }, [button]);
 
@@ -263,5 +270,6 @@ export function showClaimWithKycDialog({
     title: actionData.data?.title?.text,
     showFooter: false,
     renderContent: <ClaimWithKycDialogContent data={actionData.data} />,
+    tone: actionData.data?.tone,
   });
 }
