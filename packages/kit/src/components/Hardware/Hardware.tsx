@@ -42,7 +42,231 @@ import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { SHOW_CLOSE_ACTION_MIN_DURATION } from '../../provider/Container/HardwareUiStateContainer/constants';
 import { isPassphraseValid } from '../../utils/passphraseUtils';
 
+import CommunicatingLottieView from './CommunicatingLottieView';
+
 import type { IDeviceType } from '@onekeyfe/hd-core';
+
+function MacBluetoothIllustrationViews({
+  view,
+}: {
+  view: 'paring' | 'system-authorized' | 'user-authorized';
+}) {
+  const themeVariant = useThemeVariant();
+
+  const paringView = useMemo(() => {
+    return (
+      <YStack
+        alignSelf="stretch"
+        alignItems="flex-end"
+        gap="$3"
+        p="$3"
+        bg={themeVariant === 'dark' ? '$gray2' : '$bg'}
+        borderRadius="$2"
+        $platform-web={{
+          boxShadow:
+            '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.1)',
+        }}
+        {...(themeVariant === 'dark' && {
+          outlineWidth: 1,
+          outlineColor: '$whiteA2',
+          outlineStyle: 'solid',
+          outlineOffset: 0,
+        })}
+      >
+        <XStack gap="$3" alignSelf="stretch" alignItems="center">
+          <LinearGradient
+            colors={['$info8', '$info10']}
+            p="$1"
+            borderWidth={1}
+            borderColor="$info7"
+            borderRadius="$2"
+            $platform-web={{
+              boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.10)',
+            }}
+          >
+            <Icon name="BluetoothOutline" color="$iconOnColor" />
+          </LinearGradient>
+          <YStack pt="$1" gap="$1.5">
+            <YStack borderRadius={2} bg="$neutral6" h="$1.5" w={145} />
+            <XStack gap="$2" alignItems="center">
+              <YStack borderRadius={2} bg="$neutral6" h="$1.5" w={35} />
+              <XStack
+                w={102}
+                p={3}
+                gap="$1"
+                borderRadius={2}
+                borderWidth={2}
+                borderColor="$borderInfo"
+                bg="$bg"
+              >
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <YStack
+                    key={index}
+                    borderRadius={2}
+                    bg="$neutral11"
+                    h="$1.5"
+                    w="$1.5"
+                  />
+                ))}
+              </XStack>
+            </XStack>
+          </YStack>
+        </XStack>
+        <XStack gap="$2">
+          <YStack
+            bg={themeVariant === 'dark' ? '$whiteA1' : '$bg'}
+            borderRadius="$1"
+            w="$12"
+            h={15}
+            borderWidth={1}
+            borderColor="$borderSubdued"
+            $platform-web={{
+              boxShadow:
+                '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.10), 0 1px 2px 0 rgba(0, 0, 0, 0.10)',
+            }}
+          />
+          <LinearGradient
+            colors={['$info8', '$info10']}
+            borderRadius="$1"
+            w="$12"
+            h={15}
+            borderWidth={1}
+            borderColor="$info7"
+            $platform-web={{
+              boxShadow:
+                '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.10), 0 1px 2px 0 rgba(0, 0, 0, 0.10)',
+            }}
+          />
+        </XStack>
+      </YStack>
+    );
+  }, [themeVariant]);
+
+  const systemAuthorizedView = useMemo(() => {
+    return (
+      <YStack
+        alignItems="center"
+        gap="$3"
+        w={200}
+        p="$4"
+        bg={themeVariant === 'dark' ? '$gray2' : '$bg'}
+        borderRadius="$2"
+        $platform-web={{
+          boxShadow:
+            '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.1)',
+        }}
+        {...(themeVariant === 'dark' && {
+          outlineWidth: 1,
+          outlineColor: '$whiteA2',
+          outlineStyle: 'solid',
+          outlineOffset: 0,
+        })}
+      >
+        <LinearGradient
+          colors={['$info8', '$info10']}
+          p="$1"
+          borderWidth={1}
+          borderColor="$info7"
+          borderRadius="$2"
+          $platform-web={{
+            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.10)',
+          }}
+        >
+          <Icon
+            name="HandBack2Solid"
+            color="$iconOnColor"
+            style={{
+              transform: [{ rotateY: '180deg' }],
+            }}
+          />
+        </LinearGradient>
+        <YStack gap="$1.5" alignItems="center">
+          <YStack borderRadius={2} bg="$neutral6" h="$1.5" w={88} />
+          <YStack borderRadius={2} bg="$neutral6" h="$1.5" w={66} />
+        </YStack>
+        <XStack gap="$2">
+          <YStack
+            bg={themeVariant === 'dark' ? '$whiteA1' : '$bg'}
+            borderRadius="$1"
+            w="$12"
+            h={15}
+            borderWidth={1}
+            borderColor="$borderSubdued"
+            $platform-web={{
+              boxShadow:
+                '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.10), 0 1px 2px 0 rgba(0, 0, 0, 0.10)',
+            }}
+          />
+          <LinearGradient
+            colors={['$info8', '$info10']}
+            borderRadius="$1"
+            w="$12"
+            h={15}
+            borderWidth={1}
+            borderColor="$info7"
+            $platform-web={{
+              boxShadow:
+                '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.10), 0 1px 2px 0 rgba(0, 0, 0, 0.10)',
+            }}
+          />
+        </XStack>
+      </YStack>
+    );
+  }, [themeVariant]);
+
+  const userAuthorizedView = useMemo(() => {
+    return <SizableText>user-authorized</SizableText>;
+  }, []);
+
+  const getView = useMemo(() => {
+    switch (view) {
+      case 'paring':
+        return paringView;
+      case 'system-authorized':
+        return systemAuthorizedView;
+      case 'user-authorized':
+        return userAuthorizedView;
+      default:
+        return null;
+    }
+  }, [view, paringView, systemAuthorizedView, userAuthorizedView]);
+
+  return (
+    <YStack
+      alignItems="center"
+      p="$8"
+      pb="$6"
+      pt="$3"
+      bg={themeVariant === 'dark' ? '$bgApp' : '$bgSubdued'}
+      borderRadius="$3"
+      borderWidth={1}
+      borderColor={themeVariant === 'dark' ? '$whiteA2' : '$neutral3'}
+      overflow="hidden"
+    >
+      <YStack
+        zIndex={0}
+        position="absolute"
+        left="$4"
+        right="$4"
+        bottom={-48}
+        h={100}
+        bg={themeVariant === 'dark' ? '$whiteA1' : '$bg'}
+        borderRadius="$2"
+        $platform-web={{
+          boxShadow:
+            '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.1)',
+        }}
+        {...(themeVariant === 'dark' && {
+          outlineWidth: 1,
+          outlineColor: '$whiteA2',
+          outlineStyle: 'solid',
+          outlineOffset: 0,
+        })}
+      />
+      {getView}
+    </YStack>
+  );
+}
 
 export interface IConfirmOnDeviceToastContentProps {
   deviceType: IDeviceType;
@@ -148,15 +372,16 @@ export function CommonDeviceLoading({
   bg?: IColorTokens;
 }) {
   return (
-    <Stack
-      borderRadius="$3"
-      p="$5"
-      bg={bg ?? '$bgSubdued'}
-      borderCurve="continuous"
-    >
-      <Spinner size="large" />
-      {children}
-    </Stack>
+    // <Stack
+    //   borderRadius="$3"
+    //   p="$5"
+    //   bg={bg ?? '$bgSubdued'}
+    //   borderCurve="continuous"
+    // >
+    //   <Spinner size="large" />
+    //   {children}
+    // </Stack>
+    <CommunicatingLottieView method="bluetooth" />
   );
 }
 
@@ -875,7 +1100,7 @@ export function DesktopBluetoothPermissionContent({
           available,
         );
         if (available?.available) {
-          void callbackResult(true);
+          void callbackResult(false);
         }
       } catch (error) {
         console.error('Check bluetooth status error:', error);
@@ -890,37 +1115,13 @@ export function DesktopBluetoothPermissionContent({
   }, [promiseId]);
 
   return (
-    <XStack
-      p="$3"
-      gap="$3"
-      alignItems="flex-start"
-      borderRadius="$2"
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor="$borderInfoSubdued"
-      bg="$bgInfoSubdued"
-    >
-      {/* ICON */}
-      <Stack
-        w="$10"
-        h="$10"
-        ai="center"
-        jc="center"
-        borderRadius="$1"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderInfo"
-        background="linear-gradient(180deg, rgba(0, 130, 230, 0.63) 0%, rgba(0, 125, 234, 0.97) 
-100%)"
-      >
-        <Icon name="BluetoothOutline" size="$6" color="$iconOnColor" />
-      </Stack>
-      {/* CONTENT */}
-      <YStack gap="$4" flex={1}>
-        <SizableText size="$bodyMd" color="$text">
-          USB not detected. OneKey tried Bluetooth but lacks permission. Please
-          enable it in System Settings.
-        </SizableText>
-      </YStack>
-    </XStack>
+    <YStack gap="$5">
+      <MacBluetoothIllustrationViews view="system-authorized" />
+      <SizableText size="$bodyMdMedium">
+        USB not detected. OneKey will now try Bluetooth — please allow Bluetooth
+        access when prompted.
+      </SizableText>
+    </YStack>
   );
 }
 
@@ -938,7 +1139,6 @@ export function BluetoothDevicePairingContent({
   promiseId,
 }: IBluetoothDevicePairingContentProps) {
   const isProcessingRef = useRef(false);
-  const themeVariant = useThemeVariant();
 
   // 执行设备配对流程（后台静默执行）
   const executePairingProcess = useCallback(async () => {
@@ -983,120 +1183,7 @@ export function BluetoothDevicePairingContent({
 
   return (
     <YStack gap="$5">
-      <YStack
-        p="$8"
-        pt="$2"
-        bg={themeVariant === 'dark' ? '$bgApp' : '$bgSubdued'}
-        borderRadius="$3"
-        borderWidth={1}
-        borderColor={themeVariant === 'dark' ? '$whiteA2' : '$neutral3'}
-        overflow="hidden"
-      >
-        <YStack
-          zIndex={0}
-          position="absolute"
-          left="$4"
-          right="$4"
-          top={68}
-          h={100}
-          bg={themeVariant === 'dark' ? '$whiteA1' : '$bg'}
-          borderRadius="$2"
-          $platform-web={{
-            boxShadow:
-              '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.1)',
-          }}
-          {...(themeVariant === 'dark' && {
-            outlineWidth: 1,
-            outlineColor: '$whiteA2',
-            outlineStyle: 'solid',
-            outlineOffset: 0,
-          })}
-        />
-        <YStack
-          alignSelf="stretch"
-          alignItems="flex-end"
-          gap="$3"
-          p="$3"
-          bg={themeVariant === 'dark' ? '$gray2' : '$bg'}
-          borderRadius="$2"
-          $platform-web={{
-            boxShadow:
-              '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.1)',
-          }}
-          {...(themeVariant === 'dark' && {
-            outlineWidth: 1,
-            outlineColor: '$whiteA2',
-            outlineStyle: 'solid',
-            outlineOffset: 0,
-          })}
-        >
-          <XStack gap="$3" alignSelf="stretch" alignItems="center">
-            <LinearGradient
-              colors={['$info8', '$info10']}
-              p="$1"
-              borderWidth={1}
-              borderColor="$info7"
-              borderRadius="$2"
-              $platform-web={{
-                boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.10)',
-              }}
-            >
-              <Icon name="BluetoothOutline" color="$iconOnColor" />
-            </LinearGradient>
-            <YStack pt="$1" gap="$1.5">
-              <YStack borderRadius={2} bg="$neutral6" h="$1.5" w={145} />
-              <XStack gap="$2" alignItems="center">
-                <YStack borderRadius={2} bg="$neutral6" h="$1.5" w={35} />
-                <XStack
-                  w={102}
-                  p={3}
-                  gap="$1"
-                  borderRadius={2}
-                  borderWidth={2}
-                  borderColor="$borderInfo"
-                  bg="$bg"
-                >
-                  {Array.from({ length: 6 }).map((_, index) => (
-                    <YStack
-                      key={index}
-                      borderRadius={2}
-                      bg="$neutral11"
-                      h="$1.5"
-                      w="$1.5"
-                    />
-                  ))}
-                </XStack>
-              </XStack>
-            </YStack>
-          </XStack>
-          <XStack gap="$2">
-            <YStack
-              bg={themeVariant === 'dark' ? '$whiteA1' : '$bg'}
-              borderRadius="$1"
-              w="$12"
-              h={15}
-              borderWidth={1}
-              borderColor="$borderSubdued"
-              $platform-web={{
-                boxShadow:
-                  '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.10), 0 1px 2px 0 rgba(0, 0, 0, 0.10)',
-              }}
-            />
-            <LinearGradient
-              colors={['$info8', '$info10']}
-              borderRadius="$1"
-              w="$12"
-              h={15}
-              borderWidth={1}
-              borderColor="$info7"
-              $platform-web={{
-                boxShadow:
-                  '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.10), 0 1px 2px 0 rgba(0, 0, 0, 0.10)',
-              }}
-            />
-          </XStack>
-        </YStack>
-      </YStack>
+      <MacBluetoothIllustrationViews view="paring" />
       <SizableText size="$bodyMdMedium">
         USB not detected. Switching to Bluetooth pairing.
       </SizableText>
@@ -1128,9 +1215,7 @@ export function BluetoothPermissionUnauthorizedContent() {
 
   return (
     <YStack gap="$5">
-      <Stack borderRadius="$3" p="$5" bg="$bgSubdued" borderCurve="continuous">
-        <Spinner size="large" />
-      </Stack>
+      <CommunicatingLottieView method="usb" />
 
       <XStack
         p="$3"
