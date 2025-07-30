@@ -8,13 +8,11 @@ import { View } from '../../primitives';
 function ToastContainer() {
   if (platformEnv.isNativeIOS) {
     // TODO:
-    // On iOS, need to create a higher level native view layer above window overlay 
+    // On iOS, need to create a higher level native view layer above window overlay
     //  to ensure toasts are always visible
     return <Toasts />;
   }
-  return platformEnv.isNativeIOS ? (
-    <Toasts />
-  ) : (
+  return (
     <View
       position="absolute"
       left={0}
