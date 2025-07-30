@@ -20,9 +20,12 @@ import type { MessageDescriptor } from 'react-intl';
  * @param {Object} error - The error object to convert. It may have properties such as name, message, stack (js native Error), code, data (Web3RpcError), className, info, key (OneKeyError).
  * @returns {Object} A plain object with properties: name, message, code, data, className, info, key, stack. If the platform is Android hermes engine, the stack property will be a specific error message.
  */
-export function toPlainErrorObject(error: IOneKeyError) {
+export function toPlainErrorObject(error: IOneKeyError | undefined) {
   if (!error) {
-    return error;
+    return {
+      name: 'UnknownEmptyError',
+      message: 'Unknown empty error',
+    };
   }
   return omitBy(
     {

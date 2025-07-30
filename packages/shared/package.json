@@ -13,6 +13,7 @@
   "license": "SEE https://github.com/OneKeyHQ/app-monorepo/blob/onekey/LICENSE.md",
   "private": true,
   "dependencies": {
+    "@types/ethereumjs-util": "^6.1.2",
     "@types/webextension-polyfill": "^0.8.2",
     "async-mutex": "^0.3.2",
     "fast-safe-stringify": "^2.1.1",
