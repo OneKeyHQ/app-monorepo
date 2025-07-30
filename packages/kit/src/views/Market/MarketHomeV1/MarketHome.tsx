@@ -129,7 +129,12 @@ function MarketHome() {
             {platformEnv.isNative ? (
               tab.page
             ) : (
-              <YStack flex={1}>{tab.page}</YStack>
+              <Tabs.ScrollView
+                scrollEnabled={false}
+                contentContainerStyle={{ overflow: 'hidden' }}
+              >
+                {tab.page}
+              </Tabs.ScrollView>>
             )}
           </Tabs.Tab>
         ))}
