@@ -68,4 +68,22 @@ export class BrowserScene extends BaseScene {
   public tabDragSorting() {
     return {};
   }
+
+  @LogToLocal()
+  public dappNotifyChangesDebug(params: {
+    event: string;
+    tabId?: string | null;
+    [key: string]: any;
+  }) {
+    return params;
+  }
+
+  @LogToLocal()
+  public headerRightToolBarDebug(params: {
+    event: string;
+    tabId?: string | null;
+    [key: string]: any;
+  }) {
+    return params;
+  }
 }

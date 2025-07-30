@@ -4,6 +4,7 @@ import { throttle } from 'lodash';
 
 import { useIsMounted } from '@onekeyhq/components/src/hocs/Provider/hooks/useIsMounted';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -43,18 +44,52 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
 
   const webviewRef = getWebviewWrapperRef(tabId ?? '');
   const [isFocusedInDiscoveryTab, setIsFocusedInDiscoveryTab] = useState(false);
+  
+  defaultLogger.discovery.browser.dappNotifyChangesDebug({
+    event: 'Hook_initialized',
+    tabId,
+    hasTab: !!tab,
+    tabUrl: tab?.url,
+    isMounted: isMountedRef.current,
+    hasWebviewRef: !!webviewRef,
+    isFocusedInDiscoveryTab,
+  });
+
   useListenTabFocusState([ETabRoutes.MultiTabBrowser], (isFocus) => {
+    defaultLogger.discovery.browser.dappNotifyChangesDebug({
+      event: 'MultiTabBrowser_focus_changed',
+      tabId,
+      isFocus,
+      previousFocusState: isFocusedInDiscoveryTab,
+    });
     setIsFocusedInDiscoveryTab(isFocus);
   });
+  
   useListenTabFocusState([ETabRoutes.Discovery], (isFocus) => {
     if (platformEnv.isNative) {
+      defaultLogger.discovery.browser.dappNotifyChangesDebug({
+        event: 'Discovery_tab_focus_changed_native',
+        tabId,
+        isFocus,
+        previousFocusState: isFocusedInDiscoveryTab,
+      });
       setIsFocusedInDiscoveryTab(isFocus);
     }
   });
+  
   const previousUrl = usePrevious(tab?.url);
 
   // reconnect jsBridge
   useEffect(() => {
+    defaultLogger.discovery.browser.dappNotifyChangesDebug({
+      event: 'Reconnect_jsBridge_effect',
+      tabId,
+      isNativeOrDesktop: platformEnv.isNative || platformEnv.isDesktop,
+      hasWebviewRef: !!webviewRef,
+      hasJsBridge: !!webviewRef?.jsBridge,
+      isFocusedInDiscoveryTab,
+    });
+    
     if (!platformEnv.isNative && !platformEnv.isDesktop) {
       return;
     }
@@ -67,22 +102,55 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
 
   // sent accountChanged notification
   useEffect(() => {
+    const debugInfo = {
+      tabId,
+      isNativeOrDesktop: platformEnv.isNative || platformEnv.isDesktop,
+      isMounted: isMountedRef.current,
+      hasTab: !!tab,
+      tabUrl: tab?.url,
+      isFocusedInDiscoveryTab,
+      hasWebviewRef: !!webviewRef,
+      previousUrl,
+      urlChanged: previousUrl !== tab?.url,
+    };
+
+    defaultLogger.discovery.browser.dappNotifyChangesDebug({
+      event: 'Account_notification_effect_triggered',
+      ...debugInfo,
+    });
+
     if (!platformEnv.isNative && !platformEnv.isDesktop) {
+      defaultLogger.discovery.browser.dappNotifyChangesDebug({
+        event: 'Early_exit_not_native_or_desktop',
+        ...debugInfo,
+      });
       console.log('not native or not desktop');
       return;
     }
 
     if (!isMountedRef.current) {
+      defaultLogger.discovery.browser.dappNotifyChangesDebug({
+        event: 'Early_exit_not_mounted',
+        ...debugInfo,
+      });
       console.log('not mounted');
       return;
     }
 
     if (!tab?.url || !isFocusedInDiscoveryTab) {
+      defaultLogger.discovery.browser.dappNotifyChangesDebug({
+        event: 'Early_exit_no_url_or_not_focused',
+        ...debugInfo,
+      });
       console.log('no url or not focused');
       return;
     }
 
     if (!webviewRef) {
+      defaultLogger.discovery.browser.dappNotifyChangesDebug({
+        event: 'Early_exit_no_webviewRef',
+        ...debugInfo,
+      });
       console.log('no webviewRef');
       return;
     }
@@ -91,25 +159,57 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
       const preUrl = new URL(previousUrl);
       const curUrl = new URL(tab.url);
       if (preUrl.origin === curUrl.origin) {
+        defaultLogger.discovery.browser.dappNotifyChangesDebug({
+          event: 'Early_exit_same_origin',
+          ...debugInfo,
+          previousOrigin: preUrl.origin,
+          currentOrigin: curUrl.origin,
+        });
         return;
       }
     }
+
+    defaultLogger.discovery.browser.dappNotifyChangesDebug({
+      event: 'Proceeding_to_notify_changes',
+      ...debugInfo,
+      platform: platformEnv.isDesktop ? 'desktop' : 'native',
+    });
 
     console.log('webview isFocused and notifyChanges: ', tab.url);
     if (platformEnv.isDesktop) {
       const innerRef = webviewRef?.innerRef as IElectronWebView | undefined;
 
       if (!innerRef) {
+        defaultLogger.discovery.browser.dappNotifyChangesDebug({
+          event: 'Desktop_no_innerRef',
+          ...debugInfo,
+        });
         return;
       }
       // @ts-expect-error
       if (innerRef.__dy) {
+        defaultLogger.discovery.browser.dappNotifyChangesDebug({
+          event: 'Desktop_immediate_notify',
+          ...debugInfo,
+        });
         notifyChanges(tab.url, 'immediately');
       } else {
+        defaultLogger.discovery.browser.dappNotifyChangesDebug({
+          event: 'Desktop_setting_up_dom_ready_listener',
+          ...debugInfo,
+        });
         const timer = setTimeout(() => {
+          defaultLogger.discovery.browser.dappNotifyChangesDebug({
+            event: 'Desktop_timeout_notify',
+            ...debugInfo,
+          });
           notifyChanges(tab.url, 'setTimeout');
         }, 1000);
         const onDomReady = () => {
+          defaultLogger.discovery.browser.dappNotifyChangesDebug({
+            event: 'Desktop_dom_ready_notify',
+            ...debugInfo,
+          });
           notifyChanges(tab.url, 'domReady');
           clearTimeout(timer);
         };
@@ -121,6 +221,10 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
         };
       }
     } else if (platformEnv.isNative) {
+      defaultLogger.discovery.browser.dappNotifyChangesDebug({
+        event: 'Native_immediate_notify',
+        ...debugInfo,
+      });
       notifyChanges(tab?.url, 'immediately');
     }
   }, [
