@@ -403,7 +403,7 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
                     >
                       <EarnIcon
                         icon={item.icon}
-                        size="$4"
+                        size="$6"
                         color="$iconCaution"
                       />
                     </XStack>
