@@ -44,7 +44,7 @@ export function useMarketTokenList({
   } = usePromiseResult(
     async () => {
       // Mobile platforms fetch 1 page, other platforms fetch 3 pages
-      const pageCount = platformEnv.isNative ? 1 : 3;
+      const pageCount = platformEnv.isNative ? 1 : 2;
       const pageNumbers = Array.from({ length: pageCount }, (_, i) => i + 1);
 
       const promises = pageNumbers.map((page) =>
