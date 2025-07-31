@@ -227,7 +227,7 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
             />
           </Stack>
         ) : null}
-        <XStack mx="$0.5" gap="$1">
+        <XStack mx="$0.5" gap="$1" flexWrap="wrap" flexShrink={1}>
           {result.addressBadges?.map((badge) => (
             <AddressBadge
               key={badge.label}

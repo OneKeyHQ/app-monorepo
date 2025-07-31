@@ -157,72 +157,62 @@ export function HomePageView({
   }, []);
 
   const tabContainerWidth: any = useTabContainerWidth();
-  const tabContainerProps = useMemo(() => {
-    return {
-      width: tabContainerWidth,
-      headerContainerStyle: {
-        shadowOpacity: 0,
-        elevation: 0,
-      },
-      pagerProps: {
-        scrollSensitivity: 4,
-      } as any,
-      renderHeader,
-      renderTabBar: (props: any) => (
-        <Tabs.TabBar
-          {...props}
-          renderToolbar={({ focusedTab }) => (
-            <TabHeaderSettings focusedTab={focusedTab} />
-          )}
-        />
-      ),
-    };
-  }, [renderHeader, tabContainerWidth]);
 
   const tabs = useMemo(() => {
     const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
       network?.id ?? ''
     }-${isNFTEnabled ? '1' : '0'}`;
-    return isNFTEnabled ? (
-      <Tabs.Container {...tabContainerProps} key={key}>
-        <Tabs.Tab
-          name={intl.formatMessage({
-            id: ETranslations.global_crypto,
-          })}
-        >
-          <TokenListContainerWithProvider />
-        </Tabs.Tab>
-        <Tabs.Tab
-          name={intl.formatMessage({
-            id: ETranslations.global_nft,
-          })}
-        >
-          <NFTListContainerWithProvider />
-        </Tabs.Tab>
-        <Tabs.Tab
-          name={intl.formatMessage({
-            id: ETranslations.global_history,
-          })}
-        >
-          <TxHistoryListContainerWithProvider />
-        </Tabs.Tab>
-      </Tabs.Container>
-    ) : (
-      <Tabs.Container {...tabContainerProps} key={key}>
-        <Tabs.Tab
-          name={intl.formatMessage({
-            id: ETranslations.global_crypto,
-          })}
-        >
-          <TokenListContainerWithProvider />
-        </Tabs.Tab>
-        <Tabs.Tab
-          name={intl.formatMessage({
-            id: ETranslations.global_history,
-          })}
-        >
-          <TxHistoryListContainerWithProvider />
-        </Tabs.Tab>
+    const tabConfigs = [
+      {
+        name: intl.formatMessage({
+          id: ETranslations.global_crypto,
+        }),
+        component: <TokenListContainerWithProvider />,
+      },
+      isNFTEnabled
+        ? {
+            name: intl.formatMessage({
+              id: ETranslations.global_nft,
+            }),
+            component: <NFTListContainerWithProvider />,
+          }
+        : undefined,
+      {
+        name: intl.formatMessage({
+          id: ETranslations.global_history,
+        }),
+        component: <TxHistoryListContainerWithProvider />,
+      },
+    ].filter(Boolean);
+    return (
+      <Tabs.Container
+        key={key}
+        allowHeaderOverscroll
+        width={tabContainerWidth}
+        headerContainerStyle={{
+          shadowOpacity: 0,
+          elevation: 0,
+        }}
+        pagerProps={
+          {
+            scrollSensitivity: 4,
+          } as any
+        }
+        renderHeader={renderHeader}
+        renderTabBar={(props: any) => (
+          <Tabs.TabBar
+            {...props}
+            renderToolbar={({ focusedTab }) => (
+              <TabHeaderSettings focusedTab={focusedTab} />
+            )}
+          />
+        )}
+      >
+        {tabConfigs.map((tab) => (
+          <Tabs.Tab key={tab.name} name={tab.name}>
+            {tab.component}
+          </Tabs.Tab>
+        ))}
       </Tabs.Container>
     );
   }, [
@@ -231,7 +221,8 @@ export function HomePageView({
     intl,
     isNFTEnabled,
     network?.id,
-    tabContainerProps,
+    renderHeader,
+    tabContainerWidth,
   ]);
 
   useEffect(() => {

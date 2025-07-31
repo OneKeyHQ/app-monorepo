@@ -1,6 +1,10 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
+import { useWindowDimensions } from 'react-native';
 import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
+import { useDebouncedCallback } from 'use-debounce';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Divider } from '../../content';
 import { ScrollView } from '../../layouts';
@@ -62,6 +66,7 @@ export function TabBarItem({
 }
 
 export interface ITabBarProps extends TabBarProps<string> {
+  containerStyle?: IYStackProps;
   renderToolbar?: ({ focusedTab }: { focusedTab: string }) => React.ReactNode;
 }
 
@@ -74,6 +79,7 @@ export function TabBar({
   divider = true,
   tabItemStyle,
   focusedTabStyle,
+  containerStyle,
   scrollable = false,
 }: Omit<Partial<ITabBarProps>, 'focusedTab' | 'tabNames'> & {
   focusedTab: SharedValue<string>;
@@ -97,6 +103,7 @@ export function TabBar({
   const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
   const scrollViewRef = useRef<IScrollViewRef>(null);
   const scrollViewTimerId = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const windowWidth = useWindowDimensions().width;
 
   const scrollToTab = useCallback(
     (tabName: string) => {
@@ -105,24 +112,28 @@ export function TabBar({
       }
       if (scrollViewRef.current) {
         const index = tabNames.findIndex((name) => name === tabName);
+        const distance = 44 * index;
         scrollViewTimerId.current = setTimeout(() => {
+          const diff = (windowWidth / 3) * 2 - distance;
           scrollViewRef.current?.scrollTo({
-            x: 44 * index,
+            x: diff > 0 ? 0 : distance,
             animated: true,
           });
         }, 100);
       }
     },
-    [tabNames],
+    [tabNames, windowWidth],
   );
 
+  const debouncedScrollToTab = useDebouncedCallback(scrollToTab, 50);
+  const debouncedSetCurrentTab = useDebouncedCallback(setCurrentTab, 50);
   useAnimatedReaction(
     () => focusedTab.value,
     (result, previous) => {
       if (result !== previous && previous) {
-        runOnJS(setCurrentTab)(result);
+        runOnJS(debouncedSetCurrentTab)(result);
         if (scrollable && scrollViewRef.current) {
-          runOnJS(scrollToTab)(result);
+          runOnJS(debouncedScrollToTab)(result);
         }
       }
     },
@@ -198,6 +209,7 @@ export function TabBar({
       position={'sticky' as any}
       top={0}
       zIndex={10}
+      {...containerStyle}
     >
       {content}
     </YStack>

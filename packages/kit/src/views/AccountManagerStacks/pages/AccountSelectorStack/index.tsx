@@ -18,7 +18,7 @@ export function AccountSelectorStack({
   hideNonBackedUpWallet?: boolean;
 }) {
   return (
-    <Page safeAreaEnabled={false}>
+    <Page lazyLoad safeAreaEnabled={false}>
       <Page.Header headerShown={false} />
       <Page.Body>
         <XStack flex={1}>

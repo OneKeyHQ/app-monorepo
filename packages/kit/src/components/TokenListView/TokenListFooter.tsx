@@ -13,7 +13,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsPersistAtom,
+  useSettingsValuePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -51,6 +54,8 @@ function TokenListFooter(props: IProps) {
   } = useActiveAccount({ num: 0 });
 
   const [settings] = useSettingsPersistAtom();
+
+  const [{ hideValue }] = useSettingsValuePersistAtom();
 
   const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
 
@@ -100,6 +105,7 @@ function TokenListFooter(props: IProps) {
         },
         deriveType,
         deriveInfo,
+        hideValue,
         isAllNetworks: network.isAllNetworks,
       },
     });
@@ -115,6 +121,7 @@ function TokenListFooter(props: IProps) {
     smallBalanceTokens,
     wallet,
     helpText,
+    hideValue,
   ]);
 
   const handleOnPressRiskyTokens = useCallback(() => {
@@ -133,6 +140,7 @@ function TokenListFooter(props: IProps) {
         deriveType,
         deriveInfo,
         isAllNetworks: network.isAllNetworks,
+        hideValue,
       },
     });
   }, [
@@ -145,6 +153,7 @@ function TokenListFooter(props: IProps) {
     riskyTokenListMap,
     riskyTokens,
     wallet,
+    hideValue,
   ]);
 
   const { result: blockedTokensLength, run } = usePromiseResult(

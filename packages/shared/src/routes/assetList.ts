@@ -32,6 +32,7 @@ export type IModalAssetListParamList = {
     deriveInfo?: IAccountDeriveInfo;
     deriveType?: IAccountDeriveTypes;
     isAllNetworks?: boolean;
+    hideValue?: boolean;
   };
   [EModalAssetListRoutes.TokenManagerModal]: {
     walletId: string;

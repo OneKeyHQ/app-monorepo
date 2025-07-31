@@ -9,11 +9,11 @@ import {
   Input,
   SizableText,
   Skeleton,
-  Spinner,
   XStack,
   YStack,
   useClipboard,
   useForm,
+  useMedia,
 } from '@onekeyhq/components';
 import type { IInputAddOnProps } from '@onekeyhq/components/src/forms/Input/InputAddOnItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -41,6 +41,8 @@ export function PrimeTransferHomeEnterLink({
     reValidateMode: 'onBlur',
     defaultValues: { pairingCode: remotePairingCode || '' },
   });
+
+  const { gtSm } = useMedia();
 
   // Watch form value and sync with existing state
   const watchedPairingCode = form.watch('pairingCode');
@@ -193,11 +195,11 @@ export function PrimeTransferHomeEnterLink({
   return (
     <Form form={form} childrenGap={0}>
       <YStack gap="$1">
-        <SizableText size="$bodyMdMedium">
-          {intl.formatMessage({ id: ETranslations.transfer_pair_code })}
-        </SizableText>
-
         <Form.Field
+          label={intl.formatMessage({ id: ETranslations.transfer_pair_code })}
+          description={intl.formatMessage({
+            id: ETranslations.transfer_enter_pair_code_desc,
+          })}
           name="pairingCode"
           rules={{
             required: {
@@ -282,12 +284,6 @@ export function PrimeTransferHomeEnterLink({
             <Skeleton h={46} w="100%" borderRadius="$2" />
           )}
         </Form.Field>
-
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.transfer_enter_pair_code_desc,
-          })}
-        </SizableText>
       </YStack>
 
       <XStack>
@@ -296,6 +292,8 @@ export function PrimeTransferHomeEnterLink({
           onPress={form.handleSubmit(onSubmit)}
           variant="primary"
           loading={isConnecting}
+          size={gtSm ? 'medium' : 'large'}
+          width={gtSm ? 'auto' : '100%'}
           disabled={
             !form.formState.isValid || isConnecting || !websocketConnected
           }

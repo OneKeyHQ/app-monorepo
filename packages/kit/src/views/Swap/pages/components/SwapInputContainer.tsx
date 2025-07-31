@@ -162,11 +162,11 @@ const SwapInputContainer = ({
       }
       return (
         <XStack alignItems="center">
-          <SizableText size="$bodyMd" color={color}>
+          <SizableText size="$bodySm" color={color}>
             (
           </SizableText>
           <SizableText
-            size="$bodyMd"
+            size="$bodySm"
             color={color}
             cursor="pointer"
             onPress={onRateDifferencePress}
@@ -177,7 +177,7 @@ const SwapInputContainer = ({
           >
             {rateDifference.value}
           </SizableText>
-          <SizableText size="$bodyMd" color={color}>
+          <SizableText size="$bodySm" color={color}>
             )
           </SizableText>
         </XStack>
@@ -262,6 +262,20 @@ const SwapInputContainer = ({
     }
     return false;
   }, [direction, swapTypeSwitch, fromToken, toToken]);
+  const balancePopoverContent = useMemo(() => {
+    if (fromToken?.isNative) {
+      return (
+        <XStack alignItems="center" p="$4">
+          <SizableText size="$bodyMd">
+            {intl.formatMessage({
+              id: ETranslations.swap_native_token_max_tip,
+            })}
+          </SizableText>
+        </XStack>
+      );
+    }
+    return undefined;
+  }, [intl, fromToken?.isNative]);
   return (
     <YStack borderRadius="$3" backgroundColor="$bgSubdued" borderWidth="$0">
       <XStack justifyContent="space-between" pt="$2.5" px="$3.5">
@@ -270,6 +284,7 @@ const SwapInputContainer = ({
           onClickNetwork={onSelectToken}
         />
         <SwapInputActions
+          stagePopoverContent={balancePopoverContent}
           fromToken={fromToken}
           accountInfo={accountInfo}
           showPercentageInput={showPercentageInputDebounce}
@@ -287,6 +302,7 @@ const SwapInputContainer = ({
         }
         balanceProps={{
           value: balance,
+          popoverContent: balancePopoverContent,
           onPress:
             direction === ESwapDirectionType.FROM
               ? onBalanceMaxPress
