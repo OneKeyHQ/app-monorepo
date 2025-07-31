@@ -139,7 +139,14 @@ export function PriceChart({
   const chartViewWithSpinner = isFetching ? <Spinner /> : chartView;
   return gtMd ? (
     <>
-      <XStack justifyContent="space-between" h="$10">
+      <XStack
+        position="absolute"
+        top={0}
+        left="$5"
+        right="$5"
+        justifyContent="space-between"
+        h="$10"
+      >
         {isFetching ? (
           <YStack gap="$2">
             <Skeleton w="$10" h="$3" />
@@ -150,21 +157,18 @@ export function PriceChart({
         )}
         {children}
       </XStack>
-      <Stack
-        mt={32}
-        $gtMd={{ mt: '$1' }}
-        justifyContent="center"
-        alignItems="center"
-      >
+
+      <Stack justifyContent="center" alignItems="center">
         {chartViewWithSpinner}
       </Stack>
     </>
   ) : (
     <>
-      {priceLabel}
-      <Stack h={mdViewHeight} justifyContent="center" alignItems="center">
+      <YStack mt="$4" h={mdViewHeight} justifyContent="center">
+        {priceLabel}
+
         {platformEnv.isNative ? chartView : chartViewWithSpinner}
-      </Stack>
+      </YStack>
     </>
   );
 }
