@@ -78,12 +78,15 @@ function LoadingScreen({
   const [showChildren, changeChildrenVisibleStatus] = useState(false);
 
   useEffect(() => {
-    setTimeout(() => {
-      changeChildrenVisibleStatus(true);
-      setTimeout(() => {
-        changeLoadingVisibleStatus(false);
-      }, 120);
-    }, 0);
+    setTimeout(
+      () => {
+        changeChildrenVisibleStatus(true);
+        setTimeout(() => {
+          changeLoadingVisibleStatus(false);
+        }, 80);
+      },
+      platformEnv.isNativeAndroid ? 50 : 0,
+    );
   }, []);
 
   const minHeight = useMinHeight(fullPage);
