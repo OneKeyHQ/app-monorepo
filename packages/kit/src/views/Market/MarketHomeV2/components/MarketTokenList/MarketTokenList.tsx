@@ -48,7 +48,7 @@ function MarketTokenList({
   sortBy: initialSortBy,
   sortType: initialSortType,
   onItemPress,
-  pageSize = 50,
+  pageSize = 20,
   liquidityFilter,
   toolbar,
 }: IMarketTokenListProps) {

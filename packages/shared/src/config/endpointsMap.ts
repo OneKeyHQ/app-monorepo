@@ -20,11 +20,10 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
       serviceName: EServiceEndpointEnum.Swap,
       env: 'test',
     }),
-    // utility: buildServiceEndpoint({
-    //   serviceName: EServiceEndpointEnum.Utility,
-    //   env: 'test',
-    // }),
-    utility: 'https://1k.lidamao.tech',
+    utility: buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Utility,
+      env: 'test',
+    }),
     lightning: buildServiceEndpoint({
       serviceName: EServiceEndpointEnum.Lightning,
       env: 'test',
@@ -64,11 +63,10 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
       serviceName: EServiceEndpointEnum.Swap,
       env: 'prod',
     }),
-    // utility: buildServiceEndpoint({
-    //   serviceName: EServiceEndpointEnum.Utility,
-    //   env: 'prod',
-    // }),
-    utility: 'https://1k.lidamao.tech',
+    utility: buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Utility,
+      env: 'prod',
+    }),
     lightning: buildServiceEndpoint({
       serviceName: EServiceEndpointEnum.Lightning,
       env: 'prod',
