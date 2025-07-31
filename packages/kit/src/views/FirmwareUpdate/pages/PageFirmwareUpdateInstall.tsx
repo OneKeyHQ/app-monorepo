@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { Page } from '@onekeyhq/components';
 import {
@@ -11,7 +11,6 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { FirmwareInstallingView } from '../components/FirmwareInstallingView';
 import { FirmwareLatestVersionInstalled } from '../components/FirmwareLatestVersionInstalled';
@@ -29,7 +28,6 @@ function PageFirmwareUpdateInstall() {
   >();
   const { result } = route.params;
 
-  const navigation = useAppNavigation();
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
 
   /*
