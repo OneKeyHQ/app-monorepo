@@ -82,7 +82,7 @@ function LoadingScreen({
       changeChildrenVisibleStatus(true);
       setTimeout(() => {
         changeLoadingVisibleStatus(false);
-      }, 50);
+      }, 120);
     }, 0);
   }, []);
 
