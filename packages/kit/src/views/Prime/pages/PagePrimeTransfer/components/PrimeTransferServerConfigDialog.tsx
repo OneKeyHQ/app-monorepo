@@ -41,7 +41,7 @@ function ServerConfigContent({
   const { gtMd } = useMedia();
   const [, setPrimeTransferAtom] = usePrimeTransferAtom();
   const customServerTrimmed = useMemo(
-    () => customServer?.trim() || '',
+    () => customServer?.trim()?.replace(/\/+$/, '') || '',
     [customServer],
   );
 

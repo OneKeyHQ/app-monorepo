@@ -54,6 +54,7 @@ export type IPrimeTransferPrivateData = {
 export type IPrimeTransferData = {
   privateData: IPrimeTransferPrivateData;
   isEmptyData: boolean;
+  isWatchingOnly: boolean;
   appVersion: string;
 };
 
