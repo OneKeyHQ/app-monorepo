@@ -20,7 +20,9 @@ public class MainActivity extends ReactActivity {
     // This is required for expo-splash-screen.
     // setTheme(R.style.AppTheme);
     super.onCreate(null);
-    SplashScreenManager.INSTANCE.registerOnActivity(this);
+    if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R) {
+      SplashScreenManager.INSTANCE.registerOnActivity(this);
+    }
     I18nUtil sharedI18nUtilInstance = I18nUtil.getInstance();
     sharedI18nUtilInstance.allowRTL(getApplicationContext(), true);
   }
