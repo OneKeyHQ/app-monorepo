@@ -7041,22 +7041,6 @@ __metadata:
     bytebuffer: "npm:^5.0.1"
     long: "npm:^4.0.0"
     protobufjs: "npm:^6.11.2"
-<<<<<<< HEAD
-  checksum: 10/9e723339c65dab9ff2801fc201f164aed70bc28c588e5f8a1506c748dd4fb145fdbb4419f4b227947ecd270b2c40cee5cd459fb4f51ccedfd3b360e35d2cd31e
-  languageName: node
-  linkType: hard
-
-"@onekeyfe/hd-web-sdk@npm:1.1.1-alpha.0":
-  version: 1.1.1-alpha.0
-  resolution: "@onekeyfe/hd-web-sdk@npm:1.1.1-alpha.0"
-  dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:^0.0.17"
-    "@onekeyfe/hd-core": "npm:^1.1.1-alpha.0"
-    "@onekeyfe/hd-shared": "npm:^1.1.1-alpha.0"
-    "@onekeyfe/hd-transport-http": "npm:^1.1.1-alpha.0"
-    "@onekeyfe/hd-transport-web-device": "npm:^1.1.1-alpha.0"
-  checksum: 10/858323ecb4b7646c14dc5a3cfefe7710c3ec0d7b79f67d64b229c032c482f95e3499bbd4536b3b0c4178f936d9cf7c814a879f97bf6058a5691e5ded958ff8b1
-=======
   checksum: 10/67784951b68a7e479b485d8357f031c611e17bc25f219552d719fcf076dc8a7e1a275908eb5453916ccce5fb3f363a60a9d81a63495729de54f52528bc4bda41
   languageName: node
   linkType: hard
@@ -7071,7 +7055,6 @@ __metadata:
     "@onekeyfe/hd-transport-http": "npm:^1.1.2-alpha.0"
     "@onekeyfe/hd-transport-web-device": "npm:^1.1.2-alpha.0"
   checksum: 10/e76e60b3c7506182097e4cd3f510f309981ef2defe2c3ad1e8d282626410f8fbe8796306811dec87fe3147ba1865c206ed5ad9be71afd4ac32c7ff2ebd602599
->>>>>>> 9ccc9f86ebe5a1a2f4f1c8bd7106c752807d2edb
   languageName: node
   linkType: hard
 
