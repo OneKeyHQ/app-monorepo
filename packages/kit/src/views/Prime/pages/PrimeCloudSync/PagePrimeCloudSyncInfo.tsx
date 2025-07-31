@@ -276,7 +276,7 @@ function SecurityContent() {
           description={intl.formatMessage({
             id: ETranslations.global_source_code,
           })}
-          link="https://github.com/OneKeyHQ/app-monorepo"
+          link="https://github.com/OneKeyHQ/e2ee-server/tree/main/packages/cloud-sync-server"
         />
       </Stack>
     </Stack>
