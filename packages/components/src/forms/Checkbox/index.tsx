@@ -35,6 +35,7 @@ function RawCheckbox({
   description,
   labelProps,
   onChange,
+  onChangeForDisabled,
   value,
   containerProps,
   labelContainerProps,
@@ -52,6 +53,7 @@ function RawCheckbox({
         event.preventDefault();
       }
       if (checkboxProps.disabled) {
+        onChangeForDisabled?.(!usedValue);
         return;
       }
       if (isUncontrolled) {
@@ -60,11 +62,12 @@ function RawCheckbox({
       onChange?.(!usedValue);
     },
     [
+      shouldStopPropagation,
+      checkboxProps.disabled,
       isUncontrolled,
       onChange,
       usedValue,
-      shouldStopPropagation,
-      checkboxProps.disabled,
+      onChangeForDisabled,
     ],
   );
   return (

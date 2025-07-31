@@ -74,19 +74,23 @@ function PreviewItem({
   selectedItemMapInfo: IPrimeTransferSelectedItemMapInfo;
 }) {
   const itemId = wallet?.id || account?.id || '';
+  const onChange = useCallback(() => {
+    if (!selectedItemMapInfo?.[itemId]?.disabled) {
+      onSelect?.(itemId);
+    } else {
+      Toast.error({
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.transfer_web_only_supports_watch_only_transfer,
+        }),
+      });
+    }
+  }, [itemId, onSelect, selectedItemMapInfo]);
+
   return (
     <XStack
       opacity={selectedItemMapInfo?.[itemId]?.disabled ? 0.5 : 1}
       onPress={() => {
-        if (!selectedItemMapInfo?.[itemId]?.disabled) {
-          onSelect?.(itemId);
-        } else {
-          Toast.error({
-            title: appLocale.intl.formatMessage({
-              id: ETranslations.transfer_web_only_supports_watch_only_transfer,
-            }),
-          });
-        }
+        onChange();
       }}
       p="$4"
       borderRadius="$3"
@@ -100,7 +104,10 @@ function PreviewItem({
           shouldStopPropagation
           value={selectedItemMapInfo[itemId].checked}
           onChange={() => {
-            onSelect?.(itemId);
+            onChange();
+          }}
+          onChangeForDisabled={() => {
+            onChange();
           }}
         />
         {wallet?.avatarInfo ? (
