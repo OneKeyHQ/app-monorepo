@@ -1117,8 +1117,9 @@ export function DesktopBluetoothPermissionContent({
     <YStack gap="$5">
       <MacBluetoothIllustrationViews view="system-authorized" />
       <SizableText size="$bodyMdMedium">
-        USB not detected. OneKey will now try Bluetooth — please allow Bluetooth
-        access when prompted.
+        {intl.formatMessage({
+          id: ETranslations.communication_not_detected_bluetooth_fallback,
+        })}
       </SizableText>
     </YStack>
   );
@@ -1137,6 +1138,7 @@ export function BluetoothDevicePairingContent({
   features,
   promiseId,
 }: IBluetoothDevicePairingContentProps) {
+  const intl = useIntl();
   const isProcessingRef = useRef(false);
 
   // 执行设备配对流程（后台静默执行）
@@ -1184,22 +1186,29 @@ export function BluetoothDevicePairingContent({
     <YStack gap="$5">
       <MacBluetoothIllustrationViews view="paring" />
       <SizableText size="$bodyMdMedium">
-        USB not detected. Switching to Bluetooth pairing.
+        {intl.formatMessage({
+          id: ETranslations.communication_not_detected_bluetooth_not_paired,
+        })}
       </SizableText>
       <YStack gap="$2" pr="$5">
         <XStack gap="$2" alignItems="flex-start">
           <YStack w="$5" alignItems="center" justifyContent="center">
             <SizableText color="$textDisabled">1.</SizableText>
           </YStack>
-          <SizableText>Unlock your device with PIN</SizableText>
+          <SizableText>
+            {intl.formatMessage({
+              id: ETranslations.bluetooth_paring_guides_unlcok,
+            })}
+          </SizableText>
         </XStack>
         <XStack gap="$2" alignItems="flex-start">
           <YStack w="$5" alignItems="center" justifyContent="center">
             <SizableText color="$textDisabled">2.</SizableText>
           </YStack>
           <SizableText>
-            Enter the pair code shown on your device into the prompt, then click
-            “Connect”
+            {intl.formatMessage({
+              id: ETranslations.bluetooth_paring_guides_pair,
+            })}
           </SizableText>
         </XStack>
       </YStack>
@@ -1208,6 +1217,7 @@ export function BluetoothDevicePairingContent({
 }
 
 export function BluetoothPermissionUnauthorizedContent() {
+  const intl = useIntl();
   const handleGoToSettings = useCallback(() => {
     void globalThis.desktopApiProxy.bluetooth.openPrivacySettings();
   }, []);
@@ -1215,48 +1225,28 @@ export function BluetoothPermissionUnauthorizedContent() {
   return (
     <YStack gap="$5">
       <CommunicatingLottieView method="usb" />
-
-      <XStack
-        p="$3"
-        gap="$3"
-        alignItems="flex-start"
-        borderRadius="$2"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderInfoSubdued"
-        bg="$bgInfoSubdued"
-      >
-        <Stack
-          w="$10"
-          h="$10"
-          ai="center"
-          jc="center"
-          borderRadius="$1"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$borderInfo"
-          background="linear-gradient(180deg, rgba(0, 130, 230, 0.63) 0%, rgba(0, 125, 234, 0.97) 
-  100%)"
+      <YStack gap="$2.5">
+        <SizableText size="$bodyMdMedium">
+          {intl.formatMessage({
+            id: ETranslations.communication_not_detected_bluetooth_no_permission,
+          })}
+        </SizableText>
+        <Button
+          size="small"
+          variant="secondary"
+          alignSelf="stretch"
+          onPress={handleGoToSettings}
         >
-          <Icon name="BluetoothOutline" size="$6" color="$iconOnColor" />
-        </Stack>
-        <YStack gap="$4" flex={1}>
-          <SizableText size="$bodyMd" color="$text">
-            USB not detected. OneKey tried Bluetooth but lacks permission.
-            Please enable it in System Settings.
-          </SizableText>
-          <Button
-            size="small"
-            variant="secondary"
-            alignSelf="flex-start"
-            onPress={handleGoToSettings}
-          >
-            Go to settings
-          </Button>
-          <Divider />
-          <SizableText size="$bodySm" color="$textSubdued">
-            Disable Bluetooth in OneKey Settings &gt; Preferences to stop this
-          </SizableText>
-        </YStack>
-      </XStack>
+          {intl.formatMessage({
+            id: ETranslations.global_go_to_settings,
+          })}
+        </Button>
+        <SizableText size="$bodySm" color="$textDisabled">
+          {intl.formatMessage({
+            id: ETranslations.bluetooth_disable_in_settings,
+          })}
+        </SizableText>
+      </YStack>
     </YStack>
   );
 }
