@@ -121,8 +121,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
   const { copyText } = useClipboard();
   const biometricAuthInfo = useBiometricAuthInfo();
-  const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
-  const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
+  const userAgreementUrl = useHelpLink({ path: 'articles/11461297' });
+  const privacyPolicyUrl = useHelpLink({ path: 'articles/11461298' });
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
   const { isPrimeAvailable } = usePrimeAvailable();
