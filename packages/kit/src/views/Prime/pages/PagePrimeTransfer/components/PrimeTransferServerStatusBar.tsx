@@ -14,6 +14,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { showPrimeTransferServerConfigDialog } from './PrimeTransferServerConfigDialog';
@@ -62,8 +63,9 @@ export function PrimeTransferServerStatusBar() {
     switch (connectionState) {
       case 'connected': {
         const serverName =
-          config.serverType === EPrimeTransferServerType.CUSTOM
-            ? config.customServerUrl
+          config?.customServerUrl &&
+          config?.serverType === EPrimeTransferServerType.CUSTOM
+            ? uriUtils.getHostNameFromUrl({ url: config.customServerUrl || '' })
             : intl.formatMessage({
                 id: ETranslations.transfer_transfer_server_server_official,
               });
@@ -150,7 +152,6 @@ export function PrimeTransferServerStatusBar() {
         </Stack>
 
         <SizableText
-          flex={1}
           size="$bodyMd"
           color="$text"
           numberOfLines={2}
@@ -161,9 +162,7 @@ export function PrimeTransferServerStatusBar() {
         >
           {statusInfo?.text}
         </SizableText>
-      </XStack>
 
-      <XStack gap="$4">
         {statusInfo?.isCustomServer ? (
           <IconButton
             variant="tertiary"
@@ -172,6 +171,11 @@ export function PrimeTransferServerStatusBar() {
             onPress={handleTextPress}
           />
         ) : null}
+
+        <Stack flex={1} />
+      </XStack>
+
+      <XStack gap="$4">
         <Button size="small" variant="tertiary" onPress={handleManagePress}>
           {intl.formatMessage({
             id: ETranslations.global_manage,

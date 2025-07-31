@@ -46,6 +46,12 @@ export class SimpleDbEntityPrimeTransfer extends SimpleDbEntityBase<ISimpleDBPri
   @backgroundMethod()
   async saveServerConfig(serverConfig: IPrimeTransferServerConfig) {
     const config = await this.getRawConfig();
+    if (serverConfig.customServerUrl) {
+      serverConfig.customServerUrl = serverConfig.customServerUrl?.replace(
+        /\/+$/,
+        '',
+      );
+    }
     await this.saveRawConfig({
       ...config,
       serverConfig,
