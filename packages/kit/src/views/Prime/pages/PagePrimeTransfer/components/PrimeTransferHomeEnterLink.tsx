@@ -7,7 +7,6 @@ import {
   Button,
   Form,
   Input,
-  SizableText,
   Skeleton,
   XStack,
   YStack,
@@ -21,7 +20,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 interface IPrimeTransferForm {
@@ -61,7 +59,8 @@ export function PrimeTransferHomeEnterLink({
   const navigation = useAppNavigation();
 
   const { start } = useScanQrCode();
-  const { onPasteClearText, clearText, getClipboard } = useClipboard();
+  const { onPasteClearText, clearText, getClipboard, supportPaste } =
+    useClipboard();
   const [isConnecting, setIsConnecting] = useState(false);
   const isConnectingRef = useRef(isConnecting);
   isConnectingRef.current = isConnecting;
@@ -170,16 +169,18 @@ export function PrimeTransferHomeEnterLink({
     // platformEnv.isExtension
     //   ? null
     //   :
-    {
-      iconName: 'ClipboardOutline' as IKeyOfIcons,
-      onPress: async () => {
-        const text = await getClipboard();
-        if (text) {
-          handlePairingCodeChange(text || '', true);
-          clearText();
+    supportPaste
+      ? {
+          iconName: 'ClipboardOutline' as IKeyOfIcons,
+          onPress: async () => {
+            const text = await getClipboard();
+            if (text) {
+              handlePairingCodeChange(text || '', true);
+              clearText();
+            }
+          },
         }
-      },
-    },
+      : null,
     {
       iconName: 'ScanOutline' as IKeyOfIcons,
       onPress: async () => {

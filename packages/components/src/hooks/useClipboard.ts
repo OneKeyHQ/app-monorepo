@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Toast } from '../actions/Toast';
 
@@ -17,6 +18,12 @@ const getClipboard = async () => {
 
 export function useClipboard() {
   const intl = useIntl();
+  const supportPaste = useMemo(() => {
+    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+      return false;
+    }
+    return true;
+  }, []);
 
   const copyText = useCallback(
     (text: string, successMessageId?: ETranslations) => {
@@ -66,7 +73,13 @@ export function useClipboard() {
   );
 
   return useMemo(
-    () => ({ copyText, clearText, onPasteClearText, getClipboard }),
-    [clearText, onPasteClearText, copyText],
+    () => ({
+      copyText,
+      clearText,
+      onPasteClearText,
+      getClipboard,
+      supportPaste,
+    }),
+    [clearText, onPasteClearText, copyText, supportPaste],
   );
 }

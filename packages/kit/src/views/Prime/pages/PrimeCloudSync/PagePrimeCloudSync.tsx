@@ -143,7 +143,7 @@ function EnableOneKeyCloudSwitchListItem() {
         size={ESwitchSize.small}
         onChange={async (value) => {
           if (value && !isPrimeSubscriptionActive) {
-            navigation?.pushFullModal(EModalRoutes.PrimeModal, {
+            navigation?.pushModal(EModalRoutes.PrimeModal, {
               screen: EPrimePages.PrimeFeatures,
               params: {
                 showAllFeatures: false,
