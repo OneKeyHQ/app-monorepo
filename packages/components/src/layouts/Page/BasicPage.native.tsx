@@ -85,7 +85,7 @@ function LoadingScreen({
           changeLoadingVisibleStatus(false);
         }, 250);
       },
-      platformEnv.isNativeAndroid ? 50 : 0,
+      platformEnv.isNativeAndroid ? 80 : 0,
     );
   }, []);
 
