@@ -326,7 +326,7 @@ function SelectContent() {
       title={title || ''}
       open={isOpen}
       onOpenChange={handleOpenChange}
-      keepChildrenMounted
+      keepChildrenMounted={!platformEnv.isNative}
       sheetProps={{
         dismissOnSnapToBottom: true,
         snapPointsMode: usingPercentSnapPoints ? 'percent' : 'fit',

@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { isNil } from 'lodash';
-import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
-  Button,
   Carousel,
   Icon,
   IconButton,
@@ -20,19 +18,13 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
-  EModalRewardCenterRoutes,
-  EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
-import {
-  openUrlExternal,
-  openUrlInApp,
-} from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 import { EarnNavigation } from '../../../Earn/earnUtils';
+import useParseQRCode from '../../../ScanQrCode/hooks/useParseQRCode';
 
 import type { GestureResponderEvent } from 'react-native';
 
@@ -43,11 +35,12 @@ function WalletBanner() {
     activeAccount: { account, network, wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
 
-  const intl = useIntl();
-  const { gtSm, gtLg } = useMedia();
+  const { gtSm } = useMedia();
   const themeVariant = useThemeVariant();
 
   const navigation = useAppNavigation();
+
+  const parseQRCode = useParseQRCode();
 
   const [closedForeverBanners, setClosedForeverBanners] = useState<
     Record<string, boolean>
@@ -151,28 +144,21 @@ function WalletBanner() {
         return;
       }
 
-      if (
-        item.hrefType === 'internal' &&
-        item.href.includes('/reward-center')
-      ) {
-        navigation.pushModal(EModalRoutes.MainModal, {
-          screen: EModalRewardCenterRoutes.RewardCenter,
-          params: {
-            accountId: account?.id ?? '',
-            networkId: network?.id ?? '',
-            walletId: wallet?.id ?? '',
-          },
-        });
-        return;
-      }
-
-      if (item.hrefType === 'external') {
-        openUrlExternal(item.href);
-      } else {
-        openUrlInApp(item.href);
-      }
+      await parseQRCode.parse(item.href, {
+        handlers: [
+          EQRCodeHandlerNames.marketDetail,
+          EQRCodeHandlerNames.sendProtection,
+          EQRCodeHandlerNames.rewardCenter,
+        ],
+        qrWalletScene: false,
+        autoHandleResult: true,
+        defaultHandler: openUrlExternal,
+        account,
+        network,
+        wallet,
+      });
     },
-    [account?.id, indexedAccount?.id, navigation, network?.id, wallet?.id],
+    [account, indexedAccount?.id, navigation, network, parseQRCode, wallet],
   );
 
   useEffect(() => {
@@ -187,6 +173,8 @@ function WalletBanner() {
     void fetchClosedForeverBanners();
   }, []);
 
+  const { gtMd } = useMedia();
+
   if (filteredBanners.length === 0) {
     return null;
   }
@@ -195,8 +183,10 @@ function WalletBanner() {
     <YStack py="$2.5" bg="$bgApp">
       <Carousel
         loop={false}
+        marginRatio={gtMd ? 0.28 : 0}
         data={filteredBanners}
         autoPlayInterval={3800}
+        maxPageWidth={840}
         containerStyle={{
           height: gtSm ? 98 : 90,
         }}
@@ -225,8 +215,12 @@ function WalletBanner() {
                 gap="$4"
                 alignItems="center"
                 p="$4"
-                pr="$6"
+                pr="$10"
                 bg="$bg"
+                $lg={{
+                  gap: '$3',
+                  py: '$3',
+                }}
                 borderRadius="$2"
                 $platform-native={{
                   borderWidth: StyleSheet.hairlineWidth,
@@ -248,25 +242,20 @@ function WalletBanner() {
                     borderColor: '$borderSubdued',
                   }),
                 }}
-                {...(!gtLg && {
-                  gap: '$3',
-                  py: '$3',
-                  pr: '$10',
-                  hoverStyle: {
-                    bg: '$bgHover',
-                  },
-                  pressStyle: {
-                    bg: '$bgActive',
-                  },
-                  focusable: true,
-                  focusVisibleStyle: {
-                    outlineColor: '$focusRing',
-                    outlineWidth: 2,
-                    outlineStyle: 'solid',
-                    outlineOffset: -2,
-                  },
-                  onPress: () => handleClick(item),
-                })}
+                hoverStyle={{
+                  bg: '$bgHover',
+                }}
+                pressStyle={{
+                  bg: '$bgActive',
+                }}
+                focusable
+                focusVisibleStyle={{
+                  outlineColor: '$focusRing',
+                  outlineWidth: 2,
+                  outlineStyle: 'solid',
+                  outlineOffset: -2,
+                }}
+                onPress={() => handleClick(item)}
               >
                 <Image
                   size="$12"
@@ -315,7 +304,7 @@ function WalletBanner() {
                   </SizableText>
                 )}
 
-                <XStack
+                {/* <XStack
                   gap="$5"
                   alignItems="center"
                   $lg={{
@@ -345,23 +334,22 @@ function WalletBanner() {
                         id: ETranslations.global_check_it_out,
                       })}
                   </Button>
-                </XStack>
+                </XStack> */}
 
-                <IconButton
-                  position="absolute"
-                  top="$2.5"
-                  right="$2.5"
-                  size="small"
-                  variant="tertiary"
-                  onPress={(event: GestureResponderEvent) => {
-                    event.stopPropagation();
-                    void handleDismiss(item);
-                  }}
-                  icon="CrossedSmallOutline"
-                  $gtLg={{
-                    display: 'none',
-                  }}
-                />
+                {item.closeable ? (
+                  <IconButton
+                    position="absolute"
+                    top="$2.5"
+                    right="$2.5"
+                    size="small"
+                    variant="tertiary"
+                    onPress={(event: GestureResponderEvent) => {
+                      event.stopPropagation();
+                      void handleDismiss(item);
+                    }}
+                    icon="CrossedSmallOutline"
+                  />
+                ) : null}
               </XStack>
             </YStack>
           );

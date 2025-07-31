@@ -2,6 +2,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
@@ -331,6 +332,7 @@ class ServiceSignatureConfirm extends ServiceBase {
     }
   }
 
+  @toastIfError()
   @backgroundMethod()
   async preActionsBeforeSending(params: {
     accountId: string;

@@ -7,13 +7,12 @@ import {
   Button,
   Form,
   Input,
-  SizableText,
   Skeleton,
-  Spinner,
   XStack,
   YStack,
   useClipboard,
   useForm,
+  useMedia,
 } from '@onekeyhq/components';
 import type { IInputAddOnProps } from '@onekeyhq/components/src/forms/Input/InputAddOnItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -21,7 +20,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 interface IPrimeTransferForm {
@@ -42,6 +40,8 @@ export function PrimeTransferHomeEnterLink({
     defaultValues: { pairingCode: remotePairingCode || '' },
   });
 
+  const { gtSm } = useMedia();
+
   // Watch form value and sync with existing state
   const watchedPairingCode = form.watch('pairingCode');
 
@@ -59,7 +59,8 @@ export function PrimeTransferHomeEnterLink({
   const navigation = useAppNavigation();
 
   const { start } = useScanQrCode();
-  const { onPasteClearText, clearText, getClipboard } = useClipboard();
+  const { onPasteClearText, clearText, getClipboard, supportPaste } =
+    useClipboard();
   const [isConnecting, setIsConnecting] = useState(false);
   const isConnectingRef = useRef(isConnecting);
   isConnectingRef.current = isConnecting;
@@ -168,16 +169,18 @@ export function PrimeTransferHomeEnterLink({
     // platformEnv.isExtension
     //   ? null
     //   :
-    {
-      iconName: 'ClipboardOutline' as IKeyOfIcons,
-      onPress: async () => {
-        const text = await getClipboard();
-        if (text) {
-          handlePairingCodeChange(text || '', true);
-          clearText();
+    supportPaste
+      ? {
+          iconName: 'ClipboardOutline' as IKeyOfIcons,
+          onPress: async () => {
+            const text = await getClipboard();
+            if (text) {
+              handlePairingCodeChange(text || '', true);
+              clearText();
+            }
+          },
         }
-      },
-    },
+      : null,
     {
       iconName: 'ScanOutline' as IKeyOfIcons,
       onPress: async () => {
@@ -193,11 +196,11 @@ export function PrimeTransferHomeEnterLink({
   return (
     <Form form={form} childrenGap={0}>
       <YStack gap="$1">
-        <SizableText size="$bodyMdMedium">
-          {intl.formatMessage({ id: ETranslations.transfer_pair_code })}
-        </SizableText>
-
         <Form.Field
+          label={intl.formatMessage({ id: ETranslations.transfer_pair_code })}
+          description={intl.formatMessage({
+            id: ETranslations.transfer_enter_pair_code_desc,
+          })}
           name="pairingCode"
           rules={{
             required: {
@@ -282,12 +285,6 @@ export function PrimeTransferHomeEnterLink({
             <Skeleton h={46} w="100%" borderRadius="$2" />
           )}
         </Form.Field>
-
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.transfer_enter_pair_code_desc,
-          })}
-        </SizableText>
       </YStack>
 
       <XStack>
@@ -296,6 +293,8 @@ export function PrimeTransferHomeEnterLink({
           onPress={form.handleSubmit(onSubmit)}
           variant="primary"
           loading={isConnecting}
+          size={gtSm ? 'medium' : 'large'}
+          width={gtSm ? 'auto' : '100%'}
           disabled={
             !form.formState.isValid || isConnecting || !websocketConnected
           }

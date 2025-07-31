@@ -249,7 +249,9 @@ function BasicAccountAvatar({
       source ||
       src ||
       loadingProps ||
-      loading
+      loading ||
+      fallback ||
+      fallbackProps
     ) {
       return (
         fallback ||

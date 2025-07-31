@@ -568,6 +568,7 @@ export function useSwapQuote() {
   const swapQuoteMixEventAction = useCallback((errorMessage?: string) => {
     if (
       swapQuoteResultListRef.current?.length &&
+      swapQuoteEventTotalCountRef.current.count > 0 &&
       swapQuoteResultListRef.current[0].eventId !==
         swapQuoteEventTotalCountRef.current.eventId
     ) {
@@ -636,7 +637,6 @@ export function useSwapQuote() {
     ) {
       swapQuoteMixEventAction();
     } else if (
-      swapQuoteResultList?.length === 0 &&
       swapQuoteEventTotalCount?.eventId &&
       swapQuoteEventTotalCount?.count === 0
     ) {

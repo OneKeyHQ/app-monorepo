@@ -1,4 +1,4 @@
-import { Fragment, forwardRef, useCallback, useMemo } from 'react';
+import { Fragment, forwardRef, useCallback, useEffect, useMemo } from 'react';
 import type { ForwardedRef, PropsWithChildren, ReactElement } from 'react';
 
 import { useStyle } from '@tamagui/core';
@@ -101,6 +101,13 @@ function BaseSortableListView<T>(
       onDragEnd?.(p);
     },
     [onDragEnd, data],
+  );
+
+  useEffect(
+    () => () => {
+      lastIndexHeight = undefined;
+    },
+    [],
   );
 
   const rawContentContainerStyle = useStyle(

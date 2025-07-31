@@ -43,22 +43,32 @@ export default function PagePrimeTransfer() {
     }
   }, [primeTransferAtom.status]);
 
-  const { result: endpoint } = usePromiseResult(async () => {
+  const { result } = usePromiseResult(async () => {
     noop(primeTransferAtom.websocketEndpointUpdatedAt);
-    return backgroundApiProxy.servicePrimeTransfer.getWebSocketEndpoint();
+    const serverConfig =
+      await backgroundApiProxy.simpleDb.primeTransfer.getServerConfig();
+    const endpoint =
+      await backgroundApiProxy.servicePrimeTransfer.getWebSocketEndpoint();
+    // remove last slash
+    const endpointWithoutLastSlash = endpoint.replace(/\/+$/, '');
+    return {
+      endpoint: endpointWithoutLastSlash,
+      serverConfig,
+    };
   }, [primeTransferAtom.websocketEndpointUpdatedAt]);
 
   useEffect(() => {
-    if (!endpoint) {
+    if (!result?.endpoint) {
       return;
     }
+    noop(result.serverConfig?.serverType);
     // TODO show websocket connection status by global atom
     void backgroundApiProxy.servicePrimeTransfer.initWebSocket({
-      endpoint,
+      endpoint: result.endpoint,
     });
 
     void axios
-      .get(`${endpoint}/health`)
+      .get(`${result.endpoint}/health`)
       .then((res) => {
         console.log('health check', res.data);
       })
@@ -69,7 +79,7 @@ export default function PagePrimeTransfer() {
     return () => {
       void backgroundApiProxy.servicePrimeTransfer.disconnectWebSocket();
     };
-  }, [endpoint]);
+  }, [result?.endpoint, result?.serverConfig?.serverType]);
 
   useEffect(() => {
     const fn = (

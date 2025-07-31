@@ -1030,12 +1030,17 @@ function BasicMarketHomeList({
     return platformEnv.isNative ? spinner : null;
   }
 
-  if (listData.length === 0) {
+  if (platformEnv.isNative && listData.length === 0) {
     return spinner;
   }
 
   return (
-    <>
+    <YStack
+      flex={1}
+      ref={containerRef}
+      pt={platformEnv.isNative ? 44 : undefined}
+      $gtMd={{ pt: '$3' }}
+    >
       {gtMd ? undefined : (
         <YStack
           px="$5"
@@ -1072,32 +1077,29 @@ function BasicMarketHomeList({
           </XStack>
         </YStack>
       )}
-
-      <YStack flex={1} ref={containerRef} $gtMd={{ pt: '$3' }}>
-        <Table
-          draggable={draggable}
-          headerRowProps={HEADER_ROW_PROPS}
-          showBackToTopButton
-          stickyHeaderHiddenOnScroll
-          onRow={onRow}
-          onHeaderRow={onHeaderRow}
-          keyExtractor={(item) => item.coingeckoId}
-          rowProps={rowProps}
-          showHeader={gtMd}
-          scrollEnabled={false}
-          columns={columns}
-          onDragEnd={handleDragEnd}
-          dataSource={sortedListData as unknown as IMarketToken[]}
-          TableFooterComponent={gtMd ? <Stack height={60} /> : undefined}
-          extraData={gtMd ? undefined : mdColumnKeys}
-          TableEmptyComponent={
-            platformEnv.isNativeAndroid ? null : (
-              <ListEmptyComponent columns={columns} />
-            )
-          }
-        />
-      </YStack>
-    </>
+      <Table
+        draggable={draggable}
+        headerRowProps={HEADER_ROW_PROPS}
+        showBackToTopButton
+        stickyHeaderHiddenOnScroll
+        onRow={onRow}
+        onHeaderRow={onHeaderRow}
+        keyExtractor={(item) => item.coingeckoId}
+        rowProps={rowProps}
+        showHeader={gtMd}
+        scrollEnabled={platformEnv.isNative}
+        columns={columns}
+        onDragEnd={handleDragEnd}
+        dataSource={sortedListData as unknown as IMarketToken[]}
+        TableFooterComponent={gtMd ? <Stack height={60} /> : undefined}
+        extraData={gtMd ? undefined : mdColumnKeys}
+        TableEmptyComponent={
+          platformEnv.isNativeAndroid ? null : (
+            <ListEmptyComponent columns={columns} />
+          )
+        }
+      />
+    </YStack>
   );
 }
 

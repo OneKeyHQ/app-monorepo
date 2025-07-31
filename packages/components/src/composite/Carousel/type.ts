@@ -25,6 +25,8 @@ export interface ICarouselProps<T> {
   paginationContainerStyle?: IStackStyle;
   activeDotStyle?: IYStackProps;
   dotStyle?: IYStackProps;
+  marginRatio?: number;
+  maxPageWidth?: number;
   onPageChanged?: (index: number) => void;
   renderPaginationItem?: (
     item: IPaginationItemProps<T>,

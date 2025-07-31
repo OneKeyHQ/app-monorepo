@@ -7,6 +7,7 @@ import {
   Image,
   Input,
   NumberSizeableText,
+  Popover,
   SizableText,
   Skeleton,
   Stack,
@@ -45,6 +46,8 @@ export type IAmountInputFormItemProps = IFormFieldProps<
     };
     balanceProps?: {
       value?: string;
+      popoverContent?: React.ReactNode;
+      popoverTitle?: string;
       onPress?: () => void;
       loading?: boolean;
       iconText?: string;
@@ -160,7 +163,7 @@ export function AmountInput({
             currency: valueProps.currency,
             tokenSymbol: valueProps.tokenSymbol,
           }}
-          size="$bodyMd"
+          size="$bodySm"
           color={valueProps.color ?? '$textSubdued'}
           pr="$0.5"
         >
@@ -315,7 +318,7 @@ export function AmountInput({
       );
     }
     if (balanceProps.value) {
-      return (
+      const contentComponent = (
         <XStack
           alignItems="center"
           px="$3.5"
@@ -341,24 +344,35 @@ export function AmountInput({
               {balanceProps.iconText}
             </SizableText>
           ) : (
-            <Icon name="WalletOutline" size="$5" color="$iconSubdued" mr="$1" />
+            <Icon name="WalletOutline" size="$4" color="$iconSubdued" mr="$1" />
           )}
-          <SizableText size="$bodyMd" color="$textSubdued">
+          <>
             <NumberSizeableText
-              size="$bodyMd"
+              size="$bodySm"
               color="$textSubdued"
               formatter="balance"
             >
               {balanceProps.value ?? 0}
             </NumberSizeableText>
-          </SizableText>
+          </>
           {enableMaxAmount ? (
-            <SizableText pl="$1" size="$bodyMdMedium" color="$textInteractive">
+            <SizableText pl="$1" size="$bodySmMedium" color="$textInteractive">
               {intl.formatMessage({ id: ETranslations.send_max })}
             </SizableText>
           ) : null}
         </XStack>
       );
+      if (balanceProps.popoverContent) {
+        return (
+          <Popover
+            title=""
+            showHeader={false}
+            renderContent={() => balanceProps.popoverContent}
+            renderTrigger={contentComponent}
+          />
+        );
+      }
+      return contentComponent;
     }
     return null;
   }, [balanceHelperProps, balanceProps, enableMaxAmount, intl]);
