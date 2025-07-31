@@ -158,16 +158,21 @@ function ExportAddresses({
         <YStack gap="$1" pb="$5">
           {addressesData.map((item, index) => {
             return (
-              <XStack key={index} alignItems="flex-start">
-                <Stack width={32} justifyContent="flex-start" userSelect="none">
+              <XStack
+                key={index}
+                alignItems="flex-start"
+                userSelect="none"
+                onPress={() => {
+                  if (item.type === 'address') {
+                    copyText(item.address ?? '');
+                  }
+                }}
+              >
+                <Stack width={32} justifyContent="flex-start">
                   <SizableText
                     size="$bodyLgMedium"
                     color="$textDisabled"
                     numberOfLines={1}
-                    userSelect="none"
-                    style={{
-                      userSelect: 'none',
-                    }}
                   >
                     {index + 1}
                   </SizableText>
@@ -178,7 +183,6 @@ function ExportAddresses({
                       size="$bodyLg"
                       style={{
                         wordBreak: 'break-all',
-                        userSelect: 'text',
                       }}
                     >
                       {item.address}
@@ -199,7 +203,7 @@ function ExportAddresses({
         </YStack>
       </ScrollView>
     );
-  }, [addressesData]);
+  }, [addressesData, copyText]);
 
   return (
     <Page>
