@@ -1,3 +1,5 @@
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+
 import { AccountSelectorTriggerBase } from './AccountSelectorTriggerBase';
 
 import type { ISpotlightViewProps } from '../../Spotlight';
@@ -9,6 +11,12 @@ export function AccountSelectorTriggerHome({
   num: number;
   spotlightProps?: ISpotlightViewProps;
 }) {
+  const {
+    activeAccount: { network, vaultSettings },
+  } = useActiveAccount({
+    num,
+  });
+
   return (
     <AccountSelectorTriggerBase
       horizontalLayout
@@ -17,7 +25,11 @@ export function AccountSelectorTriggerHome({
       showWalletAvatar
       showWalletName={false}
       num={num}
-      linkNetwork={false}
+      linkNetwork={
+        !(network?.isAllNetworks || vaultSettings?.mergeDeriveAssetsEnabled)
+      }
+      keepAllOtherAccounts
+      allowSelectEmptyAccount
       spotlightProps={spotlightProps}
     />
   );

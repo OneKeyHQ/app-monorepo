@@ -504,6 +504,26 @@ function useDeviceConnection({
     deviceScanner.stopScan();
   }, [deviceScanner]);
 
+  const ensureStopScan = useCallback(async () => {
+    // Force stop scanning and wait for any ongoing search to complete
+    console.log(
+      'ensureStopScan: Stopping device scan and waiting for completion',
+    );
+    isSearchingRef.current = false;
+
+    try {
+      // Use the new stopScanAndWait method that properly waits for ongoing searches
+      await deviceScanner.stopScanAndWait();
+      console.log(
+        'ensureStopScan: Device scan stopped and all ongoing searches completed',
+      );
+    } catch (error) {
+      console.error('ensureStopScan: Error while stopping scan:', error);
+      // Fallback: just stop scan without waiting
+      deviceScanner.stopScan();
+    }
+  }, [deviceScanner]);
+
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
     () => [
       ...searchedDevices.map((item) => ({
@@ -511,13 +531,14 @@ function useDeviceConnection({
         src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
         device: item,
         onPress: async () => {
-          stopScan();
+          // Ensure device scanning is completely stopped before connecting
+          await ensureStopScan();
           await onDeviceConnect(item);
         },
         opacity: 1,
       })),
     ],
-    [searchedDevices, onDeviceConnect, stopScan],
+    [searchedDevices, onDeviceConnect, ensureStopScan],
   );
 
   return {
@@ -529,6 +550,7 @@ function useDeviceConnection({
     setIsChecking,
     scanDevice,
     stopScan,
+    ensureStopScan,
     deviceScanner,
   };
 }
@@ -1144,23 +1166,37 @@ function ConnectByBluetooth({
     }
   }, []);
 
-  // Use shared device connection logic for Bluetooth
-  const deviceConnection = useDeviceConnection({
-    tabValue: EConnectDeviceChannel.bluetooth,
-    onDeviceConnect: async (device: SearchDevice) => {
-      // Stop bluetooth polling when connecting
+  // Enhanced device connection wrapper for Bluetooth
+  const handleBluetoothDeviceConnect = useCallback(
+    async (device: SearchDevice) => {
+      // Immediately stop bluetooth polling and scanning when connecting
       isConnectingRef.current = true;
       stopBluetoothStatusPolling();
+
       try {
         await onDeviceConnect(device);
       } catch (error) {
-        // Resume polling on error
-        startBluetoothStatusPolling();
+        // Resume polling on error only if still focused
+        if (isFocused) {
+          startBluetoothStatusPolling();
+        }
         throw error;
       } finally {
         isConnectingRef.current = false;
       }
     },
+    [
+      onDeviceConnect,
+      stopBluetoothStatusPolling,
+      startBluetoothStatusPolling,
+      isFocused,
+    ],
+  );
+
+  // Use shared device connection logic for Bluetooth
+  const deviceConnection = useDeviceConnection({
+    tabValue: EConnectDeviceChannel.bluetooth,
+    onDeviceConnect: handleBluetoothDeviceConnect,
     connectionType: 'bluetooth',
     forceTransportType: platformEnv.isSupportDesktopBle
       ? EHardwareTransportType.DesktopWebBle
@@ -1699,6 +1735,9 @@ export function ConnectYourDevicePage() {
   // Shared device connection handler
   const handleDeviceConnect = useCallback(
     async (device: SearchDevice) => {
+      // Ensure all scanning and polling activities are stopped before connecting
+      console.log('handleDeviceConnect: Starting device connection process');
+
       defaultLogger.account.wallet.addWalletStarted({
         addMethod: 'ConnectHWWallet',
         details: {

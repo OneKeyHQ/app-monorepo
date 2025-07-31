@@ -25,7 +25,6 @@ import {
   LottieView,
   Popover,
   SizableText,
-  Spinner,
   Stack,
   Switch,
   Toast,
@@ -1100,7 +1099,7 @@ export function DesktopBluetoothPermissionContent({
           available,
         );
         if (available?.available) {
-          void callbackResult(false);
+          void callbackResult(true);
         }
       } catch (error) {
         console.error('Check bluetooth status error:', error);
