@@ -44,7 +44,6 @@ function PageFirmwareUpdateInstall() {
             )
 
             */
-  console.log('stepInfo.step', stepInfo);
   const content = useMemo(() => {
     if (
       stepInfo.step === EFirmwareUpdateSteps.updateStart ||
