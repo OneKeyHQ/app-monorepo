@@ -33,7 +33,7 @@ import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/P
 import { PrimeSubscriptionPlans } from '../../components/PrimePurchaseDialog/PrimeSubscriptionPlans';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
-// import { usePrimePaymentMethodsWeb } from '../../hooks/usePrimePaymentMethodsWeb';
+import { usePrimePaymentMethodsWeb } from '../../hooks/usePrimePaymentMethodsWeb';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 
 import { PrimeBenefitsList } from './PrimeBenefitsList';
@@ -139,11 +139,11 @@ export default function PrimeDashboard({
     return true;
   }, [isPrimeSubscriptionActive, shouldShowConfirmButton, user?.privyUserId]);
 
-  // const { getPackagesWeb: getPackagesWeb2 } = usePrimePaymentMethodsWeb();
-  const getPackagesWeb2 = useCallback(async () => {
-    console.log('getPackagesWeb2');
-    return [];
-  }, []);
+  const { getPackagesWeb: getPackagesWeb2 } = usePrimePaymentMethodsWeb();
+  // const getPackagesWeb2 = useCallback(async () => {
+  //   console.log('getPackagesWeb2');
+  //   return [];
+  // }, []);
 
   const { result: webPackages } = usePromiseResult(async () => {
     if (isReady) {
