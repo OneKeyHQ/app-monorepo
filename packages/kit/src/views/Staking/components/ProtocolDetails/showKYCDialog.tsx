@@ -196,7 +196,7 @@ function ClaimWithKycDialogContent({
 
   const handleLinkPress = useCallback(() => {
     if (button?.type === 'link') {
-      if (button.showIntercom) {
+      if (button.data?.showIntercom) {
         void showIntercom();
         return;
       }
