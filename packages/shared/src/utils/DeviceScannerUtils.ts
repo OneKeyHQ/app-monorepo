@@ -47,10 +47,11 @@ export class DeviceScannerUtils {
 
       let searchResponse;
       try {
-        searchResponse =
-          await this.backgroundApi.serviceHardware.searchDevices({
+        searchResponse = await this.backgroundApi.serviceHardware.searchDevices(
+          {
             forceTransportType,
-          });
+          },
+        );
       } finally {
         searchPromise?.resolve();
         searchPromise = null;
@@ -96,5 +97,19 @@ export class DeviceScannerUtils {
       (key: string) => (this.scanMap[key] = false),
     );
     this.tryCount = 0;
+  }
+
+  async waitForCurrentSearchToComplete() {
+    // Wait for any ongoing search promise to resolve
+    if (searchPromise) {
+      await searchPromise.promise;
+    }
+  }
+
+  async stopScanAndWait() {
+    // Stop scanning first
+    this.stopScan();
+    // Wait for any ongoing search to complete
+    await this.waitForCurrentSearchToComplete();
   }
 }
