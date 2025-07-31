@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { isNil } from 'lodash';
-import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
-  Button,
   Carousel,
   Icon,
   IconButton,
@@ -20,7 +18,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
@@ -38,8 +35,7 @@ function WalletBanner() {
     activeAccount: { account, network, wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
 
-  const intl = useIntl();
-  const { gtSm, gtLg } = useMedia();
+  const { gtSm } = useMedia();
   const themeVariant = useThemeVariant();
 
   const navigation = useAppNavigation();
