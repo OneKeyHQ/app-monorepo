@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -41,6 +41,15 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   const [devSettings] = useDevSettingsPersistAtom();
   const navigation = useAppNavigation();
   const intl = useIntl();
+
+  const refreshUserInfo = useCallback(async () => {
+    void getCustomerInfo();
+    void backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+  }, [getCustomerInfo]);
+
+  useEffect(() => {
+    void refreshUserInfo();
+  }, [refreshUserInfo]);
 
   const userInfoView = (
     <Stack px="$2" py="$2.5" gap="$1">
@@ -103,7 +112,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
       {/* 
        Sometimes, the local payment is successful (for example, sandbox payment), but the server status is incorrect, so even if the subscriptionManageUrl exists, you need to expose the management subscription entry to allow the user to cancel the subscription
       */}
-      {isPrime || user.subscriptionManageUrl ? (
+      {isPrime && user.subscriptionManageUrl ? (
         <ActionList.Item
           label={intl.formatMessage({
             id: ETranslations.prime_manage_subscription,
@@ -117,10 +126,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
               Toast.message({
                 title: 'Please try again later',
               });
-              await Promise.all([
-                backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo(),
-                getCustomerInfo(),
-              ]);
+              await refreshUserInfo();
             }
           }}
         />
@@ -130,7 +136,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
         <>
           {devSettings?.enabled ? (
             <ActionList.Item
-              label="Change Subscription"
+              label="Change Subscription (DevOnly)"
               icon="CreditCardOutline"
               onClose={handleActionListClose}
               onPress={async () => {
