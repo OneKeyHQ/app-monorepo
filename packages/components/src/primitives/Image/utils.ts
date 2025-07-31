@@ -32,15 +32,15 @@ export const isEmptyResolvedSource = (source?: ImageSource | null) => {
 export const useResetError = (
   resolvedSource: ImageSource | null,
   hasError: boolean,
-  setHasError: (hasError: boolean) => void,
+  onResetError: (hasError: boolean) => void,
 ) => {
   const hasErrorRef = useRef(hasError);
   const resolvedSourceRef = useRef<ImageSource | null>(resolvedSource);
-
+  hasErrorRef.current = hasError;
   useEffect(() => {
     if (hasErrorRef.current && resolvedSourceRef.current !== resolvedSource) {
-      setHasError(false);
+      onResetError(false);
     }
     resolvedSourceRef.current = resolvedSource;
-  }, [resolvedSource, setHasError]);
+  }, [resolvedSource, hasError, onResetError]);
 };

@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -20,6 +20,8 @@ import {
   ScrollView,
   SizableText,
   Skeleton,
+  Stack,
+  Tabs,
   XStack,
   YStack,
   useMedia,
@@ -32,7 +34,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
+// import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -63,12 +65,17 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
-import { AvailableAssetsTabViewList } from './components/AvailableAssetsTabViewList';
+import {
+  AvailableAssetsTabViewList,
+  AvailableAssetsTabViewListMobile,
+} from './components/AvailableAssetsTabViewList';
 import { FAQPanel } from './components/FAQPanel';
 import { showProtocolListDialog } from './components/showProtocolListDialog';
 import { EARN_PAGE_MAX_WIDTH, EARN_RIGHT_PANEL_WIDTH } from './EarnConfig';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 const BANNER_TITLE_OFFSET = {
   desktop: '$5',
@@ -172,14 +179,14 @@ function RecommendedItem({
 }: { token?: IEarnAvailableAsset } & IYStackProps) {
   const accountInfo = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
-  const [decorationColor, setDecorationColor] = useState<string | null>(null);
 
-  useEffect(() => {
-    const url = token?.logoURI;
-    if (url) {
-      void getPrimaryColor(url, '$bgSubdued').then(setDecorationColor);
-    }
-  }, [token?.logoURI]);
+  // if you want to use the primary color, you can uncomment the following code
+  // useEffect(() => {
+  //   const url = token?.logoURI;
+  //   if (url) {
+  //     void getPrimaryColor(url, '$bgSubdued').then(setDecorationColor);
+  //   }
+  // }, [token?.logoURI]);
 
   const onPress = useCallback(async () => {
     const {
@@ -215,7 +222,7 @@ function RecommendedItem({
       py="$3.5"
       borderRadius="$3"
       borderCurve="continuous"
-      bg={decorationColor}
+      bg={token.bgColor}
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
       animation="quick"
@@ -929,6 +936,158 @@ function BasicEarnHome() {
       </YStack>
     ) : null;
   }, [media.gtLg, isFaqLoading, faqList.length, faqPanel]);
+  const intl = useIntl();
+
+  const tabData = useMemo(
+    () => [
+      {
+        title: intl.formatMessage({ id: ETranslations.global_all }),
+        type: EAvailableAssetsTypeEnum.All,
+      },
+      {
+        // eslint-disable-next-line spellcheck/spell-checker
+        title: intl.formatMessage({ id: ETranslations.earn_stablecoins }),
+        type: EAvailableAssetsTypeEnum.StableCoins,
+      },
+      {
+        title: intl.formatMessage({ id: ETranslations.earn_native_tokens }),
+        type: EAvailableAssetsTypeEnum.NativeTokens,
+      },
+    ],
+    [intl],
+  );
+
+  const [tabPageHeight, setTabPageHeight] = useState(
+    platformEnv.isNativeIOS ? 143 : 92,
+  );
+  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
+    // Use the actual measured height without arbitrary adjustments
+    const height = e.nativeEvent.layout.height - 20;
+    setTabPageHeight(height);
+  }, []);
+
+  if (platformEnv.isNative && media.md) {
+    return (
+      <Page fullPage>
+        <Page.Body>
+          <Stack h={tabPageHeight} />
+          <Tabs.Container
+            allowHeaderOverscroll
+            headerContainerStyle={{
+              shadowOpacity: 0,
+              elevation: 0,
+            }}
+            pagerProps={
+              {
+                scrollSensitivity: 4,
+              } as any
+            }
+            renderHeader={() => (
+              <YStack flex={1} gap="$4" pt="$5" bg="$bgApp">
+                {/* overview and banner */}
+                <YStack gap="$8">
+                  <Overview
+                    onRefresh={refreshOverViewData}
+                    isLoading={isLoading}
+                  />
+                  {banners ? (
+                    <YStack
+                      px="$5"
+                      minHeight="$36"
+                      $md={{
+                        minHeight: '$28',
+                      }}
+                      borderRadius="$3"
+                      width="100%"
+                      borderCurve="continuous"
+                    >
+                      {banners}
+                    </YStack>
+                  ) : null}
+                </YStack>
+                {/* Recommended, available assets and introduction */}
+                <YStack px="$5" gap="$8">
+                  <YStack pt="$3.5" gap="$8">
+                    <Recommended />
+                  </YStack>
+                  {/* FAQ Panel */}
+                  {banners ? gtLgFaqPanel : null}
+                </YStack>
+                <SizableText mx="$5" pb="$4" size="$headingLg">
+                  {intl.formatMessage({
+                    id: ETranslations.earn_available_assets,
+                  })}
+                </SizableText>
+              </YStack>
+            )}
+            renderTabBar={(props) => (
+              <Tabs.TabBar
+                {...props}
+                containerStyle={{
+                  px: '$5',
+                }}
+                divider={false}
+                renderItem={({ name, isFocused, onPress }) => (
+                  <XStack
+                    px="$2"
+                    py="$1.5"
+                    mr="$1"
+                    bg={isFocused ? '$bgActive' : '$bg'}
+                    borderRadius="$2"
+                    borderCurve="continuous"
+                    onPress={() => onPress(name)}
+                  >
+                    <SizableText
+                      size="$bodyMdMedium"
+                      color={isFocused ? '$text' : '$textSubdued'}
+                      letterSpacing={-0.15}
+                    >
+                      {name}
+                    </SizableText>
+                  </XStack>
+                )}
+              />
+            )}
+          >
+            {tabData.map((item) => (
+              <Tabs.Tab name={item.title} key={item.type}>
+                <Tabs.ScrollView
+                  refreshControl={
+                    <RefreshControl
+                      refreshing={isLoading}
+                      onRefresh={refreshOverViewData}
+                    />
+                  }
+                >
+                  <AvailableAssetsTabViewListMobile
+                    onTokenPress={handleTokenPress}
+                    assetType={item.type}
+                    faqList={faqList}
+                  />
+                </Tabs.ScrollView>
+              </Tabs.Tab>
+            ))}
+          </Tabs.Container>
+          {platformEnv.isNative ? (
+            <YStack
+              position="absolute"
+              top={-20}
+              left={0}
+              bg="$bgApp"
+              pt="$5"
+              width="100%"
+              onLayout={handleTabPageLayout}
+            >
+              <TabPageHeader
+                sceneName={EAccountSelectorSceneName.home}
+                tabRoute={ETabRoutes.Earn}
+              />
+            </YStack>
+          ) : null}
+        </Page.Body>
+      </Page>
+    );
+  }
 
   return (
     <Page fullPage>

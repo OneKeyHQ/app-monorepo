@@ -6,7 +6,9 @@ import {
   Button,
   Divider,
   HeightTransition,
+  Icon,
   SizableText,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -15,14 +17,12 @@ import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atom
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
-  ESwapSlippageSegmentKey,
   IFetchQuoteResult,
   ISwapPreSwapData,
   ISwapStep,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapApproveTransactionStatus,
-  ESwapNetworkFeeLevel,
   ESwapStepStatus,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -35,16 +35,9 @@ import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 
 interface IPreSwapDialogContentProps {
   onConfirm: () => void;
-  slippageItem: {
-    key: ESwapSlippageSegmentKey;
-    value: number;
-  };
 }
 
-const PreSwapDialogContent = ({
-  slippageItem,
-  onConfirm,
-}: IPreSwapDialogContentProps) => {
+const PreSwapDialogContent = ({ onConfirm }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
   const { preSwapData, quoteResult } = useMemo(() => {
@@ -226,7 +219,6 @@ const PreSwapDialogContent = ({
               {/* Info items */}
               <PreSwapInfoGroup
                 preSwapData={swapSteps.preSwapData}
-                slippageItem={slippageItem}
                 onSelectNetworkFeeLevel={(value) => {
                   setSwapSteps(
                     (prevSteps: {
@@ -245,13 +237,27 @@ const PreSwapDialogContent = ({
                 }}
               />
               {/* Primary button */}
-              <Button variant="primary" onPress={handleConfirm} size="medium">
-                {intl.formatMessage({
-                  id: isHwWallet
-                    ? ETranslations.global_confirm_on_device
-                    : ETranslations.global_confirm,
-                })}
-              </Button>
+              <YStack gap="$2">
+                {preSwapData?.isHWAndExBatchTransfer ? (
+                  <XStack gap="$1" alignItems="center">
+                    <Icon name="InfoCircleOutline" size="$4" />
+                    <SizableText size="$bodyMd">
+                      {intl.formatMessage({
+                        id: quoteResult?.allowanceResult?.shouldResetApprove
+                          ? ETranslations.swap_review_confirm_3_on_device
+                          : ETranslations.swap_review_confirm_2_on_device,
+                      })}
+                    </SizableText>
+                  </XStack>
+                ) : null}
+                <Button variant="primary" onPress={handleConfirm} size="medium">
+                  {intl.formatMessage({
+                    id: isHwWallet
+                      ? ETranslations.global_confirm_on_device
+                      : ETranslations.global_confirm,
+                  })}
+                </Button>
+              </YStack>
             </YStack>
           ) : (
             <PreSwapStep steps={swapSteps.steps} onRetry={handleConfirm} />

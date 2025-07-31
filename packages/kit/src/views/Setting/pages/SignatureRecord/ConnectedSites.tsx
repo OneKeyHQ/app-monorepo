@@ -110,6 +110,7 @@ export const ConnectedSites = () => {
 
   return (
     <Tabs.SectionList
+      stickySectionHeadersEnabled={false}
       sections={sections}
       // estimatedItemSize={154}
       ItemSeparatorComponent={null}

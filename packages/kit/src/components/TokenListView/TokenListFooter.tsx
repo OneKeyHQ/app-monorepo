@@ -13,7 +13,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsPersistAtom,
+  useSettingsValuePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -51,6 +54,8 @@ function TokenListFooter(props: IProps) {
   } = useActiveAccount({ num: 0 });
 
   const [settings] = useSettingsPersistAtom();
+
+  const [{ hideValue }] = useSettingsValuePersistAtom();
 
   const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
 
@@ -100,6 +105,7 @@ function TokenListFooter(props: IProps) {
         },
         deriveType,
         deriveInfo,
+        hideValue,
         isAllNetworks: network.isAllNetworks,
       },
     });
@@ -115,30 +121,39 @@ function TokenListFooter(props: IProps) {
     smallBalanceTokens,
     wallet,
     helpText,
+    hideValue,
   ]);
 
   const handleOnPressRiskyTokens = useCallback(() => {
-    if (!account || !network) return;
+    if (!account || !network || !wallet) return;
     navigation.pushModal(EModalRoutes.MainModal, {
       screen: EModalAssetListRoutes.RiskTokenManager,
       params: {
         accountId: account.id,
         networkId: network.id,
+        walletId: wallet.id,
         tokenList: {
           tokens: riskyTokens,
           keys: riskyTokenKeys,
           map: riskyTokenListMap,
         },
+        deriveType,
+        deriveInfo,
         isAllNetworks: network.isAllNetworks,
+        hideValue,
       },
     });
   }, [
     account,
+    deriveInfo,
+    deriveType,
     navigation,
     network,
     riskyTokenKeys,
     riskyTokenListMap,
     riskyTokens,
+    wallet,
+    hideValue,
   ]);
 
   const { result: blockedTokensLength, run } = usePromiseResult(
@@ -195,7 +210,7 @@ function TokenListFooter(props: IProps) {
               <Icon
                 name="ControllerRoundUpSolid"
                 color="$iconSubdued"
-                size={tableLayout ? '$6' : '$7'}
+                size={tableLayout ? '$8' : '$7'}
               />
             </Stack>
             <ListItem.Text
@@ -265,7 +280,7 @@ function TokenListFooter(props: IProps) {
               <Icon
                 name="ErrorSolid"
                 color="$iconSubdued"
-                size={tableLayout ? '$6' : '$7'}
+                size={tableLayout ? '$8' : '$7'}
               />
             </Stack>
             <ListItem.Text

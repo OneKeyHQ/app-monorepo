@@ -113,10 +113,11 @@ export function WalletActionMore() {
         params: {
           accountId: account?.id ?? '',
           networkId: network?.id ?? '',
+          walletId: wallet?.id ?? '',
         },
       });
     }
-  }, [rewardCenterConfig, navigation, account?.id, network?.id]);
+  }, [rewardCenterConfig, navigation, account?.id, network?.id, wallet?.id]);
   const handleCopyAddress = useCallback(async () => {
     if (
       await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({

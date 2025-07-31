@@ -3860,7 +3860,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       // if (!wallet) {
       return { accounts: [] };
     }
-    const { accounts } = await this.getAllAccounts({
+    let { accounts } = await this.getAllAccounts({
       ids: wallet.accounts, // // filter by ids for better performance
     });
 
@@ -3874,26 +3874,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       );
     }
 
+    accounts = accounts.filter(
+      (item) => item && !accountUtils.isUrlAccountFn({ accountId: item.id }),
+    );
+    accounts = accounts.map((account, walletAccountsIndex) =>
+      this.refillAccountInfo({
+        account,
+        walletAccountsIndex,
+        indexedAccount: undefined,
+      }),
+    );
+    accounts = accounts.sort((a, b) =>
+      natsort({ insensitive: true })(a.accountOrder ?? 0, b.accountOrder ?? 0),
+    );
+
     return {
       removedAccountIds,
-      accounts: accounts
-        .filter(
-          (item) =>
-            item && !accountUtils.isUrlAccountFn({ accountId: item.id }),
-        )
-        .map((account, walletAccountsIndex) =>
-          this.refillAccountInfo({
-            account,
-            walletAccountsIndex,
-            indexedAccount: undefined,
-          }),
-        )
-        .sort((a, b) =>
-          natsort({ insensitive: true })(
-            a.accountOrder ?? 0,
-            b.accountOrder ?? 0,
-          ),
-        ),
+      accounts,
     };
   }
 
@@ -3957,6 +3954,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
+  refillAccountOrderInfo({
+    account,
+    walletAccountsIndex,
+  }: {
+    account: IDBAccount;
+    walletAccountsIndex?: number; // wallet.accounts array index
+  }) {
+    account.accountOrder = account?.accountOrderSaved;
+    if (!isNil(walletAccountsIndex)) {
+      account.accountOrder =
+        account?.accountOrderSaved ?? walletAccountsIndex + 1;
+    }
+  }
+
   refillAccountInfo({
     account,
     indexedAccount,
@@ -3967,11 +3978,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     indexedAccount: IDBIndexedAccount | undefined;
     walletAccountsIndex?: number; // wallet.accounts array index
   }) {
-    account.accountOrder = account?.accountOrderSaved;
-    if (!isNil(walletAccountsIndex)) {
-      account.accountOrder =
-        account?.accountOrderSaved ?? walletAccountsIndex + 1;
-    }
+    this.refillAccountOrderInfo({
+      account,
+      walletAccountsIndex,
+    });
+
     const externalAccount = account as IDBExternalAccount;
     if (externalAccount && externalAccount.connectionInfoRaw) {
       externalAccount.connectionInfo = JSON.parse(

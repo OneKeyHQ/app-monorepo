@@ -1,3 +1,4 @@
+/* eslint-disable spellcheck/spell-checker */
 import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -9,12 +10,16 @@ import {
   SegmentControl,
   SizableText,
   Stack,
+  YStack,
 } from '@onekeyhq/components';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { PrimeTransferHomeEnterLink } from './PrimeTransferHomeEnterLink';
 import { PrimeTransferHomeQrCode } from './PrimeTransferHomeQrCode';
 import { PrimeTransferHomeSteps } from './PrimeTransferHomeSteps';
+import { PrimeTransferServerStatusBar } from './PrimeTransferServerStatusBar';
 
 export const TRANSFER_METHOD = {
   QR_CODE: 'qr-code',
@@ -32,6 +37,8 @@ export function PrimeTransferHome({
   remotePairingCode: string;
   setRemotePairingCode: (code: string) => void;
 }) {
+  const [primeTransferAtom] = usePrimeTransferAtom();
+
   const intl = useIntl();
   const TRANSFER_OPTIONS = useMemo(
     () =>
@@ -60,7 +67,9 @@ export function PrimeTransferHome({
         })}
       />
 
-      <Stack px="$4" gap="$4">
+      <PrimeTransferServerStatusBar />
+
+      <Stack px="$4" gap="$5" mt="$2">
         <SegmentControl
           fullWidth
           value={value}
@@ -84,12 +93,16 @@ export function PrimeTransferHome({
 
         <Divider />
 
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.transfer_qr_stepall_desc })}
-        </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.transfer_qr_stepall_desc2 })}
-        </SizableText>
+        <YStack gap="$1.5">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.transfer_qr_stepall_desc })}
+          </SizableText>
+          <HyperlinkText
+            size="$bodySm"
+            color="$textSubdued"
+            translationId={ETranslations.transfer_qr_stepall_desc2}
+          />
+        </YStack>
         <Stack h="$4" />
       </Stack>
     </>

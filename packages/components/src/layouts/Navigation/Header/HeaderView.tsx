@@ -1,15 +1,19 @@
 import type { ReactNode } from 'react';
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import * as React from 'react';
 
 import { Header } from '@react-navigation/elements';
-import { useIsFocused } from '@react-navigation/native';
-import { get } from 'lodash';
+import {
+  useFocusEffect,
+  useIsFocused,
+  useNavigation,
+} from '@react-navigation/native';
 import { useMedia, useTheme } from 'tamagui';
+import { useDebouncedCallback } from 'use-debounce';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { EPageType, useIsModalPage } from '../../../hocs';
+import { useIsModalPage } from '../../../hocs';
 import { Stack, XStack } from '../../../primitives';
 import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
 import { rootNavigationRef } from '../Navigator/NavigationContainer';
@@ -38,21 +42,42 @@ function getHeaderTitle(
     : fallback;
 }
 
-const useIsTabFocused = () => {
-  const isFocused = useIsFocused();
-
-  if ((rootNavigationRef.current?.getState().routes.length || 0) > 1) {
-    return true;
-  }
-  return isFocused;
-};
-
 const DesktopDragZoneBoxView = platformEnv.isDesktop
   ? ({ disabled, children }: IDesktopDragZoneBoxProps) => {
-      const isPageFocus = useIsTabFocused();
       const isModalPage = useIsModalPage();
+
+      const [isFocus, setIsFocus] = useState(true);
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const { getState } = useNavigation();
+
+      const currentRouteName = useMemo(() => {
+        const state = getState?.();
+        return state?.routes?.at(-1)?.name;
+      }, [getState]);
+
+      const handlePageFocus = useDebouncedCallback(() => {
+        setIsFocus(
+          currentRouteName ===
+            rootNavigationRef.current?.getCurrentRoute()?.name,
+        );
+      }, 100);
+
+      const handlePageBlur = useDebouncedCallback(() => {
+        setIsFocus(false);
+      }, 100);
+
+      const handlePageEffect = useCallback(() => {
+        handlePageFocus();
+        return () => {
+          handlePageBlur();
+        };
+      }, [handlePageBlur, handlePageFocus]);
+
+      useFocusEffect(handlePageEffect);
+
       return (
-        <DesktopDragZoneBox disabled={disabled || !isPageFocus || isModalPage}>
+        <DesktopDragZoneBox disabled={disabled || !isFocus || isModalPage}>
           {children}
         </DesktopDragZoneBox>
       );

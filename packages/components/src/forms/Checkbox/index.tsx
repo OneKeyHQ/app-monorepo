@@ -35,6 +35,7 @@ function RawCheckbox({
   description,
   labelProps,
   onChange,
+  onChangeForDisabled,
   value,
   containerProps,
   labelContainerProps,
@@ -51,12 +52,23 @@ function RawCheckbox({
         event.stopPropagation();
         event.preventDefault();
       }
+      if (checkboxProps.disabled) {
+        onChangeForDisabled?.(!usedValue);
+        return;
+      }
       if (isUncontrolled) {
         setInnerValue(!usedValue);
       }
       onChange?.(!usedValue);
     },
-    [isUncontrolled, onChange, usedValue, shouldStopPropagation],
+    [
+      shouldStopPropagation,
+      checkboxProps.disabled,
+      isUncontrolled,
+      onChange,
+      usedValue,
+      onChangeForDisabled,
+    ],
   );
   return (
     <XStack

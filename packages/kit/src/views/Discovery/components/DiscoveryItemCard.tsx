@@ -74,7 +74,7 @@ export function DiscoveryItemCard({
         source={{ uri: logo }}
         fallback={
           <Image.Fallback>
-            <Icon size="$14" color="$iconSubdued" name="GlobusOutline" />
+            <Icon size="$12" color="$iconSubdued" name="GlobusOutline" />
           </Image.Fallback>
         }
       />

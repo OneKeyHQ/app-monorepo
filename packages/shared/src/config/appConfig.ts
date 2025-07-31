@@ -44,6 +44,7 @@ export const ONEKEY_API_HOST = 'onekeycn.com';
 export const ONEKEY_TEST_API_HOST = 'onekeytest.com';
 
 export const WEB_APP_URL = 'https://app.onekey.so';
+export const WEB_APP_URL_SHORT = 'https://1key.so';
 export const WEB_APP_URL_DEV = 'https://app.onekeytest.com';
 
 export const EXT_RATE_URL = {

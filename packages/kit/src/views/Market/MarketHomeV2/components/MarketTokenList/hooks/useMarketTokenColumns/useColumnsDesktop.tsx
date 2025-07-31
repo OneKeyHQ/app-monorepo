@@ -65,7 +65,7 @@ export const useColumnsDesktop = (
         />
       ),
       renderSkeleton: () => (
-        <XStack alignItems="center" space="$3">
+        <XStack alignItems="center" gap="$3">
           <XStack position="relative">
             <Skeleton width={32} height={32} borderRadius="$full" />
           </XStack>

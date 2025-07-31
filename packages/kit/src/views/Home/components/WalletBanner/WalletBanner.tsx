@@ -18,32 +18,33 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
-  EModalRewardCenterRoutes,
-  EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
-import {
-  openUrlExternal,
-  openUrlInApp,
-} from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 import { EarnNavigation } from '../../../Earn/earnUtils';
+import useParseQRCode from '../../../ScanQrCode/hooks/useParseQRCode';
 
 import type { GestureResponderEvent } from 'react-native';
 
+const closedBanners: Record<string, boolean> = {};
+
 function WalletBanner() {
   const {
-    activeAccount: { account, network, indexedAccount },
+    activeAccount: { account, network, wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
 
   const intl = useIntl();
   const { gtSm, gtLg } = useMedia();
+  const themeVariant = useThemeVariant();
 
   const navigation = useAppNavigation();
+
+  const parseQRCode = useParseQRCode();
 
   const [closedForeverBanners, setClosedForeverBanners] = useState<
     Record<string, boolean>
@@ -80,6 +81,7 @@ function WalletBanner() {
 
   const handleDismiss = useCallback(async (item: IWalletBanner) => {
     if (item.closeable) {
+      closedBanners[item.id] = true;
       setClosedForeverBanners((prev) => ({
         ...prev,
         [item.id]: true,
@@ -146,56 +148,51 @@ function WalletBanner() {
         return;
       }
 
-      if (
-        item.hrefType === 'internal' &&
-        item.href.includes('/reward-center')
-      ) {
-        navigation.pushModal(EModalRoutes.MainModal, {
-          screen: EModalRewardCenterRoutes.RewardCenter,
-          params: {
-            accountId: account?.id ?? '',
-            networkId: network?.id ?? '',
-          },
-        });
-        return;
-      }
-
-      if (item.hrefType === 'external') {
-        openUrlExternal(item.href);
-      } else {
-        openUrlInApp(item.href);
-      }
+      await parseQRCode.parse(item.href, {
+        handlers: [
+          EQRCodeHandlerNames.marketDetail,
+          EQRCodeHandlerNames.sendProtection,
+          EQRCodeHandlerNames.rewardCenter,
+        ],
+        qrWalletScene: false,
+        autoHandleResult: true,
+        defaultHandler: openUrlExternal,
+        account,
+        network,
+        wallet,
+      });
     },
-    [account?.id, indexedAccount?.id, navigation, network?.id],
+    [account, indexedAccount?.id, navigation, network, parseQRCode, wallet],
   );
 
   useEffect(() => {
     const fetchClosedForeverBanners = async () => {
       const resp =
         await backgroundApiProxy.serviceWalletBanner.getClosedForeverBanners();
-      setClosedForeverBanners(resp);
+      setClosedForeverBanners({
+        ...closedBanners,
+        ...resp,
+      });
     };
     void fetchClosedForeverBanners();
   }, []);
+
+  const { gtMd } = useMedia();
 
   if (filteredBanners.length === 0) {
     return null;
   }
 
   return (
-    <YStack
-      pb="$3"
-      $gtLg={{
-        pt: '$3',
-      }}
-      bg="$bgApp"
-    >
+    <YStack py="$2.5" bg="$bgApp">
       <Carousel
         loop={false}
+        marginRatio={gtMd ? 0.28 : 0}
         data={filteredBanners}
         autoPlayInterval={3800}
+        maxPageWidth={840}
         containerStyle={{
-          height: gtSm ? 86 : 80, // plus 4
+          height: gtSm ? 98 : 90,
         }}
         paginationContainerStyle={{
           marginBottom: 0,
@@ -211,8 +208,9 @@ function WalletBanner() {
           return (
             <YStack
               px="$5"
+              pt="$0.5"
               $platform-native={{
-                h: gtSm ? 86 : 76,
+                h: gtSm ? 82 : 73,
               }}
             >
               <XStack
@@ -223,10 +221,12 @@ function WalletBanner() {
                 p="$4"
                 pr="$6"
                 bg="$bg"
-                borderWidth={StyleSheet.hairlineWidth}
-                borderColor="$borderSubdued"
                 borderRadius="$2"
-                borderCurve="continuous"
+                $platform-native={{
+                  borderWidth: StyleSheet.hairlineWidth,
+                  borderColor: '$borderSubdued',
+                  borderCurve: 'continuous',
+                }}
                 $platform-android={{ elevation: 0.5 }}
                 $platform-ios={{
                   shadowColor: '#000',
@@ -235,7 +235,12 @@ function WalletBanner() {
                   shadowRadius: 0.5,
                 }}
                 $platform-web={{
-                  boxShadow: '0px 1px 1px 0px rgba(0, 0, 0, 0.05)',
+                  boxShadow:
+                    '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.10), 0 1px 2px 0 rgba(0, 0, 0, 0.10)',
+                  ...(themeVariant === 'dark' && {
+                    borderWidth: 1,
+                    borderColor: '$borderSubdued',
+                  }),
                 }}
                 {...(!gtLg && {
                   gap: '$3',

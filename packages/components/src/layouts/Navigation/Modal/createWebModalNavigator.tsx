@@ -25,7 +25,7 @@ import {
   ModalNavigatorContext,
   createPortalId,
 } from '../../../hooks/useModalNavigatorContext';
-import { Stack, YStack } from '../../../primitives/Stack';
+import { Stack, XStack, YStack } from '../../../primitives/Stack';
 
 import type {
   IModalNavigationConfig,
@@ -285,7 +285,22 @@ function WebModalNavigator({
                   transition: 'opacity .25s cubic-bezier(0.4, 0, 0.2, 1)',
                   willChange: 'opacity',
                 }}
-              />
+              >
+                {platformEnv.isDesktopMac ? (
+                  <XStack
+                    style={
+                      {
+                        WebkitAppRegion: 'drag',
+                      } as any
+                    }
+                    position="absolute"
+                    top={0}
+                    h={48}
+                    left={0}
+                    right={0}
+                  />
+                ) : null}
+              </YStack>
             ) : null}
 
             <Stack

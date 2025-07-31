@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import axios from 'axios';
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Button, Dialog, Page, Spinner } from '@onekeyhq/components';
+import { Button, Dialog, Page } from '@onekeyhq/components';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -20,14 +21,19 @@ import {
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
+import { usePrimeTransferExit } from './components/hooks/usePrimeTransferExit';
 import { PrimeTransferDirection } from './components/PrimeTransferDirection';
+import { PrimeTransferExitPrevent } from './components/PrimeTransferExitPrevent';
 import { PrimeTransferHome } from './components/PrimeTransferHome';
+import { PrimeTransferHomeSkeleton } from './components/PrimeTransferHomeSkeleton';
 
 export default function PagePrimeTransfer() {
   const intl = useIntl();
   const [primeTransferAtom] = usePrimeTransferAtom();
   const navigation = useAppNavigation();
+  const { exitTransferFlow, disableExitPrevention } = usePrimeTransferExit();
 
   const [remotePairingCode, setRemotePairingCode] = useState('');
 
@@ -37,29 +43,32 @@ export default function PagePrimeTransfer() {
     }
   }, [primeTransferAtom.status]);
 
-  const { result: endpoint } = usePromiseResult(async () => {
-    const endpointInfo = await backgroundApiProxy.serviceApp.getEndpointInfo({
-      name: EServiceEndpointEnum.Transfer,
-    });
-    // return 'http://localhost:3868';
-    // return 'https://app-monorepo.onrender.com';
-    // return 'https://transfer.onekey-test.com';
-    return endpointInfo.endpoint;
-  }, []);
-
-  console.log('endpoint', endpoint);
+  const { result } = usePromiseResult(async () => {
+    noop(primeTransferAtom.websocketEndpointUpdatedAt);
+    const serverConfig =
+      await backgroundApiProxy.simpleDb.primeTransfer.getServerConfig();
+    const endpoint =
+      await backgroundApiProxy.servicePrimeTransfer.getWebSocketEndpoint();
+    // remove last slash
+    const endpointWithoutLastSlash = endpoint.replace(/\/+$/, '');
+    return {
+      endpoint: endpointWithoutLastSlash,
+      serverConfig,
+    };
+  }, [primeTransferAtom.websocketEndpointUpdatedAt]);
 
   useEffect(() => {
-    if (!endpoint) {
+    if (!result?.endpoint) {
       return;
     }
+    noop(result.serverConfig?.serverType);
     // TODO show websocket connection status by global atom
     void backgroundApiProxy.servicePrimeTransfer.initWebSocket({
-      endpoint,
+      endpoint: result.endpoint,
     });
 
     void axios
-      .get(`${endpoint}/health`)
+      .get(`${result.endpoint}/health`)
       .then((res) => {
         console.log('health check', res.data);
       })
@@ -70,7 +79,7 @@ export default function PagePrimeTransfer() {
     return () => {
       void backgroundApiProxy.servicePrimeTransfer.disconnectWebSocket();
     };
-  }, [endpoint]);
+  }, [result?.endpoint, result?.serverConfig?.serverType]);
 
   useEffect(() => {
     const fn = (
@@ -81,18 +90,18 @@ export default function PagePrimeTransfer() {
         description: data.description,
         showCancelButton: false,
       });
-      navigation.popStack();
+      exitTransferFlow();
     };
     appEventBus.on(EAppEventBusNames.PrimeTransferForceExit, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.PrimeTransferForceExit, fn);
     };
-  }, [navigation]);
+  }, [exitTransferFlow]);
 
   const contentView = useMemo(() => {
-    if (!primeTransferAtom.websocketConnected) {
-      return <Spinner size="large" />;
-    }
+    // if (!primeTransferAtom.websocketConnected) {
+    //   return <PrimeTransferHomeSkeleton />;
+    // }
     if (primeTransferAtom.status === EPrimeTransferStatus.init) {
       return (
         <PrimeTransferHome
@@ -112,12 +121,7 @@ export default function PagePrimeTransfer() {
       );
     }
     return <></>;
-  }, [
-    primeTransferAtom.websocketConnected,
-    primeTransferAtom.status,
-    remotePairingCode,
-    setRemotePairingCode,
-  ]);
+  }, [primeTransferAtom.status, remotePairingCode, setRemotePairingCode]);
 
   const debugButtons = useMemo(() => {
     if (process.env.NODE_ENV !== 'production') {
@@ -126,7 +130,7 @@ export default function PagePrimeTransfer() {
           <Button
             onPress={async () => {
               const data =
-                await backgroundApiProxy.servicePrimeTransfer.getDataForTransfer();
+                await backgroundApiProxy.servicePrimeTransfer.buildTransferData();
               Dialog.debugMessage({
                 debugMessage: data,
               });
@@ -137,7 +141,7 @@ export default function PagePrimeTransfer() {
           <Button
             onPress={async () => {
               const data =
-                await backgroundApiProxy.servicePrimeTransfer.getDataForTransfer();
+                await backgroundApiProxy.servicePrimeTransfer.buildTransferData();
               const param: IPrimeParamList[EPrimePages.PrimeTransferPreview] = {
                 directionUserInfo: undefined,
                 transferData: data,
@@ -147,11 +151,43 @@ export default function PagePrimeTransfer() {
           >
             Navigate to preview
           </Button>
+          <Button
+            onPress={() => {
+              disableExitPrevention();
+            }}
+          >
+            Change shouldPreventExit to false
+          </Button>
+          <Button
+            onPress={() => {
+              void backgroundApiProxy.servicePrimeTransfer.disconnectWebSocket();
+            }}
+          >
+            Disconnect WebSocket
+          </Button>
+          <Button
+            onPress={async () => {
+              const endpoint2 =
+                await backgroundApiProxy.servicePrimeTransfer.getWebSocketEndpoint();
+              if (!endpoint2) {
+                return;
+              }
+              void backgroundApiProxy.servicePrimeTransfer.initWebSocket({
+                endpoint: endpoint2,
+              });
+            }}
+          >
+            Init WebSocket
+          </Button>
         </>
       );
     }
     return <></>;
-  }, [navigation]);
+  }, [navigation, disableExitPrevention]);
+
+  // const shouldPreventExit =
+  //   primeTransferAtom.status === EPrimeTransferStatus.paired ||
+  //   primeTransferAtom.status === EPrimeTransferStatus.transferring;
 
   return (
     <Page scrollEnabled>
@@ -159,6 +195,10 @@ export default function PagePrimeTransfer() {
         {contentView}
         {debugButtons}
       </Page.Body>
+      <PrimeTransferExitPrevent
+        shouldPreventRemove={primeTransferAtom.shouldPreventExit}
+        // shouldPreventRemove={false}
+      />
     </Page>
   );
 }

@@ -12,6 +12,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
 
@@ -48,6 +49,7 @@ const ChainSelectorListViewContent = ({
       ListEmptyComponent={ListEmptyComponent}
       ListFooterComponent={<Stack h={bottom || '$2'} />}
       estimatedItemSize={48}
+      initialNumToRender={platformEnv.isNative ? undefined : 40}
       data={networks}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => (
