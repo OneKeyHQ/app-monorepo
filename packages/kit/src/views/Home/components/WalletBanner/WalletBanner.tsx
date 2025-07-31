@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { isNil } from 'lodash';
-import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
-  Button,
   Carousel,
   Icon,
   IconButton,
@@ -20,7 +18,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
@@ -38,8 +35,7 @@ function WalletBanner() {
     activeAccount: { account, network, wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
 
-  const intl = useIntl();
-  const { gtSm, gtLg } = useMedia();
+  const { gtSm } = useMedia();
   const themeVariant = useThemeVariant();
 
   const navigation = useAppNavigation();
@@ -219,8 +215,12 @@ function WalletBanner() {
                 gap="$4"
                 alignItems="center"
                 p="$4"
-                pr="$6"
+                pr="$10"
                 bg="$bg"
+                $lg={{
+                  gap: '$3',
+                  py: '$3',
+                }}
                 borderRadius="$2"
                 $platform-native={{
                   borderWidth: StyleSheet.hairlineWidth,
@@ -242,25 +242,20 @@ function WalletBanner() {
                     borderColor: '$borderSubdued',
                   }),
                 }}
-                {...(!gtLg && {
-                  gap: '$3',
-                  py: '$3',
-                  pr: '$10',
-                  hoverStyle: {
-                    bg: '$bgHover',
-                  },
-                  pressStyle: {
-                    bg: '$bgActive',
-                  },
-                  focusable: true,
-                  focusVisibleStyle: {
-                    outlineColor: '$focusRing',
-                    outlineWidth: 2,
-                    outlineStyle: 'solid',
-                    outlineOffset: -2,
-                  },
-                  onPress: () => handleClick(item),
-                })}
+                hoverStyle={{
+                  bg: '$bgHover',
+                }}
+                pressStyle={{
+                  bg: '$bgActive',
+                }}
+                focusable
+                focusVisibleStyle={{
+                  outlineColor: '$focusRing',
+                  outlineWidth: 2,
+                  outlineStyle: 'solid',
+                  outlineOffset: -2,
+                }}
+                onPress={() => handleClick(item)}
               >
                 <Image
                   size="$12"
@@ -309,7 +304,7 @@ function WalletBanner() {
                   </SizableText>
                 )}
 
-                <XStack
+                {/* <XStack
                   gap="$5"
                   alignItems="center"
                   $lg={{
@@ -339,23 +334,22 @@ function WalletBanner() {
                         id: ETranslations.global_check_it_out,
                       })}
                   </Button>
-                </XStack>
+                </XStack> */}
 
-                <IconButton
-                  position="absolute"
-                  top="$2.5"
-                  right="$2.5"
-                  size="small"
-                  variant="tertiary"
-                  onPress={(event: GestureResponderEvent) => {
-                    event.stopPropagation();
-                    void handleDismiss(item);
-                  }}
-                  icon="CrossedSmallOutline"
-                  $gtLg={{
-                    display: 'none',
-                  }}
-                />
+                {item.closeable ? (
+                  <IconButton
+                    position="absolute"
+                    top="$2.5"
+                    right="$2.5"
+                    size="small"
+                    variant="tertiary"
+                    onPress={(event: GestureResponderEvent) => {
+                      event.stopPropagation();
+                      void handleDismiss(item);
+                    }}
+                    icon="CrossedSmallOutline"
+                  />
+                ) : null}
               </XStack>
             </YStack>
           );

@@ -260,7 +260,7 @@ function TokenDetailsView() {
                 scrollSensitivity: 4,
               } as any
             }
-            renderTabBar={(props) => <Tabs.TabBar {...props} />}
+            renderTabBar={(props) => <Tabs.TabBar {...props} scrollable />}
           >
             {tabs}
           </Tabs.Container>
@@ -298,7 +298,7 @@ function TokenDetailsView() {
   ]);
 
   return (
-    <Page safeAreaEnabled={false}>
+    <Page lazyLoad safeAreaEnabled={false}>
       <Page.Header
         headerTitle={tokenInfo.name}
         headerTitleStyle={headerTitleStyle}

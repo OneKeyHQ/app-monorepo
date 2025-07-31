@@ -122,7 +122,7 @@ class ServicePrimeTransfer extends ServiceBase {
       const testEndpoint = async (url: string): Promise<boolean> => {
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+          const timeoutId = setTimeout(() => controller.abort(), 10_000); // 5 second timeout
 
           const response = await fetch(`${url}/health`, {
             method: 'GET',
@@ -188,15 +188,20 @@ class ServicePrimeTransfer extends ServiceBase {
     // return 'https://app-monorepo.onrender.com';
     // return 'https://transfer.onekey-test.com';
 
-    const endpointInfo = await this.backgroundApi.serviceApp.getEndpointInfo({
-      name: EServiceEndpointEnum.Transfer,
-    });
-    const officialEndpoint = endpointInfo.endpoint;
     const customEndpointInfo =
       await this.backgroundApi.simpleDb.primeTransfer.getServerConfig();
-    if (customEndpointInfo.serverType === EPrimeTransferServerType.CUSTOM) {
+    if (
+      customEndpointInfo.customServerUrl &&
+      customEndpointInfo.serverType === EPrimeTransferServerType.CUSTOM
+    ) {
       return customEndpointInfo.customServerUrl;
     }
+
+    const officialEndpointInfo =
+      await this.backgroundApi.serviceApp.getEndpointInfo({
+        name: EServiceEndpointEnum.Transfer,
+      });
+    const officialEndpoint = officialEndpointInfo.endpoint;
     return officialEndpoint;
   }
 
@@ -796,7 +801,7 @@ class ServicePrimeTransfer extends ServiceBase {
           return {
             networkAccount,
             address:
-              networkAccount?.addressDetail?.normalizedAddress ||
+              networkAccount?.addressDetail?.displayAddress ||
               networkAccount?.address ||
               account.address,
           };
@@ -871,10 +876,16 @@ class ServicePrimeTransfer extends ServiceBase {
     return {
       privateData,
       appVersion: version ?? '',
-      isEmptyData:
+      isWatchingOnly: Boolean(
         !Object.keys(privateData?.wallets || {}).length &&
-        !Object.keys(privateData?.importedAccounts || {}).length &&
-        !Object.keys(privateData?.watchingAccounts || {}).length,
+          !Object.keys(privateData?.importedAccounts || {}).length &&
+          Object.keys(privateData?.watchingAccounts || {}).length,
+      ),
+      isEmptyData: Boolean(
+        !Object.keys(privateData?.wallets || {}).length &&
+          !Object.keys(privateData?.importedAccounts || {}).length &&
+          !Object.keys(privateData?.watchingAccounts || {}).length,
+      ),
     };
   }
 
@@ -887,13 +898,15 @@ class ServicePrimeTransfer extends ServiceBase {
   }) {
     this.checkWebSocketConnected();
 
-    const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerify({
-        reason: EReasonForNeedPassword.Security,
-      });
+    if (!transferData.isWatchingOnly) {
+      const { password } =
+        await this.backgroundApi.servicePassword.promptPasswordVerify({
+          reason: EReasonForNeedPassword.Security,
+        });
 
-    if (!password) {
-      throw new OneKeyLocalError('Password is required');
+      if (!password) {
+        throw new OneKeyLocalError('Password is required');
+      }
     }
 
     const currentState = await primeTransferAtom.get();
