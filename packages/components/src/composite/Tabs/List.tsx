@@ -409,7 +409,7 @@ export function List<Item>({
       rowCount: listData.length,
       isScrolling: isVisible ? isScrolling : false,
       onScroll: isVisible ? onChildScroll : undefined,
-      scrollTop: isVisible ? scrollTop : 0,
+      scrollTop: isVisible && listData.length > 0 ? scrollTop : 0,
       overscanRowCount: 10,
       deferredMeasurementCache: cache,
     };
