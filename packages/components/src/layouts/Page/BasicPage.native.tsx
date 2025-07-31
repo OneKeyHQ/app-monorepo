@@ -83,7 +83,7 @@ function LoadingScreen({
         changeChildrenVisibleStatus(true);
         setTimeout(() => {
           changeLoadingVisibleStatus(false);
-        }, 80);
+        }, 250);
       },
       platformEnv.isNativeAndroid ? 50 : 0,
     );
