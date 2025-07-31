@@ -172,7 +172,9 @@ function HardwareSingletonDialogCmp(
         eventType ===
         EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION
       ) {
-        title = 'Requesting Bluetooth Permission...';
+        title = intl.formatMessage({
+          id: ETranslations.hardware_bluetooth_requires_permission_error,
+        });
         content = (
           <DesktopBluetoothPermissionContent
             promiseId={state?.payload?.promiseId}
@@ -183,12 +185,16 @@ function HardwareSingletonDialogCmp(
         persistBluetoothUnauthorized ||
         eventType === EHardwareUiStateAction.BLUETOOTH_PERMISSION_UNAUTHORIZED
       ) {
-        title = 'Communicating...';
+        title = intl.formatMessage({
+          id: ETranslations.communication_communicating,
+        });
         content = <BluetoothPermissionUnauthorizedContent />;
       } else if (
         eventType === EHardwareUiStateAction.BLUETOOTH_DEVICE_PAIRING
       ) {
-        title = 'Pairing...';
+        title = intl.formatMessage({
+          id: ETranslations.bluetooth_paring_dialog_title,
+        });
         content = (
           <BluetoothDevicePairingContent
             deviceId={state?.payload?.deviceId}
@@ -200,7 +206,7 @@ function HardwareSingletonDialogCmp(
         );
       } else {
         title = intl.formatMessage({
-          id: ETranslations.global_checking_device,
+          id: ETranslations.communication_communicating,
         });
         content = defaultLoadingView;
       }
