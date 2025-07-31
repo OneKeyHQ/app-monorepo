@@ -13,7 +13,25 @@ import type { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/a
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
+import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
+
+// Supported hardware error types for dialog display
+export const HARDWARE_ERROR_DIALOG_TYPES = {
+  DEVICE_NOT_FOUND: 'DeviceNotFound',
+  NEED_ONEKEY_BRIDGE: 'NeedOneKeyBridge', 
+  DEVICE_NOT_OPENED_PASSPHRASE: 'DeviceNotOpenedPassphrase',
+} as const;
+
+export type THardwareErrorDialogType = typeof HARDWARE_ERROR_DIALOG_TYPES[keyof typeof HARDWARE_ERROR_DIALOG_TYPES] | (string & {});
+
+// Hardware error dialog event payload type
+export interface IHardwareErrorDialogPayload {
+  errorType: THardwareErrorDialogType; // Extensible but type-safe error types
+  payload?: IOneKeyHardwareErrorPayload | Record<string, unknown>; // Original error payload with type safety
+  errorCode?: number | string; // Hardware error code
+  errorMessage?: string; // Error message
+}
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import appGlobals from '../appGlobals';
@@ -319,6 +337,7 @@ export interface IAppEventBusPayload {
     features?: any;
     promiseId?: number;
   };
+  [EAppEventBusNames.ShowHardwareErrorDialog]: IHardwareErrorDialogPayload;
 }
 
 export enum EEventBusBroadcastMethodNames {

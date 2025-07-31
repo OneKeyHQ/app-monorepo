@@ -1,20 +1,15 @@
 /* eslint-disable react/no-unstable-nested-components */
-import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
-import { useRoute } from '@react-navigation/core';
+import { type RouteProp, useRoute } from '@react-navigation/core';
 import { get } from 'lodash';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
-import type {
-  IAccordionSingleProps,
-  ILottieViewProps,
-} from '@onekeyhq/components';
+import type { ILottieViewProps } from '@onekeyhq/components';
 import {
-  Accordion,
   Anchor,
   Button,
   Dialog,
@@ -38,6 +33,7 @@ import ConnectByUSBAnim from '@onekeyhq/kit/assets/animations/connect_by_usb.jso
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
+import { ConnectionTroubleShootingAccordion } from '@onekeyhq/kit/src/components/Hardware/ConnectionTroubleShootingAccordion';
 import {
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
@@ -55,10 +51,7 @@ import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfi
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBCreateHwWalletParamsBase } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  FIRMWARE_CONTACT_US_URL,
-  HARDWARE_BRIDGE_DOWNLOAD_URL,
-} from '@onekeyhq/shared/src/config/appConfig';
+import { HARDWARE_BRIDGE_DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   BleLocationServiceError,
@@ -104,7 +97,6 @@ import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
 import { useSelectAddWalletTypeDialog } from './SelectAddWalletTypeDialog';
 
 import type { Features, IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
-import type { RouteProp } from '@react-navigation/core';
 import type { ImageSourcePropType } from 'react-native';
 
 // Helper function to convert transport type enum to analytics string
@@ -553,227 +545,6 @@ function useDeviceConnection({
     ensureStopScan,
     deviceScanner,
   };
-}
-
-export function ConnectionTroubleShootingAccordion({
-  connectionType,
-  indent = true,
-  ...rest
-}: {
-  connectionType: 'bluetooth' | 'usb';
-  indent?: boolean;
-} & Partial<IAccordionSingleProps>) {
-  const intl = useIntl();
-
-  const solutions = {
-    usb: [
-      [
-        intl.formatMessage({
-          id: ETranslations.troubleshooting_replug_usb_cable,
-        }),
-        intl.formatMessage({
-          id: ETranslations.troubleshooting_connect_and_unlock,
-        }),
-      ],
-      [
-        intl.formatMessage({
-          id: ETranslations.troubleshooting_change_usb_port,
-        }),
-        intl.formatMessage({
-          id: ETranslations.troubleshooting_remove_usb_dongles,
-        }),
-        intl.formatMessage({
-          id: ETranslations.troubleshooting_connect_and_unlock,
-        }),
-      ],
-      [
-        intl.formatMessage({
-          id: ETranslations.troubleshooting_use_original_usb_cable,
-        }),
-        intl.formatMessage({
-          id: ETranslations.troubleshooting_try_different_usb_cable,
-        }),
-        intl.formatMessage({
-          id: ETranslations.troubleshooting_connect_and_unlock,
-        }),
-      ],
-      [
-        intl.formatMessage(
-          { id: ETranslations.troubleshooting_check_bridge },
-          {
-            tag: (chunks: ReactNode[]) => (
-              <Anchor
-                href="https://help.onekey.so/articles/11461190"
-                target="_blank"
-                size="$bodyMd"
-                color="$textInfo"
-              >
-                {chunks}
-              </Anchor>
-            ),
-          },
-        ),
-        intl.formatMessage({
-          id: ETranslations.troubleshooting_close_other_onekey_app,
-        }),
-        intl.formatMessage({
-          id: ETranslations.troubleshooting_connect_and_unlock,
-        }),
-      ],
-    ],
-    bluetooth: [
-      [
-        intl.formatMessage({
-          id: ETranslations.troubleshooting_check_bluetooth,
-        }),
-        intl.formatMessage({ id: ETranslations.troubleshooting_unlock_device }),
-      ],
-      [
-        intl.formatMessage({
-          id: ETranslations.troubleshooting_remove_device_from_bluetooth_list,
-        }),
-        intl.formatMessage({ id: ETranslations.troubleshooting_restart_app }),
-        intl.formatMessage({
-          id: ETranslations.troubleshooting_reconnect_and_pair,
-        }),
-      ],
-    ],
-    common: [
-      [
-        intl.formatMessage(
-          { id: ETranslations.troubleshooting_help_center },
-          {
-            tag: (chunks: ReactNode[]) => (
-              <Anchor
-                href="https://help.onekey.so/?q=connect"
-                target="_blank"
-                size="$bodyMd"
-                color="$textInfo"
-              >
-                {chunks}
-              </Anchor>
-            ),
-          },
-        ),
-        intl.formatMessage(
-          { id: ETranslations.troubleshooting_request },
-          {
-            tag: (chunks: ReactNode[]) => (
-              <Anchor
-                href={FIRMWARE_CONTACT_US_URL}
-                target="_blank"
-                size="$bodyMd"
-                color="$textInfo"
-              >
-                {chunks}
-              </Anchor>
-            ),
-          },
-        ),
-      ],
-    ],
-  };
-
-  const getTroubleshootingSolutions = () => {
-    if (connectionType === 'usb')
-      return [...solutions.usb, ...solutions.common];
-    if (connectionType === 'bluetooth')
-      return [...solutions.bluetooth, ...solutions.common];
-    return solutions.common;
-  };
-
-  return (
-    <Accordion type="single" defaultValue="0" collapsible {...rest}>
-      {getTroubleshootingSolutions().map((list, index) => (
-        <Accordion.Item value={index.toString()} key={index.toString()}>
-          <Accordion.Trigger
-            unstyled
-            flexDirection="row"
-            alignItems="center"
-            borderWidth={0}
-            px={indent ? '$5' : 0}
-            py="$2"
-            bg="$transparent"
-            hoverStyle={{ bg: '$bgHover' }}
-            pressStyle={{
-              bg: '$bgActive',
-            }}
-            focusVisibleStyle={{
-              outlineWidth: 2,
-              outlineStyle: 'solid',
-              outlineColor: '$focusRing',
-              outlineOffset: 0,
-            }}
-            {...(index !== 0 && {
-              borderTopWidth: StyleSheet.hairlineWidth,
-              borderTopColor: '$borderSubdued',
-            })}
-          >
-            {({ open }: { open: boolean }) => (
-              <>
-                <Heading
-                  flex={1}
-                  size={open ? '$headingSm' : '$bodyMd'}
-                  textAlign="left"
-                  color={open ? '$text' : '$textSubdued'}
-                >
-                  {index === getTroubleshootingSolutions().length - 1
-                    ? intl.formatMessage({
-                        id: ETranslations.troubleshooting_fallback_solution_label,
-                      })
-                    : intl.formatMessage(
-                        { id: ETranslations.troubleshooting_solution_x },
-                        {
-                          number: index + 1,
-                        },
-                      )}
-                </Heading>
-                <Stack animation="quick" rotate={open ? '-180deg' : '0deg'}>
-                  <Icon
-                    name="ChevronDownSmallOutline"
-                    color={open ? '$iconActive' : '$iconSubdued'}
-                    size="$5"
-                  />
-                </Stack>
-              </>
-            )}
-          </Accordion.Trigger>
-          <Accordion.HeightAnimator animation="quick">
-            <Accordion.Content
-              unstyled
-              animation="quick"
-              enterStyle={{ opacity: 0 }}
-              exitStyle={{ opacity: 0 }}
-            >
-              <Stack
-                role="list"
-                px={indent ? '$5' : 0}
-                pt="$1"
-                pb="$3"
-                gap="$2"
-              >
-                {list.map((item, subIndex) => (
-                  <XStack role="listitem" key={subIndex} gap="$2">
-                    <SizableText w="$4" size="$bodyMd" color="$textSubdued">
-                      {subIndex + 1}.
-                    </SizableText>
-                    <SizableText
-                      $md={{
-                        maxWidth: '$78',
-                      }}
-                      size="$bodyMd"
-                    >
-                      {item}
-                    </SizableText>
-                  </XStack>
-                ))}
-              </Stack>
-            </Accordion.Content>
-          </Accordion.HeightAnimator>
-        </Accordion.Item>
-      ))}
-    </Accordion>
-  );
 }
 
 function AnimationView({

@@ -33,6 +33,7 @@ import type {
 import UpdateNotificationDark from '@onekeyhq/kit/assets/animations/update-notification-dark.json';
 import UpdateNotificationLight from '@onekeyhq/kit/assets/animations/update-notification-light.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ConnectionTroubleShootingAccordion } from '@onekeyhq/kit/src/components/Hardware/ConnectionTroubleShootingAccordion';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -44,8 +45,6 @@ import {
   ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-
-import { ConnectionTroubleShootingAccordion } from '../../../../../Onboarding/pages/ConnectHardwareWallet/ConnectYourDevice';
 
 import { Layout } from './utils/Layout';
 

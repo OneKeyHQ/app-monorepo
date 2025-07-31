@@ -104,4 +104,5 @@ export enum EAppEventBusNames {
   MarketWatchlistOnlyChanged = 'MarketWatchlistOnlyChanged',
   SettingsSearchResult = 'SettingsSearchResult',
   DesktopBleRepairRequired = 'DesktopBleRepairRequired',
+  ShowHardwareErrorDialog = 'ShowHardwareErrorDialog',
 }

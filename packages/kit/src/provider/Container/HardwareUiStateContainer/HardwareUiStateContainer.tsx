@@ -17,12 +17,17 @@ import type { IDialogInstance, IDialogShowProps } from '@onekeyhq/components';
 import {
   Dialog,
   DialogContainer,
+  Icon,
   Portal,
+  ScrollView,
   SizableText,
+  XStack,
+  YStack,
 } from '@onekeyhq/components';
 import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ConnectionTroubleShootingAccordion } from '@onekeyhq/kit/src/components/Hardware/ConnectionTroubleShootingAccordion';
 import {
   usePromptWebDeviceAccess,
   useToPromptWebDeviceAccessPage,
@@ -36,6 +41,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IHardwareErrorDialogPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -640,11 +646,15 @@ function HardwareUiStateContainerCmpControlled() {
 
   const dialogInstanceRef = useRef<IDialogInstance | null>(null);
   const toastInstanceRef = useRef<IShowToasterInstance | null>(null);
+  const hardwareErrorDialogInstanceRef = useRef<IDialogInstance | null>(null);
   if (process.env.NODE_ENV !== 'production') {
     // @ts-ignore
     globalThis.$$hardwareUiStateDialogInstanceRef = dialogInstanceRef;
     // @ts-ignore
     globalThis.$$hardwareUiStateToastInstanceRef = toastInstanceRef;
+    // @ts-ignore
+    globalThis.$$hardwareErrorDialogInstanceRef =
+      hardwareErrorDialogInstanceRef;
   }
 
   const toastElement = (
@@ -717,6 +727,85 @@ function HardwareUiStateContainerCmpControlled() {
 
   const { promptWebUsbDeviceAccess } = usePromptWebDeviceAccess();
   const toPromptWebDeviceAccessPage = useToPromptWebDeviceAccessPage();
+
+  // Handle hardware error dialogs
+  useEffect(() => {
+    const callback = throttle(
+      ({
+        errorType,
+        payload: _payload,
+        errorCode: _errorCode,
+        errorMessage: _errorMessage,
+      }: IHardwareErrorDialogPayload) => {
+        // Only handle DeviceNotFound errors for now, can be extended for other error types
+        if (errorType !== 'DeviceNotFound') {
+          return;
+        }
+        // Prevent duplicate dialog instances
+        if (hardwareErrorDialogInstanceRef.current?.isExist()) {
+          return;
+        }
+
+        hardwareErrorDialogInstanceRef.current = Dialog.show({
+          title: intl.formatMessage({
+            id: ETranslations.communication_timeout,
+          }),
+          showFooter: false,
+          renderContent: (
+            <ScrollView maxHeight={480}>
+              <YStack>
+                <XStack alignItems="center" gap={7} mb="$2">
+                  <Icon name="TypeCoutline" size="$3.5" />
+                  <SizableText size="$headingSm">
+                    {intl.formatMessage({
+                      id: ETranslations.troubleshooting_usb,
+                    })}
+                  </SizableText>
+                </XStack>
+                <YStack>
+                  <ConnectionTroubleShootingAccordion
+                    connectionType="usb"
+                    defaultValue={undefined}
+                    indent={false}
+                  />
+                </YStack>
+              </YStack>
+              <YStack mt="$5">
+                <XStack alignItems="center" gap={7} mb="$2">
+                  <Icon name="BluetoothOutline" size="$3.5" />
+                  <SizableText size="$headingSm">
+                    {intl.formatMessage({
+                      id: ETranslations.troubleshooting_bluetooth,
+                    })}
+                  </SizableText>
+                </XStack>
+                <YStack>
+                  <ConnectionTroubleShootingAccordion
+                    connectionType="bluetooth"
+                    defaultValue={undefined}
+                    indent={false}
+                  />
+                </YStack>
+              </YStack>
+            </ScrollView>
+          ),
+        });
+      },
+      2500, // Same throttle duration as other hardware dialog instances
+    );
+
+    appEventBus.on(
+      EAppEventBusNames.ShowHardwareErrorDialog,
+      callback,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.ShowHardwareErrorDialog,
+        callback,
+      );
+      hardwareErrorDialogInstanceRef.current = null;
+    };
+  }, [intl]);
 
   useEffect(() => {
     const instanceRef: {
