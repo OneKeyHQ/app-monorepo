@@ -297,6 +297,8 @@ function RawPopover({
     </ModalPortalProvider>
   );
 
+  const isShowNativeKeepChildrenMountedBackdrop =
+    platformEnv.isNative && props.keepChildrenMounted;
   return (
     <TMPopover
       offset={8}
@@ -354,7 +356,7 @@ function RawPopover({
         <>
           {/* TODO: Temporary solution for overlay backdrop. 
                This should be deprecated in favor of Tamagui's overlay implementation */}
-          {props.keepChildrenMounted ? (
+          {isShowNativeKeepChildrenMountedBackdrop ? (
             <Stack
               position="absolute"
               pointerEvents={isOpen ? 'auto' : 'none'}
@@ -375,7 +377,7 @@ function RawPopover({
               zIndex={zIndex}
               {...sheetProps}
             >
-              {props.keepChildrenMounted ? null : (
+              {isShowNativeKeepChildrenMountedBackdrop ? null : (
                 <TMPopover.Sheet.Overlay
                   {...FIX_SHEET_PROPS}
                   zIndex={sheetProps?.zIndex || zIndex}
