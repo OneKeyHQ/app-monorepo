@@ -15,7 +15,6 @@ import {
   Anchor,
   Button,
   Dialog,
-  Divider,
   ESwitchSize,
   Form,
   Icon,
@@ -55,6 +54,25 @@ function MacBluetoothIllustrationViews({
   const paringView = useMemo(() => {
     return (
       <YStack
+        animation={[
+          'quick',
+          {
+            opacity: {
+              delay: 150,
+            },
+            y: {
+              delay: 150,
+            },
+            scale: {
+              delay: 150,
+            },
+          },
+        ]}
+        enterStyle={{
+          opacity: 0,
+          scale: 0.9,
+          y: 8,
+        }}
         alignSelf="stretch"
         alignItems="flex-end"
         gap="$3"
@@ -144,6 +162,25 @@ function MacBluetoothIllustrationViews({
   const systemAuthorizedView = useMemo(() => {
     return (
       <YStack
+        animation={[
+          'quick',
+          {
+            opacity: {
+              delay: 150,
+            },
+            y: {
+              delay: 150,
+            },
+            scale: {
+              delay: 150,
+            },
+          },
+        ]}
+        enterStyle={{
+          opacity: 0,
+          scale: 0.9,
+          y: 8,
+        }}
         alignItems="center"
         gap="$3"
         w={200}
