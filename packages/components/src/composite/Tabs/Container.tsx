@@ -331,6 +331,7 @@ export function Container({
                     focusedTab,
                     tabNames,
                     onTabPress,
+                    containerWidth,
                   } as any)}
                   <ContainerChild
                     containerWidth={containerWidth}
