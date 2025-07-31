@@ -1234,7 +1234,7 @@ export function BluetoothDevicePairingContent({
           </YStack>
           <SizableText>
             {intl.formatMessage({
-              id: ETranslations.bluetooth_paring_guides_unlcok,
+              id: ETranslations.bluetooth_paring_guides_unlock,
             })}
           </SizableText>
         </XStack>
