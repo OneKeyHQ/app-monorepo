@@ -5,12 +5,15 @@ import android.os.Bundle;
 
 import com.facebook.react.ReactActivity;
 import com.facebook.react.ReactActivityDelegate;
+import com.facebook.react.ReactRootView;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
 import com.facebook.react.defaults.DefaultReactActivityDelegate;
 import com.facebook.react.modules.i18nmanager.I18nUtil;
 
 import expo.modules.ReactActivityDelegateWrapper;
 import expo.modules.splashscreen.SplashScreenManager;
+import so.onekey.app.wallet.splashscreen.SplashScreenViewController;
+import so.onekey.app.wallet.splashscreen.singletons.SplashScreen;
 
 public class MainActivity extends ReactActivity {
   @Override
@@ -19,6 +22,8 @@ public class MainActivity extends ReactActivity {
     setTheme(R.style.AppTheme);
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       SplashScreenManager.INSTANCE.registerOnActivity(this);
+    } else {
+     
     }
     I18nUtil sharedI18nUtilInstance = I18nUtil.getInstance();
     sharedI18nUtilInstance.allowRTL(getApplicationContext(), true);
