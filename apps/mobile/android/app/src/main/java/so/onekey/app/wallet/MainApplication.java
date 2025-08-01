@@ -20,6 +20,7 @@ import com.facebook.soloader.SoLoader;
 import cn.jiguang.plugins.push.JPushModule;
 import expo.modules.ApplicationLifecycleDispatcher;
 import expo.modules.ReactNativeHostWrapper;
+import so.onekey.app.wallet.splashscreen.SplashScreenPackage;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -44,6 +45,7 @@ public class MainApplication extends Application implements ReactApplication {
         // packages.add(new GeckoViewPackage());
         packages.add(new ExitPackage());
         packages.add(new WebViewCheckerPackage());
+        packages.add(new SplashScreenPackage());
         return packages;
       }
 
