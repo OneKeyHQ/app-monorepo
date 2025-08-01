@@ -30,7 +30,7 @@ export function MobileLayout() {
         pagerProps={{ scrollEnabled: false }}
       >
         <Tabs.Tab name={intl.formatMessage({ id: ETranslations.market_chart })}>
-          <ScrollView width="100%" paddingTop={50}>
+          <Tabs.ScrollView>
             {/* Information Panel */}
             <InformationPanel />
 
@@ -45,21 +45,19 @@ export function MobileLayout() {
             <Stack h={400}>
               <MobileInformationTabs />
             </Stack>
-          </ScrollView>
+          </Tabs.ScrollView>
         </Tabs.Tab>
 
         <Tabs.Tab
           name={intl.formatMessage({ id: ETranslations.global_overview })}
         >
-          <ScrollView>
-            <Stack width="100%" height={50} />
-
+          <Tabs.ScrollView>
             {/* Token Stats */}
             <TokenOverview />
 
             {/* Activity overview (only in overview tab) */}
             <TokenActivityOverview />
-          </ScrollView>
+          </Tabs.ScrollView>
         </Tabs.Tab>
       </Tabs.Container>
 
