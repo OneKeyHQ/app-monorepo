@@ -16,6 +16,7 @@ public class MainActivity extends ReactActivity {
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(null);
+    setTheme(R.style.AppTheme);
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       SplashScreenManager.INSTANCE.registerOnActivity(this);
     }
