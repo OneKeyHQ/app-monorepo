@@ -8,13 +8,13 @@ import type {
   IPageNavigationProp,
   IStackNavigationOptions,
 } from '@onekeyhq/components/src/layouts/Navigation';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ETabRoutes,
   IModalParamList,
   ITabStackParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const getModalRoute = () => {
   const state = rootNavigationRef.current?.getState();
@@ -69,14 +69,14 @@ import { StackActions } from '@react-navigation/native';
 
 let lastPushAbleNavigation:
   | ReturnType<
-    typeof useNavigation<IPageNavigationProp<any> | IModalNavigationProp<any>>
-  >
+      typeof useNavigation<IPageNavigationProp<any> | IModalNavigationProp<any>>
+    >
   | undefined;
 
 function useAppNavigation<
   P extends
-  | IPageNavigationProp<any>
-  | IModalNavigationProp<any> = IPageNavigationProp<any>,
+    | IPageNavigationProp<any>
+    | IModalNavigationProp<any> = IPageNavigationProp<any>,
 >() {
   const navigation = useNavigation<P>();
   const navigationRef = useRef(navigation);
@@ -145,7 +145,7 @@ function useAppNavigation<
       }
 
       // TODO:
-      // prevent pushModal from using unreleased Navigation instances during iOS modal animation by temporary exclusion, 
+      // prevent pushModal from using unreleased Navigation instances during iOS modal animation by temporary exclusion,
       //  with plan to migrate to rootNavigationRef
       // eslint-disable-next-line no-extra-boolean-cast
       if (!platformEnv.isNativeIOS && !!navigationInstance.push) {

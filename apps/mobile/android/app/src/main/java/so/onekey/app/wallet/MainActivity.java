@@ -10,15 +10,16 @@ import com.facebook.react.defaults.DefaultReactActivityDelegate;
 import com.facebook.react.modules.i18nmanager.I18nUtil;
 
 import expo.modules.ReactActivityDelegateWrapper;
+import expo.modules.splashscreen.SplashScreenManager;
 
 public class MainActivity extends ReactActivity {
   @Override
   protected void onCreate(Bundle savedInstanceState) {
-    // Set the theme to AppTheme BEFORE onCreate to support 
-    // coloring the background, status bar, and navigation bar.
-    // This is required for expo-splash-screen.
-    setTheme(R.style.AppTheme);
     super.onCreate(null);
+    setTheme(R.style.AppTheme);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      SplashScreenManager.INSTANCE.registerOnActivity(this);
+    }
     I18nUtil sharedI18nUtilInstance = I18nUtil.getInstance();
     sharedI18nUtilInstance.allowRTL(getApplicationContext(), true);
   }
