@@ -253,8 +253,7 @@ class ServiceToken extends ServiceBase {
       let tokenListValue = new BigNumber(0);
       tokenListValue = tokenListValue
         .plus(resp.data.data.tokens.fiatValue ?? '0')
-        .plus(resp.data.data.smallBalanceTokens.fiatValue ?? '0')
-        .plus(resp.data.data.riskTokens.fiatValue ?? '0');
+        .plus(resp.data.data.smallBalanceTokens.fiatValue ?? '0');
 
       if (isAllNetworks) {
         const key = accountUtils.buildAccountLocalAssetsKey({

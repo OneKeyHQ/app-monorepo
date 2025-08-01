@@ -15,6 +15,10 @@ import {
 } from '@onekeyhq/components';
 import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderSideBarValue';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -227,6 +231,21 @@ export function HomePageView({
 
   useEffect(() => {
     void Icon.prefetch('CloudOffOutline');
+  }, []);
+
+  useEffect(() => {
+    const clearCache = async () => {
+      await backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
+    };
+
+    appEventBus.on(EAppEventBusNames.WalletUpdate, clearCache);
+    appEventBus.on(EAppEventBusNames.AccountUpdate, clearCache);
+    appEventBus.on(EAppEventBusNames.AddressBookUpdate, clearCache);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, clearCache);
+      appEventBus.off(EAppEventBusNames.AccountUpdate, clearCache);
+      appEventBus.off(EAppEventBusNames.AddressBookUpdate, clearCache);
+    };
   }, []);
 
   const homePageContent = useMemo(() => {
