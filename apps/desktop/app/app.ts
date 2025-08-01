@@ -801,7 +801,7 @@ if (!singleInstance && !process.mas) {
   app.on('ready', async () => {
     const locale = await initLocale();
     logger.info('locale >>>> ', locale);
-    startServices();
+    // startServices();
 
     if (!mainWindow) {
       mainWindow = createMainWindow();
