@@ -14,12 +14,21 @@ import { useRouteIsFocused } from '../../hooks/useRouteIsFocused';
 
 import { tabExtraConfig, useTabRouterConfig } from './router';
 
+// prevent pushModal from using unreleased Navigation instances during iOS modal animation by temporary exclusion,
+const useIsIOSTabNavigator =
+  platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad
+    ? () => {
+        const isFocused = useRouteIsFocused();
+        return isFocused;
+      }
+    : () => false;
+
 export function TabNavigator() {
   const { freezeOnBlur } = useContext(TabFreezeOnBlurContext);
   const routerConfigParams = useMemo(() => ({ freezeOnBlur }), [freezeOnBlur]);
   const config = useTabRouterConfig(routerConfigParams);
   const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
-  const isFocused = useRouteIsFocused();
+  const isFocused = useIsIOSTabNavigator();
   return (
     <>
       <TabStackNavigator<ETabRoutes>
@@ -29,8 +38,7 @@ export function TabNavigator() {
       <Portal.Container
         name={EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER}
       />
-      {/*  prevent pushModal from using unreleased Navigation instances during iOS modal animation by temporary exclusion, */}
-      {platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad && !isFocused ? (
+      {isFocused ? (
         <Stack position="absolute" top={0} left={0} right={0} bottom={0} />
       ) : null}
     </>
