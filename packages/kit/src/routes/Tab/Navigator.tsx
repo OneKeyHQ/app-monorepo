@@ -23,7 +23,7 @@ const useIsIOSTabNavigatorFocused =
         const isFocused = useRouteIsFocused();
         return isFocused;
       }
-    : () => false;
+    : () => true;
 
 export function TabNavigator() {
   const { freezeOnBlur } = useContext(TabFreezeOnBlurContext);
