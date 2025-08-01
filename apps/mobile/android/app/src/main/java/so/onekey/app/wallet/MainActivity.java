@@ -16,7 +16,7 @@ public class MainActivity extends ReactActivity {
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(null);
-    if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       SplashScreenManager.INSTANCE.registerOnActivity(this);
     }
     I18nUtil sharedI18nUtilInstance = I18nUtil.getInstance();
