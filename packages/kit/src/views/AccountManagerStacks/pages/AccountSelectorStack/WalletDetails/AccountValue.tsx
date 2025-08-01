@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { map } from 'lodash';
+import { isNil, map } from 'lodash';
 
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
@@ -52,7 +52,7 @@ function AccountValue(accountValue: {
         if (networkId === linkedNetworkId) {
           return v;
         }
-      }).filter(Boolean);
+      }).filter((v) => !isNil(v));
 
       if (matchedAccountValues.length > 0) {
         accountValueExist = true;
