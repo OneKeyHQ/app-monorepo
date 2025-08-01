@@ -3,7 +3,7 @@ import { EventEmitter } from 'events';
 import * as path from 'path';
 import { format as formatUrl } from 'url';
 
-// import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
+import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
 import {
   attachTitlebarToWindow,
   setupTitlebar,
@@ -44,7 +44,7 @@ import * as store from './libs/store';
 import initProcess from './process';
 import { resourcesPath, staticPath } from './resoucePath';
 import { initSentry } from './sentry';
-// import { startServices } from './service';
+import { startServices } from './service';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
@@ -801,13 +801,13 @@ if (!singleInstance && !process.mas) {
   app.on('ready', async () => {
     const locale = await initLocale();
     logger.info('locale >>>> ', locale);
-    // startServices();
+    startServices();
 
     if (!mainWindow) {
       mainWindow = createMainWindow();
       initMenu();
     }
-    // void initChildProcess();
+    void initChildProcess();
   });
 }
 

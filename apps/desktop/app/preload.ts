@@ -6,8 +6,8 @@ import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
 import { Titlebar, TitlebarColor } from 'custom-electron-titlebar';
 import { ipcRenderer, nativeImage } from 'electron';
 
-// import type { DesktopApiProxy } from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
-// import desktopApiProxy from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
+import type { DesktopApiProxy } from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
+import desktopApiProxy from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
 import type {
   IDesktopAppState,
   IDesktopStoreUpdateSettings,
@@ -94,14 +94,14 @@ declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   interface Window {
     desktopApi: IDesktopAPILegacy;
-    // desktopApiProxy: DesktopApiProxy;
+    desktopApiProxy: DesktopApiProxy;
     INJECT_PATH: string;
   }
 
   // eslint-disable-next-line vars-on-top, no-var
   var desktopApi: IDesktopAPILegacy;
   // eslint-disable-next-line vars-on-top, no-var
-  var desktopApiProxy: any;
+  var desktopApiProxy: DesktopApiProxy;
 }
 
 ipcRenderer.on(
@@ -371,7 +371,7 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
 
 globalThis.desktopApi = desktopApi;
 // contextBridge.exposeInMainWorld('desktopApi', desktopApi);
-globalThis.desktopApiProxy = {};
+globalThis.desktopApiProxy = desktopApiProxy;
 
 if (!isMac) {
   globalThis.addEventListener('DOMContentLoaded', () => {
