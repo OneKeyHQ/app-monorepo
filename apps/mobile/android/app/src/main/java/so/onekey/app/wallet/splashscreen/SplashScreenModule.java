@@ -1,5 +1,7 @@
 package so.onekey.app.wallet.splashscreen;
 
+import android.os.Build;
+
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 
@@ -14,6 +16,9 @@ public class SplashScreenModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void preventAutoHideAsync(com.facebook.react.bridge.Promise promise) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            return;
+        }
         if (getCurrentActivity() != null) {
             SplashScreen.INSTANCE.preventAutoHide(
                 getCurrentActivity(),
@@ -27,6 +32,9 @@ public class SplashScreenModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void hideAsync(com.facebook.react.bridge.Promise promise) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            return;
+        }
         if (getCurrentActivity() != null) {
             SplashScreen.INSTANCE.hide(
                 getCurrentActivity(),
