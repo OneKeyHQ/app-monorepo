@@ -291,7 +291,6 @@ function TokenListContainer({
               let accountWorthValue = new BigNumber(0);
               accountWorthValue = accountWorthValue
                 .plus(item.tokens.fiatValue ?? '0')
-                .plus(item.riskTokens.fiatValue ?? '0')
                 .plus(item.smallBalanceTokens.fiatValue ?? '0');
 
               accountWorth[
@@ -327,7 +326,6 @@ function TokenListContainer({
           let accountWorth = new BigNumber(0);
           accountWorth = accountWorth
             .plus(r.tokens.fiatValue ?? '0')
-            .plus(r.riskTokens.fiatValue ?? '0')
             .plus(r.smallBalanceTokens.fiatValue ?? '0');
 
           updateAccountOverviewState({
@@ -515,7 +513,6 @@ function TokenListContainer({
         let createAtNetworkWorth = new BigNumber(0);
         accountWorth = accountWorth
           .plus(r.tokens.fiatValue ?? '0')
-          .plus(r.riskTokens.fiatValue ?? '0')
           .plus(r.smallBalanceTokens.fiatValue ?? '0');
 
         perfTokenListView.markEnd('tokenListRefreshing_allNetworkRequests');
@@ -1053,9 +1050,9 @@ function TokenListContainer({
           mergeDeriveAssets: mergeDeriveAssetsEnabled,
         });
 
-        const accountWorth = new BigNumber(r.tokens.fiatValue ?? '0')
-          .plus(r.riskTokens.fiatValue ?? '0')
-          .plus(r.smallBalanceTokens.fiatValue ?? '0');
+        const accountWorth = new BigNumber(r.tokens.fiatValue ?? '0').plus(
+          r.smallBalanceTokens.fiatValue ?? '0',
+        );
 
         accountsWorth = {
           ...accountsWorth,
@@ -1074,7 +1071,6 @@ function TokenListContainer({
         ) {
           createAtNetworkWorth = createAtNetworkWorth
             .plus(r.tokens.fiatValue ?? '0')
-            .plus(r.riskTokens.fiatValue ?? '0')
             .plus(r.smallBalanceTokens.fiatValue ?? '0');
         }
       }

@@ -131,7 +131,7 @@ export function FirmwareUpdateCheckList({
 
                   if (useV2FirmwareUpdateFlow) {
                     await backgroundApiProxy.serviceFirmwareUpdate.clearHardwareUiStateBeforeStartUpdateWorkflow();
-                    navigation.navigate(EModalFirmwareUpdateRoutes.InstallV2, {
+                    navigation.push(EModalFirmwareUpdateRoutes.InstallV2, {
                       result,
                     });
                     setWorkflowIsRunning(true);
@@ -143,7 +143,7 @@ export function FirmwareUpdateCheckList({
                       },
                     );
                   } else {
-                    navigation.navigate(EModalFirmwareUpdateRoutes.Install, {
+                    navigation.push(EModalFirmwareUpdateRoutes.Install, {
                       result,
                     });
                     setWorkflowIsRunning(true);

@@ -112,39 +112,35 @@ function NativeTokenPriceChart({
   useEffect(() => {
     void init();
   }, [init]);
-  const { gtLg: gtLgMedia } = useMedia();
-  const gtLg = isModalPage ? false : gtLgMedia;
+  const { gtMd: gtMdMedia } = useMedia();
+  const gtMd = isModalPage ? false : gtMdMedia;
 
   return (
     <>
-      <YStack px="$5" $gtMd={{ pr: platformEnv.isNative ? '$5' : 0 }}>
-        <YStack>
-          <PriceChart height={height} isFetching={isLoading} data={points}>
-            {gtLg && !isLoading ? (
-              <SegmentControl
-                value={days}
-                onChange={setDays as ISegmentControlProps['onChange']}
-                options={options}
-              />
-            ) : null}
-          </PriceChart>
-        </YStack>
-      </YStack>
-      {gtLg ? null : (
+      <Stack px="$5" $gtMd={{ pr: '$5' }}>
+        <PriceChart height={height} isFetching={isLoading} data={points}>
+          {gtMd && !isLoading ? (
+            <SegmentControl
+              value={days}
+              onChange={setDays as ISegmentControlProps['onChange']}
+              options={options}
+            />
+          ) : null}
+        </PriceChart>
+      </Stack>
+      {gtMd ? null : (
         <XStack
           gap="$3"
           ai="center"
           px="$5"
           $platform-web={{ zIndex: 30 }}
           position="absolute"
-          top={height - 48}
+          top={10}
+          left={0}
+          right={0}
           width="100%"
         >
           <SegmentControl
-            position="absolute"
-            left={20}
-            right={20}
-            bottom={platformEnv.isNative ? -40 : 80}
             fullWidth
             value={days}
             jc="space-between"
@@ -318,13 +314,15 @@ function BasicTokenPriceChart({
     }
     if (fallbackToChart || !ticker) {
       return (
-        <NativeTokenPriceChart
-          height={viewHeight}
-          isFetching={isFetching}
-          coinGeckoId={coinGeckoId}
-          defer={defer}
-          onLoadEnd={onLoadEnd}
-        />
+        <Stack flex={1}>
+          <NativeTokenPriceChart
+            height={viewHeight}
+            isFetching={isFetching}
+            coinGeckoId={coinGeckoId}
+            defer={defer}
+            onLoadEnd={onLoadEnd}
+          />
+        </Stack>
       );
     }
 

@@ -2,10 +2,9 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { ISizableTextProps } from '@onekeyhq/components';
 import {
-  Alert,
-  Icon,
+  Button,
+  IconButton,
   SizableText,
   Stack,
   XStack,
@@ -15,6 +14,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { showPrimeTransferServerConfigDialog } from './PrimeTransferServerConfigDialog';
@@ -56,80 +56,59 @@ export function PrimeTransferServerStatusBar() {
     }
   }, [copyText]);
 
-  const getAlertProps = useCallback(async () => {
+  const getStatusInfo = useCallback(async () => {
     const config =
       await backgroundApiProxy.simpleDb.primeTransfer.getServerConfig();
+
     switch (connectionState) {
       case 'connected': {
         const serverName =
-          config.serverType === EPrimeTransferServerType.CUSTOM
-            ? config.customServerUrl
+          config?.customServerUrl &&
+          config?.serverType === EPrimeTransferServerType.CUSTOM
+            ? uriUtils.getHostNameFromUrl({ url: config.customServerUrl || '' })
             : intl.formatMessage({
                 id: ETranslations.transfer_transfer_server_server_official,
               });
 
-        const isCustomServer =
-          config.serverType === EPrimeTransferServerType.CUSTOM;
-
         return {
-          type: 'success' as const,
-          icon: 'ServerOutline' as const,
-          renderTitle: (props: ISizableTextProps) => (
-            <XStack
-              alignItems="center"
-              gap="$2"
-              {...(isCustomServer && {
-                onPress: handleCopyServerUrl,
-                hoverStyle: {
-                  opacity: 0.8,
-                  cursor: 'pointer',
-                },
-                pressStyle: {
-                  opacity: 0.6,
-                },
-              })}
-            >
-              <SizableText {...props}>
-                {intl.formatMessage(
-                  {
-                    id: ETranslations.transfer_transfer_server_status_connected,
-                  },
-                  { serverName },
-                )}
-              </SizableText>
-              {isCustomServer ? (
-                <Stack w="$4">
-                  <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
-                </Stack>
-              ) : null}
-            </XStack>
+          iconColor: '$iconSuccess',
+          bgColor: '$bgSuccess',
+          text: intl.formatMessage(
+            {
+              id: ETranslations.transfer_transfer_server_status_connected,
+            },
+            { serverName },
           ),
+          isCustomServer: config.serverType === EPrimeTransferServerType.CUSTOM,
         };
       }
       case 'connecting':
         return {
-          type: 'info' as const,
-          icon: 'ServerOutline' as const,
-          title: intl.formatMessage({
+          iconColor: '$iconInfo',
+          bgColor: '$bgInfo',
+          text: intl.formatMessage({
             id: ETranslations.transfer_transfer_server_status_connecting,
           }),
+          isCustomServer: false,
         };
       case 'failed':
         return {
-          type: 'critical' as const,
-          icon: 'ServerOutline' as const,
-          title: intl.formatMessage({
+          iconColor: '$iconCritical',
+          bgColor: '$bgCritical',
+          text: intl.formatMessage({
             id: ETranslations.transfer_transfer_server_status_connect_failed,
           }),
+          isCustomServer: false,
         };
       default:
         return {
-          type: 'info' as const,
-          icon: 'ServerOutline' as const,
-          title: 'Unknown state',
+          iconColor: '$iconSubdued',
+          bgColor: '$bgSubdued',
+          text: 'Unknown state',
+          isCustomServer: false,
         };
     }
-  }, [connectionState, intl, handleCopyServerUrl]);
+  }, [connectionState, intl]);
 
   const handleServerConfig = (
     serverType: EPrimeTransferServerType,
@@ -145,24 +124,64 @@ export function PrimeTransferServerStatusBar() {
     });
   };
 
-  const { result: alertProps } = usePromiseResult(
-    () => getAlertProps(),
-    [getAlertProps],
+  const { result: statusInfo } = usePromiseResult(
+    () => getStatusInfo(),
+    [getStatusInfo],
   );
 
+  const handleTextPress = () => {
+    if (statusInfo?.isCustomServer) {
+      void handleCopyServerUrl();
+    }
+  };
+
   return (
-    <Alert
-      mx="$4"
-      type={alertProps?.type}
-      icon={alertProps?.icon}
-      title={alertProps?.title}
-      renderTitle={alertProps?.renderTitle}
-      action={{
-        primary: intl.formatMessage({
-          id: ETranslations.global_manage,
-        }),
-        onPrimaryPress: handleManagePress,
-      }}
-    />
+    <XStack mx="$5" ai="center" gap="$3" py="$1.5">
+      <XStack flex={1} gap="$2" ai="center">
+        <Stack
+          p="$1"
+          borderRadius="$full"
+          backgroundColor={statusInfo?.bgColor || '$bgSubdued'}
+        >
+          <Stack
+            borderRadius="$full"
+            w="$2"
+            h="$2"
+            backgroundColor={statusInfo?.iconColor || '$iconSubdued'}
+          />
+        </Stack>
+
+        <SizableText
+          size="$bodyMd"
+          color="$text"
+          numberOfLines={2}
+          {...(statusInfo?.isCustomServer && {
+            onPress: handleTextPress,
+            hoverStyle: { opacity: 0.8, cursor: 'pointer' },
+          })}
+        >
+          {statusInfo?.text}
+        </SizableText>
+
+        {statusInfo?.isCustomServer ? (
+          <IconButton
+            variant="tertiary"
+            icon="Copy3Outline"
+            size="small"
+            onPress={handleTextPress}
+          />
+        ) : null}
+
+        <Stack flex={1} />
+      </XStack>
+
+      <XStack gap="$4">
+        <Button size="small" variant="tertiary" onPress={handleManagePress}>
+          {intl.formatMessage({
+            id: ETranslations.global_manage,
+          })}
+        </Button>
+      </XStack>
+    </XStack>
   );
 }
