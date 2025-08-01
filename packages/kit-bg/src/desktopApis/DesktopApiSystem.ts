@@ -66,6 +66,9 @@ class DesktopApiSystem {
     {
       maxAge: 30 * 60 * 1000, // 30 minutes cache duration
       primitive: true, // no arguments to normalize
+      promise: true, // ensure concurrent calls wait for the same promise
+      max: 1, // limit to only 1 cached result (since no params)
+      normalizer: () => 'system-info', // static key for single cached result
     },
   );
 
