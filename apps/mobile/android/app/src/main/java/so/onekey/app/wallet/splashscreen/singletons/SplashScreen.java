@@ -20,6 +20,8 @@ public class SplashScreen implements SingletonModule {
         // Private constructor for singleton
     }
 
+    private boolean isAlreadyHidden = false;
+
     @Override
     public String getName() {
         return "SplashScreen";
@@ -125,6 +127,9 @@ public class SplashScreen implements SingletonModule {
             boolean statusBarTranslucent,
             Runnable successCallback,
             OnFailureCallback failureCallback) {
+        if (isAlreadyHidden) {
+            return;
+        }
         // SplashScreen.show can only be called once per activity
         if (controllers.containsKey(activity)) {
             if (failureCallback != null) {
@@ -181,6 +186,7 @@ public class SplashScreen implements SingletonModule {
             Activity activity,
             OnSuccessCallback<Boolean> successCallback,
             OnFailureCallback failureCallback) {
+        isAlreadyHidden = true;
         if (!controllers.containsKey(activity)) {
             if (failureCallback != null) {
                 failureCallback.onFailure("No native splash screen registered for provided activity. Please configure your application's main Activity to call 'SplashScreen.show' (https://github.com/expo/expo/tree/main/packages/expo-splash-screen#-configure-android).");
@@ -195,6 +201,7 @@ public class SplashScreen implements SingletonModule {
     }
 
     public void hide(Activity activity) {
+
         hide(activity, null, null);
     }
 
