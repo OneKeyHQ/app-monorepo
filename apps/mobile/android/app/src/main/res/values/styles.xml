@@ -7,12 +7,12 @@
     <item name="android:fontFamily" tools:targetApi="16">@font/roboto</item>
     <item name="colorPrimary">@color/colorPrimary</item>
     <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
-      <item name="android:windowSplashScreenBackground" tools:targetApi="31">@color/splashscreen_background</item>
+    <item name="android:windowSplashScreenBackground" tools:targetApi="31">@color/splashscreen_background</item>
 <!--      <item name="android:windowSplashScreenBrandingImage" tools:targetApi="31">-->
 <!--        @drawable/splashscreen-->
 <!--      </item>-->
-      <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="31">@mipmap/onekey_ic_launcher_round</item>
-      <item name="android:windowSplashScreenBehavior" tools:targetApi="33">default</item>
+    <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="31">@mipmap/onekey_ic_launcher_round</item>
+    <item name="android:windowSplashScreenBehavior" tools:targetApi="33">default</item>
   </style>
   <style name="ResetEditText" parent="@android:style/Widget.EditText">
     <item name="android:padding">0dp</item>
