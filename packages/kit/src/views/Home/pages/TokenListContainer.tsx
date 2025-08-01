@@ -706,7 +706,13 @@ function TokenListContainer({
   ]);
 
   const handleAllNetworkRequestsFinished = useCallback(
-    ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
+    async ({
+      accountId,
+      networkId,
+    }: {
+      accountId?: string;
+      networkId?: string;
+    }) => {
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: false,
         type: EHomeTab.TOKENS,

@@ -116,14 +116,14 @@ function useAllNetworkRequests<T>(params: {
     accountId?: string;
     networkId?: string;
     allNetworkDataInit?: boolean;
-  }) => void;
+  }) => Promise<void>;
   onFinished?: ({
     accountId,
     networkId,
   }: {
     accountId?: string;
     networkId?: string;
-  }) => void;
+  }) => Promise<void>;
 }) {
   const {
     accountId: currentAccountId,
@@ -223,7 +223,7 @@ function useAllNetworkRequests<T>(params: {
         isFetching.current = false;
       }
 
-      onStarted?.({
+      await onStarted?.({
         accountId: currentAccountId,
         networkId: currentNetworkId,
       });
@@ -390,7 +390,7 @@ function useAllNetworkRequests<T>(params: {
         allNetworkDataInit.current = true;
       }
       isFetching.current = false;
-      onFinished?.({
+      await onFinished?.({
         accountId: currentAccountId,
         networkId: currentNetworkId,
       });
