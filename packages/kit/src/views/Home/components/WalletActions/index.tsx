@@ -76,12 +76,11 @@ function WalletActionSend() {
       isSoftwareWalletOnlyUser,
     });
 
-    const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
-      networkId: network.id,
-      accountId: account?.id ?? '',
-    });
-
     if (vaultSettings?.isSingleToken) {
+      const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
+        networkId: network.id,
+        accountId: account?.id ?? '',
+      });
       if (
         nativeToken &&
         deriveInfoItems.length > 1 &&
