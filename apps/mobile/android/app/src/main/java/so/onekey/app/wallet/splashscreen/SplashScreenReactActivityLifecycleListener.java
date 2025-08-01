@@ -18,12 +18,6 @@ public class SplashScreenReactActivityLifecycleListener implements ReactActivity
     
     @Override
     public void onContentChanged(Activity activity) {
-        SplashScreen.INSTANCE.show(
-            activity,
-            getResizeMode(activity),
-            ReactRootView.class,
-            getStatusBarTranslucent(activity)
-        );
     }
 
     private SplashScreenImageResizeMode getResizeMode(Context context) {
