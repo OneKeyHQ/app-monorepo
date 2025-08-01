@@ -113,7 +113,7 @@ function HardwareSingletonDialogCmp(
 
   const defaultLoadingView = useMemo(
     () => (
-      <CommonDeviceLoading>
+      <CommonDeviceLoading connectId={connectId}>
         {platformEnv.isDev ? (
           <SizableText size="$bodySmMedium">
             {action || 'unknow action'}
@@ -121,7 +121,7 @@ function HardwareSingletonDialogCmp(
         ) : null}
       </CommonDeviceLoading>
     ),
-    [action],
+    [action, connectId],
   );
 
   useEffect(() => {
@@ -211,6 +211,7 @@ function HardwareSingletonDialogCmp(
           />
         );
       } else {
+        console.log('CheckDevice!!!!!!--->>>>: ', connectId);
         title = intl.formatMessage({
           id: ETranslations.communication_communicating,
         });
@@ -734,7 +735,7 @@ function HardwareUiStateContainerCmpControlled() {
   const { promptWebUsbDeviceAccess } = usePromptWebDeviceAccess();
   const toPromptWebDeviceAccessPage = useToPromptWebDeviceAccessPage();
 
-  // Handle hardware error dialogs
+  // Handle hardware error dialog
   useEffect(() => {
     const callback = throttle(
       ({
@@ -800,15 +801,9 @@ function HardwareUiStateContainerCmpControlled() {
       2500, // Same throttle duration as other hardware dialog instances
     );
 
-    appEventBus.on(
-      EAppEventBusNames.ShowHardwareErrorDialog,
-      callback,
-    );
+    appEventBus.on(EAppEventBusNames.ShowHardwareErrorDialog, callback);
     return () => {
-      appEventBus.off(
-        EAppEventBusNames.ShowHardwareErrorDialog,
-        callback,
-      );
+      appEventBus.off(EAppEventBusNames.ShowHardwareErrorDialog, callback);
       hardwareErrorDialogInstanceRef.current = null;
     };
   }, [intl]);
