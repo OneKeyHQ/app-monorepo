@@ -7856,7 +7856,7 @@ __metadata:
     "@onekeyhq/shared": "npm:*"
     "@privy-io/expo": "npm:0.49.1"
     "@privy-io/expo-native-extensions": "npm:0.0.4"
-    "@react-native-async-storage/async-storage": "npm:1.22.0"
+    "@react-native-async-storage/async-storage": "npm:2.2.0"
     "@react-native-community/netinfo": "npm:^11.4.1"
     "@react-native-community/slider": "npm:4.5.7"
     "@react-native-google-signin/google-signin": "npm:^9.1.0"
@@ -10558,14 +10558,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-native-async-storage/async-storage@npm:1.22.0":
-  version: 1.22.0
-  resolution: "@react-native-async-storage/async-storage@npm:1.22.0"
+"@react-native-async-storage/async-storage@npm:2.2.0":
+  version: 2.2.0
+  resolution: "@react-native-async-storage/async-storage@npm:2.2.0"
   dependencies:
     merge-options: "npm:^3.0.4"
   peerDependencies:
-    react-native: ^0.0.0-0 || >=0.60 <1.0
-  checksum: 10/eadadbe1d6c59f5bd75fbe16fba7ec7ed2fd0d3786634fbe2af6d83b9a7371e79f42de3cd67129aa375b241a18f7538df9b026b5c0ad85cc6e1c6927543b1914
+    react-native: ^0.0.0-0 || >=0.65 <1.0
+  checksum: 10/625e42134f0c487acfd4ba9b3ba182e6f6f29581485004cc658850ef024372cdb7381b7399393f4416fda39df2d822e3008427d7671d635a7363f9a65430a2dd
   languageName: node
   linkType: hard
 
