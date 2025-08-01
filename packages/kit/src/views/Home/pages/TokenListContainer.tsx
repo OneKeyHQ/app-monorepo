@@ -17,6 +17,7 @@ import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
 import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
+import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -128,6 +129,15 @@ function TokenListContainer({
     tokens: [],
     map: {},
   });
+
+  const riskTokenManagementRawData = useRef<IRiskTokenManagementDBStruct>({
+    unblockedTokens: {},
+    blockedTokens: {},
+  });
+
+  const customTokensRawData = useRef<ICustomTokenDBStruct | undefined>(
+    undefined,
+  );
 
   const { handleFiatCrypto, isSupported } = useFiatCrypto({
     accountId: account?.id ?? '',
@@ -486,13 +496,11 @@ function TokenListContainer({
       networkId,
       dbAccount,
       allNetworkDataInit,
-      customTokensRawData,
     }: {
       accountId: string;
       networkId: string;
       dbAccount?: IDBAccount;
       allNetworkDataInit?: boolean;
-      customTokensRawData?: ICustomTokenDBStruct;
     }) => {
       const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
         dbAccount,
@@ -505,7 +513,10 @@ function TokenListContainer({
         allNetworksAccountId: account?.id,
         allNetworksNetworkId: network?.id,
         saveToLocal: true,
-        customTokensRawData,
+        customTokensRawData: customTokensRawData.current,
+        blockedTokensRawData: riskTokenManagementRawData.current.blockedTokens,
+        unblockedTokensRawData:
+          riskTokenManagementRawData.current.unblockedTokens,
       });
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
@@ -707,7 +718,24 @@ function TokenListContainer({
   );
 
   const handleAllNetworkRequestsStarted = useCallback(
-    ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
+    async ({
+      accountId,
+      networkId,
+    }: {
+      accountId?: string;
+      networkId?: string;
+    }) => {
+      const [c, r] = await Promise.all([
+        backgroundApiProxy.serviceToken.getCustomTokensRawData(),
+        backgroundApiProxy.serviceToken.getRiskTokenManagementRawData(),
+      ]);
+
+      customTokensRawData.current = c ?? undefined;
+      riskTokenManagementRawData.current = {
+        unblockedTokens: r?.unblockedTokens ?? {},
+        blockedTokens: r?.blockedTokens ?? {},
+      };
+
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
         type: EHomeTab.TOKENS,

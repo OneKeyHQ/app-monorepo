@@ -65,13 +65,11 @@ function useAllNetworkRequests<T>(params: {
     networkId,
     dbAccount,
     allNetworkDataInit,
-    customTokensRawData,
   }: {
     accountId: string;
     networkId: string;
     dbAccount?: IDBAccount;
     allNetworkDataInit?: boolean;
-    customTokensRawData: ICustomTokenDBStruct | undefined;
   }) => Promise<T | undefined>;
   allNetworkCacheRequests?: ({
     dbAccount,
@@ -292,16 +290,12 @@ function useAllNetworkRequests<T>(params: {
       //   'currentRequestsUUID set: =====>>>>>: ',
       //   currentRequestsUUID.current,
       // );
-      const customTokensRawData =
-        (await backgroundApiProxy.simpleDb.customTokens.getRawData()) ??
-        undefined;
 
       if (allNetworkDataInit.current) {
         const allNetworks = accountsInfo;
         const requests = allNetworks.map((networkDataString) => {
           const { accountId, networkId, dbAccount } = networkDataString;
           return allNetworkRequests({
-            customTokensRawData,
             accountId,
             networkId,
             dbAccount,
@@ -330,7 +324,6 @@ function useAllNetworkRequests<T>(params: {
                 accountId,
                 networkId,
                 allNetworkDataInit: allNetworkDataInit.current,
-                customTokensRawData,
               });
             },
           );
@@ -351,7 +344,6 @@ function useAllNetworkRequests<T>(params: {
                 accountId,
                 networkId,
                 allNetworkDataInit: allNetworkDataInit.current,
-                customTokensRawData,
               });
             },
           );
