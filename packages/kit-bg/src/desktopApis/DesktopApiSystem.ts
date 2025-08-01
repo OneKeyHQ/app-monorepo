@@ -14,6 +14,7 @@ import {
   parseContentPList,
 } from '@onekeyhq/desktop/app/libs/utils';
 import { restartBridge } from '@onekeyhq/desktop/app/process';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
@@ -25,21 +26,54 @@ class DesktopApiSystem {
 
   desktopApi: IDesktopApi;
 
+  // Cache system info for 30 minutes to avoid frequent system queries
+  private _getSystemInfoInternal = memoizee(
+    async (): Promise<IDesktopSystemInfo> => {
+      try {
+        // Fetch all system information concurrently for better performance
+        const [system, cpu, osInfo] = await Promise.all([
+          si.system(),
+          si.cpu(),
+          si.osInfo(),
+        ]);
+
+        // Get Sentry data (this shouldn't fail, but wrap in try-catch just in case)
+        let sentryContexts;
+        try {
+          const data = Sentry.getGlobalScope().getScopeData();
+          sentryContexts = data.contexts;
+        } catch (sentryError) {
+          // If Sentry fails, log but don't fail the entire operation
+          console.warn('Failed to get Sentry context data:', sentryError);
+          sentryContexts = undefined;
+        }
+
+        // Only cache if we successfully got all required system info
+        const result: IDesktopSystemInfo = {
+          sentryContexts,
+          system,
+          cpu,
+          os: osInfo,
+        };
+
+        return result;
+      } catch (error) {
+        // Don't cache failed results - rethrow error so memoizee won't cache it
+        console.error('Failed to get system information:', error);
+        throw error;
+      }
+    },
+    {
+      maxAge: 30 * 60 * 1000, // 30 minutes cache duration
+      primitive: true, // no arguments to normalize
+      promise: true, // ensure concurrent calls wait for the same promise
+      max: 1, // limit to only 1 cached result (since no params)
+      normalizer: () => 'system-info', // static key for single cached result
+    },
+  );
+
   async getSystemInfo(): Promise<IDesktopSystemInfo> {
-    const system = await si.system();
-    const cpu = await si.cpu();
-    const osInfo = await si.osInfo();
-    const data = Sentry.getGlobalScope().getScopeData();
-
-    const result: IDesktopSystemInfo = {
-      sentryContexts: data.contexts,
-      // sentryContexts: undefined,
-      system,
-      cpu,
-      os: osInfo,
-    };
-
-    return result;
+    return this._getSystemInfoInternal();
   }
 
   async reload(): Promise<void> {
