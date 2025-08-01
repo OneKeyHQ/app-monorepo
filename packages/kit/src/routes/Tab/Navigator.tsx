@@ -40,7 +40,7 @@ export function TabNavigator() {
       <Portal.Container
         name={EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER}
       />
-      {isFocused ? (
+      {!isFocused ? (
         <Stack
           position="absolute"
           top={0}
