@@ -17,6 +17,7 @@ public class SplashScreenModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void preventAutoHideAsync(com.facebook.react.bridge.Promise promise) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            promise.resolve(true);
             return;
         }
         if (getCurrentActivity() != null) {
@@ -33,6 +34,7 @@ public class SplashScreenModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void hideAsync(com.facebook.react.bridge.Promise promise) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            promise.resolve(true);
             return;
         }
         if (getCurrentActivity() != null) {
