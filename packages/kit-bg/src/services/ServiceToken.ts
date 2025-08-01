@@ -8,9 +8,11 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   getEmptyTokenData,
   getMergedTokenData,
@@ -36,8 +38,6 @@ import ServiceBase from './ServiceBase';
 import type { IDBAccount } from '../dbs/local/types';
 import type { ISimpleDBLocalTokens } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '../dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 @backgroundClass()
 class ServiceToken extends ServiceBase {
@@ -749,7 +749,7 @@ class ServiceToken extends ServiceBase {
       promise: true,
       primitive: true,
       max: 50,
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
     },
   );
 
@@ -763,7 +763,7 @@ class ServiceToken extends ServiceBase {
       promise: true,
       primitive: true,
       max: 50,
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
     },
   );
 
