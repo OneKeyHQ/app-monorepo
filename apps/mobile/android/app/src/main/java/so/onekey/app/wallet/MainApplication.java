@@ -45,7 +45,7 @@ public class MainApplication extends Application implements ReactApplication {
         // packages.add(new GeckoViewPackage());
         packages.add(new ExitPackage());
         packages.add(new WebViewCheckerPackage());
-        packages.add(new SplashScreenPackage()  );
+        packages.add(new SplashScreenPackage());
         return packages;
       }
 
