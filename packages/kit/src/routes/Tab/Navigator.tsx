@@ -15,7 +15,7 @@ import { useRouteIsFocused } from '../../hooks/useRouteIsFocused';
 import { tabExtraConfig, useTabRouterConfig } from './router';
 
 // prevent pushModal from using unreleased Navigation instances during iOS modal animation by temporary exclusion,
-const useIsIOSTabNavigator =
+const useIsIOSTabNavigatorFocused =
   platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad
     ? () => {
         const isFocused = useRouteIsFocused();
@@ -28,7 +28,7 @@ export function TabNavigator() {
   const routerConfigParams = useMemo(() => ({ freezeOnBlur }), [freezeOnBlur]);
   const config = useTabRouterConfig(routerConfigParams);
   const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
-  const isFocused = useIsIOSTabNavigator();
+  const isFocused = useIsIOSTabNavigatorFocused();
   return (
     <>
       <TabStackNavigator<ETabRoutes>
