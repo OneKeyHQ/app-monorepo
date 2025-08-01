@@ -1,5 +1,7 @@
 import { useContext, useMemo } from 'react';
 
+import { noop } from 'lodash';
+
 import {
   EPortalContainerConstantName,
   Portal,
@@ -39,7 +41,14 @@ export function TabNavigator() {
         name={EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER}
       />
       {isFocused ? (
-        <Stack position="absolute" top={0} left={0} right={0} bottom={0} />
+        <Stack
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          onPress={noop}
+        />
       ) : null}
     </>
   );
