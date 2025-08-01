@@ -26,17 +26,18 @@ class DesktopApiSystem {
   desktopApi: IDesktopApi;
 
   async getSystemInfo(): Promise<IDesktopSystemInfo> {
-    const system = await si.system();
-    const cpu = await si.cpu();
-    const osInfo = await si.osInfo();
+    // TEMPORARY FIX: Disable systeminformation calls to prevent PowerShell process spawning
+    // const system = await si.system();
+    // const cpu = await si.cpu();
+    // const osInfo = await si.osInfo();
     const data = Sentry.getGlobalScope().getScopeData();
 
     const result: IDesktopSystemInfo = {
       sentryContexts: data.contexts,
       // sentryContexts: undefined,
-      system,
-      cpu,
-      os: osInfo,
+      system: {}, // Temporary empty object
+      cpu: {},    // Temporary empty object
+      os: {},     // Temporary empty object
     };
 
     return result;
