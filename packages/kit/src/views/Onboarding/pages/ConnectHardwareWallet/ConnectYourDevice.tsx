@@ -909,6 +909,9 @@ function ConnectByBluetooth({
       }
 
       console.log('onboarding checkBluetoothStatus: enabled');
+      await backgroundApiProxy.serviceSetting.setDesktopBluetoothAtom({
+        isRequestedPermission: true,
+      });
       // All checks passed
       setBluetoothStatus('enabled');
     } catch (error) {
