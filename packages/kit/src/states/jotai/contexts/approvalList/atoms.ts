@@ -1,0 +1,26 @@
+import type { IAddressBadge } from '@onekeyhq/shared/types/address';
+
+import { createJotaiContext } from '../../utils/createJotaiContext';
+
+const {
+  Provider: ProviderJotaiContextApprovalList,
+  withProvider: withApprovalListProvider,
+  contextAtom,
+  contextAtomMethod,
+} = createJotaiContext();
+export {
+  ProviderJotaiContextApprovalList,
+  contextAtomMethod,
+  withApprovalListProvider,
+};
+
+export const {
+  atom: addressesInfoDataReadyAtom,
+  use: useAddressesInfoDataReadyAtom,
+} = contextAtom<boolean>(false);
+
+export const { atom: searchKeyAtom, use: useSearchKeyAtom } =
+  contextAtom<string>('');
+
+export const { atom: addressesInfoAtom, use: useAddressesInfoAtom } =
+  contextAtom<Record<string, IAddressBadge>>({});

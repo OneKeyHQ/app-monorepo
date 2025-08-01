@@ -14,6 +14,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderSideBarValue';
+import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -34,12 +35,16 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 
+import { ApprovalListContainerWithProvider } from './ApprovalListContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
+
+const networksSupportBulkRevokeApproval =
+  getNetworksSupportBulkRevokeApproval();
 
 const useNativeTabContainerWidth = platformEnv.isNativeIOSPad
   ? () => {
@@ -131,6 +136,10 @@ export function HomePageView({
   const isNFTEnabled =
     vaultSettings?.NFTEnabled &&
     getEnabledNFTNetworkIds().includes(network?.id ?? '');
+
+  const isBulkRevokeApprovalEnabled =
+    networksSupportBulkRevokeApproval[network?.id ?? ''] ?? false;
+
   const isRequiredValidation = vaultSettings?.validationRequired;
   const softwareAccountDisabled = vaultSettings?.softwareAccountDisabled;
   const supportedDeviceTypes = vaultSettings?.supportedDeviceTypes;
@@ -165,7 +174,7 @@ export function HomePageView({
   const tabs = useMemo(() => {
     const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
       network?.id ?? ''
-    }-${isNFTEnabled ? '1' : '0'}`;
+    }-${isNFTEnabled ? '1' : '0'}-${isBulkRevokeApprovalEnabled ? '1' : '0'}`;
     const tabConfigs = [
       {
         name: intl.formatMessage({
@@ -187,6 +196,14 @@ export function HomePageView({
         }),
         component: <TxHistoryListContainerWithProvider />,
       },
+      isBulkRevokeApprovalEnabled
+        ? {
+            name: intl.formatMessage({
+              id: ETranslations.global_approval,
+            }),
+            component: <ApprovalListContainerWithProvider />,
+          }
+        : undefined,
     ].filter(Boolean);
     return (
       <Tabs.Container
@@ -223,6 +240,7 @@ export function HomePageView({
     account?.id,
     account?.indexedAccountId,
     intl,
+    isBulkRevokeApprovalEnabled,
     isNFTEnabled,
     network?.id,
     renderHeader,

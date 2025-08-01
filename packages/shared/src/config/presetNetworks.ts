@@ -3210,3 +3210,9 @@ export const getNetworksSupportMevProtection = memoFn(
     },
   }),
 );
+
+export const getNetworksSupportBulkRevokeApproval = memoFn(
+  (): Record<string, boolean> => ({
+    [eth.id]: true,
+  }),
+);
