@@ -52,7 +52,7 @@ public class SplashScreen implements SingletonModule {
             controller = new SplashScreenViewController(activity, rootViewClass, splashView);
             show(activity, controller, statusBarTranslucent, successCallback, failureCallback);
         } catch (Error e) {
-            throw new RuntimeException(e);
+            // throw new RuntimeException(e);
         }
     }
 
