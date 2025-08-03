@@ -379,6 +379,7 @@ function useDeviceConnection({
 
   const searchStateRef = useRef<'start' | 'stop'>('stop');
   const isSearchingRef = useRef(false);
+  const currentTabValueRef = useRef(tabValue);
 
   const deviceScanner = useMemo(
     () =>
@@ -387,6 +388,43 @@ function useDeviceConnection({
       }),
     [],
   );
+
+  // Handle tabValue changes - clear search results and stop scanning
+  useEffect(() => {
+    const previousTabValue = currentTabValueRef.current;
+
+    if (previousTabValue !== tabValue) {
+      console.log(
+        '🔍 Tab changed from',
+        previousTabValue,
+        'to',
+        tabValue,
+        '- clearing search state',
+      );
+
+      // Stop current scanning
+      if (isSearchingRef.current) {
+        isSearchingRef.current = false;
+        deviceScanner.stopScan();
+      }
+
+      // Clear search results and reset state
+      setSearchedDevices([]);
+      setConnectStatus(EConnectionStatus.init);
+
+      // Wait for any ongoing search to complete (don't block render)
+      deviceScanner
+        .waitForCurrentSearchToComplete()
+        .then(() => {
+          console.log('🔍 Previous search completed, results ignored');
+        })
+        .catch(() => {
+          // Ignore errors
+        });
+    }
+
+    currentTabValueRef.current = tabValue;
+  }, [tabValue, deviceScanner]);
 
   const scanDevice = useCallback(async () => {
     if (isSearchingRef.current) {
@@ -481,7 +519,13 @@ function useDeviceConnection({
             b.name || b.connectId || b.deviceId || b.uuid,
           ),
         );
-        setSearchedDevices(sortedDevices);
+
+        // Only set search results if tabValue hasn't changed
+        if (currentTabValueRef.current === tabValue) {
+          setSearchedDevices(sortedDevices);
+        } else {
+          console.log('🔍 Ignoring search results - tab changed during search');
+        }
       },
       (state) => {
         searchStateRef.current = state;
@@ -1675,7 +1719,10 @@ export function ConnectYourDevicePage() {
           <SegmentControl
             fullWidth
             value={tabValue}
-            onChange={(v) => setTabValue(v as any)}
+            onChange={(v) => {
+              console.log('🔍 Tab selected:', v);
+              setTabValue(v as any);
+            }}
             options={[
               {
                 label: platformEnv.isNative
