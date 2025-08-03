@@ -2094,7 +2094,25 @@ const akash: IServerNetwork = {
   'defaultEnabled': true,
   'status': ENetworkStatus.LISTED,
 };
-
+const terra: IServerNetwork = {
+  'chainId': 'columbus-5',
+  'code': 'terra',
+  'decimals': 6,
+  'id': 'cosmos--columbus-5',
+  'impl': 'cosmos',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/terra.png',
+  'name': 'Terra Classic',
+  'shortcode': 'terra',
+  'shortname': 'terra',
+  'symbol': 'LUNC',
+  'feeMeta': {
+    'decimals': 6,
+    'symbol': 'LUNC',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
 const cronosPosChain: IServerNetwork = {
   'chainId': 'crypto-org-chain-mainnet-1',
   'code': 'cronosposchain',
