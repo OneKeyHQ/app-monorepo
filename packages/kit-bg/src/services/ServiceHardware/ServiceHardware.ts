@@ -1416,6 +1416,11 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getCurrentTransportType() {
+    return this.connectionManager.getCurrentTransportType();
+  }
+
+  @backgroundMethod()
   async repairBleConnectIdWithProgress({
     connectId,
     featuresDeviceId,

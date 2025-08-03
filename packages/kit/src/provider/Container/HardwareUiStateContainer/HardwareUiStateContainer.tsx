@@ -127,7 +127,7 @@ function HardwareSingletonDialogCmp(
 
   const defaultLoadingView = useMemo(
     () => (
-      <CommonDeviceLoading connectId={connectId}>
+      <CommonDeviceLoading>
         {platformEnv.isDev ? (
           <SizableText size="$bodySmMedium">
             {action || 'unknow action'}
@@ -135,7 +135,7 @@ function HardwareSingletonDialogCmp(
         ) : null}
       </CommonDeviceLoading>
     ),
-    [action, connectId],
+    [action],
   );
 
   useEffect(() => {

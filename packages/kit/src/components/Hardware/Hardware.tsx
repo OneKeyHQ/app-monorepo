@@ -36,7 +36,9 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { SHOW_CLOSE_ACTION_MIN_DURATION } from '../../provider/Container/HardwareUiStateContainer/constants';
 import { isPassphraseValid } from '../../utils/passphraseUtils';
@@ -404,43 +406,30 @@ export function ConfirmOnDeviceToastContent({
 export function CommonDeviceLoading({
   children,
   bg,
-  connectId,
 }: {
   children?: any;
   bg?: IColorTokens;
-  connectId?: string;
 }) {
-  const communicatingMethod = useMemo(() => {
-    if (!connectId) {
+  const { result: communicationMethod } = usePromiseResult<'bluetooth' | 'usb'>(
+    async () => {
+      if (platformEnv.isNative) {
+        return 'bluetooth';
+      }
+      if (platformEnv.isSupportDesktopBle) {
+        const transportType =
+          await backgroundApiProxy.serviceHardware.getCurrentTransportType();
+        if (transportType === EHardwareTransportType.DesktopWebBle) {
+          return 'bluetooth';
+        }
+        return 'usb';
+      }
       return 'usb';
-    }
-    if (platformEnv.isNative) {
-      return 'bluetooth';
-    }
-    if (platformEnv.isSupportDesktopBle) {
-      if (!connectId) {
-        return 'usb';
-      }
-      // TODO: compatible Id should have prefix
-      // Check connectId prefix to determine connection type
-      const miniFlag = connectId.slice(0, 2).toLowerCase();
-      if (
-        miniFlag === 'bi' ||
-        miniFlag === 'cl' ||
-        miniFlag === 'cp' ||
-        miniFlag === 'mi' ||
-        miniFlag === 'tc' ||
-        miniFlag === 'pr'
-      ) {
-        return 'usb';
-      }
-      return 'bluetooth';
-    }
-    return 'usb';
-  }, [connectId]);
-  useEffect(() => {
-    console.log('CommonDeviceLoading -> connectId: ', connectId);
-  }, [connectId]);
+    },
+    [],
+    {
+      initResult: 'usb',
+    },
+  );
   return (
     // <Stack
     //   borderRadius="$3"
@@ -451,7 +440,7 @@ export function CommonDeviceLoading({
     //   <Spinner size="large" />
     //   {children}
     // </Stack>
-    <CommunicatingLottieView method={communicatingMethod} />
+    <CommunicatingLottieView method={communicationMethod} />
   );
 }
 
