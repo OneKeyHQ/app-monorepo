@@ -290,6 +290,8 @@ function ConnectByQrCode() {
               hardwareTransportType: 'QRCode',
             });
           } catch (error) {
+            // Clear force transport type on QR wallet creation error
+            void backgroundApiProxy.serviceHardware.clearForceTransportType();
             errorToastUtils.toastIfError(error);
             void trackHardwareWalletConnection({
               status: 'failure',
@@ -726,7 +728,6 @@ function ConnectByUSBOrBLE({
     RequireBlePermissionDialogRender,
     checkBLEState,
     listingDevice,
-    tabValue,
     setIsChecking,
   ]);
 
@@ -1642,6 +1643,8 @@ export function ConnectYourDevicePage() {
 
         await selectAddWalletType({ device, features });
       } catch (error) {
+        // Clear force transport type on device connection error
+        void backgroundApiProxy.serviceHardware.clearForceTransportType();
         console.error('handleDeviceConnect error:', error);
         throw error;
       }

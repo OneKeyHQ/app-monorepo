@@ -658,11 +658,7 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async unlockDevice({
-    connectId,
-  }: {
-    connectId: string;
-  }) {
+  async unlockDevice({ connectId }: { connectId: string }) {
     const hardwareSDK = await this.getSDKInstance();
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
@@ -1404,6 +1400,10 @@ class ServiceHardware extends ServiceBase {
       forceTransportType,
       operationId,
     });
+    defaultLogger.setting.device.setForceTransportType({
+      forceTransportType,
+      operationId,
+    });
   }
 
   @backgroundMethod()
@@ -1412,6 +1412,7 @@ class ServiceHardware extends ServiceBase {
       forceTransportType: undefined,
       operationId: undefined,
     });
+    defaultLogger.setting.device.clearForceTransportType();
   }
 
   @backgroundMethod()

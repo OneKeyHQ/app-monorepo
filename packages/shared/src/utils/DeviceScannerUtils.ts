@@ -46,7 +46,8 @@ export class DeviceScannerUtils {
 
       let searchResponse;
       try {
-        searchResponse = await this.backgroundApi.serviceHardware.searchDevices();
+        searchResponse =
+          await this.backgroundApi.serviceHardware.searchDevices();
       } finally {
         searchPromise?.resolve();
         searchPromise = null;
