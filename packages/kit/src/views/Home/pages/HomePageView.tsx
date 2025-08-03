@@ -35,7 +35,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 
-import { ApprovalListContainerWithProvider } from './ApprovalListContainer';
+// import { ApprovalListContainerWithProvider } from './ApprovalListContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';

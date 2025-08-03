@@ -1,4 +1,6 @@
-import type { IAddressBadge } from '@onekeyhq/shared/types/address';
+import type { IAddressInfo } from '@onekeyhq/shared/types/address';
+import type { IAccountApproval } from '@onekeyhq/shared/types/approval';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
@@ -14,13 +16,28 @@ export {
   withApprovalListProvider,
 };
 
-export const {
-  atom: addressesInfoDataReadyAtom,
-  use: useAddressesInfoDataReadyAtom,
-} = contextAtom<boolean>(false);
+export const { atom: approvalListAtom, use: useApprovalListAtom } =
+  contextAtom<{
+    approvals: IAccountApproval[];
+  }>({
+    approvals: [],
+  });
 
-export const { atom: searchKeyAtom, use: useSearchKeyAtom } =
-  contextAtom<string>('');
+export const { atom: tokenMapAtom, use: useTokenMapAtom } = contextAtom<{
+  tokenMap: Record<
+    string,
+    {
+      price: string;
+      price24h: string;
+      info: IToken;
+    }
+  >;
+}>({
+  tokenMap: {},
+});
 
-export const { atom: addressesInfoAtom, use: useAddressesInfoAtom } =
-  contextAtom<Record<string, IAddressBadge>>({});
+export const { atom: contractMapAtom, use: useContractMapAtom } = contextAtom<{
+  contractMap: Record<string, IAddressInfo>;
+}>({
+  contractMap: {},
+});
