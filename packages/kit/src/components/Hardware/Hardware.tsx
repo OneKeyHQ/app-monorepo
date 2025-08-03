@@ -430,6 +430,10 @@ export function CommonDeviceLoading({
     },
   );
   return (
+    <>
+      <CommunicatingLottieView method={communicationMethod} />
+      {children}
+    </>
     // <Stack
     //   borderRadius="$3"
     //   p="$5"
@@ -437,9 +441,7 @@ export function CommonDeviceLoading({
     //   borderCurve="continuous"
     // >
     //   <Spinner size="large" />
-    //   {children}
     // </Stack>
-    <CommunicatingLottieView method={communicationMethod} />
   );
 }
 

@@ -114,6 +114,7 @@ export type IDeviceGetFeaturesOptions = {
 // skip events
 const SKIPPED_EVENTS = [
   EHardwareUiStateAction.CLOSE_UI_WINDOW,
+  EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW,
   EHardwareUiStateAction.PREVIOUS_ADDRESS,
   EHardwareUiStateAction.BLUETOOTH_UNSUPPORTED,
   EHardwareUiStateAction.BLUETOOTH_POWERED_OFF,
