@@ -209,11 +209,11 @@ function BalanceDetailsContent({
   );
 
   const whatIsFrozenBalanceUrl = useHelpLink({
-    path: 'articles/9810415108111',
+    path: 'articles/11461179',
   });
 
   const howToTransferOrdinalsAssetsUrl = useHelpLink({
-    path: 'articles/10072721909903',
+    path: 'articles/11461175',
   });
 
   const renderFrozenBalance = useCallback(() => {

@@ -160,9 +160,10 @@ export function UniversalSearch({
       searchStatus === ESearchStatus.done &&
       focusedTab.value !== tabTitles[0]
     ) {
-      // Use setTimeout to ensure the Tab.Header is rendered before calling scrollToIndex
+      const firstTabName = tabTitles[0];
+      setFilterType(firstTabName);
       setTimeout(() => {
-        focusedTab.value = tabTitles[0];
+        focusedTab.value = firstTabName;
       }, 0);
     }
   }, [focusedTab, searchStatus, tabTitles]);

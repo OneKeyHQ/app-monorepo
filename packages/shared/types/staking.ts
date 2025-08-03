@@ -452,11 +452,11 @@ export interface IEarnLinkActionIcon {
   type: 'link';
   data: {
     link: string;
+    showIntercom?: boolean;
   };
   icon?: IEarnIcon;
   disabled?: boolean;
   text: IEarnText;
-  showIntercom?: boolean;
 }
 
 export interface IEarnDepositActionIcon {

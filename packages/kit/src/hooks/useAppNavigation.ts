@@ -8,6 +8,7 @@ import type {
   IPageNavigationProp,
   IStackNavigationOptions,
 } from '@onekeyhq/components/src/layouts/Navigation';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ETabRoutes,
   IModalParamList,

@@ -19,6 +19,7 @@ export function PaginationButton({
   iconSize = 'default',
   positionOffset = 8,
   zIndex,
+  onMouseEnter,
 }: {
   direction: 'previous' | 'next';
   onPress: () => void;
@@ -29,6 +30,7 @@ export function PaginationButton({
   iconSize?: 'default' | 'small';
   positionOffset?: number;
   zIndex?: number;
+  onMouseEnter?: () => void;
 }) {
   const smallIcon =
     direction === 'previous'
@@ -46,7 +48,7 @@ export function PaginationButton({
   const opacity = useSharedValue(isVisible ? 1 : 0);
 
   useEffect(() => {
-    opacity.value = withTiming(isVisible ? 1 : 0, { duration: 250 });
+    opacity.value = withTiming(isVisible ? 1 : 0, { duration: 50 });
   }, [isVisible, opacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -55,6 +57,7 @@ export function PaginationButton({
 
   return (
     <Animated.View
+      pointerEvents="box-none"
       style={[
         animatedStyle,
         {
@@ -75,6 +78,7 @@ export function PaginationButton({
         onPress={onPress}
         iconProps={hoverOpacity}
         theme={theme}
+        onMouseEnter={onMouseEnter}
       />
     </Animated.View>
   );
