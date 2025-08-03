@@ -1394,6 +1394,27 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async setForceTransportType({
+    forceTransportType,
+  }: {
+    forceTransportType: EHardwareTransportType;
+  }) {
+    const operationId = Math.random().toString(36).substring(2, 15);
+    await hardwareForceTransportAtom.set({
+      forceTransportType,
+      operationId,
+    });
+  }
+
+  @backgroundMethod()
+  async clearForceTransportType() {
+    await hardwareForceTransportAtom.set({
+      forceTransportType: undefined,
+      operationId: undefined,
+    });
+  }
+
+  @backgroundMethod()
   async repairBleConnectIdWithProgress({
     connectId,
     featuresDeviceId,
