@@ -7,15 +7,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { ISplashViewProps } from './type';
 
-const MockLegacySplashScreen = {
-  preventAutoHideAsync: () => Promise.resolve(true),
-  hideAsync: () => Promise.resolve(true),
-};
-
 // Support for displaying splash screen on Android versions below 12
 // This legacy splash screen implementation ensures compatibility with older Android devices
 // that don't support the newer native splash screen APIs
-const { LegacySplashScreen = MockLegacySplashScreen } = NativeModules as {
+const { LegacySplashScreen } = NativeModules as {
   LegacySplashScreen: {
     preventAutoHideAsync: () => Promise<boolean>;
     hideAsync: () => Promise<boolean>;
@@ -23,14 +18,14 @@ const { LegacySplashScreen = MockLegacySplashScreen } = NativeModules as {
 };
 
 void preventAutoHideAsync();
-if (platformEnv.isNativeAndroid) {
+if (platformEnv.isNativeAndroid && LegacySplashScreen) {
   void LegacySplashScreen.preventAutoHideAsync();
 }
 
 export function SplashView({ onExit, ready }: ISplashViewProps) {
   const hideSplash = useCallback(() => {
     void hideAsync();
-    if (platformEnv.isNativeAndroid) {
+    if (platformEnv.isNativeAndroid && LegacySplashScreen) {
       void LegacySplashScreen.hideAsync();
     }
     onExit?.();

@@ -1,12 +1,10 @@
 package so.onekey.app.wallet.splashscreen.singletons;
 
 import android.app.Activity;
-import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import expo.modules.core.interfaces.SingletonModule;
 import so.onekey.app.wallet.splashscreen.*;
-import so.onekey.app.wallet.splashscreen.exceptions.NoContentViewException;
 
 import java.util.WeakHashMap;
 
@@ -38,7 +36,6 @@ public class SplashScreen implements SingletonModule {
      * @param statusBarTranslucent Flag determining StatusBar translucency in a way ReactNative see it.
      * @param successCallback Callback to be called once SplashScreen is mounted in view hierarchy.
      * @param failureCallback Callback to be called once SplashScreen cannot be mounted.
-     * @throws expo.modules.splashscreen.exceptions.NoContentViewException when SplashScreen.show is called before Activity.setContentView (when no ContentView is present for given activity).
      */
     public void show(
             Activity activity,
@@ -54,8 +51,8 @@ public class SplashScreen implements SingletonModule {
         try {
             controller = new SplashScreenViewController(activity, rootViewClass, splashView);
             show(activity, controller, statusBarTranslucent, successCallback, failureCallback);
-        } catch (NoContentViewException e) {
-            throw new RuntimeException(e);
+        } catch (Error e) {
+            // throw new RuntimeException(e);
         }
     }
 
@@ -79,7 +76,6 @@ public class SplashScreen implements SingletonModule {
      * @param splashScreenViewProvider
      * @param successCallback Callback to be called once SplashScreen is mounted in view hierarchy.
      * @param failureCallback Callback to be called once SplashScreen cannot be mounted.
-     * @throws expo.modules.splashscreen.exceptions.NoContentViewException when SplashScreen.show is called before Activity.setContentView (when no ContentView is present for given activity).
      */
     public void show(
             Activity activity,
@@ -119,7 +115,6 @@ public class SplashScreen implements SingletonModule {
      * @param statusBarTranslucent Flag determining StatusBar translucency in a way ReactNative see it.
      * @param successCallback Callback to be called once SplashScreen is mounted in view hierarchy.
      * @param failureCallback Callback to be called once SplashScreen cannot be mounted.
-     * @throws expo.modules.splashscreen.exceptions.NoContentViewException when SplashScreen.show is called before Activity.setContentView (when no ContentView is present for given activity).
      */
     public void show(
             Activity activity,

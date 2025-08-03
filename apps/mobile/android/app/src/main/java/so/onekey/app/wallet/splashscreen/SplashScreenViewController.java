@@ -6,7 +6,6 @@ import android.os.Looper;
 import android.view.View;
 import android.view.ViewGroup;
 import java.lang.ref.WeakReference;
-import so.onekey.app.wallet.splashscreen.exceptions.NoContentViewException;
 
 public class SplashScreenViewController {
     private static final long SEARCH_FOR_ROOT_VIEW_INTERVAL = 20L;
@@ -24,13 +23,13 @@ public class SplashScreenViewController {
     public SplashScreenViewController(
             Activity activity,
             Class<? extends ViewGroup> rootViewClass,
-            View splashScreenView) throws NoContentViewException {
+            View splashScreenView) {
         this.weakActivity = new WeakReference<>(activity);
         this.rootViewClass = rootViewClass;
         this.splashScreenView = splashScreenView;
         this.contentView = activity.findViewById(android.R.id.content);
         if (this.contentView == null) {
-            throw new NoContentViewException();
+            throw new Error("ContentView is not yet available. Call 'SplashScreen.show(...)' once 'setContentView()' is called.");
         }
         this.handler = new Handler(Looper.getMainLooper());
     }

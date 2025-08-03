@@ -3,6 +3,8 @@ package so.onekey.app.wallet;
 import android.app.Application;
 import android.content.res.Configuration;
 import android.database.CursorWindow;
+import android.os.Build;
+
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -45,7 +47,9 @@ public class MainApplication extends Application implements ReactApplication {
         // packages.add(new GeckoViewPackage());
         packages.add(new ExitPackage());
         packages.add(new WebViewCheckerPackage());
-        packages.add(new SplashScreenPackage());
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+          packages.add(new SplashScreenPackage());
+        }
         return packages;
       }
 
