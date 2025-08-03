@@ -326,6 +326,9 @@ export class HardwareConnectionManager {
   setCurrentTransportType(transportType: EHardwareTransportType): void {
     // Only clear cache when transport type actually changes
     if (this.actualTransportType !== transportType) {
+      void this.backgroundApi.serviceSetting.setHardwareTransportType(
+        transportType,
+      );
       this.actualTransportType = transportType;
       // Clear cache when transport type changes to ensure fresh detection
       try {

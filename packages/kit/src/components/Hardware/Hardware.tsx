@@ -410,22 +410,21 @@ export function CommonDeviceLoading({
   children?: any;
   bg?: IColorTokens;
 }) {
+  const [{ hardwareTransportType }] = useSettingsPersistAtom();
   const { result: communicationMethod } = usePromiseResult<'bluetooth' | 'usb'>(
     async () => {
       if (platformEnv.isNative) {
         return 'bluetooth';
       }
       if (platformEnv.isSupportDesktopBle) {
-        const transportType =
-          await backgroundApiProxy.serviceHardware.getCurrentTransportType();
-        if (transportType === EHardwareTransportType.DesktopWebBle) {
+        if (hardwareTransportType === EHardwareTransportType.DesktopWebBle) {
           return 'bluetooth';
         }
         return 'usb';
       }
       return 'usb';
     },
-    [],
+    [hardwareTransportType],
     {
       initResult: 'usb',
     },
