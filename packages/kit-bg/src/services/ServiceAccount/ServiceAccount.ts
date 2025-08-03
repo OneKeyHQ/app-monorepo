@@ -138,6 +138,7 @@ import {
   hardwareWalletXfpStatusAtom,
   indexedAccountAddressCreationStateAtom,
 } from '../../states/jotai/atoms';
+import { hardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
@@ -2534,9 +2535,11 @@ class ServiceAccount extends ServiceBase {
   @toastIfError()
   async createHWWallet(params: IDBCreateHwWalletParamsBase) {
     // createHWWallet
-    // Use forceTransportType if provided, otherwise fallback to current transport type setting
+    // Get forceTransportType from global atom first, otherwise fallback to current transport type setting
+    const hardwareForceTransportAtomState =
+      await hardwareForceTransportAtom.get();
     const transportType =
-      params.forceTransportType ||
+      hardwareForceTransportAtomState.forceTransportType ||
       (await this.backgroundApi.serviceSetting.getHardwareTransportType());
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
@@ -2596,7 +2599,6 @@ class ServiceAccount extends ServiceBase {
         deviceId,
         passphraseState,
         throwError: true,
-        forceTransportType: transportType,
       });
       console.log('createHWWalletBase xfp', xfp, connectId, deviceId);
     }
@@ -2618,6 +2620,7 @@ class ServiceAccount extends ServiceBase {
           );
         return r;
       },
+      transportType,
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;

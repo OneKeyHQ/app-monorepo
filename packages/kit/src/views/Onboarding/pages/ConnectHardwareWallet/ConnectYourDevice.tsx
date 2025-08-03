@@ -485,10 +485,9 @@ function useDeviceConnection({
         undefined, // pollIntervalRate
         undefined, // pollInterval
         undefined, // maxTryCount
-        transportType || forceTransportType,
       );
     },
-    [deviceScanner, intl, forceTransportType],
+    [deviceScanner, intl],
   );
 
   const stopScan = useCallback(() => {
@@ -1271,36 +1270,29 @@ export function ConnectYourDevicePage() {
     [handleRestoreWalletPress, handleSetupNewWalletPress, intl, requestsUrl],
   );
 
-  const connectDevice = useCallback(
-    async (
-      device: SearchDevice,
-      forceTransportType?: EHardwareTransportType,
-    ) => {
-      try {
-        return await backgroundApiProxy.serviceHardware.connect({
-          device,
-          forceTransportType,
-        });
-      } catch (error: any) {
-        if (error instanceof OneKeyHardwareError) {
-          const { code, message } = error;
-          if (
-            code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
-            code === HardwareErrorCode.BlePermissionError ||
-            code === HardwareErrorCode.BleLocationError
-          ) {
-            return;
-          }
-          Toast.error({
-            title: message || 'DeviceConnectError',
-          });
-        } else {
-          console.error('connectDevice error:', get(error, 'message', ''));
+  const connectDevice = useCallback(async (device: SearchDevice) => {
+    try {
+      return await backgroundApiProxy.serviceHardware.connect({
+        device,
+      });
+    } catch (error: any) {
+      if (error instanceof OneKeyHardwareError) {
+        const { code, message } = error;
+        if (
+          code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
+          code === HardwareErrorCode.BlePermissionError ||
+          code === HardwareErrorCode.BleLocationError
+        ) {
+          return;
         }
+        Toast.error({
+          title: message || 'DeviceConnectError',
+        });
+      } else {
+        console.error('connectDevice error:', get(error, 'message', ''));
       }
-    },
-    [],
-  );
+    }
+  }, []);
 
   const extractDeviceState = useCallback(
     (features: IOneKeyDeviceFeatures) => ({
@@ -1404,7 +1396,6 @@ export function ConnectYourDevicePage() {
           features,
           isFirmwareVerified,
           defaultIsTemp: true,
-          forceTransportType,
         };
         if (strategy.createStandardWalletOnly) {
           await actions.current.createHWWalletWithoutHidden(params);
@@ -1471,7 +1462,6 @@ export function ConnectYourDevicePage() {
         features =
           await backgroundApiProxy.serviceHardware.getFeaturesWithUnlock({
             connectId: device.connectId ?? '',
-            forceTransportType,
           });
       } catch (error) {
         await closeDialogAndReturn(device, { skipDelayClose: true });
@@ -1569,7 +1559,7 @@ export function ConnectYourDevicePage() {
           forceTransportType = await getForceTransportType(tabValue);
         }
 
-        const features = await connectDevice(device, forceTransportType);
+        const features = await connectDevice(device);
 
         if (!features) {
           await trackHardwareWalletConnection({

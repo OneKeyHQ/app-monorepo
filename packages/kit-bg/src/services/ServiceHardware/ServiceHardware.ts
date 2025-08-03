@@ -55,6 +55,7 @@ import localDb from '../../dbs/local/localDb';
 import simpleDb from '../../dbs/simple/simpleDb';
 import {
   EHardwareUiStateAction,
+  hardwareForceTransportAtom,
   hardwareUiStateAtom,
   hardwareUiStateCompletedAtom,
   settingsPersistAtom,
@@ -108,7 +109,6 @@ export type IDeviceGetFeaturesOptions = {
   params?: CommonParams & {
     allowEmptyConnectId?: boolean;
   };
-  forceTransportType?: EHardwareTransportType;
 };
 
 // skip events
@@ -258,12 +258,9 @@ class ServiceHardware extends ServiceBase {
 
   async getSDKInstance(options?: {
     hardwareCallContext?: EHardwareCallContext;
-    forceTransportType?: EHardwareTransportType;
   }) {
-    const {
-      hardwareCallContext = EHardwareCallContext.USER_INTERACTION,
-      forceTransportType,
-    } = options || {};
+    const { hardwareCallContext = EHardwareCallContext.USER_INTERACTION } =
+      options || {};
     this.checkSdkVersionValid();
 
     const { hardwareConnectSrc } = await settingsPersistAtom.get();
@@ -285,7 +282,6 @@ class ServiceHardware extends ServiceBase {
       // Check if we should switch transport type based on optimal connection strategy
       const result = await this.connectionManager.shouldSwitchTransportType({
         hardwareCallContext,
-        forceTransportType,
       });
       shouldSwitch = result.shouldSwitch;
       hardwareTransportType = result.targetType;
@@ -592,14 +588,8 @@ class ServiceHardware extends ServiceBase {
   // startDeviceScan
   // TODO use convertDeviceResponse()
   @backgroundMethod()
-  async searchDevices({
-    forceTransportType,
-  }: {
-    forceTransportType?: EHardwareTransportType;
-  } = {}) {
-    const hardwareSDK = await this.getSDKInstance({
-      forceTransportType,
-    });
+  async searchDevices() {
+    const hardwareSDK = await this.getSDKInstance();
     const response = await hardwareSDK?.searchDevices();
     console.log('searchDevices response: ', response);
     return response;
@@ -610,13 +600,9 @@ class ServiceHardware extends ServiceBase {
     // return Promise.reject(deviceError);
   }
 
-  private connectDevice = (
-    connectId: string,
-    forceTransportType?: EHardwareTransportType,
-  ) =>
+  private connectDevice = (connectId: string) =>
     this.getFeaturesWithoutCache({
       connectId,
-      forceTransportType,
     });
 
   private handlerConnectError = (e: any) => {
@@ -635,10 +621,8 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async connect({
     device,
-    forceTransportType,
   }: {
     device: SearchDevice;
-    forceTransportType?: EHardwareTransportType;
   }): Promise<Features | undefined> {
     const { connectId } = device;
     if (!connectId) {
@@ -652,15 +636,11 @@ class ServiceHardware extends ServiceBase {
       connectId,
       featuresDeviceId: device.deviceId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-      forceTransportType,
     });
 
     if (platformEnv.isNative) {
       try {
-        return await this.connectDevice(
-          compatibleConnectId,
-          forceTransportType,
-        );
+        return await this.connectDevice(compatibleConnectId);
       } catch (e: any) {
         this.handlerConnectError(e);
       }
@@ -669,10 +649,7 @@ class ServiceHardware extends ServiceBase {
        * USB does not need the extra getFeatures call
        */
       try {
-        return await this.connectDevice(
-          compatibleConnectId,
-          forceTransportType,
-        );
+        return await this.connectDevice(compatibleConnectId);
       } catch (e: any) {
         return (device as KnownDevice).features;
       }
@@ -683,16 +660,13 @@ class ServiceHardware extends ServiceBase {
   @toastIfError()
   async unlockDevice({
     connectId,
-    forceTransportType,
   }: {
     connectId: string;
-    forceTransportType?: EHardwareTransportType;
   }) {
     const hardwareSDK = await this.getSDKInstance();
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-      forceTransportType,
     });
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceUnlock(compatibleConnectId, {}),
@@ -700,28 +674,19 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getFeaturesWithUnlock({
-    connectId,
-    forceTransportType,
-  }: {
-    connectId: string;
-    forceTransportType?: EHardwareTransportType;
-  }) {
+  async getFeaturesWithUnlock({ connectId }: { connectId: string }) {
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-      forceTransportType,
     });
     let features = await this.getFeaturesWithoutCache({
       connectId: compatibleConnectId,
-      forceTransportType,
     });
 
     if (!features.unlocked) {
       // unlock device
       features = await this.unlockDevice({
         connectId: compatibleConnectId,
-        forceTransportType,
       });
     }
 
@@ -853,16 +818,14 @@ class ServiceHardware extends ServiceBase {
   }
 
   _getFeaturesLowLevel = async (options: IDeviceGetFeaturesOptions) => {
-    const { connectId, params, forceTransportType } = options;
+    const { connectId, params } = options;
     serviceHardwareUtils.hardwareLog('call getFeatures()', connectId);
     if (!params?.allowEmptyConnectId && !connectId) {
       throw new OneKeyLocalError(
         'hardware getFeatures ERROR: connectId is undefined',
       );
     }
-    const hardwareSDK = await this.getSDKInstance({
-      forceTransportType,
-    });
+    const hardwareSDK = await this.getSDKInstance();
     const features = await convertDeviceResponse(() =>
       hardwareSDK?.getFeatures(connectId, params),
     );
@@ -1278,13 +1241,11 @@ class ServiceHardware extends ServiceBase {
     deviceId,
     passphraseState,
     throwError,
-    forceTransportType,
   }: {
     connectId: string | undefined | null;
     deviceId: string | undefined | null;
     passphraseState: string | undefined;
     throwError: boolean;
-    forceTransportType?: EHardwareTransportType;
   }): Promise<string | undefined> {
     if (!connectId) {
       return;
@@ -1294,7 +1255,6 @@ class ServiceHardware extends ServiceBase {
         connectId,
         featuresDeviceId: deviceId,
         hardwareCallContext: EHardwareCallContext.SILENT_CALL,
-        forceTransportType,
       });
       const hardwareSDK = await this.getSDKInstance();
       await timerUtils.wait(600);
@@ -1538,13 +1498,11 @@ class ServiceHardware extends ServiceBase {
     connectId,
     featuresDeviceId,
     features,
-    forceTransportType,
   }: {
     hardwareCallContext: EHardwareCallContext;
     connectId?: string;
     featuresDeviceId?: string | undefined | null; // rawDeviceId
     features?: IOneKeyDeviceFeatures;
-    forceTransportType?: EHardwareTransportType;
   }) {
     if (!connectId) {
       throw new OneKeyLocalError('connectId is required');
@@ -1562,16 +1520,13 @@ class ServiceHardware extends ServiceBase {
     }
 
     // Determine the transport type to use
-    console.log(
-      '🔍 getCompatibleConnectId called with forceTransportType:',
-      forceTransportType,
-    );
     const result = await this.connectionManager.shouldSwitchTransportType({
       hardwareCallContext,
-      forceTransportType,
     });
     console.log('🔍 shouldSwitchTransportType result:', result);
     const targetTransportType = result.targetType;
+    const forceTransportType = (await hardwareForceTransportAtom.get())
+      .forceTransportType;
 
     // Handle connection logic based on transport type
     if (targetTransportType === EHardwareTransportType.DesktopWebBle) {

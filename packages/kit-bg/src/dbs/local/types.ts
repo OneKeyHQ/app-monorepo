@@ -181,7 +181,6 @@ export type IDBCreateHwWalletParamsBase = {
   hideCheckingDeviceLoading?: boolean;
   defaultIsTemp?: boolean;
   isMockedStandardHwWallet?: boolean;
-  forceTransportType?: EHardwareTransportType; // Force specific transport type for this connection
 };
 export type IDBCreateHwWalletParams = IDBCreateHwWalletParamsBase & {
   passphraseState?: string;

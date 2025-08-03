@@ -11,7 +11,10 @@ import {
   EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
 
-import { desktopBluetoothAtom } from '../../states/jotai/atoms/desktopBluetooth';
+import {
+  desktopBluetoothAtom,
+  hardwareForceTransportAtom,
+} from '../../states/jotai/atoms/desktopBluetooth';
 import {
   EHardwareUiStateAction,
   hardwareUiStateAtom,
@@ -240,21 +243,30 @@ export class HardwareConnectionManager {
   shouldSwitchTransportType = memoizee(
     async ({
       hardwareCallContext,
-      forceTransportType,
     }: {
       hardwareCallContext?: IHardwareCallContext;
-      forceTransportType?: EHardwareTransportType;
     }): Promise<{
       shouldSwitch: boolean;
       targetType: EHardwareTransportType;
     }> => {
+      // Get force transport type from global atom first
+      const hardwareForceTransportAtomState =
+        await hardwareForceTransportAtom.get();
+      const forceTransportType =
+        hardwareForceTransportAtomState.forceTransportType;
+
       console.log('🔍 shouldSwitchTransportType called with:', {
         hardwareCallContext,
         forceTransportType,
+        operationId: hardwareForceTransportAtomState.operationId,
       });
+
       // If a specific transport type is forced (e.g., for onboarding), use it directly
       if (forceTransportType) {
-        console.log('🔒 Using forced transport type: ', forceTransportType);
+        console.log(
+          '🔒 Using forced transport type from atom:',
+          forceTransportType,
+        );
         const shouldSwitch = this.actualTransportType !== forceTransportType;
         return {
           shouldSwitch,
@@ -301,10 +313,7 @@ export class HardwareConnectionManager {
       promise: true,
       maxAge: timerUtils.getTimeDurationMs({ seconds: 2 }),
       max: 1,
-      normalizer: (args) =>
-        `${args[0].hardwareCallContext || 'default'}-${
-          args[0].forceTransportType || 'none'
-        }`,
+      normalizer: (args) => `${args[0].hardwareCallContext || 'default'}`,
     },
   );
 
