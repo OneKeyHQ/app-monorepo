@@ -22,6 +22,7 @@ const NetworkIDMinScanMap: Record<string, string> = {
   [getNetworkIdsMap().cronosposchain]: 'cryptoorg',
   [getNetworkIdsMap().cosmoshub]: 'cosmos',
   [getNetworkIdsMap().akash]: 'akash',
+  [getNetworkIdsMap().terra]: 'terra',
   [getNetworkIdsMap().fetch]: 'fetchai',
   [getNetworkIdsMap().juno]: 'juno',
   [getNetworkIdsMap().osmosis]: 'osmosis',
