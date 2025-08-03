@@ -52,7 +52,7 @@ class QueryRegistry {
 export const queryRegistry = new QueryRegistry();
 const cosmwasmQuery = new CosmwasmQuery();
 queryRegistry.register(getNetworkIdsMap().juno, cosmwasmQuery);
-queryRegistry.register(getNetworkIdsMap().terra, cosmwasmQuery);  // Terra Classic
+//queryRegistry.register(getNetworkIdsMap().terra, cosmwasmQuery);  // Terra Classic
 queryRegistry.register(getNetworkIdsMap().osmosis, cosmwasmQuery);
 queryRegistry.register(getNetworkIdsMap().secretnetwork, new SecretwasmQuery());
 
