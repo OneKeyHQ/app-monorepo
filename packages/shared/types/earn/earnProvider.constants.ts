@@ -78,6 +78,7 @@ export const isSupportStaking = (symbol: string) =>
 export const earnMainnetNetworkIds = [
   getNetworkIdsMap().eth,
   getNetworkIdsMap().cosmoshub,
+  getNetworkIdsMap().terra,
   getNetworkIdsMap().apt,
   getNetworkIdsMap().sol,
   getNetworkIdsMap().btc,
@@ -186,6 +187,7 @@ export function getSymbolSupportedNetworks(): Record<
     'SOL': [networkIdsMap.sol],
     'APT': [networkIdsMap.apt],
     'ATOM': [networkIdsMap.cosmoshub],
+    'LUNC': [networkIdsMap.terra],
     'POL': [networkIdsMap.eth],
     'USDC': [networkIdsMap.eth, networkIdsMap.sui],
     'USDT': [networkIdsMap.eth],
