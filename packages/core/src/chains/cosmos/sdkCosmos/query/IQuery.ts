@@ -59,5 +59,5 @@ queryRegistry.register(getNetworkIdsMap().secretnetwork, new SecretwasmQuery());
 const mintScanQuery = new MintScanQuery();
 queryRegistry.register(getNetworkIdsMap().cosmoshub, mintScanQuery);
 queryRegistry.register(getNetworkIdsMap().akash, mintScanQuery);
-// queryRegistry.register(getNetworkIdsMap().terra, mintScanQuery); // Terra Classic
+queryRegistry.register(getNetworkIdsMap().terra, mintScanQuery); // Terra Classic
 queryRegistry.register(getNetworkIdsMap().fetch, mintScanQuery);
