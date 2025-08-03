@@ -94,6 +94,11 @@ const settings: IVaultSettings = {
       curve: 'secp256k1',
       nativeTokenAddress: 'uakt',
     },
+    'cosmos--columbus-5': {
+      addressPrefix: 'terra',
+      curve: 'secp256k1',
+      nativeTokenAddress: 'uluna',
+    },
     'cosmos--crypto-org-chain-mainnet-1': {
       addressPrefix: 'cro',
       curve: 'secp256k1',
