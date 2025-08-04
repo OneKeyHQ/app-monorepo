@@ -7860,7 +7860,7 @@ __metadata:
     "@react-native-community/slider": "npm:4.5.7"
     "@react-native-google-signin/google-signin": "npm:^9.1.0"
     "@sentry/react-native": "npm:6.16.1"
-    "@shopify/flash-list": "npm:2.0.0"
+    "@shopify/flash-list": "npm:2.0.1"
     "@types/react-native-canvas": "npm:^0.1.13"
     "@walletconnect/modal-react-native": "npm:1.1.0"
     "@walletconnect/react-native-compat": "npm:2.11.2"
@@ -11992,14 +11992,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@shopify/flash-list@npm:2.0.0":
-  version: 2.0.0
-  resolution: "@shopify/flash-list@npm:2.0.0"
+"@shopify/flash-list@npm:2.0.1":
+  version: 2.0.1
+  resolution: "@shopify/flash-list@npm:2.0.1"
+  dependencies:
+    tslib: "npm:2.8.1"
   peerDependencies:
     "@babel/runtime": "*"
     react: "*"
     react-native: "*"
-  checksum: 10/9e46b86dba284ed89453defd69aeafecd756f0117a2770e9431d3c94c84372fba3e0edb44c8420d26d2dc1643016927bbc8a024285feb48cca268dd9731f6117
+  checksum: 10/46dbec5da9c862b175d58fc8d16abfb78974043cab95c86ae1159f040948b841fd8a523fcb762e77ff7f2d3b92ebc820bcc71b59cf872375656db4acbe941dde
   languageName: node
   linkType: hard
 
@@ -39546,17 +39548,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"tslib@npm:2.8.1, tslib@npm:^2.7.0, tslib@npm:^2.8.0":
+  version: 2.8.1
+  resolution: "tslib@npm:2.8.1"
+  checksum: 10/3e2e043d5c2316461cb54e5c7fe02c30ef6dccb3384717ca22ae5c6b5bc95232a6241df19c622d9c73b809bea33b187f6dbc73030963e29950c2141bc32a79f7
+  languageName: node
+  linkType: hard
+
 "tslib@npm:^2.6.1":
   version: 2.6.3
   resolution: "tslib@npm:2.6.3"
   checksum: 10/52109bb681f8133a2e58142f11a50e05476de4f075ca906d13b596ae5f7f12d30c482feb0bff167ae01cfc84c5803e575a307d47938999246f5a49d174fc558c
-  languageName: node
-  linkType: hard
-
-"tslib@npm:^2.7.0, tslib@npm:^2.8.0":
-  version: 2.8.1
-  resolution: "tslib@npm:2.8.1"
-  checksum: 10/3e2e043d5c2316461cb54e5c7fe02c30ef6dccb3384717ca22ae5c6b5bc95232a6241df19c622d9c73b809bea33b187f6dbc73030963e29950c2141bc32a79f7
   languageName: node
   linkType: hard
 
