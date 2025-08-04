@@ -174,7 +174,10 @@ const SwapQuoteInput = ({
               (item) => item.networkId === fromToken.networkId,
             )?.reserveGas;
             if (reserveGas) {
-              maxAmount = maxAmount.minus(new BigNumber(reserveGas));
+              maxAmount = BigNumber.max(
+                0,
+                maxAmount.minus(new BigNumber(reserveGas)),
+              );
             }
           }
           setFromInputAmount({
