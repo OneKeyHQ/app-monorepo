@@ -4,7 +4,6 @@ import logger from 'electron-log/main';
 import autoUpdateInit from './AutoUpdate';
 import BridgeProcess, { BridgeHeart } from './Bridge';
 import HttpServerInit from './HttpServer';
-import updateTouchResInit from './TouchRes';
 
 import type { ILocalStore } from '../libs/store';
 import type { BrowserWindow } from 'electron';
@@ -46,7 +45,6 @@ const init = async ({ mainWindow, store }: IDependencies) => {
     autoUpdateInit({ mainWindow, store });
   }
   HttpServerInit();
-  updateTouchResInit({ mainWindow });
 };
 
 export default init;

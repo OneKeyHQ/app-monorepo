@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { EPageType, usePageType } from '../../../hocs';
+import { EPageType } from '../../../hocs';
 import { PageTypeContext } from '../../../hocs/PageType/context';
 import { useThemeValue } from '../../../hooks';
 import { makeModalStackNavigatorOptions } from '../GlobalScreenOptions';

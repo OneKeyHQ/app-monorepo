@@ -168,7 +168,6 @@ const ProtocolDetailsPage = () => {
   const handleClaim = useHandleClaim({
     accountId: earnAccount?.accountId,
     networkId,
-    updateFrequency: result?.updateFrequency,
   });
   const onClaim = useCallback(
     async (params?: {
