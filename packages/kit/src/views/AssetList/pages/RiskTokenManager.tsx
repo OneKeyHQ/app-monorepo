@@ -204,6 +204,8 @@ function RiskTokenManager() {
       blockedTokens: blockedTokensMap,
     });
 
+    await backgroundApiProxy.serviceToken.clearRiskTokensManagementCache();
+
     const currentUnblockedTokens = JSON.stringify(unblockedTokensMap);
     const currentBlockedTokens = JSON.stringify(blockedTokensMap);
     if (
