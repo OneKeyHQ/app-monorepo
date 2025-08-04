@@ -71,7 +71,7 @@ class ExtensionStorage implements AsyncStorageStatic {
   }
 
   multiMerge(
-    keyValuePairs: string[][],
+    keyValuePairs: [string, string][],
     callback?: (errors?: Error[]) => void,
   ): Promise<void> {
     return Promise.resolve(undefined);
@@ -86,7 +86,7 @@ class ExtensionStorage implements AsyncStorageStatic {
   }
 
   multiSet(
-    keyValuePairs: string[][],
+    keyValuePairs: readonly (readonly [string, string])[],
     callback?: (errors?: Error[]) => void,
   ): Promise<void> {
     return Promise.resolve(undefined);

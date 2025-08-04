@@ -259,7 +259,7 @@ class WebStorage implements AsyncStorageStatic {
   }
 
   async multiMerge(
-    keyValuePairs: [string, string][],
+    keyValuePairs: readonly (readonly [string, string])[],
     callback: MultiCallback | undefined,
   ): Promise<void> {
     this.checkDiskFull({ method: 'multiMerge', keyValuePairs });
@@ -285,7 +285,7 @@ class WebStorage implements AsyncStorageStatic {
   }
 
   async multiSet(
-    keyValuePairs: [string, string][],
+    keyValuePairs: readonly (readonly [string, string])[],
     callback: MultiCallback | undefined,
   ): Promise<void> {
     this.checkDiskFull({ method: 'multiSet', keyValuePairs });
