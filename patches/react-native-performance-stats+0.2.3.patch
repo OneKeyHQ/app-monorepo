@@ -1,8 +1,28 @@
 diff --git a/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm b/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm
-index c574f23..86ef7d7 100644
+index c574f23..b89b297 100644
 --- a/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm
 +++ b/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm
-@@ -160,7 +160,7 @@ - (void)threadUpdate:(CADisplayLink *)displayLink
+@@ -10,6 +10,9 @@
+ #import "RNPerformanceStatsSpec.h"
+ #endif
+ 
++#import <CocoaLumberjack/CocoaLumberjack.h>
++static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
++
+ // NOTICE: Mainly copied from here: https://github.com/facebook/react-native/blob/main/React/CoreModules/RCTPerfMonitor.mm
+ 
+ #pragma Resource usage methods
+@@ -135,6 +138,9 @@ - (void)updateStats:(bool)withCPU
+     if (withCPU) {
+         cpu = cpu_usage();
+     }
++    if (_jsFPSTracker.FPS < 30 || _uiFPSTracker.FPS < 30) {
++        DDLogDebug(@"Performance warning: cpu=%.2f, jsFps=%lu, uiFps=%lu, usedRam=%.2fMB, viewCount=%lu, visibleViewCount=%lu", cpu, (unsigned long)_jsFPSTracker.FPS, (unsigned long)_uiFPSTracker.FPS, mem, (unsigned long)viewCount, (unsigned long)visibleViewCount);
++    }
+     
+     [self sendEventWithName:@"performanceStatsUpdate" body:@{
+         @"jsFps": [NSNumber numberWithUnsignedInteger:_jsFPSTracker.FPS],
+@@ -160,7 +166,7 @@ - (void)threadUpdate:(CADisplayLink *)displayLink
    [tracker onTick:displayLink.timestamp];
  }
  
@@ -12,7 +32,7 @@ index c574f23..86ef7d7 100644
      _isRunning = true;
      _uiFPSTracker= [[FPSTracker alloc] init];
 diff --git a/node_modules/react-native-performance-stats/react-native-performance-stats.podspec b/node_modules/react-native-performance-stats/react-native-performance-stats.podspec
-index 82dd7fe..232312b 100644
+index 82dd7fe..ca30e84 100644
 --- a/node_modules/react-native-performance-stats/react-native-performance-stats.podspec
 +++ b/node_modules/react-native-performance-stats/react-native-performance-stats.podspec
 @@ -2,7 +2,6 @@ require "json"
@@ -23,9 +43,11 @@ index 82dd7fe..232312b 100644
  folly_compiler_flags = '-DFOLLY_NO_CONFIG -DFOLLY_MOBILE=1 -DFOLLY_USE_LIBCPP=1 -Wno-comma -Wno-shorten-64-to-32'
  
  Pod::Spec.new do |s|
-@@ -29,7 +28,7 @@ Pod::Spec.new do |s|
+@@ -28,8 +27,9 @@ Pod::Spec.new do |s|
+             "CLANG_CXX_LANGUAGE_STANDARD" => "c++17"
          }
  
++        s.dependency "CocoaLumberjack"
          s.dependency "React-Codegen"
 -        s.dependency "RCT-Folly", folly_version
 +        s.dependency "RCT-Folly"
