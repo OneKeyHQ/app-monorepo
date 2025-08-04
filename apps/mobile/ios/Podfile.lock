@@ -1735,8 +1735,6 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-netinfo (11.4.1):
-    - React-Core
   - react-native-pager-view (6.8.1):
     - DoubleConversion
     - glog
@@ -2414,7 +2412,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - Yoga
   - RevenueCat (5.32.0)
-  - RNCAsyncStorage (1.22.0):
+  - RNCAsyncStorage (2.2.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2438,8 +2436,6 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - RNDeviceInfo (14.0.4):
-    - React-Core
   - RNFileLogger (0.6.1):
     - CocoaLumberjack (~> 3.8.5)
     - DoubleConversion
@@ -2465,30 +2461,6 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - SSZipArchive (~> 2.5.5)
-    - Yoga
-  - RNFlashList (2.0.0-alpha.21):
-    - DoubleConversion
-    - glog
-    - hermes-engine
-    - RCT-Folly (= 2024.11.18.00)
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-hermes
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
     - Yoga
   - RNGestureHandler (2.27.1):
     - DoubleConversion
@@ -2573,7 +2545,7 @@ PODS:
     - RNNotifee/NotifeeCore (= 9.0.0)
   - RNNotifee/NotifeeCore (9.0.0):
     - React-Core
-  - RNPermissions (5.4.1):
+  - RNPermissions (5.4.2):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2970,7 +2942,6 @@ DEPENDENCIES:
   - react-native-keyboard-controller (from `../../../node_modules/react-native-keyboard-controller`)
   - "react-native-lite-card (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
   - react-native-mmkv (from `../../../node_modules/react-native-mmkv`)
-  - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
   - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
   - "react-native-slider (from `../../../node_modules/@react-native-community/slider`)"
@@ -3017,9 +2988,7 @@ DEPENDENCIES:
   - RealmJS (from `../../../node_modules/realm`)
   - RestartNewArch (from `../../../node_modules/react-native-restart`)
   - "RNCAsyncStorage (from `../../../node_modules/@react-native-async-storage/async-storage`)"
-  - RNDeviceInfo (from `../../../node_modules/react-native-device-info`)
   - RNFileLogger (from `../../../node_modules/react-native-file-logger`)
-  - "RNFlashList (from `../../../node_modules/@shopify/flash-list`)"
   - RNGestureHandler (from `../../../node_modules/react-native-gesture-handler`)
   - RNImageCropPicker (from `../../../node_modules/react-native-image-crop-picker`)
   - "RNNotifee (from `../../../node_modules/@notifee/react-native`)"
@@ -3226,8 +3195,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-lite-card"
   react-native-mmkv:
     :path: "../../../node_modules/react-native-mmkv"
-  react-native-netinfo:
-    :path: "../../../node_modules/@react-native-community/netinfo"
   react-native-pager-view:
     :path: "../../../node_modules/react-native-pager-view"
   react-native-safe-area-context:
@@ -3320,12 +3287,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-restart"
   RNCAsyncStorage:
     :path: "../../../node_modules/@react-native-async-storage/async-storage"
-  RNDeviceInfo:
-    :path: "../../../node_modules/react-native-device-info"
   RNFileLogger:
     :path: "../../../node_modules/react-native-file-logger"
-  RNFlashList:
-    :path: "../../../node_modules/@shopify/flash-list"
   RNGestureHandler:
     :path: "../../../node_modules/react-native-gesture-handler"
   RNImageCropPicker:
@@ -3356,7 +3319,7 @@ SPEC CHECKSUMS:
   CheckBiometricAuthChanged: 9744da7f2c19b2f99fb1e94308a874a5c0df5d7d
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   CocoaLumberjack: 6a459bc897d6d80bd1b8c78482ec7ad05dffc3f0
-  DoubleConversion: fea03f2699887d960129cc54bba7e52542b6f953
+  DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
   EXApplication: 63b87ca5204304007fac6b1be432f8afa3731c17
   EXConstants: 9f310f44bfedba09087042756802040e464323c0
   EXImageLoader: 4d3d3284141f1a45006cc4d0844061c182daf7ee
@@ -3391,7 +3354,7 @@ SPEC CHECKSUMS:
   fast_float: 06eeec4fe712a76acc9376682e4808b05ce978b6
   FBLazyVector: d2a9cd223302b6c9aa4aa34c1a775e9db609eb52
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
-  glog: c5d68082e772fa1c511173d6b30a9de2c05a69a2
+  glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: f03b0e06d3882d71e67e45b073bb827da1a21aae
   ImageColors: 51cd79f7a9d2524b7a681c660b0a50574085563b
   JCore: 4707d226b452782383a401bea8ee2518565017e6
@@ -3442,7 +3405,6 @@ SPEC CHECKSUMS:
   react-native-keyboard-controller: 9c9a77993f7449e8b7d8c5989289f65e08c7ab74
   react-native-lite-card: 9542785a69b22ef0bdc3ed799d76e104a32d2de4
   react-native-mmkv: c8da06f2c3ed40726ac6b51ed4e3653d099f0b6a
-  react-native-netinfo: cec9c4e86083cb5b6aba0e0711f563e2fbbff187
   react-native-pager-view: 38d37b9c7dcddfacf97ad4a0a1ee7a6db7b85b76
   react-native-safe-area-context: 8cf8caf5fc0f5a5d3581b650579af9c85c16be04
   react-native-slider: 0c0125010b5299e647eb5d955b58133fb4eb34e4
@@ -3489,14 +3451,12 @@ SPEC CHECKSUMS:
   RealmJS: ff8a7d6d6e339c1b3410a96ceb4151b151fe56f5
   RestartNewArch: 448d52741003a4918f8abe3dfc89ed32fc0c7a9d
   RevenueCat: 7e1d0768fb287c9983173c9b28e39ccbeeb828a9
-  RNCAsyncStorage: b582a51d35079f9f2ae1c6e63ae39704a445627e
-  RNDeviceInfo: d863506092aef7e7af3a1c350c913d867d795047
+  RNCAsyncStorage: c1dca434eda758348a549efb46822b4091d76804
   RNFileLogger: 52442d388d36b29b1e7884b5ffbfa916ecfbc06b
-  RNFlashList: f6ca7f3776b05b8539dbef540dbf194bc142475a
   RNGestureHandler: 6b48571964d1b4302f531bb07f8360399a02200a
   RNImageCropPicker: de6a16085ad4e4c67850b0c662d1d333d367cc59
   RNNotifee: 3978eab0eb24f9c2ee6ee0440ee7c50748803559
-  RNPermissions: b766b1fe9836eaa4975377897e7bb8851e18c037
+  RNPermissions: 56c5d74ecf592d650d5c6cb252ed6956aaf22db0
   RNPurchases: 4c820359d90fab9c83ffd3ef5471d59db72e2ed1
   RNReanimated: 24c64a050426b2e5b27d3435f1dcd89651207ff3
   RNScreens: 6eccc6175d442f4d9142f9e0396f17fd8e3d26ec
