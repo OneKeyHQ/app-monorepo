@@ -780,6 +780,16 @@ export function useSwapBuildTx() {
     [intl, setSwapSteps],
   );
 
+  const onApproveTxSuccess = useCallback(() => {
+    if (
+      accountUtils.isQrAccount({
+        accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+      })
+    ) {
+      goBackQrCodeModal();
+    }
+  }, [goBackQrCodeModal, swapFromAddressInfo.accountInfo?.account?.id]);
+
   const sendTxActions = useCallback(
     async (
       isApprove: boolean,
@@ -917,6 +927,8 @@ export function useSwapBuildTx() {
               });
               if (i === unsignedTxArr.length - 1) {
                 lastTxRes = res;
+              } else {
+                void onApproveTxSuccess();
               }
               if (!isApprove && i === unsignedTxArr.length - 1) {
                 void swapSendTxEvent(
@@ -1059,6 +1071,7 @@ export function useSwapBuildTx() {
               unsignedTxItem,
               gasInfo: gasParseInfo,
             });
+            void onApproveTxSuccess();
           }
         }
       } else {
@@ -1203,9 +1216,10 @@ export function useSwapBuildTx() {
       intl,
       swapEstimateFeeEvent,
       swapNetWorkFeeLevel.networkFeeLevel,
+      updateStepTitle,
       updateUnsignedTxAndSendTx,
       swapSendTxEvent,
-      updateStepTitle,
+      onApproveTxSuccess,
     ],
   );
 
@@ -1248,17 +1262,6 @@ export function useSwapBuildTx() {
     },
     [swapFromAddressInfo.address, swapFromAddressInfo.accountInfo?.account?.id],
   );
-
-  const onApproveTxSuccess = useCallback(() => {
-    if (
-      accountUtils.isQrAccount({
-        accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
-      })
-    ) {
-      goBackQrCodeModal();
-    }
-  }, [goBackQrCodeModal, swapFromAddressInfo.accountInfo?.account?.id]);
-
   const approveTxNew = useCallback(
     async (
       stepIndex: number,

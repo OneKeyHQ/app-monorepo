@@ -579,7 +579,13 @@ export function SocialButtonGroup() {
         userSelect="none"
         testID="setting-version"
       >
-        <SizableText color={textColor} size={textSize} onPress={handlePress}>
+        <SizableText
+          color={textColor}
+          size={textSize}
+          textAlign={platformEnv.isNativeAndroid ? 'center' : undefined}
+          numberOfLines={platformEnv.isNativeAndroid ? 1 : undefined}
+          onPress={handlePress}
+        >
           {upperFirst(versionString)}
         </SizableText>
         {!isTabNavigator &&
