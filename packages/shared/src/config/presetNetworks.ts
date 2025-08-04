@@ -2101,7 +2101,7 @@ const terra: IServerNetwork = {
   'id': 'cosmos--columbus-5',
   'impl': 'cosmos',
   'isTestnet': false,
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/terra.png',
+  'logoURI': 'https://raw.githubusercontent.com/chainapsis/keplr-chain-registry/main/images/columbus/chain.png',
   'name': 'Terra Classic',
   'shortcode': 'terra',
   'shortname': 'terra',
