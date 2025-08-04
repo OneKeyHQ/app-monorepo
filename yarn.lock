@@ -7923,6 +7923,7 @@ __metadata:
     react-native-network-logger: "npm:2.0.0"
     react-native-pager-view: "npm:6.8.1"
     react-native-passkeys: "npm:0.3.3"
+    react-native-performance-stats: "npm:0.2.3"
     react-native-permissions: "npm:5.4.2"
     react-native-purchases: "npm:8.11.9"
     react-native-qrcode-styled: "npm:0.3.3"
@@ -35241,6 +35242,16 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/428f50f36efcedf0bcd9aa762921e4bd502ae834b7ff023c9e36a7da7ec6e823efe84796173d50c62880a8aacabb9549339c9974a80e439ecac8339b19eeac48
+  languageName: node
+  linkType: hard
+
+"react-native-performance-stats@npm:0.2.3":
+  version: 0.2.3
+  resolution: "react-native-performance-stats@npm:0.2.3"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/5221b4548ac85e3a46c538c80e7bd69e56b56709d560993f4498a15991964bc7c4085aeadc4d7d092f85c0d78e9668a96baa484d9db6bb1e6452a0f7878986be
   languageName: node
   linkType: hard
 
