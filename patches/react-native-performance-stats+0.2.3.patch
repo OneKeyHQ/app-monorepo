@@ -8,6 +8,8 @@ index 8d78d92..7d21d24 100644
      implementation 'com.facebook.react:react-native:+'
 +    implementation 'org.greenrobot:eventbus-java:3.3.1+'
  }
+ 
+ if (isNewArchitectureEnabled()) {
 diff --git a/node_modules/react-native-performance-stats/android/src/main/java/nl/skillnation/perfstats/PerformanceStatsImpl.java b/node_modules/react-native-performance-stats/android/src/main/java/nl/skillnation/perfstats/PerformanceStatsImpl.java
 index 621ef85..141c45c 100644
 --- a/node_modules/react-native-performance-stats/android/src/main/java/nl/skillnation/perfstats/PerformanceStatsImpl.java
