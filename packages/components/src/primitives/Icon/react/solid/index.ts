@@ -746,6 +746,7 @@ export { default as Transcription } from './Transcription';
 export { default as Translate } from './Translate';
 export { default as Tree } from './Tree';
 export { default as Truck } from './Truck';
+export { default as TypeC } from './TypeC';
 export { default as Ufo } from './Ufo';
 export { default as Underline } from './Underline';
 export { default as Undo } from './Undo';

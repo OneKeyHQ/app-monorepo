@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { debounce } from 'lodash';
+import { debounce, groupBy, keyBy, mapValues } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -22,11 +22,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalAssetDetailRoutes,
   type EModalAssetListRoutes,
-  EModalRoutes,
   type IModalAssetListParamList,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IAccountToken } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  ICloudSyncCustomToken,
+} from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptySearch } from '../../../components/Empty';
@@ -37,7 +39,6 @@ import TokenNameView from '../../../components/TokenListView/TokenNameView';
 import TokenPriceChangeView from '../../../components/TokenListView/TokenPriceChangeView';
 import TokenPriceView from '../../../components/TokenListView/TokenPriceView';
 import TokenValueView from '../../../components/TokenListView/TokenValueView';
-import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
@@ -81,18 +82,16 @@ function RiskTokenManager() {
   const originalUnblockedTokens = useRef('');
   const originalBlockedTokens = useRef('');
 
-  const { network, wallet, account } = useAccountData({
-    networkId,
-    walletId,
-    accountId,
-  });
-
   const [unblockedTokensMap, setUnblockedTokensMap] = useState<
     Record<string, Record<string, boolean>>
   >({});
 
   const [blockedTokensMap, setBlockedTokensMap] = useState<
     Record<string, Record<string, boolean>>
+  >({});
+
+  const [customTokensMap, setCustomTokensMap] = useState<
+    Record<string, Record<string, ICloudSyncCustomToken>>
   >({});
 
   const [isEditing, setIsEditing] = useState(false);
@@ -128,7 +127,11 @@ function RiskTokenManager() {
       for (const token of tokens) {
         const tokenNetworkId = token.networkId ?? networkId;
 
-        if (unblockedTokensMap?.[tokenNetworkId]?.[token.address]) {
+        if (
+          (unblockedTokensMap?.[tokenNetworkId]?.[token.address] ||
+            !!customTokensMap?.[tokenNetworkId]?.[token.address]) &&
+          !blockedTokensMap?.[tokenNetworkId]?.[token.address]
+        ) {
           unblockedTokens.push({
             ...token,
             isBlocked: false,
@@ -167,7 +170,14 @@ function RiskTokenManager() {
         },
       ];
     },
-    [intl, tokens, networkId, unblockedTokensMap],
+    [
+      intl,
+      tokens,
+      networkId,
+      unblockedTokensMap,
+      blockedTokensMap,
+      customTokensMap,
+    ],
     {
       initResult: [],
     },
@@ -219,16 +229,23 @@ function RiskTokenManager() {
 
   useEffect(() => {
     const fetchRiskTokens = async () => {
-      const [u, b] = await Promise.all([
+      const [u, b, c] = await Promise.all([
         backgroundApiProxy.serviceToken.getUnblockedTokensMap({
           networkId,
         }),
         backgroundApiProxy.serviceToken.getBlockedTokensMap({
           networkId,
         }),
+        backgroundApiProxy.serviceCustomToken.getAllCustomTokens(),
       ]);
       setUnblockedTokensMap(u);
       setBlockedTokensMap(b);
+
+      const cMap = mapValues(groupBy(c, 'networkId'), (tokenArray) =>
+        keyBy(tokenArray, 'address'),
+      );
+
+      setCustomTokensMap(cMap);
 
       originalUnblockedTokens.current = JSON.stringify(u);
       originalBlockedTokens.current = JSON.stringify(b);
