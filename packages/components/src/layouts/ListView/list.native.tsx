@@ -11,7 +11,7 @@ import { OptimizationView } from '../../optimization';
 import type { FlashListProps, ListRenderItem } from '@shopify/flash-list';
 import type { StackStyle, Tokens } from '@tamagui/web';
 
-type IListViewRef<T> = FlashList<T>;
+type IListViewRef<T> = typeof FlashList<T>;
 
 type IListViewProps<T> = Omit<
   FlashListProps<T>,
@@ -75,14 +75,7 @@ function BaseListView<T>(
       resolveValues: 'auto',
     },
   );
-  const itemSize = useMemo<number | undefined>(() => {
-    if (typeof estimatedItemSize === 'undefined') {
-      return undefined;
-    }
-    return typeof estimatedItemSize === 'number'
-      ? estimatedItemSize
-      : (getTokenValue(estimatedItemSize, 'size') as number);
-  }, [estimatedItemSize]);
+
   return (
     // FlashList doesn't support the style, so we have to wrap it,
     // and we set default flex = 1 just like FlatList
@@ -90,14 +83,12 @@ function BaseListView<T>(
       style={[{ flex: 1, minHeight: 2 }, style as StyleProp<ViewStyle>]}
     >
       <FlashList<T>
-        ref={ref}
+        ref={ref as any}
         ListHeaderComponentStyle={listHeaderStyle}
         ListFooterComponentStyle={listFooterStyle}
         contentContainerStyle={contentStyle}
         data={data}
         renderItem={renderItem}
-        estimatedItemSize={itemSize}
-        disableAutoLayout={I18nManager.isRTL}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         {...restProps}
