@@ -13,6 +13,7 @@ import type { IFeeInfoUnit, ITronResourceRentalInfo } from './fee';
 import type { EOnChainHistoryTxType } from './history';
 import type { ENFTType } from './nft';
 import type {
+  EParseTxType,
   ISignatureConfirmDisplay,
   ITransactionData,
 } from './signatureConfirm';
@@ -154,11 +155,13 @@ export type IDecodedTx = {
 
   // for signature confirm page display
   txDisplay?: ISignatureConfirmDisplay;
+  txParseType?: EParseTxType;
   txABI?: ITransactionData;
   isLocalParsed?: boolean;
   isConfirmationRequired?: boolean;
 
   isPsbt?: boolean;
+  isCustomHexData?: boolean;
 };
 
 export type IDecodedTxActionBase = {

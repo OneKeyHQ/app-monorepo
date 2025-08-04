@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { InputAccessoryView } from 'react-native';
 
 import { IconButton, SizableText, Stack, YStack } from '@onekeyhq/components';
@@ -8,6 +9,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceFromAmountAtom,
   useSwapLimitPriceToAmountAtom,
+  useSwapNativeTokenReserveGasAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -63,6 +65,7 @@ const SwapQuoteInput = ({
   const [swapLimitPriceFromAmount] = useSwapLimitPriceFromAmountAtom();
   const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
   const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
+  const [swapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   useSwapQuote();
   useSwapFromAccountNetworkSync();
 
@@ -165,9 +168,20 @@ const SwapQuoteInput = ({
         onSelectPercentageStage={onSelectPercentageStage}
         amountValue={fromInputAmount.value}
         onBalanceMaxPress={() => {
-          const maxAmount = fromTokenBalance;
+          let maxAmount = new BigNumber(fromTokenBalance ?? 0);
+          if (fromToken?.isNative) {
+            const reserveGas = swapNativeTokenReserveGas.find(
+              (item) => item.networkId === fromToken.networkId,
+            )?.reserveGas;
+            if (reserveGas) {
+              maxAmount = BigNumber.max(
+                0,
+                maxAmount.minus(new BigNumber(reserveGas)),
+              );
+            }
+          }
           setFromInputAmount({
-            value: maxAmount,
+            value: maxAmount.toFixed(),
             isInput: true,
           });
         }}
