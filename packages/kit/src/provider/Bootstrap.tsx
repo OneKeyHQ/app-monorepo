@@ -578,6 +578,9 @@ export function Bootstrap() {
     if (devSettings.enabled) {
       performance.start(true);
     }
+    return () => {
+      performance.stop();
+    };
   }, [devSettings.enabled]);
 
   useFetchCurrencyList();
