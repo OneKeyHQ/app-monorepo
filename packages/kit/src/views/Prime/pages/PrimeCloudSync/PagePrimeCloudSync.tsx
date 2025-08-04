@@ -20,6 +20,7 @@ import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickSt
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
@@ -30,7 +31,6 @@ import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import { AppAutoLockSettingsView } from '../../../Setting/pages/AppAutoLock';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
@@ -279,17 +279,23 @@ function WhatDataIncludedListItem() {
 function AppDataSection() {
   const navigation = useAppNavigation();
   const route = useAppRoute<IPrimeParamList, EPrimePages.PrimeCloudSync>();
+  const forceReloadServerUserInfo = useRef(false);
   const serverUserInfo = route.params?.serverUserInfo;
 
   const [config] = usePrimeCloudSyncPersistAtom();
 
   const isSubmittingRef = useRef(false);
 
-  const { result: isServerMasterPasswordSet } = usePromiseResult(() => {
-    return backgroundApiProxy.serviceMasterPassword.IsServerMasterPasswordSet({
-      serverUserInfo,
-    });
-  }, [serverUserInfo]);
+  const { result: isServerMasterPasswordSet, run: reloadServerUserInfo } =
+    usePromiseResult(() => {
+      return backgroundApiProxy.serviceMasterPassword.IsServerMasterPasswordSet(
+        {
+          serverUserInfo: forceReloadServerUserInfo.current
+            ? undefined
+            : serverUserInfo,
+        },
+      );
+    }, [serverUserInfo]);
 
   const intl = useIntl();
 
@@ -312,7 +318,12 @@ function AppDataSection() {
           icon="Key2Outline"
           drillIn
           onPress={async () => {
-            await backgroundApiProxy.serviceMasterPassword.startChangePassword();
+            try {
+              await backgroundApiProxy.serviceMasterPassword.startChangePassword();
+            } finally {
+              forceReloadServerUserInfo.current = true;
+              await reloadServerUserInfo();
+            }
           }}
         />
       ) : null}

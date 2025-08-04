@@ -304,14 +304,15 @@ export default function PagePrimeFeatures() {
       index: index ?? 0,
     };
   }, [
-    isPrimeSubscriptionActive,
     bannerHeight,
     intl,
-    navigation,
-    primeCloudSyncPersistData?.isCloudSyncEnabled,
-    selectedFeature,
-    showAllFeatures,
     isServerMasterPasswordSet,
+    primeCloudSyncPersistData?.isCloudSyncEnabled,
+    isPrimeSubscriptionActive,
+    showAllFeatures,
+    navigation,
+    serverUserInfo,
+    selectedFeature,
   ]);
 
   // PaginationButton will cause native crash
