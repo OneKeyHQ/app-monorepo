@@ -386,3 +386,12 @@ export type IFirmwareUpdateV3VersionParams = {
   firmwareVersion: string | undefined;
   bootloaderVersion: string | undefined;
 };
+
+export enum EHardwareCallContext {
+  USER_INTERACTION = 'user_interaction',
+  BACKGROUND_TASK = 'background_task',
+  SDK_INITIALIZATION = 'sdk_initialization',
+  SILENT_CALL = 'silent_call',
+}
+
+export type IHardwareCallContext = EHardwareCallContext;

@@ -35,6 +35,7 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
       EOneKeyErrorClassNames.AxiosAbortCancelError,
       // use Dialog instead of Toast, check GlobalErrorHandlerContainer
       EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,
+      EOneKeyErrorClassNames.DeviceNotFound,
     ].includes(err?.className)
   ) {
     return;

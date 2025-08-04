@@ -28,6 +28,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IBatchCreateAccount } from '@onekeyhq/shared/types/account';
+import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 import { vaultFactory } from '../../vaults/factory';
@@ -187,6 +188,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     const [deviceParams, vaultSettings] = await Promise.all([
       this.backgroundApi.serviceAccount.getWalletDeviceParams({
         walletId: payload.params.walletId,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       }),
       this.backgroundApi.serviceNetwork.getVaultSettings({
         networkId: payload.params.networkId,
@@ -315,6 +317,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     const deviceParams =
       await this.backgroundApi.serviceAccount.getWalletDeviceParams({
         walletId,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
 
     let hwAllNetworkPrepareAccountsResponse:
@@ -599,6 +602,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       const deviceParams =
         await this.backgroundApi.serviceAccount.getWalletDeviceParams({
           walletId: params.walletId,
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
         });
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {
@@ -718,6 +722,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     const deviceParams =
       await this.backgroundApi.serviceAccount.getWalletDeviceParams({
         walletId: params.walletId,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
