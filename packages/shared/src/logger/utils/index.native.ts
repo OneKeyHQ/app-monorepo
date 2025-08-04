@@ -65,9 +65,6 @@ const getDeviceInfo = () =>
     `deviceType: ${deviceType ?? ''}`,
     `arch: ${supportedCpuArchitectures?.join(',') ?? ''}`,
     `Version Hash: ${process.env.COMMITHASH || ''}`,
-    `Build Number: ${platformEnv.buildNumber ?? ''} ${
-      platformEnv.buildNumber ?? ''
-    }`,
     `Memory: ${totalMemory ?? 0}`,
     `appPlatform: ${platformEnv.appPlatform ?? ''}`,
     `appChannel: ${platformEnv.appChannel ?? ''}`,
