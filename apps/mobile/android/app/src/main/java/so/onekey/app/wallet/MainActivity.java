@@ -1,22 +1,47 @@
 package so.onekey.app.wallet;
 
+import android.content.Context;
 import android.os.Build;
 import android.os.Bundle;
 
 import com.facebook.react.ReactActivity;
 import com.facebook.react.ReactActivityDelegate;
+import com.facebook.react.ReactRootView;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
 import com.facebook.react.defaults.DefaultReactActivityDelegate;
 import com.facebook.react.modules.i18nmanager.I18nUtil;
 
 import expo.modules.ReactActivityDelegateWrapper;
 import expo.modules.splashscreen.SplashScreenManager;
+import so.onekey.app.wallet.splashscreen.SplashScreenImageResizeMode;
+import so.onekey.app.wallet.splashscreen.SplashScreenPackage;
+import so.onekey.app.wallet.splashscreen.SplashScreenReactActivityLifecycleListener;
+import so.onekey.app.wallet.splashscreen.SplashScreenViewController;
+import so.onekey.app.wallet.splashscreen.singletons.SplashScreen;
 
 public class MainActivity extends ReactActivity {
+    private SplashScreenImageResizeMode getResizeMode(Context context) {
+    String resizeModeString = context.getString(R.string.expo_splash_screen_resize_mode).toLowerCase();
+    SplashScreenImageResizeMode mode = SplashScreenImageResizeMode.fromString(resizeModeString);
+    return mode != null ? mode : SplashScreenImageResizeMode.CONTAIN;
+  }
+
+  private boolean getStatusBarTranslucent(Context context) {
+    return Boolean.parseBoolean(context.getString(R.string.expo_splash_screen_status_bar_translucent));
+  }
+
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(null);
     setTheme(R.style.AppTheme);
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+        SplashScreen.INSTANCE.show(
+                this,
+                getResizeMode(this),
+                ReactRootView.class,
+                getStatusBarTranslucent(this)
+        );
+    }
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       SplashScreenManager.INSTANCE.registerOnActivity(this);
     }

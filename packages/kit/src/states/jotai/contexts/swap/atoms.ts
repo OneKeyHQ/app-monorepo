@@ -649,3 +649,13 @@ export const {
 export const { atom: swapTipsAtom, use: useSwapTipsAtom } = contextAtom<
   ISwapTips | undefined
 >(undefined);
+
+export const {
+  atom: swapNativeTokenReserveGasAtom,
+  use: useSwapNativeTokenReserveGasAtom,
+} = contextAtom<
+  {
+    networkId: string;
+    reserveGas: number;
+  }[]
+>([]);
