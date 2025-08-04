@@ -1,4 +1,6 @@
 import {
+  deviceType,
+  isDevice,
   manufacturer,
   modelName,
   osName,
@@ -59,6 +61,8 @@ const getDeviceInfo = () =>
   [
     `Device: ${manufacturer ?? ''} ${modelName ?? ''}`,
     `System: ${osName ?? ''} ${osVersion ?? ''}`,
+    `isDevice: ${isDevice ? 1 : 0}`,
+    `deviceType: ${deviceType ?? ''}`,
     `arch: ${supportedCpuArchitectures?.join(',') ?? ''}`,
     `Version Hash: ${process.env.COMMITHASH || ''}`,
     `Build Number: ${platformEnv.buildNumber ?? ''} ${
