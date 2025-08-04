@@ -13,6 +13,7 @@ import type { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/a
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
+import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
@@ -37,6 +38,21 @@ import type {
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { FuseResult } from 'fuse.js';
+
+// Supported hardware error types for dialog display
+export const HARDWARE_ERROR_DIALOG_TYPES = {
+  DEVICE_NOT_FOUND: 'DeviceNotFound',
+  NEED_ONEKEY_BRIDGE: 'NeedOneKeyBridge',
+  DEVICE_NOT_OPENED_PASSPHRASE: 'DeviceNotOpenedPassphrase',
+} as const;
+
+// Hardware error dialog event payload type
+export interface IHardwareErrorDialogPayload {
+  errorType: string; // Extensible but type-safe error types
+  payload?: IOneKeyHardwareErrorPayload | Record<string, unknown>; // Original error payload with type safety
+  errorCode?: number | string; // Hardware error code
+  errorMessage?: string; // Error message
+}
 
 export enum EFinalizeWalletSetupSteps {
   CreatingWallet = 'CreatingWallet',
@@ -319,10 +335,7 @@ export interface IAppEventBusPayload {
     features?: any;
     promiseId?: number;
   };
-  [EAppEventBusNames.DesktopBleRepairProgress]: {
-    stage: 'searching' | 'matching' | 'connecting' | 'success' | 'failed';
-    message: string;
-  };
+  [EAppEventBusNames.ShowHardwareErrorDialog]: IHardwareErrorDialogPayload;
 }
 
 export enum EEventBusBroadcastMethodNames {

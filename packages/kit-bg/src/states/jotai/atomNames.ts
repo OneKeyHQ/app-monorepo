@@ -50,6 +50,8 @@ export enum EAtomNames {
   primeTransferAtom = 'primeTransferAtom',
   accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',
   allNetworksPersistAtom = 'allNetworksPersistAtom',
+  desktopBluetoothAtom = 'desktopBluetoothAtom',
+  hardwareForceTransportAtom = 'hardwareForceTransportAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<

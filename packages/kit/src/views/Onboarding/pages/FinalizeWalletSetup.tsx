@@ -6,8 +6,6 @@ import { useThrottledCallback } from 'use-debounce';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   AnimatePresence,
-  Button,
-  Dialog,
   Heading,
   Icon,
   NavBackButton,
@@ -165,6 +163,7 @@ function FinalizeWalletSetupPage({
 
   const closePage = useCallback(() => {
     closePageCalled.current = true;
+    void backgroundApiProxy.serviceHardware.clearForceTransportType();
     navigation.navigate(ERootRoutes.Main, undefined, {
       pop: true,
     });
@@ -322,7 +321,6 @@ function FinalizeWalletSetupPage({
       {onboardingError ? (
         <Page.Footer
           onCancel={() => {
-            //
             void popPage();
           }}
         />
