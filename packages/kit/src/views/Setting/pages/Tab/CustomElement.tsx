@@ -528,7 +528,9 @@ export function SocialButtonGroup() {
       id: ETranslations.settings_version_versionnum,
     },
     {
-      'versionNum': '5.11.0 2025080128',
+      'versionNum': `${platformEnv.version ?? ''} ${
+        platformEnv.buildNumber ?? ''
+      }`,
     },
   );
   const handlePress = useCallback(() => {
