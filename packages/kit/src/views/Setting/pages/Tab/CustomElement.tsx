@@ -582,7 +582,7 @@ export function SocialButtonGroup() {
         <SizableText
           color={textColor}
           size={textSize}
-          minWidth={platformEnv.isNativeAndroid ? 240 : 0}
+          minWidth={platformEnv.isNativeAndroid ? 240 : undefined}
           textAlign={platformEnv.isNativeAndroid ? 'center' : undefined}
           numberOfLines={platformEnv.isNativeAndroid ? 1 : undefined}
           onPress={handlePress}
