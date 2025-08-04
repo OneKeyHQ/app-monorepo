@@ -434,14 +434,6 @@ export function CommonDeviceLoading({
       <CommunicatingLottieView method={communicationMethod} />
       {children}
     </>
-    // <Stack
-    //   borderRadius="$3"
-    //   p="$5"
-    //   bg={bg ?? '$bgSubdued'}
-    //   borderCurve="continuous"
-    // >
-    //   <Spinner size="large" />
-    // </Stack>
   );
 }
 
@@ -1202,7 +1194,7 @@ export function BluetoothDevicePairingContent({
   const intl = useIntl();
   const isProcessingRef = useRef(false);
 
-  // 执行设备配对流程（后台静默执行）
+  // execute pairing process silently in background
   const executePairingProcess = useCallback(async () => {
     if (isProcessingRef.current || !deviceId || !usbConnectId || !promiseId)
       return;

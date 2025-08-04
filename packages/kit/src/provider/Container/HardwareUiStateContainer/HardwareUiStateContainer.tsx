@@ -100,20 +100,7 @@ function HardwareSingletonDialogCmp(
   const { open } = props;
   const { state }: { state: IHardwareUiState | undefined } = props;
   const action = state?.action;
-
-  // 保持connectId在ui-device_progress期间不丢失
-  const lastConnectIdRef = useRef<string>('');
-  const connectId = useMemo(() => {
-    if (state?.connectId) {
-      lastConnectIdRef.current = state.connectId;
-      return state.connectId;
-    }
-    // 对于ui-device_progress等可能缺失connectId的事件，使用上一次的connectId
-    if (action === 'ui-device_progress' && lastConnectIdRef.current) {
-      return lastConnectIdRef.current;
-    }
-    return state?.connectId || '';
-  }, [state?.connectId, action]);
+  const connectId = state?.connectId || '';
 
   // state?.payload?.deviceType
   const { serviceHardwareUI, serviceSetting } = backgroundApiProxy;
