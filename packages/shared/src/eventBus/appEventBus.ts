@@ -15,23 +15,6 @@ import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
-
-// Supported hardware error types for dialog display
-export const HARDWARE_ERROR_DIALOG_TYPES = {
-  DEVICE_NOT_FOUND: 'DeviceNotFound',
-  NEED_ONEKEY_BRIDGE: 'NeedOneKeyBridge', 
-  DEVICE_NOT_OPENED_PASSPHRASE: 'DeviceNotOpenedPassphrase',
-} as const;
-
-export type THardwareErrorDialogType = typeof HARDWARE_ERROR_DIALOG_TYPES[keyof typeof HARDWARE_ERROR_DIALOG_TYPES] | (string & {});
-
-// Hardware error dialog event payload type
-export interface IHardwareErrorDialogPayload {
-  errorType: THardwareErrorDialogType; // Extensible but type-safe error types
-  payload?: IOneKeyHardwareErrorPayload | Record<string, unknown>; // Original error payload with type safety
-  errorCode?: number | string; // Hardware error code
-  errorMessage?: string; // Error message
-}
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import appGlobals from '../appGlobals';
@@ -55,6 +38,21 @@ import type {
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { FuseResult } from 'fuse.js';
+
+// Supported hardware error types for dialog display
+export const HARDWARE_ERROR_DIALOG_TYPES = {
+  DEVICE_NOT_FOUND: 'DeviceNotFound',
+  NEED_ONEKEY_BRIDGE: 'NeedOneKeyBridge',
+  DEVICE_NOT_OPENED_PASSPHRASE: 'DeviceNotOpenedPassphrase',
+} as const;
+
+// Hardware error dialog event payload type
+export interface IHardwareErrorDialogPayload {
+  errorType: string; // Extensible but type-safe error types
+  payload?: IOneKeyHardwareErrorPayload | Record<string, unknown>; // Original error payload with type safety
+  errorCode?: number | string; // Hardware error code
+  errorMessage?: string; // Error message
+}
 
 export enum EFinalizeWalletSetupSteps {
   CreatingWallet = 'CreatingWallet',
