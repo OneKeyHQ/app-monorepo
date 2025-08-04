@@ -30,6 +30,7 @@ import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import { AppAutoLockSettingsView } from '../../../Setting/pages/AppAutoLock';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
@@ -95,6 +96,7 @@ function EnableOneKeyCloudSwitchListItem() {
   const { isPrimeSubscriptionActive } = usePrimeAuthV2();
   const navigation = useAppNavigation();
   const route = useAppRoute<IPrimeParamList, EPrimePages.PrimeCloudSync>();
+  const serverUserInfo = route.params?.serverUserInfo;
 
   const isSubmittingRef = useRef(false);
 
@@ -149,6 +151,7 @@ function EnableOneKeyCloudSwitchListItem() {
                 showAllFeatures: false,
                 selectedFeature: EPrimeFeatures.OneKeyCloud,
                 selectedSubscriptionPeriod: 'P1Y',
+                serverUserInfo,
               },
             });
             return;
@@ -275,10 +278,18 @@ function WhatDataIncludedListItem() {
 
 function AppDataSection() {
   const navigation = useAppNavigation();
+  const route = useAppRoute<IPrimeParamList, EPrimePages.PrimeCloudSync>();
+  const serverUserInfo = route.params?.serverUserInfo;
 
   const [config] = usePrimeCloudSyncPersistAtom();
 
   const isSubmittingRef = useRef(false);
+
+  const { result: isServerMasterPasswordSet } = usePromiseResult(() => {
+    return backgroundApiProxy.serviceMasterPassword.IsServerMasterPasswordSet({
+      serverUserInfo,
+    });
+  }, [serverUserInfo]);
 
   const intl = useIntl();
 
@@ -293,7 +304,7 @@ function AppDataSection() {
     <Section title={intl.formatMessage({ id: ETranslations.prime_app_data })}>
       <EnableOneKeyCloudSwitchListItem />
 
-      {config?.isCloudSyncEnabled ? (
+      {config?.isCloudSyncEnabled || isServerMasterPasswordSet ? (
         <ListItem
           title={intl.formatMessage({
             id: ETranslations.prime_change_backup_password,
