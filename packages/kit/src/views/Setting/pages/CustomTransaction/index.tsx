@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import {
+  Dialog,
   ESwitchSize,
   Page,
   SizableText,
@@ -53,10 +54,33 @@ function CustomTransaction() {
                 size={ESwitchSize.small}
                 value={settings.isCustomTxMessageEnabled}
                 onChange={async (value) => {
-                  setSettings((v) => ({
-                    ...v,
-                    isCustomTxMessageEnabled: !!value,
-                  }));
+                  if (value) {
+                    Dialog.show({
+                      icon: 'ErrorOutline',
+                      tone: 'destructive',
+                      title: intl.formatMessage({
+                        id: ETranslations.global_warning,
+                      }),
+                      description: intl.formatMessage({
+                        id: ETranslations.global_hex_data_warning,
+                      }),
+                      onConfirmText: intl.formatMessage({
+                        id: ETranslations.global_i_understand,
+                      }),
+                      showCancelButton: false,
+                      onConfirm: async () => {
+                        setSettings((v) => ({
+                          ...v,
+                          isCustomTxMessageEnabled: !!value,
+                        }));
+                      },
+                    });
+                  } else {
+                    setSettings((v) => ({
+                      ...v,
+                      isCustomTxMessageEnabled: !!value,
+                    }));
+                  }
                 }}
               />
             </ListItem>

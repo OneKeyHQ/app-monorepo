@@ -581,6 +581,11 @@ export interface ISwapApproveAllowanceResponse {
   shouldResetApprove?: boolean;
 }
 
+export interface ISwapNativeTokenConfig {
+  networkId: string;
+  reserveGas: number;
+}
+
 export interface ISwapCheckWarningDef {
   swapFromAddressInfo: ReturnType<typeof useSwapAddressInfo>;
   swapToAddressInfo: ReturnType<typeof useSwapAddressInfo>;
