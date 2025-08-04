@@ -22,7 +22,7 @@ const ListPerformance = () => {
   const [data, setData] = useState(RELOADNFTDATA);
   const [refreshing, setRefreshing] = useState(false);
   const ref = useRef<IListViewRef<any>>(null);
-  const [onBlankArea] = useBenchmark(
+  useBenchmark(
     ref as any,
     (result) => {
       console.log(result);
@@ -85,7 +85,6 @@ const ListPerformance = () => {
           setData([...data, ...data.splice(0, 10)]);
         }, 1000);
       }}
-      onBlankArea={onBlankArea}
       viewabilityConfig={{
         waitForInteraction: true,
         itemVisiblePercentThreshold: 50,
