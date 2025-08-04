@@ -38,11 +38,12 @@ export type IListViewProps<T> = Omit<
 
     // Do not remove the following properties, they are set for ListView.native.tsx
 
-    /*
-      Average height of your cell
-      See https://shopify.github.io/flash-list/docs/estimated-item-size/#how-to-calculate
-    */
-    estimatedItemSize: number | `$${keyof Tokens['size']}`;
+    /**
+     * @deprecated
+     * @description unused props in FlashList v2.
+     * See https://shopify.github.io/flash-list/docs/v2-migration#step-2-remove-deprecated-props
+     */
+    estimatedItemSize?: number | `$${keyof Tokens['size']}`;
     overrideItemLayout?: (
       layout: { span?: number; size?: number },
       item: T,

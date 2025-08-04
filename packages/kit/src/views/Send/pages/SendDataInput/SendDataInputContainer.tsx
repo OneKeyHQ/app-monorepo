@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { utils } from 'ethers';
-import { isNaN, isNil } from 'lodash';
+import { isEmpty, isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
@@ -701,6 +701,13 @@ function SendDataInputContainer() {
               paymentId: paymentIdValue,
               note: noteValue,
               tokenInfo: tokenDetails?.info,
+              isCustomHexData: !!(
+                isToContract &&
+                settings.isCustomTxMessageEnabled &&
+                displayTxMessageForm &&
+                tokenInfo?.isNative &&
+                !isEmpty(hexData)
+              ),
             },
             isInternalTransfer: true,
           });
@@ -726,6 +733,7 @@ function SendDataInputContainer() {
     [
       account,
       amount,
+      displayTxMessageForm,
       form,
       intl,
       isHexTxMessage,
@@ -743,9 +751,11 @@ function SendDataInputContainer() {
       onCancel,
       onFail,
       onSuccess,
+      settings.isCustomTxMessageEnabled,
       signatureConfirm,
       tokenDetails,
       tokenInfo?.address,
+      tokenInfo?.isNative,
       txMessageLinkedString,
     ],
   );
