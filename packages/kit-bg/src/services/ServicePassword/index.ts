@@ -23,11 +23,15 @@ import {
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import * as deviceErrorUtils from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareCallContext,
+  type IDeviceSharedCallParams,
+} from '@onekeyhq/shared/types/device';
 import type {
   IPasswordRes,
   IPasswordSecuritySession,
@@ -253,6 +257,7 @@ export default class ServicePassword extends ServiceBase {
       deviceParams =
         await this.backgroundApi.serviceAccount.getWalletDeviceParams({
           walletId,
+          hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
         });
     }
     if (
@@ -661,9 +666,11 @@ export default class ServicePassword extends ServiceBase {
   async promptPasswordVerifyByWallet({
     walletId,
     reason = EReasonForNeedPassword.CreateOrRemoveWallet,
+    hardwareCallContext = EHardwareCallContext.USER_INTERACTION,
   }: {
     walletId: string;
     reason?: EReasonForNeedPassword;
+    hardwareCallContext?: EHardwareCallContext;
   }) {
     const isHardware = accountUtils.isHwWallet({ walletId });
     const isQrWallet = accountUtils.isQrWallet({ walletId });
@@ -675,9 +682,16 @@ export default class ServicePassword extends ServiceBase {
         deviceParams =
           await this.backgroundApi.serviceAccount.getWalletDeviceParams({
             walletId,
+            hardwareCallContext,
           });
       } catch (error) {
-        //
+        // Check if this is a hardware error that should be thrown
+        if (
+          deviceErrorUtils.isHardwareError({ error: error as IOneKeyError })
+        ) {
+          throw error;
+        }
+        // ignore other errors
       }
     }
 

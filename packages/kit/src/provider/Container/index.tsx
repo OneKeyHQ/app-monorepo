@@ -17,7 +17,6 @@ import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
 import { AppStateLockContainer } from './AppStateLockContainer';
 import { CloudBackupContainer } from './CloudBackupContainer';
 import { CreateAddressContainer } from './CreateAddressContainer';
-import { DesktopBleRepairContainer } from './DesktopBleRepairContainer';
 import { DialogLoadingContainer } from './DialogLoadingContainer';
 import { DiskFullWarningDialogContainer } from './DiskFullWarningDialogContainer';
 import { ErrorToastContainer } from './ErrorToastContainer';
@@ -106,7 +105,6 @@ export function Container() {
           <PrevCheckBeforeSendingContainer />
           <WalletBackupPreCheckContainer />
           <HardwareUiStateContainer />
-          <DesktopBleRepairContainer />
           <PrimeLoginContainerLazy />
           <DialogLoadingContainer />
           <DiskFullWarningDialogContainer />

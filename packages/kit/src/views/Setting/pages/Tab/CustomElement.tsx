@@ -14,9 +14,11 @@ import {
   ActionList,
   Badge,
   Dialog,
+  ESwitchSize,
   IconButton,
   Select,
   SizableText,
+  Switch,
   Toast,
   Tooltip,
   XStack,
@@ -602,5 +604,21 @@ export function SocialButtonGroup() {
         ) : null}
       </YStack>
     </YStack>
+  );
+}
+
+export function DesktopBluetoothListItem(props: ICustomElementProps) {
+  const [{ enableDesktopBluetooth }] = useSettingsPersistAtom();
+  const toggleBluetooth = useCallback(async (value: boolean) => {
+    await backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(value);
+  }, []);
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        size={ESwitchSize.small}
+        value={enableDesktopBluetooth}
+        onChange={toggleBluetooth}
+      />
+    </TabSettingsListItem>
   );
 }

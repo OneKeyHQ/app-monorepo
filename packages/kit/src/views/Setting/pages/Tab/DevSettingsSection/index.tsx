@@ -349,18 +349,6 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
-      <SectionFieldItem
-        name="enableDesktopBluetooth"
-        title="启用桌面端蓝牙功能"
-        subtitle={
-          devSettings.settings?.enableDesktopBluetooth
-            ? '已启用桌面蓝牙功能'
-            : '桌面蓝牙功能已禁用'
-        }
-      >
-        <Switch size={ESwitchSize.small} />
-      </SectionFieldItem>
-
       <ListItem
         title="Bg Api 可序列化检测"
         subtitle="启用后会影响性能, 仅在开发环境生效, 关闭 1 天后重新开启"
