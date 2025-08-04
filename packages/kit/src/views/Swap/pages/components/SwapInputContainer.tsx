@@ -10,6 +10,7 @@ import {
   useRateDifferenceAtom,
   useSwapAlertsAtom,
   useSwapFromTokenAmountAtom,
+  useSwapNativeTokenReserveGasAtom,
   useSwapQuoteActionLockAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -93,6 +94,7 @@ const SwapInputContainer = ({
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
+  const [swapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   const [, setInAppNotification] = useInAppNotificationAtom();
 
   const fromInputHasError = useMemo(() => {
@@ -263,7 +265,10 @@ const SwapInputContainer = ({
     return false;
   }, [direction, swapTypeSwitch, fromToken, toToken]);
   const balancePopoverContent = useMemo(() => {
-    if (fromToken?.isNative) {
+    const reserveGas = swapNativeTokenReserveGas.find(
+      (item) => item.networkId === fromToken?.networkId,
+    )?.reserveGas;
+    if (fromToken?.isNative && !reserveGas) {
       return (
         <XStack alignItems="center" p="$4">
           <SizableText size="$bodyMd">
@@ -275,7 +280,12 @@ const SwapInputContainer = ({
       );
     }
     return undefined;
-  }, [intl, fromToken?.isNative]);
+  }, [
+    swapNativeTokenReserveGas,
+    fromToken?.isNative,
+    fromToken?.networkId,
+    intl,
+  ]);
   return (
     <YStack borderRadius="$3" backgroundColor="$bgSubdued" borderWidth="$0">
       <XStack justifyContent="space-between" pt="$2.5" px="$3.5">
