@@ -8,9 +8,11 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   getEmptyTokenData,
   getMergedTokenData,
@@ -35,6 +37,7 @@ import ServiceBase from './ServiceBase';
 
 import type { IDBAccount } from '../dbs/local/types';
 import type { ISimpleDBLocalTokens } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
+import type { IRiskTokenManagementDBStruct } from '../dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 
 @backgroundClass()
 class ServiceToken extends ServiceBase {
@@ -92,6 +95,8 @@ class ServiceToken extends ServiceBase {
       allNetworksNetworkId,
       saveToLocal,
       customTokensRawData,
+      blockedTokensRawData,
+      unblockedTokensRawData,
       ...rest
     } = params;
     const { networkId } = rest;
@@ -131,8 +136,14 @@ class ServiceToken extends ServiceBase {
       this.backgroundApi.serviceAccount.getAccountAddressForApi(accountParams),
       this.backgroundApi.serviceCustomToken.getCustomTokens(accountParams),
       this.backgroundApi.serviceCustomToken.getHiddenTokens(accountParams),
-      this.backgroundApi.serviceToken.getUnblockedTokens({ networkId }),
-      this.backgroundApi.serviceToken.getBlockedTokens({ networkId }),
+      this.backgroundApi.serviceToken.getUnblockedTokens({
+        networkId,
+        unblockedTokensRawData,
+      }),
+      this.backgroundApi.serviceToken.getBlockedTokens({
+        networkId,
+        blockedTokensRawData,
+      }),
       this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
     ]);
 
@@ -717,22 +728,97 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async getUnblockedTokensMap({ networkId }: { networkId: string }) {
-    return this.backgroundApi.simpleDb.riskTokenManagement.getUnblockedTokens({
-      networkId,
-    });
+  public async getRiskTokenManagementRawData() {
+    return this.backgroundApi.simpleDb.riskTokenManagement.getRawData();
   }
 
   @backgroundMethod()
-  public async getBlockedTokensMap({ networkId }: { networkId: string }) {
-    return this.backgroundApi.simpleDb.riskTokenManagement.getBlockedTokens({
-      networkId,
-    });
+  public async getCustomTokensRawData() {
+    return this.backgroundApi.simpleDb.customTokens.getRawData();
+  }
+
+  getUnblockedTokensMemo = memoizee(
+    async ({ networkId }: { networkId: string }) => {
+      return this.backgroundApi.simpleDb.riskTokenManagement.getUnblockedTokens(
+        {
+          networkId,
+        },
+      );
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 50,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
+    },
+  );
+
+  getBlockedTokensMemo = memoizee(
+    async ({ networkId }: { networkId: string }) => {
+      return this.backgroundApi.simpleDb.riskTokenManagement.getBlockedTokens({
+        networkId,
+      });
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 50,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
+    },
+  );
+
+  @backgroundMethod()
+  public async clearRiskTokensManagementCache() {
+    this.getUnblockedTokensMemo.clear();
+    this.getBlockedTokensMemo.clear();
   }
 
   @backgroundMethod()
-  public async getBlockedTokens({ networkId }: { networkId: string }) {
-    const blockedTokensMap = await this.getBlockedTokensMap({ networkId });
+  public async getUnblockedTokensMap({
+    networkId,
+    unblockedTokensRawData,
+  }: {
+    networkId: string;
+    unblockedTokensRawData?: IRiskTokenManagementDBStruct['unblockedTokens'];
+  }) {
+    if (unblockedTokensRawData) {
+      return {
+        [networkId]: unblockedTokensRawData[networkId],
+      };
+    }
+
+    return this.getUnblockedTokensMemo({ networkId });
+  }
+
+  @backgroundMethod()
+  public async getBlockedTokensMap({
+    networkId,
+    blockedTokensRawData,
+  }: {
+    networkId: string;
+    blockedTokensRawData?: IRiskTokenManagementDBStruct['blockedTokens'];
+  }) {
+    if (blockedTokensRawData) {
+      return {
+        [networkId]: blockedTokensRawData[networkId],
+      };
+    }
+
+    return this.getBlockedTokensMemo({ networkId });
+  }
+
+  @backgroundMethod()
+  public async getBlockedTokens({
+    networkId,
+    blockedTokensRawData,
+  }: {
+    networkId: string;
+    blockedTokensRawData?: IRiskTokenManagementDBStruct['blockedTokens'];
+  }) {
+    const blockedTokensMap = await this.getBlockedTokensMap({
+      networkId,
+      blockedTokensRawData,
+    });
     const blockedTokensMapByNetworkId = blockedTokensMap[networkId];
     return Object.keys(blockedTokensMapByNetworkId).filter(
       (tokenAddress) => blockedTokensMapByNetworkId[tokenAddress],
@@ -740,8 +826,17 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async getUnblockedTokens({ networkId }: { networkId: string }) {
-    const unblockedTokensMap = await this.getUnblockedTokensMap({ networkId });
+  public async getUnblockedTokens({
+    networkId,
+    unblockedTokensRawData,
+  }: {
+    networkId: string;
+    unblockedTokensRawData?: IRiskTokenManagementDBStruct['unblockedTokens'];
+  }) {
+    const unblockedTokensMap = await this.getUnblockedTokensMap({
+      networkId,
+      unblockedTokensRawData,
+    });
     const unblockedTokensMapByNetworkId = unblockedTokensMap[networkId];
     return Object.keys(unblockedTokensMapByNetworkId).filter(
       (tokenAddress) => unblockedTokensMapByNetworkId[tokenAddress],
@@ -753,8 +848,8 @@ class ServiceToken extends ServiceBase {
     blockedTokens,
     unblockedTokens,
   }: {
-    blockedTokens: Record<string, Record<string, boolean>>;
-    unblockedTokens: Record<string, Record<string, boolean>>;
+    blockedTokens: IRiskTokenManagementDBStruct['blockedTokens'];
+    unblockedTokens: IRiskTokenManagementDBStruct['unblockedTokens'];
   }) {
     return this.backgroundApi.simpleDb.riskTokenManagement.updateRiskTokensState(
       {

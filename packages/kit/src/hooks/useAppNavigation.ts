@@ -144,11 +144,8 @@ function useAppNavigation<
         return;
       }
 
-      // TODO:
-      // prevent pushModal from using unreleased Navigation instances during iOS modal animation by temporary exclusion,
-      //  with plan to migrate to rootNavigationRef
       // eslint-disable-next-line no-extra-boolean-cast
-      if (!platformEnv.isNativeIOS && !!navigationInstance.push) {
+      if (!!navigationInstance.push) {
         lastPushAbleNavigation = navigationInstance;
         navigationInstance.push(modalType, {
           screen: route,
