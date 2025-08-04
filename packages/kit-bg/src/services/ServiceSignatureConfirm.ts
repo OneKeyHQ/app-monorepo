@@ -192,6 +192,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
     if (parsedTx) {
       decodedTx.isConfirmationRequired = parsedTx.isConfirmationRequired;
+      decodedTx.txParseType = parsedTx.type;
     }
 
     if (parsedTx && parsedTx.parsedTx?.data) {
@@ -220,6 +221,10 @@ class ServiceSignatureConfirm extends ServiceBase {
         alerts: [],
       };
       decodedTx.isLocalParsed = true;
+    }
+
+    if (transferPayload?.isCustomHexData) {
+      decodedTx.isCustomHexData = true;
     }
 
     return decodedTx;

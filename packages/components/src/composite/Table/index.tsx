@@ -283,6 +283,8 @@ export interface ITableProps<T> {
   scrollEnabled?: boolean;
   showHeader?: boolean;
   showBackToTopButton?: boolean;
+  showSkeleton?: boolean;
+  skeletonCount?: number;
   dataSource: T[];
   columns: ITableColumn<T>[];
   contentContainerStyle?: IListViewProps<T>['contentContainerStyle'];
@@ -455,7 +457,7 @@ function TableHeaderRow<T>({
 }
 
 function BasicTable<T>({
-  dataSource,
+  dataSource: dataSourceOriginal,
   columns,
   extraData,
   TableHeaderComponent,
@@ -480,6 +482,8 @@ function BasicTable<T>({
   onEndReached,
   onEndReachedThreshold,
   scrollEnabled = true,
+  showSkeleton = false,
+  skeletonCount = 3,
 }: ITableProps<T>) {
   const { gtMd } = useMedia();
   const [isShowBackToTopButton, setIsShowBackToTopButton] = useState(false);
@@ -487,6 +491,13 @@ function BasicTable<T>({
   const isShowBackToTopButtonRef = useRef(isShowBackToTopButton);
   isShowBackToTopButtonRef.current = isShowBackToTopButton;
   const scrollAtRef = useRef(0);
+
+  const dataSource = useMemo(() => {
+    if (showSkeleton) {
+      return new Array(skeletonCount).fill({} as T) as T[];
+    }
+    return dataSourceOriginal;
+  }, [dataSourceOriginal, showSkeleton, skeletonCount]);
 
   const handleScrollOffsetChange = useCallback((offset: number) => {
     const isShow = offset > 0;
@@ -512,16 +523,17 @@ function BasicTable<T>({
   const handleRenderItem = useCallback(
     ({ item, index }: ListRenderItemInfo<T>) => (
       <TableRow
-        pressStyle
+        pressStyle={!showSkeleton}
+        showSkeleton={showSkeleton}
         scrollAtRef={scrollAtRef}
         item={item}
         index={index}
         columns={columns}
-        onRow={onRow}
+        onRow={showSkeleton ? undefined : onRow}
         rowProps={rowProps}
       />
     ),
-    [columns, onRow, rowProps],
+    [columns, onRow, rowProps, showSkeleton],
   );
 
   const enableBackToTopButton = showBackToTopButton && isShowBackToTopButton;
@@ -564,20 +576,21 @@ function BasicTable<T>({
   const renderSortableItem = useCallback(
     ({ item, drag, dragProps, index, isActive }: IRenderItemParams<T>) => (
       <TableRow
-        pressStyle
+        pressStyle={!showSkeleton}
         isActive={isActive}
         draggable={draggable}
         dataSet={dragProps}
+        showSkeleton={showSkeleton}
         drag={drag}
         scrollAtRef={scrollAtRef}
         item={item}
         index={index}
         columns={columns}
-        onRow={onRow}
+        onRow={showSkeleton ? undefined : onRow}
         rowProps={rowProps}
       />
     ),
-    [columns, draggable, onRow, rowProps],
+    [columns, draggable, onRow, rowProps, showSkeleton],
   );
   const list = useMemo(
     () =>
