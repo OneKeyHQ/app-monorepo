@@ -35,6 +35,7 @@ import deviceHomeScreenUtils, {
 } from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
@@ -1396,7 +1397,7 @@ class ServiceHardware extends ServiceBase {
   }: {
     forceTransportType: EHardwareTransportType;
   }) {
-    const operationId = Math.random().toString(36).substring(2, 15);
+    const operationId = stringUtils.randomString(12);
     await hardwareForceTransportAtom.set({
       forceTransportType,
       operationId,
