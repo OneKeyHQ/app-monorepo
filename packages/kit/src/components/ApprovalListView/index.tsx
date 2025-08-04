@@ -1,13 +1,21 @@
-import { ListView, Tabs, useStyle } from '@onekeyhq/components';
-import { ScrollView } from '@onekeyhq/components/src/composite/Tabs/ScrollView';
-import { ComponentProps, memo, useMemo } from 'react';
-import { PullToRefresh } from '../../views/Home/components/PullToRefresh';
+import type { ComponentProps } from 'react';
+import { memo, useMemo } from 'react';
+
+import { ListView, Tabs, YStack, useStyle } from '@onekeyhq/components';
+
 import { useApprovalListAtom } from '../../states/jotai/contexts/approvalList';
-import ApproveListItem from './ApproveListItem';
+import { PullToRefresh } from '../../views/Home/components/PullToRefresh';
+import { EmptyToken } from '../Empty';
+import { ListLoading } from '../Loading';
+
+import ApprovalListHeader from './ApprovalListHeader';
+import ApproveListItem from './ApprovalListItem';
 
 type IProps = {
   inTabList?: boolean;
+  tableLayout?: boolean;
   onRefresh?: () => void;
+  withHeader?: boolean;
   listViewStyleProps?: Pick<
     ComponentProps<typeof ListView>,
     | 'ListHeaderComponentStyle'
@@ -17,7 +25,8 @@ type IProps = {
 };
 
 function ApprovalListViewCmp(props: IProps) {
-  const { inTabList, listViewStyleProps, onRefresh } = props;
+  const { inTabList, listViewStyleProps, onRefresh, withHeader, tableLayout } =
+    props;
 
   const {
     ListHeaderComponentStyle,
@@ -47,6 +56,20 @@ function ApprovalListViewCmp(props: IProps) {
     return inTabList ? Tabs.FlatList : ListView;
   }, [inTabList]);
 
+  const showSkeleton = false;
+
+  const EmptyComponentElement = useMemo(() => {
+    if (showSkeleton) {
+      return (
+        <YStack style={{ flex: 1 }}>
+          <ListLoading isTokenSelectorView={!tableLayout} />
+        </YStack>
+      );
+    }
+
+    return <EmptyToken />;
+  }, [showSkeleton, tableLayout]);
+
   const [{ approvals }] = useApprovalListAtom();
 
   return (
@@ -62,6 +85,9 @@ function ApprovalListViewCmp(props: IProps) {
       ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
       ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       ListEmptyComponent={EmptyComponentElement}
+      ListHeaderComponent={
+        withHeader ? <ApprovalListHeader tableLayout={tableLayout} /> : null
+      }
       renderItem={({ item }) => (
         <ApproveListItem
           key={`${item.tokenAddress}_${item.spenderAddress}`}

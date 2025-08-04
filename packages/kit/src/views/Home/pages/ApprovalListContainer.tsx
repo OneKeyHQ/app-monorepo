@@ -1,5 +1,7 @@
 import { memo } from 'react';
 
+import { useMedia } from '@onekeyhq/components';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ApprovalListView } from '../../../components/ApprovalListView';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -13,6 +15,8 @@ function ApprovalListContainer() {
   const {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
+
+  const media = useMedia();
 
   const { updateApprovalList, updateTokenMap, updateContractMap } =
     useApprovalListActions().current;
@@ -37,7 +41,15 @@ function ApprovalListContainer() {
     updateContractMap({ data: resp.addressMap });
   }, [account, network, updateApprovalList, updateTokenMap, updateContractMap]);
 
-  return <ApprovalListView inTabList />;
+  return (
+    <ApprovalListView
+      inTabList
+      withHeader
+      {...(media.gtLg && {
+        tableLayout: true,
+      })}
+    />
+  );
 }
 
 const ApprovalListContainerWithProvider = memo(
