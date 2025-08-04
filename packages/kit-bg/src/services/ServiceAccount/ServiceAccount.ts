@@ -97,8 +97,11 @@ import type {
   IQrWalletAirGapAccount,
 } from '@onekeyhq/shared/types/account';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
+import {
+  EConfirmOnDeviceType,
+  EHardwareCallContext,
+} from '@onekeyhq/shared/types/device';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
-import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 import type { IExternalConnectWalletResult } from '@onekeyhq/shared/types/externalWallet.types';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
@@ -135,6 +138,7 @@ import {
   hardwareWalletXfpStatusAtom,
   indexedAccountAddressCreationStateAtom,
 } from '../../states/jotai/atoms';
+import { hardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
@@ -1275,6 +1279,7 @@ class ServiceAccount extends ServiceBase {
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
         walletId,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
       });
     const credentialEncrypt = await encryptImportedCredential({
       credential: {
@@ -2388,8 +2393,10 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async getWalletDeviceParams({
     walletId,
+    hardwareCallContext,
   }: {
     walletId: string;
+    hardwareCallContext: EHardwareCallContext;
   }): Promise<IDeviceSharedCallParams | undefined> {
     if (!accountUtils.isHwWallet({ walletId })) {
       return undefined;
@@ -2406,6 +2413,7 @@ class ServiceAccount extends ServiceBase {
             connectId: dbDevice.connectId,
             featuresDeviceId: dbDevice.deviceId,
             features: dbDevice.featuresInfo,
+            hardwareCallContext,
           });
       } catch (error) {
         // If getCompatibleConnectId fails, use the original connectId
@@ -2438,20 +2446,26 @@ class ServiceAccount extends ServiceBase {
   }) {
     const dbDevice = await this.getWalletDevice({ walletId });
     const { connectId } = dbDevice;
+    const compatibleConnectId =
+      await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+        connectId,
+        featuresDeviceId: dbDevice.deviceId,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      });
 
     // createHWHiddenWallet
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
         const passphraseState =
           await this.backgroundApi.serviceHardware.getPassphraseState({
-            connectId,
+            connectId: compatibleConnectId,
             forceInputPassphrase: true,
           });
 
         if (!passphraseState) {
           const deviceNotOpenedPassphraseError = new DeviceNotOpenedPassphrase({
             payload: {
-              connectId,
+              connectId: compatibleConnectId,
               deviceId: dbDevice.deviceId ?? undefined,
             },
           });
@@ -2521,9 +2535,12 @@ class ServiceAccount extends ServiceBase {
   @toastIfError()
   async createHWWallet(params: IDBCreateHwWalletParamsBase) {
     // createHWWallet
-    // Get current transport type to set correct connectId fields
+    // Get forceTransportType from global atom first, otherwise fallback to current transport type setting
+    const hardwareForceTransportAtomState =
+      await hardwareForceTransportAtom.get();
     const transportType =
-      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+      hardwareForceTransportAtomState.forceTransportType ||
+      (await this.backgroundApi.serviceSetting.getHardwareTransportType());
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
@@ -2555,6 +2572,7 @@ class ServiceAccount extends ServiceBase {
       passphraseState,
       fillingXfpByCallingSdk,
       isMockedStandardHwWallet,
+      transportType,
     } = params;
     if (!features) {
       throw new OneKeyLocalError(
@@ -2602,6 +2620,7 @@ class ServiceAccount extends ServiceBase {
           );
         return r;
       },
+      transportType,
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
@@ -2935,6 +2954,7 @@ class ServiceAccount extends ServiceBase {
     }
     await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
       walletId,
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
     });
     const result = await localDb.removeWallet({
       walletId,
@@ -3098,6 +3118,7 @@ class ServiceAccount extends ServiceBase {
       await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
         walletId,
         reason,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
       });
     const credential = await localDb.getCredential(walletId);
     const mnemonicRaw = await mnemonicFromEntropy(
