@@ -7934,7 +7934,7 @@ __metadata:
     react-native-tcp-socket: "npm:6.3.0"
     react-native-video: "npm:6.14.0"
     react-native-view-shot: "npm:4.0.3"
-    react-native-webview: "npm:@onekeyfe/react-native-webview@13.8.2"
+    react-native-webview: "npm:13.15.0"
     react-native-webview-cleaner: "npm:@onekeyfe/react-native-webview-cleaner@1.0.0"
     react-native-zip-archive: "npm:7.0.2"
     readable-stream: "npm:^3.6.0"

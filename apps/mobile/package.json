@@ -120,7 +120,7 @@
     "react-native-tcp-socket": "6.3.0",
     "react-native-video": "6.14.0",
     "react-native-view-shot": "4.0.3",
-    "react-native-webview": "npm:@onekeyfe/react-native-webview@13.8.2",
+    "react-native-webview": "13.15.0",
     "react-native-webview-cleaner": "npm:@onekeyfe/react-native-webview-cleaner@1.0.0",
     "react-native-zip-archive": "7.0.2",
     "readable-stream": "^3.6.0",
