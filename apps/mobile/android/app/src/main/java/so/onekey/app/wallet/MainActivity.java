@@ -71,7 +71,7 @@ public class MainActivity extends ReactActivity {
     {
         List<String> messages = (List<String>) event;
         String currentTime = sdf.format(new Date());
-        fileLogger.write(1, currentTime + " | INFO : app => native => RootViewBackground:" + messages.get(0) + ": " + messages.get(1));
+        fileLogger.write(1, currentTime + " | INFO : app => native => " + messages.get(0) + ": " + messages.get(1));
     };
 
 
