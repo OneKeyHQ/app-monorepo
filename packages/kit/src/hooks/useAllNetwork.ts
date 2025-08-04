@@ -3,8 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 import { isEmpty } from 'lodash';
 
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
-import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -77,14 +75,12 @@ function useAllNetworkRequests<T>(params: {
     networkId,
     accountAddress,
     xpub,
-    simpleDbLocalTokensRawData,
   }: {
     dbAccount?: IDBAccount;
     accountId: string;
     networkId: string;
     accountAddress: string;
     xpub?: string;
-    simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
   }) => Promise<any>;
   allNetworkCacheData?: ({
     data,
@@ -230,16 +226,7 @@ function useAllNetworkRequests<T>(params: {
 
       if (!allNetworkDataInit.current) {
         try {
-          perf.markStart('localTokens_getRawData');
-          const simpleDbLocalTokensRawData =
-            (await backgroundApiProxy.simpleDb.localTokens.getRawData()) ??
-            undefined;
-          perf.markEnd('localTokens_getRawData');
-
-          perf.markStart('allNetworkCacheRequests', {
-            localTokensExists: Boolean(simpleDbLocalTokensRawData),
-          });
-
+          perf.markStart('allNetworkCacheRequests');
           const cachedData = (
             await Promise.all(
               Array.from(accountsInfo).map(
@@ -257,7 +244,6 @@ function useAllNetworkRequests<T>(params: {
                     networkId,
                     xpub: accountXpub,
                     accountAddress: apiAddress,
-                    simpleDbLocalTokensRawData,
                   });
                   return cachedDataResult as unknown;
                 },

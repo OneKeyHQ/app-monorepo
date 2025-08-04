@@ -139,6 +139,10 @@ function TokenListContainer({
     undefined,
   );
 
+  const localTokensRawData = useRef<ISimpleDBLocalTokens | undefined>(
+    undefined,
+  );
+
   const { handleFiatCrypto, isSupported } = useFiatCrypto({
     accountId: account?.id ?? '',
     networkId: network?.id ?? '',
@@ -731,16 +735,22 @@ function TokenListContainer({
       accountId?: string;
       networkId?: string;
     }) => {
-      const [c, r] = await Promise.all([
+      perfTokenListView.markStart('allNetworkRequestsStarted_getRawData');
+
+      const [c, r, l] = await Promise.all([
         backgroundApiProxy.serviceToken.getCustomTokensRawData(),
         backgroundApiProxy.serviceToken.getRiskTokenManagementRawData(),
+        backgroundApiProxy.simpleDb.localTokens.getRawData(),
       ]);
+
+      perfTokenListView.markEnd('allNetworkRequestsStarted_getRawData');
 
       customTokensRawData.current = c ?? undefined;
       riskTokenManagementRawData.current = {
         unblockedTokens: r?.unblockedTokens ?? {},
         blockedTokens: r?.blockedTokens ?? {},
       };
+      localTokensRawData.current = l ?? undefined;
 
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
@@ -758,13 +768,11 @@ function TokenListContainer({
       networkId,
       xpub,
       accountAddress,
-      simpleDbLocalTokensRawData,
     }: {
       accountId: string;
       networkId: string;
       xpub?: string;
       accountAddress: string;
-      simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
     }) => {
       const perf = perfUtils.createPerf({
         name: EPerformanceTimerLogNames.allNetwork__handleAllNetworkCacheRequests,
@@ -773,7 +781,7 @@ function TokenListContainer({
       perf.markStart('getAccountLocalTokens', {
         networkId,
         accountAddress,
-        rawDataExist: !!simpleDbLocalTokensRawData,
+        rawDataExist: !!localTokensRawData.current,
       });
       const localTokens =
         await backgroundApiProxy.serviceToken.getAccountLocalTokens({
@@ -781,7 +789,7 @@ function TokenListContainer({
           networkId,
           accountAddress,
           xpub,
-          simpleDbLocalTokensRawData,
+          simpleDbLocalTokensRawData: localTokensRawData.current,
         });
       perf.markEnd('getAccountLocalTokens');
 
