@@ -528,9 +528,7 @@ export function SocialButtonGroup() {
       id: ETranslations.settings_version_versionnum,
     },
     {
-      'versionNum': `${platformEnv.version ?? ''} ${
-        platformEnv.buildNumber ?? ''
-      }`,
+      'versionNum': '5.11.0 2025080128',
     },
   );
   const handlePress = useCallback(() => {
@@ -582,6 +580,7 @@ export function SocialButtonGroup() {
         <SizableText
           color={textColor}
           size={textSize}
+          minWidth={platformEnv.isNativeAndroid ? 240 : 0}
           textAlign={platformEnv.isNativeAndroid ? 'center' : undefined}
           numberOfLines={platformEnv.isNativeAndroid ? 1 : undefined}
           onPress={handlePress}
