@@ -6,6 +6,7 @@ import type { IToken } from './token';
 export type IAccountApproval = {
   tokenAddress: string;
   spenderAddress: string;
+  networkId: string;
   allowance: string;
   allowanceParsed: string;
   isInfiniteAmount: boolean;

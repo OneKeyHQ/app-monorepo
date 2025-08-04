@@ -1,9 +1,10 @@
 import { memo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { SizableText, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IAccountToken } from '@onekeyhq/shared/types/token';
-import { useIntl } from 'react-intl';
+
 import { ListItem } from '../ListItem';
 
 type IProps = {
@@ -29,20 +30,28 @@ function ApprovalListHeader({ tableLayout }: IProps) {
     <ListItem testID="Wallet-Approval-List-Header">
       <Stack flexGrow={1} flexBasis={0} alignItems="flex-start">
         <HeaderItem
-          label={intl.formatMessage({ id: ETranslations.global_asset })}
+          label={intl.formatMessage({ id: ETranslations.global_contract })}
         />
       </Stack>
-      <Stack flexGrow={1} flexBasis={0} maxWidth="$36" alignItems="flex-end">
+      <Stack flexGrow={1} flexBasis={0} maxWidth="$36">
         <HeaderItem
-          label={intl.formatMessage({ id: ETranslations.global_balance })}
+          label={intl.formatMessage({
+            id: ETranslations.global_contract_address,
+          })}
         />
       </Stack>
-      <Stack flexGrow={1} flexBasis={0} alignItems="flex-end">
+      <Stack flexGrow={1} flexBasis={0}>
         <HeaderItem
-          label={intl.formatMessage({ id: ETranslations.global_price })}
+          label={intl.formatMessage({ id: ETranslations.global_approval_time })}
         />
       </Stack>
-      <Stack flexGrow={1} flexBasis={0} />
+      <Stack flexGrow={1} flexBasis={0}>
+        <HeaderItem
+          label={intl.formatMessage({
+            id: ETranslations.wallet_approval_approved_token,
+          })}
+        />
+      </Stack>
     </ListItem>
   );
 }

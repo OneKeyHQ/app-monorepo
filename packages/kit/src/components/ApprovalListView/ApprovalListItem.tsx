@@ -1,52 +1,64 @@
 import { memo, useCallback } from 'react';
 
+import { Stack, XStack, YStack } from '@onekeyhq/components';
 import type { IAccountApproval } from '@onekeyhq/shared/types/approval';
 
 import { ListItem } from '../ListItem';
-import { XStack } from '@onekeyhq/components';
-import TokenIconView from '../TokenListView/TokenIconView';
+
+import ApprovalTimeView from './ApprovalTimeView';
+import ApprovalTokenView from './ApprovalTokenView';
+import ContractAddressView from './ContractAddressView';
+import ContractIconView from './ContractIconView';
+import ContractNameView from './ContractNameView';
+import ContractNetworkView from './ContractNetworkView';
 
 type IProps = {
   approval: IAccountApproval;
   tableLayout?: boolean;
+  isAllNetworks?: boolean;
 };
 
 function ApproveListItem(props: IProps) {
-  const { approval, tableLayout } = props;
+  const { approval, tableLayout, isAllNetworks } = props;
 
   const renderFirstColumn = useCallback(() => {
     return (
-      <XStack alignItems="center" gap="$3" flexGrow={1} flexBasis={0}>
-        <TokenIconView
-          networkId={token.networkId}
-          icon={token.logoURI}
+      <XStack
+        alignItems="center"
+        gap="$3"
+        {...(tableLayout
+          ? {
+              flexGrow: 1,
+              flexBasis: 0,
+            }
+          : { flex: 1 })}
+      >
+        <ContractIconView
+          address={approval.spenderAddress}
+          networkId={approval.networkId}
           isAllNetworks={isAllNetworks}
         />
         <YStack flex={1}>
-          <TokenNameView
-            name={token.symbol}
-            isNative={token.isNative}
-            isAllNetworks={isAllNetworks}
-            networkId={token.networkId}
-            withNetwork={withNetwork}
-            textProps={{
-              size: '$bodyLgMedium',
-              flexShrink: 0,
-            }}
-          />
-          <TokenNameView
-            name={token.name}
-            // name={token.accountId || ''}
-            networkId={token.networkId}
-            textProps={{
-              size: '$bodyMd',
-              color: '$textSubdued',
-            }}
-          />
+          <ContractNameView address={approval.spenderAddress} />
+          {tableLayout ? (
+            <ContractNetworkView networkId={approval.networkId} />
+          ) : (
+            <ContractAddressView
+              address={approval.spenderAddress}
+              networkId={approval.networkId}
+              isShort
+              showCopy
+              showExternalLink
+              addressStyleProps={{
+                size: '$bodyMd',
+                color: '$textSubdued',
+              }}
+            />
+          )}
         </YStack>
       </XStack>
     );
-  }, [token, isAllNetworks, withNetwork, tableLayout, isTokenSelector]);
+  }, [approval, tableLayout, isAllNetworks]);
 
   const renderSecondColumn = useCallback(() => {
     if (!tableLayout) {
@@ -54,8 +66,7 @@ function ApproveListItem(props: IProps) {
     }
 
     return (
-      <YStack
-        alignItems="flex-end"
+      <Stack
         {...(tableLayout
           ? {
               flexGrow: 1,
@@ -64,78 +75,42 @@ function ApproveListItem(props: IProps) {
             }
           : { flex: 1 })}
       >
-        <TokenBalanceView
-          hideValue={hideValue}
-          numberOfLines={1}
-          size={tableLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
-          $key={token.$key ?? ''}
-          symbol=""
+        <ContractAddressView
+          address={approval.spenderAddress}
+          networkId={approval.networkId}
         />
-        <TokenValueView
-          hideValue={hideValue}
-          numberOfLines={1}
-          size="$bodyMd"
-          color="$textSubdued"
-          $key={token.$key ?? ''}
-        />
-      </YStack>
+      </Stack>
     );
-  }, [hideValue, tableLayout, token.$key, isTokenSelector]);
+  }, [tableLayout, approval]);
 
   const renderThirdColumn = useCallback(() => {
     if (!tableLayout) {
       return null;
     }
-
     return (
-      <YStack alignItems="flex-end" flexGrow={1} flexBasis={0}>
-        <TokenPriceView
-          $key={token.$key ?? ''}
-          size="$bodyMdMedium"
-          numberOfLines={1}
-        />
-        <TokenPriceChangeView
-          $key={token.$key ?? ''}
-          size="$bodyMd"
-          numberOfLines={1}
-        />
+      <YStack flexGrow={1} flexBasis={0}>
+        <ApprovalTimeView />
       </YStack>
     );
-  }, [isTokenSelector, tableLayout, token.$key]);
+  }, [tableLayout]);
 
   const renderFourthColumn = useCallback(() => {
-    if (withSwapAction && tableLayout) {
-      return (
-        <Stack
-          alignItems="flex-end"
-          {...(tableLayout && {
-            flexGrow: 1,
-            flexBasis: 0,
-          })}
-        >
-          <TokenActionsView token={token} />
-        </Stack>
-      );
-    }
-    return null;
-  }, [withSwapAction, tableLayout, token]);
+    return (
+      <Stack flexGrow={1} flexBasis={0}>
+        <ApprovalTokenView />
+      </Stack>
+    );
+  }, []);
 
   return (
     <ListItem
-      key={token.name}
+      key={approval.spenderAddress}
       userSelect="none"
-      onPress={() => {
-        onPress?.(token);
-      }}
       gap={tableLayout ? '$3' : '$1'}
-      {...rest}
+      alignItems="center"
     >
       {renderFirstColumn()}
       {renderSecondColumn()}
-      <CreateAccountView
-        networkId={token.networkId ?? ''}
-        $key={token.$key ?? ''}
-      />
       {renderThirdColumn()}
       {renderFourthColumn()}
     </ListItem>
