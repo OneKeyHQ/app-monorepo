@@ -7910,7 +7910,6 @@ __metadata:
     react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@2.6.3"
     react-native-collapsible-tab-view: "npm:8.0.1"
     react-native-crypto: "npm:^2.2.0"
-    react-native-device-info: "npm:14.0.4"
     react-native-file-logger: "npm:0.6.1"
     react-native-fs: "npm:@dr.pogodin/react-native-fs@2.34.0"
     react-native-gesture-handler: "npm:2.27.1"
@@ -34970,15 +34969,6 @@ __metadata:
   peerDependencies:
     react-native-randombytes: ">=2.0.0 <4.0.0"
   checksum: 10/52631bf32e5d3e0aad9329e3271808a30b91f8a072d4a0c2791105cd3c3aac5d1a63a4016a570790342baa7fc4b10f15024e4d6df47e57906197d7587af450e1
-  languageName: node
-  linkType: hard
-
-"react-native-device-info@npm:14.0.4":
-  version: 14.0.4
-  resolution: "react-native-device-info@npm:14.0.4"
-  peerDependencies:
-    react-native: "*"
-  checksum: 10/bf031048551597b1a9ab2965d498cbd073eacf50005dffa4e3496286578734a45854141d47654e7e58ef8531b8c2cd6d1670bfd75625271c91aab3b3b8d0a8d8
   languageName: node
   linkType: hard
 

@@ -2436,8 +2436,6 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - RNDeviceInfo (14.0.4):
-    - React-Core
   - RNFileLogger (0.6.1):
     - CocoaLumberjack (~> 3.8.5)
     - DoubleConversion
@@ -2990,7 +2988,6 @@ DEPENDENCIES:
   - RealmJS (from `../../../node_modules/realm`)
   - RestartNewArch (from `../../../node_modules/react-native-restart`)
   - "RNCAsyncStorage (from `../../../node_modules/@react-native-async-storage/async-storage`)"
-  - RNDeviceInfo (from `../../../node_modules/react-native-device-info`)
   - RNFileLogger (from `../../../node_modules/react-native-file-logger`)
   - RNGestureHandler (from `../../../node_modules/react-native-gesture-handler`)
   - RNImageCropPicker (from `../../../node_modules/react-native-image-crop-picker`)
@@ -3290,8 +3287,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-restart"
   RNCAsyncStorage:
     :path: "../../../node_modules/@react-native-async-storage/async-storage"
-  RNDeviceInfo:
-    :path: "../../../node_modules/react-native-device-info"
   RNFileLogger:
     :path: "../../../node_modules/react-native-file-logger"
   RNGestureHandler:
@@ -3457,7 +3452,6 @@ SPEC CHECKSUMS:
   RestartNewArch: 448d52741003a4918f8abe3dfc89ed32fc0c7a9d
   RevenueCat: 7e1d0768fb287c9983173c9b28e39ccbeeb828a9
   RNCAsyncStorage: c1dca434eda758348a549efb46822b4091d76804
-  RNDeviceInfo: d863506092aef7e7af3a1c350c913d867d795047
   RNFileLogger: 52442d388d36b29b1e7884b5ffbfa916ecfbc06b
   RNGestureHandler: 6b48571964d1b4302f531bb07f8360399a02200a
   RNImageCropPicker: de6a16085ad4e4c67850b0c662d1d333d367cc59

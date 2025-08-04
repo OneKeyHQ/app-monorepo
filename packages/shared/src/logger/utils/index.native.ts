@@ -1,13 +1,11 @@
 import {
-  getBuildNumber,
-  getDeviceId,
-  getIncrementalSync,
-  getModel,
-  getSystemName,
-  getSystemVersion,
-  getTotalMemorySync,
-  getUsedMemorySync,
-} from 'react-native-device-info';
+  manufacturer,
+  modelName,
+  osName,
+  osVersion,
+  supportedCpuArchitectures,
+  totalMemory,
+} from 'expo-device';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -59,11 +57,14 @@ const getLogFilePath = async (filename: string) => {
 
 const getDeviceInfo = () =>
   [
-    `Device: ${getModel()} ${getDeviceId()}`,
-    `System: ${getSystemName()} ${getSystemVersion()}`,
+    `Device: ${manufacturer ?? ''} ${modelName ?? ''}`,
+    `System: ${osName ?? ''} ${osVersion ?? ''}`,
+    `arch: ${supportedCpuArchitectures?.join(',') ?? ''}`,
     `Version Hash: ${process.env.COMMITHASH || ''}`,
-    `Build Number: ${getBuildNumber()} ${getIncrementalSync()}`,
-    `Memory: ${getUsedMemorySync()}/${getTotalMemorySync()}`,
+    `Build Number: ${platformEnv.buildNumber ?? ''} ${
+      platformEnv.buildNumber ?? ''
+    }`,
+    `Memory: ${totalMemory ?? 0}`,
     `appPlatform: ${platformEnv.appPlatform ?? ''}`,
     `appChannel: ${platformEnv.appChannel ?? ''}`,
     `buildNumber: ${platformEnv.buildNumber ?? ''}`,
