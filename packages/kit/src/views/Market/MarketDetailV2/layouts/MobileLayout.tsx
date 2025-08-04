@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { ScrollView, Stack, Tabs } from '@onekeyhq/components';
+import { Stack, Tabs } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
