@@ -7856,12 +7856,11 @@ __metadata:
     "@onekeyhq/shared": "npm:*"
     "@privy-io/expo": "npm:0.49.1"
     "@privy-io/expo-native-extensions": "npm:0.0.4"
-    "@react-native-async-storage/async-storage": "npm:1.22.0"
-    "@react-native-community/netinfo": "npm:^11.4.1"
+    "@react-native-async-storage/async-storage": "npm:2.2.0"
     "@react-native-community/slider": "npm:4.5.7"
     "@react-native-google-signin/google-signin": "npm:^9.1.0"
     "@sentry/react-native": "npm:6.16.1"
-    "@shopify/flash-list": "npm:2.0.0-alpha.21"
+    "@shopify/flash-list": "npm:2.0.1"
     "@types/react-native-canvas": "npm:^0.1.13"
     "@walletconnect/modal-react-native": "npm:1.1.0"
     "@walletconnect/react-native-compat": "npm:2.11.2"
@@ -7911,7 +7910,6 @@ __metadata:
     react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@2.6.3"
     react-native-collapsible-tab-view: "npm:8.0.1"
     react-native-crypto: "npm:^2.2.0"
-    react-native-device-info: "npm:14.0.4"
     react-native-file-logger: "npm:0.6.1"
     react-native-fs: "npm:@dr.pogodin/react-native-fs@2.34.0"
     react-native-gesture-handler: "npm:2.27.1"
@@ -7925,7 +7923,7 @@ __metadata:
     react-native-network-logger: "npm:2.0.0"
     react-native-pager-view: "npm:6.8.1"
     react-native-passkeys: "npm:0.3.3"
-    react-native-permissions: "npm:5.4.1"
+    react-native-permissions: "npm:5.4.2"
     react-native-purchases: "npm:8.11.9"
     react-native-qrcode-styled: "npm:0.3.3"
     react-native-reanimated: "npm:3.18.0"
@@ -7936,7 +7934,7 @@ __metadata:
     react-native-tcp-socket: "npm:6.3.0"
     react-native-video: "npm:6.14.0"
     react-native-view-shot: "npm:4.0.3"
-    react-native-webview: "npm:@onekeyfe/react-native-webview@13.8.2"
+    react-native-webview: "npm:13.15.0"
     react-native-webview-cleaner: "npm:@onekeyfe/react-native-webview-cleaner@1.0.0"
     react-native-zip-archive: "npm:7.0.2"
     readable-stream: "npm:^3.6.0"
@@ -10558,14 +10556,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-native-async-storage/async-storage@npm:1.22.0":
-  version: 1.22.0
-  resolution: "@react-native-async-storage/async-storage@npm:1.22.0"
+"@react-native-async-storage/async-storage@npm:2.2.0":
+  version: 2.2.0
+  resolution: "@react-native-async-storage/async-storage@npm:2.2.0"
   dependencies:
     merge-options: "npm:^3.0.4"
   peerDependencies:
-    react-native: ^0.0.0-0 || >=0.60 <1.0
-  checksum: 10/eadadbe1d6c59f5bd75fbe16fba7ec7ed2fd0d3786634fbe2af6d83b9a7371e79f42de3cd67129aa375b241a18f7538df9b026b5c0ad85cc6e1c6927543b1914
+    react-native: ^0.0.0-0 || >=0.65 <1.0
+  checksum: 10/625e42134f0c487acfd4ba9b3ba182e6f6f29581485004cc658850ef024372cdb7381b7399393f4416fda39df2d822e3008427d7671d635a7363f9a65430a2dd
   languageName: node
   linkType: hard
 
@@ -10744,15 +10742,6 @@ __metadata:
   bin:
     rnc-cli: build/bin.js
   checksum: 10/f4f08cf81378ed4cf590256a32c645f2c027bb0562d72207addc034b9486b48d09ad1d7156c95d6b8db3f3dfdfa7a4b67732eedecea219c1fc69f55f6b2e3df6
-  languageName: node
-  linkType: hard
-
-"@react-native-community/netinfo@npm:^11.4.1":
-  version: 11.4.1
-  resolution: "@react-native-community/netinfo@npm:11.4.1"
-  peerDependencies:
-    react-native: ">=0.59"
-  checksum: 10/47f0d61072ca04a545784daaa44a5b1927eb788a3521dce5462184855733485c3b58c52d2a9b790b5c784e806fb342c83bc14e348cc7e55263b63d31e1862f9d
   languageName: node
   linkType: hard
 
@@ -12002,17 +11991,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@shopify/flash-list@npm:2.0.0-alpha.21":
-  version: 2.0.0-alpha.21
-  resolution: "@shopify/flash-list@npm:2.0.0-alpha.21"
+"@shopify/flash-list@npm:2.0.1":
+  version: 2.0.1
+  resolution: "@shopify/flash-list@npm:2.0.1"
   dependencies:
-    recyclerlistview: "npm:4.2.3"
     tslib: "npm:2.8.1"
   peerDependencies:
     "@babel/runtime": "*"
     react: "*"
     react-native: "*"
-  checksum: 10/7aac31aa13167d3936d366e36617b0a3eef86dc51ed324ff626a114acfa0e21c1461591e8db3924aa5e5780d6aec3b91feae23dab71d19eba2e11a3ca1b5f61d
+  checksum: 10/46dbec5da9c862b175d58fc8d16abfb78974043cab95c86ae1159f040948b841fd8a523fcb762e77ff7f2d3b92ebc820bcc71b59cf872375656db4acbe941dde
   languageName: node
   linkType: hard
 
@@ -34984,15 +34972,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-device-info@npm:14.0.4":
-  version: 14.0.4
-  resolution: "react-native-device-info@npm:14.0.4"
-  peerDependencies:
-    react-native: "*"
-  checksum: 10/bf031048551597b1a9ab2965d498cbd073eacf50005dffa4e3496286578734a45854141d47654e7e58ef8531b8c2cd6d1670bfd75625271c91aab3b3b8d0a8d8
-  languageName: node
-  linkType: hard
-
 "react-native-draggable-flatlist@npm:4.0.3":
   version: 4.0.3
   resolution: "react-native-draggable-flatlist@npm:4.0.3"
@@ -35265,9 +35244,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-permissions@npm:5.4.1":
-  version: 5.4.1
-  resolution: "react-native-permissions@npm:5.4.1"
+"react-native-permissions@npm:5.4.2":
+  version: 5.4.2
+  resolution: "react-native-permissions@npm:5.4.2"
   peerDependencies:
     react: ">=18.1.0"
     react-native: ">=0.70.0"
@@ -35275,7 +35254,7 @@ __metadata:
   peerDependenciesMeta:
     react-native-windows:
       optional: true
-  checksum: 10/8371751910f6cfc91c886f076611b78d5ad3145be4fac415076402eaed2911a1dc51ba97e20ae90d4ed9da47b412bc17b341ee25d9bef03f13fabd9d559806ba
+  checksum: 10/b58250476b4fc3affe08f7c28454fe42267ceef8097499c96da773b5c8e2cb8e18940ca586f28194615342890bf30ae298e9cf647682b30478cc9b867d2e0d90
   languageName: node
   linkType: hard
 
@@ -36095,7 +36074,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"recyclerlistview@npm:4.2.3, recyclerlistview@npm:^4.2.0":
+"recyclerlistview@npm:^4.2.0":
   version: 4.2.3
   resolution: "recyclerlistview@npm:4.2.3"
   dependencies:

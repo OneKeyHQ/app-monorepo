@@ -1,13 +1,12 @@
-import { Dimensions } from 'react-native';
+import { getAndroidId, getIosIdForVendorAsync } from 'expo-application';
 import {
-  getInstanceId,
-  getManufacturer,
-  getModel,
-  getSystemName,
-  getSystemVersion,
-  getUniqueId,
-  supportedAbis,
-} from 'react-native-device-info';
+  manufacturer,
+  modelName,
+  osName,
+  osVersion,
+  supportedCpuArchitectures,
+} from 'expo-device';
+import { Dimensions } from 'react-native';
 
 import platformEnv from '../platformEnv';
 
@@ -15,14 +14,14 @@ import type { IGetDeviceInfo } from './type';
 
 export const getDeviceInfo: IGetDeviceInfo = async () => ({
   deviceId:
-    platformEnv.isNativeAndroidHuawei || platformEnv.isNativeAndroidGooglePlay
-      ? await getUniqueId()
-      : await getInstanceId(),
-  arch: (await supportedAbis()).join(','),
-  manufacturer: await getManufacturer(),
-  model: getModel(),
-  os: getSystemName(),
-  osVersion: getSystemVersion(),
+    (platformEnv.isNativeIOS
+      ? await getIosIdForVendorAsync()
+      : getAndroidId()) ?? '',
+  arch: supportedCpuArchitectures ? supportedCpuArchitectures?.join(',') : '',
+  manufacturer: manufacturer ?? '',
+  model: modelName ?? '',
+  os: osName ?? '',
+  osVersion: osVersion ?? '',
   screenHeight: Dimensions.get('window').height,
   screenWidth: Dimensions.get('window').width,
 });
