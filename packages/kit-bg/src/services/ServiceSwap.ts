@@ -62,6 +62,7 @@ import type {
   ISwapApproveAllowanceResponse,
   ISwapApproveTransaction,
   ISwapCheckSupportResponse,
+  ISwapNativeTokenConfig,
   ISwapNetwork,
   ISwapNetworkBase,
   ISwapTips,
@@ -1014,6 +1015,25 @@ export default class ServiceSwap extends ServiceBase {
         });
       }
       throw e;
+    }
+  }
+
+  @backgroundMethod()
+  async fetchSwapNativeTokenConfig({ networkId }: { networkId: string }) {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const resp = await client.get<{
+        data: ISwapNativeTokenConfig;
+      }>(`/swap/v1/native-token-config`, {
+        params: { networkId },
+      });
+      return resp.data.data;
+    } catch (e) {
+      console.error(e);
+      return {
+        networkId,
+        reserveGas: 0,
+      };
     }
   }
 
