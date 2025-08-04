@@ -71,7 +71,7 @@ const SwapQuoteInput = ({
       return { transform: 'translate(-50%, -50%)' };
     }
     return {
-      transform: [{ translateX: -24 }, { translateY: -24 }],
+      transform: [{ translateX: -13 }, { translateY: -13 }], // size small
     };
   }, []);
 
