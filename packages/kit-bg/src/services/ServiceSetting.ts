@@ -42,7 +42,10 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { type IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
-import { currencyPersistAtom } from '../states/jotai/atoms';
+import {
+  currencyPersistAtom,
+  desktopBluetoothAtom,
+} from '../states/jotai/atoms';
 import {
   settingsLastActivityAtom,
   settingsPersistAtom,
@@ -51,6 +54,7 @@ import {
 import ServiceBase from './ServiceBase';
 
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
+import type { IDesktopBluetoothAtom } from '../states/jotai/atoms';
 
 export type IAccountDerivationConfigItem = {
   num: number;
@@ -555,6 +559,25 @@ class ServiceSetting extends ServiceBase {
       ...prev,
       isFilterScamHistoryEnabled: value,
     }));
+  }
+
+  @backgroundMethod()
+  public async setEnableDesktopBluetooth(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      enableDesktopBluetooth: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async getEnableDesktopBluetooth() {
+    const { enableDesktopBluetooth } = await settingsPersistAtom.get();
+    return enableDesktopBluetooth ?? false;
+  }
+
+  @backgroundMethod()
+  public async setDesktopBluetoothAtom(value: IDesktopBluetoothAtom) {
+    await desktopBluetoothAtom.set(value);
   }
 }
 
