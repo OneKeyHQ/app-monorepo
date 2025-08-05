@@ -1,5 +1,7 @@
 import { memo } from 'react';
 
+import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
+
 import { useContractMapAtom } from '../../states/jotai/contexts/approvalList';
 import { Token } from '../Token';
 
@@ -14,7 +16,13 @@ function ContractIconView(props: IProps) {
 
   const [{ contractMap }] = useContractMapAtom();
 
-  const contract = contractMap[address];
+  const contract =
+    contractMap[
+      approvalUtils.buildContractMapKey({
+        networkId,
+        contractAddress: address,
+      })
+    ];
 
   if (isAllNetworks) {
     return (

@@ -33,7 +33,7 @@ function ApprovalListHeader({ tableLayout }: IProps) {
           label={intl.formatMessage({ id: ETranslations.global_contract })}
         />
       </Stack>
-      <Stack flexGrow={1} flexBasis={0} maxWidth="$36">
+      <Stack flexGrow={1} flexBasis={0}>
         <HeaderItem
           label={intl.formatMessage({
             id: ETranslations.global_contract_address,
@@ -45,7 +45,7 @@ function ApprovalListHeader({ tableLayout }: IProps) {
           label={intl.formatMessage({ id: ETranslations.global_approval_time })}
         />
       </Stack>
-      <Stack flexGrow={1} flexBasis={0}>
+      <Stack flexGrow={1} flexBasis={0} alignItems="flex-end" maxWidth="$36">
         <HeaderItem
           label={intl.formatMessage({
             id: ETranslations.wallet_approval_approved_token,

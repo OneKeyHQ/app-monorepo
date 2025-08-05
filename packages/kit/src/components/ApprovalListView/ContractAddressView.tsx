@@ -17,7 +17,7 @@ import { openExplorerAddressUrl } from '../../utils/explorerUtils';
 type IProps = {
   address: string;
   networkId: string;
-  isShort?: boolean;
+  showShortAddress?: boolean;
   showCopy?: boolean;
   showExternalLink?: boolean;
   addressStyleProps?: ISizableTextProps;
@@ -27,7 +27,7 @@ function ContractAddressView(props: IProps) {
   const {
     address,
     networkId,
-    isShort,
+    showShortAddress,
     showCopy,
     showExternalLink,
     addressStyleProps,
@@ -40,7 +40,7 @@ function ContractAddressView(props: IProps) {
   return (
     <XStack alignItems="center" gap="$1">
       <SizableText size="$bodyMdMedium" {...addressStyleProps}>
-        {isShort
+        {showShortAddress
           ? accountUtils.shortenAddress({
               address,
               leadingLength: 6,

@@ -1,17 +1,15 @@
 import { useRef } from 'react';
 
-import { uniqBy } from 'lodash';
-
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
-import type { IAccountApproval } from '@onekeyhq/shared/types/approval';
+import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
   approvalListAtom,
+  approvalListStateAtom,
   contextAtomMethod,
   contractMapAtom,
   tokenMapAtom,
@@ -19,22 +17,10 @@ import {
 
 class ContextJotaiActionsApprovalList extends ContextJotaiActionsBase {
   updateApprovalList = contextAtomMethod(
-    (get, set, value: { data: IAccountApproval[]; merge?: boolean }) => {
-      const approvals = get(approvalListAtom());
-
-      if (value.merge) {
-        const mergeApprovals = uniqBy(
-          [...approvals.approvals, ...value.data],
-          (approval) => `${approval.tokenAddress}_${approval.spenderAddress}`,
-        );
-        set(approvalListAtom(), {
-          approvals: mergeApprovals,
-        });
-      } else {
-        set(approvalListAtom(), {
-          approvals: value.data,
-        });
-      }
+    (get, set, value: { data: IContractApproval[] }) => {
+      set(approvalListAtom(), {
+        approvals: value.data,
+      });
     },
   );
 
@@ -51,51 +37,35 @@ class ContextJotaiActionsApprovalList extends ContextJotaiActionsBase {
             info: IToken;
           }
         >;
-        merge?: boolean;
       },
     ) => {
-      const tokenMap = get(tokenMapAtom());
-
-      if (value.merge) {
-        set(tokenMapAtom(), {
-          tokenMap: {
-            ...tokenMap.tokenMap,
-            ...value.data,
-          },
-        });
-      } else {
-        set(tokenMapAtom(), {
-          tokenMap: value.data,
-        });
-      }
+      set(tokenMapAtom(), {
+        tokenMap: value.data,
+      });
     },
   );
 
   updateContractMap = contextAtomMethod(
+    (get, set, value: { data: Record<string, IAddressInfo> }) => {
+      set(contractMapAtom(), {
+        contractMap: value.data,
+      });
+    },
+  );
+
+  updateApprovalListState = contextAtomMethod(
     (
       get,
       set,
-      value: { data: Record<string, IAddressInfo>; merge?: boolean },
+      payload: {
+        isRefreshing?: boolean;
+        initialized?: boolean;
+      },
     ) => {
-      const contractMap = get(contractMapAtom());
-
-      if (value.merge) {
-        set(contractMapAtom(), {
-          contractMap: {
-            ...contractMap.contractMap,
-            ...value.data,
-          },
-        });
-      } else {
-        set(contractMapAtom(), {
-          contractMap: value.data,
-        });
-      }
-
-      void backgroundApiProxy.serviceHistory.updateLocalAddressesInfo({
-        data: value.data,
-        merge: value.merge,
-      });
+      set(approvalListStateAtom(), (v) => ({
+        ...v,
+        ...payload,
+      }));
     },
   );
 }
@@ -111,10 +81,12 @@ export function useApprovalListActions() {
   const updateApprovalList = actions.updateApprovalList.use();
   const updateTokenMap = actions.updateTokenMap.use();
   const updateContractMap = actions.updateContractMap.use();
+  const updateApprovalListState = actions.updateApprovalListState.use();
 
   return useRef({
     updateApprovalList,
     updateTokenMap,
     updateContractMap,
+    updateApprovalListState,
   });
 }

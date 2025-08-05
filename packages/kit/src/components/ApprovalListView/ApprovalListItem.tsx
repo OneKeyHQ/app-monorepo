@@ -1,7 +1,7 @@
 import { memo, useCallback } from 'react';
 
 import { Stack, XStack, YStack } from '@onekeyhq/components';
-import type { IAccountApproval } from '@onekeyhq/shared/types/approval';
+import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 
 import { ListItem } from '../ListItem';
 
@@ -13,7 +13,7 @@ import ContractNameView from './ContractNameView';
 import ContractNetworkView from './ContractNetworkView';
 
 type IProps = {
-  approval: IAccountApproval;
+  approval: IContractApproval;
   tableLayout?: boolean;
   isAllNetworks?: boolean;
 };
@@ -34,21 +34,22 @@ function ApproveListItem(props: IProps) {
           : { flex: 1 })}
       >
         <ContractIconView
-          address={approval.spenderAddress}
+          address={approval.contractAddress}
           networkId={approval.networkId}
           isAllNetworks={isAllNetworks}
         />
         <YStack flex={1}>
-          <ContractNameView address={approval.spenderAddress} />
+          <ContractNameView
+            address={approval.contractAddress}
+            networkId={approval.networkId}
+          />
           {tableLayout ? (
             <ContractNetworkView networkId={approval.networkId} />
           ) : (
             <ContractAddressView
-              address={approval.spenderAddress}
+              address={approval.contractAddress}
               networkId={approval.networkId}
-              isShort
-              showCopy
-              showExternalLink
+              showShortAddress
               addressStyleProps={{
                 size: '$bodyMd',
                 color: '$textSubdued',
@@ -71,13 +72,15 @@ function ApproveListItem(props: IProps) {
           ? {
               flexGrow: 1,
               flexBasis: 0,
-              maxWidth: '$36',
             }
           : { flex: 1 })}
       >
         <ContractAddressView
-          address={approval.spenderAddress}
+          address={approval.contractAddress}
           networkId={approval.networkId}
+          showShortAddress
+          showCopy
+          showExternalLink
         />
       </Stack>
     );
@@ -89,25 +92,31 @@ function ApproveListItem(props: IProps) {
     }
     return (
       <YStack flexGrow={1} flexBasis={0}>
-        <ApprovalTimeView />
+        <ApprovalTimeView approvalTime={approval.latestApprovalTime} />
       </YStack>
     );
-  }, [tableLayout]);
+  }, [tableLayout, approval]);
 
   const renderFourthColumn = useCallback(() => {
     return (
-      <Stack flexGrow={1} flexBasis={0}>
-        <ApprovalTokenView />
+      <Stack
+        flexGrow={1}
+        flexBasis={0}
+        alignItems="flex-end"
+        maxWidth="$36"
+        pr={tableLayout ? 0 : 6}
+      >
+        <ApprovalTokenView approvedTokenNumber={approval.approvals.length} />
       </Stack>
     );
-  }, []);
+  }, [approval, tableLayout]);
 
   return (
     <ListItem
-      key={approval.spenderAddress}
       userSelect="none"
       gap={tableLayout ? '$3' : '$1'}
       alignItems="center"
+      drillIn={!tableLayout}
     >
       {renderFirstColumn()}
       {renderSecondColumn()}

@@ -1,12 +1,16 @@
 import type { ComponentProps } from 'react';
 import { memo, useMemo } from 'react';
 
-import { ListView, Tabs, YStack, useStyle } from '@onekeyhq/components';
+import { ListView, Stack, Tabs, YStack, useStyle } from '@onekeyhq/components';
 
-import { useApprovalListAtom } from '../../states/jotai/contexts/approvalList';
+import {
+  useApprovalListAtom,
+  useApprovalListStateAtom,
+} from '../../states/jotai/contexts/approvalList';
+import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { PullToRefresh } from '../../views/Home/components/PullToRefresh';
 import { EmptyToken } from '../Empty';
-import { ListLoading } from '../Loading';
+import { ListLoading } from '../Loading/ListLoading';
 
 import ApprovalListHeader from './ApprovalListHeader';
 import ApproveListItem from './ApprovalListItem';
@@ -14,6 +18,7 @@ import ApproveListItem from './ApprovalListItem';
 type IProps = {
   inTabList?: boolean;
   tableLayout?: boolean;
+  isAllNetworks?: boolean;
   onRefresh?: () => void;
   withHeader?: boolean;
   listViewStyleProps?: Pick<
@@ -25,8 +30,17 @@ type IProps = {
 };
 
 function ApprovalListViewCmp(props: IProps) {
-  const { inTabList, listViewStyleProps, onRefresh, withHeader, tableLayout } =
-    props;
+  const {
+    inTabList,
+    listViewStyleProps,
+    onRefresh,
+    withHeader,
+    tableLayout,
+    isAllNetworks,
+  } = props;
+
+  const [{ approvals }] = useApprovalListAtom();
+  const [approvalListState] = useApprovalListStateAtom();
 
   const {
     ListHeaderComponentStyle,
@@ -52,11 +66,22 @@ function ApprovalListViewCmp(props: IProps) {
     },
   );
 
+  const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
+  const addPaddingOnListFooter = useMemo(
+    () => !!extensionActiveTabDAppInfo?.showFloatingPanel,
+    [extensionActiveTabDAppInfo?.showFloatingPanel],
+  );
+
   const ListComponent = useMemo(() => {
     return inTabList ? Tabs.FlatList : ListView;
   }, [inTabList]);
 
-  const showSkeleton = false;
+  const showSkeleton = useMemo(() => {
+    if (!approvalListState.initialized && approvalListState.isRefreshing) {
+      return true;
+    }
+    return false;
+  }, [approvalListState.initialized, approvalListState.isRefreshing]);
 
   const EmptyComponentElement = useMemo(() => {
     if (showSkeleton) {
@@ -69,8 +94,6 @@ function ApprovalListViewCmp(props: IProps) {
 
     return <EmptyToken />;
   }, [showSkeleton, tableLayout]);
-
-  const [{ approvals }] = useApprovalListAtom();
 
   return (
     <ListComponent
@@ -86,14 +109,23 @@ function ApprovalListViewCmp(props: IProps) {
       ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       ListEmptyComponent={EmptyComponentElement}
       ListHeaderComponent={
-        withHeader ? <ApprovalListHeader tableLayout={tableLayout} /> : null
+        withHeader && !showSkeleton ? (
+          <ApprovalListHeader tableLayout={tableLayout} />
+        ) : null
       }
       renderItem={({ item }) => (
         <ApproveListItem
-          key={`${item.tokenAddress}_${item.spenderAddress}`}
+          key={`${item.networkId}_${item.contractAddress}`}
           approval={item}
+          isAllNetworks={isAllNetworks}
+          tableLayout={tableLayout}
         />
       )}
+      ListFooterComponent={
+        <Stack pb="$5">
+          {addPaddingOnListFooter ? <Stack h="$16" /> : null}
+        </Stack>
+      }
     />
   );
 }

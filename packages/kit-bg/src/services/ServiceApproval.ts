@@ -1,16 +1,21 @@
 import qs from 'querystring';
 
-import { isNil, omitBy } from 'lodash';
+import { groupBy, isNil, omitBy } from 'lodash';
 
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import type {
+  IContractApproval,
   IFetchAccountApprovalsParams,
   IFetchAccountApprovalsResponse,
 } from '@onekeyhq/shared/types/approval';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import ServiceBase from './ServiceBase';
 
@@ -32,20 +37,43 @@ class ServiceApproval extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountApprovals(params: IFetchAccountApprovalsParams) {
-    const { networkId, spenderAddress, limit, accountId, dbAccount } = params;
+    const { accountId, indexedAccountId, networkId } = params;
 
-    const accountParams = {
-      accountId,
-      networkId,
-      dbAccount,
-    };
+    let queries: {
+      accountAddress: string;
+      networkId: string;
+    }[] = [];
 
-    let accountAddress = params.accountAddress;
-    if (!accountAddress) {
-      accountAddress =
-        await this.backgroundApi.serviceAccount.getAccountAddressForApi(
-          accountParams,
+    if (networkUtils.isAllNetwork({ networkId })) {
+      const networksSupportBulkRevokeApproval =
+        getNetworksSupportBulkRevokeApproval();
+
+      const { allNetworkAccounts } =
+        await this.backgroundApi.serviceAllNetwork.buildAllNetworkAccountsForApiParam(
+          {
+            accountId,
+            networkId,
+            excludeIncompatibleWithWalletAccounts: true,
+            withoutAccountId: true,
+          },
         );
+      queries = allNetworkAccounts.filter(
+        (i) => networksSupportBulkRevokeApproval[i.networkId],
+      );
+    } else {
+      let accountAddress = params.accountAddress;
+      if (!accountAddress) {
+        accountAddress =
+          await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+            accountId,
+            networkId,
+          });
+      }
+
+      queries.push({
+        accountAddress,
+        networkId,
+      });
     }
 
     const controller = new AbortController();
@@ -53,20 +81,13 @@ class ServiceApproval extends ServiceBase {
 
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
 
-    const resp = await client.get<{
+    const resp = await client.post<{
       data: IFetchAccountApprovalsResponse;
     }>(
-      `/wallet/v1/account/token-approval/list?${qs.stringify(
-        omitBy(
-          {
-            networkId,
-            accountAddress,
-            spenderAddress,
-            limit,
-          },
-          isNil,
-        ),
-      )}`,
+      `/wallet/v1/account/token-approval/list`,
+      {
+        queries,
+      },
       {
         signal: controller.signal,
         headers:
@@ -76,7 +97,80 @@ class ServiceApproval extends ServiceBase {
       },
     );
 
-    return resp.data.data;
+    const data = resp.data.data.data;
+
+    const contractApprovals: IContractApproval[] = [];
+    let tokenMap: Record<
+      string,
+      {
+        price: string;
+        price24h: string;
+        info: IToken;
+      }
+    > = {};
+
+    let contractMap: Record<string, IAddressInfo> = {};
+
+    for (const query of queries) {
+      const approvalDataByNetwork = data[query.networkId];
+      if (approvalDataByNetwork) {
+        const transformedTokens = Object.entries(
+          approvalDataByNetwork.tokens,
+        ).reduce((acc, [address, tokenData]) => {
+          acc[`${query.networkId}_${address}`] = tokenData;
+          return acc;
+        }, {} as Record<string, { price: string; price24h: string; info: IToken }>);
+
+        tokenMap = {
+          ...tokenMap,
+          ...transformedTokens,
+        };
+        contractMap = {
+          ...contractMap,
+          ...approvalDataByNetwork.addressMap,
+        };
+
+        const approvalsDataByAccountAddress =
+          approvalDataByNetwork[query.accountAddress.toLowerCase()];
+        if (approvalsDataByAccountAddress) {
+          const approvalsDataByContract =
+            approvalsDataByAccountAddress.approvals;
+          if (approvalsDataByContract.length > 0) {
+            const contractGroup = groupBy(
+              approvalsDataByContract,
+              'spenderAddress',
+            );
+            Object.entries(contractGroup).forEach(
+              ([spenderAddress, approvals]) => {
+                const latestApprovalTime = Math.max(
+                  ...approvals.map((i) => i.time),
+                );
+                const riskLevel = Math.max(
+                  ...approvals.map((i) => i.riskLevel),
+                );
+                const riskReason = approvals.find(
+                  (i) => i.riskLevel === riskLevel,
+                )?.reason;
+                contractApprovals.push({
+                  networkId: query.networkId,
+                  latestApprovalTime,
+                  riskLevel,
+                  riskReason,
+                  contractAddress: spenderAddress,
+                  approvals,
+                });
+              },
+            );
+          }
+        }
+      }
+    }
+
+    return {
+      contractApprovals,
+      tokenMap,
+      contractMap,
+    };
   }
 }
 

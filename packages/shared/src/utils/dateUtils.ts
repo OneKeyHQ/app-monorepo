@@ -139,10 +139,12 @@ export function formatMonth(
 export function formatDistanceStrict(
   date: Date | number,
   baseDate: Date | number,
+  addSuffix?: boolean,
 ) {
   const locale = appLocale.getLocale();
   const distance = fnsFormatDistanceStrict(date, baseDate, {
     locale: parseToDateFnsLocale(locale),
+    addSuffix,
   });
 
   return distance ?? '';

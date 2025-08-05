@@ -35,7 +35,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 
-// import { ApprovalListContainerWithProvider } from './ApprovalListContainer';
+import { ApprovalListContainerWithProvider } from './ApprovalListContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
@@ -138,7 +138,9 @@ export function HomePageView({
     getEnabledNFTNetworkIds().includes(network?.id ?? '');
 
   const isBulkRevokeApprovalEnabled =
-    networksSupportBulkRevokeApproval[network?.id ?? ''] ?? false;
+    (network?.isAllNetworks ||
+      networksSupportBulkRevokeApproval[network?.id ?? '']) ??
+    false;
 
   const isRequiredValidation = vaultSettings?.validationRequired;
   const softwareAccountDisabled = vaultSettings?.softwareAccountDisabled;
