@@ -20,6 +20,7 @@ import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickSt
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
@@ -95,6 +96,7 @@ function EnableOneKeyCloudSwitchListItem() {
   const { isPrimeSubscriptionActive } = usePrimeAuthV2();
   const navigation = useAppNavigation();
   const route = useAppRoute<IPrimeParamList, EPrimePages.PrimeCloudSync>();
+  const serverUserInfo = route.params?.serverUserInfo;
 
   const isSubmittingRef = useRef(false);
 
@@ -149,6 +151,7 @@ function EnableOneKeyCloudSwitchListItem() {
                 showAllFeatures: false,
                 selectedFeature: EPrimeFeatures.OneKeyCloud,
                 selectedSubscriptionPeriod: 'P1Y',
+                serverUserInfo,
               },
             });
             return;
@@ -275,10 +278,24 @@ function WhatDataIncludedListItem() {
 
 function AppDataSection() {
   const navigation = useAppNavigation();
+  const route = useAppRoute<IPrimeParamList, EPrimePages.PrimeCloudSync>();
+  const forceReloadServerUserInfo = useRef(false);
+  const serverUserInfo = route.params?.serverUserInfo;
 
   const [config] = usePrimeCloudSyncPersistAtom();
 
   const isSubmittingRef = useRef(false);
+
+  const { result: isServerMasterPasswordSet, run: reloadServerUserInfo } =
+    usePromiseResult(() => {
+      return backgroundApiProxy.serviceMasterPassword.IsServerMasterPasswordSet(
+        {
+          serverUserInfo: forceReloadServerUserInfo.current
+            ? undefined
+            : serverUserInfo,
+        },
+      );
+    }, [serverUserInfo]);
 
   const intl = useIntl();
 
@@ -293,7 +310,7 @@ function AppDataSection() {
     <Section title={intl.formatMessage({ id: ETranslations.prime_app_data })}>
       <EnableOneKeyCloudSwitchListItem />
 
-      {config?.isCloudSyncEnabled ? (
+      {config?.isCloudSyncEnabled || isServerMasterPasswordSet ? (
         <ListItem
           title={intl.formatMessage({
             id: ETranslations.prime_change_backup_password,
@@ -301,7 +318,12 @@ function AppDataSection() {
           icon="Key2Outline"
           drillIn
           onPress={async () => {
-            await backgroundApiProxy.serviceMasterPassword.startChangePassword();
+            try {
+              await backgroundApiProxy.serviceMasterPassword.startChangePassword();
+            } finally {
+              forceReloadServerUserInfo.current = true;
+              await reloadServerUserInfo();
+            }
           }}
         />
       ) : null}
