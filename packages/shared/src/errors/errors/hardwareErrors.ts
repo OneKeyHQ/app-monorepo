@@ -2,7 +2,11 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { get, uniq } from 'lodash';
 
-import { EAppEventBusNames, appEventBus, HARDWARE_ERROR_DIALOG_TYPES } from '../../eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  HARDWARE_ERROR_DIALOG_TYPES,
+  appEventBus,
+} from '../../eventBus/appEventBus';
 import { ETranslations } from '../../locale';
 import platformEnv from '../../platformEnv';
 import {
@@ -22,6 +26,7 @@ import type {
 
 export type IOneKeyErrorHardwareProps = Omit<IOneKeyError, 'payload'> & {
   payload: IOneKeyHardwareErrorPayload; // raw payload from hardware sdk error response
+  silentMode?: boolean;
 };
 export class OneKeyHardwareError<
   I18nInfoT = IOneKeyErrorI18nInfo | any,
@@ -700,21 +705,18 @@ export class DeviceNotFound extends OneKeyHardwareError {
       }),
     );
 
-    // Trigger global event to show hardware error dialog
-    // This is a generic event that can be reused by other hardware errors
-    // Example usage for other errors:
-    // appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
-    //   errorType: HARDWARE_ERROR_DIALOG_TYPES.NEED_ONEKEY_BRIDGE,
-    //   errorCode: ECustomOneKeyHardwareError.NeedOneKeyBridge,
-    //   errorMessage: 'Bridge connection required',
-    //   payload: props?.payload,
-    // });
-    appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
-      errorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND,
-      errorCode: props?.payload?.code || HardwareErrorCode.DeviceNotFound,
-      errorMessage: props?.payload?.message || props?.message || 'DeviceNotFound',
-      payload: props?.payload,
-    });
+    // Only trigger UI event if not in silent mode
+    if (!props?.silentMode) {
+      // Trigger global event to show hardware error dialog
+      // This is a generic event that can be reused by other hardware errors
+      appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
+        errorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND,
+        errorCode: props?.payload?.code || HardwareErrorCode.DeviceNotFound,
+        errorMessage:
+          props?.payload?.message || props?.message || 'DeviceNotFound',
+        payload: props?.payload,
+      });
+    }
   }
 
   override code = HardwareErrorCode.DeviceNotFound;
