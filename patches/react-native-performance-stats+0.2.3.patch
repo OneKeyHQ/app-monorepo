@@ -1,0 +1,111 @@
+diff --git a/node_modules/react-native-performance-stats/android/build.gradle b/node_modules/react-native-performance-stats/android/build.gradle
+index 8d78d92..7d21d24 100644
+--- a/node_modules/react-native-performance-stats/android/build.gradle
++++ b/node_modules/react-native-performance-stats/android/build.gradle
+@@ -51,6 +51,7 @@ repositories {
+ 
+ dependencies {
+     implementation 'com.facebook.react:react-native:+'
++    implementation 'org.greenrobot:eventbus-java:3.3.1+'
+ }
+ 
+ if (isNewArchitectureEnabled()) {
+diff --git a/node_modules/react-native-performance-stats/android/src/main/java/nl/skillnation/perfstats/PerformanceStatsImpl.java b/node_modules/react-native-performance-stats/android/src/main/java/nl/skillnation/perfstats/PerformanceStatsImpl.java
+index 621ef85..141c45c 100644
+--- a/node_modules/react-native-performance-stats/android/src/main/java/nl/skillnation/perfstats/PerformanceStatsImpl.java
++++ b/node_modules/react-native-performance-stats/android/src/main/java/nl/skillnation/perfstats/PerformanceStatsImpl.java
+@@ -12,9 +12,14 @@ import com.facebook.react.bridge.WritableMap;
+ import com.facebook.react.modules.core.DeviceEventManagerModule;
+ import com.facebook.react.modules.debug.FpsDebugFrameCallback;
+ 
++import org.greenrobot.eventbus.EventBus;
++
+ import java.io.BufferedReader;
+ import java.io.IOException;
+ import java.io.InputStreamReader;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Map;
+ 
+ // Most important impl details from: https://github.com/facebook/react-native/blob/main/ReactAndroid/src/main/java/com/facebook/react/devsupport/FpsView.java
+ public class PerformanceStatsImpl {
+@@ -61,6 +66,12 @@ public class PerformanceStatsImpl {
+         state.putDouble("usedRam", usedRam);
+         state.putDouble("usedCpu", usedCpu);
+ 
++        if ((uiFPS > 0 && uiFPS < 30 )|| (jsFPS > 0 && jsFPS < 30)) {
++            EventBus.getDefault().post(new ArrayList<String>() {{
++                add("PerformanceStats");
++                add("jsFPS:" + jsFPS + " uiFPS:" + uiFPS + " usedRam:" + usedRam + " usedCpu:" + usedCpu);
++            }});
++        }
+         sendEvent(state);
+     }
+ 
+@@ -91,8 +102,8 @@ public class PerformanceStatsImpl {
+             // Collect FPS info
+             mTotalFramesDropped += mFrameCallback.getExpectedNumFrames() - mFrameCallback.getNumFrames();
+             mTotal4PlusFrameStutters += mFrameCallback.get4PlusFrameStutters();
+-            double fps = mFrameCallback.getFPS();
+-            double jsFps = mFrameCallback.getJSFPS();
++            double fps = mFrameCallback.getFps();
++            double jsFps = mFrameCallback.getJsFPS();
+ 
+             // Collect system resource usage
+             double cpuUsage = 0;
+diff --git a/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm b/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm
+index c574f23..b89b297 100644
+--- a/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm
++++ b/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm
+@@ -10,6 +10,9 @@
+ #import "RNPerformanceStatsSpec.h"
+ #endif
+ 
++#import <CocoaLumberjack/CocoaLumberjack.h>
++static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
++
+ // NOTICE: Mainly copied from here: https://github.com/facebook/react-native/blob/main/React/CoreModules/RCTPerfMonitor.mm
+ 
+ #pragma Resource usage methods
+@@ -135,6 +138,9 @@ - (void)updateStats:(bool)withCPU
+     if (withCPU) {
+         cpu = cpu_usage();
+     }
++    if (_jsFPSTracker.FPS < 30 || _uiFPSTracker.FPS < 30) {
++        DDLogDebug(@"Performance warning: cpu=%.2f, jsFps=%lu, uiFps=%lu, usedRam=%.2fMB, viewCount=%lu, visibleViewCount=%lu", cpu, (unsigned long)_jsFPSTracker.FPS, (unsigned long)_uiFPSTracker.FPS, mem, (unsigned long)viewCount, (unsigned long)visibleViewCount);
++    }
+     
+     [self sendEventWithName:@"performanceStatsUpdate" body:@{
+         @"jsFps": [NSNumber numberWithUnsignedInteger:_jsFPSTracker.FPS],
+@@ -160,7 +166,7 @@ - (void)threadUpdate:(CADisplayLink *)displayLink
+   [tracker onTick:displayLink.timestamp];
+ }
+ 
+-RCT_REMAP_METHOD(start, withCpu:(NSInteger*)withCpu)
++RCT_REMAP_METHOD(start, withCpu:(BOOL)withCpu)
+ {
+     _isRunning = true;
+     _uiFPSTracker= [[FPSTracker alloc] init];
+diff --git a/node_modules/react-native-performance-stats/react-native-performance-stats.podspec b/node_modules/react-native-performance-stats/react-native-performance-stats.podspec
+index 82dd7fe..ca30e84 100644
+--- a/node_modules/react-native-performance-stats/react-native-performance-stats.podspec
++++ b/node_modules/react-native-performance-stats/react-native-performance-stats.podspec
+@@ -2,7 +2,6 @@ require "json"
+ 
+ package = JSON.parse(File.read(File.join(__dir__, "package.json")))
+ 
+-folly_version = '2021.06.28.00-v2'
+ folly_compiler_flags = '-DFOLLY_NO_CONFIG -DFOLLY_MOBILE=1 -DFOLLY_USE_LIBCPP=1 -Wno-comma -Wno-shorten-64-to-32'
+ 
+ Pod::Spec.new do |s|
+@@ -28,8 +27,9 @@ Pod::Spec.new do |s|
+             "CLANG_CXX_LANGUAGE_STANDARD" => "c++17"
+         }
+ 
++        s.dependency "CocoaLumberjack"
+         s.dependency "React-Codegen"
+-        s.dependency "RCT-Folly", folly_version
++        s.dependency "RCT-Folly"
+         s.dependency "RCTRequired"
+         s.dependency "RCTTypeSafety"
+         s.dependency "ReactCommon/turbomodule/core"

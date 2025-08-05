@@ -13,6 +13,7 @@ export const exportLogs = async (filename: string) => {
   defaultLogger.setting.device.logDeviceInfo();
   await waitAsync(1000);
   const logFilePath = await utils.getLogFilePath(filename);
+  console.log('logFilePath', logFilePath);
   const Share = await getShareModule();
   if (!Share) return;
   Share.shareAsync(logFilePath, {
