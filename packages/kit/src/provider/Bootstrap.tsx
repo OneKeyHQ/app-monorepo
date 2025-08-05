@@ -576,12 +576,12 @@ export function Bootstrap() {
 
   useEffect(() => {
     if (devSettings.enabled) {
-      performance.start(true);
+      performance.start(true, !!devSettings.settings?.showPerformanceMonitor);
     }
     return () => {
       performance.stop();
     };
-  }, [devSettings.enabled]);
+  }, [devSettings.enabled, devSettings.settings?.showPerformanceMonitor]);
 
   useFetchCurrencyList();
   useAboutVersion();
