@@ -309,3 +309,32 @@ export type IMarketTokenSecurityData =
 export interface IMarketTokenSecurityBatchResponse {
   [tokenAddress: string]: IMarketTokenSecurityData;
 }
+
+export interface IMarketBasicConfigNetwork {
+  networkId: string;
+  index: number;
+  name: string;
+  logoUrl: string;
+  explorerUrl: string;
+  chainId: string;
+}
+
+export interface IMarketBasicConfigToken {
+  contractAddress: string;
+  chainId: string;
+  isNative: boolean;
+  name: string;
+}
+
+export interface IMarketBasicConfigData {
+  networkList: IMarketBasicConfigNetwork[];
+  recommendTokens: IMarketBasicConfigToken[];
+  refreshInterval: number;
+  minLiquidity: number;
+}
+
+export interface IMarketBasicConfigResponse {
+  code: number;
+  message: string;
+  data: IMarketBasicConfigData;
+}

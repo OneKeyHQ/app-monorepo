@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import {
@@ -42,8 +43,11 @@ export function useMarketTokenList({
     run: fetchMarketTokenList,
   } = usePromiseResult(
     async () => {
-      // Fetch 3 pages in parallel
-      const promises = [1, 2, 3, 4, 5].map((page) =>
+      // Mobile platforms fetch 1 page, other platforms fetch 3 pages
+      const pageCount = platformEnv.isNative ? 1 : 2;
+      const pageNumbers = Array.from({ length: pageCount }, (_, i) => i + 1);
+
+      const promises = pageNumbers.map((page) =>
         backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
           networkId,
           sortBy,

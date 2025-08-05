@@ -83,6 +83,7 @@ export function TokenDetailHeaderLeft({
   return (
     <XStack ai="center" gap="$2">
       <Token
+        size="sm"
         tokenImageUri={logoUrl}
         networkImageUri={networkLogoUri}
         fallbackIcon="CryptoCoinOutline"

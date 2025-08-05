@@ -6,7 +6,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
-import type { IWebViewRef } from '../../WebView/types';
+import type { IWebViewRef } from '../../../WebView/types';
 
 interface IUseTradingViewV2WebSocketProps {
   networkId: string;

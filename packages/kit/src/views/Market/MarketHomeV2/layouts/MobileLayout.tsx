@@ -1,6 +1,9 @@
-import { Stack } from '@onekeyhq/components';
+import { Stack, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { MarketMobileTabs } from '../components/MarketHomeContentMobile/MarketMobileTabs';
+import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
+import { MarketTokenList } from '../components/MarketTokenList';
+import { ToggleButton } from '../components/MarketViewToggle/MarketViewToggle';
 
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketHomeTabValue } from '../types';
@@ -29,13 +32,40 @@ export function MobileLayout({
 }: IMobileLayoutProps) {
   return (
     <Stack flex={1}>
-      <MarketMobileTabs
-        selectedTab={activeTab}
-        onTabChange={onTabChange}
-        filterBarProps={filterBarProps}
-        selectedNetworkId={selectedNetworkId}
-        liquidityFilter={liquidityFilter}
-      />
+      {/* Tab Header using ToggleButton style from MarketViewToggle */}
+      <XStack gap="$6" px="$4" py="$2">
+        <ToggleButton
+          isActive={activeTab === 'watchlist'}
+          onPress={
+            activeTab !== 'watchlist'
+              ? () => onTabChange('watchlist')
+              : undefined
+          }
+          disabled={false}
+          translationId={ETranslations.global_watchlist}
+          defaultMessage="Watchlist"
+        />
+        <ToggleButton
+          isActive={activeTab === 'trending'}
+          onPress={
+            activeTab !== 'trending' ? () => onTabChange('trending') : undefined
+          }
+          disabled={false}
+          translationId={ETranslations.market_trending}
+          defaultMessage="Trending"
+        />
+      </XStack>
+
+      {/* Tab Content */}
+      <Stack flex={1} position="relative">
+        {activeTab === 'trending' ? (
+          <MarketFilterBarSmall {...filterBarProps} />
+        ) : null}
+        <MarketTokenList
+          networkId={selectedNetworkId}
+          liquidityFilter={liquidityFilter}
+        />
+      </Stack>
     </Stack>
   );
 }
