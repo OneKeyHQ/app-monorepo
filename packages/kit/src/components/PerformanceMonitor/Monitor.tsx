@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import {
   useAnimatedProps,
+  useAnimatedStyle,
   useFrameCallback,
   useSharedValue,
 } from 'react-native-reanimated';
@@ -24,6 +25,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
   text: {
+    userSelect: 'none',
     cursor: 'pointer',
     width: 60,
     fontSize: 13,
@@ -148,14 +150,22 @@ function JsPerformance({ smoothingFrames }: { smoothingFrames: number }) {
 
   const animatedProps = useAnimatedProps(() => {
     const text = `JS: ${jsFps.value ?? 'N/A'} `;
-    const color = isLowFps(Number(jsFps.value)) ? 'red' : undefined;
-    return { text, defaultValue: text, style: [{ color }] };
+    return { text, defaultValue: text };
+  });
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const value = jsFps.value;
+    const isLow = isLowFps(Number(value));
+    return {
+      color: isLow ? 'red' : '#000',
+      fontWeight: isLow ? 800 : 500,
+    };
   });
 
   return (
     <View style={styles.container}>
       <AnimatedTextInput
-        style={styles.text}
+        style={[styles.text, animatedStyle]}
         animatedProps={animatedProps}
         editable={false}
       />
@@ -183,14 +193,22 @@ function UiPerformance({ smoothingFrames }: { smoothingFrames: number }) {
     const value = uiFps.value;
     const text = `UI: ${value ?? 'N/A'} `;
     // Highlight in red and bold if value is less than 30
-    const color = isLowFps(Number(value)) ? 'red' : undefined;
-    return { text, defaultValue: text, style: [{ color }] };
+    return { text, defaultValue: text };
+  });
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const value = uiFps.value;
+    const isLow = isLowFps(Number(value));
+    return {
+      color: isLow ? 'red' : '#000',
+      fontWeight: isLow ? 800 : 500,
+    };
   });
 
   return (
     <View style={styles.container}>
       <AnimatedTextInput
-        style={styles.text}
+        style={[styles.text, animatedStyle]}
         animatedProps={animatedProps}
         editable={false}
       />
