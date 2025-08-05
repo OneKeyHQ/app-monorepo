@@ -3,12 +3,10 @@ import {
   useMarketWatchListV2Atom,
   useShowWatchlistOnlyValue,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketFilterBar } from '../components/MarketFilterBar';
-import {
-  MarketRecommendList,
-  mockRecommendedTokens,
-} from '../components/MarketRecommendList';
+import { MarketRecommendList } from '../components/MarketRecommendList';
 import { MarketTokenList } from '../components/MarketTokenList';
 
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
@@ -26,6 +24,7 @@ interface IDesktopLayoutProps {
   selectedNetworkId: string;
   liquidityFilter: ILiquidityFilter;
   activeTab: IMarketHomeTabValue;
+  recommendedTokens: IMarketTokenListItem[];
 }
 
 export function DesktopLayout({
@@ -33,6 +32,7 @@ export function DesktopLayout({
   selectedNetworkId,
   liquidityFilter,
   activeTab,
+  recommendedTokens,
 }: IDesktopLayoutProps) {
   const [watchlistState] = useMarketWatchListV2Atom();
   const [showWatchlistOnly] = useShowWatchlistOnlyValue();
@@ -57,7 +57,7 @@ export function DesktopLayout({
           zIndex={1000}
         >
           <MarketRecommendList
-            recommendedTokens={mockRecommendedTokens}
+            recommendedTokens={recommendedTokens}
             maxSize={8}
             enableSelection
             showTitle

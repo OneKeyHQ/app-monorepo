@@ -1,12 +1,18 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
-import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page, XStack, useMedia } from '@onekeyhq/components';
+import { useNavigation } from '@react-navigation/native';
+
+import type {
+  IPageNavigationProp,
+  IPageScreenProps,
+} from '@onekeyhq/components';
+import { NavBackButton, Page, XStack, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  type ETabMarketV2Routes,
+  ETabMarketRoutes,
   ETabRoutes,
-  type ITabMarketV2ParamList,
+  type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -19,15 +25,18 @@ import { HeaderLeftCloseButton } from '../../../components/TabPageHeader/HeaderL
 import { useTokenDetailActions } from '../../../states/jotai/contexts/marketV2';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
+import { TokenDetailHeader } from './components/TokenDetailHeader/TokenDetailHeader';
 import { useAutoRefreshTokenDetail } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileLayout } from './layouts/MobileLayout';
 
 function MarketDetail({
   route,
-}: IPageScreenProps<ITabMarketV2ParamList, ETabMarketV2Routes.MarketDetail>) {
+}: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>) {
   const { tokenAddress, networkId } = route.params;
+  const media = useMedia();
   const tokenDetailActions = useTokenDetailActions();
+  const navigation = useNavigation<IPageNavigationProp<ITabMarketParamList>>();
 
   // Clear all token detail content when unmount
   useEffect(() => {
@@ -46,14 +55,39 @@ function MarketDetail({
     networkId,
   });
 
-  const customHeaderLeft = (
-    <XStack gap="$3" ai="center">
-      <HeaderLeftCloseButton />
-      <AccountSelectorTriggerHome num={0} />
-    </XStack>
+  const handleBackPress = useCallback(() => {
+    navigation.navigate(ETabMarketRoutes.TabMarket);
+  }, [navigation]);
+
+  const customHeaderLeft = useMemo(
+    () => (
+      <XStack gap="$3" ai="center">
+        {platformEnv.isNative ? (
+          <>
+            <HeaderLeftCloseButton />
+
+            <MarketWatchListProviderMirrorV2
+              storeName={EJotaiContextStoreNames.marketWatchListV2}
+            >
+              <TokenDetailHeader
+                containerProps={{ p: '$0' }}
+                showStats={false}
+                showMediaAndSecurity={false}
+              />
+            </MarketWatchListProviderMirrorV2>
+          </>
+        ) : (
+          <>
+            <NavBackButton onPress={handleBackPress} />
+            <AccountSelectorTriggerHome num={0} />
+          </>
+        )}
+      </XStack>
+    ),
+    [handleBackPress],
   );
 
-  const media = useMedia();
+  const customHeaderRight = useMemo(() => null, []);
 
   return (
     <Page>
@@ -61,17 +95,17 @@ function MarketDetail({
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Market}
         customHeaderLeftItems={customHeaderLeft}
+        customHeaderRightItems={platformEnv.isNative ? customHeaderRight : null}
+        hideSearch={!media.gtMd}
       />
-      <Page.Body>{media.gtMd ? <DesktopLayout /> : <MobileLayout />}</Page.Body>
+
+      <Page.Body>{media.gtLg ? <DesktopLayout /> : <MobileLayout />}</Page.Body>
     </Page>
   );
 }
 
 function MarketDetailV2(
-  props: IPageScreenProps<
-    ITabMarketV2ParamList,
-    ETabMarketV2Routes.MarketDetail
-  >,
+  props: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>,
 ) {
   return (
     <AccountSelectorProviderMirror

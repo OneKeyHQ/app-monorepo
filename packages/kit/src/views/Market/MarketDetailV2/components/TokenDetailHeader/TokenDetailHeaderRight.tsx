@@ -78,8 +78,8 @@ export function TokenDetailHeaderRight({
   if (!showStats) {
     return (
       <XStack gap="$3" ai="center">
-        {shareButton}
         {marketStar}
+        {shareButton}
       </XStack>
     );
   }
