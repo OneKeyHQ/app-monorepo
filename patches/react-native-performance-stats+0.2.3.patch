@@ -54,7 +54,7 @@ index 621ef85..141c45c 100644
              // Collect system resource usage
              double cpuUsage = 0;
 diff --git a/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm b/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm
-index c574f23..c21f433 100644
+index c574f23..d8e11a8 100644
 --- a/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm
 +++ b/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm
 @@ -10,8 +10,91 @@
@@ -212,7 +212,7 @@ index c574f23..c21f433 100644
  }
  
 -RCT_REMAP_METHOD(start, withCpu:(NSInteger*)withCpu)
-+RCT_REMAP_METHOD(start, withCpu:(BOOL)withCpu, widthMonitorView:(BOOL)widthMonitorView)
++RCT_REMAP_METHOD(start, withCpu:(BOOL)withCpu widthMonitorView:(BOOL)widthMonitorView)
  {
      _isRunning = true;
      _uiFPSTracker= [[FPSTracker alloc] init];
