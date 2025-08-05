@@ -17,8 +17,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
-import type { IPrimeServerUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IPrimeServerUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
