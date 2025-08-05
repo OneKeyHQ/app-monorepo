@@ -30,6 +30,7 @@ import { NavigationContainer } from './NavigationContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
+import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
 
 const PageTrackerContainer = LazyLoad(
   () => import('./PageTrackerContainer'),
@@ -117,6 +118,7 @@ export function Container() {
           <ForceFirmwareUpdateContainer />
           <ColdStartByNotification />
           <PrimeGlobalEffect />
+          <WebPerformanceMonitorContainer />
         </NavigationContainer>
         <GlobalWalletConnectModalContainer />
       </AppStateLockContainer>
