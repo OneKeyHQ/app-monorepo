@@ -79,6 +79,7 @@ const DEFAULT_BUFFER_SIZE = 20;
 addWhitelistedNativeProps({ text: true });
 const AnimatedTextInput = createAnimatedComponent(TextInput);
 
+let requestAnimationFrameId: number | null = null;
 function loopAnimationFrame(fn: (lastTime: number, time: number) => void) {
   let lastTime = 0;
 
@@ -88,7 +89,7 @@ function loopAnimationFrame(fn: (lastTime: number, time: number) => void) {
         fn(lastTime, time);
       }
       lastTime = time;
-      requestAnimationFrame(loop);
+      requestAnimationFrameId = requestAnimationFrame(loop);
     });
   }
 
@@ -136,6 +137,13 @@ function JsPerformance({ smoothingFrames }: { smoothingFrames: number }) {
       // thus 2x multiplication has to occur here
       jsFps.value = (currentFps * 2).toFixed(0);
     });
+
+    return () => {
+      if (requestAnimationFrameId) {
+        cancelAnimationFrame(requestAnimationFrameId);
+        requestAnimationFrameId = null;
+      }
+    };
   }, [jsFps, totalRenderTime]);
 
   const animatedProps = useAnimatedProps(() => {
