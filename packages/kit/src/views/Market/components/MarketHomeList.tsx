@@ -2,11 +2,7 @@ import type { MutableRefObject } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import {
-  InteractionManager,
-  StyleSheet,
-  useWindowDimensions,
-} from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 
 import type {
   IDragEndParamsWithItem,
@@ -438,7 +434,7 @@ function BasicMarketHomeList({
       category.coingeckoIds,
       true,
     );
-    void InteractionManager.runAfterInteractions(() => {
+    void timerUtils.setTimeoutPromised(() => {
       setListData(response);
     });
   }, [FETCH_COOLDOWN_DURATION, category.categoryId, category.coingeckoIds]);

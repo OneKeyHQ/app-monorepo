@@ -16,10 +16,10 @@ import {
 
 import { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/src/enum';
 import noop from 'lodash/noop';
-import { InteractionManager } from 'react-native';
 import { Group, getFontSize, useProps, useThemeName } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useSelectionColor } from '../../hooks';
 import { useScrollToLocation } from '../../layouts/ScrollView';
@@ -353,7 +353,7 @@ function BaseInput(
       onFocus?.(e);
       if (platformEnv.isNative && selectTextOnFocus) {
         const { currentTarget } = e;
-        await InteractionManager.runAfterInteractions(() => {
+        await timerUtils.setTimeoutPromised(() => {
           currentTarget.setNativeProps({
             selection: { start: 0, end: valueRef.current?.length || 0 },
           });
