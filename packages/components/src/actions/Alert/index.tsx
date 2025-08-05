@@ -41,6 +41,8 @@ type IAlertActionProps = {
   onSecondaryPress?: () => void;
   isPrimaryLoading?: boolean;
   isSecondaryLoading?: boolean;
+  isPrimaryDisabled?: boolean;
+  isSecondaryDisabled?: boolean;
 };
 
 interface IAlertContext {
@@ -228,6 +230,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
             size="small"
             onPress={action.onPrimaryPress}
             loading={action.isPrimaryLoading}
+            disabled={action.isPrimaryDisabled}
           >
             {action.primary}
           </Button>
@@ -237,6 +240,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
               variant="tertiary"
               onPress={action.onSecondaryPress}
               loading={action.isSecondaryLoading}
+              disabled={action.isSecondaryDisabled}
             >
               {action.secondary}
             </Button>

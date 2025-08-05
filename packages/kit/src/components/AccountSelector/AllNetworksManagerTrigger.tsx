@@ -39,16 +39,26 @@ function AllNetworksManagerTrigger({
     activeAccount: { network, wallet, account, indexedAccount },
   } = useActiveAccount({ num });
 
-  const { enabledNetworksCompatibleWithWalletId, run } =
-    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
-      walletId: wallet?.id ?? '',
-      networkId: network?.id,
-    });
+  const {
+    enabledNetworksCompatibleWithWalletId,
+    enabledNetworksWithoutAccount,
+    run,
+  } = useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+    walletId: wallet?.id ?? '',
+    networkId: network?.id,
+    indexedAccountId: indexedAccount?.id,
+    filterNetworksWithoutAccount: true,
+  });
 
   useEffect(() => {
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, run);
+    const refresh = async () => {
+      await run({ alwaysSetState: true });
+    };
+    appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
     return () => {
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, run);
+      appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
     };
   }, [run]);
 
@@ -152,6 +162,33 @@ function AllNetworksManagerTrigger({
           </SizableText>
           <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
         </XStack>
+        {enabledNetworksWithoutAccount.length > 0 ? (
+          <Stack
+            position="absolute"
+            right="$0"
+            top="$0"
+            alignItems="flex-end"
+            w="$3"
+            pointerEvents="none"
+          >
+            <Stack
+              bg="$bgApp"
+              borderRadius="$full"
+              borderWidth={2}
+              borderColor="$transparent"
+            >
+              <Stack
+                px="$1"
+                borderRadius="$full"
+                bg="$caution10"
+                minWidth="$2"
+                height="$2"
+                alignItems="center"
+                justifyContent="center"
+              />
+            </Stack>
+          </Stack>
+        ) : null}
       </XStack>
     </YStack>
   );
