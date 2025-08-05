@@ -40,6 +40,7 @@
     "fetch:locale": "yarn workspace @onekeyhq/shared fetch:locale",
     "clean": "yarn workspaces foreach -A  -p run clean && node ./development/scripts/clean_workspace.js",
     "clean:cache": "yarn workspaces foreach -A run clean:build",
+    "patch:fix": "node development/patch-fix.js",
     "_tsc": "node ./development/lint/ts",
     "reinstall": "yarn clean && yarn install",
     "_lint": "node ./development/lint/eslint",
