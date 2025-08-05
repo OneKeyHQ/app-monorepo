@@ -51,13 +51,14 @@ browsers.forEach((browser) => {
   const jsonObj = JSON.parse(json);
   const versionArray = version.split('.');
   versionArray.pop();
-  // Split buildNumber into groups of six digits, then parse each group as integer
-  if (typeof buildNumber === 'string') {
-    for (let i = 0; i < buildNumber.length; i += 6) {
-      const group = buildNumber.slice(i, i + 6);
-      versionArray.push(String(parseInt(group, 10)));
-    }
-  }
+  const buildVersionString = buildNumber.slice(2);
+  // Split buildVersionString into two equal parts and parse them as integers
+  const mid = Math.floor(buildVersionString.length / 2);
+  const part1 = buildVersionString.slice(0, mid);
+  const part2 = buildVersionString.slice(mid);
+  const parsedPart1 = String(parseInt(part1, 10));
+  const parsedPart2 = String(parseInt(part2, 10));
+  versionArray.push(parsedPart1, parsedPart2);
   jsonObj.version = versionArray.join('.');
   console.log('OneKey Development Build', jsonObj.version);
   fs.writeFileSync(manifestPath, JSON.stringify(jsonObj, null, 2));
