@@ -28,6 +28,7 @@ import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IPrimeServerUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
 import { PrimeSubscriptionPlans } from '../../components/PrimePurchaseDialog/PrimeSubscriptionPlans';
@@ -89,6 +90,7 @@ export default function PrimeDashboard({
 
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
     useState<ISubscriptionPeriod>('P1Y');
+  const [serverUserInfo, setServerUserInfo] = useState<IPrimeServerUserInfo | undefined>(undefined);
 
   const { top } = useSafeAreaInsets();
   const { isNative, isWebMobile } = platformEnv;
@@ -113,7 +115,8 @@ export default function PrimeDashboard({
           // may be blurred when auto navigate to Device Limit Page
           return;
         }
-        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        const result = await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        setServerUserInfo(result.serverUserInfo);
       }
     };
     void fn();
@@ -309,6 +312,7 @@ export default function PrimeDashboard({
                 showAllFeatures: true,
                 selectedFeature: EPrimeFeatures.OneKeyCloud,
                 selectedSubscriptionPeriod,
+                serverUserInfo,
               });
             }}
             icon="QuestionmarkOutline"
@@ -347,6 +351,7 @@ export default function PrimeDashboard({
                 <PrimeBenefitsList
                   selectedSubscriptionPeriod={selectedSubscriptionPeriod}
                   networkId={route.params?.networkId}
+                  serverUserInfo={serverUserInfo}
                 />
               </>
             ) : (
