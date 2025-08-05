@@ -18,8 +18,6 @@ import {
   useAutoTokenDetailUpdate,
 } from './hooks';
 
-// import { useTradingViewV2WebSocket } from './hooks';
-
 import type { ICustomReceiveHandlerData } from './types';
 import type { IWebViewRef } from '../../WebView/types';
 import type { WebViewProps } from 'react-native-webview';

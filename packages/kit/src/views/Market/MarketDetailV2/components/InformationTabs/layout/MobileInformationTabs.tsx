@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Stack, Tabs } from '@onekeyhq/components';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
@@ -14,7 +15,7 @@ export function MobileInformationTabs() {
   const { tokenAddress, networkId } = useTokenDetail();
 
   const shouldShowHolders = useMemo(() => {
-    return networkId === 'sol--101';
+    return networkId === getNetworkIdsMap().sol;
   }, [networkId]);
 
   if (!tokenAddress || !networkId) {
