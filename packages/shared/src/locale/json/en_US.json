@@ -2888,6 +2888,8 @@
   "troubleshooting.check_bridge": "Check if the Bridge is installed correctly. <tag>See details here</tag>.",
   "troubleshooting.close_other_onekey_app": "Close any other OneKey apps, extensions, or web pages.",
   "troubleshooting.connect_and_unlock": "Connect and unlock your device to see if it's detected.",
+  "troubleshooting.desktop_bluetooth_usb_priority": "If the app detects another OneKey device connected via USB, it will prioritize USB communication. Please unplug the USB and try again.",
+  "troubleshooting.device_powered_on": "Make sure your device is powered on.",
   "troubleshooting.fallback_solution_label": "Still can't connect?",
   "troubleshooting.help_center": "Visit our <tag>Help Center</tag> where we’ve pre-entered the specific keyword to assist you in finding the information you need.",
   "troubleshooting.reconnect_and_pair": "Reconnect and pair your OneKey device.",

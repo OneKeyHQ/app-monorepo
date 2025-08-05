@@ -2888,6 +2888,8 @@
   "troubleshooting.check_bridge": "যাচাই করুন যে ব্রিজ সঠিকভাবে ইনস্টল করা হয়েছে। <tag>এখানে বিস্তারিত দেখুন</tag>।",
   "troubleshooting.close_other_onekey_app": "অন্য কোনো OneKey অ্যাপ, এক্সটেনশন, বা ওয়েব পেজ বন্ধ করুন।",
   "troubleshooting.connect_and_unlock": "আপনার ডিভাইস সংযুক্ত করুন এবং আনলক করুন যেন দেখা যায় এটি চিহ্নিত হয়েছে কিনা।",
+  "troubleshooting.desktop_bluetooth_usb_priority": "যদি অ্যাপটি দেখে যে আরেকটি OneKey ডিভাইস USB-এর মাধ্যমে সংযুক্ত আছে, তাহলে এটি USB যোগাযোগকে অগ্রাধিকার দেবে। অনুগ্রহ করে USB খুলে আবার চেষ্টা করুন।",
+  "troubleshooting.device_powered_on": "নিশ্চিত করুন যে আপনার ডিভাইসটি চালু আছে।",
   "troubleshooting.fallback_solution_label": "এখনো সংযোগ করতে পারছেন না?",
   "troubleshooting.help_center": "আমাদের <tag>সাহায্য কেন্দ্র</tag> পরিদর্শন করুন যেখানে আমরা আপনার সাহায্যের জন্য নির্দিষ্ট কীওয়ার্ড প্রবেশ করেছি যা আপনাকে প্রয়োজনীয় তথ্য খুঁজে পেতে সহায়তা করবে।",
   "troubleshooting.reconnect_and_pair": "আপনার OneKey ডিভাইসটি পুনরায় সংযোগ করুন এবং জোড়া বাঁধুন।",

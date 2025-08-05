@@ -2888,6 +2888,8 @@
   "troubleshooting.check_bridge": "Periksa apakah Jembatan telah terpasang dengan benar. <tag>Lihat detail di sini</tag>.",
   "troubleshooting.close_other_onekey_app": "Tutup aplikasi, ekstensi, atau halaman web OneKey lainnya.",
   "troubleshooting.connect_and_unlock": "Sambungkan dan buka kunci perangkat Anda untuk melihat apakah itu terdeteksi.",
+  "troubleshooting.desktop_bluetooth_usb_priority": "Jika aplikasi mendeteksi perangkat OneKey lain yang terhubung melalui USB, komunikasi USB akan diprioritaskan. Silakan cabut USB dan coba lagi.",
+  "troubleshooting.device_powered_on": "Pastikan perangkat Anda dalam keadaan menyala.",
   "troubleshooting.fallback_solution_label": "Masih tidak bisa terhubung?",
   "troubleshooting.help_center": "Kunjungi <tag>Pusat Bantuan</tag> kami di mana kami telah memasukkan kata kunci spesifik untuk membantu Anda menemukan informasi yang Anda butuhkan.",
   "troubleshooting.reconnect_and_pair": "Sambungkan kembali dan pasangkan perangkat OneKey Anda.",

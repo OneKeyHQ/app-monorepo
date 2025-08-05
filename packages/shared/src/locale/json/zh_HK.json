@@ -2888,6 +2888,8 @@
   "troubleshooting.check_bridge": "檢查 Bridge 是否正確安裝。<tag>在此查看詳情</tag>。",
   "troubleshooting.close_other_onekey_app": "請關閉任何其他的 OneKey 應用程式、擴充功能或網頁。",
   "troubleshooting.connect_and_unlock": "連接並解鎖您的設備以查看是否已被檢測到。",
+  "troubleshooting.desktop_bluetooth_usb_priority": "如果應用程式偵測到另一個通過 USB 連接的 OneKey 裝置，它將優先使用 USB 通訊。請拔除 USB 並重試。",
+  "troubleshooting.device_powered_on": "確保您的裝置已開啟電源。",
   "troubleshooting.fallback_solution_label": "仍然無法連接？",
   "troubleshooting.help_center": "請訪問我們的<tag>幫助中心</tag>，我們已經預先輸入了特定的關鍵字，以協助您找到所需的資訊。",
   "troubleshooting.reconnect_and_pair": "重新連接並配對您的 OneKey 設備。",

@@ -2888,6 +2888,8 @@
   "troubleshooting.check_bridge": "Kiểm tra xem Cầu đã được cài đặt đúng chưa. <tag>Xem chi tiết tại đây</tag>.",
   "troubleshooting.close_other_onekey_app": "Đóng bất kỳ ứng dụng, tiện ích mở rộng hoặc trang web OneKey nào khác.",
   "troubleshooting.connect_and_unlock": "Kết nối và mở khóa thiết bị của bạn để xem nếu nó được nhận diện.",
+  "troubleshooting.desktop_bluetooth_usb_priority": "Nếu ứng dụng phát hiện một thiết bị OneKey khác được kết nối qua USB, nó sẽ ưu tiên giao tiếp qua USB. Vui lòng rút USB ra và thử lại.",
+  "troubleshooting.device_powered_on": "Hãy đảm bảo thiết bị của bạn đã được bật nguồn.",
   "troubleshooting.fallback_solution_label": "Vẫn không thể kết nối?",
   "troubleshooting.help_center": "Truy cập <tag>Trung tâm Trợ giúp</tag> của chúng tôi, nơi chúng tôi đã nhập trước từ khóa cụ thể để giúp bạn tìm kiếm thông tin bạn cần.",
   "troubleshooting.reconnect_and_pair": "Kết nối lại và ghép nối thiết bị OneKey của bạn.",

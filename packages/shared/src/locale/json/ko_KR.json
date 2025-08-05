@@ -2888,6 +2888,8 @@
   "troubleshooting.check_bridge": "Bridge가 올바르게 설치되었는지 확인하십시오. <tag>여기에서 자세히 보기</tag>.",
   "troubleshooting.close_other_onekey_app": "다른 OneKey 앱, 확장 프로그램, 또는 웹 페이지를 모두 닫으십시오.",
   "troubleshooting.connect_and_unlock": "장치를 연결하고 잠금을 해제하여 감지되는지 확인하세요.",
+  "troubleshooting.desktop_bluetooth_usb_priority": "앱이 USB를 통해 연결된 다른 OneKey 기기를 감지하면 USB 통신이 우선적으로 사용됩니다. USB를 분리한 후 다시 시도해 주세요.",
+  "troubleshooting.device_powered_on": "기기가 켜져 있는지 확인하세요.",
   "troubleshooting.fallback_solution_label": "아직도 연결할 수 없나요?",
   "troubleshooting.help_center": "저희 <tag>고객센터</tag>를 방문하세요. 필요한 정보를 쉽게 찾을 수 있도록 특정 키워드를 미리 입력해 두었습니다.",
   "troubleshooting.reconnect_and_pair": "OneKey 장치를 다시 연결하고 페어링하세요.",

@@ -2888,6 +2888,8 @@
   "troubleshooting.check_bridge": "Überprüfen Sie, ob die Brücke korrekt installiert ist. <tag>Hier finden Sie Details</tag>.",
   "troubleshooting.close_other_onekey_app": "Schließen Sie alle anderen OneKey Apps, Erweiterungen oder Webseiten.",
   "troubleshooting.connect_and_unlock": "Verbinden und entsperren Sie Ihr Gerät, um zu sehen, ob es erkannt wird.",
+  "troubleshooting.desktop_bluetooth_usb_priority": "Wenn die App ein weiteres OneKey-Gerät erkennt, das über USB verbunden ist, wird die USB-Kommunikation priorisiert. Bitte trennen Sie das USB-Kabel und versuchen Sie es erneut.",
+  "troubleshooting.device_powered_on": "Stellen Sie sicher, dass Ihr Gerät eingeschaltet ist.",
   "troubleshooting.fallback_solution_label": "Immer noch keine Verbindung?",
   "troubleshooting.help_center": "Besuchen Sie unser <tag>Hilfezentrum</tag>, wo wir das spezifische Schlüsselwort bereits für Sie eingegeben haben, um Ihnen bei der Suche nach den benötigten Informationen zu helfen.",
   "troubleshooting.reconnect_and_pair": "Stellen Sie die Verbindung wieder her und koppeln Sie Ihr OneKey-Gerät.",

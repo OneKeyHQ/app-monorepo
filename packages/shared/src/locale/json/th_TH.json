@@ -2888,6 +2888,8 @@
   "troubleshooting.check_bridge": "ตรวจสอบว่าได้ติดตั้ง Bridge อย่างถูกต้องหรือไม่ <tag>ดูรายละเอียดที่นี่</tag>.",
   "troubleshooting.close_other_onekey_app": "ปิดแอปพลิเคชัน OneKey อื่น ๆ, ส่วนขยาย, หรือหน้าเว็บทั้งหมด",
   "troubleshooting.connect_and_unlock": "เชื่อมต่อและปลดล็อคอุปกรณ์ของคุณเพื่อดูว่ามันถูกตรวจจับหรือไม่",
+  "troubleshooting.desktop_bluetooth_usb_priority": "หากแอปตรวจพบอุปกรณ์ OneKey อื่นที่เชื่อมต่อผ่าน USB ระบบจะให้ความสำคัญกับการสื่อสารผ่าน USB กรุณาถอดสาย USB ออกแล้วลองใหม่อีกครั้ง",
+  "troubleshooting.device_powered_on": "โปรดตรวจสอบว่าอุปกรณ์ของคุณเปิดอยู่",
   "troubleshooting.fallback_solution_label": "ยังไม่สามารถเชื่อมต่อได้หรือไม่?",
   "troubleshooting.help_center": "เยี่ยมชม <tag>ศูนย์ช่วยเหลือ</tag> ของเรา ที่เราได้เตรียมคำค้นหาเฉพาะเพื่อช่วยคุณค้นหาข้อมูลที่คุณต้องการ",
   "troubleshooting.reconnect_and_pair": "เชื่อมต่อและจับคู่อุปกรณ์ OneKey ของคุณอีกครั้ง",

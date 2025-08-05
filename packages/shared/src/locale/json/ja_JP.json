@@ -2888,6 +2888,8 @@
   "troubleshooting.check_bridge": "ブリッジが正しくインストールされているか確認してください。<tag>ここで詳細を見る</tag>。",
   "troubleshooting.close_other_onekey_app": "他のOneKeyアプリ、拡張機能、またはウェブページを閉じてください。",
   "troubleshooting.connect_and_unlock": "デバイスを接続し、ロックを解除して、検出されるかどうかを確認してください。",
+  "troubleshooting.desktop_bluetooth_usb_priority": "アプリが他のOneKeyデバイスをUSB経由で検出した場合、USB通信が優先されます。USBを抜いて、再度お試しください。",
+  "troubleshooting.device_powered_on": "デバイスの電源が入っていることを確認してください。",
   "troubleshooting.fallback_solution_label": "まだ接続できませんか？",
   "troubleshooting.help_center": "私たちの<tag>ヘルプセンター</tag>を訪れてください。そこでは、あなたが必要な情報を見つけるための特定のキーワードを事前に入力しています。",
   "troubleshooting.reconnect_and_pair": "OneKeyデバイスを再接続し、ペアリングしてください。",

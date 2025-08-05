@@ -2888,6 +2888,8 @@
   "troubleshooting.check_bridge": "Проверьте, правильно ли установлен Bridge. <tag>Подробности смотрите здесь</tag>.",
   "troubleshooting.close_other_onekey_app": "Закройте все другие приложения, расширения или веб-страницы OneKey.",
   "troubleshooting.connect_and_unlock": "Подключите и разблокируйте ваше устройство, чтобы проверить, определяется ли оно.",
+  "troubleshooting.desktop_bluetooth_usb_priority": "Если приложение обнаружит другое устройство OneKey, подключённое через USB, оно будет отдавать приоритет USB-соединению. Пожалуйста, отключите USB и попробуйте снова.",
+  "troubleshooting.device_powered_on": "Убедитесь, что ваше устройство включено.",
   "troubleshooting.fallback_solution_label": "Всё ещё не можете подключиться?",
   "troubleshooting.help_center": "Посетите наш <tag>Центр помощи</tag>, где мы уже ввели специфическое ключевое слово, чтобы помочь вам найти необходимую информацию.",
   "troubleshooting.reconnect_and_pair": "Повторно подключите и сопряжите ваше устройство OneKey.",
