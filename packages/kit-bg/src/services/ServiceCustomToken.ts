@@ -215,6 +215,7 @@ class ServiceCustomToken extends ServiceBase {
     return tokens;
   }
 
+  @backgroundMethod()
   async getAllCustomTokens(): Promise<ICloudSyncCustomToken[]> {
     return this.getAllCustomTokensByStatus('customMap');
   }
