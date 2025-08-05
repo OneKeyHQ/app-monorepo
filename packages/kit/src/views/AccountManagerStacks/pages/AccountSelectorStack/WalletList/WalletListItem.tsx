@@ -255,10 +255,13 @@ export function WalletListItem({
         wallet,
       });
 
+    const shouldShowBorder =
+      hiddenWallets?.length || shouldShowCreateHiddenWalletButton;
+
     return (
       <Stack
         borderRadius="$3"
-        borderWidth={shouldShowCreateHiddenWalletButton ? 1 : 0}
+        borderWidth={shouldShowBorder ? 1 : 0}
         borderColor="$borderSubdued"
         gap="$3"
         borderCurve="continuous"
