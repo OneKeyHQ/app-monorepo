@@ -2,14 +2,12 @@
 import { useEffect, useRef } from 'react';
 
 import { StyleSheet, TextInput, View } from 'react-native';
-import {
+import Animated, {
   useAnimatedProps,
   useAnimatedStyle,
   useFrameCallback,
   useSharedValue,
 } from 'react-native-reanimated';
-import { addWhitelistedNativeProps } from 'react-native-reanimated/src/ConfigHelper';
-import { createAnimatedComponent } from 'react-native-reanimated/src/createAnimatedComponent';
 
 import type { FrameInfo } from 'react-native-reanimated';
 
@@ -78,8 +76,7 @@ function createCircularDoublesBuffer(size: number) {
 }
 
 const DEFAULT_BUFFER_SIZE = 20;
-addWhitelistedNativeProps({ text: true });
-const AnimatedTextInput = createAnimatedComponent(TextInput);
+const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 let requestAnimationFrameId: number | null = null;
 function loopAnimationFrame(fn: (lastTime: number, time: number) => void) {
