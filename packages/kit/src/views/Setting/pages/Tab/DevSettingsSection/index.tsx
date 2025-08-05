@@ -788,6 +788,20 @@ export const DevSettingsSection = () => {
       />
 
       <SectionPressItem
+        title="Performance Monitor(UI FPS/JS FPS)"
+        subtitle="性能监控"
+        onPress={async () => {
+          await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+            'showPerformanceMonitor',
+            true,
+          );
+          setTimeout(() => {
+            void backgroundApiProxy.serviceApp.restartApp();
+          }, 10);
+        }}
+      />
+
+      <SectionPressItem
         title="In-App-Purchase(Mac)"
         subtitle="设备信息"
         onPress={async () => {
