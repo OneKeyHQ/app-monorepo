@@ -298,6 +298,7 @@ PODS:
     - React-RCTText (= 0.79.5)
     - React-RCTVibration (= 0.79.5)
   - React-callinvoker (0.79.5)
+  - React-Codegen (0.1.0)
   - React-Core (0.79.5):
     - glog
     - hermes-engine
@@ -1759,6 +1760,14 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - react-native-performance-stats (0.2.3):
+    - CocoaLumberjack
+    - RCT-Folly
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Codegen
+    - React-Core
+    - ReactCommon/turbomodule/core
   - react-native-safe-area-context (5.4.1):
     - DoubleConversion
     - glog
@@ -2943,6 +2952,7 @@ DEPENDENCIES:
   - "react-native-lite-card (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
   - react-native-mmkv (from `../../../node_modules/react-native-mmkv`)
   - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
+  - react-native-performance-stats (from `../../../node_modules/react-native-performance-stats`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
   - "react-native-slider (from `../../../node_modules/@react-native-community/slider`)"
   - react-native-tcp-socket (from `../../../node_modules/react-native-tcp-socket`)
@@ -3011,6 +3021,7 @@ SPEC REPOS:
     - lottie-ios
     - MultiplatformBleAdapter
     - PurchasesHybridCommon
+    - React-Codegen
     - RevenueCat
     - ScreenshotPreventing
     - SDWebImage
@@ -3197,6 +3208,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-mmkv"
   react-native-pager-view:
     :path: "../../../node_modules/react-native-pager-view"
+  react-native-performance-stats:
+    :path: "../../../node_modules/react-native-performance-stats"
   react-native-safe-area-context:
     :path: "../../../node_modules/react-native-safe-area-context"
   react-native-slider:
@@ -3372,6 +3385,7 @@ SPEC CHECKSUMS:
   RCTTypeSafety: cc4740278c2a52cbf740592b0a0a40df1587c9ab
   React: 6393ae1807614f017a84805bf2417e3497f518a6
   React-callinvoker: c34f666f551f05a325b87e7e3e6df0e082fa3d99
+  React-Codegen: 4b8b4817cea7a54b83851d4c1f91f79aa73de30a
   React-Core: 1ba9acdf7accbd46ccaae99999443ae2722c82b7
   React-CoreModules: 3c3cf4a91257f138e3feb47169a2d7fe341b5495
   React-cxxreact: 444d518a5d3a933e029b5e5ca6d8127c2e43255c
@@ -3406,6 +3420,7 @@ SPEC CHECKSUMS:
   react-native-lite-card: 9542785a69b22ef0bdc3ed799d76e104a32d2de4
   react-native-mmkv: c8da06f2c3ed40726ac6b51ed4e3653d099f0b6a
   react-native-pager-view: 38d37b9c7dcddfacf97ad4a0a1ee7a6db7b85b76
+  react-native-performance-stats: a45aa22f574c01d00bc5cadd0a3b8d34b308ae2e
   react-native-safe-area-context: 8cf8caf5fc0f5a5d3581b650579af9c85c16be04
   react-native-slider: 0c0125010b5299e647eb5d955b58133fb4eb34e4
   react-native-tcp-socket: 120072c8020262032773f80f0daaf3964aaa08a1
