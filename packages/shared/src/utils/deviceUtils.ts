@@ -204,9 +204,17 @@ function isConfirmOnDeviceAction(state: IHardwareUiState | undefined) {
 
 function getUpdatingConnectId({
   connectId,
+  currentTransportType,
 }: {
   connectId: string | undefined;
+  currentTransportType: EHardwareTransportType;
 }) {
+  if (platformEnv.isSupportDesktopBle) {
+    if (currentTransportType === EHardwareTransportType.DesktopWebBle) {
+      return connectId;
+    }
+    return undefined;
+  }
   return platformEnv.isNative ? connectId : undefined;
 }
 
