@@ -114,7 +114,7 @@ function NetworkListHeader() {
   return (
     <Stack mt="$4">
       {enabledNetworksWithoutAccount.length > 0 ? (
-        <Stack mt="$4" px="$5" pb="$5">
+        <Stack px="$5" pb="$5">
           <Alert
             type="warning"
             title={intl.formatMessage(
