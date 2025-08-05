@@ -12,6 +12,7 @@ import { createAnimatedComponent } from 'react-native-reanimated/src/createAnima
 
 import type { FrameInfo } from 'react-native-reanimated';
 
+const isLowFps = (fps: number) => fps < 30;
 const styles = StyleSheet.create({
   monitor: {
     userSelect: 'none',
@@ -139,7 +140,8 @@ function JsPerformance({ smoothingFrames }: { smoothingFrames: number }) {
 
   const animatedProps = useAnimatedProps(() => {
     const text = `JS: ${jsFps.value ?? 'N/A'} `;
-    return { text, defaultValue: text };
+    const color = isLowFps(Number(jsFps.value)) ? 'red' : undefined;
+    return { text, defaultValue: text, style: [{ color }] };
   });
 
   return (
@@ -170,8 +172,11 @@ function UiPerformance({ smoothingFrames }: { smoothingFrames: number }) {
   });
 
   const animatedProps = useAnimatedProps(() => {
-    const text = `UI: ${uiFps.value ?? 'N/A'} `;
-    return { text, defaultValue: text };
+    const value = uiFps.value;
+    const text = `UI: ${value ?? 'N/A'} `;
+    // Highlight in red and bold if value is less than 30
+    const color = isLowFps(Number(value)) ? 'red' : undefined;
+    return { text, defaultValue: text, style: [{ color }] };
   });
 
   return (
