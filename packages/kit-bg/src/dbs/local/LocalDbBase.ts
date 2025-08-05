@@ -2133,6 +2133,22 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  async cleanDeviceConnectId({ dbDeviceId }: { dbDeviceId: string }) {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: async (item) => {
+          item.usbConnectId = undefined;
+          item.bleConnectId = undefined;
+          item.updatedAt = await this.timeNow();
+          return item;
+        },
+      });
+    });
+  }
+
   async fixHiddenWalletName({
     dbDeviceId,
     dbWalletId,

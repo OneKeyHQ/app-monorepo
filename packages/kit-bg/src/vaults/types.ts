@@ -513,6 +513,7 @@ export type ITransferPayload = {
   paymentId?: string;
   note?: string;
   tokenInfo?: IToken;
+  isCustomHexData?: boolean;
 };
 
 export type IWrappedInfo = {

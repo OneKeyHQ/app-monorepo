@@ -8,6 +8,7 @@ import type {
   IPageNavigationProp,
   IStackNavigationOptions,
 } from '@onekeyhq/components/src/layouts/Navigation';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ETabRoutes,
   IModalParamList,
@@ -143,6 +144,9 @@ function useAppNavigation<
         return;
       }
 
+      // TODO:
+      // prevent pushModal from using unreleased Navigation instances during iOS modal animation by temporary exclusion,
+      //  with plan to migrate to rootNavigationRef
       // eslint-disable-next-line no-extra-boolean-cast
       if (!!navigationInstance.push) {
         lastPushAbleNavigation = navigationInstance;

@@ -31,7 +31,8 @@ export type IAlertType =
   | 'critical'
   | 'success'
   | 'default'
-  | 'danger';
+  | 'danger'
+  | 'caution';
 
 type IAlertActionProps = {
   primary: string;
@@ -90,6 +91,10 @@ const AlertFrame = styled(XStack, {
         backgroundColor: '$bgCautionSubdued',
         borderColor: '$borderCautionSubdued',
       },
+      caution: {
+        backgroundColor: '$bgSubdued',
+        borderColor: '$borderSubdued',
+      },
       critical: {
         backgroundColor: '$bgCriticalSubdued',
         borderColor: '$borderCriticalSubdued',
@@ -128,6 +133,7 @@ const AlertIcon = (props: { children: any }) => {
     critical: '$iconCritical',
     danger: '$iconCritical',
     success: '$iconSuccess',
+    caution: '$iconCritical',
   };
   return cloneElement(props.children, {
     color: colorMapping[type],

@@ -2,7 +2,7 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { get, uniq } from 'lodash';
 
-import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
+import { EAppEventBusNames, appEventBus, HARDWARE_ERROR_DIALOG_TYPES } from '../../eventBus/appEventBus';
 import { ETranslations } from '../../locale';
 import platformEnv from '../../platformEnv';
 import {
@@ -699,9 +699,27 @@ export class DeviceNotFound extends OneKeyHardwareError {
         defaultAutoToast: false, // do not auto toast for DeviceNotFound, it's very common for silence call getFeatures
       }),
     );
+
+    // Trigger global event to show hardware error dialog
+    // This is a generic event that can be reused by other hardware errors
+    // Example usage for other errors:
+    // appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
+    //   errorType: HARDWARE_ERROR_DIALOG_TYPES.NEED_ONEKEY_BRIDGE,
+    //   errorCode: ECustomOneKeyHardwareError.NeedOneKeyBridge,
+    //   errorMessage: 'Bridge connection required',
+    //   payload: props?.payload,
+    // });
+    appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
+      errorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND,
+      errorCode: props?.payload?.code || HardwareErrorCode.DeviceNotFound,
+      errorMessage: props?.payload?.message || props?.message || 'DeviceNotFound',
+      payload: props?.payload,
+    });
   }
 
   override code = HardwareErrorCode.DeviceNotFound;
+
+  override className = EOneKeyErrorClassNames.DeviceNotFound;
 
   // TODO remove? convertDeviceError should update data by payload
   override reconnect = true;

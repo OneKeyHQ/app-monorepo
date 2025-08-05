@@ -24,36 +24,66 @@ export function SelectAddWalletTypeDialogContent({
           })}
         </Dialog.Title>
       </Dialog.Header>
-      <YStack gap="$1.5">
+      <YStack gap="$4">
         <ListItem
+          px="$4"
           mx="$0"
-          py="$5"
+          py="$3"
+          borderRadius="$2"
+          borderCurve="continuous"
+          borderWidth={1}
+          borderColor="$transparent"
           icon="WalletOutline"
+          iconProps={{
+            color: '$iconOnColor',
+            alignSelf: 'flex-start',
+          }}
+          bg="$bgPrimary"
+          hoverStyle={{
+            bg: '$bgPrimaryHover',
+          }}
+          pressStyle={{
+            bg: '$bgPrimaryActive',
+          }}
           title={intl.formatMessage({
             id: ETranslations.global_standard_wallet,
           })}
+          titleProps={{
+            color: '$textInverse',
+          }}
           subtitle={intl.formatMessage({
             id: ETranslations.global_standard_wallet_desc,
           })}
-          drillIn
+          subtitleProps={{
+            color: '$textInverseSubdued',
+          }}
           onPress={onAddStandardWalletPress}
-          alignItems="flex-start"
-        />
+        >
+          <ListItem.DrillIn color="$textInverseSubdued" />
+        </ListItem>
 
         <ListItem
+          px="$4"
           mx="$0"
-          py="$5"
+          py="$3"
+          borderRadius="$2"
+          borderCurve="continuous"
+          borderWidth={1}
+          borderColor="$borderSubdued"
           icon="LockOutline"
+          iconProps={{
+            alignSelf: 'flex-start',
+          }}
           title={intl.formatMessage({
             id: ETranslations.global_hidden_wallet,
           })}
           subtitle={intl.formatMessage({
             id: ETranslations.global_hidden_wallet_desc,
           })}
-          drillIn
           onPress={onAddHiddenWalletPress}
-          alignItems="flex-start"
-        />
+        >
+          <ListItem.DrillIn />
+        </ListItem>
       </YStack>
     </YStack>
   );

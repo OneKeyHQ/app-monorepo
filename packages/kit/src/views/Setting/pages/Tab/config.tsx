@@ -57,6 +57,7 @@ import {
   BiologyAuthListItem,
   CleanDataListItem,
   CurrencyListItem,
+  DesktopBluetoothListItem,
   HardwareTransportTypeListItem,
   LanguageListItem,
   ListVersionItem,
@@ -121,8 +122,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
   const { copyText } = useClipboard();
   const biometricAuthInfo = useBiometricAuthInfo();
-  const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
-  const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
+  const userAgreementUrl = useHelpLink({ path: 'articles/11461297' });
+  const privacyPolicyUrl = useHelpLink({ path: 'articles/11461298' });
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
   const { isPrimeAvailable } = usePrimeAvailable();
@@ -250,6 +251,17 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   ) => {
                     navigation?.push(EModalSettingRoutes.SettingNotifications);
                   },
+                }
+              : undefined,
+          ],
+          [
+            platformEnv.isSupportDesktopBle
+              ? {
+                  icon: 'BluetoothOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.global_bluetooth,
+                  }),
+                  renderElement: <DesktopBluetoothListItem />,
                 }
               : undefined,
           ],
@@ -462,8 +474,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               },
             },
             platformEnv.isSupportWebUSB ||
-            (platformEnv.isDesktopMac &&
-              devSettings.settings?.enableDesktopBluetooth)
+            (platformEnv.isSupportDesktopBle && platformEnv.isDev)
               ? {
                   icon: 'UsbOutline',
                   title: intl.formatMessage({
@@ -716,7 +727,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       userAgreementUrl,
       privacyPolicyUrl,
       copyText,
-      devSettings.settings?.enableDesktopBluetooth,
       settings.hardwareTransportType,
     ],
   );

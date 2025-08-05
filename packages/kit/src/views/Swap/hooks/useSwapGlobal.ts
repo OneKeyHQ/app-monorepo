@@ -26,6 +26,7 @@ import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
   useSwapMevConfigAtom,
+  useSwapNativeTokenReserveGasAtom,
   useSwapNetworksAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -51,6 +52,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [, setInAppNotification] = useInAppNotificationAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [, setSwapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   const [, setSwapTips] = useSwapTipsAtom();
   const { swapTypeSwitchAction } = useSwapActions().current;
   if (swapAddressInfoRef.current !== swapAddressInfo) {
@@ -616,6 +618,32 @@ export function useSwapInit(params?: ISwapInitParams) {
       }
     },
   );
+
+  useEffect(() => {
+    if (fromToken?.networkId && fromToken?.isNative) {
+      void (async () => {
+        const nativeTokenConfig =
+          await backgroundApiProxy.serviceSwap.fetchSwapNativeTokenConfig({
+            networkId: fromToken.networkId,
+          });
+        setSwapNativeTokenReserveGas((pre) => {
+          const find = pre.find(
+            (item) => item.networkId === fromToken.networkId,
+          );
+          if (find) {
+            return [
+              ...pre.filter((item) => item.networkId !== fromToken.networkId),
+              {
+                networkId: fromToken.networkId,
+                reserveGas: nativeTokenConfig.reserveGas,
+              },
+            ];
+          }
+          return [...pre, nativeTokenConfig];
+        });
+      })();
+    }
+  }, [fromToken?.networkId, fromToken?.isNative, setSwapNativeTokenReserveGas]);
 
   return {
     fetchLoading: networkListFetching,

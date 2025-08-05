@@ -1287,6 +1287,29 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   @backgroundMethod()
+  async showAlertDialogIfServerPasswordChanged({
+    serverUserInfo,
+  }: {
+    serverUserInfo: IPrimeServerUserInfo;
+  }) {
+    const serverPasswordUUID = serverUserInfo?.pwdHash;
+    const { masterPasswordUUID } = await primeMasterPasswordPersistAtom.get();
+
+    if (
+      serverPasswordUUID &&
+      masterPasswordUUID &&
+      serverPasswordUUID !== RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID &&
+      masterPasswordUUID !== RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID &&
+      serverPasswordUUID !== masterPasswordUUID
+    ) {
+      await this.showMasterPasswordInvalidAlertDialog({
+        shouldClearLocalMasterPassword: true,
+        shouldDisableCloudSync: true,
+      });
+    }
+  }
+
+  @backgroundMethod()
   async showAlertDialogIfServerPasswordNotSet({
     serverUserInfo,
   }: {

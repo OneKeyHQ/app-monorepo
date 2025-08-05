@@ -3,6 +3,8 @@ package so.onekey.app.wallet;
 import android.app.Application;
 import android.content.res.Configuration;
 import android.database.CursorWindow;
+import android.os.Build;
+
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -20,6 +22,7 @@ import com.facebook.soloader.SoLoader;
 import cn.jiguang.plugins.push.JPushModule;
 import expo.modules.ApplicationLifecycleDispatcher;
 import expo.modules.ReactNativeHostWrapper;
+import so.onekey.app.wallet.splashscreen.SplashScreenPackage;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -44,6 +47,9 @@ public class MainApplication extends Application implements ReactApplication {
         // packages.add(new GeckoViewPackage());
         packages.add(new ExitPackage());
         packages.add(new WebViewCheckerPackage());
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+          packages.add(new SplashScreenPackage());
+        }
         return packages;
       }
 

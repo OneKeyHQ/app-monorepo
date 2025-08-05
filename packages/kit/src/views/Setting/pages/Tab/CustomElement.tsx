@@ -14,9 +14,11 @@ import {
   ActionList,
   Badge,
   Dialog,
+  ESwitchSize,
   IconButton,
   Select,
   SizableText,
+  Switch,
   Toast,
   Tooltip,
   XStack,
@@ -579,7 +581,14 @@ export function SocialButtonGroup() {
         userSelect="none"
         testID="setting-version"
       >
-        <SizableText color={textColor} size={textSize} onPress={handlePress}>
+        <SizableText
+          color={textColor}
+          size={textSize}
+          minWidth={platformEnv.isNativeAndroid ? 240 : undefined}
+          textAlign={platformEnv.isNativeAndroid ? 'center' : undefined}
+          numberOfLines={platformEnv.isNativeAndroid ? 1 : undefined}
+          onPress={handlePress}
+        >
           {upperFirst(versionString)}
         </SizableText>
         {!isTabNavigator &&
@@ -595,5 +604,21 @@ export function SocialButtonGroup() {
         ) : null}
       </YStack>
     </YStack>
+  );
+}
+
+export function DesktopBluetoothListItem(props: ICustomElementProps) {
+  const [{ enableDesktopBluetooth }] = useSettingsPersistAtom();
+  const toggleBluetooth = useCallback(async (value: boolean) => {
+    await backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(value);
+  }, []);
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        size={ESwitchSize.small}
+        value={enableDesktopBluetooth}
+        onChange={toggleBluetooth}
+      />
+    </TabSettingsListItem>
   );
 }

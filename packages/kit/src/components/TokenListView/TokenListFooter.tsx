@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
+import { groupBy, keyBy, mapValues } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -160,17 +161,32 @@ function TokenListFooter(props: IProps) {
     async () => {
       if (!network) return riskyTokens?.length ?? 0;
 
-      const unblockedTokensMap =
-        await backgroundApiProxy.serviceToken.getUnblockedTokensMap({
-          networkId: network.id,
-        });
+      const [unblockedTokensMap, blockedTokensMap, customTokens] =
+        await Promise.all([
+          backgroundApiProxy.serviceToken.getUnblockedTokensMap({
+            networkId: network.id,
+          }),
+          backgroundApiProxy.serviceToken.getBlockedTokensMap({
+            networkId: network.id,
+          }),
+          backgroundApiProxy.serviceCustomToken.getAllCustomTokens(),
+        ]);
+
+      const customTokensMap = mapValues(
+        groupBy(customTokens, 'networkId'),
+        (tokenArray) => keyBy(tokenArray, 'address'),
+      );
 
       const blockedTokens = [];
 
       for (const token of riskyTokens) {
         const tokenNetworkId = token.networkId ?? network.id;
 
-        if (!unblockedTokensMap?.[tokenNetworkId]?.[token.address]) {
+        if (
+          blockedTokensMap?.[tokenNetworkId]?.[token.address] ||
+          (!unblockedTokensMap?.[tokenNetworkId]?.[token.address] &&
+            !customTokensMap?.[tokenNetworkId]?.[token.address])
+        ) {
           blockedTokens.push({
             ...token,
             isBlocked: true,

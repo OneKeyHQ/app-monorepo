@@ -17,6 +17,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import type { IPrimeServerUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
@@ -71,9 +72,11 @@ function PrimeBenefitsItem({
 export function PrimeBenefitsList({
   selectedSubscriptionPeriod,
   networkId,
+  serverUserInfo,
 }: {
   selectedSubscriptionPeriod: ISubscriptionPeriod;
   networkId?: string;
+  serverUserInfo?: IPrimeServerUserInfo;
 }) {
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -93,12 +96,15 @@ export function PrimeBenefitsList({
         })}
         onPress={() => {
           if (isPrimeSubscriptionActive) {
-            navigation.navigate(EPrimePages.PrimeCloudSync);
+            navigation.navigate(EPrimePages.PrimeCloudSync, {
+              serverUserInfo,
+            });
           } else {
             navigation.navigate(EPrimePages.PrimeFeatures, {
               showAllFeatures: true,
               selectedFeature: EPrimeFeatures.OneKeyCloud,
               selectedSubscriptionPeriod,
+              serverUserInfo,
             });
           }
         }}
@@ -122,6 +128,7 @@ export function PrimeBenefitsList({
               showAllFeatures: true,
               selectedFeature: EPrimeFeatures.DeviceManagement,
               selectedSubscriptionPeriod,
+              serverUserInfo,
             });
           }
         }}
@@ -151,6 +158,7 @@ export function PrimeBenefitsList({
               showAllFeatures: true,
               selectedFeature: EPrimeFeatures.BulkCopyAddresses,
               selectedSubscriptionPeriod,
+              serverUserInfo,
             });
           }
         }}
@@ -169,6 +177,7 @@ export function PrimeBenefitsList({
             showAllFeatures: true,
             selectedFeature: EPrimeFeatures.BulkRevoke,
             selectedSubscriptionPeriod,
+            serverUserInfo,
           });
         }}
       />
