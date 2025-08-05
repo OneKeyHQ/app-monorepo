@@ -403,13 +403,7 @@ export function ConfirmOnDeviceToastContent({
   );
 }
 
-export function CommonDeviceLoading({
-  children,
-  bg,
-}: {
-  children?: any;
-  bg?: IColorTokens;
-}) {
+export function CommonDeviceLoading({ children }: { children?: any }) {
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
   const { result: communicationMethod } = usePromiseResult<'bluetooth' | 'usb'>(
     async () => {
