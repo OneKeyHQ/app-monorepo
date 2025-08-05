@@ -783,7 +783,7 @@ class ServiceToken extends ServiceBase {
   }) {
     if (unblockedTokensRawData) {
       return {
-        [networkId]: unblockedTokensRawData[networkId],
+        [networkId]: unblockedTokensRawData[networkId] ?? {},
       };
     }
 
@@ -800,7 +800,7 @@ class ServiceToken extends ServiceBase {
   }) {
     if (blockedTokensRawData) {
       return {
-        [networkId]: blockedTokensRawData[networkId],
+        [networkId]: blockedTokensRawData[networkId] ?? {},
       };
     }
 
@@ -819,7 +819,7 @@ class ServiceToken extends ServiceBase {
       networkId,
       blockedTokensRawData,
     });
-    const blockedTokensMapByNetworkId = blockedTokensMap[networkId];
+    const blockedTokensMapByNetworkId = blockedTokensMap[networkId] ?? {};
     return Object.keys(blockedTokensMapByNetworkId).filter(
       (tokenAddress) => blockedTokensMapByNetworkId[tokenAddress],
     );
@@ -837,7 +837,7 @@ class ServiceToken extends ServiceBase {
       networkId,
       unblockedTokensRawData,
     });
-    const unblockedTokensMapByNetworkId = unblockedTokensMap[networkId];
+    const unblockedTokensMapByNetworkId = unblockedTokensMap[networkId] ?? {};
     return Object.keys(unblockedTokensMapByNetworkId).filter(
       (tokenAddress) => unblockedTokensMapByNetworkId[tokenAddress],
     );
