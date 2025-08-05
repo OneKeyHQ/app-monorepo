@@ -1927,7 +1927,7 @@ class ServiceAccount extends ServiceBase {
         networkId,
         deriveType,
         indexedAccountIds: [indexedAccountId],
-        dbAccounts: [dbAccount].filter(Boolean),
+        allDbAccounts: [dbAccount].filter(Boolean),
       });
       if (accounts[0]) {
         return accounts[0];
@@ -2200,12 +2200,14 @@ class ServiceAccount extends ServiceBase {
    * @returns A promise that resolves to an object containing the retrieved accounts.
    */
   async getAccountsByIndexedAccounts({
-    dbAccounts,
+    allDbAccounts,
+    skipDbQueryIfNotFoundFromAllDbAccounts,
     indexedAccountIds,
     networkId,
     deriveType,
   }: {
-    dbAccounts?: IDBAccount[];
+    allDbAccounts?: IDBAccount[];
+    skipDbQueryIfNotFoundFromAllDbAccounts?: boolean;
     indexedAccountIds: string[];
     networkId: string;
     deriveType: IAccountDeriveTypes;
@@ -2222,9 +2224,13 @@ class ServiceAccount extends ServiceBase {
           networkId,
           deriveType,
         });
-        const dbAccount: IDBAccount | undefined = dbAccounts?.find(
-          (o) => o.id === realDBAccountId,
-        );
+        let dbAccount: IDBAccount | undefined;
+        if (allDbAccounts?.length) {
+          dbAccount = allDbAccounts?.find((o) => o.id === realDBAccountId);
+          if (skipDbQueryIfNotFoundFromAllDbAccounts && !dbAccount) {
+            return dbAccount;
+          }
+        }
         return this.getAccount({
           accountId: realDBAccountId,
           networkId,
@@ -2233,7 +2239,7 @@ class ServiceAccount extends ServiceBase {
       }),
     );
     return {
-      accounts,
+      accounts: accounts.filter(Boolean),
     };
   }
 
@@ -2979,6 +2985,43 @@ class ServiceAccount extends ServiceBase {
     return result;
   }
 
+  async buildAccountXpubOrAddress({
+    getAccountXpubFn,
+    getAccountAddressFn,
+    addressToLowerCase = true,
+  }: {
+    getAccountXpubFn: () => Promise<string | undefined>;
+    getAccountAddressFn: () => Promise<string | undefined>;
+    addressToLowerCase?: boolean;
+  }): Promise<string | null> {
+    let accountXpubOrAddress: string | undefined;
+
+    let accountXpub: string | undefined;
+    try {
+      accountXpub = await getAccountXpubFn();
+    } catch (error) {
+      console.error(error);
+    }
+    if (accountXpub) {
+      accountXpubOrAddress = accountXpub;
+    } else {
+      let accountAddress: string | undefined;
+      try {
+        accountAddress = await getAccountAddressFn();
+      } catch (error) {
+        console.error(error);
+      }
+      if (accountAddress) {
+        accountXpubOrAddress = accountAddress;
+        if (addressToLowerCase) {
+          accountXpubOrAddress = accountXpubOrAddress?.toLowerCase();
+        }
+      }
+    }
+
+    return accountXpubOrAddress || null;
+  }
+
   getAccountXpubOrAddressWithMemo = memoizee(
     async ({
       accountId,
@@ -2993,38 +3036,20 @@ class ServiceAccount extends ServiceBase {
       if (!networkId || !accountId) {
         return null;
       }
-      let accountXpubOrAddress: string | undefined;
 
-      let accountXpub: string | undefined;
-      try {
-        accountXpub = await this.getAccountXpub({
-          networkId,
-          accountId,
-        });
-      } catch (error) {
-        console.error(error);
-      }
-      if (accountXpub) {
-        accountXpubOrAddress = accountXpub;
-      } else {
-        let accountAddress: string | undefined;
-        try {
-          accountAddress = await this.getAccountAddressForApi({
+      return this.buildAccountXpubOrAddress({
+        addressToLowerCase,
+        getAccountXpubFn: () =>
+          this.getAccountXpub({
             networkId,
             accountId,
-          });
-        } catch (error) {
-          console.error(error);
-        }
-        if (accountAddress) {
-          accountXpubOrAddress = accountAddress;
-          if (addressToLowerCase) {
-            accountXpubOrAddress = accountXpubOrAddress?.toLowerCase();
-          }
-        }
-      }
-
-      return accountXpubOrAddress || null;
+          }),
+        getAccountAddressFn: () =>
+          this.getAccountAddressForApi({
+            networkId,
+            accountId,
+          }),
+      });
     },
     {
       max: 100,
@@ -3481,10 +3506,14 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes({
+    allDbAccounts,
+    skipDbQueryIfNotFoundFromAllDbAccounts,
     networkId,
     indexedAccountId,
     excludeEmptyAccount,
   }: {
+    allDbAccounts?: IDBAccount[];
+    skipDbQueryIfNotFoundFromAllDbAccounts?: boolean;
     networkId: string;
     indexedAccountId: string;
     excludeEmptyAccount?: boolean;
@@ -3507,6 +3536,8 @@ class ServiceAccount extends ServiceBase {
         let resp: { accounts: INetworkAccount[] } | undefined;
         try {
           resp = await this.getAccountsByIndexedAccounts({
+            allDbAccounts,
+            skipDbQueryIfNotFoundFromAllDbAccounts,
             indexedAccountIds: [indexedAccountId],
             networkId,
             deriveType: item.deriveType,
