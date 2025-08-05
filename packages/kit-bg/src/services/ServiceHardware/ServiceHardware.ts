@@ -1425,6 +1425,11 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async detectUSBDeviceAvailability() {
+    return this.connectionManager.detectUSBDeviceAvailability();
+  }
+
+  @backgroundMethod()
   async repairBleConnectIdWithProgress({
     connectId,
     featuresDeviceId,
@@ -1547,6 +1552,17 @@ class ServiceHardware extends ServiceBase {
     });
 
     if (!platformEnv.isSupportDesktopBle) {
+      return device?.connectId || connectId;
+    }
+
+    if (hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK) {
+      const currentTransportType = await this.getCurrentTransportType();
+      if (
+        currentTransportType === EHardwareTransportType.DesktopWebBle &&
+        device?.bleConnectId
+      ) {
+        return device.bleConnectId;
+      }
       return device?.connectId || connectId;
     }
 

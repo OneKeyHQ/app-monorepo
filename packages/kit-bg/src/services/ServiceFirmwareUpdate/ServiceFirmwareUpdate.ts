@@ -53,7 +53,10 @@ import type {
   IOneKeyDeviceFeatures,
   IResourceUpdateInfo,
 } from '@onekeyhq/shared/types/device';
-import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareCallContext,
+  EOneKeyDeviceMode,
+} from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 import {
@@ -277,8 +280,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
       connectId,
     });
 
+    const compatibleConnectId =
+      await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+        connectId,
+      });
+
     const { isBootloaderMode, features, error } =
-      await this.checkDeviceIsBootloaderMode({ connectId });
+      await this.checkDeviceIsBootloaderMode({
+        connectId: compatibleConnectId || connectId,
+      });
 
     serviceHardwareUtils.hardwareLog('checkFirmwareUpdateStatus', features);
 
@@ -333,8 +344,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
     await timerUtils.wait(1000);
 
+    const currentTransportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
     const updatingConnectId = deviceUtils.getUpdatingConnectId({
       connectId: originalConnectId,
+      currentTransportType,
     });
 
     try {
@@ -517,10 +531,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }) {
     const hardwareSDK = await this.getSDKInstance();
     const checkBridgeRelease = await this._hasUseBridge();
+    const currentTransportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
     const result = await convertDeviceResponse(() =>
       // method fail if device on boot mode
       hardwareSDK.checkAllFirmwareRelease(
-        deviceUtils.getUpdatingConnectId({ connectId }),
+        deviceUtils.getUpdatingConnectId({ connectId, currentTransportType }),
         {
           checkBridgeRelease,
         },
@@ -1021,9 +1037,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
           },
         },
       });
+      const currentTransportType =
+        await this.backgroundApi.serviceSetting.getHardwareTransportType();
       const result = await convertDeviceResponse(async () =>
         hardwareSDK.firmwareUpdateV2(
-          deviceUtils.getUpdatingConnectId({ connectId }),
+          deviceUtils.getUpdatingConnectId({ connectId, currentTransportType }),
           {
             updateType: firmwareType as any,
             // update res is always enabled when firmware version changed
@@ -1664,9 +1682,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
       const versionMismatches: string[] = [];
 
       try {
+        const currentTransportType =
+          await this.backgroundApi.serviceSetting.getHardwareTransportType();
         const updateResult = await convertDeviceResponse(async () =>
           hardwareSDK.firmwareUpdateV3(
-            deviceUtils.getUpdatingConnectId({ connectId }),
+            deviceUtils.getUpdatingConnectId({
+              connectId,
+              currentTransportType,
+            }),
             {
               platform: platformEnv.symbol ?? 'web',
               bleVersion: toBleVersion,
