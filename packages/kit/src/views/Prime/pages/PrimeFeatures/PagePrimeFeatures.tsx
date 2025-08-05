@@ -23,6 +23,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { PaginationButton } from '@onekeyhq/components/src/composite/Banner/PaginationButton';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -119,6 +120,7 @@ export default function PagePrimeFeatures() {
   const selectedFeature = route.params?.selectedFeature;
   const showAllFeatures = route.params?.showAllFeatures;
   const selectedSubscriptionPeriod = route.params?.selectedSubscriptionPeriod;
+  const serverUserInfo = route.params?.serverUserInfo;
   const intl = useIntl();
   const { gtMd } = useMedia();
 
@@ -126,6 +128,12 @@ export default function PagePrimeFeatures() {
   // const [primeMasterPasswordPersistData] = usePrimeMasterPasswordPersistAtom();
   const { isPrimeSubscriptionActive } = usePrimeAuthV2();
   const [primeCloudSyncPersistData] = usePrimeCloudSyncPersistAtom();
+
+  const { result: isServerMasterPasswordSet } = usePromiseResult(() => {
+    return backgroundApiProxy.serviceMasterPassword.IsServerMasterPasswordSet({
+      serverUserInfo,
+    });
+  }, [serverUserInfo]);
 
   const bannerHeight = useMemo(() => {
     if (gtMd) {
@@ -176,6 +184,7 @@ export default function PagePrimeFeatures() {
           },
         ],
         children:
+          isServerMasterPasswordSet ||
           primeCloudSyncPersistData?.isCloudSyncEnabled ||
           isPrimeSubscriptionActive ? (
             <Stack>
@@ -183,7 +192,9 @@ export default function PagePrimeFeatures() {
                 mt="$2"
                 variant="tertiary"
                 onPress={() => {
-                  navigation.navigate(EPrimePages.PrimeCloudSync);
+                  navigation.navigate(EPrimePages.PrimeCloudSync, {
+                    serverUserInfo,
+                  });
                 }}
               >
                 {intl.formatMessage({
@@ -293,13 +304,15 @@ export default function PagePrimeFeatures() {
       index: index ?? 0,
     };
   }, [
-    isPrimeSubscriptionActive,
     bannerHeight,
     intl,
-    navigation,
+    isServerMasterPasswordSet,
     primeCloudSyncPersistData?.isCloudSyncEnabled,
-    selectedFeature,
+    isPrimeSubscriptionActive,
     showAllFeatures,
+    navigation,
+    serverUserInfo,
+    selectedFeature,
   ]);
 
   // PaginationButton will cause native crash

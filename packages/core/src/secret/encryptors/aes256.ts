@@ -116,6 +116,7 @@ export type IEncryptStringParams = {
   data: string;
   dataEncoding?: BufferEncoding;
   allowRawPassword?: boolean;
+  iterations?: number;
 };
 
 // ------------------------------------------------------------
@@ -127,6 +128,7 @@ export type IEncryptAsyncParams = {
   customSalt?: Buffer | string;
   customIv?: Buffer | string;
   customDecodePasswordKey?: string;
+  iterations?: number;
 };
 async function encryptAsync({
   password,
@@ -136,6 +138,7 @@ async function encryptAsync({
   customSalt,
   customIv,
   customDecodePasswordKey,
+  iterations,
 }: IEncryptAsyncParams): Promise<Buffer> {
   if (!password) {
     throw new IncorrectPassword();
@@ -157,6 +160,7 @@ async function encryptAsync({
       allowRawPassword,
       customIv: customIv ? bufferUtils.bytesToHex(customIv) : undefined,
       customSalt: customSalt ? bufferUtils.bytesToHex(customSalt) : undefined,
+      iterations,
     });
     return bufferUtils.toBuffer(str, 'hex');
   }
@@ -190,6 +194,7 @@ async function encryptAsync({
   const key: Buffer = await keyFromPasswordAndSalt({
     password: passwordDecoded,
     salt,
+    iterations,
   });
 
   // const dataEncrypted = platformEnv.isNative
@@ -227,6 +232,7 @@ export type IDecryptAsyncParams = {
   allowRawPassword?: boolean;
   ignoreLogger?: boolean;
   useWebembedApi?: boolean;
+  iterations?: number;
 };
 /**
  * The recommended asynchronous decryption method
@@ -241,6 +247,7 @@ async function decryptAsync({
   allowRawPassword,
   ignoreLogger,
   useWebembedApi,
+  iterations,
 }: IDecryptAsyncParams): Promise<Buffer> {
   if (!password) {
     throw new IncorrectPassword();
@@ -261,6 +268,7 @@ async function decryptAsync({
       data: bufferUtils.bytesToHex(data),
       allowRawPassword,
       ignoreLogger,
+      iterations,
     });
     return bufferUtils.toBuffer(str, 'hex');
   }
@@ -294,6 +302,7 @@ async function decryptAsync({
   const key: Buffer = await keyFromPasswordAndSalt({
     password: passwordDecoded,
     salt,
+    iterations,
   });
 
   if (!ignoreLogger) {
@@ -348,6 +357,7 @@ export type IDecryptStringParams = {
   resultEncoding?: BufferEncoding;
   dataEncoding?: BufferEncoding;
   allowRawPassword?: boolean;
+  iterations?: number;
 };
 
 async function decryptStringAsync({
@@ -356,12 +366,14 @@ async function decryptStringAsync({
   resultEncoding = 'hex',
   dataEncoding = 'hex',
   allowRawPassword,
+  iterations,
 }: IDecryptStringParams): Promise<string> {
   const bytes = await decryptAsync({
     password,
     data: bufferUtils.toBuffer(data, dataEncoding),
     ignoreLogger: undefined,
     allowRawPassword,
+    iterations,
   });
   if (resultEncoding === 'hex') {
     return bufferUtils.bytesToHex(bytes);
@@ -374,12 +386,14 @@ async function encryptStringAsync({
   data,
   dataEncoding = 'hex',
   allowRawPassword,
+  iterations,
 }: IEncryptStringParams): Promise<string> {
   const bufferData = bufferUtils.toBuffer(data, dataEncoding);
   const bytes = await encryptAsync({
     password,
     data: bufferData,
     allowRawPassword,
+    iterations,
   });
   return bufferUtils.bytesToHex(bytes);
 }

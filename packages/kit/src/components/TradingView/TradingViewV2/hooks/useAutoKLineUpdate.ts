@@ -1,15 +1,15 @@
-import { useCallback, useRef } from 'react';
+import { type RefObject, useCallback, useRef } from 'react';
 
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 
 import { fetchTradingViewV2Data } from './useTradingViewV2';
 
-import type { IWebViewRef } from '../../WebView/types';
+import type { IWebViewRef } from '../../../WebView/types';
 
 interface IAutoKLineUpdateParams {
   tokenAddress: string;
   networkId: string;
-  webRef: React.MutableRefObject<IWebViewRef | null>;
+  webRef: RefObject<IWebViewRef | null>;
   enabled?: boolean;
   interval?: number; // in milliseconds, default 60000 (1 minute)
 }

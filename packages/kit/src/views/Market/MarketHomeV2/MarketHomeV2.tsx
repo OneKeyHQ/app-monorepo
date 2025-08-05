@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Page, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -7,6 +7,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { useMarketBasicConfig } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
 import { DesktopLayout } from './layouts/DesktopLayout';
@@ -19,11 +20,30 @@ import type { ILiquidityFilter, IMarketHomeTabValue } from './types';
 function MarketHome() {
   const { md } = useMedia();
 
+  // Load market basic config using the new hook
+  const { defaultNetworkId, formattedMinLiquidity, recommendedTokens } =
+    useMarketBasicConfig();
+
   const [selectedNetworkId, setSelectedNetworkId] =
     useState<string>('sol--101');
+
+  // Update selectedNetworkId when config loads and it's still the default
+  useEffect(() => {
+    if (defaultNetworkId && selectedNetworkId === 'sol--101') {
+      setSelectedNetworkId(defaultNetworkId);
+    }
+  }, [defaultNetworkId, selectedNetworkId]);
+
   const [liquidityFilter, setLiquidityFilter] = useState<ILiquidityFilter>({
     min: '5K',
   });
+
+  // Update liquidityFilter when config loads
+  useEffect(() => {
+    if (formattedMinLiquidity && liquidityFilter.min === '5K') {
+      setLiquidityFilter({ min: formattedMinLiquidity });
+    }
+  }, [formattedMinLiquidity, liquidityFilter.min]);
   const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('5m');
 
   const [activeTab, setActiveTab] = useState<IMarketHomeTabValue>(
@@ -44,8 +64,15 @@ function MarketHome() {
       liquidityFilter,
       activeTab,
       onTabChange: setActiveTab,
+      recommendedTokens,
     }),
-    [selectedNetworkId, timeRange, liquidityFilter, activeTab],
+    [
+      selectedNetworkId,
+      timeRange,
+      liquidityFilter,
+      activeTab,
+      recommendedTokens,
+    ],
   );
 
   return (

@@ -45,7 +45,7 @@ export function TradeTypeSelector({
             onChange(ESwapDirection.BUY);
           }}
           {...commonButtonStyleProps}
-          bg={isBuyActive ? '$iconSuccess' : '$transparent'}
+          bg={isBuyActive ? '$buttonSuccess' : '$transparent'}
           color={isBuyActive ? '$textOnColor' : '$textSubdued'}
         >
           {intl.formatMessage({ id: ETranslations.global_buy })}
@@ -60,7 +60,7 @@ export function TradeTypeSelector({
             console.log('onPress');
             onChange(ESwapDirection.SELL);
           }}
-          bg={isSellActive ? '$iconCritical' : '$transparent'}
+          bg={isSellActive ? '$buttonCritical' : '$transparent'}
           color={isSellActive ? '$textOnColor' : '$textSubdued'}
           {...commonButtonStyleProps}
         >

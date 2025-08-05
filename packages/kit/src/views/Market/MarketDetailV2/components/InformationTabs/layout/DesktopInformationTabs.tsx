@@ -1,88 +1,44 @@
-import { useMemo } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { Tabs } from '@onekeyhq/components';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { Holders } from '../components/Holders';
 import { TransactionsHistory } from '../components/TransactionsHistory';
 
-// Extract component definitions outside render to prevent re-creation on each render
-const createHoldersComponent = (tokenAddress: string, networkId: string) => {
-  const Component = () => (
-    <Holders tokenAddress={tokenAddress} networkId={networkId} />
-  );
-  Component.displayName = 'HoldersComponent';
-  return Component;
-};
-
-// Factory function to create the TransactionsHistory component with props
-const createTransactionsHistoryComponent = (
-  tokenAddress: string,
-  networkId: string,
-) => {
-  const Component = () => (
-    <TransactionsHistory tokenAddress={tokenAddress} networkId={networkId} />
-  );
-  Component.displayName = 'TransactionsHistoryComponent';
-  return Component;
-};
-
 export function DesktopInformationTabs() {
   const intl = useIntl();
   const { tokenAddress, networkId } = useTokenDetail();
+  const networkIdsMap = getNetworkIdsMap();
 
-  const TransactionsHistoryComponent = useMemo(
-    () => createTransactionsHistoryComponent(tokenAddress, networkId),
-    [tokenAddress, networkId],
-  );
-
-  const HoldersComponent = useMemo(
-    () => createHoldersComponent(tokenAddress, networkId),
-    [tokenAddress, networkId],
-  );
-
-  const tabs = useMemo(() => {
-    // Parameter validation: return empty array if parameters are empty
-    if (!tokenAddress || !networkId) {
-      return [];
-    }
-
-    return [
-      {
-        id: 'transactions',
-        title: intl.formatMessage({
-          id: ETranslations.dexmarket_details_transactions,
-        }),
-        page: TransactionsHistoryComponent,
-      },
-      networkId === 'sol--101'
-        ? {
-            id: 'holders',
-            title: intl.formatMessage({
-              id: ETranslations.dexmarket_holders,
-            }),
-            page: HoldersComponent,
-          }
-        : null,
-    ].filter(Boolean);
-  }, [
-    TransactionsHistoryComponent,
-    HoldersComponent,
-    tokenAddress,
-    networkId,
-    intl,
-  ]);
+  if (!tokenAddress || !networkId) {
+    return null;
+  }
 
   return (
     <Tabs.Container renderTabBar={(props) => <Tabs.TabBar {...props} />}>
-      {tabs.map((tab) => (
-        <Tabs.Tab key={tab.id} name={tab.title}>
-          {tab.page()}
+      <Tabs.Tab
+        name={intl.formatMessage({
+          id: ETranslations.dexmarket_details_transactions,
+        })}
+      >
+        <TransactionsHistory
+          tokenAddress={tokenAddress}
+          networkId={networkId}
+        />
+      </Tabs.Tab>
+
+      {networkId === networkIdsMap.sol ? (
+        <Tabs.Tab
+          name={intl.formatMessage({
+            id: ETranslations.dexmarket_holders,
+          })}
+        >
+          <Holders tokenAddress={tokenAddress} networkId={networkId} />
         </Tabs.Tab>
-      ))}
+      ) : null}
     </Tabs.Container>
   );
 }

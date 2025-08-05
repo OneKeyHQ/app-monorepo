@@ -1,7 +1,7 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IMarketTokenKLineResponse } from '@onekeyhq/shared/types/marketV2';
 
-import { sliceRequest } from './sliceRequest';
+import { sliceRequest } from '../sliceRequest';
 
 interface ITradingViewV2Params {
   tokenAddress: string;

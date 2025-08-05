@@ -4,6 +4,7 @@ import { CommonActions, StackActions } from '@react-navigation/native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
+  EPageType,
   HeaderIconButton,
   NavBackButton,
   Page,
@@ -16,35 +17,29 @@ import {
   useDeferredPromise,
   useIsModalPage,
   useMedia,
+  usePageType,
   useShare,
 } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type { ITabMarketParamList } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { OpenInAppButton } from '../../../components/OpenInAppButton';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { MarketDetailOverview } from '../components/MarketDetailOverview';
 import { MarketHomeHeaderSearchBar } from '../components/MarketHomeHeaderSearchBar';
-import { MarketStar } from '../components/MarketStar';
 import { MarketTokenIcon } from '../components/MarketTokenIcon';
 import { MarketTokenPrice } from '../components/MarketTokenPrice';
 import { MarketTradeButton } from '../components/MarketTradeButton';
 import { PriceChangePercentage } from '../components/PriceChangePercentage';
 import { TokenDetailTabs } from '../components/TokenDetailTabs';
 import { TokenPriceChart } from '../components/TokenPriceChart';
-import { buildMarketFullUrl } from '../marketUtils';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
 function TokenDetailHeader({
@@ -96,12 +91,6 @@ function TokenDetailHeader({
             tokenName={name}
             tokenSymbol={symbol}
             lastUpdated={lastUpdated}
-          />
-          <MarketStar
-            coingeckoId={coinGeckoId}
-            mr="$-2"
-            size="medium"
-            from={EWatchlistFrom.details}
           />
         </XStack>
         <PriceChangePercentage pt="$0.5" width="100%">
@@ -182,44 +171,14 @@ function MarketDetail({
     ),
     [tokenDetail?.image, tokenDetail?.symbol],
   );
-  const { shareText } = useShare();
-
-  const buildDeepLinkUrl = useCallback(
-    () =>
-      uriUtils.buildDeepLinkUrl({
-        path: EOneKeyDeepLinkPath.market_detail,
-        query: {
-          coinGeckoId,
-        },
-      }),
-    [coinGeckoId],
-  );
-
-  const buildFullUrl = useCallback(
-    async () => buildMarketFullUrl({ coinGeckoId }),
-    [coinGeckoId],
-  );
 
   const renderHeaderRight = useCallback(
     () => (
       <XStack gap="$6" ai="center">
-        {!platformEnv.isExtensionUiPopup && !platformEnv.isNative ? (
-          <OpenInAppButton
-            buildDeepLinkUrl={buildDeepLinkUrl}
-            buildFullUrl={buildFullUrl}
-          />
-        ) : null}
-        <HeaderIconButton
-          icon="ShareOutline"
-          onPress={async () => {
-            const url = buildMarketFullUrl({ coinGeckoId });
-            await shareText(url);
-          }}
-        />
         {gtMd ? <MarketHomeHeaderSearchBar /> : null}
       </XStack>
     ),
-    [buildDeepLinkUrl, buildFullUrl, coinGeckoId, gtMd, shareText],
+    [gtMd],
   );
 
   const navigation = useAppNavigation();
@@ -353,8 +312,6 @@ function MarketDetail({
 export default function MarketDetailWithProvider(
   props: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>,
 ) {
-  // return <MarketDetailV2 {...(props as any)} />;
-
   return (
     <AccountSelectorProviderMirror
       config={{

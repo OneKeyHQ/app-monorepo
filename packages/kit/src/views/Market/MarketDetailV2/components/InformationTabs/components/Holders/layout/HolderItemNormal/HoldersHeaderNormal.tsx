@@ -5,13 +5,13 @@ import { useIntl } from 'react-intl';
 import { SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useHoldersLayout } from './useHoldersLayout';
+import { useHoldersLayoutNormal } from './useHoldersLayoutNormal';
 
 const commonTextProps = { size: '$bodySm', color: '$textSubdued' } as const;
 
-function HoldersHeaderBase() {
+function HoldersHeaderNormalBase() {
   const intl = useIntl();
-  const { layoutConfig } = useHoldersLayout();
+  const { styles } = useHoldersLayoutNormal();
 
   return (
     <XStack
@@ -23,25 +23,25 @@ function HoldersHeaderBase() {
       borderBottomColor="$borderSubdued"
       backgroundColor="$bgApp"
     >
-      <SizableText {...commonTextProps} {...layoutConfig.rank}>
+      <SizableText {...commonTextProps} {...styles.rank}>
         {intl.formatMessage({
           id: ETranslations.dexmarket_details_holders_rank,
         })}
       </SizableText>
-      <SizableText {...commonTextProps} {...layoutConfig.address}>
+      <SizableText {...commonTextProps} {...styles.address}>
         {intl.formatMessage({
           id: ETranslations.global_address,
         })}
       </SizableText>
-      <SizableText {...commonTextProps} {...layoutConfig.percentage}>
+      <SizableText {...commonTextProps} {...styles.percentage}>
         %
       </SizableText>
-      <SizableText {...commonTextProps} {...layoutConfig.amount}>
+      <SizableText {...commonTextProps} {...styles.amount}>
         {intl.formatMessage({
           id: ETranslations.dexmarket_details_history_amount,
         })}
       </SizableText>
-      <SizableText {...commonTextProps} {...layoutConfig.value}>
+      <SizableText {...commonTextProps} {...styles.value}>
         {intl.formatMessage({
           id: ETranslations.dexmarket_details_history_value,
         })}
@@ -50,6 +50,6 @@ function HoldersHeaderBase() {
   );
 }
 
-const HoldersHeader = memo(HoldersHeaderBase);
+const HoldersHeaderNormal = memo(HoldersHeaderNormalBase);
 
-export { HoldersHeader };
+export { HoldersHeaderNormal };

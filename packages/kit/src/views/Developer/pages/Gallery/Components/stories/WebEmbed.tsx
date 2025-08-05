@@ -64,7 +64,12 @@ export function WebEmbedDevConfig() {
           Webview Url ( Real device, please use local LAN network ip address,
           and update WEB_EMBED_API_WHITE_LIST_ORIGIN )
         </SizableText>
-        <Input value={url0} onChangeText={setUrl} />
+        <Input
+          value={url0}
+          onChangeText={setUrl}
+          placeholder="http://192.168.31.111:3008"
+        />
+        <SizableText>http:// or https:// prefix required</SizableText>
       </YStack>
 
       {/* <WebViewWebEmbed src="http://localhost:3008/" /> */}

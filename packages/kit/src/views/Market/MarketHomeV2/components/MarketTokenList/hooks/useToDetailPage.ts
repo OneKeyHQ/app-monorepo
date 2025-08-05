@@ -3,23 +3,24 @@ import { useCallback } from 'react';
 import { useNavigation } from '@react-navigation/native';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { ETabMarketV2Routes } from '@onekeyhq/shared/src/routes';
-import type { ITabMarketV2ParamList } from '@onekeyhq/shared/src/routes';
+import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
+import type { ITabMarketParamList } from '@onekeyhq/shared/src/routes';
 
 interface IMarketToken {
   tokenAddress: string;
   networkId: string;
+  symbol: string;
 }
 
 export function useToDetailPage() {
-  const navigation =
-    useNavigation<IPageNavigationProp<ITabMarketV2ParamList>>();
+  const navigation = useNavigation<IPageNavigationProp<ITabMarketParamList>>();
 
   const toDetailPage = useCallback(
     (item: IMarketToken) => {
-      navigation.push(ETabMarketV2Routes.MarketDetail, {
+      navigation.push(ETabMarketRoutes.MarketDetailV2, {
         tokenAddress: item.tokenAddress,
         networkId: item.networkId,
+        symbol: item.symbol,
       });
     },
     [navigation],
