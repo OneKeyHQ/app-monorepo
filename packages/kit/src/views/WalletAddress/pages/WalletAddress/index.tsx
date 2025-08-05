@@ -71,8 +71,6 @@ import {
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
 import { WalletAddressContext } from './WalletAddressContext';
-import WalletAddressHeaderRight from './WalletAddressHeaderRight';
-import WalletAddressListHeader from './WalletAddressListHeader';
 
 import type { IWalletAddressContext } from './WalletAddressContext';
 
@@ -195,13 +193,6 @@ function WalletAddressDeriveTypeItem({ network }: { network: IServerNetwork }) {
             primary={
               <XStack alignItems="center" gap="$2">
                 <SizableText size="$bodyLgMedium">{network.name}</SizableText>
-                {isEnabledNetwork ? null : (
-                  <Badge badgeSize="sm">
-                    {intl.formatMessage({
-                      id: ETranslations.network_not_enabled,
-                    })}
-                  </Badge>
-                )}
               </XStack>
             }
           />
@@ -215,7 +206,7 @@ function WalletAddressDeriveTypeItem({ network }: { network: IServerNetwork }) {
         </XStack>
       </ListItem>
     ),
-    [avatar, copyIcon, intl, isEnabledNetwork, network.name, onPress, subtitle],
+    [avatar, copyIcon, network.name, onPress, subtitle],
   );
 }
 
@@ -378,13 +369,6 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
             primary={
               <XStack alignItems="center" gap="$2">
                 <SizableText size="$bodyLgMedium">{network.name}</SizableText>
-                {isEnabledNetwork ? null : (
-                  <Badge badgeSize="sm">
-                    {intl.formatMessage({
-                      id: ETranslations.network_not_enabled,
-                    })}
-                  </Badge>
-                )}
               </XStack>
             }
             flex={1}
@@ -413,7 +397,6 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     [
       account,
       avatar,
-      intl,
       isEnabledNetwork,
       loading,
       network.name,
@@ -555,7 +538,6 @@ function WalletAddressContent({
         sections={sections}
         renderSectionHeader={renderSectionHeader}
         renderItem={renderItem}
-        ListHeaderComponent={<WalletAddressListHeader />}
         ListEmptyComponent={
           <Empty
             icon="SearchOutline"
@@ -588,9 +570,6 @@ const WalletAddressContentMemo = memo(WalletAddressContent);
 function WalletAddressPageView({
   onClose,
   children,
-  walletId,
-  accountId,
-  indexedAccountId,
 }: {
   onClose?: () => Promise<void>;
   children: React.ReactNode;
@@ -599,15 +578,6 @@ function WalletAddressPageView({
   indexedAccountId?: string;
 }) {
   const intl = useIntl();
-  const renderHeaderRight = useCallback(() => {
-    return (
-      <WalletAddressHeaderRight
-        walletId={walletId ?? ''}
-        accountId={accountId}
-        indexedAccountId={indexedAccountId}
-      />
-    );
-  }, [accountId, indexedAccountId, walletId]);
   return (
     <Page safeAreaEnabled={false} onClose={onClose}>
       <Page.Header
@@ -615,7 +585,6 @@ function WalletAddressPageView({
         title={intl.formatMessage({
           id: ETranslations.copy_address_modal_title,
         })}
-        headerRight={renderHeaderRight}
       />
       <Page.Body>{children}</Page.Body>
     </Page>
