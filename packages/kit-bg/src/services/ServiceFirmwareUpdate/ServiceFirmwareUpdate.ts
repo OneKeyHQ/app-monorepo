@@ -53,7 +53,10 @@ import type {
   IOneKeyDeviceFeatures,
   IResourceUpdateInfo,
 } from '@onekeyhq/shared/types/device';
-import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareCallContext,
+  EOneKeyDeviceMode,
+} from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 import {
@@ -277,8 +280,17 @@ class ServiceFirmwareUpdate extends ServiceBase {
       connectId,
     });
 
+    const compatibleConnectId =
+      await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+        hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+        connectId,
+        quickMode: true,
+      });
+
     const { isBootloaderMode, features, error } =
-      await this.checkDeviceIsBootloaderMode({ connectId });
+      await this.checkDeviceIsBootloaderMode({
+        connectId: compatibleConnectId || connectId,
+      });
 
     serviceHardwareUtils.hardwareLog('checkFirmwareUpdateStatus', features);
 
