@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   AnimatePresence,
+  Button,
   Image,
   SizableText,
   XStack,
@@ -23,12 +24,14 @@ interface IPreSwapConfirmResultProps {
   lastStep: ISwapStep;
   fromToken?: ISwapToken;
   supportUrl?: string;
+  onConfirm?: () => void;
 }
 
 const PreSwapConfirmResult = ({
   lastStep,
   fromToken,
   supportUrl,
+  onConfirm,
 }: IPreSwapConfirmResultProps) => {
   const [explorerUrl, setExplorerUrl] = useState<string>('');
   const intl = useIntl();
@@ -205,6 +208,14 @@ const PreSwapConfirmResult = ({
           </SizableText>
         </XStack>
       ) : null}
+      <Button variant="primary" onPress={onConfirm} size="medium">
+        {intl.formatMessage({
+          id:
+            lastStep.status === ESwapStepStatus.FAILED
+              ? ETranslations.global_retry
+              : ETranslations.global_done,
+        })}
+      </Button>
     </YStack>
   );
 };
