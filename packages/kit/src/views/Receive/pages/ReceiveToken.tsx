@@ -362,9 +362,9 @@ function ReceiveToken() {
             </SizableText>
             <Badge>
               <Badge.Text>
-                {network.name}{' '}
+                {network.name}
                 {vaultSettings?.showAddressType && addressType
-                  ? `/ ${addressType}`
+                  ? ` / ${addressType}`
                   : ''}
               </Badge.Text>
             </Badge>

@@ -90,7 +90,9 @@ export default function PrimeDashboard({
 
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
     useState<ISubscriptionPeriod>('P1Y');
-  const [serverUserInfo, setServerUserInfo] = useState<IPrimeServerUserInfo | undefined>(undefined);
+  const [serverUserInfo, setServerUserInfo] = useState<
+    IPrimeServerUserInfo | undefined
+  >(undefined);
 
   const { top } = useSafeAreaInsets();
   const { isNative, isWebMobile } = platformEnv;
@@ -115,7 +117,8 @@ export default function PrimeDashboard({
           // may be blurred when auto navigate to Device Limit Page
           return;
         }
-        const result = await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        const result =
+          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
         setServerUserInfo(result.serverUserInfo);
       }
     };
