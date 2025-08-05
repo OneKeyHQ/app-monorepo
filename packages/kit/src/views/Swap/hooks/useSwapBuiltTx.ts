@@ -1361,6 +1361,7 @@ export function useSwapBuildTx() {
         swapType = ESwapTabSwitchType.BRIDGE;
       }
       defaultLogger.swap.createSwapOrder.swapCreateOrder({
+        quoteToAmount: buildSwapRes.result?.toAmount ?? '',
         status: ESwapEventAPIStatus.SUCCESS,
         swapProvider: buildSwapRes.result?.info.provider ?? '',
         swapProviderName: buildSwapRes.result?.info.providerName ?? '',
@@ -1466,6 +1467,7 @@ export function useSwapBuildTx() {
             swapType = ESwapTabSwitchType.BRIDGE;
           }
           defaultLogger.swap.createSwapOrder.swapCreateOrder({
+            quoteToAmount: data?.toAmount ?? '',
             status: ESwapEventAPIStatus.FAIL,
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             message: e?.message ?? 'unknown error',
