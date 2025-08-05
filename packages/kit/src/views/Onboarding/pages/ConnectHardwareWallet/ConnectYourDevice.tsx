@@ -895,7 +895,6 @@ function ConnectByBluetooth({
     | 'disabledInSystem'
     | 'disabledInApp'
     | 'checking'
-    | 'unsupported'
     | 'noSystemPermission'
   >('checking');
 
@@ -938,11 +937,6 @@ function ConnectByBluetooth({
       if (available.state === 'unauthorized') {
         console.log('onboarding checkBluetoothStatus: noSystemPermission');
         setBluetoothStatus('noSystemPermission');
-        return;
-      }
-      if (available.unsupported) {
-        console.log('onboarding checkBluetoothStatus: unsupported');
-        setBluetoothStatus('unsupported');
         return;
       }
       if (!available?.available) {
@@ -1089,17 +1083,6 @@ function ConnectByBluetooth({
           }),
           onPress: handleAppEnableDesktopBluetooth,
         }}
-      />
-    );
-  }
-
-  if (bluetoothStatus === 'unsupported') {
-    return (
-      <Empty
-        flex={1}
-        icon="BluetoothOutline"
-        title="unsupported"
-        description="unsupported description"
       />
     );
   }
