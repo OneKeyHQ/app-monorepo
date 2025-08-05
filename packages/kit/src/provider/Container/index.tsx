@@ -27,10 +27,10 @@ import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalCon
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import InAppNotification from './InAppNotification';
 import { NavigationContainer } from './NavigationContainer';
-import { PerformanceMonitorContainer } from './PerformanceMonitor';
 import { PortalBodyContainer } from './PortalBodyContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
+import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
 
 const PageTrackerContainer = LazyLoad(
   () => import('./PageTrackerContainer'),
@@ -118,7 +118,7 @@ export function Container() {
           <ForceFirmwareUpdateContainer />
           <ColdStartByNotification />
           <PrimeGlobalEffect />
-          <PerformanceMonitorContainer />
+          <WebPerformanceMonitorContainer />
         </NavigationContainer>
         <GlobalWalletConnectModalContainer />
       </AppStateLockContainer>

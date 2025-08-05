@@ -14,4 +14,4 @@ const BasePerformanceMonitor = () => {
   return <MonitorContainer />;
 };
 
-export const PerformanceMonitor = memo(BasePerformanceMonitor);
+export const WebPerformanceMonitor = memo(BasePerformanceMonitor);
