@@ -16,6 +16,17 @@ import type {
   IEventSourceTimeoutEvent,
 } from '@onekeyhq/shared/src/eventSource';
 
+import type {
+  IFeeAlgo,
+  IFeeCkb,
+  IFeeDot,
+  IFeeSol,
+  IFeeSui,
+  IFeeTron,
+  IFeeUTXO,
+  IGasEIP1559,
+  IGasLegacy,
+} from '../fee';
 import type { EMessageTypesEth } from '../message';
 import type { IDecodedTxActionTokenApprove } from '../tx';
 import type { NormalizedOrder, TypedDataDomain } from '@cowprotocol/contracts';
@@ -420,12 +431,34 @@ export enum ESwapNetworkFeeLevel {
   MEDIUM = 'medium',
   HIGH = 'high',
 }
+
+export interface ISwapGasInfo {
+  common?: {
+    baseFee?: string;
+    feeDecimals: number;
+    feeSymbol: string;
+    nativeDecimals: number;
+    nativeSymbol: string;
+    nativeTokenPrice?: number;
+  };
+  gas?: IGasLegacy;
+  gasEIP1559?: IGasEIP1559;
+  feeUTXO?: IFeeUTXO;
+  feeTron?: IFeeTron;
+  feeSol?: IFeeSol;
+  feeCkb?: IFeeCkb;
+  feeAlgo?: IFeeAlgo;
+  feeDot?: IFeeDot;
+  feeBudget?: IFeeSui;
+}
 export interface ISwapPreSwapData {
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
   fromTokenAmount?: string;
   shouldFallback?: boolean;
   toTokenAmount?: string;
+  swapBuildLoading?: boolean;
+  estimateNetworkFeeLoading?: boolean;
   providerInfo?: IFetchQuoteInfo;
   isHWAndExBatchTransfer?: boolean;
   slippage?: number;
@@ -434,6 +467,8 @@ export interface ISwapPreSwapData {
   allowanceResult?: IAllowanceResult;
   netWorkFee?: {
     feeLevel?: ESwapNetworkFeeLevel;
+    gasInfos?: ISwapGasInfo[];
+    gasFeeFiatValue?: string;
   };
 }
 

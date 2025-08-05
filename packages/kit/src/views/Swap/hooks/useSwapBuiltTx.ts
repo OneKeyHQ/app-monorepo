@@ -63,6 +63,7 @@ import type {
   IFetchLimitOrderRes,
   IFetchQuoteResult,
   IOneInchOrderStruct,
+  ISwapGasInfo,
   ISwapPreSwapData,
   ISwapStep,
   ISwapToken,
@@ -467,25 +468,7 @@ export function useSwapBuildTx() {
       networkId: string;
       accountId: string;
       unsignedTxItem: IUnsignedTxPro;
-      gasInfo: {
-        common?: {
-          baseFee?: string;
-          feeDecimals: number;
-          feeSymbol: string;
-          nativeDecimals: number;
-          nativeSymbol: string;
-          nativeTokenPrice?: number;
-        };
-        gas?: IGasLegacy;
-        gasEIP1559?: IGasEIP1559;
-        feeUTXO?: IFeeUTXO;
-        feeTron?: IFeeTron;
-        feeSol?: IFeeSol;
-        feeCkb?: IFeeCkb;
-        feeAlgo?: IFeeAlgo;
-        feeDot?: IFeeDot;
-        feeBudget?: IFeeSui;
-      };
+      gasInfo: ISwapGasInfo;
     }) => {
       if (!gasInfo.common) {
         throw new OneKeyError('gasInfo.common is required');
@@ -2148,6 +2131,13 @@ export function useSwapBuildTx() {
         }
         let buildSwapRes: IFetchBuildTxResponse | undefined;
         try {
+          setSwapSteps((prev) => ({
+            ...prev,
+            preSwapData: {
+              ...prev.preSwapData,
+              swapBuildLoading: true,
+            },
+          }));
           buildSwapRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
             fromToken: data.fromTokenInfo,
             toToken: data.toTokenInfo,
@@ -2164,6 +2154,13 @@ export function useSwapBuildTx() {
             walletType: swapFromAddressInfo.accountInfo?.wallet?.type,
           });
         } catch (e: any) {
+          setSwapSteps((prev) => ({
+            ...prev,
+            preSwapData: {
+              ...prev.preSwapData,
+              swapBuildLoading: false,
+            },
+          }));
           let swapType = ESwapTabSwitchType.SWAP;
           if (data?.protocol === EProtocolOfExchange.LIMIT) {
             swapType = ESwapTabSwitchType.LIMIT;
@@ -2199,6 +2196,14 @@ export function useSwapBuildTx() {
         if (buildSwapRes) {
           let transferInfo: ITransferInfo | undefined;
           let encodedTx: IEncodedTx | undefined;
+          setSwapSteps((prev) => ({
+            ...prev,
+            preSwapData: {
+              ...prev.preSwapData,
+              swapBuildLoading: false,
+              toTokenAmount: buildSwapRes.result.toAmount ?? data.toAmount,
+            },
+          }));
           if (buildSwapRes?.swftOrder) {
             encodedTx = undefined;
             // swft order
@@ -2351,12 +2356,20 @@ export function useSwapBuildTx() {
           };
         }
       }
+      setSwapSteps((prev) => ({
+        ...prev,
+        preSwapData: {
+          ...prev.preSwapData,
+          swapBuildLoading: false,
+        },
+      }));
       return {};
     },
     [
       checkOtherFee,
       isFirstTimeSwap,
       isModalPage,
+      setSwapSteps,
       slippageItem,
       swapBuildFinish,
       swapFromAddressInfo.accountInfo?.account?.id,
@@ -2395,6 +2408,14 @@ export function useSwapBuildTx() {
           ...buildUnsignedParamsCheckNonce,
           isInternalSwap: true,
         });
+
+      setSwapSteps((prev) => ({
+        ...prev,
+        preSwapData: {
+          ...prev.preSwapData,
+          estimateNetworkFeeLoading: true,
+        },
+      }));
       const vaultSettings =
         await backgroundApiProxy.serviceNetwork.getVaultSettings({
           networkId,
@@ -2659,9 +2680,18 @@ export function useSwapBuildTx() {
           throw e;
         }
       }
+      // todo gasinfo into: ISwapGasInfo
+      setSwapSteps((prev) => ({
+        ...prev,
+        preSwapData: {
+          ...prev.preSwapData,
+          estimateNetworkFeeLoading: true,
+        },
+      }));
     },
     [
       fromToken,
+      setSwapSteps,
       swapEstimateFeeEvent,
       swapFromAddressInfo.accountInfo?.account?.id,
       swapFromAddressInfo.address,
