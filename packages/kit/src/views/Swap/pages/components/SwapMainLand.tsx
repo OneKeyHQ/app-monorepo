@@ -652,8 +652,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     onActionHandlerBefore();
   }, [onActionHandlerBefore]);
 
-  const onPreSwapClose = useCallback(() => {
+  const dialogClose = useCallback(() => {
     void dialogRef.current?.close();
+  }, []);
+
+  const onPreSwapClose = useCallback(() => {
+    dialogClose();
     setSwapBuildTxFetching(false);
     void backgroundApiProxy.serviceGas.abortEstimateFee();
     setTimeout(() => {
@@ -662,7 +666,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         preSwapData: {},
       });
     }, 500);
-  }, [setSwapBuildTxFetching, setSwapSteps]);
+  }, [setSwapBuildTxFetching, dialogClose, setSwapSteps]);
 
   const onPreSwap = useCallback(() => {
     if (!currentQuoteRes) {
@@ -696,7 +700,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
                         : EJotaiContextStoreNames.swap
                     }
                   >
-                    <PreSwapDialogContent onConfirm={handleConfirm} />
+                    <PreSwapDialogContent
+                      onConfirm={handleConfirm}
+                      onDone={dialogClose}
+                    />
                   </SwapProviderMirror>
                 </AccountSelectorProviderMirror>
               ),
@@ -724,7 +731,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
                         : EJotaiContextStoreNames.swap
                     }
                   >
-                    <PreSwapDialogContent onConfirm={handleConfirm} />
+                    <PreSwapDialogContent
+                      onDone={dialogClose}
+                      onConfirm={handleConfirm}
+                    />
                   </SwapProviderMirror>
                 </AccountSelectorProviderMirror>
               ),
@@ -733,6 +743,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             });
     }, 100);
   }, [
+    dialogClose,
     InTabDialog,
     InModalDialog,
     currentQuoteRes,
