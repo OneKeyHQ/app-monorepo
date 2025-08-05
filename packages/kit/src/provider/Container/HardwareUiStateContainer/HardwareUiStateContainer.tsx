@@ -754,6 +754,10 @@ function HardwareUiStateContainerCmpControlled() {
           return;
         }
 
+        const showUsbTroubleshooting = !platformEnv.isNative;
+        const showBluetoothTroubleshooting =
+          platformEnv.isNative || platformEnv.isSupportDesktopBle;
+
         hardwareErrorDialogInstanceRef.current = Dialog.show({
           title: intl.formatMessage({
             id: ETranslations.communication_timeout,
@@ -761,40 +765,44 @@ function HardwareUiStateContainerCmpControlled() {
           showFooter: false,
           renderContent: (
             <ScrollView maxHeight={480}>
-              <YStack>
-                <XStack alignItems="center" gap={7} mb="$2">
-                  <Icon name="TypeCoutline" size="$3.5" />
-                  <SizableText size="$headingSm">
-                    {intl.formatMessage({
-                      id: ETranslations.troubleshooting_usb,
-                    })}
-                  </SizableText>
-                </XStack>
+              {showUsbTroubleshooting ? (
                 <YStack>
-                  <ConnectionTroubleShootingAccordion
-                    connectionType="usb"
-                    defaultValue={undefined}
-                    indent={false}
-                  />
+                  <XStack alignItems="center" gap={7} mb="$2">
+                    <Icon name="TypeCoutline" size="$3.5" />
+                    <SizableText size="$headingSm">
+                      {intl.formatMessage({
+                        id: ETranslations.troubleshooting_usb,
+                      })}
+                    </SizableText>
+                  </XStack>
+                  <YStack>
+                    <ConnectionTroubleShootingAccordion
+                      connectionType="usb"
+                      defaultValue={undefined}
+                      indent={false}
+                    />
+                  </YStack>
                 </YStack>
-              </YStack>
-              <YStack mt="$5">
-                <XStack alignItems="center" gap={7} mb="$2">
-                  <Icon name="BluetoothOutline" size="$3.5" />
-                  <SizableText size="$headingSm">
-                    {intl.formatMessage({
-                      id: ETranslations.troubleshooting_bluetooth,
-                    })}
-                  </SizableText>
-                </XStack>
-                <YStack>
-                  <ConnectionTroubleShootingAccordion
-                    connectionType="bluetooth"
-                    defaultValue={undefined}
-                    indent={false}
-                  />
+              ) : null}
+              {showBluetoothTroubleshooting ? (
+                <YStack mt={showUsbTroubleshooting ? '$5' : undefined}>
+                  <XStack alignItems="center" gap={7} mb="$2">
+                    <Icon name="BluetoothOutline" size="$3.5" />
+                    <SizableText size="$headingSm">
+                      {intl.formatMessage({
+                        id: ETranslations.troubleshooting_bluetooth,
+                      })}
+                    </SizableText>
+                  </XStack>
+                  <YStack>
+                    <ConnectionTroubleShootingAccordion
+                      connectionType="bluetooth"
+                      defaultValue={undefined}
+                      indent={false}
+                    />
+                  </YStack>
                 </YStack>
-              </YStack>
+              ) : null}
             </ScrollView>
           ),
         });
