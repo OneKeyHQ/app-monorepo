@@ -55,7 +55,7 @@ browsers.forEach((browser) => {
   if (typeof buildNumber === 'string') {
     for (let i = 0; i < buildNumber.length; i += 6) {
       const group = buildNumber.slice(i, i + 6);
-      versionArray.push(String(group));
+      versionArray.push(String(parseInt(group, 10)));
     }
   }
   jsonObj.version = versionArray.join('.');
