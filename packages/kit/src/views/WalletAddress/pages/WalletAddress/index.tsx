@@ -397,7 +397,6 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     [
       account,
       avatar,
-      intl,
       isEnabledNetwork,
       loading,
       network.name,
