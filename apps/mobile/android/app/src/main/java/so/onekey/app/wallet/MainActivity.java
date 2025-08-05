@@ -3,13 +3,25 @@ package so.onekey.app.wallet;
 import android.content.Context;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 
+import com.betomorrow.rnfilelogger.FileLoggerModule;
 import com.facebook.react.ReactActivity;
 import com.facebook.react.ReactActivityDelegate;
 import com.facebook.react.ReactRootView;
+import com.facebook.react.bridge.ReactApplicationContext;
+import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
 import com.facebook.react.defaults.DefaultReactActivityDelegate;
 import com.facebook.react.modules.i18nmanager.I18nUtil;
+
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
 
 import expo.modules.ReactActivityDelegateWrapper;
 import expo.modules.splashscreen.SplashScreenManager;
@@ -20,6 +32,9 @@ import so.onekey.app.wallet.splashscreen.SplashScreenViewController;
 import so.onekey.app.wallet.splashscreen.singletons.SplashScreen;
 
 public class MainActivity extends ReactActivity {
+    private FileLoggerModule fileLogger;
+    SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
+
     private SplashScreenImageResizeMode getResizeMode(Context context) {
     String resizeModeString = context.getString(R.string.expo_splash_screen_resize_mode).toLowerCase();
     SplashScreenImageResizeMode mode = SplashScreenImageResizeMode.fromString(resizeModeString);
@@ -47,7 +62,18 @@ public class MainActivity extends ReactActivity {
     }
     I18nUtil sharedI18nUtilInstance = I18nUtil.getInstance();
     sharedI18nUtilInstance.allowRTL(getApplicationContext(), true);
+    EventBus.getDefault().register(this);
+    fileLogger = new FileLoggerModule((ReactApplicationContext) getReactHost().getCurrentReactContext());
   }
+
+    @Subscribe(threadMode = ThreadMode.ASYNC)
+    public void onLogEvent(Object event)
+    {
+        List<String> messages = (List<String>) event;
+        String currentTime = sdf.format(new Date());
+        fileLogger.write(1, currentTime + " | INFO : app => native => " + messages.get(0) + ": " + messages.get(1));
+    };
+
 
   /**
    * Returns the name of the main component registered from JavaScript.

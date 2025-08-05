@@ -1,10 +1,14 @@
-export const useHoldersLayout = () => {
-  const layoutConfig = {
+export const useHoldersLayoutNormal = () => {
+  const styles = {
     rank: {
       width: '$10',
     },
     address: {
       width: '$40',
+    },
+    percentage: {
+      width: '$40',
+      textAlign: 'right' as const,
     },
     amount: {
       width: '$40',
@@ -14,11 +18,7 @@ export const useHoldersLayout = () => {
       width: '$40',
       textAlign: 'right' as const,
     },
-    percentage: {
-      width: '$40',
-      textAlign: 'right' as const,
-    },
   };
 
-  return { layoutConfig };
+  return { styles };
 };

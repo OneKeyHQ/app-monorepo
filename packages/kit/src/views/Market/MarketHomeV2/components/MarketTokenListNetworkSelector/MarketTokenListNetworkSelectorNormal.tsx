@@ -54,7 +54,7 @@ const MarketTokenListNetworkSelectorNormal = forwardRef<
     );
 
     return (
-      <Stack pt="$3" pl="$5" pr="$5" pb="$2">
+      <Stack pt="$3" pb="$2">
         {isLoading || forceLoading ? (
           <MarketTokenListNetworkSelectorNormalSkeleton />
         ) : (

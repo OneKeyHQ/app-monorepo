@@ -1,11 +1,8 @@
-import { useState } from 'react';
-
 import { XStack, YStack } from '@onekeyhq/components';
 import { useShowWatchlistOnlyValue } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
 import { MarketTokenListNetworkSelector } from '../MarketTokenListNetworkSelector';
 import { MarketViewToggle } from '../MarketViewToggle';
-import { TimeRangeSelector } from '../TimeRangeSelector';
 
 import { MarketFilterBarSkeleton } from './MarketFilterBarSkeleton';
 
@@ -21,19 +18,10 @@ export interface IMarketFilterBarProps {
 
 export function MarketFilterBar({
   selectedNetworkId,
-  timeRange = '24h',
   onNetworkIdChange,
-  onTimeRangeChange,
   isLoading = false,
 }: IMarketFilterBarProps) {
-  const [currentTimeRange, setCurrentTimeRange] =
-    useState<ITimeRangeSelectorValue>(timeRange);
   const [showWatchlistOnly] = useShowWatchlistOnlyValue();
-
-  const handleTimeRangeChange = (value: ITimeRangeSelectorValue) => {
-    setCurrentTimeRange(value);
-    onTimeRangeChange?.(value);
-  };
 
   const handleNetworkIdChange = (networkId: string) => {
     onNetworkIdChange?.(networkId);
@@ -44,18 +32,9 @@ export function MarketFilterBar({
   }
 
   return (
-    <YStack gap="$1" pt="$3">
-      <XStack gap="$6" pl="$7" pr="$5">
-        <XStack gap="$4">
-          {/* Market View Toggle - Trending and Watchlist buttons */}
-          <MarketViewToggle />
-        </XStack>
-
-        {/* Time Range Selector */}
-        <TimeRangeSelector
-          value={currentTimeRange}
-          onChange={handleTimeRangeChange}
-        />
+    <YStack gap="$1" pt="$3" px="$6">
+      <XStack pl="$3">
+        <MarketViewToggle />
       </XStack>
 
       {/* Network Selector - Hidden in watchlist mode */}
@@ -63,7 +42,6 @@ export function MarketFilterBar({
         <MarketTokenListNetworkSelector
           selectedNetworkId={selectedNetworkId}
           onSelectNetworkId={handleNetworkIdChange}
-          size="normal"
           forceLoading={isLoading}
         />
       )}

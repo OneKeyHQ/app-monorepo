@@ -26,6 +26,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import performance from '@onekeyhq/shared/src/performance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
@@ -572,6 +573,15 @@ export function Bootstrap() {
     }
     return undefined;
   }, [navigation, autoNavigation?.enabled, autoNavigation?.selectedTab]);
+
+  useEffect(() => {
+    if (devSettings.enabled) {
+      performance.start(true);
+    }
+    return () => {
+      performance.stop();
+    };
+  }, [devSettings.enabled]);
 
   useFetchCurrencyList();
   useAboutVersion();

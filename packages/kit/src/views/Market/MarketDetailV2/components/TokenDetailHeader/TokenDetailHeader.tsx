@@ -1,3 +1,5 @@
+import type { ComponentProps } from 'react';
+
 import { XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -10,9 +12,11 @@ import { TokenDetailHeaderRight } from './TokenDetailHeaderRight';
 export function TokenDetailHeader({
   showStats = true,
   showMediaAndSecurity = true,
+  containerProps,
 }: {
   showStats?: boolean;
   showMediaAndSecurity?: boolean;
+  containerProps?: ComponentProps<typeof XStack>;
 }) {
   const { tokenDetail, networkId } = useTokenDetail();
 
@@ -29,7 +33,15 @@ export function TokenDetailHeader({
   );
 
   return (
-    <XStack width="100%" px="$5" pt="$4" pb="$2" jc="space-between" ai="center">
+    <XStack
+      width="100%"
+      px="$5"
+      pt="$4"
+      pb="$2"
+      jc="space-between"
+      ai="center"
+      {...containerProps}
+    >
       <TokenDetailHeaderLeft
         tokenDetail={tokenDetail}
         networkId={networkId}

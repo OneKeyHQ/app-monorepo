@@ -1,21 +1,15 @@
-import { useEffect, useRef } from 'react';
-
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Dialog,
-  Spinner,
-  Stack,
-  View,
-  useMedia,
-} from '@onekeyhq/components';
+import { Button, Spinner, Stack, View, useMedia } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProviderMirrorV2';
+import { EModalMarketRoutes } from '../../../router';
 
 import { SwapPanelWrap } from './SwapPanelWrap';
 
@@ -28,13 +22,7 @@ export function SwapPanel({
 }) {
   const intl = useIntl();
   const media = useMedia();
-  const dialogRef = useRef<ReturnType<typeof Dialog.show>>(undefined);
-
-  useEffect(() => {
-    if (!media.md) {
-      void dialogRef.current?.close();
-    }
-  }, [media.md]);
+  const navigation = useAppNavigation();
 
   if (!networkId || !tokenAddress) {
     return (
@@ -50,28 +38,18 @@ export function SwapPanel({
   }
 
   const showSwapDialog = () => {
-    dialogRef.current = Dialog.show({
-      title: intl.formatMessage({ id: ETranslations.global_swap }),
-      renderContent: (
-        <AccountSelectorProviderMirror
-          config={{
-            sceneName: EAccountSelectorSceneName.home,
-            sceneUrl: '',
-          }}
-          enabledNum={[0]}
-        >
-          <MarketWatchListProviderMirrorV2
-            storeName={EJotaiContextStoreNames.marketWatchListV2}
-          >
-            <SwapPanelWrap />
-          </MarketWatchListProviderMirrorV2>
-        </AccountSelectorProviderMirror>
-      ),
-      showFooter: false,
-    });
+    if (networkId && tokenAddress) {
+      navigation.pushModal(EModalRoutes.MarketModal, {
+        screen: EModalMarketRoutes.MarketSwap,
+        params: {
+          networkId,
+          tokenAddress,
+        },
+      });
+    }
   };
 
-  if (media.md) {
+  if (media.lg) {
     return (
       <View p="$3">
         <Button size="large" variant="primary" onPress={() => showSwapDialog()}>

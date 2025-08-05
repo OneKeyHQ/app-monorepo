@@ -109,6 +109,7 @@
     "react-native-network-logger": "2.0.0",
     "react-native-pager-view": "6.8.1",
     "react-native-passkeys": "0.3.3",
+    "react-native-performance-stats": "0.2.3",
     "react-native-permissions": "5.4.2",
     "react-native-purchases": "8.11.9",
     "react-native-qrcode-styled": "0.3.3",

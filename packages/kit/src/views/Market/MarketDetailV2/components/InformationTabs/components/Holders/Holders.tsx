@@ -2,15 +2,24 @@ import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ListView, SizableText, Stack } from '@onekeyhq/components';
+import {
+  ListView,
+  ScrollView,
+  SizableText,
+  Stack,
+  useMedia,
+} from '@onekeyhq/components';
 import type { IListViewProps } from '@onekeyhq/components';
+import { useLeftColumnWidthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketHolders } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
 
-import { HolderItem } from './HolderItem';
-import { HoldersHeader } from './HoldersHeader';
-import { HoldersSkeleton } from './HoldersSkeleton';
+import { HoldersSkeleton } from './components/HoldersSkeleton';
+import { HolderItemNormal } from './layout/HolderItemNormal/HolderItemNormal';
+import { HoldersHeaderNormal } from './layout/HolderItemNormal/HoldersHeaderNormal';
+import { HolderItemSmall } from './layout/HolderItemSmall/HolderItemSmall';
+import { HoldersHeaderSmall } from './layout/HolderItemSmall/HoldersHeaderSmall';
 
 interface IHoldersProps {
   tokenAddress: string;
@@ -19,24 +28,25 @@ interface IHoldersProps {
 
 function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
   const intl = useIntl();
+  const { gtLg } = useMedia();
+  const [leftColumnWidth] = useLeftColumnWidthAtom();
   const { holders, isRefreshing } = useMarketHolders({
     tokenAddress,
     networkId,
   });
 
+  const shouldEnableScroll = leftColumnWidth < 930;
+
   const renderItem: IListViewProps<IMarketTokenHolder>['renderItem'] =
     useCallback(
       ({ item, index }: { item: IMarketTokenHolder; index: number }) => {
-        return (
-          <HolderItem
-            key={item.accountAddress}
-            item={item}
-            index={index}
-            networkId={networkId}
-          />
+        return gtLg ? (
+          <HolderItemNormal item={item} index={index} networkId={networkId} />
+        ) : (
+          <HolderItemSmall item={item} index={index} networkId={networkId} />
         );
       },
-      [networkId],
+      [networkId, gtLg],
     );
 
   if (isRefreshing && holders.length === 0) {
@@ -55,9 +65,9 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
     );
   }
 
-  return (
-    <>
-      <HoldersHeader />
+  const list = (
+    <Stack flex={1}>
+      {gtLg ? <HoldersHeaderNormal /> : <HoldersHeaderSmall />}
       <ListView<IMarketTokenHolder>
         data={holders}
         renderItem={renderItem}
@@ -68,8 +78,18 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
           paddingBottom: '$4',
         }}
       />
-    </>
+    </Stack>
   );
+
+  if (gtLg && shouldEnableScroll) {
+    return (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {list}
+      </ScrollView>
+    );
+  }
+
+  return list;
 }
 
 const Holders = memo(HoldersBase);
