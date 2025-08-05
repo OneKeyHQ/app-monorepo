@@ -282,9 +282,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
     const compatibleConnectId =
       await this.backgroundApi.serviceHardware.getCompatibleConnectId({
-        hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
         connectId,
-        quickMode: true,
       });
 
     const { isBootloaderMode, features, error } =

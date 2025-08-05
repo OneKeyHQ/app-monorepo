@@ -1534,13 +1534,11 @@ class ServiceHardware extends ServiceBase {
     connectId,
     featuresDeviceId,
     features,
-    quickMode,
   }: {
     hardwareCallContext: EHardwareCallContext;
     connectId?: string;
     featuresDeviceId?: string | undefined | null; // rawDeviceId
     features?: IOneKeyDeviceFeatures;
-    quickMode?: boolean;
   }) {
     if (!connectId) {
       throw new OneKeyLocalError('connectId is required');
@@ -1557,7 +1555,7 @@ class ServiceHardware extends ServiceBase {
       return device?.connectId || connectId;
     }
 
-    if (quickMode) {
+    if (hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK) {
       const currentTransportType = await this.getCurrentTransportType();
       if (
         currentTransportType === EHardwareTransportType.DesktopWebBle &&
