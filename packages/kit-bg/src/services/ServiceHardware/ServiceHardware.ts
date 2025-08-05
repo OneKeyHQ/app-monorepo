@@ -1425,6 +1425,11 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async detectUSBDeviceAvailability() {
+    return this.connectionManager.detectUSBDeviceAvailability();
+  }
+
+  @backgroundMethod()
   async repairBleConnectIdWithProgress({
     connectId,
     featuresDeviceId,
