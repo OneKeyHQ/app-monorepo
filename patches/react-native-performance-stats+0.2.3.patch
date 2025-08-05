@@ -11,10 +11,36 @@ index 8d78d92..7d21d24 100644
  
  if (isNewArchitectureEnabled()) {
 diff --git a/node_modules/react-native-performance-stats/android/src/main/java/nl/skillnation/perfstats/PerformanceStatsImpl.java b/node_modules/react-native-performance-stats/android/src/main/java/nl/skillnation/perfstats/PerformanceStatsImpl.java
-index 621ef85..141c45c 100644
+index 621ef85..38f635d 100644
 --- a/node_modules/react-native-performance-stats/android/src/main/java/nl/skillnation/perfstats/PerformanceStatsImpl.java
 +++ b/node_modules/react-native-performance-stats/android/src/main/java/nl/skillnation/perfstats/PerformanceStatsImpl.java
-@@ -12,9 +12,14 @@ import com.facebook.react.bridge.WritableMap;
+@@ -1,8 +1,24 @@
+ package nl.skillnation.perfstats;
+ 
+-
++import android.annotation.SuppressLint;
++import android.app.Activity;
++import android.content.Context;
++import android.content.Intent;
++import android.graphics.Color;
++import android.graphics.PixelFormat;
++import android.net.Uri;
++import android.os.Build;
+ import android.os.Debug;
+ import android.os.Handler;
++import android.provider.Settings;
++import android.text.TextUtils;
++import android.util.Log;
++import android.util.TypedValue;
++import android.view.Gravity;
++import android.view.MotionEvent;
++import android.view.View;
++import android.view.WindowManager;
++import android.widget.TextView;
+ 
+ import androidx.annotation.Nullable;
+ 
+@@ -12,9 +28,12 @@ import com.facebook.react.bridge.WritableMap;
  import com.facebook.react.modules.core.DeviceEventManagerModule;
  import com.facebook.react.modules.debug.FpsDebugFrameCallback;
  
@@ -24,12 +50,57 @@ index 621ef85..141c45c 100644
  import java.io.IOException;
  import java.io.InputStreamReader;
 +import java.util.ArrayList;
-+import java.util.List;
-+import java.util.Map;
  
  // Most important impl details from: https://github.com/facebook/react-native/blob/main/ReactAndroid/src/main/java/com/facebook/react/devsupport/FpsView.java
  public class PerformanceStatsImpl {
-@@ -61,6 +66,12 @@ public class PerformanceStatsImpl {
+@@ -28,28 +47,45 @@ public class PerformanceStatsImpl {
+     private Handler handler;
+     private final String packageName;
+ 
++    // Floating view
++    private FPSFloatingView fpsFloatingView;
++    private WindowManager windowManager;
++    private boolean isFloatingViewShown = false;
++
+     public PerformanceStatsImpl(ReactContext context) {
+         mFrameCallback = new FpsDebugFrameCallback(context);
+         mStatsMonitorRunnable = new StatsMonitorRunnable();
+         reactContext = context;
+         packageName = context.getPackageName();
++        windowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+     }
+ 
+     // Config
+     private boolean withCPU = false;
++    private boolean withMonitorView = false;
+ 
+     public void start(Boolean withCPU) {
+-        this.withCPU = withCPU;
++        start(withCPU, false);
++    }
++
++    // Overload to support monitor view
++    public void start(Boolean withCPU, Boolean withMonitorView) {
++        this.withCPU = withCPU != null && withCPU;
++        this.withMonitorView = withMonitorView != null && withMonitorView;
+         handler = new Handler();
+         mFrameCallback.reset();
+         mFrameCallback.start();
+         mStatsMonitorRunnable.start();
++        if (this.withMonitorView) {
++            showFPSFloatingView();
++        }
+     }
+ 
+     public void stop() {
+         handler = null;
+         mFrameCallback.stop();
+         mStatsMonitorRunnable.stop();
++        hideFPSFloatingView();
+     }
+ 
+     private void setCurrentStats(double uiFPS, double jsFPS, int framesDropped, int shutters, double usedRam, double usedCpu) {
+@@ -61,7 +97,18 @@ public class PerformanceStatsImpl {
          state.putDouble("usedRam", usedRam);
          state.putDouble("usedCpu", usedCpu);
  
@@ -40,9 +111,94 @@ index 621ef85..141c45c 100644
 +            }});
 +        }
          sendEvent(state);
++
++        // Update floating view if shown
++        if (fpsFloatingView != null && isFloatingViewShown) {
++            fpsFloatingView.updateStats(uiFPS, jsFPS, usedCpu, usedRam);
++        }
      }
  
-@@ -91,8 +102,8 @@ public class PerformanceStatsImpl {
+     private void sendEvent(@Nullable Object data) {
+@@ -75,6 +122,78 @@ public class PerformanceStatsImpl {
+         reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit("performanceStatsUpdate", data);
+     }
+ 
++    private void showFPSFloatingView() {
++        if (fpsFloatingView != null && isFloatingViewShown) return;
++        if (windowManager == null) return;
++
++        fpsFloatingView = new FPSFloatingView(reactContext);
++        WindowManager.LayoutParams params = new WindowManager.LayoutParams();
++        params.width = WindowManager.LayoutParams.WRAP_CONTENT;
++        params.height = WindowManager.LayoutParams.WRAP_CONTENT;
++        params.format = PixelFormat.TRANSLUCENT;
++        params.gravity = Gravity.TOP | Gravity.START;
++        params.x = dp2px(reactContext, 30);
++        params.y = dp2px(reactContext, 100);
++
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
++            params.type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
++        } else {
++            params.type = WindowManager.LayoutParams.TYPE_PHONE;
++        }
++        // Check overlay permission
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
++            if (!Settings.canDrawOverlays(reactContext)) {
++                Log.w("PerformanceStats", "No overlay permission, cannot show floating view");
++                // Show dialog to guide user to settings to grant permission
++                new android.app.AlertDialog.Builder(reactContext.getCurrentActivity())
++                        .setTitle("Overlay Permission Required")
++                        .setMessage("Please grant overlay permission in settings to display the performance monitor floating window.")
++                        .setPositiveButton("Go to Settings", (dialog, which) -> {
++                            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
++                                    Uri.parse("package:" + reactContext.getPackageName()));
++                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
++                            reactContext.startActivity(intent);
++                        })
++                        .setNegativeButton("Cancel", null)
++                        .show();
++                return;
++            }
++        }
++
++        // FLAG_LAYOUT_IN_SCREEN 可能导致部分设备不显示，尝试加 FLAG_LAYOUT_NO_LIMITS
++        params.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
++                | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
++                | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
++
++        // 检查 View 是否已添加，避免重复 addView 导致异常
++        try {
++            if (fpsFloatingView.getWindowToken() == null && fpsFloatingView.getParent() == null) {
++                windowManager.addView(fpsFloatingView, params);
++                isFloatingViewShown = true;
++                Log.d("PerformanceStats", "Floating view added to window");
++            } else {
++                Log.w("PerformanceStats", "Floating view already added");
++            }
++        } catch (Exception e) {
++            Log.e("PerformanceStats", "Failed to add floating view: " + e.getMessage(), e);
++        }
++    }
++
++    private void hideFPSFloatingView() {
++        if (fpsFloatingView != null && isFloatingViewShown && windowManager != null) {
++            try {
++                windowManager.removeView(fpsFloatingView);
++            } catch (Exception e) {
++                // ignore
++            }
++            isFloatingViewShown = false;
++            fpsFloatingView = null;
++        }
++    }
++
++    private int dp2px(Context context, float dp) {
++        return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, context.getResources().getDisplayMetrics());
++    }
+ 
+     /** Timer that runs every UPDATE_INTERVAL_MS ms and updates the currently displayed FPS and resource usages. */
+     private class StatsMonitorRunnable implements Runnable {
+@@ -91,8 +210,8 @@ public class PerformanceStatsImpl {
              // Collect FPS info
              mTotalFramesDropped += mFrameCallback.getExpectedNumFrames() - mFrameCallback.getNumFrames();
              mTotal4PlusFrameStutters += mFrameCallback.get4PlusFrameStutters();
@@ -53,6 +209,122 @@ index 621ef85..141c45c 100644
  
              // Collect system resource usage
              double cpuUsage = 0;
+@@ -114,7 +233,6 @@ public class PerformanceStatsImpl {
+             );
+             mFrameCallback.reset();
+ 
+-            // TODO: not sure if we need to run that on a view
+             handler.postDelayed(this, UPDATE_INTERVAL_MS);
+         }
+ 
+@@ -146,11 +264,91 @@ public class PerformanceStatsImpl {
+             while ((line = reader.readLine()) != null) {
+                 if (!line.contains(packageName)) continue;
+                 line = line.replace(packageName, "").replaceAll(" ", "");
+-                cpuUsage = Double.parseDouble(line);
++                if (!TextUtils.isEmpty(line)) {
++                    try {
++                        cpuUsage = Double.parseDouble(line);
++                    } catch (Exception ignore) {}
++                }
+                 break;
+             }
+             reader.close();
+             return cpuUsage;
+         }
+     }
++
++    /**
++     * Floating view to show FPS, JS FPS, CPU, RAM, always on top and draggable.
++     */
++    @SuppressLint("AppCompatCustomView")
++    private static class FPSFloatingView extends TextView {
++        private float lastX, lastY;
++        private int lastRawX, lastRawY;
++
++        public FPSFloatingView(Context context) {
++            super(context);
++            setTextColor(Color.WHITE);
++            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
++            setPadding(dp2px(context, 12), dp2px(context, 8), dp2px(context, 12), dp2px(context, 8));
++            setBackgroundColor(0xB0000000);
++            setGravity(Gravity.CENTER);
++            setMaxLines(4);
++            setText("UI FPS: --\nJS FPS: --\nCPU: --\nRAM: --");
++            setClickable(true);
++
++            setOnTouchListener(new OnTouchListener() {
++                private int lastAction;
++                private float dX, dY;
++                private int screenWidth = getResources().getDisplayMetrics().widthPixels;
++                private int screenHeight = getResources().getDisplayMetrics().heightPixels;
++
++                @Override
++                public boolean onTouch(View v, MotionEvent event) {
++                    WindowManager.LayoutParams params = (WindowManager.LayoutParams) getLayoutParams();
++                    switch (event.getAction()) {
++                        case MotionEvent.ACTION_DOWN:
++                            dX = event.getRawX() - params.x;
++                            dY = event.getRawY() - params.y;
++                            lastAction = MotionEvent.ACTION_DOWN;
++                            return true;
++                        case MotionEvent.ACTION_MOVE:
++                            int newX = (int) (event.getRawX() - dX);
++                            int newY = (int) (event.getRawY() - dY);
++
++                            // Clamp to screen bounds
++                            int halfW = getWidth() / 2;
++                            int halfH = getHeight() / 2;
++                            newX = Math.max(0, Math.min(screenWidth - getWidth(), newX));
++                            newY = Math.max(0, Math.min(screenHeight - getHeight(), newY));
++
++                            params.x = newX;
++                            params.y = newY;
++                            WindowManager wm = (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
++                            wm.updateViewLayout(FPSFloatingView.this, params);
++                            lastAction = MotionEvent.ACTION_MOVE;
++                            return true;
++                        case MotionEvent.ACTION_UP:
++                            lastAction = MotionEvent.ACTION_UP;
++                            return true;
++                    }
++                    return false;
++                }
++            });
++        }
++
++        public void updateStats(double uiFPS, double jsFPS, double cpu, double mem) {
++            String cpuStr = cpu >= 0 ? String.format("%.1f%%", cpu) : "--";
++            String memStr = mem >= 0 ? String.format("%.1fMB", mem) : "--";
++            String text = String.format("UI FPS: %s\nJS FPS: %s\nCPU: %s\nRAM: %s",
++                    uiFPS >= 0 ? String.format("%.0f", uiFPS) : "--",
++                    jsFPS >= 0 ? String.format("%.0f", jsFPS) : "--",
++                    cpuStr,
++                    memStr
++            );
++            setText(text);
++        }
++
++        private int dp2px(Context context, float dp) {
++            return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, context.getResources().getDisplayMetrics());
++        }
++    }
+ }
+diff --git a/node_modules/react-native-performance-stats/android/src/newarch/java/nl/skillnation/perfstats/PerformanceStatsModule.java b/node_modules/react-native-performance-stats/android/src/newarch/java/nl/skillnation/perfstats/PerformanceStatsModule.java
+index 6fb0b1f..046d95c 100644
+--- a/node_modules/react-native-performance-stats/android/src/newarch/java/nl/skillnation/perfstats/PerformanceStatsModule.java
++++ b/node_modules/react-native-performance-stats/android/src/newarch/java/nl/skillnation/perfstats/PerformanceStatsModule.java
+@@ -21,8 +21,8 @@ public class PerformanceStatsModule extends NativePerformanceStatsSpec {
+ 
+     @Override
+     @ReactMethod
+-    public void start(Boolean withCPU) {
+-        performanceStats.start(withCPU);
++    public void start(Boolean withCPU, Boolean withMonitorView) {
++        performanceStats.start(withCPU, withMonitorView);
+     }
+ 
+     @Override
 diff --git a/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm b/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm
 index c574f23..d8e11a8 100644
 --- a/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm
