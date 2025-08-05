@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { debounce, noop } from 'lodash';
 import { StyleSheet } from 'react-native';
 
 import type { ISortableListViewRef } from '@onekeyhq/components';
@@ -20,7 +21,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useAccountSelectorStatusAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { analytics } from '@onekeyhq/shared/src/analytics';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
@@ -89,12 +93,35 @@ export function AccountSelectorWalletListSideBar({
   const { selectedAccount } = useSelectedAccount({ num });
   const focusWalletChanged = useRef<boolean>(false);
 
+  const [layoutRefreshTS, setLayoutRefreshTS] = useState(0);
+  useEffect(() => {
+    const fn = debounce(
+      () => {
+        setLayoutRefreshTS((ts) => ts + 1);
+      },
+      600,
+      {
+        leading: false,
+        trailing: true,
+      },
+    );
+    appEventBus.on(EAppEventBusNames.HardwareFeaturesUpdate, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.HardwareFeaturesUpdate, fn);
+    };
+  }, []);
+  const [accountSelectorStatus] = useAccountSelectorStatusAtom();
+  const reloadWalletsHook = `${layoutRefreshTS}-${
+    accountSelectorStatus?.passphraseProtectionChangedAt ?? 0
+  }`;
+
   const {
     result: walletsResult,
     setResult,
     run: reloadWallets,
   } = usePromiseResult(
     async () => {
+      noop(reloadWalletsHook);
       defaultLogger.accountSelector.perf.buildWalletListSideBarData();
       const r = await serviceAccount.getWallets({
         nestedHiddenWallets: true,
@@ -103,7 +130,7 @@ export function AccountSelectorWalletListSideBar({
       });
       return r;
     },
-    [serviceAccount, hideNonBackedUpWallet],
+    [serviceAccount, hideNonBackedUpWallet, reloadWalletsHook],
     {
       checkIsFocused: false,
     },
@@ -191,24 +218,68 @@ export function AccountSelectorWalletListSideBar({
 
   const [settings] = useSettingsPersistAtom();
 
-  const getHiddenWalletsLength = useCallback(
-    (wallet: IDBWallet) => {
-      let _hiddenWalletsLength = wallet?.hiddenWallets?.length ?? 0;
+  const shouldShowCreateHiddenWalletButtonFn = useCallback(
+    ({ wallet }: { wallet: IDBWallet | undefined }) => {
+      let shouldShowCreateHiddenWalletButton = false;
+      noop(reloadWalletsHook);
       if (
+        wallet &&
         accountUtils.isHwOrQrWallet({ walletId: wallet.id }) &&
         !accountUtils.isHwHiddenWallet({ wallet }) &&
         isEditableRouteParams &&
         !wallet?.deprecated &&
         settings.showAddHiddenInWalletSidebar
       ) {
-        _hiddenWalletsLength += 1; // create hidden wallet button
+        if (
+          accountUtils.isHwWallet({
+            walletId: wallet.id,
+          }) &&
+          !accountUtils.isQrWallet({
+            walletId: wallet.id,
+          }) &&
+          (wallet?.associatedDeviceInfo?.featuresInfo?.passphrase_protection ===
+            true ||
+            (wallet?.hiddenWallets?.length ?? 0) > 0)
+        ) {
+          shouldShowCreateHiddenWalletButton = true;
+        }
+
+        if (
+          accountUtils.isQrWallet({
+            walletId: wallet.id,
+          }) &&
+          !accountUtils.isHwWallet({
+            walletId: wallet.id,
+          }) &&
+          (wallet?.hiddenWallets?.length ?? 0) > 0
+        ) {
+          shouldShowCreateHiddenWalletButton = true;
+        }
+      }
+      return shouldShowCreateHiddenWalletButton;
+    },
+    [
+      isEditableRouteParams,
+      settings.showAddHiddenInWalletSidebar,
+      reloadWalletsHook,
+    ],
+  );
+
+  const getHiddenWalletsLength = useCallback(
+    (wallet: IDBWallet) => {
+      noop(reloadWalletsHook);
+      let _hiddenWalletsLength = wallet?.hiddenWallets?.length ?? 0;
+
+      if (shouldShowCreateHiddenWalletButtonFn({ wallet })) {
+        _hiddenWalletsLength += 1; // show create hidden wallet button
       }
       return _hiddenWalletsLength;
     },
-    [isEditableRouteParams, settings.showAddHiddenInWalletSidebar],
+    [shouldShowCreateHiddenWalletButtonFn, reloadWalletsHook],
   );
 
   const layoutList = useMemo(() => {
+    noop(reloadWalletsHook);
     let offset = 0;
     const layouts: { offset: number; length: number; index: number }[] = [];
     wallets?.forEach?.((wallet) => {
@@ -221,7 +292,7 @@ export function AccountSelectorWalletListSideBar({
       }
     });
     return layouts;
-  }, [wallets, getHiddenWalletsLength]);
+  }, [wallets, getHiddenWalletsLength, reloadWalletsHook]);
 
   const { md } = useMedia();
 
@@ -292,7 +363,7 @@ export function AccountSelectorWalletListSideBar({
             emitEvent: true,
           });
         }}
-        extraData={selectedAccount.focusedWallet}
+        extraData={[selectedAccount.focusedWallet, reloadWalletsHook]}
         renderItem={({ item, drag, dragProps }) => {
           let badge: number | string | undefined;
           if (accountUtils.isQrWallet({ walletId: item.id })) {
@@ -310,6 +381,9 @@ export function AccountSelectorWalletListSideBar({
                 testID={`wallet-${item.id}`}
                 badge={badge}
                 isEditMode={isEditableRouteParams}
+                shouldShowCreateHiddenWalletButtonFn={
+                  shouldShowCreateHiddenWalletButtonFn
+                }
               />
             </Stack>
           );

@@ -1,6 +1,12 @@
+import { useEffect, useState } from 'react';
+
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Page, XStack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EAccountManagerStacksRoutes,
