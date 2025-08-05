@@ -270,6 +270,9 @@ dependencies {
     // Google Play Services
     implementation("com.google.android.gms:play-services-base:18.5.0")
 
+    // EventBus
+    implementation 'org.greenrobot:eventbus-java:3.3.1'
+
     // geckoview
     // implementation("org.mozilla.geckoview:geckoview:133.0.20241209150345")
     // implementation("com.google.code.gson:gson:2.13.1")
