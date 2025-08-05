@@ -1,5 +1,6 @@
-import { InteractionManager } from 'react-native';
 import { logger as RNLogger, consoleTransport } from 'react-native-logs';
+
+import timerUtils from '../utils/timerUtils';
 
 import utils from './utils';
 
@@ -8,7 +9,7 @@ import type { ILogLevel } from './types';
 const dangerLogger = RNLogger.createLogger<ILogLevel>({
   async: true,
   // eslint-disable-next-line @typescript-eslint/unbound-method
-  asyncFunc: InteractionManager.runAfterInteractions,
+  asyncFunc: timerUtils.setTimeoutPromised,
   dateFormat: 'time', // time, local, utc, iso
   transport: [consoleTransport],
   transportOptions: {

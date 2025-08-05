@@ -13,7 +13,7 @@ import {
   uniqBy,
 } from 'lodash';
 import natsort from 'natsort';
-import { InteractionManager } from 'react-native';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type {
   IBip39RevealableSeed,
@@ -4411,7 +4411,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async emitRenameDBAccountsEvent(params: IDBSetAccountNameParams) {
-    await InteractionManager.runAfterInteractions(async () => {
+    await timerUtils.setTimeoutPromised(async () => {
       let accounts: IDBAccount[] = [];
 
       if (params.indexedAccountId) {

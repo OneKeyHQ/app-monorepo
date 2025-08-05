@@ -1,8 +1,8 @@
-import { InteractionManager } from 'react-native';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { formatTime } from '../../utils/dateUtils';
+import timerUtils from '../../utils/timerUtils';
 import { isPromiseObject } from '../../utils/promiseUtils';
 import { stringifyFunc } from '../stringifyFunc';
 import { Metadata } from '../types';
@@ -83,7 +83,7 @@ export abstract class BaseScope implements IScope {
             sceneInstance.lastTimestamp = now.getTime();
 
             // runAfterInteraction
-            void InteractionManager.runAfterInteractions(() => {
+            void timerUtils.setTimeoutPromised(() => {
               setTimeout(() => {
                 if (obj && obj instanceof Metadata) {
                   const rawMsg = stringifyFunc(...obj.args);

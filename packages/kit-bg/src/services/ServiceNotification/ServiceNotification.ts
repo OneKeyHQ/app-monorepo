@@ -1,5 +1,4 @@
 import { cloneDeep, debounce, isNumber, merge, uniq, uniqBy } from 'lodash';
-import { InteractionManager } from 'react-native';
 
 import {
   backgroundMethod,
@@ -138,7 +137,7 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   init() {
-    return InteractionManager.runAfterInteractions(() =>
+    return timerUtils.setTimeoutPromised(() =>
       this.getNotificationProvider(),
     );
   }
@@ -662,7 +661,7 @@ export default class ServiceNotification extends ServiceBase {
 
   private async _registerClientWithOverrideAllAccountsCore() {
     console.log('registerClientWithOverrideAllAccountsCore');
-    await InteractionManager.runAfterInteractions(async () => {
+    await timerUtils.setTimeoutPromised(async () => {
       await this.registerClientWithSyncAccounts({
         syncMethod: ENotificationPushSyncMethod.override,
       });

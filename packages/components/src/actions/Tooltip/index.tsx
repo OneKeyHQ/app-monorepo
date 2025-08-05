@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { InteractionManager } from 'react-native';
 import { Tooltip as TMTooltip } from 'tamagui';
 
 import {
@@ -8,6 +7,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   type EShortcutEvents,
   shortcutsMap,
@@ -61,7 +61,7 @@ export function TooltipText({
     };
     const onDragEnd = () => {
       appEventBus.off(EAppEventBusNames.onDragEndInListView, onDragEnd);
-      void InteractionManager.runAfterInteractions(() => {
+      void timerUtils.setTimeoutPromised(() => {
         onDisabledChange?.(false);
       });
     };

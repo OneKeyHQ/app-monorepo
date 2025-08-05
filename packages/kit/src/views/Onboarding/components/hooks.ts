@@ -134,7 +134,7 @@ export const useSuggestion = (
   }, [updateSuggestions]);
 
   const focusNextInput = useCallback(async () => {
-    await InteractionManager.runAfterInteractions();
+    await timerUtils.setTimeoutPromised();
     const key = `phrase${selectInputIndex + 2}`;
     await new Promise<void>((resolve) => {
       setTimeout(() => {

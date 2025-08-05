@@ -1,4 +1,3 @@
-import { InteractionManager } from 'react-native';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -132,7 +131,7 @@ class ServiceAppCleanup extends ServiceBase {
   }
 
   async runCleanupTask(fn: () => Promise<void>) {
-    await InteractionManager.runAfterInteractions(async () => {
+    await timerUtils.setTimeoutPromised(async () => {
       try {
         await fn();
       } catch (error) {

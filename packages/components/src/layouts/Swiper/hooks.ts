@@ -1,8 +1,10 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { InteractionManager, type LayoutChangeEvent } from 'react-native';
+import { type LayoutChangeEvent } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
+
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { IScrollToIndexParams, ISwiperProps } from './type';
 import type { IListViewRef } from '../ListView/list';
@@ -110,7 +112,7 @@ export const useScrollEvent = ({
       // When execute "scrollToIndex", we ignore the method "onMomentumScrollEnd"
       // because it not working on Android
       // https://github.com/facebook/react-native/issues/21718
-      void InteractionManager.runAfterInteractions(() => {
+      void timerUtils.setTimeoutPromised(() => {
         swiperRef?.current?.scrollToIndex(newParams);
       });
     },
@@ -119,14 +121,14 @@ export const useScrollEvent = ({
 
   const goToNextIndex = useDebouncedCallback(() => {
     clearTimer();
-    void InteractionManager.runAfterInteractions(() => {
+    void timerUtils.setTimeoutPromised(() => {
       scrollToIndex({ index: currentIndexes.index + 1, animated: true });
     });
   }, 100);
 
   const gotToPrevIndex = useDebouncedCallback(() => {
     clearTimer();
-    void InteractionManager.runAfterInteractions(() => {
+    void timerUtils.setTimeoutPromised(() => {
       scrollToIndex({ index: currentIndexes.index - 1, animated: true });
     });
   }, 100);
