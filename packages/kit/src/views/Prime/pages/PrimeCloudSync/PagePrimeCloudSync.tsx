@@ -307,7 +307,7 @@ function AppDataSection() {
   }, [config.lastSyncTime]);
 
   return (
-    <Section title={intl.formatMessage({ id: ETranslations.prime_app_data })}>
+    <>
       <EnableOneKeyCloudSwitchListItem />
 
       {config?.isCloudSyncEnabled || isServerMasterPasswordSet ? (
@@ -329,7 +329,7 @@ function AppDataSection() {
       ) : null}
 
       <WhatDataIncludedListItem />
-    </Section>
+    </>
   );
 }
 
@@ -394,8 +394,6 @@ export default function PagePrimeCloudSync() {
       />
       <Page.Body>
         <AppDataSection />
-        <Divider mt="$5" mb="$2" />
-        <WalletSection />
         <MultipleClickStack
           onPress={() => {
             navigation.navigate(EPrimePages.PrimeCloudSyncDebug);
