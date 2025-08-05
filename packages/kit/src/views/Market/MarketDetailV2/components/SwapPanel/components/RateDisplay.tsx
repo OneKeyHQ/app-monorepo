@@ -1,4 +1,4 @@
-import { SizableText, XStack } from '@onekeyhq/components';
+import { SizableText, Skeleton, XStack } from '@onekeyhq/components';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 export interface IRateDisplayProps {
@@ -20,11 +20,18 @@ export function RateDisplay({
         },
       })
     : '-';
+
+  const isLoading = !rate || !fromTokenSymbol || !toTokenSymbol;
+
   return (
-    <XStack alignItems="center" mb="$-2" mt="$-2">
-      <SizableText size="$bodySm" userSelect="none" color="$textSubdued">
-        {`1 ${fromTokenSymbol ?? '?'} = ${(rateFormatted as string) ?? '-'}`}
-      </SizableText>
+    <XStack alignItems="center" height="$4">
+      {isLoading ? (
+        <Skeleton width="$32" height="$4" />
+      ) : (
+        <SizableText size="$bodySm" userSelect="none" color="$textSubdued">
+          {`1 ${fromTokenSymbol} = ${rateFormatted as string}`}
+        </SizableText>
+      )}
     </XStack>
   );
 }

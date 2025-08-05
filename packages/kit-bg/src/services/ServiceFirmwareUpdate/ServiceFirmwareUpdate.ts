@@ -162,6 +162,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
             // do not prompt web device permission
             skipWebDevicePrompt: true,
           },
+          silentMode: true,
         });
       isBootloaderMode = await deviceUtils.isBootloaderModeByFeatures({
         features,

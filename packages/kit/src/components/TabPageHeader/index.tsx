@@ -18,6 +18,7 @@ export function TabPageHeader({
   tabRoute,
   customHeaderRightItems,
   customHeaderLeftItems,
+  hideSearch = false,
 }: ITabPageHeaderProp) {
   const renderHeaderLeft = useCallback(
     () => (
@@ -60,7 +61,10 @@ export function TabPageHeader({
         headerLeft={renderHeaderLeft}
         headerRight={renderHeaderRight}
       />
-      <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
+
+      {!hideSearch ? (
+        <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
+      ) : null}
     </>
   );
 }

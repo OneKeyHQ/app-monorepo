@@ -9,4 +9,5 @@ export interface ITabPageHeaderProp {
   tabRoute: ETabRoutes;
   customHeaderRightItems?: ReactNode;
   customHeaderLeftItems?: ReactNode;
+  hideSearch?: boolean;
 }

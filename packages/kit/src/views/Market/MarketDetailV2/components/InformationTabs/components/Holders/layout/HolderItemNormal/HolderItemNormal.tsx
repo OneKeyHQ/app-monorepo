@@ -4,67 +4,74 @@ import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
 
-import { AddressDisplay } from '../AddressDisplay';
+import { AddressDisplay } from '../../../AddressDisplay';
+import { useHolderItemData } from '../../hooks/useHolderItemData';
 
-import { useHoldersLayout } from './useHoldersLayout';
+import { useHoldersLayoutNormal } from './useHoldersLayoutNormal';
 
-interface IHolderItemProps {
-  item: IMarketTokenHolder & { marketCapPercentage?: string | null };
+interface IHolderItemNormalProps {
+  item: IMarketTokenHolder;
   index: number;
   networkId: string;
 }
 
-function HolderItemBase({ item, index, networkId }: IHolderItemProps) {
-  const { layoutConfig } = useHoldersLayout();
+function HolderItemNormalBase({
+  item,
+  index,
+  networkId,
+}: IHolderItemNormalProps) {
+  const { styles } = useHoldersLayoutNormal();
   const [settingsPersistAtom] = useSettingsPersistAtom();
+  const { rank, displayPercentage, accountAddress, amount, fiatValue } =
+    useHolderItemData({ item, index });
 
   return (
     <XStack h={40} px="$4" alignItems="center" gap="$3">
       {/* Rank */}
-      <SizableText size="$bodyMd" color="$textSubdued" {...layoutConfig.rank}>
-        #{index + 1}
+      <SizableText size="$bodyMd" color="$textSubdued" {...styles.rank}>
+        #{rank}
       </SizableText>
 
       {/* Address with copy icon */}
       <AddressDisplay
-        address={item.accountAddress}
+        address={accountAddress}
         enableCopy
         enableOpenInBrowser
         networkId={networkId}
-        style={layoutConfig.address}
+        style={styles.address}
       />
 
       {/* Market Cap Percentage */}
-      <SizableText size="$bodyMd" color="$text" {...layoutConfig.percentage}>
-        {item.marketCapPercentage ? `${item.marketCapPercentage}%` : '-'}
+      <SizableText size="$bodyMd" color="$text" {...styles.percentage}>
+        {displayPercentage}
       </SizableText>
 
       {/* Amount */}
       <NumberSizeableText
         size="$bodyMd"
         color="$text"
-        {...layoutConfig.amount}
+        {...styles.amount}
         formatter="marketCap"
       >
-        {item.amount}
+        {amount}
       </NumberSizeableText>
 
       {/* Fiat Value */}
       <NumberSizeableText
         size="$bodyMd"
         color="$text"
-        {...layoutConfig.value}
+        {...styles.value}
         formatter="marketCap"
         formatterOptions={{
           currency: settingsPersistAtom.currencyInfo.symbol,
         }}
       >
-        {item.fiatValue}
+        {fiatValue}
       </NumberSizeableText>
     </XStack>
   );
 }
 
-const HolderItem = memo(HolderItemBase);
+const HolderItemNormal = memo(HolderItemNormalBase);
 
-export { HolderItem };
+export { HolderItemNormal };

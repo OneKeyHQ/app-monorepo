@@ -107,6 +107,7 @@ import type {
 export type IDeviceGetFeaturesOptions = {
   connectId: string | undefined;
   withHardwareProcessing?: boolean;
+  silentMode?: boolean;
   params?: CommonParams & {
     allowEmptyConnectId?: boolean;
   };
@@ -816,7 +817,7 @@ class ServiceHardware extends ServiceBase {
   }
 
   _getFeaturesLowLevel = async (options: IDeviceGetFeaturesOptions) => {
-    const { connectId, params } = options;
+    const { connectId, params, silentMode } = options;
     serviceHardwareUtils.hardwareLog('call getFeatures()', connectId);
     if (!params?.allowEmptyConnectId && !connectId) {
       throw new OneKeyLocalError(
@@ -824,8 +825,9 @@ class ServiceHardware extends ServiceBase {
       );
     }
     const hardwareSDK = await this.getSDKInstance();
-    const features = await convertDeviceResponse(() =>
-      hardwareSDK?.getFeatures(connectId, params),
+    const features = await convertDeviceResponse(
+      () => hardwareSDK?.getFeatures(connectId, params),
+      { silentMode },
     );
     return features;
   };

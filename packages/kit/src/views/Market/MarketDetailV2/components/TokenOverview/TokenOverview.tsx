@@ -2,8 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
-import type { ColorTokens, IIconProps } from '@onekeyhq/components';
+import { SizableText, Stack, XStack } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -13,14 +12,10 @@ import {
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
+import { StatCard } from './components/StatCard';
 import { TokenOverviewSkeleton } from './TokenOverviewSkeleton';
 
-interface IStatItem {
-  label: string;
-  value: string;
-  icon?: IIconProps['name'];
-  iconColor?: ColorTokens;
-}
+import type { IStatItem } from './components/StatCard';
 
 // Helper functions for value formatting
 const formatTokenValue = (value: string | number | undefined): string => {
@@ -53,37 +48,6 @@ const formatCirculatingSupply = (tokenDetail: ITokenDetail): string => {
   }
   return '--';
 };
-
-function StatCard({ label, value, icon, iconColor }: IStatItem) {
-  return (
-    <Stack
-      bg="$bgSubdued"
-      borderRadius="$3"
-      p="$3"
-      flex={1}
-      minHeight="$16"
-      justifyContent="space-between"
-      alignItems="center"
-    >
-      <SizableText
-        size="$bodyMd"
-        color="$textSubdued"
-        mb="$2"
-        textAlign="center"
-      >
-        {label}
-      </SizableText>
-      <XStack alignItems="center" gap="$1">
-        {icon ? (
-          <Icon name={icon} size="$4" color={iconColor || '$iconSuccess'} />
-        ) : null}
-        <SizableText size="$headingMd" color="$text" fontWeight="600">
-          {value}
-        </SizableText>
-      </XStack>
-    </Stack>
-  );
-}
 
 export function TokenOverview() {
   const intl = useIntl();
@@ -137,14 +101,12 @@ export function TokenOverview() {
     [intl, tokenDetail],
   );
 
-  const maxSupplyStat = useMemo<IStatItem>(
+  const fdvStat = useMemo<IStatItem>(
     () => ({
-      label: intl.formatMessage({
-        id: ETranslations.dexmarket_details_max_supply,
-      }),
-      value: formatTokenValue(tokenDetail?.liquidity as string | number),
+      label: 'FDV',
+      value: formatCurrencyValue(tokenDetail?.fdv),
     }),
-    [intl, tokenDetail?.liquidity],
+    [tokenDetail?.fdv],
   );
 
   if (!tokenDetail) {
@@ -158,10 +120,10 @@ export function TokenOverview() {
         <Token size="lg" tokenImageUri={tokenDetail.logoUrl} />
         <Stack flex={1}>
           <SizableText size="$headingLg" color="$text" fontWeight="600">
-            {tokenDetail.name}
+            {tokenDetail.symbol}
           </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
-            {tokenDetail.symbol}
+            {tokenDetail.name}
           </SizableText>
         </Stack>
       </XStack>
@@ -178,10 +140,10 @@ export function TokenOverview() {
         <StatCard {...liquidityStat} />
       </XStack>
 
-      {/* Third row: Circulating supply and Maximum supply */}
+      {/* Third row: Circulating supply and FDV */}
       <XStack gap="$3">
         <StatCard {...circulatingSupplyStat} />
-        <StatCard {...maxSupplyStat} />
+        <StatCard {...fdvStat} />
       </XStack>
     </Stack>
   );

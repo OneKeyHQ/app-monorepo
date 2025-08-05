@@ -2,7 +2,13 @@ import { Fragment, useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { Button, Divider, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Divider,
+  SizableText,
+  Skeleton,
+  XStack,
+} from '@onekeyhq/components';
 
 import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
 
@@ -56,8 +62,12 @@ export function QuickAmountSelector({
     [tradeType, balance, selectedTokenDecimals, onSelect],
   );
 
+  if (amounts.length === 0) {
+    return <Skeleton h="$8" w="100%" />;
+  }
+
   return (
-    <XStack gap="$0">
+    <XStack gap="$0" h="$8">
       {amounts.map((amount, index) => (
         <Fragment key={`item-${amount.value}`}>
           <Button

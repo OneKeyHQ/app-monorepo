@@ -10,6 +10,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import type { GestureResponderEvent } from 'react-native';
@@ -75,10 +76,22 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     onCopied?.(address);
   };
 
+  const getTokenImageUri = () => {
+    if (!platformEnv.isNative || !tokenLogoURI) {
+      return tokenLogoURI;
+    }
+
+    if (tokenLogoURI.toLowerCase().includes('svg')) {
+      return undefined;
+    }
+
+    return tokenLogoURI;
+  };
+
   return (
     <XStack alignItems="center" gap="$3" userSelect="none">
       <Token
-        tokenImageUri={tokenLogoURI}
+        tokenImageUri={getTokenImageUri()}
         networkImageUri={networkLogoURI}
         fallbackIcon="CryptoCoinOutline"
         size="md"
