@@ -1,4 +1,5 @@
 require('../../env');
+const fs = require('fs');
 const path = require('path');
 const devUtils = require('./devUtils');
 
@@ -20,6 +21,7 @@ devUtils.execSync(`
 `);
 
 const version = process.env.VERSION;
+const buildNumber = process.env.BUILD_NUMBER;
 
 const browsers = [
   // 'chrome-extension', // chrome v2 extension
@@ -43,7 +45,19 @@ browsers.forEach((browser) => {
   cd ${browserFolder}
   cp -rf ${developmentImgFolder}/* ${browserFolder}/
   sed -i.bak 's/"name": "OneKey"/"name": "OneKey (DEVELOPMENT BUILD)"/g' ${manifestPath}
-  zip -r ../_development_build_dist/OneKey-Wallet-${version}-${browser}-development-build.zip ./
 `;
   devUtils.execSync(developmentBuildCmd);
+  const json = fs.readFileSync(manifestPath, 'utf8');
+  const jsonObj = JSON.parse(json);
+  const versionArray = version.split('.');
+  versionArray.pop();
+  versionArray.push(buildNumber);
+  jsonObj.version = versionArray.join('.');
+  console.log('OneKey Development Build', jsonObj.version);
+  fs.writeFileSync(manifestPath, JSON.stringify(jsonObj, null, 2));
+  const zipCmd = `
+  cd ${browserFolder}
+  zip -r ../_development_build_dist/OneKey-Wallet-${version}-${browser}-development-build.zip ./
+  `;
+  devUtils.execSync(zipCmd);
 });
