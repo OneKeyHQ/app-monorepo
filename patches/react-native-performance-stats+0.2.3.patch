@@ -54,10 +54,10 @@ index 621ef85..141c45c 100644
              // Collect system resource usage
              double cpuUsage = 0;
 diff --git a/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm b/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm
-index c574f23..b89b297 100644
+index c574f23..d8aa3c1 100644
 --- a/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm
 +++ b/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm
-@@ -10,6 +10,9 @@
+@@ -10,8 +10,91 @@
  #import "RNPerformanceStatsSpec.h"
  #endif
  
@@ -66,18 +66,148 @@ index c574f23..b89b297 100644
 +
  // NOTICE: Mainly copied from here: https://github.com/facebook/react-native/blob/main/React/CoreModules/RCTPerfMonitor.mm
  
++#pragma mark - Floating FPS View
++
++@interface FPSFloatingView : UIView
++@property (nonatomic, strong) UILabel *label;
++@property (nonatomic, assign) CGPoint lastLocation;
++- (void)updateWithUIFPS:(NSUInteger)uiFPS jsFPS:(NSUInteger)jsFPS cpu:(float)cpu mem:(double)mem;
++@end
++
++@implementation FPSFloatingView
++
++- (instancetype)init {
++    self = [super initWithFrame:CGRectMake(30, 100, 160, 60)];
++    if (self) {
++        self.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.7];
++        self.layer.cornerRadius = 8;
++        self.layer.masksToBounds = YES;
++        self.userInteractionEnabled = YES;
++
++        _label = [[UILabel alloc] initWithFrame:self.bounds];
++        _label.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
++        _label.textColor = [UIColor whiteColor];
++        _label.font = [UIFont systemFontOfSize:13 weight:UIFontWeightBold];
++        _label.textAlignment = NSTextAlignmentCenter;
++        _label.numberOfLines = 4;
++        _label.text = @"UI FPS: --\nJS FPS: --\nCPU: --\nRAM: --";
++        [self addSubview:_label];
++
++        UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
++        [self addGestureRecognizer:pan];
++    }
++    return self;
++}
++
++- (void)adjustHeightToFitLabel {
++    CGSize maxSize = CGSizeMake(self.bounds.size.width, CGFLOAT_MAX);
++    CGRect labelRect = [self.label.text boundingRectWithSize:maxSize
++                                                     options:NSStringDrawingUsesLineFragmentOrigin|NSStringDrawingUsesFontLeading
++                                                  attributes:@{NSFontAttributeName: self.label.font}
++                                                     context:nil];
++    CGFloat newHeight = ceil(labelRect.size.height) + 16; // 适当padding
++    CGRect newFrame = self.frame;
++    newFrame.size.height = newHeight;
++    self.frame = newFrame;
++    self.label.frame = self.bounds;
++}
++
++- (void)updateWithUIFPS:(NSUInteger)uiFPS jsFPS:(NSUInteger)jsFPS cpu:(float)cpu mem:(double)mem {
++    dispatch_async(dispatch_get_main_queue(), ^{
++        NSString *cpuStr = cpu >= 0 ? [NSString stringWithFormat:@"%.1f%%", cpu] : @"--";
++        NSString *memStr = mem >= 0 ? [NSString stringWithFormat:@"%.1fMB", mem] : @"--";
++        self.label.text = [NSString stringWithFormat:@"UI FPS: %lu\nJS FPS: %lu\nCPU: %@\nRAM: %@", (unsigned long)uiFPS, (unsigned long)jsFPS, cpuStr, memStr];
++        [self adjustHeightToFitLabel];
++
++        UIWindow *keyWindow = [UIApplication sharedApplication].keyWindow;
++        if (keyWindow && self.superview != keyWindow) {
++            [self removeFromSuperview];
++            [keyWindow addSubview:self];
++        } else if (keyWindow) {
++            [keyWindow bringSubviewToFront:self];
++        }
++    });
++}
++
++- (void)handlePan:(UIPanGestureRecognizer *)pan {
++    CGPoint translation = [pan translationInView:self.superview];
++    if (pan.state == UIGestureRecognizerStateBegan) {
++        self.lastLocation = self.center;
++    }
++    CGPoint newCenter = CGPointMake(self.lastLocation.x + translation.x, self.lastLocation.y + translation.y);
++    // Optional: Clamp to screen bounds
++    CGSize screenSize = [UIScreen mainScreen].bounds.size;
++    CGFloat halfW = self.bounds.size.width / 2.0;
++    CGFloat halfH = self.bounds.size.height / 2.0;
++    newCenter.x = MAX(halfW, MIN(screenSize.width - halfW, newCenter.x));
++    newCenter.y = MAX(halfH, MIN(screenSize.height - halfH, newCenter.y));
++    self.center = newCenter;
++}
++
++@end
++
  #pragma Resource usage methods
-@@ -135,6 +138,9 @@ - (void)updateStats:(bool)withCPU
+ static vm_size_t RCTGetResidentMemorySize(void)
+ {
+@@ -98,6 +181,8 @@ @implementation PerformanceStats {
+     
+     CADisplayLink *_uiDisplayLink;
+     CADisplayLink *_jsDisplayLink;
++
++    FPSFloatingView *_fpsFloatingView;
+ }
+ 
+ RCT_EXPORT_MODULE(PerformanceStats)
+@@ -117,6 +202,31 @@ - (dispatch_queue_t)methodQueue
+   return @[ @"performanceStatsUpdate" ];
+ }
+ 
++- (void)showFPSFloatingView {
++    if (_fpsFloatingView == nil) {
++        _fpsFloatingView = [[FPSFloatingView alloc] init];
++        UIWindow *window = [UIApplication sharedApplication].keyWindow;
++        if (window) {
++            [window addSubview:_fpsFloatingView];
++        } else {
++            // fallback: add after delay if window not ready
++            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
++                UIWindow *window2 = [UIApplication sharedApplication].keyWindow;
++                if (window2 && self->_fpsFloatingView.superview == nil) {
++                    [window2 addSubview:self->_fpsFloatingView];
++                }
++            });
++        }
++    }
++}
++
++- (void)hideFPSFloatingView {
++    if (_fpsFloatingView) {
++        [_fpsFloatingView removeFromSuperview];
++        _fpsFloatingView = nil;
++    }
++}
++
+ - (void)updateStats:(bool)withCPU
+ {
+     // View count
+@@ -134,6 +244,16 @@ - (void)updateStats:(bool)withCPU
+     float cpu = 0;
      if (withCPU) {
          cpu = cpu_usage();
-     }
++    } else {
++        cpu = -1;
++    }
 +    if (_jsFPSTracker.FPS < 30 || _uiFPSTracker.FPS < 30) {
 +        DDLogDebug(@"Performance warning: cpu=%.2f, jsFps=%lu, uiFps=%lu, usedRam=%.2fMB, viewCount=%lu, visibleViewCount=%lu", cpu, (unsigned long)_jsFPSTracker.FPS, (unsigned long)_uiFPSTracker.FPS, mem, (unsigned long)viewCount, (unsigned long)visibleViewCount);
 +    }
++    
++    // Update floating FPS view
++    if (_fpsFloatingView) {
++        [_fpsFloatingView updateWithUIFPS:_uiFPSTracker.FPS jsFPS:_jsFPSTracker.FPS cpu:cpu mem:mem];
+     }
      
      [self sendEventWithName:@"performanceStatsUpdate" body:@{
-         @"jsFps": [NSNumber numberWithUnsignedInteger:_jsFPSTracker.FPS],
-@@ -160,7 +166,7 @@ - (void)threadUpdate:(CADisplayLink *)displayLink
+@@ -160,7 +280,7 @@ - (void)threadUpdate:(CADisplayLink *)displayLink
    [tracker onTick:displayLink.timestamp];
  }
  
@@ -86,6 +216,25 @@ index c574f23..b89b297 100644
  {
      _isRunning = true;
      _uiFPSTracker= [[FPSTracker alloc] init];
+@@ -180,6 +300,8 @@ - (void)threadUpdate:(CADisplayLink *)displayLink
+         }
+                 queue:RCTJSThread];
+     
++    // Show floating FPS view
++    [self showFPSFloatingView];
+ }
+ 
+ RCT_EXPORT_METHOD(stop)
+@@ -193,6 +315,9 @@ - (void)threadUpdate:(CADisplayLink *)displayLink
+     
+     _uiDisplayLink = nil;
+     _jsDisplayLink = nil;
++
++    // Hide floating FPS view
++    [self hideFPSFloatingView];
+ }
+ 
+ // Thanks to this guard, we won't compile this code when we build for the old architecture.
 diff --git a/node_modules/react-native-performance-stats/react-native-performance-stats.podspec b/node_modules/react-native-performance-stats/react-native-performance-stats.podspec
 index 82dd7fe..ca30e84 100644
 --- a/node_modules/react-native-performance-stats/react-native-performance-stats.podspec
