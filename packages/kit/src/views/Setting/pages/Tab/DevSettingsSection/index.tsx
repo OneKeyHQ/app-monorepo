@@ -787,19 +787,22 @@ export const DevSettingsSection = () => {
         }}
       />
 
-      <SectionPressItem
-        title="Performance Monitor(UI FPS/JS FPS)"
-        subtitle="性能监控"
-        onPress={async () => {
-          await backgroundApiProxy.serviceDevSetting.updateDevSetting(
-            'showPerformanceMonitor',
-            true,
-          );
-          setTimeout(() => {
-            void backgroundApiProxy.serviceApp.restartApp();
-          }, 10);
-        }}
-      />
+      <ListItem title="Performance Monitor(UI FPS/JS FPS)" subtitle="性能监控">
+        <Switch
+          isUncontrolled
+          size={ESwitchSize.small}
+          defaultChecked={!!devSettings.settings?.showPerformanceMonitor}
+          onChange={(v) => {
+            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+              'showPerformanceMonitor',
+              v,
+            );
+            setTimeout(() => {
+              void backgroundApiProxy.serviceApp.restartApp();
+            }, 10);
+          }}
+        />
+      </ListItem>
 
       <SectionPressItem
         title="In-App-Purchase(Mac)"
