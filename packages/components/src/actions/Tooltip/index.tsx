@@ -7,11 +7,11 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   type EShortcutEvents,
   shortcutsMap,
 } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { SizableText, XStack } from '../../primitives';
 import { Shortcut } from '../Shortcut';

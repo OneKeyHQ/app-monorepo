@@ -13,7 +13,6 @@ import {
   uniqBy,
 } from 'lodash';
 import natsort from 'natsort';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type {
   IBip39RevealableSeed,

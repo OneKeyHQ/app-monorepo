@@ -137,9 +137,7 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   init() {
-    return timerUtils.setTimeoutPromised(() =>
-      this.getNotificationProvider(),
-    );
+    return timerUtils.setTimeoutPromised(() => this.getNotificationProvider());
   }
 
   pushClient: INotificationPushClient = {};
