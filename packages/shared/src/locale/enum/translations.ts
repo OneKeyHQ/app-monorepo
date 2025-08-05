@@ -232,7 +232,7 @@
   bluetooth_enable_in_system_settings = 'bluetooth.enable_in_system_settings',
   bluetooth_keep_near = 'bluetooth.keep_near',
   bluetooth_paring_guides_pair = 'bluetooth.paring_guides_pair',
-  bluetooth_paring_guides_unlcok = 'bluetooth.paring_guides_unlcok',
+  bluetooth_paring_guides_unlock = 'bluetooth.paring_guides_unlock',
   bluetooth_permission_prompt = 'bluetooth.permission_prompt',
   bluetooth_paring_dialog_title = 'bluetooth_paring_dialog_title',
   browser_bookmark = 'browser.bookmark',

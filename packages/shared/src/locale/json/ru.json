@@ -227,7 +227,7 @@
   "bluetooth.enable_in_system_settings": "Пожалуйста, включите Bluetooth в настройках вашей системы",
   "bluetooth.keep_near": "Держите устройство рядом с компьютером для сопряжения",
   "bluetooth.paring_guides_pair": "Введите код сопряжения, отображаемый на вашем устройстве, в соответствующее поле, затем нажмите «Подключить»",
-  "bluetooth.paring_guides_unlcok": "Разблокируйте устройство с помощью PIN-кода",
+  "bluetooth.paring_guides_unlock": "Разблокируйте устройство с помощью PIN-кода",
   "bluetooth.permission_prompt": "Для подключения OneKey требуется Bluetooth. Пожалуйста, разрешите доступ при появлении запроса",
   "bluetooth_paring_dialog_title": "Выполняется сопряжение с вашим устройством…",
   "browser.bookmark": "Закладка",

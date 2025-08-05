@@ -44,8 +44,6 @@ export interface IDevSettings {
     enabled: boolean;
     selectedTab: ETabRoutes | null;
   };
-  // enable desktop bluetooth functionality
-  enableDesktopBluetooth?: boolean;
   // custom API endpoints
   customApiEndpoints?: IApiEndpointConfig[];
 }
@@ -79,7 +77,6 @@ export const {
         enabled: false,
         selectedTab: ETabRoutes.Discovery,
       },
-      enableDesktopBluetooth: false,
     },
   },
 });

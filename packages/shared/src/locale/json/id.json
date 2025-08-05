@@ -227,7 +227,7 @@
   "bluetooth.enable_in_system_settings": "Silakan aktifkan Bluetooth di pengaturan sistem Anda",
   "bluetooth.keep_near": "Dekatkan perangkat Anda ke komputer untuk memasangkan",
   "bluetooth.paring_guides_pair": "Masukkan kode pasangan yang ditampilkan di perangkat Anda ke dalam kolom yang tersedia, lalu klik \"Connect\"",
-  "bluetooth.paring_guides_unlcok": "Buka kunci perangkat Anda dengan PIN",
+  "bluetooth.paring_guides_unlock": "Buka kunci perangkat Anda dengan PIN",
   "bluetooth.permission_prompt": "OneKey memerlukan Bluetooth untuk terhubung. Silakan izinkan saat diminta",
   "bluetooth_paring_dialog_title": "Memasangkan dengan perangkat Anda…",
   "browser.bookmark": "Penanda Halaman",

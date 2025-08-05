@@ -227,7 +227,7 @@
   "bluetooth.enable_in_system_settings": "Будь ласка, увімкніть Bluetooth у налаштуваннях системи",
   "bluetooth.keep_near": "Тримайте пристрій поруч з комп'ютером для створення пари",
   "bluetooth.paring_guides_pair": "Введіть код пари, що відображається на вашому пристрої, у поле, а потім натисніть \"Підключити\"",
-  "bluetooth.paring_guides_unlcok": "Розблокуйте свій пристрій за допомогою PIN-коду",
+  "bluetooth.paring_guides_unlock": "Розблокуйте свій пристрій за допомогою PIN-коду",
   "bluetooth.permission_prompt": "OneKey потребує Bluetooth для підключення. Будь ласка, надайте дозвіл, коли з'явиться запит",
   "bluetooth_paring_dialog_title": "З'єднання з вашим пристроєм…",
   "browser.bookmark": "Закладка",

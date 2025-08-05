@@ -227,7 +227,7 @@
   "bluetooth.enable_in_system_settings": "Veuillez activer le Bluetooth dans les paramètres de votre système",
   "bluetooth.keep_near": "Gardez votre appareil près de l'ordinateur pour l'appairage",
   "bluetooth.paring_guides_pair": "Saisissez le code d'appairage affiché sur votre appareil dans l'invite, puis cliquez sur « Connecter »",
-  "bluetooth.paring_guides_unlcok": "Déverrouillez votre appareil avec un code PIN",
+  "bluetooth.paring_guides_unlock": "Déverrouillez votre appareil avec un code PIN",
   "bluetooth.permission_prompt": "OneKey a besoin du Bluetooth pour se connecter. Veuillez l'autoriser lorsque vous y êtes invité",
   "bluetooth_paring_dialog_title": "Jumelage avec votre appareil…",
   "browser.bookmark": "Marque-page",

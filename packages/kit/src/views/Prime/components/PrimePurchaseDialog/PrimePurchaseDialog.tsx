@@ -37,9 +37,9 @@ export function usePrimePurchaseCallback({
   const { user } = usePrimeAuthV2();
   const intl = useIntl();
 
-  const purchasePackageWebview = usePurchasePackageWebview();
+  const purchaseByWebview = usePurchasePackageWebview();
 
-  const handleNativePurchase = useCallback(
+  const purchaseByNative = useCallback(
     async ({
       selectedSubscriptionPeriod,
     }: {
@@ -68,7 +68,7 @@ export function usePrimePurchaseCallback({
         onPurchase?.();
 
         if (platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay) {
-          void handleNativePurchase({
+          void purchaseByNative({
             selectedSubscriptionPeriod,
           });
           return;
@@ -89,7 +89,7 @@ export function usePrimePurchaseCallback({
                     {
                       label: 'Purchase by GooglePlay',
                       onPress: () => {
-                        void handleNativePurchase({
+                        void purchaseByNative({
                           selectedSubscriptionPeriod,
                         });
                       },
@@ -97,7 +97,7 @@ export function usePrimePurchaseCallback({
                     {
                       label: 'Purchase by Webview',
                       onPress: () => {
-                        void purchasePackageWebview({
+                        void purchaseByWebview({
                           selectedSubscriptionPeriod,
                         });
                       },
@@ -107,7 +107,7 @@ export function usePrimePurchaseCallback({
               ],
             });
           } else {
-            void purchasePackageWebview({
+            void purchaseByWebview({
               selectedSubscriptionPeriod,
             });
           }
@@ -133,17 +133,19 @@ export function usePrimePurchaseCallback({
       }
     },
     [
-      handleNativePurchase,
+      purchaseByNative,
       intl,
       onPurchase,
       purchasePackageWeb,
-      purchasePackageWebview,
+      purchaseByWebview,
       user?.email,
     ],
   );
 
   return {
     purchase,
+    purchaseByNative,
+    purchaseByWebview,
   };
 }
 

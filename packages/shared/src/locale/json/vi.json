@@ -227,7 +227,7 @@
   "bluetooth.enable_in_system_settings": "Vui lòng bật Bluetooth trong cài đặt hệ thống của bạn",
   "bluetooth.keep_near": "Giữ thiết bị của bạn gần máy tính để ghép nối",
   "bluetooth.paring_guides_pair": "Nhập mã ghép đôi hiển thị trên thiết bị của bạn vào ô nhắc, sau đó nhấp vào \"Kết nối\"",
-  "bluetooth.paring_guides_unlcok": "Mở khóa thiết bị của bạn bằng mã PIN",
+  "bluetooth.paring_guides_unlock": "Mở khóa thiết bị của bạn bằng mã PIN",
   "bluetooth.permission_prompt": "OneKey cần Bluetooth để kết nối. Vui lòng cho phép khi được yêu cầu",
   "bluetooth_paring_dialog_title": "Đang ghép nối với thiết bị của bạn…",
   "browser.bookmark": "Đánh dấu",

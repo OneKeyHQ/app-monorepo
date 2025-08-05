@@ -12,6 +12,7 @@ import {
   Checkbox,
   DialogContainer,
   Form,
+  Icon,
   Input,
   LottieView,
   ScrollView,
@@ -32,6 +33,7 @@ import type {
 import UpdateNotificationDark from '@onekeyhq/kit/assets/animations/update-notification-dark.json';
 import UpdateNotificationLight from '@onekeyhq/kit/assets/animations/update-notification-light.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ConnectionTroubleShootingAccordion } from '@onekeyhq/kit/src/components/Hardware/ConnectionTroubleShootingAccordion';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -1168,6 +1170,85 @@ const DialogGallery = () => {
                 }}
               >
                 ErrorOutline(warning)
+              </Button>
+            </YStack>
+          ),
+        },
+        {
+          title: 'ble desktop',
+          element: (
+            <YStack gap="$4">
+              <Button
+                onPress={() => {
+                  Dialog.show({
+                    title: intl.formatMessage({
+                      id: ETranslations.communication_timeout,
+                    }),
+                    showFooter: false,
+                    renderContent: (
+                      <ScrollView maxHeight={480}>
+                        <YStack>
+                          <XStack alignItems="center" gap={7} mb="$2">
+                            <Icon name="TypeCoutline" size="$3.5" />
+                            <SizableText size="$headingSm">
+                              {intl.formatMessage({
+                                id: ETranslations.troubleshooting_usb,
+                              })}
+                            </SizableText>
+                          </XStack>
+                          <YStack>
+                            <ConnectionTroubleShootingAccordion
+                              connectionType="usb"
+                              defaultValue={undefined}
+                              indent={false}
+                            />
+                          </YStack>
+                        </YStack>
+                        <YStack mt="$5">
+                          <XStack alignItems="center" gap={7} mb="$2">
+                            <Icon name="BluetoothOutline" size="$3.5" />
+                            <SizableText size="$headingSm">
+                              {intl.formatMessage({
+                                id: ETranslations.troubleshooting_bluetooth,
+                              })}
+                            </SizableText>
+                          </XStack>
+                          <YStack>
+                            <ConnectionTroubleShootingAccordion
+                              connectionType="bluetooth"
+                              defaultValue={undefined}
+                              indent={false}
+                            />
+                          </YStack>
+                        </YStack>
+                      </ScrollView>
+                    ),
+                  });
+                }}
+              >
+                Communication timeout
+              </Button>
+
+              <Button
+                onPress={() => {
+                  Dialog.show({
+                    icon: 'TypeCoutline',
+                    title: intl.formatMessage({
+                      id: ETranslations.upgrade_use_usb,
+                    }),
+                    description: intl.formatMessage({
+                      id: ETranslations.upgrade_recommend_usb,
+                    }),
+                    onConfirmText: intl.formatMessage({
+                      id: ETranslations.upgrade_switch_to_usb,
+                    }),
+                    onCancelText: intl.formatMessage({
+                      id: ETranslations.global_continue_anyway,
+                    }),
+                  });
+                }}
+              >
+                Asking for switch to USB mode
               </Button>
             </YStack>
           ),
