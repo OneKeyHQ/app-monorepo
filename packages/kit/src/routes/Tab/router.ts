@@ -22,6 +22,7 @@ import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { useToReferFriendsModalByRootNavigation } from '../../hooks/useReferFriends';
 import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';
+import { perpTradeRouters } from '../../views/PerpTrade/router';
 
 import { discoveryRouters } from './Discovery/router';
 import { earnRouters } from './Earn/router';
@@ -139,6 +140,17 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           exact: true,
           children: swapRouters,
           trackId: 'global-trade',
+        },
+        {
+          name: ETabRoutes.PerpTrade,
+          tabBarIcon: (focused?: boolean) =>
+            focused ? 'SwapHorSolid' : 'SwapHorOutline',
+          translationId: 'Perp',
+          freezeOnBlur: Boolean(params?.freezeOnBlur),
+          rewrite: '/perp',
+          exact: true,
+          children: perpTradeRouters,
+          trackId: 'global-perp',
         },
         {
           name: ETabRoutes.Earn,

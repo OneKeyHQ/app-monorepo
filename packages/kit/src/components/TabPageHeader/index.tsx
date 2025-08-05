@@ -16,6 +16,7 @@ import type { ITabPageHeaderProp } from './type';
 export function TabPageHeader({
   sceneName,
   tabRoute,
+  renderCustomHeaderRightItems,
   customHeaderRightItems,
   customHeaderLeftItems,
   hideSearch = false,
@@ -42,11 +43,18 @@ export function TabPageHeader({
               sceneName={sceneName}
               tabRoute={tabRoute}
               customHeaderRightItems={customHeaderRightItems}
+              renderCustomHeaderRightItems={renderCustomHeaderRightItems}
             />
           </AccountSelectorProviderMirror>
         </HomeTokenListProviderMirror>
       ) : null,
-    [config, sceneName, tabRoute, customHeaderRightItems],
+    [
+      config,
+      sceneName,
+      tabRoute,
+      customHeaderRightItems,
+      renderCustomHeaderRightItems,
+    ],
   );
 
   const renderHeaderTitle = useCallback(
