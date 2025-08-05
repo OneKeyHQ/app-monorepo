@@ -101,36 +101,14 @@ export function AccountSelectorWalletListSideBar({
         ignoreEmptySingletonWalletAccounts: true,
         ignoreNonBackedUpWallets: hideNonBackedUpWallet,
       });
-
-      if (hideNonBackedUpWallet && !focusWalletChanged.current) {
-        const backedUpWalletsMap = r.wallets.reduce((acc, wallet) => {
-          acc[wallet.id] = wallet;
-          wallet.hiddenWallets?.forEach((hiddenWallet) => {
-            acc[hiddenWallet.id] = hiddenWallet;
-          });
-          return acc;
-        }, {} as Record<string, IDBWallet>);
-
-        if (
-          !backedUpWalletsMap[selectedAccount.focusedWallet ?? ''] &&
-          !backedUpWalletsMap[selectedAccount.walletId ?? '']
-        ) {
-          void actions.current.updateSelectedAccountFocusedWallet({
-            num,
-            focusedWallet: r.wallets?.[0]?.id,
-          });
-        }
-
-        focusWalletChanged.current = true;
-      }
-
       return r;
     },
-    [serviceAccount, hideNonBackedUpWallet, actions, num, selectedAccount],
+    [serviceAccount, hideNonBackedUpWallet],
     {
       checkIsFocused: false,
     },
   );
+
   const wallets = walletsResult?.wallets ?? emptyArray;
 
   defaultLogger.accountSelector.perf.renderWalletListSideBar({
@@ -152,6 +130,40 @@ export function AccountSelectorWalletListSideBar({
       });
     }
   }, [wallets]);
+
+  useEffect(() => {
+    if (
+      walletsResult?.wallets &&
+      hideNonBackedUpWallet &&
+      !focusWalletChanged.current
+    ) {
+      const backedUpWalletsMap = walletsResult.wallets.reduce((acc, wallet) => {
+        acc[wallet.id] = wallet;
+        wallet.hiddenWallets?.forEach((hiddenWallet) => {
+          acc[hiddenWallet.id] = hiddenWallet;
+        });
+        return acc;
+      }, {} as Record<string, IDBWallet>);
+
+      if (
+        !backedUpWalletsMap[selectedAccount.focusedWallet ?? ''] &&
+        !backedUpWalletsMap[selectedAccount.walletId ?? '']
+      ) {
+        void actions.current.updateSelectedAccountFocusedWallet({
+          num,
+          focusedWallet: walletsResult.wallets[0]?.id,
+        });
+      }
+
+      focusWalletChanged.current = true;
+    }
+  }, [
+    walletsResult?.wallets,
+    actions,
+    num,
+    selectedAccount,
+    hideNonBackedUpWallet,
+  ]);
 
   useEffect(() => {
     const fn = async () => {
