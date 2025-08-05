@@ -12,7 +12,11 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { FirmwareUpdateReminderAlert } from '@onekeyhq/kit/src/views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { useFirmwareVerifyDialog } from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
-import { useFirmwareUpdatesDetectStatusPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IAccountSelectorStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useAccountSelectorStatusAtom,
+  useFirmwareUpdatesDetectStatusPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -87,6 +91,7 @@ function DeviceDetailsModalCmp() {
       appEventBus.off(EAppEventBusNames.FinishFirmwareUpdate, fn);
     };
   }, [refreshData]);
+  const [, setAccountSelectorStatus] = useAccountSelectorStatusAtom();
 
   const isQrWallet = result
     ? accountUtils.isQrWallet({ walletId: result.wallet.id })
@@ -148,11 +153,17 @@ function DeviceDetailsModalCmp() {
           passphraseEnabled: value,
         });
         setPassphraseEnabled(value);
+        setAccountSelectorStatus(
+          (prev): IAccountSelectorStatusAtom => ({
+            ...prev,
+            passphraseProtectionChangedAt: Date.now(),
+          }),
+        );
       } catch (error) {
         console.error(error);
       }
     },
-    [result?.wallet.id],
+    [result?.wallet.id, setAccountSelectorStatus],
   );
 
   const onPinOnAppEnabledChange = useCallback(
