@@ -46,6 +46,8 @@ export interface IDevSettings {
   };
   // custom API endpoints
   customApiEndpoints?: IApiEndpointConfig[];
+  // show performance monitor
+  showPerformanceMonitor?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -72,7 +74,7 @@ export const {
       enableAnalyticsRequest: false,
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
-
+      showPerformanceMonitor: true,
       autoNavigation: {
         enabled: false,
         selectedTab: ETabRoutes.Discovery,
