@@ -145,6 +145,7 @@ export type IDBWallet = IDBBaseObjectWithName & {
   // };
   nextIds: IDBWalletNextIds;
   associatedDevice?: string; // alias to `dbDeviceId`
+  associatedDeviceInfo?: IDBDevice; // readonly field
   avatar?: IDBAvatar;
   avatarInfo?: IAvatarInfo; // readonly field
   hiddenWallets?: IDBWallet[]; // readonly field

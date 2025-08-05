@@ -76,6 +76,7 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
@@ -949,14 +950,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       accountUtils.isHwWallet({ walletId: wallet.id }) &&
       !accountUtils.isQrWallet({ walletId: wallet.id }) &&
       !accountUtils.isHwHiddenWallet({ wallet });
+
+    let associatedDeviceInfo: IDBDevice | undefined;
+    if (wallet.associatedDevice) {
+      associatedDeviceInfo = await this.getWalletDeviceSafe({
+        walletId: wallet.id,
+        dbWallet: wallet,
+        allDevices,
+      });
+      wallet.associatedDeviceInfo = associatedDeviceInfo;
+    }
+
     // hw wallet use device label as name
     if (shouldFixName || shouldFixAvatar) {
       if (wallet.associatedDevice) {
-        const device = await this.getWalletDeviceSafe({
-          walletId: wallet.id,
-          dbWallet: wallet,
-          allDevices,
-        });
+        const device = associatedDeviceInfo;
 
         if (shouldFixAvatar) {
           const deviceType = device?.deviceType;
@@ -2016,20 +2024,27 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return;
     }
 
+    let isUpdated = false;
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Device,
         ids: [device.id],
         updater: async (item) => {
-          item.features = JSON.stringify(features);
+          const newFeatures = stringUtils.stableStringify(features);
+          if (item.features !== newFeatures) {
+            item.features = newFeatures;
+            isUpdated = true;
+          }
           return item;
         },
       });
     });
-    appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
-      deviceId: device.id,
-    });
+    if (isUpdated) {
+      appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
+        deviceId: device.id,
+      });
+    }
   }
 
   async updateDeviceFeaturesLabel({
