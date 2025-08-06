@@ -81,7 +81,7 @@ export const CHAIN_SELECTOR_LOGO =
 export const defaultColorScheme = 'dark';
 
 export const TRADING_VIEW_URL =
-  process.env.TRADING_VIEW_URL || 'https://tradingview.onekeytest.com/';
+  process.env.TRADING_VIEW_URL || 'http://localhost:5173'; // 'https://tradingview.onekeytest.com/';
 
 export const FALCON_DOCS_URL = 'https://docs.falcon.finance/';
 export const ONEKEY_HEALTH_CHECK_URL = '/wallet/v1/health';
