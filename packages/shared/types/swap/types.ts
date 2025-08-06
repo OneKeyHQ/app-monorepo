@@ -467,7 +467,7 @@ export interface ISwapPreSwapData {
   allowanceResult?: IAllowanceResult;
   netWorkFee?: {
     feeLevel?: ESwapNetworkFeeLevel;
-    gasInfos?: ISwapGasInfo[];
+    gasInfos?: { encodeTx: string; gasInfo: ISwapGasInfo }[];
     gasFeeFiatValue?: string;
   };
 }

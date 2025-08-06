@@ -2402,7 +2402,7 @@ export function useSwapBuildTx() {
         buildUnsignedParamsCheckNonce.prevNonce =
           approveUnsignedTxArr[approveUnsignedTxArr.length - 1].nonce;
       }
-      let lastTxRes: ISignedTxPro | undefined;
+      let gasFeeInfos: { encodeTx: string; gasInfo: ISwapGasInfo }[] = [];
       const unsignedTx =
         await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
           ...buildUnsignedParamsCheckNonce,
@@ -2482,6 +2482,13 @@ export function useSwapBuildTx() {
               gas: gasLet,
               gasEIP1559: gasEIP1559Let,
             };
+            gasFeeInfos = [
+              ...gasFeeInfos,
+              {
+                encodeTx: JSON.stringify(unsignedTxItem.encodedTx),
+                gasInfo,
+              },
+            ];
           }
         } catch (e: any) {
           void swapEstimateFeeEvent(
@@ -2549,6 +2556,13 @@ export function useSwapBuildTx() {
                   }
                 : undefined,
             };
+            gasFeeInfos = [
+              ...gasFeeInfos,
+              {
+                encodeTx: JSON.stringify(unsignedTxItem.encodedTx),
+                gasInfo: lastTxGasInfo,
+              },
+            ];
           } else {
             const estimateFeeParams =
               await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
@@ -2581,6 +2595,13 @@ export function useSwapBuildTx() {
               feeDot: gasRes.feeDot?.[1] ?? gasRes.feeDot?.[0],
               feeBudget: gasRes.feeBudget?.[1] ?? gasRes.feeBudget?.[0],
             };
+            gasFeeInfos = [
+              ...gasFeeInfos,
+              {
+                encodeTx: JSON.stringify(unsignedTxItem.encodedTx),
+                gasInfo: gasParseInfo,
+              },
+            ];
           }
         }
       } else {
@@ -2666,6 +2687,13 @@ export function useSwapBuildTx() {
             feeDot: feeDotLet,
             feeBudget: feeBudgetLet,
           };
+          gasFeeInfos = [
+            ...gasFeeInfos,
+            {
+              encodeTx: JSON.stringify(unsignedTx.encodedTx),
+              gasInfo: gasParseInfo,
+            },
+          ];
         } catch (e: any) {
           void swapEstimateFeeEvent(
             ESwapEventAPIStatus.FAIL,
@@ -2680,12 +2708,15 @@ export function useSwapBuildTx() {
           throw e;
         }
       }
-      // todo gasinfo into: ISwapGasInfo
       setSwapSteps((prev) => ({
         ...prev,
         preSwapData: {
           ...prev.preSwapData,
-          estimateNetworkFeeLoading: true,
+          netWorkFee: {
+            ...prev.preSwapData.netWorkFee,
+            gasInfos: [...gasFeeInfos],
+          },
+          estimateNetworkFeeLoading: false,
         },
       }));
     },
