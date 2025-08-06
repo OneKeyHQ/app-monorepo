@@ -133,11 +133,13 @@ const PreSwapDialogContent = ({ onConfirm }: IPreSwapDialogContentProps) => {
   ]);
 
   useEffect(() => {
-    void preSwapBeforeStepActions(
-      swapStepsRef.current.quoteResult,
-      swapStepsRef.current.preSwapData.fromToken,
-      swapStepsRef.current.preSwapData.toToken,
-    );
+    if (swapStepsRef.current.preSwapData.supportNetworkFeeLevel) {
+      void preSwapBeforeStepActions(
+        swapStepsRef.current.quoteResult,
+        swapStepsRef.current.preSwapData.fromToken,
+        swapStepsRef.current.preSwapData.toToken,
+      );
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [swapStepNetFeeLevel.networkFeeLevel]);
 
