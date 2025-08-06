@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, Stack, Tabs, XStack } from '@onekeyhq/components';
+import { Button, SizableText, Stack, Tabs } from '@onekeyhq/components';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -69,7 +69,7 @@ export function DesktopLayout({
   const watchlist = watchlistState.data || [];
 
   return (
-    <Stack flex={1}>
+    <Stack flex={1} height="100%">
       <Tabs.Container
         initialTabName="trending"
         headerContainerStyle={{
@@ -95,7 +95,7 @@ export function DesktopLayout({
               if (!tabConfig) return null;
 
               return (
-                <Stack px="$3">
+                <Stack px="$4" py="$3">
                   <ToggleButton
                     isActive={isFocused}
                     onPress={() => onPress(name)}
@@ -110,18 +110,20 @@ export function DesktopLayout({
         )}
       >
         <Tabs.Tab name="watchlist">
-          <Stack px="$4" flex={1}>
-            <MarketTokenList
-              networkId={selectedNetworkId}
-              liquidityFilter={liquidityFilter}
-              showWatchlistOnly
-              watchlist={watchlist}
-            />
-          </Stack>
+          <Tabs.ScrollView>
+            <Stack px="$4" flex={1}>
+              <MarketTokenList
+                networkId={selectedNetworkId}
+                liquidityFilter={liquidityFilter}
+                showWatchlistOnly
+                watchlist={watchlist}
+              />
+            </Stack>
+          </Tabs.ScrollView>
         </Tabs.Tab>
 
         <Tabs.Tab name="trending">
-          <Stack px="$4" flex={1}>
+          <Stack px="$4">
             <MarketFilterBar {...filterBarProps} />
             <MarketTokenList
               networkId={selectedNetworkId}
