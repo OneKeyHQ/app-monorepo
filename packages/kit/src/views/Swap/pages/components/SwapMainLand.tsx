@@ -292,6 +292,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapFromAddressInfo.accountInfo?.account?.id,
     currentQuoteRes?.providerDisableBatchTransfer,
     Boolean(currentQuoteRes?.swapShouldSignedData),
+    Boolean(currentQuoteRes?.allowanceResult),
   );
 
   const createWrapStep = useCallback(

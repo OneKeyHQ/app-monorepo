@@ -2,6 +2,7 @@ import type { ComponentProps, ComponentType, ReactElement } from 'react';
 
 import type { HeaderButtonGroup } from './Header';
 import type HeaderIconButton from './Header/HeaderIconButton';
+import type { IInputAddOnProps } from '../../forms/Input/InputAddOnItem';
 import type {
   NavigationProp,
   StackActionHelpers,
@@ -89,6 +90,8 @@ export interface INavSearchBarProps {
   hideWhenScrolling?: boolean;
   autoFocus?: boolean;
   cancelButtonText?: string;
+  addOns?: IInputAddOnProps[];
+  searchBarInputValue?: string;
 }
 
 export type IStackHeaderProps = {

@@ -81,9 +81,10 @@ export function useSpeedSwapActions(props: {
   const [fetchBalanceLoading, setFetchBalanceLoading] = useState(false);
   const [priceRate, setPriceRate] = useState<
     | {
-        rate: number;
-        fromTokenSymbol: string;
-        toTokenSymbol: string;
+        rate?: number;
+        fromTokenSymbol?: string;
+        toTokenSymbol?: string;
+        loading?: boolean;
       }
     | undefined
   >(undefined);
@@ -665,6 +666,10 @@ export function useSpeedSwapActions(props: {
   );
 
   const fetchTokenPrice = useCallback(async () => {
+    setPriceRate((prev) => ({
+      ...(prev ?? {}),
+      loading: true,
+    }));
     const [fromTokenPrice, toTokenPrice] = await Promise.all([
       backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
         networkId: fromToken.networkId ?? '',
@@ -684,7 +689,13 @@ export function useSpeedSwapActions(props: {
           : fromTokenPriceBN.dividedBy(toTokenPriceBN).toNumber(),
         fromTokenSymbol: fromToken.symbol,
         toTokenSymbol: toToken.symbol,
+        loading: false,
       });
+    } else {
+      setPriceRate((prev) => ({
+        ...(prev ?? {}),
+        loading: false,
+      }));
     }
   }, [
     fromToken.symbol,
