@@ -145,17 +145,17 @@ class ServiceApproval extends ServiceBase {
                 const latestApprovalTime = Math.max(
                   ...approvals.map((i) => i.time),
                 );
-                const riskLevel = Math.max(
+                const highestRiskLevel = Math.max(
                   ...approvals.map((i) => i.riskLevel),
                 );
-                const riskReason = approvals.find(
-                  (i) => i.riskLevel === riskLevel,
+                const reason = approvals.find(
+                  (i) => i.riskLevel === highestRiskLevel,
                 )?.reason;
                 contractApprovals.push({
                   networkId: query.networkId,
                   latestApprovalTime,
-                  riskLevel,
-                  riskReason,
+                  highestRiskLevel,
+                  riskReason: reason,
                   contractAddress: spenderAddress,
                   approvals,
                 });

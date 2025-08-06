@@ -121,9 +121,10 @@ function ApprovalListContainer() {
     };
 
     appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
-
+    appEventBus.on(EAppEventBusNames.RefreshApprovalList, refresh);
     return () => {
       appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
+      appEventBus.off(EAppEventBusNames.RefreshApprovalList, refresh);
     };
   }, [isFocused, run]);
 

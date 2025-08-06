@@ -4,7 +4,7 @@ import type { IToken } from './token';
 export type IContractApproval = {
   networkId: string;
   latestApprovalTime: number;
-  riskLevel: number;
+  highestRiskLevel: number;
   riskReason?: string;
   contractAddress: string;
   approvals: IApproval[];
