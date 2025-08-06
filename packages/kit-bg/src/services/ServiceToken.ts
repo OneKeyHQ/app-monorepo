@@ -123,19 +123,41 @@ class ServiceToken extends ServiceBase {
       dbAccount,
       customTokensRawData,
     };
+    const [xpub, accountAddress] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountXpub(accountParams),
+      this.backgroundApi.serviceAccount.getAccountAddressForApi(accountParams),
+    ]);
+    if (!accountAddress && !xpub) {
+      console.log(
+        `fetchAccountTokens ERROR: accountAddress and xpub are both empty`,
+      );
+      defaultLogger.token.request.fetchAccountTokenAccountAddressAndXpubBothEmpty(
+        { params, accountAddress, xpub },
+      );
+      return getEmptyTokenData();
+    }
+
+    const accountXpubOrAddress =
+      await this.backgroundApi.serviceAccount.buildAccountXpubOrAddress({
+        getAccountXpubFn: async () => xpub,
+        getAccountAddressFn: async () => accountAddress,
+      });
+
     const [
-      xpub,
-      accountAddress,
       customTokens,
       hiddenTokens,
       unblockedTokens,
       blockedTokens,
       vaultSettings,
     ] = await Promise.all([
-      this.backgroundApi.serviceAccount.getAccountXpub(accountParams),
-      this.backgroundApi.serviceAccount.getAccountAddressForApi(accountParams),
-      this.backgroundApi.serviceCustomToken.getCustomTokens(accountParams),
-      this.backgroundApi.serviceCustomToken.getHiddenTokens(accountParams),
+      this.backgroundApi.serviceCustomToken.getCustomTokens({
+        ...accountParams,
+        accountXpubOrAddress,
+      }),
+      this.backgroundApi.serviceCustomToken.getHiddenTokens({
+        ...accountParams,
+        accountXpubOrAddress,
+      }),
       this.backgroundApi.serviceToken.getUnblockedTokens({
         networkId,
         unblockedTokensRawData,
@@ -146,16 +168,6 @@ class ServiceToken extends ServiceBase {
       }),
       this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
     ]);
-
-    if (!accountAddress && !xpub) {
-      console.log(
-        `fetchAccountTokens ERROR: accountAddress and xpub are both empty`,
-      );
-      defaultLogger.token.request.fetchAccountTokenAccountAddressAndXpubBothEmpty(
-        { params, accountAddress, xpub },
-      );
-      return getEmptyTokenData();
-    }
 
     rest.contractList = [
       ...(rest.contractList ?? []),

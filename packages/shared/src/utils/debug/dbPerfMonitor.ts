@@ -32,6 +32,7 @@ const shouldDbTxCreatedDebuggerRule: Record<string, boolean> = {
   'OneKeyStorage_readwrite': false,
   'OneKeyV5_readonly': false,
   'OneKeyV5_readwrite': false,
+  'OneKeyV5-account_readonly': false,
 };
 
 const shouldLocalDbDebuggerRule: Record<string, number> = {
