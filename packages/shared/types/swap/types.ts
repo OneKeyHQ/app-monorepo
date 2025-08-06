@@ -459,15 +459,23 @@ export interface ISwapPreSwapData {
   toTokenAmount?: string;
   swapBuildLoading?: boolean;
   estimateNetworkFeeLoading?: boolean;
+  stepBeforeActionsLoading?: boolean;
   providerInfo?: IFetchQuoteInfo;
   isHWAndExBatchTransfer?: boolean;
   slippage?: number;
   unSupportSlippage?: boolean;
+  swapBuildResultData?: {
+    swapInfo?: ISwapTxInfo;
+    orderId?: string;
+    skipSendTransAction?: boolean;
+    encodedTx?: IEncodedTx;
+    transferInfo?: ITransferInfo;
+  };
   fee?: IFetchQuoteFee;
+  supportNetworkFeeLevel?: boolean;
   allowanceResult?: IAllowanceResult;
   netWorkFee?: {
-    feeLevel?: ESwapNetworkFeeLevel;
-    gasInfos?: { encodeTx: string; gasInfo: ISwapGasInfo }[];
+    gasInfos?: { encodeTx: IEncodedTx; gasInfo: ISwapGasInfo }[];
     gasFeeFiatValue?: string;
   };
 }

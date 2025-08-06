@@ -497,9 +497,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           steps[steps.length - 1].type === ESwapStepType.SIGN_MESSAGE
         )
           ? {
-              netWorkFee: {
-                feeLevel: ESwapNetworkFeeLevel.MEDIUM,
-              },
+              supportNetworkFeeLevel: true,
             }
           : {}),
       },

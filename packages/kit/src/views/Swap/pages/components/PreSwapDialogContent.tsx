@@ -1,5 +1,6 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
+import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -8,11 +9,15 @@ import {
   HeightTransition,
   Icon,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useSwapStepsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  useSwapStepNetFeeLevelAtom,
+  useSwapStepsAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -40,6 +45,13 @@ interface IPreSwapDialogContentProps {
 const PreSwapDialogContent = ({ onConfirm }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
+  const { preSwapBeforeStepActions } = useSwapBuildTx();
+  const [swapStepNetFeeLevel, setSwapStepNetFeeLevel] =
+    useSwapStepNetFeeLevelAtom();
+  const swapStepsRef = useRef(swapSteps);
+  if (!isEqual(swapStepsRef.current, swapSteps)) {
+    swapStepsRef.current = swapSteps;
+  }
   const { preSwapData, quoteResult } = useMemo(() => {
     return {
       preSwapData: swapSteps.preSwapData,
@@ -119,6 +131,15 @@ const PreSwapDialogContent = ({ onConfirm }: IPreSwapDialogContentProps) => {
     setInAppNotificationAtom,
     swapSteps,
   ]);
+
+  useEffect(() => {
+    void preSwapBeforeStepActions(
+      swapStepsRef.current.quoteResult,
+      swapStepsRef.current.preSwapData.fromToken,
+      swapStepsRef.current.preSwapData.toToken,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [swapStepNetFeeLevel.networkFeeLevel]);
 
   const lastStep = useMemo(() => {
     return swapSteps.steps[swapSteps.steps.length - 1];
@@ -208,7 +229,14 @@ const PreSwapDialogContent = ({ onConfirm }: IPreSwapDialogContentProps) => {
             </SizableText>
 
             {/* To token item */}
-            <PreSwapTokenItem token={preSwapData?.toToken} amount={toAmount} />
+            {preSwapData.swapBuildLoading ? (
+              <Skeleton width={120} height={60} />
+            ) : (
+              <PreSwapTokenItem
+                token={preSwapData?.toToken}
+                amount={toAmount}
+              />
+            )}
           </YStack>
 
           <Divider />
@@ -220,20 +248,9 @@ const PreSwapDialogContent = ({ onConfirm }: IPreSwapDialogContentProps) => {
               <PreSwapInfoGroup
                 preSwapData={swapSteps.preSwapData}
                 onSelectNetworkFeeLevel={(value) => {
-                  setSwapSteps(
-                    (prevSteps: {
-                      steps: ISwapStep[];
-                      preSwapData: ISwapPreSwapData;
-                    }) => {
-                      return {
-                        ...prevSteps,
-                        preSwapData: {
-                          ...prevSteps.preSwapData,
-                          netWorkFee: { feeLevel: value },
-                        },
-                      };
-                    },
-                  );
+                  setSwapStepNetFeeLevel({
+                    networkFeeLevel: value,
+                  });
                 }}
               />
               {/* Primary button */}
@@ -250,7 +267,16 @@ const PreSwapDialogContent = ({ onConfirm }: IPreSwapDialogContentProps) => {
                     </SizableText>
                   </XStack>
                 ) : null}
-                <Button variant="primary" onPress={handleConfirm} size="medium">
+                <Button
+                  variant="primary"
+                  onPress={handleConfirm}
+                  size="medium"
+                  disabled={
+                    swapSteps.preSwapData.estimateNetworkFeeLoading ||
+                    swapSteps.preSwapData.swapBuildLoading ||
+                    swapSteps.preSwapData.stepBeforeActionsLoading
+                  }
+                >
                   {intl.formatMessage({
                     id: isHwWallet
                       ? ETranslations.global_confirm_on_device
