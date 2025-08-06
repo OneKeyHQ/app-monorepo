@@ -53,6 +53,7 @@ class DesktopApiSecurity {
   async promptTouchID(
     msg: string,
   ): Promise<{ success: boolean; error?: string; isSupport?: boolean }> {
+    return { success: false, isSupport: false };
     if (isWin) {
       logger.info('[TOUCH_ID_PROMPT] Windows requestVerificationAsync');
       try {
