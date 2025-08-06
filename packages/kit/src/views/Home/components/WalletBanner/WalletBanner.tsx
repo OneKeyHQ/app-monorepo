@@ -280,27 +280,33 @@ function WalletBanner() {
                 />
                 {gtSm ? (
                   <YStack gap="$0.5" flex={1}>
-                    <SizableText size="$bodyLgMedium" numberOfLines={1}>
+                    <SizableText size="$bodyLgMedium" numberOfLines={2}>
                       {item.title}
                     </SizableText>
-                    <SizableText
-                      size="$bodyMd"
-                      color="$textSubdued"
-                      numberOfLines={1}
-                    >
-                      {item.description}
-                    </SizableText>
+                    {item.description ? (
+                      <SizableText
+                        size="$bodyMd"
+                        color="$textSubdued"
+                        numberOfLines={1}
+                      >
+                        {item.description}
+                      </SizableText>
+                    ) : null}
                   </YStack>
                 ) : (
-                  <SizableText size="$bodyMd" flex={1} numberOfLines={2}>
+                  <SizableText size="$bodyMdMedium" flex={1} numberOfLines={2}>
                     {item.title}
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {' '}
-                      -{' '}
-                    </SizableText>
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {item.description}
-                    </SizableText>
+                    {item.description ? (
+                      <>
+                        <SizableText size="$bodyMd" color="$textSubdued">
+                          {' '}
+                          -{' '}
+                        </SizableText>
+                        <SizableText size="$bodyMd" color="$textSubdued">
+                          {item.description}
+                        </SizableText>
+                      </>
+                    ) : null}
                   </SizableText>
                 )}
 
