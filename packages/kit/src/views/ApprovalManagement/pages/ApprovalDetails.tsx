@@ -27,6 +27,7 @@ import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant
 import { Token } from '../../../components/Token';
 import { useContractMapAtom } from '../../../states/jotai/contexts/approvalList';
 import { openExplorerAddressUrl } from '../../../utils/explorerUtils';
+import { HomeApprovalListProviderMirror } from '../../Home/components/HomeApprovalListProvider/HomeApprovalListProviderMirror';
 import ApprovedTokenItem from '../components/ApprovedTokenItem';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -199,4 +200,13 @@ function ApprovalDetails() {
   );
 }
 
-export default memo(ApprovalDetails);
+const ApprovalDetailsWithProvider = memo(() => {
+  return (
+    <HomeApprovalListProviderMirror>
+      <ApprovalDetails />
+    </HomeApprovalListProviderMirror>
+  );
+});
+ApprovalDetailsWithProvider.displayName = 'ApprovalDetailsWithProvider';
+
+export default ApprovalDetailsWithProvider;

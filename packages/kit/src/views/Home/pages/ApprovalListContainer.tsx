@@ -17,10 +17,8 @@ import { ApprovalListView } from '../../../components/ApprovalListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import {
-  useApprovalListActions,
-  withApprovalListProvider,
-} from '../../../states/jotai/contexts/approvalList';
+import { useApprovalListActions } from '../../../states/jotai/contexts/approvalList';
+import { HomeApprovalListProviderMirror } from '../components/HomeApprovalListProvider/HomeApprovalListProviderMirror';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 
 function ApprovalListContainer() {
@@ -164,8 +162,14 @@ function ApprovalListContainer() {
   );
 }
 
-const ApprovalListContainerWithProvider = memo(
-  withApprovalListProvider(ApprovalListContainer),
-);
+const ApprovalListContainerWithProvider = memo(() => {
+  return (
+    <HomeApprovalListProviderMirror>
+      <ApprovalListContainer />
+    </HomeApprovalListProviderMirror>
+  );
+});
+ApprovalListContainerWithProvider.displayName =
+  'ApprovalListContainerWithProvider';
 
 export { ApprovalListContainerWithProvider };
