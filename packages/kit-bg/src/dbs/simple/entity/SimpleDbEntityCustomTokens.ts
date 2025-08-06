@@ -389,21 +389,26 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
 
   @backgroundMethod()
   async getHiddenTokens({
+    accountXpubOrAddress,
     customTokensRawData,
     accountId,
     networkId,
   }: {
+    accountXpubOrAddress?: string | null;
     customTokensRawData?: ICustomTokenDBStruct;
     networkId: string;
     accountId: string;
   }): Promise<IAccountTokenWithAccountId[]> {
-    const accountXpubOrAddress =
-      await appGlobals.$backgroundApiProxy.serviceAccount.getAccountXpubOrAddress(
-        {
-          networkId,
-          accountId,
-        },
-      );
+    if (!accountXpubOrAddress) {
+      // eslint-disable-next-line no-param-reassign
+      accountXpubOrAddress =
+        await appGlobals.$backgroundApiProxy.serviceAccount.getAccountXpubOrAddress(
+          {
+            networkId,
+            accountId,
+          },
+        );
+    }
     const tokens = await this.getTokensByStatus({
       customTokensRawData,
       accountXpubOrAddress,
@@ -418,21 +423,26 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
 
   @backgroundMethod()
   async getCustomTokens({
+    accountXpubOrAddress,
     customTokensRawData,
     accountId,
     networkId,
   }: {
+    accountXpubOrAddress?: string | null;
     customTokensRawData?: ICustomTokenDBStruct;
     networkId: string;
     accountId: string;
   }): Promise<IAccountTokenWithAccountId[]> {
-    const accountXpubOrAddress =
-      await appGlobals.$backgroundApiProxy.serviceAccount.getAccountXpubOrAddress(
-        {
-          networkId,
-          accountId,
-        },
-      );
+    if (!accountXpubOrAddress) {
+      // eslint-disable-next-line no-param-reassign
+      accountXpubOrAddress =
+        await appGlobals.$backgroundApiProxy.serviceAccount.getAccountXpubOrAddress(
+          {
+            networkId,
+            accountId,
+          },
+        );
+    }
     const tokens = await this.getTokensByStatus({
       customTokensRawData,
       accountXpubOrAddress,
