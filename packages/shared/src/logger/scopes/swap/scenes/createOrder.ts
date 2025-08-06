@@ -21,6 +21,7 @@ export class CreateOrderScene extends BaseScene {
     createFrom,
     router,
     slippage,
+    quoteToAmount,
   }: {
     status: ESwapEventAPIStatus;
     message?: string;
@@ -36,8 +37,10 @@ export class CreateOrderScene extends BaseScene {
     feeType: string;
     isFirstTime: boolean;
     createFrom: string;
+    quoteToAmount: string;
   }) {
     return {
+      quoteToAmount,
       status,
       message,
       isFirstTime,

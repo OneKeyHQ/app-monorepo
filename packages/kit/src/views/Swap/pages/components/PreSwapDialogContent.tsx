@@ -40,9 +40,13 @@ import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 
 interface IPreSwapDialogContentProps {
   onConfirm: () => void;
+  onDone: () => void;
 }
 
-const PreSwapDialogContent = ({ onConfirm }: IPreSwapDialogContentProps) => {
+const PreSwapDialogContent = ({
+  onDone,
+  onConfirm,
+}: IPreSwapDialogContentProps) => {
   const intl = useIntl();
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
   const { preSwapBeforeStepActions } = useSwapBuildTx();
@@ -72,9 +76,6 @@ const PreSwapDialogContent = ({ onConfirm }: IPreSwapDialogContentProps) => {
       }),
     [activeAccount?.wallet?.id],
   );
-  const handleConfirm = () => {
-    onConfirm();
-  };
 
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();
@@ -204,6 +205,7 @@ const PreSwapDialogContent = ({ onConfirm }: IPreSwapDialogContentProps) => {
     <HeightTransition initialHeight={355}>
       {showResultContent && swapSteps.steps.length > 0 ? (
         <PreSwapConfirmResult
+          onConfirm={onDone}
           fromToken={preSwapData?.fromToken}
           supportUrl={quoteResult?.supportUrl}
           lastStep={swapSteps.steps[swapSteps.steps.length - 1]}
@@ -271,7 +273,7 @@ const PreSwapDialogContent = ({ onConfirm }: IPreSwapDialogContentProps) => {
                 ) : null}
                 <Button
                   variant="primary"
-                  onPress={handleConfirm}
+                  onPress={onConfirm}
                   size="medium"
                   disabled={
                     swapSteps.preSwapData.estimateNetworkFeeLoading ||
@@ -288,7 +290,7 @@ const PreSwapDialogContent = ({ onConfirm }: IPreSwapDialogContentProps) => {
               </YStack>
             </YStack>
           ) : (
-            <PreSwapStep steps={swapSteps.steps} onRetry={handleConfirm} />
+            <PreSwapStep steps={swapSteps.steps} onRetry={onConfirm} />
           )}
         </YStack>
       )}
