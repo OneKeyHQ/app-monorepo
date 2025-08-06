@@ -31,17 +31,14 @@ export type IFetchAccountApprovalsParams = {
 };
 
 export type IFetchAccountApprovalsResponse = {
-  data: {
-    [networkId: string]: {
-      tokens: Record<
-        string,
-        {
-          price: string;
-          price24h: string;
-          info: IToken;
-        }
-      >;
-      addressMap: Record<string, IAddressInfo>;
-    } & Record<string, { approvals: IApproval[] }>;
-  };
+  contractApprovals: IContractApproval[];
+  tokenMap: Record<
+    string,
+    {
+      price: string;
+      price24h: string;
+      info: IToken;
+    }
+  >;
+  contractMap: Record<string, IAddressInfo>;
 };

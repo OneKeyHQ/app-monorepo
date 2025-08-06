@@ -1,21 +1,14 @@
-import qs from 'querystring';
-
-import { groupBy, isNil, omitBy } from 'lodash';
-
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import type {
-  IContractApproval,
   IFetchAccountApprovalsParams,
   IFetchAccountApprovalsResponse,
 } from '@onekeyhq/shared/types/approval';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type { IToken } from '@onekeyhq/shared/types/token';
 
 import ServiceBase from './ServiceBase';
 
@@ -37,7 +30,7 @@ class ServiceApproval extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountApprovals(params: IFetchAccountApprovalsParams) {
-    const { accountId, indexedAccountId, networkId } = params;
+    const { accountId, networkId } = params;
 
     let queries: {
       accountAddress: string;
@@ -97,80 +90,7 @@ class ServiceApproval extends ServiceBase {
       },
     );
 
-    const data = resp.data.data.data;
-
-    const contractApprovals: IContractApproval[] = [];
-    let tokenMap: Record<
-      string,
-      {
-        price: string;
-        price24h: string;
-        info: IToken;
-      }
-    > = {};
-
-    let contractMap: Record<string, IAddressInfo> = {};
-
-    for (const query of queries) {
-      const approvalDataByNetwork = data[query.networkId];
-      if (approvalDataByNetwork) {
-        const transformedTokens = Object.entries(
-          approvalDataByNetwork.tokens,
-        ).reduce((acc, [address, tokenData]) => {
-          acc[`${query.networkId}_${address}`] = tokenData;
-          return acc;
-        }, {} as Record<string, { price: string; price24h: string; info: IToken }>);
-
-        tokenMap = {
-          ...tokenMap,
-          ...transformedTokens,
-        };
-        contractMap = {
-          ...contractMap,
-          ...approvalDataByNetwork.addressMap,
-        };
-
-        const approvalsDataByAccountAddress =
-          approvalDataByNetwork[query.accountAddress.toLowerCase()];
-        if (approvalsDataByAccountAddress) {
-          const approvalsDataByContract =
-            approvalsDataByAccountAddress.approvals;
-          if (approvalsDataByContract.length > 0) {
-            const contractGroup = groupBy(
-              approvalsDataByContract,
-              'spenderAddress',
-            );
-            Object.entries(contractGroup).forEach(
-              ([spenderAddress, approvals]) => {
-                const latestApprovalTime = Math.max(
-                  ...approvals.map((i) => i.time),
-                );
-                const highestRiskLevel = Math.max(
-                  ...approvals.map((i) => i.riskLevel),
-                );
-                const reason = approvals.find(
-                  (i) => i.riskLevel === highestRiskLevel,
-                )?.reason;
-                contractApprovals.push({
-                  networkId: query.networkId,
-                  latestApprovalTime,
-                  highestRiskLevel,
-                  riskReason: reason,
-                  contractAddress: spenderAddress,
-                  approvals,
-                });
-              },
-            );
-          }
-        }
-      }
-    }
-
-    return {
-      contractApprovals,
-      tokenMap,
-      contractMap,
-    };
+    return resp.data.data;
   }
 }
 

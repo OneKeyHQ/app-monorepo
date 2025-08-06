@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react';
 import { memo, useMemo } from 'react';
 
 import { ListView, Stack, Tabs, YStack, useStyle } from '@onekeyhq/components';
+import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 
 import {
   useApprovalListAtom,
@@ -20,6 +21,7 @@ type IProps = {
   tableLayout?: boolean;
   isAllNetworks?: boolean;
   onRefresh?: () => void;
+  onPress?: (approval: IContractApproval) => void;
   withHeader?: boolean;
   listViewStyleProps?: Pick<
     ComponentProps<typeof ListView>,
@@ -37,6 +39,7 @@ function ApprovalListViewCmp(props: IProps) {
     withHeader,
     tableLayout,
     isAllNetworks,
+    onPress,
   } = props;
 
   const [{ approvals }] = useApprovalListAtom();
@@ -119,6 +122,7 @@ function ApprovalListViewCmp(props: IProps) {
           approval={item}
           isAllNetworks={isAllNetworks}
           tableLayout={tableLayout}
+          onPress={onPress}
         />
       )}
       ListFooterComponent={

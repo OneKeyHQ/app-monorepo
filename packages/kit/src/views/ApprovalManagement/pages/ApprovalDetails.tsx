@@ -27,9 +27,9 @@ import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant
 import { Token } from '../../../components/Token';
 import { useContractMapAtom } from '../../../states/jotai/contexts/approvalList';
 import { openExplorerAddressUrl } from '../../../utils/explorerUtils';
+import ApprovedTokenItem from '../components/ApprovedTokenItem';
 
 import type { RouteProp } from '@react-navigation/core';
-import ApprovedTokenItem from '../components/ApprovedTokenItem';
 
 function ApprovalDetails() {
   const route =

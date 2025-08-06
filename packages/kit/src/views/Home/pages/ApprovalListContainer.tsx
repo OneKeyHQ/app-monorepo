@@ -1,4 +1,4 @@
-import { memo, useEffect } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 
 import { CanceledError } from 'axios';
 
@@ -7,10 +7,14 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import { EHomeTab } from '@onekeyhq/shared/types';
+import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ApprovalListView } from '../../../components/ApprovalListView';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
@@ -28,6 +32,7 @@ function ApprovalListContainer() {
     useTabIsRefreshingFocused();
 
   const media = useMedia();
+  const navigation = useAppNavigation();
 
   const {
     updateApprovalList,
@@ -98,6 +103,18 @@ function ApprovalListContainer() {
     },
   );
 
+  const handleApprovalOnPress = useCallback(
+    (approval: IContractApproval) => {
+      navigation.pushModal(EModalRoutes.ApprovalManagementModal, {
+        screen: EModalApprovalManagementRoutes.ApprovalDetails,
+        params: {
+          approval,
+        },
+      });
+    },
+    [navigation],
+  );
+
   useEffect(() => {
     if (isHeaderRefreshing) {
       void run();
@@ -134,6 +151,7 @@ function ApprovalListContainer() {
       withHeader
       isAllNetworks={network?.isAllNetworks}
       onRefresh={onHomePageRefresh}
+      onPress={handleApprovalOnPress}
       listViewStyleProps={{
         ListHeaderComponentStyle: {
           pt: '$3',

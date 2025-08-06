@@ -16,10 +16,11 @@ type IProps = {
   approval: IContractApproval;
   tableLayout?: boolean;
   isAllNetworks?: boolean;
+  onPress?: (approval: IContractApproval) => void;
 };
 
 function ApproveListItem(props: IProps) {
-  const { approval, tableLayout, isAllNetworks } = props;
+  const { approval, tableLayout, isAllNetworks, onPress } = props;
 
   const renderFirstColumn = useCallback(() => {
     return (
@@ -117,6 +118,9 @@ function ApproveListItem(props: IProps) {
       gap={tableLayout ? '$3' : '$1'}
       alignItems="center"
       drillIn={!tableLayout}
+      onPress={() => {
+        onPress?.(approval);
+      }}
     >
       {renderFirstColumn()}
       {renderSecondColumn()}
