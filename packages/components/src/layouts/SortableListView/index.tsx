@@ -141,7 +141,7 @@ function BaseSortableListView<T>(
     (props: ListRenderItemInfo<T>) => {
       const { item, index } = props;
       const id = keyExtractor?.(item, index);
-      const layout = getItemLayout?.(data, index);
+      const layout = useFlashList ? undefined : getItemLayout?.(data, index);
       const isSticky =
         reallyStickyHeaderIndices.findIndex((x) => x === index) !== -1;
       const insertHeight = lastIndexHeight ?? 0;
@@ -179,9 +179,9 @@ function BaseSortableListView<T>(
                     ...provided.draggableProps.style,
                     ...(!isSticky
                       ? {
-                          position: 'absolute',
+                          position: useFlashList ? undefined : 'absolute',
                           top: (layout?.offset ?? 0) + contentPaddingTop,
-                          height: layout?.length,
+                          height: useFlashList ? undefined : layout?.length,
                           width: '100%',
                         }
                       : {}),
@@ -210,13 +210,14 @@ function BaseSortableListView<T>(
       );
     },
     [
-      renderItem,
-      data,
-      enabled,
-      getItemLayout,
       keyExtractor,
+      useFlashList,
+      getItemLayout,
+      data,
       reallyStickyHeaderIndices,
+      enabled,
       contentPaddingTop,
+      renderItem,
     ],
   );
 
@@ -262,7 +263,7 @@ function BaseSortableListView<T>(
               (item, _index) =>
                 keyExtractor(item, _index) === snapshot.draggingFromThisWith,
             );
-            overridePaddingBottom += getItemLayout(data, index).length;
+            overridePaddingBottom += getItemLayout?.(data, index)?.length ?? 0;
           }
           const ListViewComponent = useFlashList ? FlashList : ListView;
           return (
@@ -298,8 +299,10 @@ function BaseSortableListView<T>(
                 paddingBottom: overridePaddingBottom,
               }}
               renderItem={reloadRenderItem as ListRenderItem<T>}
-              // CellRendererComponent={FragmentComponent}
-              getItemLayout={getItemLayout}
+              CellRendererComponent={
+                useFlashList ? undefined : FragmentComponent
+              }
+              getItemLayout={useFlashList ? undefined : getItemLayout}
               keyExtractor={keyExtractor}
               stickyHeaderIndices={stickyHeaderIndices}
               ListHeaderComponent={ListHeaderComponent}
