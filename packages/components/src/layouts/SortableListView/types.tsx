@@ -42,7 +42,7 @@ export type ISortableListViewProps<T> = Omit<
       item: ArrayLike<T> | undefined | null,
       index: number,
     ) => { length: number; offset: number; index: number };
-
+    useFlashList?: boolean;
     enabled?: boolean;
     containerStyle?: StackStyle;
     contentContainerStyle?: StackStyle;

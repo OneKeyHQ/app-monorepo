@@ -1,6 +1,7 @@
 import { Fragment, forwardRef, useCallback, useEffect, useMemo } from 'react';
 import type { ForwardedRef, PropsWithChildren, ReactElement } from 'react';
 
+import { FlashList } from '@shopify/flash-list';
 import { useStyle } from '@tamagui/core';
 // eslint-disable-next-line spellcheck/spell-checker
 import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
@@ -44,7 +45,7 @@ function FragmentComponent({
   key,
   children,
 }: PropsWithChildren & { key?: React.Key }) {
-  return <Fragment key={key}>{children}</Fragment>;
+  return <div key={key}>{children}</div>;
 }
 
 let lastIndexHeight: undefined | number;
@@ -61,6 +62,7 @@ function BaseSortableListView<T>(
     onDragBegin,
     onDragEnd,
     keyExtractor,
+    useFlashList,
     getItemLayout,
     contentContainerStyle = {},
     stickyHeaderIndices = [],
@@ -262,19 +264,33 @@ function BaseSortableListView<T>(
             );
             overridePaddingBottom += getItemLayout(data, index).length;
           }
+          const ListViewComponent = useFlashList ? FlashList : ListView;
           return (
-            <ListView
-              // This property is invalid in SortableListView
-              estimatedItemSize={undefined as any}
-              // @ts-ignore
-              ref={(_ref) => {
-                if (typeof ref === 'function') {
-                  ref(_ref as any);
-                } else if (ref && 'current' in ref) {
-                  ref.current = _ref as any;
+            <ListViewComponent
+              ref={(_ref: any) => {
+                if (_ref) {
+                  if (typeof ref === 'function') {
+                    ref(_ref);
+                  } else if (ref && 'current' in ref) {
+                    ref.current = _ref;
+                  }
+                  // FlashList
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                  if (_ref?.getNativeScrollRef) {
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+                    const scrollRef = _ref?.getNativeScrollRef();
+                    if (scrollRef) {
+                      provided.innerRef(scrollRef);
+                    }
+                  }
+
+                  // FlatList
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                  if (_ref?._listRef?._scrollRef) {
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                    provided.innerRef(_ref?._listRef?._scrollRef);
+                  }
                 }
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                provided.innerRef((_ref as any)?._listRef?._scrollRef);
               }}
               data={data}
               contentContainerStyle={{
@@ -282,12 +298,12 @@ function BaseSortableListView<T>(
                 paddingBottom: overridePaddingBottom,
               }}
               renderItem={reloadRenderItem as ListRenderItem<T>}
-              CellRendererComponent={FragmentComponent}
+              // CellRendererComponent={FragmentComponent}
               getItemLayout={getItemLayout}
               keyExtractor={keyExtractor}
               stickyHeaderIndices={stickyHeaderIndices}
               ListHeaderComponent={ListHeaderComponent}
-              {...restProps}
+              {...(restProps as any)}
             />
           );
         }}
