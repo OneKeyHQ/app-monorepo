@@ -51,6 +51,11 @@ const jsRules = {
       'name': ['*', 'toLocaleLowerCase'],
       'message': 'Prefer use toLowerCase',
     },
+    {
+      'name': ['InteractionManager', 'runAfterInteractions'],
+      'message':
+        'Use timerUtils.setTimeoutPromised instead of InteractionManager.runAfterInteractions',
+    },
   ],
   // 'no-console': [isDev ? 'warn' : 'off'],
   'radix': 'error',

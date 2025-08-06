@@ -152,17 +152,6 @@ export class HardwareConnectionManager {
       }
     }
 
-    const enableDesktopBluetooth =
-      await this.backgroundApi.serviceSetting.getEnableDesktopBluetooth();
-
-    if (!enableDesktopBluetooth) {
-      console.log(
-        '🔍 detectBluetoothAvailability global Bluetooth is disabled: ',
-        enableDesktopBluetooth,
-      );
-      return false;
-    }
-
     console.log('🔍 detectBluetoothAvailability');
 
     try {
@@ -221,6 +210,17 @@ export class HardwareConnectionManager {
       const usbAvailable = await this.detectUSBDeviceAvailability();
 
       if (usbAvailable) {
+        return EHardwareTransportType.Bridge;
+      }
+
+      const enableDesktopBluetooth =
+        await this.backgroundApi.serviceSetting.getEnableDesktopBluetooth();
+
+      if (!enableDesktopBluetooth) {
+        console.log(
+          '🔍 detectBluetoothAvailability global Bluetooth is disabled: ',
+          enableDesktopBluetooth,
+        );
         return EHardwareTransportType.Bridge;
       }
 

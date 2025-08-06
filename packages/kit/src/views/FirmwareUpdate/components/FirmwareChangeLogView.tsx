@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -6,6 +6,7 @@ import { StyleSheet } from 'react-native';
 import type { IStackProps } from '@onekeyhq/components';
 import {
   Accordion,
+  Dialog,
   Icon,
   Markdown,
   SizableText,
@@ -199,20 +200,40 @@ export function FirmwareChangeLogView({
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const { showCheckList } = useFirmwareUpdateActions();
 
+  const handleConfirmClick = useCallback(async () => {
+    const isUSBDeviceAvailable =
+      await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability();
+    if (!isUSBDeviceAvailable) {
+      Dialog.show({
+        icon: 'TypeCoutline',
+        title: intl.formatMessage({
+          id: ETranslations.upgrade_use_usb,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.upgrade_recommend_usb,
+        }),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_got_it,
+        }),
+        showCancelButton: false,
+      });
+      return;
+    }
+    setStepInfo({
+      step: EFirmwareUpdateSteps.showCheckList,
+      payload: undefined,
+    });
+    showCheckList({ result });
+    onConfirmClick?.();
+  }, [result, showCheckList, onConfirmClick, setStepInfo, intl]);
+
   return (
     <>
       <FirmwareUpdatePageFooter
         onConfirmText={intl.formatMessage({
           id: ETranslations.update_update_now,
         })}
-        onConfirm={() => {
-          setStepInfo({
-            step: EFirmwareUpdateSteps.showCheckList,
-            payload: undefined,
-          });
-          showCheckList({ result });
-          onConfirmClick?.();
-        }}
+        onConfirm={handleConfirmClick}
       />
       <FirmwareUpdateIntroduction />
       <FirmwareChangeLogContentView result={result} />

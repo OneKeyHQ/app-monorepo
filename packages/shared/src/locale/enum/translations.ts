@@ -2893,6 +2893,8 @@
   troubleshooting_check_bridge = 'troubleshooting.check_bridge',
   troubleshooting_close_other_onekey_app = 'troubleshooting.close_other_onekey_app',
   troubleshooting_connect_and_unlock = 'troubleshooting.connect_and_unlock',
+  troubleshooting_desktop_bluetooth_usb_priority = 'troubleshooting.desktop_bluetooth_usb_priority',
+  troubleshooting_device_powered_on = 'troubleshooting.device_powered_on',
   troubleshooting_fallback_solution_label = 'troubleshooting.fallback_solution_label',
   troubleshooting_help_center = 'troubleshooting.help_center',
   troubleshooting_reconnect_and_pair = 'troubleshooting.reconnect_and_pair',

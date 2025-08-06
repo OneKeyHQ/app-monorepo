@@ -119,6 +119,14 @@ export function ConnectionTroubleShootingAccordion({
       bluetooth: [
         [
           intl.formatMessage({
+            id: ETranslations.troubleshooting_device_powered_on,
+          }),
+          intl.formatMessage({
+            id: ETranslations.troubleshooting_desktop_bluetooth_usb_priority,
+          }),
+        ],
+        [
+          intl.formatMessage({
             id: ETranslations.troubleshooting_check_bluetooth,
           }),
           intl.formatMessage({
@@ -235,10 +243,16 @@ export function ConnectionTroubleShootingAccordion({
               >
                 {list.map((item, subIndex) => (
                   <XStack role="listitem" key={subIndex} gap="$2">
-                    <SizableText w="$4" size="$bodyMd" color="$textSubdued">
+                    <SizableText
+                      w="$4"
+                      flexShrink={0}
+                      size="$bodyMd"
+                      color="$textSubdued"
+                    >
                       {subIndex + 1}.
                     </SizableText>
                     <SizableText
+                      flex={1}
                       $md={{
                         maxWidth: '$78',
                       }}
