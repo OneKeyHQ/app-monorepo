@@ -2,6 +2,7 @@ import type { IModalMarketParamList } from '@onekeyhq/kit/src/views/Market/route
 
 import type { IAccountManagerStacksParamList } from './accountManagerStacks';
 import type { IModalAddressBookParamList } from './addressBook';
+import type { IModalApprovalManagementParamList } from './approvalManagement';
 import type { IAppUpdatePagesParamList } from './appUpdate';
 import type { IModalAssetDetailsParamList } from './assetDetails';
 import type { IModalAssetListParamList } from './assetList';
@@ -68,6 +69,7 @@ export enum EModalRoutes {
   DeviceManagementModal = 'DeviceManagementModal',
   ReferFriendsModal = 'ReferFriendsModal',
   BulkCopyAddressesModal = 'BulkCopyAddressesModal',
+  ApprovalManagementModal = 'ApprovalManagementModal',
 }
 
 export type IModalParamList = {
@@ -106,4 +108,5 @@ export type IModalParamList = {
   [EModalRoutes.WalletAddress]: IModalWalletAddressParamList;
   [EModalRoutes.WebViewModal]: IModalWebViewParamList;
   [EModalRoutes.BulkCopyAddressesModal]: IModalBulkCopyAddressesParamList;
+  [EModalRoutes.ApprovalManagementModal]: IModalApprovalManagementParamList;
 };
