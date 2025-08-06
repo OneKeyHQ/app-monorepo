@@ -1,0 +1,54 @@
+{
+  "domain": {
+    "chainId": 42161,
+    "name": "HyperliquidSignTransaction",
+    "verifyingContract": "0x0000000000000000000000000000000000000000",
+    "version": "1"
+  },
+  "message": {
+    "builder": "0x4ef880525383ab4e3d94b7689e3146bf899a296e",
+    "hyperliquidChain": "Mainnet",
+    "maxFeeRate": "0.001%",
+    "nonce": 1754474751838,
+    "signatureChainId": "0xa4b1"
+  },
+  "primaryType": "HyperliquidTransaction:ApproveBuilderFee",
+  "types": {
+    "EIP712Domain": [
+      {
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "name": "version",
+        "type": "string"
+      },
+      {
+        "name": "chainId",
+        "type": "uint256"
+      },
+      {
+        "name": "verifyingContract",
+        "type": "address"
+      }
+    ],
+    "HyperliquidTransaction:ApproveBuilderFee": [
+      {
+        "name": "hyperliquidChain",
+        "type": "string"
+      },
+      {
+        "name": "maxFeeRate",
+        "type": "string"
+      },
+      {
+        "name": "builder",
+        "type": "address"
+      },
+      {
+        "name": "nonce",
+        "type": "uint64"
+      }
+    ]
+  }
+}

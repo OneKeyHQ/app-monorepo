@@ -15,6 +15,7 @@ module.exports = [
   '100vw',
   '10xxxxxx',
   'perp',
+  'hyperliquid',
   'PerpTrade',
   'perpTradeRouters',
   'cors',

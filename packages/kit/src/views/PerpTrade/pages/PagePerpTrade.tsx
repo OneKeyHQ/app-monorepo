@@ -21,7 +21,7 @@ function PerpTradeView() {
       <WebView
         id="perp-trade"
         // src="https://www.bing.com"
-        src="https://app.hyperliquid.xyz/trade?$$$$onekey$$$$=true"
+        src="https://app.hyperliquid.xyz/trade?isOneKeyBuiltInPerpView=true"
         onWebViewRef={(ref) => {
           // Simple ref handling for the perp trade
           console.log('PerpTrade WebView ref ready:', ref);
