@@ -68,6 +68,7 @@ export const biologyAuthenticate: () => Promise<LocalAuthenticationResult> =
       }
       return {
         success: false,
+        error: 'not_available',
       };
     } catch (e: unknown) {
       const authError = e as { message: string };
