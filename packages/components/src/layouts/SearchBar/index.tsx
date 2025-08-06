@@ -108,6 +108,7 @@ export function SearchBar({
         borderRadius: '$full',
         bg: '$bgStrong',
         borderColor: '$transparent',
+        overflow: 'hidden',
         ...containerProps,
       }}
     />
