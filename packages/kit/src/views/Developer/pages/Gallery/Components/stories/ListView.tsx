@@ -20,7 +20,9 @@ const ListViewDemo = () => {
   const ref = useRef<IListViewRef<any> | null>(null);
   return (
     <ListView
+      useFlashList
       h="$60"
+      maxHeight="$60"
       estimatedItemSize="$10"
       contentContainerStyle={{
         bg: '$borderLight',
@@ -48,6 +50,7 @@ const ListViewDemo = () => {
             <Button
               onPress={() => {
                 const scrollView = ref.current;
+                console.log('scrollView', scrollView);
                 scrollView?.scrollToIndex({ index: 0, animated: true });
               }}
             >
