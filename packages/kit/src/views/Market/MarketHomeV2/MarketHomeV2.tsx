@@ -21,8 +21,7 @@ function MarketHome() {
   const { md } = useMedia();
 
   // Load market basic config using the new hook
-  const { defaultNetworkId, formattedMinLiquidity, recommendedTokens } =
-    useMarketBasicConfig();
+  const { defaultNetworkId, formattedMinLiquidity } = useMarketBasicConfig();
 
   const [selectedNetworkId, setSelectedNetworkId] =
     useState<string>('sol--101');
@@ -46,11 +45,11 @@ function MarketHome() {
   }, [formattedMinLiquidity, liquidityFilter.min]);
   const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('5m');
 
-  const [activeTab, setActiveTab] = useState<IMarketHomeTabValue>(
+  const [_activeTab, setActiveTab] = useState<IMarketHomeTabValue>(
     EMarketHomeTab.Trending,
   );
 
-  const commonProps = useMemo(
+  const mobileProps = useMemo(
     () => ({
       filterBarProps: {
         selectedNetworkId,
@@ -62,17 +61,26 @@ function MarketHome() {
       },
       selectedNetworkId,
       liquidityFilter,
-      activeTab,
       onTabChange: setActiveTab,
-      recommendedTokens,
     }),
-    [
+    [selectedNetworkId, timeRange, liquidityFilter],
+  );
+
+  const desktopProps = useMemo(
+    () => ({
+      filterBarProps: {
+        selectedNetworkId,
+        timeRange,
+        liquidityFilter,
+        onNetworkIdChange: setSelectedNetworkId,
+        onTimeRangeChange: setTimeRange,
+        onLiquidityFilterChange: setLiquidityFilter,
+      },
       selectedNetworkId,
-      timeRange,
       liquidityFilter,
-      activeTab,
-      recommendedTokens,
-    ],
+      onTabChange: setActiveTab,
+    }),
+    [selectedNetworkId, timeRange, liquidityFilter],
   );
 
   return (
@@ -83,9 +91,9 @@ function MarketHome() {
       />
       <Page.Body>
         {md ? (
-          <MobileLayout {...commonProps} />
+          <MobileLayout {...mobileProps} />
         ) : (
-          <DesktopLayout {...commonProps} />
+          <DesktopLayout {...desktopProps} />
         )}
       </Page.Body>
     </Page>

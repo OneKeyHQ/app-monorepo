@@ -1,16 +1,51 @@
-import { Stack } from '@onekeyhq/components';
-import {
-  useMarketWatchListV2Atom,
-  useShowWatchlistOnlyValue,
-} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
-import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
+import { useIntl } from 'react-intl';
+
+import { Button, SizableText, Stack, Tabs, XStack } from '@onekeyhq/components';
+import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { MarketFilterBar } from '../components/MarketFilterBar';
-import { MarketRecommendList } from '../components/MarketRecommendList';
 import { MarketTokenList } from '../components/MarketTokenList';
 
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
-import type { ILiquidityFilter, IMarketHomeTabValue } from '../types';
+import type { ILiquidityFilter } from '../types';
+
+export interface IToggleButtonProps {
+  isActive: boolean;
+  onPress: (() => void) | undefined;
+  disabled: boolean;
+  translationId: ETranslations;
+  defaultMessage: string;
+}
+
+export function ToggleButton({
+  isActive,
+  onPress,
+  disabled,
+  translationId,
+  defaultMessage,
+}: IToggleButtonProps) {
+  const intl = useIntl();
+
+  return (
+    <Button
+      variant="tertiary"
+      onPress={onPress}
+      bg={isActive ? '$bgHover' : '$transparent'}
+      disabled={disabled}
+    >
+      <SizableText
+        size="$bodyLgMedium"
+        color={isActive ? '$text' : '$textSubdued'}
+      >
+        {intl.formatMessage({
+          id: translationId,
+          defaultMessage,
+        })}
+      </SizableText>
+    </Button>
+  );
+}
 
 interface IDesktopLayoutProps {
   filterBarProps: {
@@ -23,57 +58,80 @@ interface IDesktopLayoutProps {
   };
   selectedNetworkId: string;
   liquidityFilter: ILiquidityFilter;
-  activeTab: IMarketHomeTabValue;
-  recommendedTokens: IMarketTokenListItem[];
 }
 
 export function DesktopLayout({
   filterBarProps,
   selectedNetworkId,
   liquidityFilter,
-  activeTab,
-  recommendedTokens,
 }: IDesktopLayoutProps) {
   const [watchlistState] = useMarketWatchListV2Atom();
-  const [showWatchlistOnly] = useShowWatchlistOnlyValue();
-
-  const watchlistItems = watchlistState.data;
-  const isWatchlistEmpty = !watchlistItems || watchlistItems.length === 0;
-  const shouldShowRecommendList = showWatchlistOnly && isWatchlistEmpty;
+  const watchlist = watchlistState.data || [];
 
   return (
-    <>
-      <Stack>
-        <MarketFilterBar {...filterBarProps} />
-      </Stack>
+    <Stack flex={1}>
+      <Tabs.Container
+        initialTabName="trending"
+        headerContainerStyle={{
+          borderBottomWidth: 0,
+          width: '100%',
+          shadowColor: 'transparent',
+        }}
+        renderTabBar={(props) => (
+          <Tabs.TabBar
+            {...props}
+            renderItem={({ name, isFocused, onPress }) => {
+              const tabConfig = {
+                watchlist: {
+                  translationId: ETranslations.global_watchlist,
+                  defaultMessage: 'Watchlist',
+                },
+                trending: {
+                  translationId: ETranslations.market_trending,
+                  defaultMessage: 'Trending',
+                },
+              }[name as 'watchlist' | 'trending'];
 
-      {shouldShowRecommendList ? (
-        <Stack
-          position="absolute"
-          bottom={0}
-          top="20vh"
-          left={0}
-          right={0}
-          zIndex={1000}
-        >
-          <MarketRecommendList
-            recommendedTokens={recommendedTokens}
-            maxSize={8}
-            enableSelection
-            showTitle
-            showAddButton
-            networkId={selectedNetworkId}
+              if (!tabConfig) return null;
+
+              return (
+                <Stack px="$3">
+                  <ToggleButton
+                    isActive={isFocused}
+                    onPress={() => onPress(name)}
+                    disabled={false}
+                    translationId={tabConfig.translationId}
+                    defaultMessage={tabConfig.defaultMessage}
+                  />
+                </Stack>
+              );
+            }}
           />
-        </Stack>
-      ) : (
-        <Stack px="$5" flex={1}>
-          <MarketTokenList
-            networkId={selectedNetworkId}
-            liquidityFilter={liquidityFilter}
-            key={`${selectedNetworkId}-${activeTab}`} // Force re-render when tab changes
-          />
-        </Stack>
-      )}
-    </>
+        )}
+      >
+        <Tabs.Tab name="watchlist">
+          <Stack px="$4" flex={1}>
+            <MarketTokenList
+              networkId={selectedNetworkId}
+              liquidityFilter={liquidityFilter}
+              showWatchlistOnly
+              watchlist={watchlist}
+            />
+          </Stack>
+        </Tabs.Tab>
+
+        <Tabs.Tab name="trending">
+          <Stack px="$4" flex={1}>
+            <MarketFilterBar {...filterBarProps} />
+            <MarketTokenList
+              networkId={selectedNetworkId}
+              liquidityFilter={liquidityFilter}
+              showWatchlistOnly={false}
+              watchlist={watchlist}
+            />
+          </Stack>
+        </Tabs.Tab>
+      </Tabs.Container>
+    </Stack>
   );
 }
