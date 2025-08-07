@@ -49,7 +49,7 @@ export const showDevModePasswordDialog = async () => {
       tone: 'warning',
       icon: 'ErrorOutline',
       description:
-        'Warning: Developer mode is intended for development and debugging purposes only and may cause data loss. If you are not sure what you are doing, do NOT enable developer mode.',
+        'Developer mode is for development only and may cause data loss. Do NOT enable if unsure.',
       dismissOnOverlayPress: false,
       confirmButtonProps: {
         testID: 'confirm-button',
