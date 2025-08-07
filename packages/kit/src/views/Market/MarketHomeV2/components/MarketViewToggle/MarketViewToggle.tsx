@@ -43,3 +43,7 @@ export function ToggleButton({
     </Button>
   );
 }
+
+export function MarketViewToggle(props: IMarketViewToggleProps) {
+  return null; // Placeholder implementation
+}
