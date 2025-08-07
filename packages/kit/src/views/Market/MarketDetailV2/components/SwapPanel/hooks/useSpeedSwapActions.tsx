@@ -342,7 +342,10 @@ export function useSpeedSwapActions(props: {
       });
 
       defaultLogger.swap.createSwapOrder.swapCreateOrder({
-        quoteToAmount: buildRes.result?.toAmount ?? '',
+        fromTokenAmount,
+        fromAddress: userAddress,
+        toAddress: userAddress,
+        toTokenAmount: buildRes.result?.toAmount ?? '',
         status: ESwapEventAPIStatus.SUCCESS,
         swapProvider: buildRes.result?.info.provider ?? '',
         swapProviderName: buildRes.result?.info.providerName ?? '',
@@ -362,7 +365,10 @@ export function useSpeedSwapActions(props: {
     } catch (e) {
       setSpeedSwapBuildTxLoading(false);
       defaultLogger.swap.createSwapOrder.swapCreateOrder({
-        quoteToAmount: buildRes.result?.toAmount ?? '',
+        fromTokenAmount,
+        fromAddress: userAddress,
+        toAddress: userAddress,
+        toTokenAmount: buildRes.result?.toAmount ?? '',
         status: ESwapEventAPIStatus.FAIL,
         swapProvider: buildRes.result?.info.provider ?? '',
         swapProviderName: buildRes.result?.info.providerName ?? '',
