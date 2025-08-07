@@ -1,15 +1,19 @@
 import { useIntl } from 'react-intl';
 
-import { Button, Spinner, Stack, View, useMedia } from '@onekeyhq/components';
+import {
+  Button,
+  Spinner,
+  Stack,
+  View,
+  useInModalDialog,
+  useMedia,
+} from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProviderMirrorV2';
-import { EModalMarketRoutes } from '../../../router';
 
 import { SwapPanelWrap } from './SwapPanelWrap';
 
@@ -22,7 +26,7 @@ export function SwapPanel({
 }) {
   const intl = useIntl();
   const media = useMedia();
-  const navigation = useAppNavigation();
+  const InModalDialog = useInModalDialog();
 
   if (!networkId || !tokenAddress) {
     return (
@@ -39,12 +43,27 @@ export function SwapPanel({
 
   const showSwapDialog = () => {
     if (networkId && tokenAddress) {
-      navigation.pushModal(EModalRoutes.MarketModal, {
-        screen: EModalMarketRoutes.MarketSwap,
-        params: {
-          networkId,
-          tokenAddress,
-        },
+      InModalDialog.show({
+        title: intl.formatMessage({ id: ETranslations.global_swap }),
+        showFooter: false,
+        showExitButton: true,
+        renderContent: (
+          <View p="$4">
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.home,
+                sceneUrl: '',
+              }}
+              enabledNum={[0]}
+            >
+              <MarketWatchListProviderMirrorV2
+                storeName={EJotaiContextStoreNames.marketWatchListV2}
+              >
+                <SwapPanelWrap />
+              </MarketWatchListProviderMirrorV2>
+            </AccountSelectorProviderMirror>
+          </View>
+        ),
       });
     }
   };

@@ -4,13 +4,10 @@ import type { ReactNode } from 'react';
 import { Stack, Table, useMedia } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
 import {
-  useMarketWatchListV2Atom,
-  useShowWatchlistOnlyValue,
-} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
-import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
 import { parseValueToNumber } from '../../utils';
 
@@ -35,11 +32,8 @@ type IMarketTokenListProps = {
   onItemPress?: (item: IMarketToken) => void;
   pageSize?: number;
   liquidityFilter?: ILiquidityFilter;
-  /**
-   * Custom toolbar element that will be rendered above the token list table.
-   * Useful for placing extra action buttons or controls that relate to the
-   * current list view (e.g. refresh button, export menu, etc.)
-   */
+  showWatchlistOnly?: boolean;
+  watchlist?: IMarketWatchListItemV2[];
   toolbar?: ReactNode;
 };
 
@@ -51,13 +45,11 @@ function MarketTokenList({
   pageSize = 20,
   liquidityFilter,
   toolbar,
+  showWatchlistOnly = false,
+  watchlist = [],
 }: IMarketTokenListProps) {
   const toDetailPage = useToDetailPage();
 
-  // ---------------- WATCHLIST ------------------
-  const [watchlistState] = useMarketWatchListV2Atom();
-  const watchlistItems = watchlistState.data;
-  const [showWatchlistOnly] = useShowWatchlistOnlyValue();
   const { md } = useMedia();
 
   const marketTokenColumns = useMarketTokenColumns(
@@ -75,7 +67,7 @@ function MarketTokenList({
 
   // Call hooks unconditionally to follow React rules
   const watchlistResult = useMarketWatchlistTokenList({
-    watchlist: watchlistItems || [],
+    watchlist,
     pageSize,
     minLiquidity,
     maxLiquidity,
