@@ -11,7 +11,7 @@ export interface ITabPageHeaderProp {
     fixedItems,
   }: {
     fixedItems: ReactNode;
-  }) => ReactNode; 
+  }) => ReactNode;
   customHeaderRightItems?: ReactNode;
   customHeaderLeftItems?: ReactNode;
   hideSearch?: boolean;
