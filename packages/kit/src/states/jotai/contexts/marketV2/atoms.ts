@@ -40,7 +40,7 @@ export const { atom: networkIdAtom, use: useNetworkIdAtom } =
 export const { atom: leftColumnWidthAtom, use: useLeftColumnWidthAtom } =
   contextAtom<number>(0);
 
-export const { atom: showWatchlistOnlyAtom, use: useShowWatchlistOnlyValue } =
+export const { atom: showWatchlistOnlyAtom, use: useShowWatchlistOnlyAtom } =
   contextAtom<boolean>(false);
 
 const INIT = Symbol('INIT');

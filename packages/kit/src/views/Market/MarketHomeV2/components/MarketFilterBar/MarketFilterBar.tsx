@@ -1,8 +1,6 @@
-import { XStack, YStack } from '@onekeyhq/components';
-import { useShowWatchlistOnlyValue } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { YStack } from '@onekeyhq/components';
 
 import { MarketTokenListNetworkSelector } from '../MarketTokenListNetworkSelector';
-import { MarketViewToggle } from '../MarketViewToggle';
 
 import { MarketFilterBarSkeleton } from './MarketFilterBarSkeleton';
 
@@ -21,8 +19,6 @@ export function MarketFilterBar({
   onNetworkIdChange,
   isLoading = false,
 }: IMarketFilterBarProps) {
-  const [showWatchlistOnly] = useShowWatchlistOnlyValue();
-
   const handleNetworkIdChange = (networkId: string) => {
     onNetworkIdChange?.(networkId);
   };
@@ -32,19 +28,13 @@ export function MarketFilterBar({
   }
 
   return (
-    <YStack gap="$1" pt="$3" px="$6">
-      <XStack pl="$3">
-        <MarketViewToggle />
-      </XStack>
-
+    <YStack>
       {/* Network Selector - Hidden in watchlist mode */}
-      {showWatchlistOnly ? null : (
-        <MarketTokenListNetworkSelector
-          selectedNetworkId={selectedNetworkId}
-          onSelectNetworkId={handleNetworkIdChange}
-          forceLoading={isLoading}
-        />
-      )}
+      <MarketTokenListNetworkSelector
+        selectedNetworkId={selectedNetworkId}
+        onSelectNetworkId={handleNetworkIdChange}
+        forceLoading={isLoading}
+      />
     </YStack>
   );
 }

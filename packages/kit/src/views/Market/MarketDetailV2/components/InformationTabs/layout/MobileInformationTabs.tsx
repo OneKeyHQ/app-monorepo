@@ -29,7 +29,7 @@ export function MobileInformationTabs() {
         id: ETranslations.dexmarket_details_transactions,
       })}
     >
-      <Stack flex={1} height={600}>
+      <Stack flex={1} height={600} pt="$11">
         <TransactionsHistory
           tokenAddress={tokenAddress}
           networkId={networkId}
@@ -46,7 +46,7 @@ export function MobileInformationTabs() {
           id: ETranslations.dexmarket_holders,
         })}
       >
-        <Stack flex={1} height={600}>
+        <Stack flex={1} height={600} pt="$11">
           <Holders tokenAddress={tokenAddress} networkId={networkId} />
         </Stack>
       </Tabs.Tab>,
