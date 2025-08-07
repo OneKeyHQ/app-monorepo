@@ -7,9 +7,7 @@ const MarketSwapModal = LazyLoadPage(
   () => import('../MarketSwap/MarketSwapModal'),
 );
 
-const MarketDetailV2Modal = LazyLoadPage(
-  () => import('../MarketDetailV2'),
-);
+const MarketDetailV2Modal = LazyLoadPage(() => import('../MarketDetailV2'));
 
 export enum EModalMarketRoutes {
   MarketSwap = 'MarketSwap',

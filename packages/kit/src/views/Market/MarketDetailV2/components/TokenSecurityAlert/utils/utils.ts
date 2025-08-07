@@ -9,22 +9,6 @@ import { getSecurityConfig } from '../config/securityConfig';
 
 import type { ISecurityKeyValue, ISecurityStatus } from '../types';
 
-// Helper function to check if a key should hide the security alert
-const shouldHideForKey = (key: string, value: any): boolean => {
-  const config = getSecurityConfig();
-  if (!config.hideSecurityAlertKeys.includes(key)) return false;
-
-  // If the property is false, hide the security alert
-  if (isBoolean(value) && !value) {
-    return true;
-  }
-  if (isString(value) && value === 'false') {
-    return true;
-  }
-
-  return false;
-};
-
 // Helper function to check if a key is a warning
 const isWarningKey = (key: string, value: any): boolean => {
   const config = getSecurityConfig();
@@ -79,7 +63,6 @@ export const formatSecurityData = (
         label: content,
         value: displayValue,
         isWarning: isWarningKey(key, value),
-        shouldHide: shouldHideForKey(key, value),
       });
     },
   );

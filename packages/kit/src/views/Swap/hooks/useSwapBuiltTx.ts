@@ -614,6 +614,8 @@ export function useSwapBuildTx() {
         swapType = ESwapTabSwitchType.BRIDGE;
       }
       defaultLogger.swap.swapSendTx.swapSendTx({
+        fromAddress: swapFromAddressInfo.address ?? '',
+        toAddress: swapToAddressInfo.address ?? '',
         status,
         message,
         orderId: swapInfo?.swapBuildResData.orderId ?? '',
@@ -635,7 +637,11 @@ export function useSwapBuildTx() {
         encodedTx: encodedTx ?? '',
       });
     },
-    [slippageItem.value],
+    [
+      slippageItem.value,
+      swapFromAddressInfo.address,
+      swapToAddressInfo.address,
+    ],
   );
 
   const handleApproveFallbackOnSuccess = useCallback(
@@ -1361,7 +1367,10 @@ export function useSwapBuildTx() {
         swapType = ESwapTabSwitchType.BRIDGE;
       }
       defaultLogger.swap.createSwapOrder.swapCreateOrder({
-        quoteToAmount: buildSwapRes.result?.toAmount ?? '',
+        fromTokenAmount: buildSwapRes.result?.fromAmount ?? '',
+        toTokenAmount: buildSwapRes.result?.toAmount ?? '',
+        fromAddress: swapFromAddressInfo.address ?? '',
+        toAddress: swapToAddressInfo.address ?? '',
         status: ESwapEventAPIStatus.SUCCESS,
         swapProvider: buildSwapRes.result?.info.provider ?? '',
         swapProviderName: buildSwapRes.result?.info.providerName ?? '',
@@ -1390,6 +1399,8 @@ export function useSwapBuildTx() {
       swapFromAddressInfo.accountInfo?.account?.id,
       swapFromAddressInfo.accountInfo?.dbAccount?.id,
       swapFromAddressInfo.accountInfo?.indexedAccount?.id,
+      swapFromAddressInfo.address,
+      swapToAddressInfo.address,
       syncRecentTokenPairs,
       toToken,
     ],
@@ -1467,7 +1478,10 @@ export function useSwapBuildTx() {
             swapType = ESwapTabSwitchType.BRIDGE;
           }
           defaultLogger.swap.createSwapOrder.swapCreateOrder({
-            quoteToAmount: data?.toAmount ?? '',
+            fromTokenAmount: data?.fromAmount ?? '',
+            toTokenAmount: data?.toAmount ?? '',
+            fromAddress: swapFromAddressInfo.address ?? '',
+            toAddress: swapToAddressInfo.address ?? '',
             status: ESwapEventAPIStatus.FAIL,
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             message: e?.message ?? 'unknown error',

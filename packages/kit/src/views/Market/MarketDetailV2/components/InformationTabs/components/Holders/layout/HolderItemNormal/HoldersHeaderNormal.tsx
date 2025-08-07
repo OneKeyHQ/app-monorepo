@@ -7,7 +7,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useHoldersLayoutNormal } from './useHoldersLayoutNormal';
 
-const commonTextProps = { size: '$bodySm', color: '$textSubdued' } as const;
+const commonTextProps = {
+  size: '$bodySm',
+  color: '$textSubdued',
+} as const;
 
 function HoldersHeaderNormalBase() {
   const intl = useIntl();
@@ -18,7 +21,6 @@ function HoldersHeaderNormalBase() {
       px="$4"
       py="$3"
       alignItems="center"
-      gap="$3"
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
       backgroundColor="$bgApp"
