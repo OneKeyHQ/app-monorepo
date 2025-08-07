@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, Stack, Tabs } from '@onekeyhq/components';
+import { Stack, Tabs } from '@onekeyhq/components';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 

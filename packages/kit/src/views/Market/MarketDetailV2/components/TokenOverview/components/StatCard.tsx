@@ -1,4 +1,10 @@
-import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Popover,
+  SizableText,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import type { ColorTokens, IIconProps } from '@onekeyhq/components';
 
 interface IStatItem {
@@ -6,9 +12,16 @@ interface IStatItem {
   value: string;
   icon?: IIconProps['name'];
   iconColor?: ColorTokens;
+  tooltip?: string;
 }
 
-export function StatCard({ label, value, icon, iconColor }: IStatItem) {
+export function StatCard({
+  label,
+  value,
+  icon,
+  iconColor,
+  tooltip,
+}: IStatItem) {
   return (
     <Stack
       bg="$bgSubdued"
@@ -21,14 +34,19 @@ export function StatCard({ label, value, icon, iconColor }: IStatItem) {
       justifyContent="space-between"
       alignItems="center"
     >
-      <SizableText
-        size="$bodyMd"
-        color="$textSubdued"
-        mb="$2"
-        textAlign="center"
-      >
-        {label}
-      </SizableText>
+      <XStack alignItems="center" gap="$1" mb="$2" justifyContent="center">
+        <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+          {label}
+        </SizableText>
+        {tooltip ? (
+          <Popover.Tooltip
+            iconSize="$4"
+            title={label}
+            tooltip={tooltip}
+            placement="top"
+          />
+        ) : null}
+      </XStack>
       <XStack alignItems="center" gap="$1">
         {icon ? (
           <Icon name={icon} size="$4" color={iconColor || '$iconSuccess'} />
