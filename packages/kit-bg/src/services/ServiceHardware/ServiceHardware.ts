@@ -1603,9 +1603,10 @@ class ServiceHardware extends ServiceBase {
           void this.backgroundApi.serviceHardwareUI.showBluetoothDevicePairingDialog(
             {
               device,
-              deviceId: featuresDeviceId || '',
+              deviceId:
+                featuresDeviceId || device.featuresInfo?.device_id || '',
               usbConnectId: connectId,
-              features,
+              features: features || device.featuresInfo,
               promiseId,
             },
           );
