@@ -2305,6 +2305,8 @@ export function useSwapBuildTx() {
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 error?.name !== EOneKeyErrorClassNames.OneKeyAppError &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                error?.name !== EOneKeyErrorClassNames.OneKeyHardwareError &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 error?.className !==
                   EOneKeyErrorClassNames.OneKeyHardwareError &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
