@@ -4,10 +4,10 @@ export const useHoldersLayoutSmall = () => {
       width: '$10',
     },
     address: {
-      flex: 1,
+      width: 200,
     },
     percentage: {
-      width: '$4',
+      width: '$20',
       textAlign: 'right' as const,
     },
     value: {

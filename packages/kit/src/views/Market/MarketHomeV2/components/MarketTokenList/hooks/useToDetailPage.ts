@@ -19,13 +19,13 @@ interface IMarketToken {
 }
 
 export function useToDetailPage() {
-  const navigation2 = useAppNavigation();
+  const appNavigation = useAppNavigation();
   const navigation = useNavigation<IPageNavigationProp<ITabMarketParamList>>();
 
   const toDetailPage = useCallback(
     (item: IMarketToken) => {
       if (platformEnv.isNative) {
-        navigation2.pushModal(EModalRoutes.MarketModal, {
+        appNavigation.pushModal(EModalRoutes.MarketModal, {
           screen: EModalMarketRoutes.MarketDetailV2,
           params: {
             tokenAddress: item.tokenAddress,
@@ -41,7 +41,7 @@ export function useToDetailPage() {
         });
       }
     },
-    [navigation, navigation2],
+    [navigation, appNavigation],
   );
 
   return toDetailPage;
