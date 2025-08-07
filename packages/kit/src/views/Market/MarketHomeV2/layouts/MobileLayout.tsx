@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Stack, Tabs } from '@onekeyhq/components';
+import { Icon, Stack, Tabs } from '@onekeyhq/components';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -61,12 +61,20 @@ export function MobileLayout({
             }) => (
               <Tabs.TabBarItem
                 key={name}
-                name={intl.formatMessage({
-                  id:
-                    name === 'watchlist'
-                      ? ETranslations.global_watchlist
-                      : ETranslations.market_trending,
-                })}
+                // @ts-expect-error name is not a valid prop for Tabs.TabBarItem
+                name={
+                  name === 'watchlist' ? (
+                    <Icon
+                      name="StarOutline"
+                      size="$5"
+                      color={isFocused ? '$iconActive' : '$iconSubdued'}
+                    />
+                  ) : (
+                    intl.formatMessage({
+                      id: ETranslations.market_trending,
+                    })
+                  )
+                }
                 isFocused={isFocused}
                 onPress={onPress}
                 tabItemStyle={tabItemStyle}
