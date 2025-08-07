@@ -28,6 +28,8 @@ export class SwapQuoteScene extends BaseScene {
     isAddReceiveAddress,
     isSmartMode,
     providerQuoteResult,
+    fromAddress,
+    toAddress,
   }: {
     walletType: string;
     status: ESwapEventAPIStatus;
@@ -41,6 +43,8 @@ export class SwapQuoteScene extends BaseScene {
     receivedTokenSymbol: string;
     isAddReceiveAddress: boolean;
     isSmartMode: boolean;
+    fromAddress: string;
+    toAddress: string;
   }) {
     return {
       walletType,
@@ -55,6 +59,8 @@ export class SwapQuoteScene extends BaseScene {
       isAddReceiveAddress,
       isSmartMode,
       providerQuoteResult,
+      fromAddress,
+      toAddress,
     };
   }
 }
