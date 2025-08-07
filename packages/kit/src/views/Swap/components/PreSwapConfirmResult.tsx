@@ -208,7 +208,13 @@ const PreSwapConfirmResult = ({
           </SizableText>
         </XStack>
       ) : null}
-      <Button variant="primary" onPress={onConfirm} size="medium">
+      <Button
+        mt="$4"
+        variant="primary"
+        onPress={onConfirm}
+        size="medium"
+        width="100%"
+      >
         {intl.formatMessage({
           id:
             lastStep.status === ESwapStepStatus.FAILED

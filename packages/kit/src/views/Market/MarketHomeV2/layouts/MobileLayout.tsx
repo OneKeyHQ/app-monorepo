@@ -1,9 +1,11 @@
-import { Stack, XStack } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Icon, Stack, Tabs } from '@onekeyhq/components';
+import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketTokenList } from '../components/MarketTokenList';
-import { ToggleButton } from '../components/MarketViewToggle/MarketViewToggle';
 
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketHomeTabValue } from '../types';
@@ -19,7 +21,6 @@ interface IMobileLayoutProps {
   };
   selectedNetworkId: string;
   liquidityFilter: ILiquidityFilter;
-  activeTab: IMarketHomeTabValue;
   onTabChange: (tabId: IMarketHomeTabValue) => void;
 }
 
@@ -27,45 +28,82 @@ export function MobileLayout({
   filterBarProps,
   selectedNetworkId,
   liquidityFilter,
-  activeTab,
   onTabChange,
 }: IMobileLayoutProps) {
+  const intl = useIntl();
+  const [watchlistState] = useMarketWatchListV2Atom();
+  const watchlist = watchlistState.data || [];
+
   return (
     <Stack flex={1}>
-      {/* Tab Header using ToggleButton style from MarketViewToggle */}
-      <XStack gap="$6" px="$4" py="$2">
-        <ToggleButton
-          isActive={activeTab === 'watchlist'}
-          onPress={
-            activeTab !== 'watchlist'
-              ? () => onTabChange('watchlist')
-              : undefined
-          }
-          disabled={false}
-          translationId={ETranslations.global_watchlist}
-          defaultMessage="Watchlist"
-        />
-        <ToggleButton
-          isActive={activeTab === 'trending'}
-          onPress={
-            activeTab !== 'trending' ? () => onTabChange('trending') : undefined
-          }
-          disabled={false}
-          translationId={ETranslations.market_trending}
-          defaultMessage="Trending"
-        />
-      </XStack>
+      <Tabs.Container
+        initialTabName="trending"
+        headerContainerStyle={{
+          width: '100%',
+          shadowColor: 'transparent',
+        }}
+        renderTabBar={(props) => (
+          <Tabs.TabBar
+            {...props}
+            onTabPress={(name) => {
+              onTabChange(name as IMarketHomeTabValue);
+            }}
+            containerStyle={{
+              px: '$4',
+              py: '$2',
+            }}
+            renderItem={({
+              name,
+              isFocused,
+              onPress,
+              tabItemStyle,
+              focusedTabStyle,
+            }) => (
+              <Tabs.TabBarItem
+                key={name}
+                // @ts-expect-error name is not a valid prop for Tabs.TabBarItem
+                name={
+                  name === 'watchlist' ? (
+                    <Icon
+                      name="StarOutline"
+                      size="$5"
+                      color={isFocused ? '$iconActive' : '$iconSubdued'}
+                    />
+                  ) : (
+                    intl.formatMessage({
+                      id: ETranslations.market_trending,
+                    })
+                  )
+                }
+                isFocused={isFocused}
+                onPress={onPress}
+                tabItemStyle={tabItemStyle}
+                focusedTabStyle={focusedTabStyle}
+              />
+            )}
+          />
+        )}
+        pagerProps={{ scrollEnabled: true }}
+      >
+        <Tabs.Tab name="watchlist">
+          <MarketTokenList
+            networkId={selectedNetworkId}
+            liquidityFilter={liquidityFilter}
+            showWatchlistOnly
+            watchlist={watchlist}
+          />
+        </Tabs.Tab>
 
-      {/* Tab Content */}
-      <Stack flex={1} position="relative">
-        {activeTab === 'trending' ? (
+        <Tabs.Tab name="trending">
           <MarketFilterBarSmall {...filterBarProps} />
-        ) : null}
-        <MarketTokenList
-          networkId={selectedNetworkId}
-          liquidityFilter={liquidityFilter}
-        />
-      </Stack>
+          <MarketTokenList
+            networkId={selectedNetworkId}
+            liquidityFilter={liquidityFilter}
+            showWatchlistOnly={false}
+            watchlist={watchlist}
+          />
+        </Tabs.Tab>
+      </Tabs.Container>
     </Stack>
   );
 }

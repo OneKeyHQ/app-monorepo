@@ -7,11 +7,11 @@ export const useHoldersLayoutSmall = () => {
       flex: 1,
     },
     percentage: {
-      width: '$20',
+      width: '$4',
       textAlign: 'right' as const,
     },
     value: {
-      width: '$28',
+      width: '$24',
       textAlign: 'right' as const,
     },
   };
