@@ -477,12 +477,18 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
           {} as Record<string, IServerNetwork[]>,
         );
 
+        const { accounts: allDbAccounts } =
+          await backgroundApiProxy.serviceAccount.getAllAccounts();
+
         // Process networks by implementation group
         for (const [_, networksInGroup] of Object.entries(networksByImpl)) {
           const firstNetwork = networksInGroup[0];
+
           const [{ networkAccounts }, vaultSettings] = await Promise.all([
             backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
               {
+                allDbAccounts,
+                skipDbQueryIfNotFoundFromAllDbAccounts: true,
                 indexedAccountId,
                 networkId: firstNetwork.id,
                 excludeEmptyAccount: true,

@@ -72,6 +72,7 @@ import type { RouteProp } from '@react-navigation/native';
 export interface ISubSettingConfig {
   icon: string | IKeyOfIcons;
   title: string;
+  subtitle?: string;
   badgeProps?: {
     badgeSize: 'sm' | 'md' | 'lg';
     badgeText: string;
@@ -95,6 +96,7 @@ export type ISettingsConfig = (
   | {
       icon: string;
       title: string;
+      subtitle?: string;
       name: ESettingsTabNames;
       isHidden?: boolean;
       showDot?: boolean;
@@ -153,6 +155,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               : null,
             isPrimeAvailable
               ? {
+                  // OneKey Cloud
                   icon: 'CloudOutline',
                   title: intl.formatMessage({
                     id: ETranslations.global_onekey_cloud,
@@ -164,6 +167,23 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   },
                 }
               : undefined,
+          ],
+          [
+            {
+              // OneKey Transfer
+              icon: 'MultipleDevicesOutline',
+              title: intl.formatMessage({
+                id: ETranslations.transfer_transfer,
+              }),
+              subtitle: intl.formatMessage({
+                id: ETranslations.prime_transfer_description,
+              }),
+              onPress: (navigation) => {
+                navigation?.pushModal(EModalRoutes.PrimeModal, {
+                  screen: EPrimePages.PrimeTransfer,
+                });
+              },
+            },
           ],
           [
             platformEnv.isNative
@@ -180,6 +200,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 }
               : undefined,
             {
+              // OneKey Keytag
               icon: 'OnekeyKeytagOutline',
               title: intl.formatMessage({
                 id: ETranslations.global_onekey_keytag,

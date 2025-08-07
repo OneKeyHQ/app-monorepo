@@ -1,13 +1,11 @@
-import { shell, systemPreferences } from 'electron';
+import { systemPreferences } from 'electron';
 import logger from 'electron-log/main';
 
-import * as store from '@onekeyhq/desktop/app/libs/store';
 import {
   checkAvailabilityAsync,
   checkBiometricAuthChanged,
   requestVerificationAsync,
 } from '@onekeyhq/desktop/app/service';
-import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
 
@@ -54,7 +52,7 @@ class DesktopApiSecurity {
 
   async promptTouchID(
     msg: string,
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{ success: boolean; error?: string; isSupport: boolean }> {
     if (isWin) {
       logger.info('[TOUCH_ID_PROMPT] Windows requestVerificationAsync');
       try {
@@ -65,7 +63,7 @@ class DesktopApiSecurity {
             error,
           );
         }
-        return { success };
+        return { success, isSupport: true };
       } catch (e: unknown) {
         logger.info(
           '[TOUCH_ID_PROMPT] Windows requestVerificationAsync error',
@@ -74,19 +72,24 @@ class DesktopApiSecurity {
         return {
           success: false,
           error: e instanceof Error ? e.message : 'Unknown error',
+          isSupport: true,
         };
       }
     }
 
-    try {
-      await systemPreferences.promptTouchID(msg);
-      return { success: true };
-    } catch (e: unknown) {
-      return {
-        success: false,
-        error: e instanceof Error ? e.message : 'Unknown error',
-      };
+    if (isMac) {
+      try {
+        await systemPreferences.promptTouchID(msg);
+        return { success: true, isSupport: true };
+      } catch (e: unknown) {
+        return {
+          success: false,
+          error: e instanceof Error ? e.message : 'Unknown error',
+          isSupport: true,
+        };
+      }
     }
+    return { success: false, isSupport: false };
   }
 }
 

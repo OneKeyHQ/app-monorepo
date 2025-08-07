@@ -24,7 +24,8 @@ import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useV4MigrationActions } from '../V4Migration/hooks/useV4MigrationActions';
@@ -136,45 +137,36 @@ export function ImportWalletOptions() {
     });
   };
 
-  const handleImportFromCloud = async () => {
-    await backupEntryStatus.check();
-    navigation.push(EOnboardingPages.ImportCloudBackup);
+  const handleImportByTransfer = async () => {
+    // await backupEntryStatus.check();
+    navigation?.pushModal(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.PrimeTransfer,
+    });
     defaultLogger.account.wallet.addWalletStarted({
       addMethod: 'ImportWallet',
       details: {
-        importType: 'cloud',
+        importType: 'transfer',
       },
       isSoftwareWalletOnlyUser,
     });
   };
 
   const options: IOptionSection[] = [
-    ...(!platformEnv.isWeb && platformEnv.isDev
-      ? [
-          {
-            sectionTitle: intl.formatMessage({
-              id: ETranslations.global_transfer,
-            }),
-            data: [
-              {
-                icon: 'MultipleDevicesOutline',
-                title: intl.formatMessage({
-                  id: ETranslations.global_transfer,
-                }),
-                description: intl.formatMessage({
-                  id: ETranslations.onboarding_transfer_desc,
-                }),
-                onPress: handleImportFromCloud,
-              } as IOptionItem,
-            ],
-          },
-        ]
-      : []),
     {
       sectionTitle: intl.formatMessage({
         id: ETranslations.global_restore,
       }),
       data: [
+        {
+          icon: 'MultipleDevicesOutline',
+          title: intl.formatMessage({
+            id: ETranslations.transfer_transfer,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.prime_transfer_description,
+          }),
+          onPress: handleImportByTransfer,
+        },
         {
           title: intl.formatMessage({
             id: ETranslations.global_recovery_phrase,
@@ -249,7 +241,7 @@ export function ImportWalletOptions() {
                   ? ETranslations.global_google_drive
                   : ETranslations.global_icloud,
               }),
-              onPress: handleImportFromCloud,
+              onPress: handleImportByTransfer,
             } as IOptionItem)
           : null,
         isV4DbExist
