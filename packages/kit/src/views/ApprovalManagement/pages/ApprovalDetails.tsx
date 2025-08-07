@@ -62,6 +62,7 @@ function ApprovalDetails() {
     })
   ] ?? {
     label: intl.formatMessage({ id: ETranslations.global_unknown }),
+    icon: 'Document2Outline',
   };
 
   const renderApprovalOverview = () => {
@@ -80,15 +81,28 @@ function ApprovalDetails() {
           />
         ) : null}
         <XStack alignItems="center" gap="$6" padding="$5">
-          <XStack flex={1} gap="$3">
-            <Token isNFT size="sm" />
+          <XStack flex={1} gap="$3" alignItems="center">
+            <Token
+              isNFT
+              size="xl"
+              showNetworkIcon
+              networkId={approval.networkId}
+              fallbackIcon={contract.icon}
+            />
             <YStack flex={1}>
               <SizableText size="$heading3xl" numberOfLines={1}>
                 {contract.label ??
                   intl.formatMessage({ id: ETranslations.global_unknown })}
               </SizableText>
               <SizableText size="$bodyLgMedium" color="$textSubdued">
-                {approval.approvals.length}
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.wallet_approval_number,
+                  },
+                  {
+                    number: approval.approvals.length,
+                  },
+                )}
               </SizableText>
             </YStack>
           </XStack>
@@ -116,7 +130,7 @@ function ApprovalDetails() {
               {approval.contractAddress}
             </SizableText>
           </YStack>
-          <XStack justifyContent="space-between" alignItems="center">
+          <XStack gap="$5" alignItems="center">
             <IconButton
               title={intl.formatMessage({ id: ETranslations.global_copy })}
               variant="tertiary"
@@ -145,6 +159,7 @@ function ApprovalDetails() {
             />
           </XStack>
         </XStack>
+        <Divider />
       </Stack>
     );
   };
@@ -159,7 +174,7 @@ function ApprovalDetails() {
             px="$5"
             py="$2"
           >
-            <SizableText size="$bodyLgMedium" color="$textSubdued">
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.wallet_approval_approved_token,
               })}
@@ -192,7 +207,11 @@ function ApprovalDetails() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.wallet_approval_approval_details,
+        })}
+      />
       <Page.Body>
         {renderApprovalOverview()}
         {renderApprovedTokens()}

@@ -1,6 +1,11 @@
 import { useIntl } from 'react-intl';
 
-import { Button, Checkbox, Stack } from '@onekeyhq/components';
+import {
+  Button,
+  Checkbox,
+  NumberSizeableText,
+  Stack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -50,9 +55,13 @@ function ApprovedTokenItem(props: IProps) {
       avatarProps={{
         src: token.info.logoURI,
       }}
-      onPress={() => {
-        console.log('clicked');
-      }}
+      onPress={
+        isSelectMode
+          ? () => {
+              console.log('clicked');
+            }
+          : undefined
+      }
       childrenBefore={
         isSelectMode ? (
           <Stack>
@@ -63,12 +72,21 @@ function ApprovedTokenItem(props: IProps) {
     >
       <ListItem.Text
         align="right"
+        flex={1}
         primary={
-          approval.isInfiniteAmount
-            ? intl.formatMessage({
-                id: ETranslations.swap_page_provider_approve_amount_un_limit,
-              })
-            : approval.allowanceParsed
+          approval.isInfiniteAmount ? (
+            intl.formatMessage({
+              id: ETranslations.swap_page_provider_approve_amount_un_limit,
+            })
+          ) : (
+            <NumberSizeableText
+              textAlign="right"
+              size="$bodyLgMedium"
+              formatter="balance"
+            >
+              {approval.allowanceParsed}
+            </NumberSizeableText>
+          )
         }
       />
       {isSelectMode ? null : (
