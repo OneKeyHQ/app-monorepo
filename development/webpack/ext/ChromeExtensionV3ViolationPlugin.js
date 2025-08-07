@@ -1,4 +1,5 @@
 const { RawSource } = require('webpack-sources');
+
 class ChromeExtensionV3ViolationPlugin {
   constructor(replaceConfigs) {
     this.replaceConfigs = replaceConfigs;
