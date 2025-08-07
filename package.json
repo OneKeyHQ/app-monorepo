@@ -56,6 +56,7 @@
   "dependencies": {
     "@aivenio/tsc-output-parser": "^2.1.1",
     "@alephium/web3": "^1.5.2",
+    "@atlaskit/pragmatic-drag-and-drop": "1.7.4",
     "@benfen/bfc.js": "0.2.7",
     "@cityofzion/neon-core": "^5.7.0",
     "@cowprotocol/contracts": "^1.7.0",

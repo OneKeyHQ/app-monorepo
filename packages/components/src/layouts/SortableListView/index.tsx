@@ -148,7 +148,7 @@ function BaseSortableListView<T>(
       lastIndexHeight = layout?.length;
       return (
         <Draggable
-          draggableId={`${id}`}
+          draggableId={String(id)}
           index={index}
           isDragDisabled={!enabled}
         >
