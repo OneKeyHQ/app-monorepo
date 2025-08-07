@@ -348,7 +348,10 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                             return;
                         }
                         totalBytesRead += bytesRead;
-                        int progress = (int) ((totalBytesRead * 100) / contentLength);
+                        log("update/progress", "totalBytesRead: " + totalBytesRead + " contentLength: " + contentLength + " bytesRead: " + bytesRead);
+                        long rawProgress = (totalBytesRead * 100) / contentLength;
+                        log("update/progress", "rawProgress: " + rawProgress);
+                        int progress = (int) rawProgress;
                         if (prevProgress != progress) {
                             try {
                                 WritableMap params = Arguments.createMap();
