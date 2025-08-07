@@ -47,8 +47,9 @@ export const showDevModePasswordDialog = async () => {
     Dialog.show({
       title: 'Developer Mode (Risk Warning)',
       tone: 'warning',
+      icon: 'ErrorOutline',
       description:
-        'Please enter the dev password.\n\nWarning: Developer mode is intended for development and debugging purposes only and may cause data loss. If you are not sure what you are doing, do NOT enable developer mode.',
+        'Warning: Developer mode is intended for development and debugging purposes only and may cause data loss. If you are not sure what you are doing, do NOT enable developer mode.',
       dismissOnOverlayPress: false,
       confirmButtonProps: {
         testID: 'confirm-button',
@@ -61,7 +62,7 @@ export const showDevModePasswordDialog = async () => {
               required: { value: true, message: 'password is required.' },
             }}
           >
-            <Input testID="dev-only-password" placeholder="devOnlyPassword" />
+            <Input placeholder="Please enter the dev mode password." />
           </Dialog.FormField>
         </Dialog.Form>
       ),
