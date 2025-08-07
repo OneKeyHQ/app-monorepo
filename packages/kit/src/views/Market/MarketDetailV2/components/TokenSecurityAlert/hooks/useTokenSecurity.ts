@@ -39,10 +39,13 @@ export const useTokenSecurity = ({
     },
   );
 
-  // @ts-expect-error
-  if (securityData?.trusted_token?.value === false) {
-    // @ts-expect-error
-    delete securityData.trusted_token;
+  if (
+    securityData &&
+    'trusted_token' in securityData &&
+    securityData.trusted_token?.value === false
+  ) {
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+    Reflect.deleteProperty(securityData, 'trusted_token');
   }
 
   const { securityStatus, warningCount, formattedData } = useMemo(() => {
