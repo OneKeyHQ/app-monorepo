@@ -79,6 +79,7 @@ export function TokenOverview() {
     () => ({
       label: intl.formatMessage({ id: ETranslations.dexmarket_market_cap }),
       value: formatCurrencyValue(tokenDetail?.marketCap),
+      tooltip: intl.formatMessage({ id: ETranslations.dexmarket_mc_tips }),
     }),
     [intl, tokenDetail?.marketCap],
   );
@@ -87,6 +88,7 @@ export function TokenOverview() {
     () => ({
       label: intl.formatMessage({ id: ETranslations.dexmarket_liquidity }),
       value: formatCurrencyValue(tokenDetail?.tvl),
+      tooltip: intl.formatMessage({ id: ETranslations.dexmarket_Liq_tips }),
     }),
     [intl, tokenDetail?.tvl],
   );
@@ -97,6 +99,9 @@ export function TokenOverview() {
         id: ETranslations.dexmarket_details_circulating_supply,
       }),
       value: tokenDetail ? formatCirculatingSupply(tokenDetail) : '--',
+      tooltip: intl.formatMessage({
+        id: ETranslations.dexmarket_circulating_supply_tips,
+      }),
     }),
     [intl, tokenDetail],
   );
@@ -105,6 +110,8 @@ export function TokenOverview() {
     () => ({
       label: 'FDV',
       value: formatCurrencyValue(tokenDetail?.fdv),
+      tooltip:
+        'Fully Diluted Valuation - the total value if all tokens were in circulation',
     }),
     [tokenDetail?.fdv],
   );
