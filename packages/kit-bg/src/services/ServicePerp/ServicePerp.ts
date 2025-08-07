@@ -1,4 +1,6 @@
 import axios from 'axios';
+import BigNumber from 'bignumber.js';
+import { cloneDeep } from 'lodash';
 
 import {
   backgroundClass,
@@ -11,6 +13,9 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid';
 
 import ServiceBase from '../ServiceBase';
+
+import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 export interface IHyperliquidClearinghouseState {
   marginSummary: {
@@ -322,84 +327,34 @@ class ServicePerp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async approveBuilderFee({
-    builderAddress,
-    maxFeeRate,
-    signature,
-    nonce,
-    vaultAddress = null,
-  }: Omit<
-    IHyperliquidApproveBuilderFeeRequest,
-    'userAddress'
-  >): Promise<IHyperliquidExchangeResponse> {
-    const apiPayload = {
-      action: {
-        maxFeeRate,
-        builder: builderAddress,
-        nonce,
-        type: 'approveBuilderFee',
-      },
-      nonce,
-      signature,
-      vaultAddress,
-    };
-
-    // Send request to both Hyperliquid API and HyperDash API
-    const [hyperliquidResponse, _hyperDashResponse] = await Promise.allSettled([
-      this.hyperliquidExchangeRequest<IHyperliquidExchangeResponse>(apiPayload),
-      axios.post(
-        'https://hyperdash.info/api/hyperliquid/exchange',
-        apiPayload,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        },
-      ),
-    ]);
-
-    // Return the primary response from Hyperliquid
-    if (hyperliquidResponse.status === 'fulfilled') {
-      return hyperliquidResponse.value;
-    }
-
-    // If primary fails but HyperDash succeeds, still throw the original error
-    const errorMessage =
-      hyperliquidResponse.status === 'rejected'
-        ? (hyperliquidResponse.reason as Error)?.message || 'Unknown error'
-        : 'Unknown error';
-
-    throw new OneKeyError(`Failed to approve builder fee: ${errorMessage}`);
-  }
-
-  @backgroundMethod()
   async createApproveBuilderFeePayload({
     builderAddress,
     maxFeeRate,
-    nonce,
+    chainId,
   }: {
     builderAddress: string;
     maxFeeRate: string;
-    nonce: number;
+    chainId: string; // 0xa4b1 Arbitrum hex chainId
   }): Promise<{
     apiPayload: Record<string, any>;
     typedData: IHyperLiquidTypedDataApproveBuilderFee;
   }> {
+    const nonce = Date.now();
     // Create EIP-712 typed data for signing
     const typedData: IHyperLiquidTypedDataApproveBuilderFee = {
       domain: {
         name: 'HyperliquidSignTransaction',
         version: '1',
-        chainId: 42_161, // Arbitrum chainId
+        chainId: new BigNumber(chainId).toNumber(), // 42161
         verifyingContract: '0x0000000000000000000000000000000000000000',
       },
       message: {
-        hyperliquidChain: 'Mainnet',
-        signatureChainId: '0xa4b1', // Arbitrum hex chainId
         maxFeeRate,
-        builder: builderAddress,
+        builder: builderAddress?.toLowerCase(),
         nonce,
-        type: 'approveBuilderFee',
+        hyperliquidChain: 'Mainnet', // TODO testnet support
+        signatureChainId: chainId,
+        type: 'approveBuilderFee', // TODO type is only to api
       },
       primaryType: 'HyperliquidTransaction:ApproveBuilderFee',
       types: {
@@ -410,22 +365,18 @@ class ServicePerp extends ServiceBase {
           { name: 'verifyingContract', type: 'address' },
         ],
         'HyperliquidTransaction:ApproveBuilderFee': [
+          { name: 'hyperliquidChain', type: 'string' },
           { name: 'maxFeeRate', type: 'string' },
           { name: 'builder', type: 'address' },
-          { name: 'hyperliquidChain', type: 'string' },
           { name: 'nonce', type: 'uint64' },
         ],
       },
     };
 
     const apiPayload = {
-      action: {
-        maxFeeRate,
-        builder: builderAddress,
-        nonce,
-        type: 'approveBuilderFee',
-      },
+      action: typedData.message,
       nonce,
+      signature: null,
       vaultAddress: null,
     };
 
@@ -445,6 +396,90 @@ class ServicePerp extends ServiceBase {
     const v = parseInt(cleanSig.slice(128, 130), 16);
 
     return { r, s, v };
+  }
+
+  async approveBuilderFeeIfRequired({
+    request,
+    userAddress,
+    chainId,
+  }: {
+    request: IJsBridgeMessagePayload;
+    userAddress: string;
+    chainId: string; // 0xa4b1 Arbitrum hex chainId
+  }) {
+    const status = await this.checkUserBuilderFeeStatus({
+      userAddress,
+    });
+    if (!status.isDone && status.canSetBuilderFee) {
+      const { apiPayload, typedData } =
+        await this.createApproveBuilderFeePayload({
+          builderAddress: status.expectBuilderAddress,
+          // expectMaxBuilderFee is 13, but we need to convert it to a string like 0.013%
+          maxFeeRate: `${new BigNumber(status.expectMaxBuilderFee)
+            .div(1000)
+            .toFixed(3)}%`,
+          chainId,
+        });
+      const req = cloneDeep(request);
+      req.data = {
+        method: 'eth_signTypedData_v4',
+        params: [userAddress, stringUtils.stableStringify(typedData)],
+      };
+      const signature =
+        await this.backgroundApi.providers.ethereum.handleMethods(req);
+      const rsv = this.parseSignatureToRSV(signature);
+      apiPayload.signature = rsv;
+      const response =
+        await this.hyperliquidExchangeRequest<IHyperliquidExchangeResponse>(
+          apiPayload,
+        );
+      return response;
+    }
+  }
+
+  async checkUserBuilderFeeStatus({
+    userAddress,
+  }: {
+    userAddress: string;
+  }): Promise<{
+    isDone: boolean;
+    canSetBuilderFee: boolean;
+    currentMaxBuilderFee: number;
+    expectMaxBuilderFee: number;
+    expectBuilderAddress: string;
+    accountValue: string | null;
+  }> {
+    // TODO get builderAddress,builderFeeValue from onekey server API
+    const expectBuilderAddress = '0x4EF880525383ab4E3d94b7689e3146bF899A296e';
+    const expectMaxBuilderFee = 72;
+    // TODO cache user value
+    const currentMaxBuilderFee =
+      await this.backgroundApi.servicePerp.getMaxBuilderFee({
+        userAddress,
+        builderAddress: expectBuilderAddress,
+      });
+    if (currentMaxBuilderFee === expectMaxBuilderFee) {
+      return {
+        isDone: true,
+        canSetBuilderFee: true,
+        currentMaxBuilderFee,
+        expectMaxBuilderFee,
+        expectBuilderAddress,
+        accountValue: null,
+      };
+    }
+    const { accountValue } =
+      await this.backgroundApi.servicePerp.getAccountBalance({
+        userAddress,
+      });
+    return {
+      isDone: false,
+      canSetBuilderFee: Number(accountValue) > 0,
+      currentMaxBuilderFee,
+      expectMaxBuilderFee,
+      expectBuilderAddress,
+      accountValue,
+    };
   }
 }
 

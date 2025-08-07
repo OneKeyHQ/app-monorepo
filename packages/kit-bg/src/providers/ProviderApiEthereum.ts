@@ -949,7 +949,26 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  async hl_checkUserBuilderFee(
+  async hl_checkUserStatus(
+    request: IJsBridgeMessagePayload,
+    {
+      userAddress,
+      chainId,
+    }: {
+      userAddress: string;
+      chainId: string;
+    },
+  ) {
+    await this.backgroundApi.servicePerp.approveBuilderFeeIfRequired({
+      request,
+      userAddress,
+      chainId,
+    });
+    return null;
+  }
+
+  @providerApiMethod()
+  async hl_checkUserBuilderFee2(
     request: IJsBridgeMessagePayload,
     {
       userAddress,
@@ -961,6 +980,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     canSetBuilderFee: boolean;
     currentMaxBuilderFee: number;
     expectMaxBuilderFee: number;
+    expectBuilderAddress: string;
     accountValue: string | null;
   }> {
     // TODO get builderAddress,builderFeeValue from onekey server API
@@ -978,6 +998,7 @@ class ProviderApiEthereum extends ProviderApiBase {
         canSetBuilderFee: true,
         currentMaxBuilderFee,
         expectMaxBuilderFee,
+        expectBuilderAddress,
         accountValue: null,
       };
     }
@@ -990,6 +1011,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       canSetBuilderFee: Number(accountValue) > 0,
       currentMaxBuilderFee,
       expectMaxBuilderFee,
+      expectBuilderAddress,
       accountValue,
     };
   }
