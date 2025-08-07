@@ -166,6 +166,11 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
         connectId: compatibleConnectId,
       });
+    await this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog({
+      connectId: compatibleConnectId,
+      skipDeviceCancel: true,
+      deviceResetToHome: false,
+    });
     const label = await deviceUtils.buildDeviceLabel({
       features,
     });
