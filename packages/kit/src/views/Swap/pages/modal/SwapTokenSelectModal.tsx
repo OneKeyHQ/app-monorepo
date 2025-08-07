@@ -270,7 +270,7 @@ const SwapTokenSelectPage = () => {
   );
 
   const { md } = useMedia();
-  const { copyText, getClipboard, supportPaste } = useClipboard();
+  const { copyText, getClipboard } = useClipboard();
 
   const handlePaste = useCallback(async () => {
     const text = await getClipboard();
@@ -506,14 +506,15 @@ const SwapTokenSelectPage = () => {
             setSearchKeyword(afterTrim);
           },
           searchBarInputValue: searchKeyword,
-          addOns: supportPaste
-            ? [
-                {
-                  iconName: 'ClipboardOutline',
-                  onPress: handlePaste,
-                },
-              ]
-            : [],
+          addOns:
+            searchKeyword?.length === 0
+              ? [
+                  {
+                    iconName: 'ClipboardOutline',
+                    onPress: handlePaste,
+                  },
+                ]
+              : [],
         }}
       />
       <Page.Body>
