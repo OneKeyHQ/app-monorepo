@@ -66,18 +66,15 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
   }
 
   const list = (
-    <Stack flex={1}>
-      {gtLg ? <HoldersHeaderNormal /> : <HoldersHeaderSmall />}
-      <ListView<IMarketTokenHolder>
-        data={holders}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.accountAddress + item.fiatValue}
-        showsVerticalScrollIndicator
-        contentContainerStyle={{
-          paddingBottom: '$4',
-        }}
-      />
-    </Stack>
+    <ListView<IMarketTokenHolder>
+      data={holders}
+      renderItem={renderItem}
+      keyExtractor={(item) => item.accountAddress + item.fiatValue}
+      showsVerticalScrollIndicator
+      ListHeaderComponent={
+        gtLg ? <HoldersHeaderNormal /> : <HoldersHeaderSmall />
+      }
+    />
   );
 
   if (gtLg && shouldEnableScroll) {
