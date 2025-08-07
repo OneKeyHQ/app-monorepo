@@ -7,6 +7,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { useSelectedNetworkIdAtom } from '../../../states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
@@ -23,15 +24,14 @@ function MarketHome() {
   // Load market basic config using the new hook
   const { defaultNetworkId, formattedMinLiquidity } = useMarketBasicConfig();
 
-  const [selectedNetworkId, setSelectedNetworkId] =
-    useState<string>('sol--101');
+  const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
 
   // Update selectedNetworkId when config loads and it's still the default
   useEffect(() => {
     if (defaultNetworkId && selectedNetworkId === 'sol--101') {
       setSelectedNetworkId(defaultNetworkId);
     }
-  }, [defaultNetworkId, selectedNetworkId]);
+  }, [defaultNetworkId, selectedNetworkId, setSelectedNetworkId]);
 
   const [liquidityFilter, setLiquidityFilter] = useState<ILiquidityFilter>({
     min: '5K',
@@ -63,7 +63,7 @@ function MarketHome() {
       liquidityFilter,
       onTabChange: setActiveTab,
     }),
-    [selectedNetworkId, timeRange, liquidityFilter],
+    [selectedNetworkId, timeRange, liquidityFilter, setSelectedNetworkId],
   );
 
   const desktopProps = useMemo(
@@ -80,7 +80,7 @@ function MarketHome() {
       liquidityFilter,
       onTabChange: setActiveTab,
     }),
-    [selectedNetworkId, timeRange, liquidityFilter],
+    [selectedNetworkId, timeRange, liquidityFilter, setSelectedNetworkId],
   );
 
   return (
