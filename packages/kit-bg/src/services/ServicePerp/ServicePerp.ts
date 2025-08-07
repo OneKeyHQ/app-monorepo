@@ -93,9 +93,7 @@ export interface IHyperliquidVaultEquity {
   withdrawable: string;
 }
 
-export interface IHyperliquidMaxBuilderFee {
-  maxBuilderFee: number;
-}
+export type IHyperliquidMaxBuilderFee = number;
 
 export interface IHyperliquidApproveBuilderFeeRequest {
   userAddress: string;
@@ -252,7 +250,7 @@ class ServicePerp extends ServiceBase {
   }): Promise<IHyperliquidVaultEquity[]> {
     return this.hyperliquidRequest<IHyperliquidVaultEquity[]>({
       type: 'userVaultEquities',
-      user: userAddress,
+      user: userAddress.toLowerCase(),
     });
   }
 
@@ -266,8 +264,8 @@ class ServicePerp extends ServiceBase {
   }): Promise<IHyperliquidMaxBuilderFee> {
     return this.hyperliquidRequest<IHyperliquidMaxBuilderFee>({
       type: 'maxBuilderFee',
-      user: userAddress,
-      builder: builderAddress,
+      user: userAddress.toLowerCase(),
+      builder: builderAddress.toLowerCase(),
     });
   }
 

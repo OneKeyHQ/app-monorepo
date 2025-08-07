@@ -561,6 +561,7 @@ class ProviderApiPrivate extends ProviderApiBase {
       return this.backgroundApi.serviceApp.showToast(params);
     }
   }
+
 }
 
 export default ProviderApiPrivate;

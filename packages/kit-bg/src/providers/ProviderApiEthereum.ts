@@ -949,6 +949,52 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
+  async hl_checkUserBuilderFee(
+    request: IJsBridgeMessagePayload,
+    {
+      userAddress,
+    }: {
+      userAddress: string;
+    },
+  ): Promise<{
+    isDone: boolean;
+    canSetBuilderFee: boolean;
+    currentMaxBuilderFee: number;
+    expectMaxBuilderFee: number;
+    accountValue: string | null;
+  }> {
+    // TODO get builderAddress,builderFeeValue from onekey server API
+    const expectBuilderAddress = '0x4EF880525383ab4E3d94b7689e3146bF899A296e';
+    const expectMaxBuilderFee = 13;
+    // TODO cache user value
+    const currentMaxBuilderFee =
+      await this.backgroundApi.servicePerp.getMaxBuilderFee({
+        userAddress,
+        builderAddress: expectBuilderAddress,
+      });
+    if (currentMaxBuilderFee === expectMaxBuilderFee) {
+      return {
+        isDone: true,
+        canSetBuilderFee: true,
+        currentMaxBuilderFee,
+        expectMaxBuilderFee,
+        accountValue: null,
+      };
+    }
+    const { accountValue } =
+      await this.backgroundApi.servicePerp.getAccountBalance({
+        userAddress,
+      });
+    return {
+      isDone: false,
+      canSetBuilderFee: Number(accountValue) > 0,
+      currentMaxBuilderFee,
+      expectMaxBuilderFee,
+      accountValue,
+    };
+  }
+
+  @providerApiMethod()
   async wallet_addEthereumChain(
     request: IJsBridgeMessagePayload,
     params: IAddEthereumChainParameter,
