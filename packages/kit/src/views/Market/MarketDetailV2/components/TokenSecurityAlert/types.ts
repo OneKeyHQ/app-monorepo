@@ -7,7 +7,6 @@ export type ISecurityKeyValue = {
   label: string;
   value: string;
   isWarning: boolean;
-  shouldHide: boolean;
 };
 
 export type IUseTokenSecurityParams = {
@@ -19,6 +18,5 @@ export type IUseTokenSecurityResult = {
   securityData: IMarketTokenSecurityData | null;
   securityStatus: ISecurityStatus | null;
   warningCount: number;
-  shouldHide: boolean;
   formattedData: ISecurityKeyValue[];
 };

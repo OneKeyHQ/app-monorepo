@@ -31,9 +31,9 @@ export function useMarketHolders({
           networkId,
         });
 
-      // Process holders data immediately with market cap calculation
+      // Process holders data with percentage calculation only when marketCap is available
       const processedList = response.list.map((holder) => {
-        let marketCapPercentage = null;
+        let percentage: string | undefined;
 
         if (holder.fiatValue && isReady && tokenDetail?.marketCap) {
           try {
@@ -41,19 +41,19 @@ export function useMarketHolders({
             const totalMarketCap = new BigNumber(tokenDetail.marketCap);
 
             if (totalMarketCap.isGreaterThan(0)) {
-              const percentage = holderValue
+              const percentageValue = holderValue
                 .dividedBy(totalMarketCap)
                 .multipliedBy(100);
-              marketCapPercentage = percentage.toFixed(2);
+              percentage = percentageValue.toFixed(2);
             }
           } catch (error) {
-            // Keep marketCapPercentage as null on error
+            // Keep percentage as undefined on error
           }
         }
 
         return {
           ...holder,
-          marketCapPercentage,
+          percentage,
         };
       });
 

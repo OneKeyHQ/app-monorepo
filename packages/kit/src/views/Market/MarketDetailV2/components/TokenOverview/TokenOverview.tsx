@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
+import { useTokenSecurity } from '../TokenSecurityAlert/hooks/useTokenSecurity';
 
 import { StatCard } from './components/StatCard';
 import { TokenOverviewSkeleton } from './TokenOverviewSkeleton';
@@ -51,7 +52,11 @@ const formatCirculatingSupply = (tokenDetail: ITokenDetail): string => {
 
 export function TokenOverview() {
   const intl = useIntl();
-  const { tokenDetail } = useTokenDetail();
+  const { tokenDetail, tokenAddress, networkId } = useTokenDetail();
+  const { warningCount, securityStatus } = useTokenSecurity({
+    tokenAddress,
+    networkId,
+  });
 
   // Optimized stat builders
   const auditStat = useMemo<IStatItem>(
@@ -59,12 +64,12 @@ export function TokenOverview() {
       label: intl.formatMessage({ id: ETranslations.dexmarket_audit }),
       value: intl.formatMessage(
         { id: ETranslations.dexmarket_details_audit_issue },
-        { amount: 0 },
+        { amount: warningCount },
       ),
-      icon: 'CheckLargeSolid',
-      iconColor: '$iconSuccess',
+      icon: 'ShieldCheckDoneSolid',
+      iconColor: securityStatus === 'safe' ? '$iconSuccess' : '$iconCritical',
     }),
-    [intl],
+    [intl, warningCount, securityStatus],
   );
 
   const holdersStat = useMemo<IStatItem>(
@@ -79,6 +84,7 @@ export function TokenOverview() {
     () => ({
       label: intl.formatMessage({ id: ETranslations.dexmarket_market_cap }),
       value: formatCurrencyValue(tokenDetail?.marketCap),
+      tooltip: intl.formatMessage({ id: ETranslations.dexmarket_mc_tips }),
     }),
     [intl, tokenDetail?.marketCap],
   );
@@ -87,6 +93,7 @@ export function TokenOverview() {
     () => ({
       label: intl.formatMessage({ id: ETranslations.dexmarket_liquidity }),
       value: formatCurrencyValue(tokenDetail?.tvl),
+      tooltip: intl.formatMessage({ id: ETranslations.dexmarket_Liq_tips }),
     }),
     [intl, tokenDetail?.tvl],
   );
@@ -97,6 +104,9 @@ export function TokenOverview() {
         id: ETranslations.dexmarket_details_circulating_supply,
       }),
       value: tokenDetail ? formatCirculatingSupply(tokenDetail) : '--',
+      tooltip: intl.formatMessage({
+        id: ETranslations.dexmarket_circulating_supply_tips,
+      }),
     }),
     [intl, tokenDetail],
   );
@@ -105,6 +115,8 @@ export function TokenOverview() {
     () => ({
       label: 'FDV',
       value: formatCurrencyValue(tokenDetail?.fdv),
+      tooltip:
+        'Fully Diluted Valuation - the total value if all tokens were in circulation',
     }),
     [tokenDetail?.fdv],
   );
