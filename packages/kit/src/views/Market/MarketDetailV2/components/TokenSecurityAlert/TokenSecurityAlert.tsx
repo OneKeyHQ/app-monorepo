@@ -18,11 +18,10 @@ function TokenSecurityAlert() {
   const intl = useIntl();
   const { tokenAddress, networkId } = useTokenDetail();
 
-  const { securityData, securityStatus, warningCount, shouldHide } =
-    useTokenSecurity({
-      tokenAddress,
-      networkId,
-    });
+  const { securityData, securityStatus, warningCount } = useTokenSecurity({
+    tokenAddress,
+    networkId,
+  });
 
   const handlePress = () => {
     Dialog.show({
@@ -38,7 +37,7 @@ function TokenSecurityAlert() {
   };
 
   // Don't render if no security data or if should be hidden due to trust_list being false
-  if (!securityData || shouldHide) {
+  if (!securityData) {
     return null;
   }
 

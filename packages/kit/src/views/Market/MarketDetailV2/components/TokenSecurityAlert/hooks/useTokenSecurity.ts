@@ -39,25 +39,23 @@ export const useTokenSecurity = ({
     },
   );
 
-  const { securityStatus, warningCount, shouldHide, formattedData } =
-    useMemo(() => {
-      const { status, count } = analyzeSecurityData(securityData);
-      const formatted = formatSecurityData(securityData);
-      const shouldHideAlert = formatted.some((item) => item.shouldHide);
+  console.log('securityData', securityData);
 
-      return {
-        securityStatus: status,
-        warningCount: count,
-        shouldHide: shouldHideAlert,
-        formattedData: formatted,
-      };
-    }, [securityData]);
+  const { securityStatus, warningCount, formattedData } = useMemo(() => {
+    const { status, count } = analyzeSecurityData(securityData);
+    const formatted = formatSecurityData(securityData);
+
+    return {
+      securityStatus: status,
+      warningCount: count,
+      formattedData: formatted,
+    };
+  }, [securityData]);
 
   return {
     securityData,
     securityStatus,
     warningCount,
-    shouldHide,
     formattedData,
   };
 };
