@@ -35,8 +35,6 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
     networkId,
   });
 
-  console.log('holders', holders);
-
   const shouldEnableScroll = leftColumnWidth < 930;
 
   const renderItem: IListViewProps<IMarketTokenHolder>['renderItem'] =
