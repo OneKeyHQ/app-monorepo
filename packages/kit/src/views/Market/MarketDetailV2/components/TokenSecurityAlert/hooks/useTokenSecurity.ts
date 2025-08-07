@@ -39,7 +39,11 @@ export const useTokenSecurity = ({
     },
   );
 
-  console.log('securityData', securityData);
+  // @ts-expect-error
+  if (securityData?.trusted_token?.value === false) {
+    // @ts-expect-error
+    delete securityData.trusted_token;
+  }
 
   const { securityStatus, warningCount, formattedData } = useMemo(() => {
     const { status, count } = analyzeSecurityData(securityData);
