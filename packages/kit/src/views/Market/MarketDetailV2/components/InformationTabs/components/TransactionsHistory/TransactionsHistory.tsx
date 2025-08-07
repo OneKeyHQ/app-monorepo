@@ -72,10 +72,10 @@ export function TransactionsHistory({
       const scrollY = e.nativeEvent?.contentOffset?.y || 0;
       console.log('Transactions list scroll distance:', scrollY);
 
-      // Mark as user scrolled if scroll distance > 20
-      if (scrollY > 20 && !hasUserScrolled) {
+      // Mark as user scrolled if scroll distance > 10
+      if (scrollY > 10 && !hasUserScrolled) {
         setHasUserScrolled(true);
-      } else if (scrollY <= 20 && hasUserScrolled) {
+      } else if (scrollY <= 10 && hasUserScrolled) {
         // Reset if user scrolls back to near top
         setHasUserScrolled(false);
       }
