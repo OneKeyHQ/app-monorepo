@@ -129,7 +129,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { unsignedTx, deviceParams } = params;
     const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
     const { connectId, deviceId } = checkIsDefined(dbDevice);
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: deviceParams?.dbDevice?.connectId || '',
+    });
     const account = await this.vault.getAccount();
     const encodedTx = unsignedTx.encodedTx as IEncodedTxScdo;
     const signingTx = serializeUnsignedTransaction(encodedTx);
@@ -171,7 +173,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { messages, deviceParams } = params;
     const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
     const { connectId, deviceId } = checkIsDefined(dbDevice);
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: deviceParams?.dbDevice?.connectId || '',
+    });
     const account = await this.vault.getAccount();
     const messageHex = Buffer.from(messages[0].message).toString('hex');
     const res = await convertDeviceResponse(() =>

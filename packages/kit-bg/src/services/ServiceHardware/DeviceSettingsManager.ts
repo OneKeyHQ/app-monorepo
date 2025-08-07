@@ -81,7 +81,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         connectId,
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+    });
 
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceChangePin(compatibleConnectId, {
@@ -100,7 +102,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         connectId,
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+    });
 
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceSettings(compatibleConnectId, settings),
@@ -235,7 +239,15 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             );
           }
 
-          const hardwareSDK = await this.getSDKInstance();
+          const compatibleConnectId =
+            await this.serviceHardware.getCompatibleConnectId({
+              connectId: device.connectId,
+              featuresDeviceId: device.deviceId,
+              hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+            });
+          const hardwareSDK = await this.getSDKInstance({
+            connectId: compatibleConnectId,
+          });
           const uploadResParams: DeviceUploadResourceParams = {
             resType: ResourceType.WallPaper,
             suffix: 'jpeg',
@@ -244,12 +256,6 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             nftMetaData: '',
           };
           // upload wallpaper resource will automatically set the home screen
-          const compatibleConnectId =
-            await this.serviceHardware.getCompatibleConnectId({
-              connectId: device.connectId,
-              featuresDeviceId: device.deviceId,
-              hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-            });
           await convertDeviceResponse(() =>
             hardwareSDK.deviceUploadResource(
               compatibleConnectId,

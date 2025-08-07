@@ -260,6 +260,7 @@ class ServiceHardware extends ServiceBase {
   }
 
   async getSDKInstance(options?: {
+    connectId?: string;
     hardwareCallContext?: EHardwareCallContext;
   }) {
     const { hardwareCallContext = EHardwareCallContext.USER_INTERACTION } =
@@ -284,6 +285,7 @@ class ServiceHardware extends ServiceBase {
     if (platformEnv.isSupportDesktopBle) {
       // Check if we should switch transport type based on optimal connection strategy
       const result = await this.connectionManager.shouldSwitchTransportType({
+        connectId: options?.connectId,
         hardwareCallContext,
       });
       shouldSwitch = result.shouldSwitch;
@@ -662,7 +664,9 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async unlockDevice({ connectId }: { connectId: string }) {
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId,
+    });
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
@@ -734,6 +738,7 @@ class ServiceHardware extends ServiceBase {
     const fn = async () => {
       // For cancel operations, skip transport detection to avoid unnecessary /enumerate calls
       const sdk = await this.getSDKInstance({
+        connectId,
         hardwareCallContext: EHardwareCallContext.SILENT_CALL,
       });
       // sdk.cancel() always cause device re-emit UI_EVENT:  ui-close_window
@@ -810,7 +815,9 @@ class ServiceHardware extends ServiceBase {
       connectId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+    });
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceSupportFeatures(compatibleConnectId),
     );
@@ -824,7 +831,9 @@ class ServiceHardware extends ServiceBase {
         'hardware getFeatures ERROR: connectId is undefined',
       );
     }
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId,
+    });
     const features = await convertDeviceResponse(
       () => hardwareSDK?.getFeatures(connectId, params),
       { silentMode },
@@ -937,7 +946,9 @@ class ServiceHardware extends ServiceBase {
     forceInputPassphrase: boolean; // not working?
     useEmptyPassphrase?: boolean;
   }): Promise<string | undefined> {
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId,
+    });
 
     return convertDeviceResponse(() =>
       hardwareSDK?.getPassphraseState(connectId, {
@@ -1114,7 +1125,9 @@ class ServiceHardware extends ServiceBase {
       connectId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+    });
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceUploadResource(compatibleConnectId, params),
     );
@@ -1141,7 +1154,13 @@ class ServiceHardware extends ServiceBase {
     connectId: string;
     deviceType: IDeviceType;
   }): Promise<OnekeyFeatures> {
-    const hardwareSDK = await this.getSDKInstance();
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+    });
+    const hardwareSDK = await this.getSDKInstance({
+      connectId,
+    });
     return convertDeviceResponse(() => {
       // classic1s does not support getOnekeyFeatures method
       if (
@@ -1149,7 +1168,7 @@ class ServiceHardware extends ServiceBase {
         deviceType === EDeviceType.ClassicPure
       ) {
         return hardwareSDK?.getFeatures(
-          connectId,
+          compatibleConnectId,
         ) as unknown as Response<OnekeyFeatures>;
       }
       return hardwareSDK?.getOnekeyFeatures(connectId);
@@ -1214,7 +1233,9 @@ class ServiceHardware extends ServiceBase {
         featuresDeviceId: params.deviceId,
         hardwareCallContext: EHardwareCallContext.SILENT_CALL,
       });
-      const hardwareSDK = await this.getSDKInstance();
+      const hardwareSDK = await this.getSDKInstance({
+        connectId: compatibleConnectId,
+      });
       await timerUtils.wait(600);
       const evmAddressResponse = await convertDeviceResponse(() =>
         hardwareSDK?.evmGetAddress(compatibleConnectId, params.deviceId, {
@@ -1256,7 +1277,9 @@ class ServiceHardware extends ServiceBase {
         featuresDeviceId: deviceId,
         hardwareCallContext: EHardwareCallContext.SILENT_CALL,
       });
-      const hardwareSDK = await this.getSDKInstance();
+      const hardwareSDK = await this.getSDKInstance({
+        connectId: compatibleConnectId,
+      });
       await timerUtils.wait(600);
       const result = await convertDeviceResponse(() => {
         return hardwareSDK.btcGetPublicKey(
@@ -1568,6 +1591,7 @@ class ServiceHardware extends ServiceBase {
 
     // Determine the transport type to use
     const result = await this.connectionManager.shouldSwitchTransportType({
+      connectId: device?.connectId || connectId,
       hardwareCallContext,
     });
     console.log('🔍 shouldSwitchTransportType result:', result);
