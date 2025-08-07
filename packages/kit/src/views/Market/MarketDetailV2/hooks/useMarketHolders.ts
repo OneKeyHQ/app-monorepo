@@ -31,7 +31,7 @@ export function useMarketHolders({
           networkId,
         });
 
-      // Process holders data immediately with market cap calculation
+      // Process holders data with percentage calculation only when marketCap is available
       const processedList = response.list.map((holder) => {
         let percentage: string | undefined;
 
