@@ -32,17 +32,24 @@ export function DesktopLayout({
   const [watchlistState] = useMarketWatchListV2Atom();
   const watchlist = watchlistState.data || [];
 
+  const watchlistTabName = intl.formatMessage({
+    id: ETranslations.global_watchlist,
+  });
+  const trendingTabName = intl.formatMessage({
+    id: ETranslations.market_trending,
+  });
+
   return (
     <Stack flex={1} height="100%">
       <Tabs.Container
-        initialTabName="trending"
+        initialTabName={trendingTabName}
         headerContainerStyle={{
           borderBottomWidth: 0,
           width: '100%',
           shadowColor: 'transparent',
         }}
       >
-        <Tabs.Tab name="watchlist">
+        <Tabs.Tab name={watchlistTabName}>
           <Tabs.ScrollView>
             <Stack px="$4" flex={1}>
               <MarketTokenList
@@ -55,16 +62,18 @@ export function DesktopLayout({
           </Tabs.ScrollView>
         </Tabs.Tab>
 
-        <Tabs.Tab name="trending">
-          <Stack px="$4">
-            <MarketFilterBar {...filterBarProps} />
-            <MarketTokenList
-              networkId={selectedNetworkId}
-              liquidityFilter={liquidityFilter}
-              showWatchlistOnly={false}
-              watchlist={watchlist}
-            />
-          </Stack>
+        <Tabs.Tab name={trendingTabName}>
+          <Tabs.ScrollView>
+            <Stack px="$4">
+              <MarketFilterBar {...filterBarProps} />
+              <MarketTokenList
+                networkId={selectedNetworkId}
+                liquidityFilter={liquidityFilter}
+                showWatchlistOnly={false}
+                watchlist={watchlist}
+              />
+            </Stack>
+          </Tabs.ScrollView>
         </Tabs.Tab>
       </Tabs.Container>
     </Stack>
