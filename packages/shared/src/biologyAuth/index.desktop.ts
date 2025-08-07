@@ -53,14 +53,23 @@ export const biologyAuthenticate: () => Promise<LocalAuthenticationResult> =
       const result = await globalThis?.desktopApiProxy?.security?.promptTouchID(
         messages[ETranslations.global_unlock],
       );
-      return result.success
-        ? ({ success: true } as LocalAuthenticationResult)
-        : {
-            success: false,
-            error: (result.error ||
-              'biologyAuthenticate failed') as unknown as LocalAuthenticationError,
-            warning: result.error,
-          };
+      if (result.success) {
+        return {
+          success: true,
+        } as LocalAuthenticationResult;
+      }
+      if (result.isSupport) {
+        return {
+          success: false,
+          error: (result.error ||
+            'biologyAuthenticate failed') as unknown as LocalAuthenticationError,
+          warning: result.error,
+        };
+      }
+      return {
+        success: false,
+        error: 'not_available',
+      };
     } catch (e: unknown) {
       const authError = e as { message: string };
       return {

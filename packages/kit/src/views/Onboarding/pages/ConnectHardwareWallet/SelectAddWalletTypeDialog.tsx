@@ -32,31 +32,14 @@ export function SelectAddWalletTypeDialogContent({
           borderRadius="$2"
           borderCurve="continuous"
           borderWidth={1}
-          borderColor="$transparent"
+          borderColor="$borderSubdued"
           icon="WalletOutline"
-          iconProps={{
-            color: '$iconOnColor',
-            alignSelf: 'flex-start',
-          }}
-          bg="$bgPrimary"
-          hoverStyle={{
-            bg: '$bgPrimaryHover',
-          }}
-          pressStyle={{
-            bg: '$bgPrimaryActive',
-          }}
           title={intl.formatMessage({
             id: ETranslations.global_standard_wallet,
           })}
-          titleProps={{
-            color: '$textInverse',
-          }}
           subtitle={intl.formatMessage({
             id: ETranslations.global_standard_wallet_desc,
           })}
-          subtitleProps={{
-            color: '$textInverseSubdued',
-          }}
           onPress={onAddStandardWalletPress}
         >
           <ListItem.DrillIn color="$textInverseSubdued" />

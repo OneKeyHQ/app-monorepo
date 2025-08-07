@@ -7,7 +7,6 @@ import type { useSwapPanel } from '@onekeyhq/kit/src/views/Market/MarketDetailV2
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 
 import { ActionButton } from './components/ActionButton';
-import { AntiMEVToggle } from './components/AntiMEVToggle';
 import { ApproveButton } from './components/ApproveButton';
 import { BalanceDisplay } from './components/BalanceDisplay';
 import { RateDisplay } from './components/RateDisplay';
@@ -34,9 +33,10 @@ export type ISwapPanelContentProps = {
   onSwap: () => void;
   swapMevNetConfig: string[];
   priceRate?: {
-    rate: number;
-    fromTokenSymbol: string;
-    toTokenSymbol: string;
+    rate?: number;
+    fromTokenSymbol?: string;
+    toTokenSymbol?: string;
+    loading?: boolean;
   };
 };
 
@@ -100,6 +100,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           rate={priceRate?.rate}
           fromTokenSymbol={priceRate?.fromTokenSymbol}
           toTokenSymbol={priceRate?.toTokenSymbol}
+          loading={priceRate?.loading}
         />
 
         {/* Balance display */}
