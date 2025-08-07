@@ -19,6 +19,7 @@ import type {
   ISwapAlertState,
   ISwapAutoSlippageSuggestedValue,
   ISwapLimitPriceInfo,
+  ISwapNativeTokenReserveGas,
   ISwapNetwork,
   ISwapPreSwapData,
   ISwapStep,
@@ -653,9 +654,4 @@ export const { atom: swapTipsAtom, use: useSwapTipsAtom } = contextAtom<
 export const {
   atom: swapNativeTokenReserveGasAtom,
   use: useSwapNativeTokenReserveGasAtom,
-} = contextAtom<
-  {
-    networkId: string;
-    reserveGas: number;
-  }[]
->([]);
+} = contextAtom<ISwapNativeTokenReserveGas[]>([]);
