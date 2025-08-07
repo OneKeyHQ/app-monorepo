@@ -41,8 +41,8 @@ module.exports = {
     'darkModeSupport': false,
     'category': 'productivity',
     'target': [
-      { target: 'dmg', arch: ['x64', 'arm64'] },
-      { target: 'zip', arch: ['x64', 'arm64'] },
+      { target: 'dmg', arch: ['x64', 'arm64', 'universal'] },
+      { target: 'zip', arch: ['x64', 'arm64', 'universal'] },
     ],
     'entitlements': getPath('entitlements.mac.plist'),
     'extendInfo': {
@@ -60,7 +60,7 @@ module.exports = {
     'icon': 'app/build/static/images/icons/512x512.png',
     'artifactName': 'OneKey-Wallet-${version}-win-${arch}.${ext}',
     'verifyUpdateCodeSignature': false,
-    'target': [{ target: 'nsis', arch: ['x64', 'arm64'] }],
+    'target': [{ target: 'nsis', arch: ['x64', 'arm64', 'universal'] }],
   },
   'linux': {
     'extraResources': [
