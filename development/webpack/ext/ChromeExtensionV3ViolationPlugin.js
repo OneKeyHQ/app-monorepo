@@ -1,3 +1,5 @@
+const { RawSource } = require('webpack-sources');
+
 class ChromeExtensionV3ViolationPlugin {
   constructor(replaceConfigs) {
     this.replaceConfigs = replaceConfigs;
@@ -9,18 +11,18 @@ class ChromeExtensionV3ViolationPlugin {
       (compilation) => {
         const files = Object.keys(compilation.assets);
         files.forEach((file) => {
+          let hasFileChanged = false;
           const asset = compilation.assets[file];
-          const content = asset.source().toString();
+          let content = asset.source().toString();
           this.replaceConfigs.forEach((config) => {
             if (config.regexToFind.test(content)) {
-              const newContent = content.replace(
-                config.regexToFind,
-                config.replacement,
-              );
-              const { RawSource } = require('webpack-sources');
-              compilation.assets[file] = new RawSource(newContent);
+              hasFileChanged = true;
+              content = content.replace(config.regexToFind, config.replacement);
             }
           });
+          if (hasFileChanged) {
+            compilation.assets[file] = new RawSource(content);
+          }
         });
       },
     );
