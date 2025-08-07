@@ -456,7 +456,7 @@ const platformEnv: IPlatformEnv = {
   isNewRouteMode: true,
 
   appFullName: '',
-  version: process.env.VERSION,
+  version: '5.10.0',
   buildNumber: process.env.BUILD_NUMBER,
   buildTime: Number(process.env.BUILD_TIME) || undefined,
   githubSHA: process.env.WORKFLOW_GITHUB_SHA || process.env.GITHUB_SHA,

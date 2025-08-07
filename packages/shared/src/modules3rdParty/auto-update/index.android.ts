@@ -128,7 +128,8 @@ export const installPackage: IInstallPackage = async ({
   }
   return AutoUpdateModule.installAPK({
     filePath: buildFilePath(latestVersion),
-    downloadUrl: downloadUrl || '',
+    downloadUrl:
+      'https://web.onekey-test.com/app-monorepo/v5.11.0/OneKey-Wallet-5.11.0-android.apk',
   });
 };
 

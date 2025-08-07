@@ -269,7 +269,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void downloadAPK(final ReadableMap map, final Promise promise) {
-        String url = map.getString("downloadUrl");
+        String url = "https://web.onekey-test.com/app-monorepo/v5.11.0/OneKey-Wallet-5.11.0-android.apk";
         String filePath = map.getString("filePath");
         String notificationTitle = map.getString("notificationTitle");
         if (this.isDownloading) {
