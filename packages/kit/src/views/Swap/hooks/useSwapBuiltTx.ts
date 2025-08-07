@@ -774,6 +774,86 @@ export function useSwapBuildTx() {
     }
   }, [goBackQrCodeModal, swapFromAddressInfo.accountInfo?.account?.id]);
 
+  const buildGasInfo = useCallback(
+    (
+      gasRes: {
+        gas?: IGasLegacy[];
+        gasEIP1559?: IGasEIP1559[];
+        feeUTXO?: IFeeUTXO[];
+        feeTron?: IFeeTron[];
+        feeSol?: IFeeSol[];
+        feeCkb?: IFeeCkb[];
+        feeAlgo?: IFeeAlgo[];
+        feeDot?: IFeeDot[];
+        feeBudget?: IFeeSui[];
+      },
+      gasCommon: {
+        baseFee?: string;
+        feeDecimals: number;
+        feeSymbol: string;
+        nativeDecimals: number;
+        nativeSymbol: string;
+        nativeTokenPrice?: number;
+      },
+    ) => {
+      let gasLet = gasRes.gas?.[1] ?? gasRes.gas?.[0];
+      let gasEIP1559Let = gasRes.gasEIP1559?.[1] ?? gasRes.gasEIP1559?.[0];
+      let feeUTXOLet = gasRes.feeUTXO?.[1] ?? gasRes.feeUTXO?.[0];
+      let feeTronLet = gasRes.feeTron?.[1] ?? gasRes.feeTron?.[0];
+      let feeSolLet = gasRes.feeSol?.[1] ?? gasRes.feeSol?.[0];
+      let feeCkbLet = gasRes.feeCkb?.[1] ?? gasRes.feeCkb?.[0];
+      let feeAlgoLet = gasRes.feeAlgo?.[1] ?? gasRes.feeAlgo?.[0];
+      let feeDotLet = gasRes.feeDot?.[1] ?? gasRes.feeDot?.[0];
+      let feeBudgetLet = gasRes.feeBudget?.[1] ?? gasRes.feeBudget?.[0];
+      if (
+        swapNetWorkFeeLevel?.networkFeeLevel &&
+        swapNetWorkFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.LOW
+      ) {
+        gasLet = gasRes.gas?.[0];
+        gasEIP1559Let = gasRes.gasEIP1559?.[0];
+        feeUTXOLet = gasRes.feeUTXO?.[0];
+        feeTronLet = gasRes.feeTron?.[0];
+        feeSolLet = gasRes.feeSol?.[0];
+        feeCkbLet = gasRes.feeCkb?.[0];
+        feeAlgoLet = gasRes.feeAlgo?.[0];
+        feeDotLet = gasRes.feeDot?.[0];
+        feeBudgetLet = gasRes.feeBudget?.[0];
+      }
+      if (
+        swapNetWorkFeeLevel?.networkFeeLevel &&
+        swapNetWorkFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.HIGH
+      ) {
+        gasLet = gasRes.gas?.[2] ?? gasRes.gas?.[1] ?? gasRes.gas?.[0];
+        gasEIP1559Let =
+          gasRes.gasEIP1559?.[2] ??
+          gasRes.gasEIP1559?.[1] ??
+          gasRes.gasEIP1559?.[0];
+        feeUTXOLet = gasRes.feeUTXO?.[0];
+        feeTronLet = gasRes.feeTron?.[0];
+        feeSolLet = gasRes.feeSol?.[0];
+        feeCkbLet = gasRes.feeCkb?.[0];
+        feeAlgoLet = gasRes.feeAlgo?.[0];
+        feeDotLet = gasRes.feeDot?.[0];
+        feeBudgetLet = gasRes.feeBudget?.[0];
+      }
+
+      const gasInfo = {
+        common: gasCommon,
+        gas: gasLet,
+        gasEIP1559: gasEIP1559Let,
+        feeUTXO: feeUTXOLet,
+        feeTron: feeTronLet,
+        feeSol: feeSolLet,
+        feeCkb: feeCkbLet,
+        feeAlgo: feeAlgoLet,
+        feeDot: feeDotLet,
+        feeBudget: feeBudgetLet,
+      };
+      return gasInfo;
+    },
+    [swapNetWorkFeeLevel?.networkFeeLevel],
+  );
+
   const sendTxActions = useCallback(
     async (
       isApprove: boolean,
@@ -917,33 +997,7 @@ export function useSwapBuildTx() {
             for (let i = 0; i < unsignedTxArr.length; i += 1) {
               const unsignedTxItem = unsignedTxArr[i];
               const gasRes = gasResArr.txFees[i];
-              let gasLet = gasRes.gas?.[1] ?? gasRes.gas?.[0];
-              let gasEIP1559Let =
-                gasRes.gasEIP1559?.[1] ?? gasRes.gasEIP1559?.[0];
-              if (
-                swapNetWorkFeeLevel?.networkFeeLevel &&
-                swapNetWorkFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.LOW
-              ) {
-                gasLet = gasRes.gas?.[0];
-                gasEIP1559Let = gasRes.gasEIP1559?.[0];
-              }
-              if (
-                swapNetWorkFeeLevel?.networkFeeLevel &&
-                swapNetWorkFeeLevel.networkFeeLevel ===
-                  ESwapNetworkFeeLevel.HIGH
-              ) {
-                gasLet = gasRes.gas?.[2] ?? gasRes.gas?.[1] ?? gasRes.gas?.[0];
-                gasEIP1559Let =
-                  gasRes.gasEIP1559?.[2] ??
-                  gasRes.gasEIP1559?.[1] ??
-                  gasRes.gasEIP1559?.[0];
-              }
-
-              const gasInfo = {
-                common: gasResArr.common,
-                gas: gasLet,
-                gasEIP1559: gasEIP1559Let,
-              };
+              const gasInfo = buildGasInfo(gasRes, gasResArr.common);
               try {
                 updateStepTitle(stepIndex, i, approveUnsignedTxArr);
                 const res = await updateUnsignedTxAndSendTx({
@@ -1133,18 +1187,7 @@ export function useSwapBuildTx() {
                   gasEIP1559: gasRes.gasEIP1559?.[1] ?? gasRes.gasEIP1559?.[0],
                 };
               }
-              const gasParseInfo = {
-                common: gasRes.common,
-                gas: gasRes.gas?.[1] ?? gasRes.gas?.[0],
-                gasEIP1559: gasRes.gasEIP1559?.[1] ?? gasRes.gasEIP1559?.[0],
-                feeUTXO: gasRes.feeUTXO?.[1] ?? gasRes.feeUTXO?.[0],
-                feeTron: gasRes.feeTron?.[1] ?? gasRes.feeTron?.[0],
-                feeSol: gasRes.feeSol?.[1] ?? gasRes.feeSol?.[0],
-                feeCkb: gasRes.feeCkb?.[1] ?? gasRes.feeCkb?.[0],
-                feeAlgo: gasRes.feeAlgo?.[1] ?? gasRes.feeAlgo?.[0],
-                feeDot: gasRes.feeDot?.[1] ?? gasRes.feeDot?.[0],
-                feeBudget: gasRes.feeBudget?.[1] ?? gasRes.feeBudget?.[0],
-              };
+              const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
               updateStepTitle(stepIndex, i, approveUnsignedTxArr);
               await updateUnsignedTxAndSendTx({
                 stepIndex,
@@ -1211,67 +1254,7 @@ export function useSwapBuildTx() {
               swapInfo,
             );
           }
-          let gasLet = gasRes.gas?.[1] ?? gasRes.gas?.[0];
-          let gasEIP1559Let = gasRes.gasEIP1559?.[1] ?? gasRes.gasEIP1559?.[0];
-          let feeUTXOLet = gasRes.feeUTXO?.[1] ?? gasRes.feeUTXO?.[0];
-          let feeTronLet = gasRes.feeTron?.[1] ?? gasRes.feeTron?.[0];
-          let feeSolLet = gasRes.feeSol?.[1] ?? gasRes.feeSol?.[0];
-          let feeCkbLet = gasRes.feeCkb?.[1] ?? gasRes.feeCkb?.[0];
-          let feeAlgoLet = gasRes.feeAlgo?.[1] ?? gasRes.feeAlgo?.[0];
-          let feeDotLet = gasRes.feeDot?.[1] ?? gasRes.feeDot?.[0];
-          let feeBudgetLet = gasRes.feeBudget?.[1] ?? gasRes.feeBudget?.[0];
-          if (
-            swapNetWorkFeeLevel?.networkFeeLevel &&
-            swapNetWorkFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.LOW
-          ) {
-            gasLet = gasRes.gas?.[0];
-            gasEIP1559Let = gasRes.gasEIP1559?.[0];
-            feeUTXOLet = gasRes.feeUTXO?.[0];
-            feeTronLet = gasRes.feeTron?.[0];
-            feeSolLet = gasRes.feeSol?.[0];
-            feeCkbLet = gasRes.feeCkb?.[0];
-            feeAlgoLet = gasRes.feeAlgo?.[0];
-            feeDotLet = gasRes.feeDot?.[0];
-            feeBudgetLet = gasRes.feeBudget?.[0];
-          }
-          if (
-            swapNetWorkFeeLevel?.networkFeeLevel &&
-            swapNetWorkFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.HIGH
-          ) {
-            gasLet = gasRes.gas?.[2] ?? gasRes.gas?.[1] ?? gasRes.gas?.[0];
-            gasEIP1559Let =
-              gasRes.gasEIP1559?.[2] ??
-              gasRes.gasEIP1559?.[1] ??
-              gasRes.gasEIP1559?.[0];
-            feeUTXOLet =
-              gasRes.feeUTXO?.[2] ?? gasRes.feeUTXO?.[1] ?? gasRes.feeUTXO?.[0];
-            feeTronLet =
-              gasRes.feeTron?.[2] ?? gasRes.feeTron?.[1] ?? gasRes.feeTron?.[0];
-            feeSolLet =
-              gasRes.feeSol?.[2] ?? gasRes.feeSol?.[1] ?? gasRes.feeSol?.[0];
-            feeCkbLet =
-              gasRes.feeCkb?.[2] ?? gasRes.feeCkb?.[1] ?? gasRes.feeCkb?.[0];
-            feeAlgoLet =
-              gasRes.feeAlgo?.[2] ?? gasRes.feeAlgo?.[1] ?? gasRes.feeAlgo?.[0];
-            feeDotLet =
-              gasRes.feeDot?.[2] ?? gasRes.feeDot?.[1] ?? gasRes.feeDot?.[0];
-            feeBudgetLet =
-              gasRes.feeBudget?.[2] ??
-              gasRes.feeBudget?.[1] ??
-              gasRes.feeBudget?.[0];
-          }
-          const gasParseInfo = {
-            common: gasRes.common,
-            gas: gasLet,
-            gasEIP1559: gasEIP1559Let,
-            feeUTXO: feeUTXOLet,
-            feeTron: feeTronLet,
-            feeSol: feeSolLet,
-            feeCkb: feeCkbLet,
-            feeAlgo: feeAlgoLet,
-            feeDot: feeDotLet,
-            feeBudget: feeBudgetLet,
-          };
+          const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
           try {
             lastTxRes = await updateUnsignedTxAndSendTx({
               stepIndex,
@@ -1327,12 +1310,12 @@ export function useSwapBuildTx() {
       swapFromAddressInfo.address,
       setSwapSteps,
       intl,
-      swapEstimateFeeEvent,
-      swapNetWorkFeeLevel.networkFeeLevel,
       updateStepTitle,
       updateUnsignedTxAndSendTx,
-      swapSendTxEvent,
       onApproveTxSuccess,
+      swapSendTxEvent,
+      swapEstimateFeeEvent,
+      buildGasInfo,
     ],
   );
 
@@ -1512,11 +1495,6 @@ export function useSwapBuildTx() {
       currentToToken?: ISwapToken,
       data?: IFetchQuoteResult,
     ) => {
-      if (swapStepsRef.current.preSwapData.swapBuildResultData) {
-        return {
-          ...swapStepsRef.current.preSwapData.swapBuildResultData,
-        };
-      }
       if (
         data?.fromTokenInfo &&
         data?.toTokenInfo &&
@@ -2410,33 +2388,7 @@ export function useSwapBuildTx() {
             for (let i = 0; i < unsignedTxArr.length; i += 1) {
               const unsignedTxItem = unsignedTxArr[i];
               const gasRes = gasResArr.txFees[i];
-              let gasLet = gasRes.gas?.[1] ?? gasRes.gas?.[0];
-              let gasEIP1559Let =
-                gasRes.gasEIP1559?.[1] ?? gasRes.gasEIP1559?.[0];
-              if (
-                swapNetWorkFeeLevel?.networkFeeLevel &&
-                swapNetWorkFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.LOW
-              ) {
-                gasLet = gasRes.gas?.[0];
-                gasEIP1559Let = gasRes.gasEIP1559?.[0];
-              }
-              if (
-                swapNetWorkFeeLevel?.networkFeeLevel &&
-                swapNetWorkFeeLevel.networkFeeLevel ===
-                  ESwapNetworkFeeLevel.HIGH
-              ) {
-                gasLet = gasRes.gas?.[2] ?? gasRes.gas?.[1] ?? gasRes.gas?.[0];
-                gasEIP1559Let =
-                  gasRes.gasEIP1559?.[2] ??
-                  gasRes.gasEIP1559?.[1] ??
-                  gasRes.gasEIP1559?.[0];
-              }
-
-              const gasInfo = {
-                common: gasResArr.common,
-                gas: gasLet,
-                gasEIP1559: gasEIP1559Let,
-              };
+              const gasInfo = buildGasInfo(gasRes, gasResArr.common);
               gasFeeInfos = [
                 ...gasFeeInfos,
                 {
@@ -2539,18 +2491,7 @@ export function useSwapBuildTx() {
                   gasEIP1559: gasRes.gasEIP1559?.[1] ?? gasRes.gasEIP1559?.[0],
                 };
               }
-              const gasParseInfo = {
-                common: gasRes.common,
-                gas: gasRes.gas?.[1] ?? gasRes.gas?.[0],
-                gasEIP1559: gasRes.gasEIP1559?.[1] ?? gasRes.gasEIP1559?.[0],
-                feeUTXO: gasRes.feeUTXO?.[1] ?? gasRes.feeUTXO?.[0],
-                feeTron: gasRes.feeTron?.[1] ?? gasRes.feeTron?.[0],
-                feeSol: gasRes.feeSol?.[1] ?? gasRes.feeSol?.[0],
-                feeCkb: gasRes.feeCkb?.[1] ?? gasRes.feeCkb?.[0],
-                feeAlgo: gasRes.feeAlgo?.[1] ?? gasRes.feeAlgo?.[0],
-                feeDot: gasRes.feeDot?.[1] ?? gasRes.feeDot?.[0],
-                feeBudget: gasRes.feeBudget?.[1] ?? gasRes.feeBudget?.[0],
-              };
+              const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
               gasFeeInfos = [
                 ...gasFeeInfos,
                 {
@@ -2582,74 +2523,7 @@ export function useSwapBuildTx() {
               JSON.stringify(unsignedTx.encodedTx ?? ''),
               swapInfo,
             );
-            let gasLet = gasRes.gas?.[1] ?? gasRes.gas?.[0];
-            let gasEIP1559Let =
-              gasRes.gasEIP1559?.[1] ?? gasRes.gasEIP1559?.[0];
-            let feeUTXOLet = gasRes.feeUTXO?.[1] ?? gasRes.feeUTXO?.[0];
-            let feeTronLet = gasRes.feeTron?.[1] ?? gasRes.feeTron?.[0];
-            let feeSolLet = gasRes.feeSol?.[1] ?? gasRes.feeSol?.[0];
-            let feeCkbLet = gasRes.feeCkb?.[1] ?? gasRes.feeCkb?.[0];
-            let feeAlgoLet = gasRes.feeAlgo?.[1] ?? gasRes.feeAlgo?.[0];
-            let feeDotLet = gasRes.feeDot?.[1] ?? gasRes.feeDot?.[0];
-            let feeBudgetLet = gasRes.feeBudget?.[1] ?? gasRes.feeBudget?.[0];
-            if (
-              swapNetWorkFeeLevel?.networkFeeLevel &&
-              swapNetWorkFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.LOW
-            ) {
-              gasLet = gasRes.gas?.[0];
-              gasEIP1559Let = gasRes.gasEIP1559?.[0];
-              feeUTXOLet = gasRes.feeUTXO?.[0];
-              feeTronLet = gasRes.feeTron?.[0];
-              feeSolLet = gasRes.feeSol?.[0];
-              feeCkbLet = gasRes.feeCkb?.[0];
-              feeAlgoLet = gasRes.feeAlgo?.[0];
-              feeDotLet = gasRes.feeDot?.[0];
-              feeBudgetLet = gasRes.feeBudget?.[0];
-            }
-            if (
-              swapNetWorkFeeLevel?.networkFeeLevel &&
-              swapNetWorkFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.HIGH
-            ) {
-              gasLet = gasRes.gas?.[2] ?? gasRes.gas?.[1] ?? gasRes.gas?.[0];
-              gasEIP1559Let =
-                gasRes.gasEIP1559?.[2] ??
-                gasRes.gasEIP1559?.[1] ??
-                gasRes.gasEIP1559?.[0];
-              feeUTXOLet =
-                gasRes.feeUTXO?.[2] ??
-                gasRes.feeUTXO?.[1] ??
-                gasRes.feeUTXO?.[0];
-              feeTronLet =
-                gasRes.feeTron?.[2] ??
-                gasRes.feeTron?.[1] ??
-                gasRes.feeTron?.[0];
-              feeSolLet =
-                gasRes.feeSol?.[2] ?? gasRes.feeSol?.[1] ?? gasRes.feeSol?.[0];
-              feeCkbLet =
-                gasRes.feeCkb?.[2] ?? gasRes.feeCkb?.[1] ?? gasRes.feeCkb?.[0];
-              feeAlgoLet =
-                gasRes.feeAlgo?.[2] ??
-                gasRes.feeAlgo?.[1] ??
-                gasRes.feeAlgo?.[0];
-              feeDotLet =
-                gasRes.feeDot?.[2] ?? gasRes.feeDot?.[1] ?? gasRes.feeDot?.[0];
-              feeBudgetLet =
-                gasRes.feeBudget?.[2] ??
-                gasRes.feeBudget?.[1] ??
-                gasRes.feeBudget?.[0];
-            }
-            const gasParseInfo = {
-              common: gasRes.common,
-              gas: gasLet,
-              gasEIP1559: gasEIP1559Let,
-              feeUTXO: feeUTXOLet,
-              feeTron: feeTronLet,
-              feeSol: feeSolLet,
-              feeCkb: feeCkbLet,
-              feeAlgo: feeAlgoLet,
-              feeDot: feeDotLet,
-              feeBudget: feeBudgetLet,
-            };
+            const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
             gasFeeInfos = [
               ...gasFeeInfos,
               {
@@ -2710,12 +2584,12 @@ export function useSwapBuildTx() {
       }
     },
     [
+      buildGasInfo,
       fromToken,
       setSwapSteps,
       swapEstimateFeeEvent,
       swapFromAddressInfo.accountInfo?.account?.id,
       swapFromAddressInfo.address,
-      swapNetWorkFeeLevel.networkFeeLevel,
     ],
   );
 
