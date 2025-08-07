@@ -157,24 +157,34 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
   async getDeviceLabel({ walletId }: IGetDeviceLabelParams) {
     const device = await localDb.getWalletDevice({ walletId });
-    const compatibleConnectId =
-      await this.serviceHardware.getCompatibleConnectId({
-        connectId: device.connectId,
-        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-      });
-    const features =
-      await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
-        connectId: compatibleConnectId,
-      });
-    await this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog({
-      connectId: compatibleConnectId,
-      skipDeviceCancel: true,
-      deviceResetToHome: false,
-    });
-    const label = await deviceUtils.buildDeviceLabel({
-      features,
-    });
-    return label || 'Unknown';
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+      async () => {
+        const compatibleConnectId =
+          await this.serviceHardware.getCompatibleConnectId({
+            connectId: device.connectId,
+            hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+          });
+        const features =
+          await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
+            connectId: compatibleConnectId,
+          });
+        await this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog({
+          connectId: compatibleConnectId,
+          skipDeviceCancel: true,
+          deviceResetToHome: false,
+        });
+        const label = await deviceUtils.buildDeviceLabel({
+          features,
+        });
+        return label || 'Unknown';
+      },
+      {
+        deviceParams: {
+          dbDevice: device,
+        },
+        debugMethodName: 'deviceSettings.applySettingsToDevice',
+      },
+    );
   }
 
   @backgroundMethod()
