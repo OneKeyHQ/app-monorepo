@@ -35,6 +35,8 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
     networkId,
   });
 
+  console.log('holders', holders);
+
   const shouldEnableScroll = leftColumnWidth < 930;
 
   const renderItem: IListViewProps<IMarketTokenHolder>['renderItem'] =
@@ -72,7 +74,6 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
         data={holders}
         renderItem={renderItem}
         keyExtractor={(item) => item.accountAddress + item.fiatValue}
-        estimatedItemSize={40}
         showsVerticalScrollIndicator
         contentContainerStyle={{
           paddingBottom: '$4',
