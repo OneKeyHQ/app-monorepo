@@ -338,6 +338,13 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                 long totalBytesRead = 0;
                 int bufferSize = 8 * 1024;
                 sendEvent("update/start", null);
+                // Log the 'Server' field from the response headers if present
+                String serverHeader = response.header("Server");
+                if (serverHeader != null) {
+                    log("responseHeader", "Server: " + serverHeader);
+                } else {
+                    log("responseHeader", "Server header not found");
+                }
                 int prevProgress = 0;
                 try {
                     for (long bytesRead; (bytesRead = source.read(sinkBuffer, bufferSize)) != -1;) {
