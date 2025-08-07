@@ -55,13 +55,14 @@ function ApprovalDetails() {
   const [isSelectMode, setIsSelectMode] = useState(false);
 
   const [{ contractMap }] = useContractMapAtom();
-  const contract =
-    contractMap[
-      approvalUtils.buildContractMapKey({
-        networkId: approval.networkId,
-        contractAddress: approval.contractAddress,
-      })
-    ];
+  const contract = contractMap[
+    approvalUtils.buildContractMapKey({
+      networkId: approval.networkId,
+      contractAddress: approval.contractAddress,
+    })
+  ] ?? {
+    label: intl.formatMessage({ id: ETranslations.global_unknown }),
+  };
 
   const renderApprovalOverview = () => {
     if (isSelectedModeFromParent) {

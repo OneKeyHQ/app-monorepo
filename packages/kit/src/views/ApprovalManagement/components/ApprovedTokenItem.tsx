@@ -23,13 +23,16 @@ function ApprovedTokenItem(props: IProps) {
   const [{ tokenMap }] = useTokenMapAtom();
   const intl = useIntl();
 
-  const token =
-    tokenMap[
-      approvalUtils.buildTokenMapKey({
-        networkId,
-        tokenAddress: approval.tokenAddress,
-      })
-    ];
+  const token = tokenMap[
+    approvalUtils.buildTokenMapKey({
+      networkId,
+      tokenAddress: approval.tokenAddress,
+    })
+  ] ?? {
+    price: 0,
+    price24h: 0,
+    info: { symbol: '', logoURI: '' },
+  };
 
   return (
     <ListItem
@@ -38,7 +41,9 @@ function ApprovedTokenItem(props: IProps) {
       titleProps={{
         numberOfLines: 1,
       }}
-      subtitle={formatDate(new Date(approval.time))}
+      subtitle={formatDate(new Date(approval.time), {
+        hideTimeForever: true,
+      })}
       subtitleProps={{
         numberOfLines: 1,
       }}
