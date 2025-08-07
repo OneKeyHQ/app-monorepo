@@ -12,6 +12,7 @@ import {
   approvalListStateAtom,
   contextAtomMethod,
   contractMapAtom,
+  revokeTxsStateAtom,
   tokenMapAtom,
 } from './atoms';
 
@@ -68,6 +69,22 @@ class ContextJotaiActionsApprovalList extends ContextJotaiActionsBase {
       }));
     },
   );
+
+  updateRevokeTxsState = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        isBuildingRevokeTxs?: boolean;
+        selectedTokens?: Record<string, boolean>;
+      },
+    ) => {
+      set(revokeTxsStateAtom(), (v) => ({
+        ...v,
+        ...payload,
+      }));
+    },
+  );
 }
 
 const createActions = memoFn(() => {
@@ -82,11 +99,13 @@ export function useApprovalListActions() {
   const updateTokenMap = actions.updateTokenMap.use();
   const updateContractMap = actions.updateContractMap.use();
   const updateApprovalListState = actions.updateApprovalListState.use();
+  const updateRevokeTxsState = actions.updateRevokeTxsState.use();
 
   return useRef({
     updateApprovalList,
     updateTokenMap,
     updateContractMap,
     updateApprovalListState,
+    updateRevokeTxsState,
   });
 }

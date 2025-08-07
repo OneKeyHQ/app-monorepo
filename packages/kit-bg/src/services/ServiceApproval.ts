@@ -4,7 +4,9 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant';
 import type {
+  IContractApproval,
   IFetchAccountApprovalsParams,
   IFetchAccountApprovalsResponse,
 } from '@onekeyhq/shared/types/approval';
@@ -35,6 +37,7 @@ class ServiceApproval extends ServiceBase {
     let queries: {
       accountAddress: string;
       networkId: string;
+      accountId: string;
     }[] = [];
 
     if (networkUtils.isAllNetwork({ networkId })) {
@@ -47,12 +50,16 @@ class ServiceApproval extends ServiceBase {
             accountId,
             networkId,
             excludeIncompatibleWithWalletAccounts: true,
-            withoutAccountId: true,
+            withoutAccountId: false,
           },
         );
       queries = allNetworkAccounts.filter(
         (i) => networksSupportBulkRevokeApproval[i.networkId],
-      );
+      ) as {
+        accountId: string;
+        networkId: string;
+        accountAddress: string;
+      }[];
     } else {
       let accountAddress = params.accountAddress;
       if (!accountAddress) {
@@ -66,6 +73,7 @@ class ServiceApproval extends ServiceBase {
       queries.push({
         accountAddress,
         networkId,
+        accountId,
       });
     }
 
@@ -90,7 +98,44 @@ class ServiceApproval extends ServiceBase {
       },
     );
 
-    return resp.data.data;
+    const contractApprovals = resp.data.data.contractApprovals ?? [];
+
+    const riskApprovals: IContractApproval[] = [];
+    const normalApprovals: IContractApproval[] = [];
+
+    for (const item of contractApprovals) {
+      const query = queries.find((q) => q.networkId === item.networkId) as {
+        accountId: string;
+        networkId: string;
+        accountAddress: string;
+      };
+
+      if (item.highestRiskLevel >= TX_RISKY_LEVEL_SPAM) {
+        riskApprovals.push({
+          ...item,
+          accountId: query.accountId,
+          owner: query.accountAddress,
+        });
+      } else {
+        normalApprovals.push({
+          ...item,
+          accountId: query.accountId,
+          owner: query.accountAddress,
+        });
+      }
+    }
+
+    return {
+      ...resp.data.data,
+      contractApprovals: [
+        ...riskApprovals.sort(
+          (a, b) => b.latestApprovalTime - a.latestApprovalTime,
+        ),
+        ...normalApprovals.sort(
+          (a, b) => b.latestApprovalTime - a.latestApprovalTime,
+        ),
+      ],
+    };
   }
 }
 

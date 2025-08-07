@@ -2,7 +2,9 @@ import type { IAddressInfo } from './address';
 import type { IToken } from './token';
 
 export type IContractApproval = {
+  accountId: string;
   networkId: string;
+  owner: string;
   latestApprovalTime: number;
   highestRiskLevel: number;
   riskReason?: string;
@@ -31,7 +33,7 @@ export type IFetchAccountApprovalsParams = {
 };
 
 export type IFetchAccountApprovalsResponse = {
-  contractApprovals: IContractApproval[];
+  contractApprovals: Omit<IContractApproval, 'accountId' | 'owner'>[];
   tokenMap: Record<
     string,
     {

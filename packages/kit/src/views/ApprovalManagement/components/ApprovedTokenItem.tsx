@@ -14,31 +14,45 @@ import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IApproval } from '@onekeyhq/shared/types/approval';
 
 import { ListItem } from '../../../components/ListItem';
-import { useTokenMapAtom } from '../../../states/jotai/contexts/approvalList';
+import {
+  useRevokeTxsStateAtom,
+  useTokenMapAtom,
+} from '../../../states/jotai/contexts/approvalList';
+import { IToken } from '@onekeyhq/shared/types/token';
 
 type IProps = {
   networkId: string;
   approval: IApproval;
   isChecked: boolean;
   isSelectMode: boolean;
+  onSelect: ({
+    tokenInfo,
+    isSelected,
+  }: {
+    tokenInfo: IToken;
+    isSelected: boolean;
+  }) => Promise<void>;
+  onRevoke: ({ tokenInfo }: { tokenInfo: IToken }) => Promise<void>;
 };
 
 function ApprovedTokenItem(props: IProps) {
   const { networkId, approval, isSelectMode } = props;
 
   const [{ tokenMap }] = useTokenMapAtom();
+  const [{ isBuildingRevokeTxs, selectedTokens }] = useRevokeTxsStateAtom();
   const intl = useIntl();
 
-  const token = tokenMap[
-    approvalUtils.buildTokenMapKey({
-      networkId,
-      tokenAddress: approval.tokenAddress,
-    })
-  ] ?? {
-    price: 0,
-    price24h: 0,
-    info: { symbol: '', logoURI: '' },
-  };
+  const token =
+    tokenMap[
+      approvalUtils.buildTokenMapKey({
+        networkId,
+        tokenAddress: approval.tokenAddress,
+      })
+    ];
+
+  if (!token) {
+    return null;
+  }
 
   return (
     <ListItem
@@ -91,7 +105,14 @@ function ApprovedTokenItem(props: IProps) {
         }
       />
       {isSelectMode ? null : (
-        <Button size="small">
+        <Button
+          size="small"
+          loading={isBuildingRevokeTxs && selectedTokens[token.info.address]}
+          disabled={isBuildingRevokeTxs}
+          onPress={() => {
+            props.onRevoke({ tokenInfo: token.info });
+          }}
+        >
           {intl.formatMessage({ id: ETranslations.global_revoke })}
         </Button>
       )}

@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -16,16 +16,32 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EModalRoutes,
+  EModalSignatureConfirmRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type {
   EModalApprovalManagementRoutes,
   IModalApprovalManagementParamList,
 } from '@onekeyhq/shared/src/routes/approvalManagement';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { Token } from '../../../components/Token';
-import { useContractMapAtom } from '../../../states/jotai/contexts/approvalList';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import {
+  useApprovalListActions,
+  useContractMapAtom,
+} from '../../../states/jotai/contexts/approvalList';
 import { openExplorerAddressUrl } from '../../../utils/explorerUtils';
 import { HomeApprovalListProviderMirror } from '../../Home/components/HomeApprovalListProvider/HomeApprovalListProviderMirror';
 import ApprovedTokenItem from '../components/ApprovedTokenItem';
@@ -40,19 +56,22 @@ function ApprovalDetails() {
         EModalApprovalManagementRoutes.ApprovalDetails
       >
     >();
-  const {
-    approval,
-    isSelectMode: isSelectedModeFromParent,
-    onSelected,
-  } = route.params;
+  const { approval, isSelectMode, onSelected } = route.params;
 
   const intl = useIntl();
 
   const { copyText } = useClipboard();
 
+  const navigation = useAppNavigation();
+
   const isRiskApproval = approval.highestRiskLevel >= TX_RISKY_LEVEL_SPAM;
 
-  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [isBulkRevokeMode, setIsBulkRevokeMode] = useState(false);
+  const [selectedTokens, setSelectedTokens] = useState<Record<string, boolean>>(
+    {},
+  );
+
+  const { updateRevokeTxsState } = useApprovalListActions().current;
 
   const [{ contractMap }] = useContractMapAtom();
   const contract = contractMap[
@@ -65,8 +84,70 @@ function ApprovalDetails() {
     icon: 'Document2Outline',
   };
 
+  const handleTokenOnSelect = useCallback(
+    async ({
+      tokenInfo,
+      isSelected,
+    }: {
+      tokenInfo: IToken;
+      isSelected: boolean;
+    }) => {
+      setSelectedTokens((v) => ({
+        ...v,
+        [tokenInfo.address]: isSelected,
+      }));
+    },
+    [],
+  );
+
+  const handleTokenOnRevoke = useCallback(
+    async ({ tokenInfo }: { tokenInfo: IToken }) => {
+      updateRevokeTxsState({
+        isBuildingRevokeTxs: true,
+        selectedTokens: {
+          [tokenInfo.address]: true,
+        },
+      });
+
+      const revokeInfo: IApproveInfo = {
+        owner: approval.owner,
+        spender: approval.contractAddress,
+        amount: '0',
+        tokenInfo,
+      };
+
+      const unsignedTx =
+        await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+          networkId: approval.networkId,
+          accountId: approval.accountId,
+          approveInfo: revokeInfo,
+        });
+
+      navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+        screen: EModalSignatureConfirmRoutes.TxConfirm,
+        params: {
+          accountId: approval.accountId,
+          networkId: approval.networkId,
+          unsignedTxs: [unsignedTx],
+        },
+      });
+
+      await timerUtils.wait(1000);
+      updateRevokeTxsState({ isBuildingRevokeTxs: false });
+    },
+
+    [
+      approval.accountId,
+      approval.contractAddress,
+      approval.networkId,
+      approval.owner,
+      navigation,
+      updateRevokeTxsState,
+    ],
+  );
+
   const renderApprovalOverview = () => {
-    if (isSelectedModeFromParent) {
+    if (isSelectMode) {
       return null;
     }
 
@@ -186,7 +267,7 @@ function ApprovalDetails() {
               iconColor="$iconSubdued"
               size="small"
               onPress={() => {
-                setIsSelectMode((v) => !v);
+                setIsBulkRevokeMode((v) => !v);
               }}
             />
           </XStack>
@@ -198,7 +279,9 @@ function ApprovalDetails() {
             networkId={approval.networkId}
             approval={item}
             isChecked={false}
-            isSelectMode={!!(isSelectMode || isSelectedModeFromParent)}
+            isSelectMode={!!(isSelectMode || isBulkRevokeMode)}
+            onSelect={handleTokenOnSelect}
+            onRevoke={handleTokenOnRevoke}
           />
         )}
       />

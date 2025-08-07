@@ -105,7 +105,7 @@ function ApprovalListViewCmp(props: IProps) {
       refreshControl={
         onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }
-      extraData={approvals.length}
+      extraData={approvals?.length ?? 0}
       data={approvals}
       contentContainerStyle={resolvedContentContainerStyle as any}
       ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}

@@ -60,8 +60,6 @@ function ApprovalListContainer() {
             indexedAccountId: indexedAccount?.id,
           });
 
-        console.log('resp', resp);
-
         updateApprovalList({ data: resp.contractApprovals });
         updateTokenMap({ data: resp.tokenMap });
         updateContractMap({ data: resp.contractMap });
@@ -135,11 +133,15 @@ function ApprovalListContainer() {
       }
     };
 
+    const refreshAnyway = () => {
+      void run({ alwaysSetState: true });
+    };
+
     appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
-    appEventBus.on(EAppEventBusNames.RefreshApprovalList, refresh);
+    appEventBus.on(EAppEventBusNames.RefreshApprovalList, refreshAnyway);
     return () => {
       appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
-      appEventBus.off(EAppEventBusNames.RefreshApprovalList, refresh);
+      appEventBus.off(EAppEventBusNames.RefreshApprovalList, refreshAnyway);
     };
   }, [isFocused, run]);
 
