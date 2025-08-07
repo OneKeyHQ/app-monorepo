@@ -122,6 +122,17 @@ export class HardwareConnectionManager {
       return false;
     }
 
+    const enableDesktopBluetooth =
+      await this.backgroundApi.serviceSetting.getEnableDesktopBluetooth();
+
+    if (!enableDesktopBluetooth) {
+      console.log(
+        '🔍 detectBluetoothAvailability global Bluetooth is disabled: ',
+        enableDesktopBluetooth,
+      );
+      return false;
+    }
+
     const desktopBluetoothSettings = await desktopBluetoothAtom.get();
 
     if (!desktopBluetoothSettings.isRequestedPermission) {
@@ -213,17 +224,6 @@ export class HardwareConnectionManager {
         return EHardwareTransportType.Bridge;
       }
 
-      const enableDesktopBluetooth =
-        await this.backgroundApi.serviceSetting.getEnableDesktopBluetooth();
-
-      if (!enableDesktopBluetooth) {
-        console.log(
-          '🔍 detectBluetoothAvailability global Bluetooth is disabled: ',
-          enableDesktopBluetooth,
-        );
-        return EHardwareTransportType.Bridge;
-      }
-
       // No USB devices, check if Bluetooth is available before fallback
       const bluetoothAvailable = await this.detectBluetoothAvailability();
 
@@ -232,9 +232,7 @@ export class HardwareConnectionManager {
         return EHardwareTransportType.DesktopWebBle;
       }
 
-      // Neither USB nor Bluetooth available, return current setting (likely Bridge)
-      // This will let the user know they need to connect hardware or enable Bluetooth
-      return currentSettingType;
+      return EHardwareTransportType.Bridge;
     }
 
     return currentSettingType;

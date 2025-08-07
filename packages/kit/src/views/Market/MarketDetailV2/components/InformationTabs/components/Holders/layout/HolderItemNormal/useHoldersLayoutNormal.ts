@@ -4,7 +4,7 @@ export const useHoldersLayoutNormal = () => {
       width: '$10',
     },
     address: {
-      width: '$40',
+      width: '$50',
     },
     percentage: {
       width: '$40',

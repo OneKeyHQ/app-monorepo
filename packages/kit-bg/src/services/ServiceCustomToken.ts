@@ -153,15 +153,18 @@ class ServiceCustomToken extends ServiceBase {
 
   @backgroundMethod()
   public async getCustomTokens({
+    accountXpubOrAddress,
     accountId,
     networkId,
     customTokensRawData,
   }: {
+    accountXpubOrAddress?: string | null;
     accountId: string;
     networkId: string;
     customTokensRawData?: ICustomTokenDBStruct;
   }) {
     return this.backgroundApi.simpleDb.customTokens.getCustomTokens({
+      accountXpubOrAddress,
       accountId,
       networkId,
       customTokensRawData,
@@ -170,15 +173,18 @@ class ServiceCustomToken extends ServiceBase {
 
   @backgroundMethod()
   public async getHiddenTokens({
+    accountXpubOrAddress,
     accountId,
     networkId,
     customTokensRawData,
   }: {
+    accountXpubOrAddress?: string | null;
     accountId: string;
     networkId: string;
     customTokensRawData?: ICustomTokenDBStruct;
   }) {
     return this.backgroundApi.simpleDb.customTokens.getHiddenTokens({
+      accountXpubOrAddress,
       accountId,
       networkId,
       customTokensRawData,

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { type RouteProp, useRoute } from '@react-navigation/core';
-import { get } from 'lodash';
+import { get, isString } from 'lodash';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
@@ -372,7 +372,6 @@ function useDeviceConnection({
   onDeviceConnect,
 }: IDeviceConnectionProps) {
   const intl = useIntl();
-  const isFocused = useIsFocused();
   const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
   const [isCheckingDeviceLoading, setIsChecking] = useState(false);
@@ -522,6 +521,17 @@ function useDeviceConnection({
 
         // Only set search results if tabValue hasn't changed
         if (currentTabValueRef.current === tabValue) {
+          if (tabValue === EConnectDeviceChannel.bluetooth) {
+            const isUsbData = sortedDevices.some((device) =>
+              // @ts-expect-error
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              isString(device.features?.device_id),
+            );
+            if (isUsbData) {
+              setSearchedDevices([]);
+              return;
+            }
+          }
           setSearchedDevices(sortedDevices);
         } else {
           console.log('🔍 Ignoring search results - tab changed during search');
