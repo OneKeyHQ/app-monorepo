@@ -1,3 +1,5 @@
+import { memo, useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,7 +15,6 @@ import type { IApproval } from '@onekeyhq/shared/types/approval';
 
 import { ListItem } from '../../../components/ListItem';
 import { useTokenMapAtom } from '../../../states/jotai/contexts/approvalList';
-import { memo, useState } from 'react';
 
 type IProps = {
   networkId: string;
