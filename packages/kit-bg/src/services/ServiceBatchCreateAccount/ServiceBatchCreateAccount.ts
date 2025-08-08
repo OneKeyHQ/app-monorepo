@@ -650,8 +650,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
             }
           }
           if (bundleParams.length && deviceParams?.dbDevice) {
-            const sdk =
-              await this.backgroundApi.serviceHardware.getSDKInstance();
+            const sdk = await this.backgroundApi.serviceHardware.getSDKInstance(
+              {
+                connectId: deviceParams.dbDevice?.connectId,
+              },
+            );
             hwAllNetworkPrepareAccountsResponse = (await convertDeviceResponse(
               async () => {
                 // throw new NewFirmwareForceUpdate({ payload: {} });
