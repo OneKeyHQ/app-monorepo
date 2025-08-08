@@ -53,15 +53,19 @@ const MarketTokenListNetworkSelectorNormal = forwardRef<
     );
 
     return (
-      <Stack h="$40" bg="$red3">
-        <MarketNetworkFilter
-          ref={marketNetworkFilterRef}
-          networks={marketNetworks}
-          selectedNetwork={currentSelectNetwork}
-          onSelectNetwork={onSelectCurrentNetwork}
-          onMoreNetworkSelect={handleMoreNetworkSelect}
-          placement={placement}
-        />
+      <Stack bg="$red3">
+        {isLoading ? (
+          <MarketTokenListNetworkSelectorNormalSkeleton />
+        ) : (
+          <MarketNetworkFilter
+            ref={marketNetworkFilterRef}
+            networks={marketNetworks}
+            selectedNetwork={currentSelectNetwork}
+            onSelectNetwork={onSelectCurrentNetwork}
+            onMoreNetworkSelect={handleMoreNetworkSelect}
+            placement={placement}
+          />
+        )}
       </Stack>
     );
   },

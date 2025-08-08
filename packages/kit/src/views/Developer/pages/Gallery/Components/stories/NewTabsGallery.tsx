@@ -1,12 +1,10 @@
 import { useMemo } from 'react';
 
 import {
-  IconButton,
   ListView,
   SizableText,
   Stack,
   Tabs,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
