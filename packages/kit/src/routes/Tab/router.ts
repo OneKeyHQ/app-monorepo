@@ -144,7 +144,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         {
           name: ETabRoutes.PerpTrade,
           tabBarIcon: (focused?: boolean) =>
-            focused ? 'SwapHorSolid' : 'SwapHorOutline',
+            focused ? 'ChartTrendingSolid' : 'ChartTrendingOutline',
           translationId: 'Perp',
           freezeOnBlur: Boolean(params?.freezeOnBlur),
           rewrite: '/perp',
