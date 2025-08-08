@@ -259,8 +259,8 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
-  async getSDKInstance(options?: {
-    connectId?: string;
+  async getSDKInstance(options: {
+    connectId: string | undefined;
     hardwareCallContext?: EHardwareCallContext;
   }) {
     const { hardwareCallContext = EHardwareCallContext.USER_INTERACTION } =
@@ -574,12 +574,15 @@ class ServiceHardware extends ServiceBase {
   async init() {
     await this.getSDKInstance({
       hardwareCallContext: EHardwareCallContext.SDK_INITIALIZATION,
+      connectId: undefined,
     });
   }
 
   @backgroundMethod()
   async passHardwareEventsFromOffscreenToBackground(eventMessage: CoreMessage) {
-    const sdk = await this.getSDKInstance();
+    const sdk = await this.getSDKInstance({
+      connectId: undefined,
+    });
     sdk.emit(eventMessage.event, eventMessage);
   }
 
@@ -594,7 +597,9 @@ class ServiceHardware extends ServiceBase {
   // TODO use convertDeviceResponse()
   @backgroundMethod()
   async searchDevices() {
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: undefined,
+    });
     const response = await hardwareSDK?.searchDevices();
     console.log('searchDevices response: ', response);
     return response;
@@ -1137,7 +1142,9 @@ class ServiceHardware extends ServiceBase {
   async getLogs(): Promise<string[]> {
     const logs: string[] = ['===== device logs ====='];
     try {
-      const hardwareSDK = await this.getSDKInstance();
+      const hardwareSDK = await this.getSDKInstance({
+        connectId: undefined,
+      });
       const messages = await convertDeviceResponse(() => hardwareSDK.getLogs());
       logs.push(...messages);
     } catch (error) {
@@ -1315,7 +1322,9 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async promptWebDeviceAccess(params: { deviceSerialNumberFromUI: string }) {
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: undefined,
+    });
     return convertDeviceResponse(() =>
       hardwareSDK?.promptWebDeviceAccess(params),
     );
@@ -1378,7 +1387,9 @@ class ServiceHardware extends ServiceBase {
   }: {
     transportType: EHardwareTransportType;
   }) {
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: undefined,
+    });
     await hardwareSDK.switchTransport(
       transportType === EHardwareTransportType.WEBUSB ? 'webusb' : 'web',
     );
@@ -1403,7 +1414,9 @@ class ServiceHardware extends ServiceBase {
       await resetHardwareSDKInstance();
 
       // 4. Get new SDK instance with new transport type
-      const newInstance = await this.getSDKInstance();
+      const newInstance = await this.getSDKInstance({
+        connectId: undefined,
+      });
 
       console.log(
         `Successfully switched hardware transport type to: ${transportType}`,

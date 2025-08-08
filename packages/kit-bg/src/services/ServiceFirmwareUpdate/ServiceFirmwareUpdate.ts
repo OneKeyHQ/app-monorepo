@@ -125,7 +125,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async getSDKInstance({
     connectId,
   }: {
-    connectId?: string;
+    connectId: string | undefined;
   }): Promise<CoreApi> {
     const hardwareSDK = await this.backgroundApi.serviceHardware.getSDKInstance(
       {
