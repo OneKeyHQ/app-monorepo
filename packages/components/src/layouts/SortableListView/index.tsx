@@ -100,12 +100,32 @@ function Item<T>({
   useEffect(() => {
     setSize(getIndex(), rowRef?.current?.clientHeight ?? 0);
   }, [rowRef, setSize, getIndex]);
+
+  const content = useMemo(() => {
+    return renderItem({
+      item,
+      drag,
+      dragProps,
+      getIndex,
+      isActive: isDragging,
+      index: getIndex(),
+    });
+  }, [renderItem, item, drag, dragProps, getIndex, isDragging]);
+  const draggableProps = useMemo(
+    () => ({
+      ...provided.draggableProps,
+      ...dragHandleProps,
+    }),
+    [provided.draggableProps, dragHandleProps],
+  );
   return (
     <div
       ref={provided.innerRef}
-      {...provided.draggableProps}
-      {...dragHandleProps}
-      style={style}
+      {...draggableProps}
+      style={{
+        ...draggableProps.style,
+        ...style,
+      }}
     >
       <div ref={rowRef}>
         {renderItem({
@@ -305,6 +325,22 @@ function BaseSortableListView<T>(
         isCombineEnabled={false}
         ignoreContainerClipping={false}
         renderClone={(provided, snapshot, rubric) => {
+          // return (
+          //   <div
+          //     ref={provided.innerRef}
+          //     {...provided.draggableProps}
+          //     {...provided.dragHandleProps}
+          //   >
+          //     {renderItem({
+          //       item: data[rubric.source.index],
+          //       drag: () => {},
+          //       dragProps: {},
+          //       getIndex: () => rubric.source.index,
+          //       isActive: true,
+          //       index: rubric.source.index,
+          //     })}
+          //   </div>
+          // );
           return (
             <Item
               isDragging
