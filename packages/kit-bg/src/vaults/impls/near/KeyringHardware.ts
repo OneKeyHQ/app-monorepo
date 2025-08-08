@@ -128,7 +128,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   ): Promise<ISignedTxPro> {
     const { unsignedTx, deviceParams } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxNear;
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: deviceParams?.dbDevice?.connectId || '',
+    });
     const path = await this.vault.getAccountPath();
     const { deviceCommonParams, dbDevice } = checkIsDefined(deviceParams);
     const { connectId, deviceId } = dbDevice;

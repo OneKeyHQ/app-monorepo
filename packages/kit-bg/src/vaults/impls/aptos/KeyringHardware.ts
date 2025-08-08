@@ -141,7 +141,9 @@ export class KeyringHardware extends KeyringHardwareBase {
       transactionType = 1; // WITH_DATA Transaction
     }
 
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId,
+    });
     const account = await this.vault.getAccount();
     const res = await convertDeviceResponse(() =>
       sdk.aptosSignTransaction(connectId, deviceId, {
@@ -169,7 +171,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { messages, deviceParams } = params;
     const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
     const { connectId, deviceId } = checkIsDefined(dbDevice);
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId,
+    });
     const account = await this.vault.getAccount();
     return Promise.all(
       messages.map(async (e) => {

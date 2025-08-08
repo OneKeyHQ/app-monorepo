@@ -1013,6 +1013,11 @@ export enum ESwapSlippageCustomStatus {
   WRONG = 'wrong',
 }
 
+export interface ISwapNativeTokenReserveGas {
+  networkId: string;
+  reserveGas: number;
+}
+
 export const SwapPercentageInputStage = [25, 50, 100];
 export const SwapPercentageInputStageForNative = [25, 50, 75, 100];
 
