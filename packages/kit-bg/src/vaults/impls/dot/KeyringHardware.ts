@@ -140,7 +140,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: params.deviceParams?.dbDevice?.connectId || '',
+    });
     const unsignedTx = checkIsDefined(params.unsignedTx);
     const deviceParams = checkIsDefined(params.deviceParams);
     const encodedTx = checkIsDefined(unsignedTx.encodedTx) as IEncodedTxDot;
