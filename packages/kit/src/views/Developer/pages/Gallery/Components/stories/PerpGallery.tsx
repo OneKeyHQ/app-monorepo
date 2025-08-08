@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import {
   Button,
@@ -55,6 +55,53 @@ function PerpApiTests() {
   ); // 7 days ago
   const [endTime, setEndTime] = useState(String(Date.now()));
 
+  // State for stored perp configuration
+  const [storedBuilderAddress, setStoredBuilderAddress] = useState('');
+  const [storedMaxBuilderFee, setStoredMaxBuilderFee] = useState('');
+  const [newBuilderAddress, setNewBuilderAddress] = useState('');
+  const [newMaxBuilderFee, setNewMaxBuilderFee] = useState('');
+
+  // Load stored perp configuration
+  const loadPerpConfig = async () => {
+    try {
+      const config = await backgroundApiProxy.simpleDb.perp.getPerpConfig();
+      setStoredBuilderAddress(config.expectBuilderAddress || '');
+      setStoredMaxBuilderFee(config.expectMaxBuilderFee?.toString() || '');
+      setNewBuilderAddress(config.expectBuilderAddress || '');
+      setNewMaxBuilderFee(config.expectMaxBuilderFee?.toString() || '');
+    } catch (error) {
+      console.error('Error loading perp config:', error);
+    }
+  };
+
+  // Update stored perp configuration
+  const updatePerpConfig = async () => {
+    try {
+      if (newBuilderAddress) {
+        await backgroundApiProxy.servicePerp.updateExpectBuilderAddress(newBuilderAddress);
+      }
+      if (newMaxBuilderFee) {
+        await backgroundApiProxy.servicePerp.updateExpectMaxBuilderFee(Number(newMaxBuilderFee));
+      }
+      await loadPerpConfig(); // Reload to confirm changes
+      Toast.success({
+        title: 'Configuration Updated',
+        message: 'Perp configuration has been updated successfully',
+      });
+    } catch (error) {
+      const e = error as Error;
+      Toast.error({
+        title: 'Update Failed',
+        message: e?.message || 'Failed to update configuration',
+      });
+    }
+  };
+
+  // Load configuration on component mount
+  useEffect(() => {
+    void loadPerpConfig();
+  }, []);
+
   const handleApiCall = async (
     apiCall: () => Promise<unknown>,
     apiName: string,
@@ -69,6 +116,72 @@ function PerpApiTests() {
 
   return (
     <Stack gap="$4">
+      <Stack gap="$3">
+        <SizableText size="$bodyLg" fontWeight="600">
+          Perp Configuration (Stored Values)
+        </SizableText>
+
+        <Stack gap="$2">
+          <SizableText size="$bodySm" color="$textSubdued">
+            Current Stored Values:
+          </SizableText>
+          <XStack gap="$4">
+            <Stack gap="$1">
+              <SizableText size="$bodySm" fontWeight="500">
+                Builder Address:
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {storedBuilderAddress || 'Not set'}
+              </SizableText>
+            </Stack>
+            <Stack gap="$1">
+              <SizableText size="$bodySm" fontWeight="500">
+                Max Builder Fee:
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {storedMaxBuilderFee || 'Not set'}
+              </SizableText>
+            </Stack>
+          </XStack>
+        </Stack>
+
+        <Stack gap="$2">
+          <SizableText size="$bodySm" fontWeight="bold">
+            Update Builder Address
+          </SizableText>
+          <Input
+            value={newBuilderAddress}
+            onChangeText={setNewBuilderAddress}
+            placeholder="0x4EF880525383ab4E3d94b7689e3146bF899A296e"
+            allowPaste
+            allowClear
+          />
+        </Stack>
+
+        <Stack gap="$2">
+          <SizableText size="$bodySm" fontWeight="bold">
+            Update Max Builder Fee
+          </SizableText>
+          <Input
+            value={newMaxBuilderFee}
+            onChangeText={setNewMaxBuilderFee}
+            placeholder="58"
+            keyboardType="numeric"
+            allowPaste
+            allowClear
+          />
+        </Stack>
+
+        <XStack gap="$2">
+          <Button onPress={updatePerpConfig} variant="primary">
+            Update Configuration
+          </Button>
+          <Button onPress={loadPerpConfig} variant="secondary">
+            Reload Current Values
+          </Button>
+        </XStack>
+      </Stack>
+
       <Stack gap="$2">
         <SizableText size="$bodySm" fontWeight="bold">
           User Address
@@ -296,6 +409,21 @@ function PerpApiTests() {
             }
           >
             Create Builder Fee Payload
+          </Button>
+
+          <Button
+            onPress={() =>
+              handleApiCall(
+                () =>
+                  backgroundApiProxy.servicePerp.getUserBuilderFeeStatus({
+                    userAddress,
+                  }),
+                'getUserBuilderFeeStatus',
+              )
+            }
+            variant="secondary"
+          >
+            Get Builder Fee Status (Uses Stored Config)
           </Button>
         </XStack>
       </Stack>

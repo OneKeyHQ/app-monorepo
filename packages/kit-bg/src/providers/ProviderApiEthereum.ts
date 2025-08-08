@@ -948,23 +948,29 @@ class ProviderApiEthereum extends ProviderApiBase {
     return result;
   }
 
+  // TODO getBuilderFee readonly method, execute when dapp start
+
   @providerApiMethod()
   async hl_checkUserStatus(
     request: IJsBridgeMessagePayload,
     {
       userAddress,
       chainId,
+      shouldApproveBuilderFee,
     }: {
       userAddress: string;
       chainId: string;
+      shouldApproveBuilderFee: boolean;
     },
   ) {
-    await this.backgroundApi.servicePerp.approveBuilderFeeIfRequired({
-      request,
-      userAddress,
-      chainId,
-    });
-    return null;
+    const status =
+      await this.backgroundApi.servicePerp.approveBuilderFeeIfRequired({
+        request,
+        userAddress,
+        chainId,
+        skipApproveAction: !shouldApproveBuilderFee,
+      });
+    return status;
   }
 
   @providerApiMethod()

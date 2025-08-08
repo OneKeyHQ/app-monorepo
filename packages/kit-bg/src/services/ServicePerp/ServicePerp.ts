@@ -7,15 +7,16 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
   IHyperLiquidSignatureRSV,
   IHyperLiquidTypedDataApproveBuilderFee,
+  IHyperLiquidUserBuilderFeeStatus,
 } from '@onekeyhq/shared/types/hyperliquid';
 
 import ServiceBase from '../ServiceBase';
 
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 export interface IHyperliquidClearinghouseState {
   marginSummary: {
@@ -121,6 +122,29 @@ export interface IHyperliquidExchangeResponse {
 class ServicePerp extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  @backgroundMethod()
+  async initializePerpConfig() {
+    const config = await this.backgroundApi.simpleDb.perp.getPerpConfig();
+    if (!config.expectBuilderAddress) {
+      await this.backgroundApi.simpleDb.perp.setExpectBuilderAddress(
+        '0x4EF880525383ab4E3d94b7689e3146bF899A296e',
+      );
+    }
+    if (!config.expectMaxBuilderFee) {
+      await this.backgroundApi.simpleDb.perp.setExpectMaxBuilderFee(58);
+    }
+  }
+
+  @backgroundMethod()
+  async updateExpectBuilderAddress(address: string) {
+    await this.backgroundApi.simpleDb.perp.setExpectBuilderAddress(address);
+  }
+
+  @backgroundMethod()
+  async updateExpectMaxBuilderFee(fee: number) {
+    await this.backgroundApi.simpleDb.perp.setExpectMaxBuilderFee(fee);
   }
 
   private async hyperliquidRequest<T>(body: Record<string, any>): Promise<T> {
@@ -402,15 +426,17 @@ class ServicePerp extends ServiceBase {
     request,
     userAddress,
     chainId,
+    skipApproveAction,
   }: {
     request: IJsBridgeMessagePayload;
     userAddress: string;
     chainId: string; // 0xa4b1 Arbitrum hex chainId
+    skipApproveAction?: boolean;
   }) {
-    const status = await this.checkUserBuilderFeeStatus({
+    const status = await this.getUserBuilderFeeStatus({
       userAddress,
     });
-    if (!status.isDone && status.canSetBuilderFee) {
+    if (!skipApproveAction && !status.isDone && status.canSetBuilderFee) {
       const { apiPayload, typedData } =
         await this.createApproveBuilderFeePayload({
           builderAddress: status.expectBuilderAddress,
@@ -435,23 +461,26 @@ class ServicePerp extends ServiceBase {
         );
       return response;
     }
+    return status;
   }
 
-  async checkUserBuilderFeeStatus({
+  async getUserBuilderFeeStatus({
     userAddress,
   }: {
     userAddress: string;
-  }): Promise<{
-    isDone: boolean;
-    canSetBuilderFee: boolean;
-    currentMaxBuilderFee: number;
-    expectMaxBuilderFee: number;
-    expectBuilderAddress: string;
-    accountValue: string | null;
-  }> {
-    // TODO get builderAddress,builderFeeValue from onekey server API
-    const expectBuilderAddress = '0x4EF880525383ab4E3d94b7689e3146bF899A296e';
-    const expectMaxBuilderFee = 72;
+  }): Promise<IHyperLiquidUserBuilderFeeStatus> {
+    // Initialize perp config with default values if not set
+    await this.initializePerpConfig();
+
+    // Get builderAddress and builderFeeValue from simpleDB
+    const expectBuilderAddress =
+      (await this.backgroundApi.simpleDb.perp.getExpectBuilderAddress()) ||
+      '0x4EF880525383ab4E3d94b7689e3146bF899A296e';
+    // Need to check this formula returns an integer in the browser: 1e5 * (num/1e5)
+    const expectMaxBuilderFee =
+      (await this.backgroundApi.simpleDb.perp.getExpectMaxBuilderFee()) || 58; // 1e5 * (num/1e5)
+    const shouldModifyPlaceOrderPayload = true;
+    // const shouldModifyPlaceOrderPayload = false;
     // TODO cache user value
     const currentMaxBuilderFee =
       await this.backgroundApi.servicePerp.getMaxBuilderFee({
@@ -466,6 +495,7 @@ class ServicePerp extends ServiceBase {
         expectMaxBuilderFee,
         expectBuilderAddress,
         accountValue: null,
+        shouldModifyPlaceOrderPayload,
       };
     }
     const { accountValue } =
@@ -479,6 +509,7 @@ class ServicePerp extends ServiceBase {
       expectMaxBuilderFee,
       expectBuilderAddress,
       accountValue,
+      shouldModifyPlaceOrderPayload,
     };
   }
 }
