@@ -16,13 +16,14 @@ import type {
 import { FlashList } from '@shopify/flash-list';
 import { useStyle } from '@tamagui/core';
 // eslint-disable-next-line spellcheck/spell-checker
-import { noop } from 'lodash';
+import { get, noop } from 'lodash';
 import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
 import {
   OpacityDecorator,
   ScaleDecorator,
   ShadowDecorator,
 } from 'react-native-draggable-flatlist';
+import Animated from 'react-native-reanimated';
 import { withStaticProperties } from 'tamagui';
 
 import {
@@ -388,7 +389,23 @@ function BaseSortableListView<T>(
               }}
               renderItem={reloadRenderItem as ListRenderItem<T>}
               CellRendererComponent={
-                useFlashList ? undefined : FragmentComponent
+                useFlashList
+                  ? (props) => {
+                      return (
+                        <Animated.View
+                          {...props}
+                          style={
+                            getSize(props.index)
+                              ? {
+                                  ...props.style,
+                                  height: getSize(props.index) ?? props.style?.height,
+                                }
+                              : props.style
+                          }
+                        />
+                      );
+                    }
+                  : FragmentComponent
               }
               getItemLayout={useFlashList ? undefined : getItemLayout}
               keyExtractor={keyExtractor}
