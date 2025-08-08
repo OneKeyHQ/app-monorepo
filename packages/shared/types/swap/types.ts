@@ -473,6 +473,7 @@ export interface ISwapPreSwapData {
   };
   fee?: IFetchQuoteFee;
   supportNetworkFeeLevel?: boolean;
+  supportPreBuild?: boolean;
   allowanceResult?: IAllowanceResult;
   netWorkFee?: {
     gasInfos?: { encodeTx: IEncodedTx; gasInfo: ISwapGasInfo }[];

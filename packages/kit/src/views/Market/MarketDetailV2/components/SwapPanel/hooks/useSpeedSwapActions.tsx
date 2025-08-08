@@ -57,6 +57,7 @@ export function useSpeedSwapActions(props: {
   slippage: number;
   defaultTradeTokens: ISwapTokenBase[];
   antiMEV: boolean;
+  onCloseDialog?: () => void;
 }) {
   const {
     marketToken,
@@ -68,6 +69,7 @@ export function useSpeedSwapActions(props: {
     slippage,
     defaultTradeTokens,
     antiMEV,
+    // onCloseDialog,
   } = props;
 
   const intl = useIntl();
@@ -330,6 +332,7 @@ export function useSpeedSwapActions(props: {
           },
         },
       };
+      // onCloseDialog?.();
       await navigationToTxConfirm({
         isInternalSwap: true,
         transfersInfo: transferInfo ? [transferInfo] : undefined,
@@ -398,6 +401,7 @@ export function useSpeedSwapActions(props: {
     cancelSpeedSwapBuildTx,
     antiMEV,
     isFirstTimeSwap,
+    // onCloseDialog,
   ]);
 
   // --- approve

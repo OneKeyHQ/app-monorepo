@@ -506,15 +506,14 @@ const SwapTokenSelectPage = () => {
             setSearchKeyword(afterTrim);
           },
           searchBarInputValue: searchKeyword,
-          addOns:
-            searchKeyword?.length === 0
-              ? [
-                  {
-                    iconName: 'ClipboardOutline',
-                    onPress: handlePaste,
-                  },
-                ]
-              : [],
+          ...(searchKeyword?.length === 0 && {
+            addOns: [
+              {
+                iconName: 'ClipboardOutline',
+                onPress: handlePaste,
+              },
+            ],
+          }),
         }}
       />
       <Page.Body>

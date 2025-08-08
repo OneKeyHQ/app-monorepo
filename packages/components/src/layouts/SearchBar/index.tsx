@@ -85,15 +85,6 @@ export function SearchBar({
       value={value}
       onChangeText={handleChange}
       leftIconName="SearchOutline"
-      {...(value?.length && {
-        addOns: [
-          {
-            iconName: 'XCircleOutline',
-            onPress: handleClearValue,
-            testID: `${testID || ''}-clear`,
-          },
-        ],
-      })}
       returnKeyType="search"
       returnKeyLabel="Search"
       testID={testID ? `nav-header-search-${testID}` : 'nav-header-search'}
@@ -101,6 +92,16 @@ export function SearchBar({
         id: ETranslations.global_search,
       })}
       {...rest}
+      {...(value?.length &&
+        !rest.addOns?.length && {
+          addOns: [
+            {
+              iconName: 'XCircleOutline',
+              onPress: handleClearValue,
+              testID: `${testID || ''}-clear`,
+            },
+          ],
+        })}
       onCompositionStart={handleCompositionStart}
       onCompositionEnd={handleCompositionEnd}
       containerProps={{

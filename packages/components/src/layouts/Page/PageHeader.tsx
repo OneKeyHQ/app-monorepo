@@ -93,6 +93,8 @@ function PageHeader(props: IPageHeaderProps) {
           onFocus={headerSearchBarOptions?.onFocus}
           isModalScreen={isModal}
           onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
+          addOns={headerSearchBarOptions?.addOns}
+          searchBarInputValue={headerSearchBarOptions?.searchBarInputValue}
         />
       ) : null}
       {isModal || platformEnv.isNativeIOSPad ? null : <PageHeaderDivider />}
