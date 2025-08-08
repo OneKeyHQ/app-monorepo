@@ -73,22 +73,20 @@ const getBody = () => {
 
 function Item<T>({
   item,
-  index,
   renderItem,
   provided,
   getIndex,
-  isActive,
+  isDragging,
   drag,
   dragProps,
   style,
   setSize,
 }: {
   item: T;
-  index: number;
   renderItem: ISortableListViewProps<T>['renderItem'];
   provided: DraggableProvided;
-  getIndex?: () => number;
-  isActive: boolean;
+  getIndex: () => number;
+  isDragging: boolean;
   dragProps: Record<string, any>;
   drag: () => void;
   style?: CSSProperties;
@@ -100,8 +98,8 @@ function Item<T>({
   >;
   const rowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    setSize(index, rowRef?.current?.clientHeight ?? 0);
-  }, [rowRef, index, setSize]);
+    setSize(getIndex(), rowRef?.current?.clientHeight ?? 0);
+  }, [rowRef, setSize, getIndex]);
   return (
     <div
       ref={provided.innerRef}
@@ -114,9 +112,9 @@ function Item<T>({
           item,
           drag,
           dragProps,
-          getIndex: getIndex ?? (() => index),
-          isActive,
-          index,
+          getIndex,
+          isActive: isDragging,
+          index: getIndex(),
         })}
       </div>
     </div>
@@ -267,10 +265,10 @@ function BaseSortableListView<T>(
                     acc[reloadKey] = dragHandleProps[key];
                     return acc;
                   }, {} as Record<string, any>)}
-                  isActive={false}
+                  isDragging={false}
                   item={item}
-                  index={index}
-                  renderItem={renderItem}
+                  getIndex={() => index}
+                  renderItem={renderItem as any}
                   provided={provided}
                   setSize={setSize}
                 />
@@ -309,11 +307,10 @@ function BaseSortableListView<T>(
         renderClone={(provided, snapshot, rubric) => {
           return (
             <Item
-              isActive={false}
-              drag={noop}
+              isDragging
               dragProps={{}}
+              drag={noop}
               item={data[rubric.source.index]}
-              index={rubric.source.index}
               renderItem={renderItem}
               provided={provided}
               getIndex={() => rubric.source.index}
