@@ -135,17 +135,21 @@ function CellContainer<T>({
 }) {
   const { ref, index } = props;
   const containerRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number | undefined>(undefined);
   useLayoutEffect(() => {
-    if (containerRef.current || ref.current) {
+    if (containerRef.current) {
       const clientHeight = containerRef.current?.clientHeight;
+      console.log('clientHeight', clientHeight);
       if (clientHeight) {
-        ref.current.style.height = `${clientHeight}px`;
+        setHeight(clientHeight);
       }
     }
   }, [index, ref]);
-  // const clientHeight = height || getSize(index);
   return (
-    <Animated.View {...(props as any)}>
+    <Animated.View
+      {...(props as any)}
+      style={height ? { ...props.style, height } : props.style}
+    >
       <div ref={containerRef}>{children}</div>
     </Animated.View>
   );
