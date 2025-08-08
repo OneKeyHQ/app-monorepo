@@ -137,15 +137,20 @@ function CellContainer<T>({
   height,
   ...props
 }: CellRendererProps<T> & { height?: number }) {
-  if (height) {
-    props.style = props.style || {};
-    (
-      props.style as {
-        height: number;
-      }
-    ).height = height;
-  }
-  return <Animated.View {...props} />;
+  // if (height) {
+  //   props.style = props.style || {};
+  //   (
+  //     props.style as {
+  //       height: number;
+  //     }
+  //   ).height = height;
+  // }
+  return (
+    <Animated.View
+      {...props}
+      style={height ? { ...props.style, height } : props.style}
+    />
+  );
 }
 
 function BaseSortableListView<T>(
