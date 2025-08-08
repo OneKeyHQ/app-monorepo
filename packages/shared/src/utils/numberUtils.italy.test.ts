@@ -808,7 +808,7 @@ describe('numberUtils.italy.test', () => {
           currency: '$',
         }),
       ),
-    ).toEqual('> $999T');
+    ).toEqual('>$999T');
 
     // Test meta.isCapped flag
     const cappedResult = formatMarketCap('21953896250000000000000', {
