@@ -5,25 +5,25 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useMarketWatchListAtom } from '@onekeyhq/kit/src/states/jotai/contexts/market/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-// import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import {
   ERootRoutes,
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type { IUniversalSearchMarketToken } from '@onekeyhq/shared/types/search';
+import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/search';
 import { ESearchStatus } from '@onekeyhq/shared/types/search';
 
-// import { MarketStar } from '../../../Market/components/MarketStar';
+import { MarketStar } from '../../../Market/components/MarketStar';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { MarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
 
 interface IUniversalSearchMarketTokenItemProps {
-  item: IUniversalSearchMarketToken;
+  item: IUniversalSearchV2MarketToken;
   searchStatus: ESearchStatus;
 }
 
-export function UniversalSearchMarketTokenItem({
+export function UniversalSearchV2MarketTokenItem({
   item,
   searchStatus,
 }: IUniversalSearchMarketTokenItemProps) {
@@ -87,11 +87,11 @@ export function UniversalSearchMarketTokenItem({
           tokenName={name}
           tokenSymbol={symbol}
         />
-        {/* <MarketStar
+        <MarketStar
           coingeckoId={coingeckoId}
           ml="$3"
           from={EWatchlistFrom.search}
-        /> */}
+        />
       </XStack>
     </ListItem>
   );
