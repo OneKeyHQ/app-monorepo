@@ -1175,6 +1175,7 @@
   global_deny = 'global.deny',
   global_derivation_path = 'global.derivation_path',
   global_description = 'global.description',
+  global_deselect_all = 'global.deselect_all',
   global_details = 'global.details',
   global_dev_mode = 'global.dev_mode',
   global_device_info = 'global.device_info',

@@ -1170,6 +1170,7 @@
   "global.deny": "Отказать",
   "global.derivation_path": "Путь производного",
   "global.description": "Описание",
+  "global.deselect_all": "Снять все выделения",
   "global.details": "Детали",
   "global.dev_mode": "Режим разработчика",
   "global.device_info": "Информация об устройстве",

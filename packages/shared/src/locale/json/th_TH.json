@@ -1170,6 +1170,7 @@
   "global.deny": "ปฏิเสธ",
   "global.derivation_path": "เส้นทางการแยก",
   "global.description": "คำอธิบาย",
+  "global.deselect_all": "ยกเลิกการเลือกทั้งหมด",
   "global.details": "รายละเอียด",
   "global.dev_mode": "โหมดพัฒนา",
   "global.device_info": "ข้อมูลอุปกรณ์",

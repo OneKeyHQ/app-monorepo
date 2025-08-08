@@ -1170,6 +1170,7 @@
   "global.deny": "부인하다",
   "global.derivation_path": "유도 경로",
   "global.description": "설명",
+  "global.deselect_all": "모두 선택 해제",
   "global.details": "세부사항",
   "global.dev_mode": "개발자 모드",
   "global.device_info": "장치 정보",

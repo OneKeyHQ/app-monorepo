@@ -1170,6 +1170,7 @@
   "global.deny": "Refuser",
   "global.derivation_path": "Chemin de dérivation",
   "global.description": "Description",
+  "global.deselect_all": "Tout désélectionner",
   "global.details": "Détails",
   "global.dev_mode": "Mode développeur",
   "global.device_info": "Informations sur l'appareil",

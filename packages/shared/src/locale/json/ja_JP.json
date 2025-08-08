@@ -1170,6 +1170,7 @@
   "global.deny": "否定する",
   "global.derivation_path": "導出パス",
   "global.description": "説明",
+  "global.deselect_all": "すべて選択解除",
   "global.details": "詳細",
   "global.dev_mode": "開発モード",
   "global.device_info": "デバイス情報",

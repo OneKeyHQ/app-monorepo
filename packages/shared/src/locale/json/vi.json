@@ -1170,6 +1170,7 @@
   "global.deny": "Phủ nhận",
   "global.derivation_path": "Đường dẫn xuất phát",
   "global.description": "Mô tả",
+  "global.deselect_all": "Bỏ chọn tất cả",
   "global.details": "Chi tiết",
   "global.dev_mode": "Chế độ Dev",
   "global.device_info": "Thông tin thiết bị",

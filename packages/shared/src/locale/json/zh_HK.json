@@ -1170,6 +1170,7 @@
   "global.deny": "拒絕",
   "global.derivation_path": "派生路徑",
   "global.description": "描述",
+  "global.deselect_all": "取消全選",
   "global.details": "詳情",
   "global.dev_mode": "開發者模式",
   "global.device_info": "裝置資訊",

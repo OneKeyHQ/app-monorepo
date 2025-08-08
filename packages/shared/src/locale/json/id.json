@@ -1170,6 +1170,7 @@
   "global.deny": "Membantah",
   "global.derivation_path": "Jalur derivasi",
   "global.description": "Deskripsi",
+  "global.deselect_all": "Batalkan semua pilihan",
   "global.details": "Rincian",
   "global.dev_mode": "Mode pengembang",
   "global.device_info": "Informasi perangkat",

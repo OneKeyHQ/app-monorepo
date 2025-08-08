@@ -1170,6 +1170,7 @@
   "global.deny": "Заперечити",
   "global.derivation_path": "Шлях похідного",
   "global.description": "Опис",
+  "global.deselect_all": "Скасувати вибір для всіх",
   "global.details": "Деталі",
   "global.dev_mode": "Режим розробника",
   "global.device_info": "Інформація про пристрій",

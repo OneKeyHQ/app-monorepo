@@ -1170,6 +1170,7 @@
   "global.deny": "मना",
   "global.derivation_path": "व्युत्पत्ति पथ",
   "global.description": "विवरण",
+  "global.deselect_all": "सभी का चयन हटाएँ",
   "global.details": "विवरण",
   "global.dev_mode": "डेव मोड",
   "global.device_info": "डिवाइस जानकारी",
