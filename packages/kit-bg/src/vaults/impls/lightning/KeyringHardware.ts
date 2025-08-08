@@ -226,7 +226,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { isTestnet } = await this.getNetwork();
     const coinName = this.getBtcCoinName(isTestnet);
     const message = stringify(msgPayload);
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId,
+    });
     const response = await convertDeviceResponse(async () =>
       sdk.btcSignMessage(connectId, deviceId, {
         ...deviceCommonParams,
@@ -320,7 +322,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     const dbAccount = await this.vault.getAccount();
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId,
+    });
     const result = await Promise.all(
       params.messages.map(async ({ message }) => {
         const response = await sdk.btcSignMessage(connectId, deviceId, {
@@ -351,7 +355,9 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId,
+    });
     const response = await sdk.lnurlAuth(connectId, deviceId, {
       ...params.deviceParams?.deviceCommonParams,
       domain: url.hostname,

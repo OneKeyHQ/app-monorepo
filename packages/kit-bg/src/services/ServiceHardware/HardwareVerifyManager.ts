@@ -64,7 +64,9 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
         connectId,
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+    });
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceVerify(compatibleConnectId, { dataHex }),
     );

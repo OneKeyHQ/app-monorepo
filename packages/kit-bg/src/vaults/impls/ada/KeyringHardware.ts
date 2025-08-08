@@ -188,7 +188,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     const { PROTO } = await CoreSDKLoader();
-    const HardwareSDK = await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance({
+      connectId: params.deviceParams?.dbDevice?.connectId || '',
+    });
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
 
