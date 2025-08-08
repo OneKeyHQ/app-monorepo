@@ -1,20 +1,15 @@
 import { useCallback } from 'react';
 
-import { XStack, rootNavigationRef } from '@onekeyhq/components';
+import { XStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useMarketWatchListAtom } from '@onekeyhq/kit/src/states/jotai/contexts/market/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-// import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
-import {
-  ERootRoutes,
-  ETabMarketRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import type { IUniversalSearchMarketToken } from '@onekeyhq/shared/types/search';
 import { ESearchStatus } from '@onekeyhq/shared/types/search';
 
-// import { MarketStar } from '../../../Market/components/MarketStar';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { MarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
 
@@ -27,22 +22,16 @@ export function UniversalSearchMarketTokenItem({
   item,
   searchStatus,
 }: IUniversalSearchMarketTokenItemProps) {
+  const appNavigation = useAppNavigation();
   // Ensure market watch list atom is initialized
   const [{ isMounted }] = useMarketWatchListAtom();
   const universalSearchActions = useUniversalSearchActions();
   const { image, coingeckoId, price, symbol, name, lastUpdated } = item.payload;
 
   const handlePress = useCallback(() => {
-    rootNavigationRef.current?.goBack();
     setTimeout(async () => {
-      rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-        screen: ETabRoutes.Market,
-        params: {
-          screen: ETabMarketRoutes.MarketDetail,
-          params: {
-            token: coingeckoId,
-          },
-        },
+      appNavigation.push(EUniversalSearchPages.MarketDetail, {
+        token: coingeckoId,
       });
       defaultLogger.market.token.searchToken({
         tokenSymbol: coingeckoId,
@@ -61,8 +50,15 @@ export function UniversalSearchMarketTokenItem({
           });
         }, 10);
       }
-    }, 80);
-  }, [coingeckoId, item.type, searchStatus, symbol, universalSearchActions]);
+    }, 0);
+  }, [
+    appNavigation,
+    coingeckoId,
+    item.type,
+    searchStatus,
+    symbol,
+    universalSearchActions,
+  ]);
 
   if (!isMounted) {
     return null;
@@ -87,11 +83,6 @@ export function UniversalSearchMarketTokenItem({
           tokenName={name}
           tokenSymbol={symbol}
         />
-        {/* <MarketStar
-          coingeckoId={coingeckoId}
-          ml="$3"
-          from={EWatchlistFrom.search}
-        /> */}
       </XStack>
     </ListItem>
   );
