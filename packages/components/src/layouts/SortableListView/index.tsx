@@ -101,23 +101,10 @@ function Item<T>({
     setSize(getIndex(), rowRef?.current?.clientHeight ?? 0);
   }, [rowRef, setSize, getIndex]);
 
-  const content = useMemo(() => {
-    return renderItem({
-      item,
-      drag,
-      dragProps,
-      getIndex,
-      isActive: isDragging,
-      index: getIndex(),
-    });
-  }, [renderItem, item, drag, dragProps, getIndex, isDragging]);
-  const draggableProps = useMemo(
-    () => ({
-      ...provided.draggableProps,
-      ...dragHandleProps,
-    }),
-    [provided.draggableProps, dragHandleProps],
-  );
+  const draggableProps = {
+    ...provided.draggableProps,
+    ...dragHandleProps,
+  };
   return (
     <div
       ref={provided.innerRef}
@@ -268,17 +255,16 @@ function BaseSortableListView<T>(
                   />
                 ) : null}
                 <Item
-                  style={{
-                    ...provided.draggableProps.style,
-                    ...(!isSticky
+                  style={
+                    !isSticky
                       ? {
                           position: useFlashList ? undefined : 'absolute',
                           top: (layout?.offset ?? 0) + (contentPaddingTop ?? 0),
                           height: useFlashList ? undefined : layout?.length,
                           width: '100%',
                         }
-                      : {}),
-                  }}
+                      : {}
+                  }
                   drag={noop}
                   dragProps={Object.keys(dragHandleProps).reduce((acc, key) => {
                     const reloadKey = key.replace(/^data-/, '');
