@@ -65,10 +65,14 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
       return tradingViewUrl;
     }
 
-    return devSettings.settings?.useLocalTradingViewUrl
+    return devSettings.enabled && devSettings.settings?.useLocalTradingViewUrl
       ? 'http://localhost:5173/'
       : TRADING_VIEW_URL;
-  }, [tradingViewUrl, devSettings.settings?.useLocalTradingViewUrl]);
+  }, [
+    tradingViewUrl,
+    devSettings.enabled,
+    devSettings.settings?.useLocalTradingViewUrl,
+  ]);
 
   const tradingViewUrlWithParams = useMemo(() => {
     const timezone = getTradingViewTimezone(calendars);

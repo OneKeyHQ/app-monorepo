@@ -781,19 +781,19 @@ describe('numberUtils.italy.test', () => {
       formatDisplayNumber(
         formatMarketCap('999500000000000', { capAtMaxT: true }),
       ),
-    ).toEqual('> 999T');
+    ).toEqual('>999T');
 
     expect(
       formatDisplayNumber(
         formatMarketCap('1000000000000000', { capAtMaxT: true }),
       ),
-    ).toEqual('> 999T');
+    ).toEqual('>999T');
 
     expect(
       formatDisplayNumber(
         formatMarketCap('21953896250000000000000', { capAtMaxT: true }),
       ),
-    ).toEqual('> 999T');
+    ).toEqual('>999T');
 
     // Test without capAtMaxT (default behavior)
     expect(

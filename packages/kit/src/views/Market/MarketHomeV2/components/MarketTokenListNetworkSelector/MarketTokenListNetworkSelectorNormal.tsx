@@ -53,7 +53,7 @@ const MarketTokenListNetworkSelectorNormal = forwardRef<
     );
 
     return (
-      <Stack bg="$red3">
+      <Stack>
         {isLoading ? (
           <MarketTokenListNetworkSelectorNormalSkeleton />
         ) : (
