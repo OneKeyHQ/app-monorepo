@@ -2,8 +2,8 @@
 
 // @ts-ignore
 /* eslint-disable  */
-  
-  export enum ETranslations {
+
+export enum ETranslations {
   Limit_expire_day = 'Limit.expire_day',
   Limit_expire_days = 'Limit.expire_days',
   Limit_expire_hour = 'Limit.expire_hour',
@@ -1118,6 +1118,7 @@
   global_client_side = 'global.client_side',
   global_close = 'global.close',
   global_close_confirm_description = 'global.close_confirm_description',
+  global_collapse = 'global.collapse',
   global_collect_to_device = 'global.collect_to_device',
   global_collect_to_device_canceled = 'global.collect_to_device_canceled',
   global_collect_to_device_failed = 'global.collect_to_device_failed',
@@ -1208,6 +1209,7 @@
   global_est_network_fee = 'global.est_network_fee',
   global_estimated_results = 'global.estimated_results',
   global_exit = 'global.exit',
+  global_expand = 'global.expand',
   global_expand_view = 'global.expand_view',
   global_explore_now = 'global.explore_now',
   global_explorers = 'global.explorers',
@@ -3137,7 +3139,6 @@
   wallet_get_trx_for_future_fees = 'wallet.get_trx_for_future_fees',
   wallet_hardware_wallet_connect_description_1 = 'wallet.hardware_wallet_connect_description_1',
   wallet_hardware_wallet_connect_description_2 = 'wallet.hardware_wallet_connect_description_2',
-  wallet_history_footer_view_full_history_in_explorer = 'wallet.history_footer_view_full_history_in_explorer',
   wallet_history_settings_hide_risk_transaction_desc = 'wallet.history_settings_hide_risk_transaction_desc',
   wallet_history_settings_hide_risk_transaction_desc_unsupported = 'wallet.history_settings_hide_risk_transaction_desc_unsupported',
   wallet_history_settings_hide_risk_transaction_title = 'wallet.history_settings_hide_risk_transaction_title',
