@@ -7,7 +7,7 @@ import type { IServerNetwork } from '.';
 import type { INetworkAccount } from './account';
 import type { IAddressValidation } from './address';
 import type { IDApp } from './discovery';
-import type { IMarketToken } from './market';
+import type { IMarketSearchV2Token, IMarketToken } from './market';
 import type { IAccountToken, ITokenFiat } from './token';
 
 export enum EUniversalSearchType {
@@ -59,7 +59,7 @@ export type IUniversalSearchMarketToken = {
 
 export type IUniversalSearchV2MarketToken = {
   type: EUniversalSearchType.V2MarketToken;
-  payload: IMarketToken;
+  payload: IMarketSearchV2Token;
 };
 
 export type IUniversalSearchAccountAssets = {

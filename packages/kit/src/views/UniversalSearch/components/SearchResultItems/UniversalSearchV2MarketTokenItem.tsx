@@ -14,7 +14,7 @@ import {
 import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/search';
 import { ESearchStatus } from '@onekeyhq/shared/types/search';
 
-import { MarketStar } from '../../../Market/components/MarketStar';
+import { MarketStarV2 } from '../../../Market/components/MarketStarV2';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { MarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
 
@@ -30,7 +30,7 @@ export function UniversalSearchV2MarketTokenItem({
   // Ensure market watch list atom is initialized
   const [{ isMounted }] = useMarketWatchListAtom();
   const universalSearchActions = useUniversalSearchActions();
-  const { image, coingeckoId, price, symbol, name, lastUpdated } = item.payload;
+  const { logoUrl, price, symbol, name, address, network } = item.payload;
 
   const handlePress = useCallback(() => {
     rootNavigationRef.current?.goBack();
@@ -38,14 +38,16 @@ export function UniversalSearchV2MarketTokenItem({
       rootNavigationRef.current?.navigate(ERootRoutes.Main, {
         screen: ETabRoutes.Market,
         params: {
-          screen: ETabMarketRoutes.MarketDetail,
+          screen: ETabMarketRoutes.MarketDetailV2,
           params: {
-            token: coingeckoId,
+            tokenAddress: address,
+            networkId: network,
+            symbol,
           },
         },
       });
       defaultLogger.market.token.searchToken({
-        tokenSymbol: coingeckoId,
+        tokenSymbol: symbol,
         from:
           searchStatus === ESearchStatus.init ? 'trendingList' : 'searchList',
       });
@@ -54,7 +56,7 @@ export function UniversalSearchV2MarketTokenItem({
       if (searchStatus !== ESearchStatus.init) {
         setTimeout(() => {
           universalSearchActions.current.addIntoRecentSearchList({
-            id: coingeckoId,
+            id: address,
             text: symbol,
             type: item.type,
             timestamp: Date.now(),
@@ -62,7 +64,14 @@ export function UniversalSearchV2MarketTokenItem({
         }, 10);
       }
     }, 80);
-  }, [coingeckoId, item.type, searchStatus, symbol, universalSearchActions]);
+  }, [
+    address,
+    network,
+    item.type,
+    searchStatus,
+    symbol,
+    universalSearchActions,
+  ]);
 
   if (!isMounted) {
     return null;
@@ -72,7 +81,7 @@ export function UniversalSearchV2MarketTokenItem({
     <ListItem
       jc="space-between"
       onPress={handlePress}
-      renderAvatar={<MarketTokenIcon uri={image} size="lg" />}
+      renderAvatar={<MarketTokenIcon uri={logoUrl} size="lg" />}
       title={symbol.toUpperCase()}
       subtitle={name}
       subtitleProps={{
@@ -83,14 +92,15 @@ export function UniversalSearchV2MarketTokenItem({
         <MarketTokenPrice
           price={String(price)}
           size="$bodyLgMedium"
-          lastUpdated={lastUpdated}
           tokenName={name}
           tokenSymbol={symbol}
         />
-        <MarketStar
-          coingeckoId={coingeckoId}
+        <MarketStarV2
+          chainId={network}
+          contractAddress={address}
           ml="$3"
           from={EWatchlistFrom.search}
+          size="medium"
         />
       </XStack>
     </ListItem>

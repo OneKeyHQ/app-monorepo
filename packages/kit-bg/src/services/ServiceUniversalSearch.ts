@@ -107,7 +107,7 @@ class ServiceUniversalSearch extends ServiceBase {
         ? this.universalSearchOfAddress({ input, networkId })
         : Promise.resolve([]),
       searchTypes.includes(EUniversalSearchType.V2MarketToken)
-        ? this.universalSearchOfMarketToken(input)
+        ? this.universalSearchOfV2MarketToken(input)
         : Promise.resolve([]),
       searchTypes.includes(EUniversalSearchType.MarketToken)
         ? this.universalSearchOfMarketToken(input)
@@ -206,6 +206,10 @@ class ServiceUniversalSearch extends ServiceBase {
 
   async universalSearchOfMarketToken(query: string) {
     return this.backgroundApi.serviceMarket.searchToken(query);
+  }
+
+  async universalSearchOfV2MarketToken(query: string) {
+    return this.backgroundApi.serviceMarket.searchV2Token(query);
   }
 
   async universalSearchOfAccountAssets({

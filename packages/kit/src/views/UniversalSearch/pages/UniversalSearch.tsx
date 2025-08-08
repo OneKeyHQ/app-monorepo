@@ -46,6 +46,7 @@ import {
 } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
+import { MarketWatchListProviderMirrorV2 } from '../../Market/MarketWatchListProviderMirrorV2';
 import {
   UniversalSearchAccountAssetItem,
   UniversalSearchAddressItem,
@@ -602,17 +603,21 @@ const UniversalSearchWithProvider = (
     }}
     enabledNum={[0]}
   >
-    <MarketWatchListProviderMirror
-      storeName={EJotaiContextStoreNames.marketWatchList}
+    <MarketWatchListProviderMirrorV2
+      storeName={EJotaiContextStoreNames.marketWatchListV2}
     >
-      <DiscoveryBrowserProviderMirror>
-        <UniversalSearchProviderMirror
-          storeName={EJotaiContextStoreNames.universalSearch}
-        >
-          <UniversalSearchWithHomeTokenListProvider {...params} />
-        </UniversalSearchProviderMirror>
-      </DiscoveryBrowserProviderMirror>
-    </MarketWatchListProviderMirror>
+      <MarketWatchListProviderMirror
+        storeName={EJotaiContextStoreNames.marketWatchList}
+      >
+        <DiscoveryBrowserProviderMirror>
+          <UniversalSearchProviderMirror
+            storeName={EJotaiContextStoreNames.universalSearch}
+          >
+            <UniversalSearchWithHomeTokenListProvider {...params} />
+          </UniversalSearchProviderMirror>
+        </DiscoveryBrowserProviderMirror>
+      </MarketWatchListProviderMirror>
+    </MarketWatchListProviderMirrorV2>
   </AccountSelectorProviderMirror>
 );
 
