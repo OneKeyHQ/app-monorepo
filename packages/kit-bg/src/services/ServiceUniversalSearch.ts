@@ -106,6 +106,9 @@ class ServiceUniversalSearch extends ServiceBase {
       searchTypes.includes(EUniversalSearchType.Address)
         ? this.universalSearchOfAddress({ input, networkId })
         : Promise.resolve([]),
+      searchTypes.includes(EUniversalSearchType.V2MarketToken)
+        ? this.universalSearchOfV2MarketToken(input)
+        : Promise.resolve([]),
       searchTypes.includes(EUniversalSearchType.MarketToken)
         ? this.universalSearchOfMarketToken(input)
         : Promise.resolve([]),
@@ -131,6 +134,7 @@ class ServiceUniversalSearch extends ServiceBase {
     ]);
     const [
       addressResultSettled,
+      v2MarketTokenResultSettled,
       marketTokenResultSettled,
       accountAssetsResultSettled,
       dappResultSettled,
@@ -143,6 +147,19 @@ class ServiceUniversalSearch extends ServiceBase {
       addressResultSettled.value.items.length > 0
     ) {
       result[EUniversalSearchType.Address] = addressResultSettled.value;
+    }
+
+    if (
+      v2MarketTokenResultSettled.status === 'fulfilled' &&
+      v2MarketTokenResultSettled.value &&
+      v2MarketTokenResultSettled.value.length > 0
+    ) {
+      result[EUniversalSearchType.V2MarketToken] = {
+        items: v2MarketTokenResultSettled.value.map((item) => ({
+          type: EUniversalSearchType.V2MarketToken,
+          payload: item,
+        })),
+      };
     }
 
     if (
@@ -189,6 +206,10 @@ class ServiceUniversalSearch extends ServiceBase {
 
   async universalSearchOfMarketToken(query: string) {
     return this.backgroundApi.serviceMarket.searchToken(query);
+  }
+
+  async universalSearchOfV2MarketToken(query: string) {
+    return this.backgroundApi.serviceMarket.searchV2Token(query);
   }
 
   async universalSearchOfAccountAssets({

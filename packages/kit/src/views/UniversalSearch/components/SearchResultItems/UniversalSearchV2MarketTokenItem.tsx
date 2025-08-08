@@ -1,40 +1,53 @@
 import { useCallback } from 'react';
 
-import { XStack } from '@onekeyhq/components';
+import { XStack, rootNavigationRef } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useMarketWatchListAtom } from '@onekeyhq/kit/src/states/jotai/contexts/market/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
-import type { IUniversalSearchMarketToken } from '@onekeyhq/shared/types/search';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
+import {
+  ERootRoutes,
+  ETabMarketRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
+import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/search';
 import { ESearchStatus } from '@onekeyhq/shared/types/search';
 
+import { MarketStarV2 } from '../../../Market/components/MarketStarV2';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { MarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
 
 interface IUniversalSearchMarketTokenItemProps {
-  item: IUniversalSearchMarketToken;
+  item: IUniversalSearchV2MarketToken;
   searchStatus: ESearchStatus;
 }
 
-export function UniversalSearchMarketTokenItem({
+export function UniversalSearchV2MarketTokenItem({
   item,
   searchStatus,
 }: IUniversalSearchMarketTokenItemProps) {
-  const appNavigation = useAppNavigation();
   // Ensure market watch list atom is initialized
   const [{ isMounted }] = useMarketWatchListAtom();
   const universalSearchActions = useUniversalSearchActions();
-  const { image, coingeckoId, price, symbol, name, lastUpdated } = item.payload;
+  const { logoUrl, price, symbol, name, address, network } = item.payload;
 
   const handlePress = useCallback(() => {
+    rootNavigationRef.current?.goBack();
     setTimeout(async () => {
-      appNavigation.push(EUniversalSearchPages.MarketDetail, {
-        token: coingeckoId,
+      rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.MarketDetailV2,
+          params: {
+            tokenAddress: address,
+            networkId: network,
+            symbol,
+          },
+        },
       });
       defaultLogger.market.token.searchToken({
-        tokenSymbol: coingeckoId,
+        tokenSymbol: symbol,
         from:
           searchStatus === ESearchStatus.init ? 'trendingList' : 'searchList',
       });
@@ -43,17 +56,17 @@ export function UniversalSearchMarketTokenItem({
       if (searchStatus !== ESearchStatus.init) {
         setTimeout(() => {
           universalSearchActions.current.addIntoRecentSearchList({
-            id: coingeckoId,
+            id: address,
             text: symbol,
             type: item.type,
             timestamp: Date.now(),
           });
         }, 10);
       }
-    }, 0);
+    }, 80);
   }, [
-    appNavigation,
-    coingeckoId,
+    address,
+    network,
     item.type,
     searchStatus,
     symbol,
@@ -68,7 +81,7 @@ export function UniversalSearchMarketTokenItem({
     <ListItem
       jc="space-between"
       onPress={handlePress}
-      renderAvatar={<MarketTokenIcon uri={image} size="lg" />}
+      renderAvatar={<MarketTokenIcon uri={logoUrl} size="lg" />}
       title={symbol.toUpperCase()}
       subtitle={name}
       subtitleProps={{
@@ -79,9 +92,15 @@ export function UniversalSearchMarketTokenItem({
         <MarketTokenPrice
           price={String(price)}
           size="$bodyLgMedium"
-          lastUpdated={lastUpdated}
           tokenName={name}
           tokenSymbol={symbol}
+        />
+        <MarketStarV2
+          chainId={network}
+          contractAddress={address}
+          ml="$3"
+          from={EWatchlistFrom.search}
+          size="medium"
         />
       </XStack>
     </ListItem>
