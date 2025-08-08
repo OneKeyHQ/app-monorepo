@@ -32,6 +32,7 @@ import { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWat
 import { SimpleDbEntityMarketWatchListV2 } from '../entity/SimpleDbEntityMarketWatchListV2';
 import { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
+import { SimpleDbEntityPerp } from '../entity/SimpleDbEntityPerp';
 import { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
 import { SimpleDbEntityPrimeTransfer } from '../entity/SimpleDbEntityPrimeTransfer';
 import { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
@@ -46,7 +47,6 @@ import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetw
 import { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 import { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
 import { SimpleDbEntityWalletBanner } from '../entity/SimpleDbEntityWalletBanner';
-import { SimpleDbEntityPerp } from '../entity/SimpleDbEntityPerp';
 
 export class SimpleDb {
   prime = new SimpleDbEntityPrime();

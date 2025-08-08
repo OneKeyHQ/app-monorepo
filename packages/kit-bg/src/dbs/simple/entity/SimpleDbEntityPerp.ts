@@ -20,10 +20,12 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpConfig> 
 
   @backgroundMethod()
   async setPerpConfig(config: Partial<ISimpleDbPerpConfig>) {
-    await this.setRawData((prev): ISimpleDbPerpConfig => ({
-      ...prev,
-      ...config,
-    }));
+    await this.setRawData(
+      (prev): ISimpleDbPerpConfig => ({
+        ...prev,
+        ...config,
+      }),
+    );
   }
 
   @backgroundMethod()

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   Button,
@@ -78,10 +78,14 @@ function PerpApiTests() {
   const updatePerpConfig = async () => {
     try {
       if (newBuilderAddress) {
-        await backgroundApiProxy.servicePerp.updateExpectBuilderAddress(newBuilderAddress);
+        await backgroundApiProxy.servicePerp.updateExpectBuilderAddress(
+          newBuilderAddress,
+        );
       }
       if (newMaxBuilderFee) {
-        await backgroundApiProxy.servicePerp.updateExpectMaxBuilderFee(Number(newMaxBuilderFee));
+        await backgroundApiProxy.servicePerp.updateExpectMaxBuilderFee(
+          Number(newMaxBuilderFee),
+        );
       }
       await loadPerpConfig(); // Reload to confirm changes
       Toast.success({
