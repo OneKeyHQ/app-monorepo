@@ -401,7 +401,7 @@ function PerpApiTests() {
                     {
                       builderAddress,
                       maxFeeRate: '0.025%',
-                      nonce: Date.now(),
+                      chainId: '0xa4b1',
                     },
                   ),
                 'createApproveBuilderFeePayload',

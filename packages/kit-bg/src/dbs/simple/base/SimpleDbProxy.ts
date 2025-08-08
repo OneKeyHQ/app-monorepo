@@ -50,6 +50,7 @@ import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwa
 import type { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 import type { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
 import type { SimpleDbEntityWalletBanner } from '../entity/SimpleDbEntityWalletBanner';
+import { SimpleDbEntityPerp } from '../entity/SimpleDbEntityPerp';
 
 export class SimpleDbProxy
   extends BackgroundServiceProxyBase
@@ -240,6 +241,8 @@ export class SimpleDbProxy
   walletBanner = this._createProxyService(
     'walletBanner',
   ) as SimpleDbEntityWalletBanner;
+
+  perp = this._createProxyService('perp') as SimpleDbEntityPerp;
 
   primeTransfer = this._createProxyService(
     'primeTransfer',
