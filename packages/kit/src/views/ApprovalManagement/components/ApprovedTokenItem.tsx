@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,18 +12,17 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IApproval } from '@onekeyhq/shared/types/approval';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { ListItem } from '../../../components/ListItem';
-import {
-  useRevokeTxsStateAtom,
-  useTokenMapAtom,
-} from '../../../states/jotai/contexts/approvalList';
-import { IToken } from '@onekeyhq/shared/types/token';
+import { useTokenMapAtom } from '../../../states/jotai/contexts/approvalList';
+import { buildSelectedTokenKey } from '../utils';
+
+import { useApprovalManagementContext } from './ApprovalManagementContext';
 
 type IProps = {
   networkId: string;
   approval: IApproval;
-  isChecked: boolean;
   isSelectMode: boolean;
   onSelect: ({
     tokenInfo,
@@ -36,11 +35,21 @@ type IProps = {
 };
 
 function ApprovedTokenItem(props: IProps) {
-  const { networkId, approval, isSelectMode } = props;
+  const { networkId, approval, isSelectMode, onRevoke, onSelect } = props;
 
   const [{ tokenMap }] = useTokenMapAtom();
-  const [{ isBuildingRevokeTxs, selectedTokens }] = useRevokeTxsStateAtom();
+  const { isBuildingRevokeTxs, selectedTokens } =
+    useApprovalManagementContext();
   const intl = useIntl();
+
+  const isSelected =
+    !!selectedTokens[
+      buildSelectedTokenKey({
+        networkId,
+        contractAddress: approval.spenderAddress,
+        tokenAddress: approval.tokenAddress,
+      })
+    ];
 
   const token =
     tokenMap[
@@ -73,14 +82,25 @@ function ApprovedTokenItem(props: IProps) {
       onPress={
         isSelectMode
           ? () => {
-              console.log('clicked');
+              void onSelect({
+                tokenInfo: token.info,
+                isSelected: !isSelected,
+              });
             }
           : undefined
       }
       childrenBefore={
         isSelectMode ? (
           <Stack>
-            <Checkbox />
+            <Checkbox
+              value={isSelected}
+              onChange={() => {
+                void onSelect({
+                  tokenInfo: token.info,
+                  isSelected: !isSelected,
+                });
+              }}
+            />
           </Stack>
         ) : null
       }
@@ -107,10 +127,10 @@ function ApprovedTokenItem(props: IProps) {
       {isSelectMode ? null : (
         <Button
           size="small"
-          loading={isBuildingRevokeTxs && selectedTokens[token.info.address]}
+          loading={isBuildingRevokeTxs ? isSelected : null}
           disabled={isBuildingRevokeTxs}
           onPress={() => {
-            props.onRevoke({ tokenInfo: token.info });
+            void onRevoke({ tokenInfo: token.info });
           }}
         >
           {intl.formatMessage({ id: ETranslations.global_revoke })}

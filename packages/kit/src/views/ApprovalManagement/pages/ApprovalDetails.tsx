@@ -1,8 +1,9 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
+import type { ICheckedState } from '@onekeyhq/components';
 import {
   Alert,
   Badge,
@@ -17,10 +18,6 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalRoutes,
@@ -38,13 +35,16 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import {
-  useApprovalListActions,
-  useContractMapAtom,
-} from '../../../states/jotai/contexts/approvalList';
+import { useContractMapAtom } from '../../../states/jotai/contexts/approvalList';
 import { openExplorerAddressUrl } from '../../../utils/explorerUtils';
 import { HomeApprovalListProviderMirror } from '../../Home/components/HomeApprovalListProvider/HomeApprovalListProviderMirror';
+import ApprovalActions from '../components/ApprovalActions';
+import {
+  ApprovalManagementContext,
+  useApprovalManagementContext,
+} from '../components/ApprovalManagementContext';
 import ApprovedTokenItem from '../components/ApprovedTokenItem';
+import { buildSelectedTokenKey } from '../utils';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -67,11 +67,40 @@ function ApprovalDetails() {
   const isRiskApproval = approval.highestRiskLevel >= TX_RISKY_LEVEL_SPAM;
 
   const [isBulkRevokeMode, setIsBulkRevokeMode] = useState(false);
-  const [selectedTokens, setSelectedTokens] = useState<Record<string, boolean>>(
-    {},
-  );
 
-  const { updateRevokeTxsState } = useApprovalListActions().current;
+  const { selectedTokens, setSelectedTokens, setIsBuildingRevokeTxs } =
+    useApprovalManagementContext();
+
+  const isSelectAllTokens = useMemo(() => {
+    let selectedCount = 0;
+    for (const item of approval.approvals) {
+      if (
+        selectedTokens[
+          buildSelectedTokenKey({
+            networkId: approval.networkId,
+            contractAddress: approval.contractAddress,
+            tokenAddress: item.tokenAddress,
+          })
+        ]
+      ) {
+        selectedCount += 1;
+      }
+    }
+    if (selectedCount === approval.approvals.length) {
+      return true;
+    }
+
+    if (selectedCount > 0) {
+      return 'indeterminate';
+    }
+
+    return false;
+  }, [
+    approval.approvals,
+    approval.contractAddress,
+    approval.networkId,
+    selectedTokens,
+  ]);
 
   const [{ contractMap }] = useContractMapAtom();
   const contract = contractMap[
@@ -92,21 +121,59 @@ function ApprovalDetails() {
       tokenInfo: IToken;
       isSelected: boolean;
     }) => {
-      setSelectedTokens((v) => ({
-        ...v,
-        [tokenInfo.address]: isSelected,
+      setSelectedTokens((prev) => ({
+        ...prev,
+        [buildSelectedTokenKey({
+          networkId: approval.networkId,
+          contractAddress: approval.contractAddress,
+          tokenAddress: tokenInfo.address,
+        })]: isSelected,
       }));
     },
-    [],
+    [approval.contractAddress, approval.networkId, setSelectedTokens],
   );
+
+  const handleSelectAll = useCallback(
+    (isSelectAll: ICheckedState) => {
+      if (isSelectAll === true) {
+        const selectedAllTokens = approval.approvals.reduce((acc, item) => {
+          acc[
+            buildSelectedTokenKey({
+              networkId: approval.networkId,
+              contractAddress: approval.contractAddress,
+              tokenAddress: item.tokenAddress,
+            })
+          ] = true;
+          return acc;
+        }, {} as Record<string, boolean>);
+        setSelectedTokens(selectedAllTokens);
+      } else {
+        setSelectedTokens({});
+      }
+    },
+    [
+      approval.approvals,
+      approval.contractAddress,
+      approval.networkId,
+      setSelectedTokens,
+    ],
+  );
+
+  const handleOnConfirm = useCallback(() => {}, []);
+
+  const handleOnCancel = useCallback(() => {
+    console.log('handleOnCancel');
+  }, []);
 
   const handleTokenOnRevoke = useCallback(
     async ({ tokenInfo }: { tokenInfo: IToken }) => {
-      updateRevokeTxsState({
-        isBuildingRevokeTxs: true,
-        selectedTokens: {
-          [tokenInfo.address]: true,
-        },
+      setIsBuildingRevokeTxs(true);
+      setSelectedTokens({
+        [buildSelectedTokenKey({
+          networkId: approval.networkId,
+          contractAddress: approval.contractAddress,
+          tokenAddress: tokenInfo.address,
+        })]: true,
       });
 
       const revokeInfo: IApproveInfo = {
@@ -133,7 +200,7 @@ function ApprovalDetails() {
       });
 
       await timerUtils.wait(1000);
-      updateRevokeTxsState({ isBuildingRevokeTxs: false });
+      setIsBuildingRevokeTxs(false);
     },
 
     [
@@ -142,7 +209,8 @@ function ApprovalDetails() {
       approval.networkId,
       approval.owner,
       navigation,
-      updateRevokeTxsState,
+      setIsBuildingRevokeTxs,
+      setSelectedTokens,
     ],
   );
 
@@ -278,7 +346,6 @@ function ApprovalDetails() {
             key={item.tokenAddress}
             networkId={approval.networkId}
             approval={item}
-            isChecked={false}
             isSelectMode={!!(isSelectMode || isBulkRevokeMode)}
             onSelect={handleTokenOnSelect}
             onRevoke={handleTokenOnRevoke}
@@ -286,6 +353,24 @@ function ApprovalDetails() {
         )}
       />
     );
+  };
+
+  const renderBulkRevokeActions = () => {
+    if (isBulkRevokeMode || isSelectMode) {
+      return (
+        <ApprovalActions
+          isSelectAll={isSelectAllTokens}
+          setIsSelectAll={handleSelectAll}
+          onConfirm={handleOnConfirm}
+          onCancel={handleOnCancel}
+          isSelectMode={isSelectMode}
+          isBulkRevokeMode={isBulkRevokeMode}
+          selectedCount={Object.keys(selectedTokens).length}
+        />
+      );
+    }
+
+    return null;
   };
 
   return (
@@ -299,14 +384,36 @@ function ApprovalDetails() {
         {renderApprovalOverview()}
         {renderApprovedTokens()}
       </Page.Body>
+      {renderBulkRevokeActions()}
     </Page>
   );
 }
 
 const ApprovalDetailsWithProvider = memo(() => {
+  const [isBuildingRevokeTxs, setIsBuildingRevokeTxs] = useState(false);
+  const [selectedTokens, setSelectedTokens] = useState<Record<string, boolean>>(
+    {},
+  );
+
+  const contextValue = useMemo(
+    () => ({
+      isBuildingRevokeTxs,
+      setIsBuildingRevokeTxs,
+      selectedTokens,
+      setSelectedTokens,
+    }),
+    [
+      isBuildingRevokeTxs,
+      setIsBuildingRevokeTxs,
+      selectedTokens,
+      setSelectedTokens,
+    ],
+  );
   return (
     <HomeApprovalListProviderMirror>
-      <ApprovalDetails />
+      <ApprovalManagementContext.Provider value={contextValue}>
+        <ApprovalDetails />
+      </ApprovalManagementContext.Provider>
     </HomeApprovalListProviderMirror>
   );
 });

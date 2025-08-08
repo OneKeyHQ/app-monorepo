@@ -16,17 +16,19 @@ function ContractIconView(props: IProps) {
 
   const [{ contractMap }] = useContractMapAtom();
 
-  const contract =
-    contractMap[
-      approvalUtils.buildContractMapKey({
-        networkId,
-        contractAddress: address,
-      })
-    ];
+  const contract = contractMap[
+    approvalUtils.buildContractMapKey({
+      networkId,
+      contractAddress: address,
+    })
+  ] ?? {
+    icon: 'Document2Outline',
+  };
 
   if (isAllNetworks) {
     return (
       <Token
+        isNFT
         size="lg"
         networkId={networkId}
         fallbackIcon={contract?.icon}
@@ -34,7 +36,7 @@ function ContractIconView(props: IProps) {
       />
     );
   }
-  return <Token size="lg" fallbackIcon={contract?.icon} />;
+  return <Token isNFT size="lg" fallbackIcon={contract?.icon} />;
 }
 
 export default memo(ContractIconView);

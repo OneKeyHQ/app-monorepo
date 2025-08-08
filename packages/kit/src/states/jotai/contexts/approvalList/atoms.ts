@@ -16,15 +16,6 @@ export {
   withApprovalListProvider,
 };
 
-export const { atom: revokeTxsStateAtom, use: useRevokeTxsStateAtom } =
-  contextAtom<{
-    isBuildingRevokeTxs: boolean;
-    selectedTokens: Record<string, boolean>;
-  }>({
-    isBuildingRevokeTxs: false,
-    selectedTokens: {},
-  });
-
 export const { atom: approvalListStateAtom, use: useApprovalListStateAtom } =
   contextAtom<{
     isRefreshing: boolean;
