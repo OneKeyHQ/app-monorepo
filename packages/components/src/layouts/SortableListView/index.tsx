@@ -3,14 +3,17 @@ import {
   forwardRef,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 import type {
   CSSProperties,
   ForwardedRef,
   PropsWithChildren,
   ReactElement,
+  RefObject,
 } from 'react';
 
 import { FlashList } from '@shopify/flash-list';
@@ -85,7 +88,6 @@ function Item<T>({
   drag,
   dragProps,
   style,
-  setSize,
 }: {
   item: T;
   renderItem: ISortableListViewProps<T>['renderItem'];
@@ -95,17 +97,11 @@ function Item<T>({
   dragProps: Record<string, any>;
   drag: () => void;
   style?: CSSProperties;
-  setSize: (index: number, height: number) => void;
 }) {
   const dragHandleProps = (provided.dragHandleProps ?? {}) as Record<
     string,
     any
   >;
-  const rowRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    setSize(getIndex(), rowRef?.current?.clientHeight ?? 0);
-  }, [rowRef, setSize, getIndex]);
-
   const draggableProps = {
     ...provided.draggableProps,
     ...dragHandleProps,
@@ -119,37 +115,39 @@ function Item<T>({
         ...style,
       }}
     >
-      <div ref={rowRef}>
-        {renderItem({
-          item,
-          drag,
-          dragProps,
-          getIndex,
-          isActive: isDragging,
-          index: getIndex(),
-        })}
-      </div>
+      {renderItem({
+        item,
+        drag,
+        dragProps,
+        getIndex,
+        isActive: isDragging,
+        index: getIndex(),
+      })}
     </div>
   );
 }
 
 function CellContainer<T>({
-  height,
+  children,
   ...props
-}: CellRendererProps<T> & { height?: number }) {
-  // if (height) {
-  //   props.style = props.style || {};
-  //   (
-  //     props.style as {
-  //       height: number;
-  //     }
-  //   ).height = height;
-  // }
+}: Omit<CellRendererProps<T>, 'ref'> & {
+  ref: RefObject<HTMLDivElement>;
+}) {
+  const { ref, index } = props;
+  const containerRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (containerRef.current || ref.current) {
+      const clientHeight = containerRef.current?.clientHeight;
+      if (clientHeight) {
+        ref.current.style.height = `${clientHeight}px`;
+      }
+    }
+  }, [index, ref]);
+  // const clientHeight = height || getSize(index);
   return (
-    <Animated.View
-      {...props}
-      style={height ? { ...props.style, height } : props.style}
-    />
+    <Animated.View {...(props as any)}>
+      <div ref={containerRef}>{children}</div>
+    </Animated.View>
   );
 }
 
@@ -301,7 +299,6 @@ function BaseSortableListView<T>(
                   getIndex={() => index}
                   renderItem={renderItem as any}
                   provided={provided}
-                  setSize={setSize}
                 />
               </>
             );
@@ -318,18 +315,7 @@ function BaseSortableListView<T>(
       enabled,
       contentPaddingTop,
       renderItem,
-      setSize,
     ],
-  );
-
-  const renderCellComponent = useMemo(
-    // eslint-disable-next-line react/no-unstable-nested-components, react/display-name
-    () => (props: CellRendererProps<T>) =>
-      (
-        // eslint-disable-next-line react/destructuring-assignment
-        <CellContainer {...props} height={getSize(props.index)} />
-      ),
-    [getSize],
   );
 
   return (
@@ -355,7 +341,6 @@ function BaseSortableListView<T>(
               renderItem={renderItem}
               provided={provided}
               getIndex={() => rubric.source.index}
-              setSize={setSize}
             />
           );
         }}
@@ -407,7 +392,7 @@ function BaseSortableListView<T>(
               }}
               renderItem={reloadRenderItem as ListRenderItem<T>}
               CellRendererComponent={
-                useFlashList ? renderCellComponent : FragmentComponent
+                useFlashList ? CellContainer : FragmentComponent
               }
               getItemLayout={useFlashList ? undefined : getItemLayout}
               keyExtractor={keyExtractor}
