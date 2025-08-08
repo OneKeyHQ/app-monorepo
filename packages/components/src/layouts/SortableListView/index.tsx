@@ -1,9 +1,22 @@
-import { Fragment, forwardRef, useCallback, useEffect, useMemo } from 'react';
-import type { ForwardedRef, PropsWithChildren, ReactElement } from 'react';
+import {
+  Fragment,
+  forwardRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
+import type {
+  CSSProperties,
+  ForwardedRef,
+  PropsWithChildren,
+  ReactElement,
+} from 'react';
 
 import { FlashList } from '@shopify/flash-list';
 import { useStyle } from '@tamagui/core';
 // eslint-disable-next-line spellcheck/spell-checker
+import { noop } from 'lodash';
 import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
 import {
   OpacityDecorator,
@@ -26,7 +39,11 @@ import type {
   ISortableListViewProps,
   ISortableListViewRef,
 } from './types';
-import type { DragStart, DropResult } from 'react-beautiful-dnd';
+import type {
+  DragStart,
+  DraggableProvided,
+  DropResult,
+} from 'react-beautiful-dnd';
 import type { ListRenderItem, ListRenderItemInfo } from 'react-native';
 
 // eslint-disable-next-line unicorn/prefer-global-this
@@ -54,6 +71,58 @@ const getBody = () => {
   return document.body;
 };
 
+function Item<T>({
+  item,
+  index,
+  renderItem,
+  provided,
+  getIndex,
+  isActive,
+  drag,
+  dragProps,
+  style,
+  setSize,
+}: {
+  item: T;
+  index: number;
+  renderItem: ISortableListViewProps<T>['renderItem'];
+  provided: DraggableProvided;
+  getIndex?: () => number;
+  isActive: boolean;
+  dragProps: Record<string, any>;
+  drag: () => void;
+  style?: CSSProperties;
+  setSize: (index: number, height: number) => void;
+}) {
+  const dragHandleProps = (provided.dragHandleProps ?? {}) as Record<
+    string,
+    any
+  >;
+  const rowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    setSize(index, rowRef?.current?.clientHeight ?? 0);
+  }, [rowRef, index, setSize]);
+  return (
+    <div
+      ref={provided.innerRef}
+      {...provided.draggableProps}
+      {...dragHandleProps}
+      style={style}
+    >
+      <div ref={rowRef}>
+        {renderItem({
+          item,
+          drag,
+          dragProps,
+          getIndex: getIndex ?? (() => index),
+          isActive,
+          index,
+        })}
+      </div>
+    </div>
+  );
+}
+
 function BaseSortableListView<T>(
   {
     data,
@@ -71,6 +140,15 @@ function BaseSortableListView<T>(
   }: ISortableListViewProps<T>,
   ref: ForwardedRef<ISortableListViewRef<T>> | undefined,
 ) {
+  const size = useRef<{
+    [index: number]: number;
+  }>({});
+  const getSize = useCallback((index: number) => {
+    return size.current[index] ?? 0;
+  }, []);
+  const setSize = useCallback((index: number, height: number) => {
+    size.current[index] = height;
+  }, []);
   const reloadOnDragStart = useCallback(
     (params: DragStart) => {
       appEventBus.emit(EAppEventBusNames.onDragBeginInListView, undefined);
@@ -153,12 +231,11 @@ function BaseSortableListView<T>(
           isDragDisabled={!enabled}
         >
           {(provided) => {
+            lastIndexHeight = undefined;
             const dragHandleProps = (provided.dragHandleProps ?? {}) as Record<
               string,
               any
             >;
-            lastIndexHeight = undefined;
-
             return (
               <>
                 {!isSticky ? (
@@ -172,37 +249,31 @@ function BaseSortableListView<T>(
                     }
                   />
                 ) : null}
-                <div
-                  ref={provided.innerRef}
-                  {...provided.draggableProps}
+                <Item
                   style={{
                     ...provided.draggableProps.style,
                     ...(!isSticky
                       ? {
                           position: useFlashList ? undefined : 'absolute',
-                          top: (layout?.offset ?? 0) + contentPaddingTop,
+                          top: (layout?.offset ?? 0) + (contentPaddingTop ?? 0),
                           height: useFlashList ? undefined : layout?.length,
                           width: '100%',
                         }
                       : {}),
                   }}
-                >
-                  {renderItem({
-                    item,
-                    drag: () => {},
-                    dragProps: Object.keys(dragHandleProps).reduce(
-                      (acc, key) => {
-                        const reloadKey = key.replace(/^data-/, '');
-                        acc[reloadKey] = dragHandleProps[key];
-                        return acc;
-                      },
-                      {} as Record<string, any>,
-                    ),
-                    getIndex: () => index,
-                    isActive: false,
-                    index,
-                  })}
-                </div>
+                  drag={noop}
+                  dragProps={Object.keys(dragHandleProps).reduce((acc, key) => {
+                    const reloadKey = key.replace(/^data-/, '');
+                    acc[reloadKey] = dragHandleProps[key];
+                    return acc;
+                  }, {} as Record<string, any>)}
+                  isActive={false}
+                  item={item}
+                  index={index}
+                  renderItem={renderItem}
+                  provided={provided}
+                  setSize={setSize}
+                />
               </>
             );
           }}
@@ -218,6 +289,7 @@ function BaseSortableListView<T>(
       enabled,
       contentPaddingTop,
       renderItem,
+      setSize,
     ],
   );
 
@@ -236,20 +308,17 @@ function BaseSortableListView<T>(
         ignoreContainerClipping={false}
         renderClone={(provided, snapshot, rubric) => {
           return (
-            <div
-              ref={provided.innerRef}
-              {...provided.draggableProps}
-              {...provided.dragHandleProps}
-            >
-              {renderItem({
-                item: data[rubric.source.index],
-                drag: () => {},
-                dragProps: {},
-                getIndex: () => rubric.source.index,
-                isActive: true,
-                index: rubric.source.index,
-              })}
-            </div>
+            <Item
+              isActive={false}
+              drag={noop}
+              dragProps={{}}
+              item={data[rubric.source.index]}
+              index={rubric.source.index}
+              renderItem={renderItem}
+              provided={provided}
+              getIndex={() => rubric.source.index}
+              setSize={setSize}
+            />
           );
         }}
         getContainerForClone={getBody}
