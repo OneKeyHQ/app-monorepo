@@ -45,7 +45,11 @@ import type {
   DraggableProvided,
   DropResult,
 } from 'react-beautiful-dnd';
-import type { ListRenderItem, ListRenderItemInfo } from 'react-native';
+import type {
+  CellRendererProps,
+  ListRenderItem,
+  ListRenderItemInfo,
+} from 'react-native';
 
 // eslint-disable-next-line unicorn/prefer-global-this
 if (typeof window !== 'undefined') {
@@ -127,6 +131,21 @@ function Item<T>({
       </div>
     </div>
   );
+}
+
+function CellContainer<T>({
+  height,
+  ...props
+}: CellRendererProps<T> & { height?: number }) {
+  if (height) {
+    props.style = props.style || {};
+    (
+      props.style as {
+        height: number;
+      }
+    ).height = height;
+  }
+  return <Animated.View {...props} />;
 }
 
 function BaseSortableListView<T>(
@@ -298,6 +317,16 @@ function BaseSortableListView<T>(
     ],
   );
 
+  const renderCellComponent = useMemo(
+    // eslint-disable-next-line react/no-unstable-nested-components, react/display-name
+    () => (props: CellRendererProps<T>) =>
+      (
+        // eslint-disable-next-line react/destructuring-assignment
+        <CellContainer {...props} height={getSize(props.index)} />
+      ),
+    [getSize],
+  );
+
   return (
     <DragDropContext
       onDragStart={reloadOnDragStart}
@@ -312,22 +341,6 @@ function BaseSortableListView<T>(
         isCombineEnabled={false}
         ignoreContainerClipping={false}
         renderClone={(provided, snapshot, rubric) => {
-          // return (
-          //   <div
-          //     ref={provided.innerRef}
-          //     {...provided.draggableProps}
-          //     {...provided.dragHandleProps}
-          //   >
-          //     {renderItem({
-          //       item: data[rubric.source.index],
-          //       drag: () => {},
-          //       dragProps: {},
-          //       getIndex: () => rubric.source.index,
-          //       isActive: true,
-          //       index: rubric.source.index,
-          //     })}
-          //   </div>
-          // );
           return (
             <Item
               isDragging
@@ -389,23 +402,7 @@ function BaseSortableListView<T>(
               }}
               renderItem={reloadRenderItem as ListRenderItem<T>}
               CellRendererComponent={
-                useFlashList
-                  ? (props) => {
-                      return (
-                        <Animated.View
-                          {...props}
-                          style={
-                            getSize(props.index)
-                              ? {
-                                  ...props.style,
-                                  height: getSize(props.index) ?? props.style?.height,
-                                }
-                              : props.style
-                          }
-                        />
-                      );
-                    }
-                  : FragmentComponent
+                useFlashList ? renderCellComponent : FragmentComponent
               }
               getItemLayout={useFlashList ? undefined : getItemLayout}
               keyExtractor={keyExtractor}
