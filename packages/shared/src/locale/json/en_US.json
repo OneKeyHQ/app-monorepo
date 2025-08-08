@@ -1503,6 +1503,7 @@
   "global.trade": "Trade",
   "global.transaction_id": "Transaction hash",
   "global.transfer": "Transfer",
+  "global.transfer_accounts_loading": "{amount} account(s) added",
   "global.try_again": "Try again",
   "global.unhide": "Unhide",
   "global.universal_search_placeholder": "Search accounts, tokens, dApps...",

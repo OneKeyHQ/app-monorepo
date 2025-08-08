@@ -1503,6 +1503,7 @@
   "global.trade": "Berdagang",
   "global.transaction_id": "Hash transaksi",
   "global.transfer": "Transfer",
+  "global.transfer_accounts_loading": "{amount} akun ditambahkan",
   "global.try_again": "Coba lagi",
   "global.unhide": "Tampilkan",
   "global.universal_search_placeholder": "Cari akun, token, dan dApps...",

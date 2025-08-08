@@ -1503,6 +1503,7 @@
   "global.trade": "Handel",
   "global.transaction_id": "Transaktions-Hash",
   "global.transfer": "Übertragung",
+  "global.transfer_accounts_loading": "{amount} Konto/Konten hinzugefügt",
   "global.try_again": "Versuchen Sie es erneut",
   "global.unhide": "Einblenden",
   "global.universal_search_placeholder": "Konten, Token und dApps durchsuchen...",

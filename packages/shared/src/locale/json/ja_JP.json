@@ -1503,6 +1503,7 @@
   "global.trade": "貿易",
   "global.transaction_id": "トランザクションハッシュ",
   "global.transfer": "転送",
+  "global.transfer_accounts_loading": "{amount} 個のアカウントが追加されました",
   "global.try_again": "もう一度やり直してください",
   "global.unhide": "表示",
   "global.universal_search_placeholder": "アカウント、トークン、dAppsを検索...",

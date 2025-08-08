@@ -1503,6 +1503,7 @@
   "global.trade": "বাণিজ্য",
   "global.transaction_id": "লেনদেন হ্যাশ",
   "global.transfer": "স্থানান্তর",
+  "global.transfer_accounts_loading": "{amount} অ্যাকাউন্ট(গুলি) যোগ করা হয়েছে",
   "global.try_again": "আবার চেষ্টা করুন",
   "global.unhide": "আনহাইড",
   "global.universal_search_placeholder": "অ্যাকাউন্ট, টোকেন ও dApps খুঁজুন...",

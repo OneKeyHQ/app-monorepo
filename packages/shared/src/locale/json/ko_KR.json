@@ -1503,6 +1503,7 @@
   "global.trade": "거래",
   "global.transaction_id": "트랜잭션 해시",
   "global.transfer": "이체",
+  "global.transfer_accounts_loading": "{amount} 계정이 추가되었습니다",
   "global.try_again": "다시 시도하세요",
   "global.unhide": "숨김 해제",
   "global.universal_search_placeholder": "계정, 토큰, dApps 검색...",

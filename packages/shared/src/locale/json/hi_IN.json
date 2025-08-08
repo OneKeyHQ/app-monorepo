@@ -1503,6 +1503,7 @@
   "global.trade": "व्यापार",
   "global.transaction_id": "लेन-देन हैश",
   "global.transfer": "स्थानांतरण",
+  "global.transfer_accounts_loading": "{amount} खाते जोड़े गए",
   "global.try_again": "पुनः प्रयास करें",
   "global.unhide": "अनहाइड",
   "global.universal_search_placeholder": "वॉलेट, टोकन, dApps खोजें...",

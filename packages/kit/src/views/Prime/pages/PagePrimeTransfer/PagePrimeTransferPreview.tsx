@@ -15,6 +15,7 @@ import {
   Stack,
   Toast,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
@@ -50,13 +51,7 @@ import { showPrimeTransferImportProcessingDialog } from './components/PrimeTrans
 
 function PreviewHeader({ title }: { title: string }) {
   return (
-    <SizableText
-      mt="$4"
-      mb="$2"
-      size="$headingLg"
-      color="$textSubdued"
-      fontWeight="bold"
-    >
+    <SizableText mt="$4" mb="$2" size="$headingSm" color="$textSubdued">
       {title}
     </SizableText>
   );
@@ -92,11 +87,16 @@ function PreviewItem({
       onPress={() => {
         onChange();
       }}
-      p="$4"
+      px="$3"
+      py="$2"
       borderRadius="$3"
       backgroundColor="$bgSubdued"
+      hoverStyle={{
+        backgroundColor: '$bgHover',
+      }}
       alignItems="center"
       justifyContent="space-between"
+      cursor="pointer"
     >
       <XStack gap="$3" alignItems="center" flex={1}>
         <Checkbox
@@ -119,8 +119,8 @@ function PreviewItem({
             networkId={account.createAtNetwork}
           />
         ) : null}
-        <Stack gap="$1">
-          <SizableText size="$bodyLg" color="$text">
+        <YStack>
+          <SizableText size="$bodyLgMedium" color="$text">
             {wallet?.name || account?.name}
           </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
@@ -132,7 +132,7 @@ function PreviewItem({
                   trailingLength: 4,
                 })}
           </SizableText>
-        </Stack>
+        </YStack>
       </XStack>
     </XStack>
   );

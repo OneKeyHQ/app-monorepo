@@ -1503,6 +1503,7 @@
   "global.trade": "交易",
   "global.transaction_id": "交易哈希",
   "global.transfer": "迁移",
+  "global.transfer_accounts_loading": "{amount} 个账户已添加",
   "global.try_again": "重试",
   "global.unhide": "取消隐藏",
   "global.universal_search_placeholder": "搜索账户、代币、dApps...",

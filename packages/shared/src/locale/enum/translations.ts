@@ -1508,6 +1508,7 @@
   global_trade = 'global.trade',
   global_transaction_id = 'global.transaction_id',
   global_transfer = 'global.transfer',
+  global_transfer_accounts_loading = 'global.transfer_accounts_loading',
   global_try_again = 'global.try_again',
   global_unhide = 'global.unhide',
   global_universal_search_placeholder = 'global.universal_search_placeholder',

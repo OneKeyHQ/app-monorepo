@@ -1503,6 +1503,7 @@
   "global.trade": "Buôn bán",
   "global.transaction_id": "Mã giao dịch",
   "global.transfer": "Chuyển khoản",
+  "global.transfer_accounts_loading": "Đã thêm {amount} tài khoản",
   "global.try_again": "Thử lại",
   "global.unhide": "Hiện lại",
   "global.universal_search_placeholder": "Tìm tài khoản, token và dApps...",

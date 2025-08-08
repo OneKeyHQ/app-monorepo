@@ -1503,6 +1503,7 @@
   "global.trade": "ซื้อขาย",
   "global.transaction_id": "แฮชธุรกรรม",
   "global.transfer": "โอน",
+  "global.transfer_accounts_loading": "เพิ่ม {amount} บัญชีแล้ว",
   "global.try_again": "ลองใหม่อีกครั้ง",
   "global.unhide": "แสดง",
   "global.universal_search_placeholder": "ค้นหาบัญชี โทเค็น และ dApps...",

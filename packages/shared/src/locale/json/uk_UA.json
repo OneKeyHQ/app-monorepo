@@ -1503,6 +1503,7 @@
   "global.trade": "Торгівля",
   "global.transaction_id": "Хеш транзакції",
   "global.transfer": "Передача",
+  "global.transfer_accounts_loading": "{amount} акаунт(ів) додано",
   "global.try_again": "Спробуйте знову",
   "global.unhide": "Показати",
   "global.universal_search_placeholder": "Пошук рахунків, токенів та dApps...",
