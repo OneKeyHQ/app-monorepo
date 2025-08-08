@@ -3136,6 +3136,8 @@
   "wallet.history_settings_hide_risk_transaction_title": "Ẩn các giao dịch rủi ro",
   "wallet.history_settings_hide_small_transaction_desc": "Ẩn các giao dịch giá trị nhỏ. Token chưa có giá sẽ không bị lọc.",
   "wallet.history_settings_hide_small_transaction_title": "Ẩn giao dịch giá trị nhỏ (≤ $0,01)",
+  "wallet.label_private_key": "Nhập khóa riêng tư",
+  "wallet.label_watch_only": "Chỉ xem",
   "wallet.last_ledger_sequence": "Số hạch toán cuối cùng",
   "wallet.ledger_index": "Chỉ số sổ cái",
   "wallet.no_address": "Không có địa chỉ",
@@ -3175,7 +3177,5 @@
   "wallet_backup.backup_warning": "<strong>Sao lưu ví của bạn</strong> — bảo vệ tài sản của bạn khỏi mất thiết bị",
   "wallet_backup.save_recovery_phrase": "Lưu cụm từ khôi phục",
   "wallet_backup.status_not_backed_up": "Không được sao lưu",
-  "wallet_label_private_key": "Khóa riêng tư",
-  "wallet_label_watch_only": "Chỉ xem",
   "word": "Từ"
 }

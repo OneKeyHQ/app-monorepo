@@ -3136,6 +3136,8 @@
   "wallet.history_settings_hide_risk_transaction_title": "Ocultar transações arriscadas",
   "wallet.history_settings_hide_small_transaction_desc": "Oculta transações de baixo valor. Tokens sem cotação não são filtrados.",
   "wallet.history_settings_hide_small_transaction_title": "Ocultar transações de baixo valor (≤ $0,01)",
+  "wallet.label_private_key": "Importar chave privada",
+  "wallet.label_watch_only": "Somente Visualização",
   "wallet.last_ledger_sequence": "Última sequência do livro razão",
   "wallet.ledger_index": "Índice do livro-razão",
   "wallet.no_address": "Sem endereço",
@@ -3175,7 +3177,5 @@
   "wallet_backup.backup_warning": "<strong>Faça backup da sua carteira</strong> — proteja seus ativos contra a perda do dispositivo",
   "wallet_backup.save_recovery_phrase": "Salvar frase de recuperação",
   "wallet_backup.status_not_backed_up": "Não foi feito backup",
-  "wallet_label_private_key": "Chave privada",
-  "wallet_label_watch_only": "Somente Visualização",
   "word": "Palavra"
 }

@@ -3136,6 +3136,8 @@
   "wallet.history_settings_hide_risk_transaction_title": "Riskante Transaktionen verbergen",
   "wallet.history_settings_hide_small_transaction_desc": "Blendet Transaktionen mit geringem Wert aus. Token ohne Preis werden nicht gefiltert.",
   "wallet.history_settings_hide_small_transaction_title": "Kleine Transaktionen ausblenden (≤ 0,01 $)",
+  "wallet.label_private_key": "Privaten Schlüssel importieren",
+  "wallet.label_watch_only": "Nur-Anzeige",
   "wallet.last_ledger_sequence": "Letzte Ledger-Sequenz",
   "wallet.ledger_index": "Kontenindex",
   "wallet.no_address": "Keine Adresse",
@@ -3175,7 +3177,5 @@
   "wallet_backup.backup_warning": "<strong>Sichern Sie Ihre Wallet</strong> – schützen Sie Ihre Vermögenswerte vor Geräteverlust",
   "wallet_backup.save_recovery_phrase": "Wiederherstellungsphrase speichern",
   "wallet_backup.status_not_backed_up": "Nicht gesichert",
-  "wallet_label_private_key": "Privater Schlüssel",
-  "wallet_label_watch_only": "Nur-Anzeige",
   "word": "Wort"
 }

@@ -3136,6 +3136,8 @@
   "wallet.history_settings_hide_risk_transaction_title": "隱藏風險交易",
   "wallet.history_settings_hide_small_transaction_desc": "根據價值過濾小額交易。未定價的代幣不會被隱藏。",
   "wallet.history_settings_hide_small_transaction_title": "隱藏小額交易 (≤ $0.01)",
+  "wallet.label_private_key": "導入私鑰",
+  "wallet.label_watch_only": "觀察錢包",
   "wallet.last_ledger_sequence": "最後的帳本序列",
   "wallet.ledger_index": "帳本索引",
   "wallet.no_address": "無地址",
@@ -3175,7 +3177,5 @@
   "wallet_backup.backup_warning": "<strong>備份您的錢包</strong> — 防止設備遺失導致資產無法找回",
   "wallet_backup.save_recovery_phrase": "儲存助記詞",
   "wallet_backup.status_not_backed_up": "未備份",
-  "wallet_label_private_key": "導入錢包",
-  "wallet_label_watch_only": "觀察錢包",
   "word": "文字"
 }

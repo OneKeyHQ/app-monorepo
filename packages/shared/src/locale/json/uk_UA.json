@@ -3136,6 +3136,8 @@
   "wallet.history_settings_hide_risk_transaction_title": "Приховати ризиковані транзакції",
   "wallet.history_settings_hide_small_transaction_desc": "Приховує транзакції з низькою вартістю. Токени без ціни не фільтруються.",
   "wallet.history_settings_hide_small_transaction_title": "Приховати незначні транзакції (≤ $0,01)",
+  "wallet.label_private_key": "Імпортувати приватний ключ",
+  "wallet.label_watch_only": "Тільки для перегляду",
   "wallet.last_ledger_sequence": "Остання послідовність реєстру",
   "wallet.ledger_index": "Індекс бухгалтерського журналу",
   "wallet.no_address": "Немає адреси",
@@ -3175,7 +3177,5 @@
   "wallet_backup.backup_warning": "<strong>Створіть резервну копію гаманця</strong> — захистіть свої активи від втрати пристрою",
   "wallet_backup.save_recovery_phrase": "Зберегти фразу відновлення",
   "wallet_backup.status_not_backed_up": "Не створено резервну копію",
-  "wallet_label_private_key": "Приватний ключ",
-  "wallet_label_watch_only": "Тільки для перегляду",
   "word": "Слово"
 }

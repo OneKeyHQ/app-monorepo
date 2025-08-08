@@ -3136,6 +3136,8 @@
   "wallet.history_settings_hide_risk_transaction_title": "जोखिम भरे लेन-देन छुपाएं",
   "wallet.history_settings_hide_small_transaction_desc": "कम मूल्य के लेनदेन छुपाता है। बिना कीमत वाले टोकन फ़िल्टर नहीं होते।",
   "wallet.history_settings_hide_small_transaction_title": "छोटी राशियों के लेनदेन छिपाएँ (≤ $0.01)",
+  "wallet.label_private_key": "निजी कुंजी आयात करें",
+  "wallet.label_watch_only": "केवल-देखने योग्य",
   "wallet.last_ledger_sequence": "अंतिम खाता अनुक्रम",
   "wallet.ledger_index": "लेजर सूची",
   "wallet.no_address": "कोई पता नहीं",
@@ -3175,7 +3177,5 @@
   "wallet_backup.backup_warning": "<strong>अपने वॉलेट का बैकअप लें</strong> — डिवाइस खोने पर अपनी संपत्ति की सुरक्षा करें",
   "wallet_backup.save_recovery_phrase": "रिकवरी वाक्यांश सहेजें",
   "wallet_backup.status_not_backed_up": "बैकअप नहीं लिया गया",
-  "wallet_label_private_key": "प्राइवेट की",
-  "wallet_label_watch_only": "केवल-देखने योग्य",
   "word": "शब्द"
 }

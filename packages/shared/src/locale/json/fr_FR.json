@@ -3136,6 +3136,8 @@
   "wallet.history_settings_hide_risk_transaction_title": "Masquer les transactions à risque",
   "wallet.history_settings_hide_small_transaction_desc": "Masque les transactions de faible valeur. Les tokens sans prix ne sont pas filtrés.",
   "wallet.history_settings_hide_small_transaction_title": "Masquer les petites transactions (≤ 0,01 $)",
+  "wallet.label_private_key": "Importer la clé privée",
+  "wallet.label_watch_only": "Lecture seule",
   "wallet.last_ledger_sequence": "Dernière séquence de grand livre",
   "wallet.ledger_index": "Index du grand livre",
   "wallet.no_address": "Aucune adresse",
@@ -3175,7 +3177,5 @@
   "wallet_backup.backup_warning": "<strong>Sauvegardez votre portefeuille</strong> — protégez vos actifs contre la perte de votre appareil",
   "wallet_backup.save_recovery_phrase": "Enregistrer la phrase de récupération",
   "wallet_backup.status_not_backed_up": "Non sauvegardé",
-  "wallet_label_private_key": "Clé privée",
-  "wallet_label_watch_only": "Lecture seule",
   "word": "Mot"
 }

@@ -3136,6 +3136,8 @@
   "wallet.history_settings_hide_risk_transaction_title": "Nascondi le transazioni rischiose",
   "wallet.history_settings_hide_small_transaction_desc": "Nasconde le transazioni di piccolo valore. I token senza prezzo non vengono filtrati.",
   "wallet.history_settings_hide_small_transaction_title": "Nascondi transazioni di piccolo importo (≤ $0,01)",
+  "wallet.label_private_key": "Importa chiave privata",
+  "wallet.label_watch_only": "Solo visualizzazione",
   "wallet.last_ledger_sequence": "Ultima sequenza del registro",
   "wallet.ledger_index": "Indice del libro mastro",
   "wallet.no_address": "Nessun indirizzo",
@@ -3175,7 +3177,5 @@
   "wallet_backup.backup_warning": "<strong>Esegui il backup del tuo wallet</strong> — proteggi i tuoi asset dalla perdita del dispositivo",
   "wallet_backup.save_recovery_phrase": "Salva la frase di recupero",
   "wallet_backup.status_not_backed_up": "Non salvato",
-  "wallet_label_private_key": "Chiave privata",
-  "wallet_label_watch_only": "Solo visualizzazione",
   "word": "Parola"
 }

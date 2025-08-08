@@ -3136,6 +3136,8 @@
   "wallet.history_settings_hide_risk_transaction_title": "隐藏风险交易",
   "wallet.history_settings_hide_small_transaction_desc": "根据价值过滤小额交易。未定价的代币不会被隐藏。",
   "wallet.history_settings_hide_small_transaction_title": "隐藏小额交易 (≤ $0.01)",
+  "wallet.label_private_key": "导入私钥",
+  "wallet.label_watch_only": "观察钱包",
   "wallet.last_ledger_sequence": "最后的账本序列",
   "wallet.ledger_index": "账本索引",
   "wallet.no_address": "无地址",
@@ -3175,7 +3177,5 @@
   "wallet_backup.backup_warning": "<strong>备份您的钱包</strong> — 防止设备丢失导致资产无法找回",
   "wallet_backup.save_recovery_phrase": "保存助记词",
   "wallet_backup.status_not_backed_up": "未备份",
-  "wallet_label_private_key": "导入钱包",
-  "wallet_label_watch_only": "观察钱包",
   "word": "Word"
 }

@@ -3136,6 +3136,8 @@
   "wallet.history_settings_hide_risk_transaction_title": "위험한 거래 숨기기",
   "wallet.history_settings_hide_small_transaction_desc": "소액 거래를 숨깁니다. 가격이 책정되지 않은 토큰은 필터링되지 않습니다.",
   "wallet.history_settings_hide_small_transaction_title": "소액 거래 숨기기 (≤ $0.01)",
+  "wallet.label_private_key": "개인 키 가져오기",
+  "wallet.label_watch_only": "보기 전용",
   "wallet.last_ledger_sequence": "마지막 원장 순서",
   "wallet.ledger_index": "원장 인덱스",
   "wallet.no_address": "주소 없음",
@@ -3175,7 +3177,5 @@
   "wallet_backup.backup_warning": "<strong>지갑을 백업하세요</strong> — 기기 분실 시 자산을 보호하세요",
   "wallet_backup.save_recovery_phrase": "복구 구문 저장",
   "wallet_backup.status_not_backed_up": "백업되지 않음",
-  "wallet_label_private_key": "개인키",
-  "wallet_label_watch_only": "보기 전용",
   "word": "워드"
 }

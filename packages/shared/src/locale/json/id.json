@@ -3136,6 +3136,8 @@
   "wallet.history_settings_hide_risk_transaction_title": "Sembunyikan transaksi berisiko",
   "wallet.history_settings_hide_small_transaction_desc": "Menyembunyikan transaksi bernilai kecil. Token yang belum memiliki harga tidak akan disaring.",
   "wallet.history_settings_hide_small_transaction_title": "Sembunyikan transaksi nominal kecil (≤ $0,01)",
+  "wallet.label_private_key": "Impor kunci pribadi",
+  "wallet.label_watch_only": "Hanya-Lihat",
   "wallet.last_ledger_sequence": "Urutan buku besar terakhir",
   "wallet.ledger_index": "Indeks buku besar",
   "wallet.no_address": "Tidak ada alamat",
@@ -3175,7 +3177,5 @@
   "wallet_backup.backup_warning": "<strong>Cadangkan dompet Anda</strong> — lindungi aset Anda dari kehilangan perangkat",
   "wallet_backup.save_recovery_phrase": "Simpan frasa pemulihan",
   "wallet_backup.status_not_backed_up": "Tidak dicadangkan",
-  "wallet_label_private_key": "Kunci pribadi",
-  "wallet_label_watch_only": "Hanya-Lihat",
   "word": "Kata"
 }

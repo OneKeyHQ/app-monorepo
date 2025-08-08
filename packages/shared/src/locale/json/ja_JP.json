@@ -3136,6 +3136,8 @@
   "wallet.history_settings_hide_risk_transaction_title": "リスクのある取引を隠す",
   "wallet.history_settings_hide_small_transaction_desc": "少額取引を非表示にします。価格が設定されていないトークンはフィルタリングされません。",
   "wallet.history_settings_hide_small_transaction_title": "少額の取引を非表示 (≤ $0.01)",
+  "wallet.label_private_key": "秘密鍵をインポート",
+  "wallet.label_watch_only": "閲覧専用",
   "wallet.last_ledger_sequence": "最後の元帳シーケンス",
   "wallet.ledger_index": "元帳インデックス",
   "wallet.no_address": "住所なし",
@@ -3175,7 +3177,5 @@
   "wallet_backup.backup_warning": "<strong>ウォレットをバックアップしましょう</strong> — デバイスの紛失から資産を守るために",
   "wallet_backup.save_recovery_phrase": "リカバリーフレーズを保存",
   "wallet_backup.status_not_backed_up": "バックアップされていない",
-  "wallet_label_private_key": "秘密鍵",
-  "wallet_label_watch_only": "閲覧専用",
   "word": "ワード"
 }

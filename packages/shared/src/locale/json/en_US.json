@@ -3136,6 +3136,8 @@
   "wallet.history_settings_hide_risk_transaction_title": "Hide risky transactions",
   "wallet.history_settings_hide_small_transaction_desc": "Filters received transactions by value. Unpriced tokens not filtered.",
   "wallet.history_settings_hide_small_transaction_title": "Hide small transactions (≤ $0.01)",
+  "wallet.label_private_key": "Private key",
+  "wallet.label_watch_only": "Watch-Only",
   "wallet.last_ledger_sequence": "Last ledger sequence",
   "wallet.ledger_index": "Ledger index",
   "wallet.no_address": "No address",
@@ -3175,7 +3177,5 @@
   "wallet_backup.backup_warning": "<strong>Backup your wallet</strong> — protect your assets from device loss",
   "wallet_backup.save_recovery_phrase": "Save recovery phrase",
   "wallet_backup.status_not_backed_up": "Not backed up",
-  "wallet_label_private_key": "Private key",
-  "wallet_label_watch_only": "Watch-Only",
   "word": "Word"
 }

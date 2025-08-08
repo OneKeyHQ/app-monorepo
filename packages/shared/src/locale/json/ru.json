@@ -3136,6 +3136,8 @@
   "wallet.history_settings_hide_risk_transaction_title": "Скрыть рискованные транзакции",
   "wallet.history_settings_hide_small_transaction_desc": "Скрывает транзакции с низкой стоимостью. Токены без цены не фильтруются.",
   "wallet.history_settings_hide_small_transaction_title": "Скрыть небольшие транзакции (≤ $0,01)",
+  "wallet.label_private_key": "Импортировать приватный ключ",
+  "wallet.label_watch_only": "Только для просмотра",
   "wallet.last_ledger_sequence": "Последняя последовательность журнала",
   "wallet.ledger_index": "Индекс журнала",
   "wallet.no_address": "Нет адреса",
@@ -3175,7 +3177,5 @@
   "wallet_backup.backup_warning": "<strong>Сделайте резервную копию кошелька</strong> — защитите свои активы от потери устройства",
   "wallet_backup.save_recovery_phrase": "Сохранить фразу восстановления",
   "wallet_backup.status_not_backed_up": "Не сохранено",
-  "wallet_label_private_key": "Приватный ключ",
-  "wallet_label_watch_only": "Только для просмотра",
   "word": "Слово"
 }

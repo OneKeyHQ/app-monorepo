@@ -3141,6 +3141,8 @@
   wallet_history_settings_hide_risk_transaction_title = 'wallet.history_settings_hide_risk_transaction_title',
   wallet_history_settings_hide_small_transaction_desc = 'wallet.history_settings_hide_small_transaction_desc',
   wallet_history_settings_hide_small_transaction_title = 'wallet.history_settings_hide_small_transaction_title',
+  wallet_label_private_key = 'wallet.label_private_key',
+  wallet_label_watch_only = 'wallet.label_watch_only',
   wallet_last_ledger_sequence = 'wallet.last_ledger_sequence',
   wallet_ledger_index = 'wallet.ledger_index',
   wallet_no_address = 'wallet.no_address',
@@ -3180,7 +3182,5 @@
   wallet_backup_backup_warning = 'wallet_backup.backup_warning',
   wallet_backup_save_recovery_phrase = 'wallet_backup.save_recovery_phrase',
   wallet_backup_status_not_backed_up = 'wallet_backup.status_not_backed_up',
-  wallet_label_private_key = 'wallet_label_private_key',
-  wallet_label_watch_only = 'wallet_label_watch_only',
   word = 'word',
 }

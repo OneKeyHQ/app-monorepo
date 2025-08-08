@@ -187,7 +187,7 @@ function WalletList({
       {importedAccounts?.length ? (
         <PreviewHeader
           title={intl.formatMessage({
-            id: ETranslations.global_import_wallet,
+            id: ETranslations.wallet_label_private_key,
           })}
         />
       ) : null}

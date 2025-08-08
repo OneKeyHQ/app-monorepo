@@ -3136,6 +3136,8 @@
   "wallet.history_settings_hide_risk_transaction_title": "ঝুঁকিপূর্ণ লেনদেন লুকান",
   "wallet.history_settings_hide_small_transaction_desc": "ছোট মূল্যের লেনদেন লুকিয়ে রাখে। যেসব টোকেনের মূল্য নির্ধারিত নয় সেগুলো ফিল্টার হবে না।",
   "wallet.history_settings_hide_small_transaction_title": "ছোট অঙ্কের লেনদেনগুলি লুকান (≤ $0.01)",
+  "wallet.label_private_key": "ব্যক্তিগত কী আমদানি করুন",
+  "wallet.label_watch_only": "শুধু-দেখার",
   "wallet.last_ledger_sequence": "শেষ খাতা ধারাবাহিকতা",
   "wallet.ledger_index": "খাতার সূচী",
   "wallet.no_address": "কোন ঠিকানা নেই",
@@ -3175,7 +3177,5 @@
   "wallet_backup.backup_warning": "<strong>আপনার ওয়ালেট ব্যাকআপ করুন</strong> — ডিভাইস হারিয়ে গেলে আপনার সম্পদ রক্ষা করুন",
   "wallet_backup.save_recovery_phrase": "পুনরুদ্ধার বাক্যাংশ সংরক্ষণ করুন",
   "wallet_backup.status_not_backed_up": "ব্যাকআপ করা হয়নি",
-  "wallet_label_private_key": "প্রাইভেট কী",
-  "wallet_label_watch_only": "শুধু-দেখার",
   "word": "শব্দ"
 }
