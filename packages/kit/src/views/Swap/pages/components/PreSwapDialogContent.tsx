@@ -134,7 +134,10 @@ const PreSwapDialogContent = ({
   ]);
 
   useEffect(() => {
-    if (swapStepsRef.current.preSwapData.supportNetworkFeeLevel) {
+    if (
+      swapStepsRef.current.preSwapData.supportNetworkFeeLevel &&
+      swapStepsRef.current.preSwapData.supportPreBuild
+    ) {
       void preSwapBeforeStepActions(
         swapStepsRef.current.quoteResult,
         swapStepsRef.current.preSwapData.fromToken,

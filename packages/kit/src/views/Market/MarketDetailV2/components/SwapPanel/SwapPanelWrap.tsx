@@ -14,7 +14,11 @@ import { SwapPanelContent } from './SwapPanelContent';
 
 import type { IToken } from './types';
 
-export function SwapPanelWrap() {
+interface ISwapPanelWrapProps {
+  onCloseDialog?: () => void;
+}
+
+export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   const { networkId, tokenDetail } = useTokenDetail();
 
   const swapPanel = useSwapPanel({
@@ -62,6 +66,7 @@ export function SwapPanelWrap() {
     tradeType: tradeType || ESwapDirection.BUY,
     fromTokenAmount: paymentAmount.toFixed(),
     antiMEV: swapMevNetConfig?.includes(swapPanel.networkId ?? ''),
+    onCloseDialog,
   };
 
   const speedSwapActions = useSpeedSwapActions(useSpeedSwapActionsParams);

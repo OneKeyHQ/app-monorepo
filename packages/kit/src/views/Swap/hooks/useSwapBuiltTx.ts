@@ -1517,6 +1517,9 @@ export function useSwapBuildTx() {
         swapFromAddressInfo.networkId &&
         swapFromAddressInfo.accountInfo?.account?.id
       ) {
+        if (swapStepsRef.current.preSwapData.swapBuildResultData) {
+          return swapStepsRef.current.preSwapData.swapBuildResultData;
+        }
         const checkRes = await checkOtherFee(data);
         if (!checkRes) {
           throw new OneKeyError('checkOtherFee failed');
@@ -2632,12 +2635,12 @@ export function useSwapBuildTx() {
           },
         }));
         try {
-          const { unsignedTxArr } = await getApproveUnSignedTxArr(data);
           const { swapInfo, transferInfo, encodedTx } = await buildSwapAction(
             currentFromToken,
             currentToToken,
             data,
           );
+          const { unsignedTxArr } = await getApproveUnSignedTxArr(data);
           await estimateNetworkFee(
             swapFromAddressInfo.networkId,
             swapFromAddressInfo.accountInfo?.account?.id,
