@@ -1,4 +1,5 @@
 import {
+  Button,
   Icon,
   Popover,
   SizableText,
@@ -13,6 +14,7 @@ interface IStatItem {
   icon?: IIconProps['name'];
   iconColor?: ColorTokens;
   tooltip?: string;
+  onPress?: () => void;
 }
 
 export function StatCard({
@@ -21,8 +23,9 @@ export function StatCard({
   icon,
   iconColor,
   tooltip,
+  onPress,
 }: IStatItem) {
-  return (
+  const content = (
     <Stack
       bg="$bgSubdued"
       borderRadius="$3"
@@ -57,6 +60,25 @@ export function StatCard({
       </XStack>
     </Stack>
   );
+
+  if (onPress) {
+    return (
+      <Button
+        variant="tertiary"
+        bg="$transparent"
+        borderWidth={0}
+        p={0}
+        flexGrow={1}
+        flexShrink={1}
+        flexBasis={0}
+        onPress={onPress}
+      >
+        {content}
+      </Button>
+    );
+  }
+
+  return content;
 }
 
 export type { IStatItem };
