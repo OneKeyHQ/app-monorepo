@@ -77,8 +77,6 @@ function MarketTokenListNetworkSelector({
     }
   }, [selectedNetworkId]);
 
-  console.log('marketNetworks', marketNetworks);
-
   return (
     <MarketTokenListNetworkSelectorNormal
       ref={normalComponentRef}

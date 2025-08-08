@@ -80,11 +80,11 @@ export function TokenOverview() {
         { id: ETranslations.dexmarket_details_audit_issue },
         { amount: warningCount },
       ),
-      icon: 'ShieldCheckDoneSolid',
-      iconColor: securityStatus === 'safe' ? '$iconSuccess' : '$iconCritical',
-      onPress: handleAuditPress,
+      icon: securityStatus === 'safe' ? 'ShieldCheckDoneSolid' : 'BugOutline',
+      iconColor: securityStatus === 'safe' ? '$iconSuccess' : '$iconCaution',
+      onPress: securityData ? handleAuditPress : undefined,
     }),
-    [intl, warningCount, securityStatus, handleAuditPress],
+    [intl, warningCount, securityStatus, handleAuditPress, securityData],
   );
 
   const holdersStat = useMemo<IStatItem>(

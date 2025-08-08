@@ -133,14 +133,12 @@ const MarketNetworkFilter = forwardRef<
           <GradientMask position="right" />
         </XStack>
 
-        {showMoreButton ? (
-          <MoreButton
-            networks={networks}
-            selectedNetworkId={selectedNetwork?.id}
-            onNetworkSelect={onMoreNetworkSelect}
-            placement={placement}
-          />
-        ) : null}
+        <MoreButton
+          networks={networks}
+          selectedNetworkId={selectedNetwork?.id}
+          onNetworkSelect={onMoreNetworkSelect}
+          placement={placement}
+        />
       </XStack>
     );
   },
