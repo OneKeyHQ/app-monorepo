@@ -142,7 +142,7 @@ const PreSwapInfoGroup = ({
             formatter="value"
             formatterOptions={{ currency: settings.currencyInfo.symbol }}
           >
-            {preSwapData.netWorkFee?.gasFeeFiatValue ?? '-'}
+            {preSwapData.netWorkFee?.gasFeeFiatValue ?? ''}
           </NumberSizeableText>
         )}
       </XStack>
