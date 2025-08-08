@@ -407,14 +407,18 @@ export default function PagePrimeTransferPreview() {
       type: keyof IPrimeTransferSelectedItemMap;
       id: string;
     }) => {
-      const newSelectedItemMap = { ...selectedItemMap };
-      newSelectedItemMap[type][id] = {
-        ...newSelectedItemMap[type][id],
-        checked: !newSelectedItemMap[type][id].checked,
-      };
-      setSelectedItemMap(newSelectedItemMap);
+      setSelectedItemMap((prev) => ({
+        ...prev,
+        [type]: {
+          ...prev[type],
+          [id]: {
+            ...prev[type][id],
+            checked: !prev[type][id].checked,
+          },
+        },
+      }));
     },
-    [selectedItemMap],
+    [],
   );
 
   const handleGroupSelectChange = useCallback(
@@ -425,18 +429,17 @@ export default function PagePrimeTransferPreview() {
       type: keyof IPrimeTransferSelectedItemMap;
       selectAll: boolean;
     }) => {
-      const newSelectedItemMap = { ...selectedItemMap };
-      Object.keys(newSelectedItemMap[type]).forEach((id) => {
-        if (!newSelectedItemMap[type][id].disabled) {
-          newSelectedItemMap[type][id] = {
-            ...newSelectedItemMap[type][id],
-            checked: selectAll,
-          };
-        }
+      setSelectedItemMap((prev) => {
+        const next = { ...prev, [type]: { ...prev[type] } };
+        Object.keys(next[type]).forEach((id) => {
+          if (!next[type][id].disabled) {
+            next[type][id] = { ...next[type][id], checked: selectAll };
+          }
+        });
+        return next;
       });
-      setSelectedItemMap(newSelectedItemMap);
     },
-    [selectedItemMap],
+    [],
   );
 
   const { result: selectedTransferData } = usePromiseResult(async () => {
