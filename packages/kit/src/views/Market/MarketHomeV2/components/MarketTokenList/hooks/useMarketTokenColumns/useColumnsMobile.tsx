@@ -93,8 +93,10 @@ export const useColumnsMobile = (
                 userSelect="none"
                 size="$bodyMdMedium"
                 color="white"
-                formatter="priceChange"
-                formatterOptions={{ showPlusMinusSigns: true }}
+                formatter="priceChangeCapped"
+                formatterOptions={{
+                  showPlusMinusSigns: true,
+                }}
               >
                 {record.change24h}
               </NumberSizeableText>

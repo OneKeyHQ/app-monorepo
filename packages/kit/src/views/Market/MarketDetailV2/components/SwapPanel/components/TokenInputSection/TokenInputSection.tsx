@@ -27,6 +27,7 @@ import {
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { ISwapNativeTokenReserveGas } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
 
@@ -48,6 +49,7 @@ export interface ITokenInputSectionProps {
   onPressTokenSelector?: () => void;
   tradeType: ITradeType;
   balance?: BigNumber;
+  swapNativeTokenReserveGas: ISwapNativeTokenReserveGas[];
 }
 
 function TokenInputSectionComponent(
@@ -58,6 +60,7 @@ function TokenInputSectionComponent(
     onTokenChange,
     tradeType,
     balance,
+    swapNativeTokenReserveGas,
   }: ITokenInputSectionProps,
   ref: Ref<ITokenInputSectionRef>,
 ) {
@@ -226,9 +229,12 @@ function TokenInputSectionComponent(
           })) ?? []
         }
         selectedTokenDecimals={selectedToken?.decimals}
+        selectedTokenNetworkId={selectedToken?.networkId}
+        selectedTokenIsNative={selectedToken?.isNative}
         onSelect={handleInternalChange}
         tradeType={tradeType}
         balance={balance}
+        swapNativeTokenReserveGas={swapNativeTokenReserveGas}
       />
     </YStack>
   );

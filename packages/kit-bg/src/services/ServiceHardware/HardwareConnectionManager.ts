@@ -240,8 +240,10 @@ export class HardwareConnectionManager {
 
   shouldSwitchTransportType = memoizee(
     async ({
+      connectId,
       hardwareCallContext,
     }: {
+      connectId?: string;
       hardwareCallContext?: IHardwareCallContext;
     }): Promise<{
       shouldSwitch: boolean;
@@ -269,6 +271,16 @@ export class HardwareConnectionManager {
         return {
           shouldSwitch,
           targetType: forceTransportType,
+        };
+      }
+
+      // quick detect mini device
+      const isMiniDevice = connectId && connectId.startsWith('MI');
+      // mini device should always use bridge transport type
+      if (isMiniDevice) {
+        return {
+          shouldSwitch: false,
+          targetType: EHardwareTransportType.Bridge,
         };
       }
 

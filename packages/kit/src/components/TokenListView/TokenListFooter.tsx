@@ -218,15 +218,11 @@ function TokenListFooter(props: IProps) {
       {!isSearchMode && smallBalanceTokens.length > 0 ? (
         <ListItem onPress={handleOnPressLowValueTokens} userSelect="none">
           <XStack flexGrow={1} flexBasis={0} alignItems="center" gap="$3">
-            <Stack
-              p={tableLayout ? '$1' : '$1.5'}
-              borderRadius="$full"
-              bg="$bgStrong"
-            >
+            <Stack p="$2" borderRadius="$full" bg="$bgStrong">
               <Icon
                 name="ControllerRoundUpSolid"
                 color="$iconSubdued"
-                size={tableLayout ? '$8' : '$7'}
+                size="$6"
               />
             </Stack>
             <ListItem.Text
@@ -288,16 +284,8 @@ function TokenListFooter(props: IProps) {
       {!isSearchMode && riskyTokens.length > 0 ? (
         <ListItem onPress={handleOnPressRiskyTokens} userSelect="none">
           <XStack alignItems="center" gap="$3" flex={1}>
-            <Stack
-              p={tableLayout ? '$1' : '$1.5'}
-              borderRadius="$full"
-              bg="$bgStrong"
-            >
-              <Icon
-                name="ErrorSolid"
-                color="$iconSubdued"
-                size={tableLayout ? '$8' : '$7'}
-              />
+            <Stack p="$2" borderRadius="$full" bg="$bgStrong">
+              <Icon name="ErrorSolid" color="$iconSubdued" size="$6" />
             </Stack>
             <ListItem.Text
               primary={`${blockedTokensLength} ${intl.formatMessage({

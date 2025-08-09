@@ -15,7 +15,11 @@ import { SwapPanelContent } from './SwapPanelContent';
 
 import type { IToken } from './types';
 
-export function SwapPanelWrap() {
+interface ISwapPanelWrapProps {
+  onCloseDialog?: () => void;
+}
+
+export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   const { networkId, tokenDetail } = useTokenDetail();
 
   const swapPanel = useSwapPanel({
@@ -63,6 +67,7 @@ export function SwapPanelWrap() {
     tradeType: tradeType || ESwapDirection.BUY,
     fromTokenAmount: paymentAmount.toFixed(),
     antiMEV: swapMevNetConfig?.includes(swapPanel.networkId ?? ''),
+    onCloseDialog,
   };
 
   const speedSwapActions = useSpeedSwapActions(useSpeedSwapActionsParams);
@@ -78,6 +83,7 @@ export function SwapPanelWrap() {
     balanceToken,
     fetchBalanceLoading,
     priceRate,
+    swapNativeTokenReserveGas,
   } = speedSwapActions;
 
   const filterDefaultTokens = useMemo(() => {
@@ -123,6 +129,7 @@ export function SwapPanelWrap() {
     <SwapPanelContent
       priceRate={priceRate}
       swapMevNetConfig={swapMevNetConfig}
+      swapNativeTokenReserveGas={swapNativeTokenReserveGas}
       swapPanel={swapPanel}
       balance={balance ?? new BigNumber(0)}
       balanceToken={balanceToken as IToken}

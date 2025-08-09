@@ -563,7 +563,9 @@ class ServiceDemo extends ServiceBase {
     }
 
     defaultLogger.app.perf.logTime({ message: 'getSDKInstance' });
-    const sdk = await this.backgroundApi.serviceHardware.getSDKInstance();
+    const sdk = await this.backgroundApi.serviceHardware.getSDKInstance({
+      connectId,
+    });
     defaultLogger.app.perf.logTime({ message: 'getSDKInstanceDone' });
 
     defaultLogger.app.perf.logTime({ message: 'btc1' });
@@ -673,7 +675,9 @@ class ServiceDemo extends ServiceBase {
     }
 
     defaultLogger.app.perf.logTime({ message: 'getSDKInstance' });
-    const sdk = await this.backgroundApi.serviceHardware.getSDKInstance();
+    const sdk = await this.backgroundApi.serviceHardware.getSDKInstance({
+      connectId,
+    });
     defaultLogger.app.perf.logTime({ message: 'getSDKInstanceDone' });
 
     defaultLogger.app.perf.logTime({ message: 'demoHwGetAllNetworkAddresses' });

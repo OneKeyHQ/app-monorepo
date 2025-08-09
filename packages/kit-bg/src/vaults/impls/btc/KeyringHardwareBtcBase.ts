@@ -95,7 +95,9 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
       Boolean,
     );
     const prevTxs = await vault.collectTxsByApi(prevTxids);
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: dbDevice.connectId,
+    });
 
     const { connectId, deviceId } = dbDevice;
 
@@ -213,7 +215,9 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
     const coinName = await checkIsDefined(this.coreApi).getCoinName({
       network,
     });
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: params.deviceParams?.dbDevice?.connectId || '',
+    });
     const { dbDevice, deviceCommonParams } = checkIsDefined(
       params.deviceParams,
     );
@@ -327,7 +331,9 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
     const dbAccount = await this.vault.getAccount();
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: deviceParams.dbDevice.connectId,
+    });
     const result = await Promise.all(
       params.messages.map(async ({ message, type }) => {
         const dAppSignType = (type as 'ecdsa' | 'bip322-simple') || undefined;
@@ -470,7 +476,9 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
         coinName,
         showOnOnekeyFn,
       }) => {
-        const sdk = await this.getHardwareSDKInstance();
+        const sdk = await this.getHardwareSDKInstance({
+          connectId,
+        });
 
         const response = await sdk.btcGetAddress(connectId, deviceId, {
           ...params.deviceParams.deviceCommonParams,

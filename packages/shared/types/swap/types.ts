@@ -473,6 +473,7 @@ export interface ISwapPreSwapData {
   };
   fee?: IFetchQuoteFee;
   supportNetworkFeeLevel?: boolean;
+  supportPreBuild?: boolean;
   allowanceResult?: IAllowanceResult;
   netWorkFee?: {
     gasInfos?: { encodeTx: IEncodedTx; gasInfo: ISwapGasInfo }[];
@@ -1011,6 +1012,11 @@ export enum ESwapSlippageCustomStatus {
   NORMAL = 'normal',
   ERROR = 'error',
   WRONG = 'wrong',
+}
+
+export interface ISwapNativeTokenReserveGas {
+  networkId: string;
+  reserveGas: number;
 }
 
 export const SwapPercentageInputStage = [25, 50, 100];

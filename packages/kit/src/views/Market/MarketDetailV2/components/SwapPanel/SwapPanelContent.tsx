@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import { YStack } from '@onekeyhq/components';
 import type { useSwapPanel } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSwapPanel';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
+import type { ISwapNativeTokenReserveGas } from '@onekeyhq/shared/types/swap/types';
 
 import { ActionButton } from './components/ActionButton';
 import { ApproveButton } from './components/ApproveButton';
@@ -32,6 +33,7 @@ export type ISwapPanelContentProps = {
   onApprove: () => void;
   onSwap: () => void;
   swapMevNetConfig: string[];
+  swapNativeTokenReserveGas: ISwapNativeTokenReserveGas[];
   priceRate?: {
     rate?: number;
     fromTokenSymbol?: string;
@@ -51,6 +53,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     isApproved,
     balance,
     balanceToken,
+    swapNativeTokenReserveGas,
     onApprove,
     onSwap,
     swapMevNetConfig,
@@ -71,11 +74,27 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   const tokenInputRef = useRef<ITokenInputSectionRef>(null);
 
   const handleBalanceClick = useCallback(() => {
-    if (balance) {
+    const reserveGas = swapNativeTokenReserveGas.find(
+      (item) => item.networkId === balanceToken?.networkId,
+    )?.reserveGas;
+    if (balanceToken?.isNative && reserveGas) {
+      const maxAmount = BigNumber.max(
+        0,
+        balance.minus(new BigNumber(reserveGas)),
+      );
+      setPaymentAmount(maxAmount);
+      tokenInputRef.current?.setValue(maxAmount.toFixed());
+    } else {
       setPaymentAmount(balance);
       tokenInputRef.current?.setValue(balance.toFixed());
     }
-  }, [balance, setPaymentAmount]);
+  }, [
+    balance,
+    balanceToken?.isNative,
+    balanceToken?.networkId,
+    setPaymentAmount,
+    swapNativeTokenReserveGas,
+  ]);
   return (
     <YStack gap="$4">
       {/* Trade type selector */}
@@ -86,6 +105,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         <TokenInputSection
           ref={tokenInputRef}
           tradeType={tradeType}
+          swapNativeTokenReserveGas={swapNativeTokenReserveGas}
           onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
           selectedToken={
             tradeType === ESwapDirection.SELL ? balanceToken : paymentToken

@@ -1,11 +1,15 @@
+import { useRef } from 'react';
+
 import { useIntl } from 'react-intl';
 
+import type { IDialogInstance } from '@onekeyhq/components';
 import {
   Button,
   Spinner,
   Stack,
   View,
   useInModalDialog,
+  useInTabDialog,
   useMedia,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -31,7 +35,8 @@ export function SwapPanel({
 }) {
   const intl = useIntl();
   const media = useMedia();
-  const inModalDialog = useInModalDialog();
+  const inModalDialog = useInTabDialog();
+  const dialogRef = useRef<IDialogInstance>(null);
 
   if (!networkId || !tokenAddress) {
     return (
@@ -48,7 +53,7 @@ export function SwapPanel({
 
   const showSwapDialog = () => {
     if (networkId && tokenAddress) {
-      inModalDialog.show({
+      dialogRef.current = inModalDialog.show({
         onClose: () => {
           appEventBus.emit(
             EAppEventBusNames.SwapPanelDismissKeyboard,
@@ -71,7 +76,9 @@ export function SwapPanel({
               <MarketWatchListProviderMirrorV2
                 storeName={EJotaiContextStoreNames.marketWatchListV2}
               >
-                <SwapPanelWrap />
+                <SwapPanelWrap
+                  onCloseDialog={() => dialogRef.current?.close()}
+                />
               </MarketWatchListProviderMirrorV2>
             </AccountSelectorProviderMirror>
           </View>
