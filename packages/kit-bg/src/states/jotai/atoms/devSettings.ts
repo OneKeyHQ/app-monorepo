@@ -48,6 +48,8 @@ export interface IDevSettings {
   customApiEndpoints?: IApiEndpointConfig[];
   // show performance monitor
   showPerformanceMonitor?: boolean;
+  // use local trading view URL for development
+  useLocalTradingViewUrl?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -79,6 +81,7 @@ export const {
         enabled: false,
         selectedTab: ETabRoutes.Discovery,
       },
+      useLocalTradingViewUrl: false,
     },
   },
 });

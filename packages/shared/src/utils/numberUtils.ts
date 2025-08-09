@@ -362,6 +362,64 @@ export const formatPriceChange: IFormatNumberFunc = (value, options) => {
   };
 };
 
+/** PriceChange with capping and > symbol support */
+export const formatPriceChangeCapped: IFormatNumberFunc = (value, options) => {
+  const val = new BigNumber(value);
+  if (val.isNaN()) {
+    return { formattedValue: value, meta: { value, invalid: true } };
+  }
+
+  // Check if value exceeds the clamp range
+  const isOverMax = val.gt(999.99);
+  const isUnderMin = val.lt(-999.99);
+  const isCapped = isOverMax || isUnderMin;
+
+  // Apply clamping (same logic as clampPercentage)
+  const min = new BigNumber(-999.99);
+  const max = new BigNumber(999.99);
+  const clampedValue = BigNumber.max(min, BigNumber.min(max, val));
+  const finalValue = clampedValue.decimalPlaces(2, BigNumber.ROUND_HALF_UP);
+
+  if (finalValue.eq(0)) {
+    const { value: formattedValue, decimalSymbol } = formatLocalNumber('0', {
+      digits: 2,
+      removeTrailingZeros: false,
+      disableThousandSeparator: options?.disableThousandSeparator,
+    });
+    return {
+      formattedValue,
+      meta: {
+        value,
+        isZero: true,
+        symbol: '%',
+        decimalSymbol,
+        isCapped,
+        ...options,
+      },
+    };
+  }
+
+  const { value: formattedValue, decimalSymbol } = formatLocalNumber(
+    finalValue.toFixed(2),
+    {
+      digits: 2,
+      removeTrailingZeros: false,
+      disableThousandSeparator: options?.disableThousandSeparator,
+    },
+  );
+
+  return {
+    formattedValue,
+    meta: {
+      value,
+      symbol: '%',
+      decimalSymbol,
+      isCapped,
+      ...options,
+    },
+  };
+};
+
 /** DeFi Value */
 export const formatValue: IFormatNumberFunc = (value, options) => {
   const { currency } = options || {};
@@ -578,7 +636,7 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
 
   // Add ">" prefix for capped values
   if (value.meta.isCapped) {
-    strings.push('> ');
+    strings.push('>');
   }
 
   if (isNegativeNumber && !isZero) {
@@ -624,6 +682,8 @@ export const NUMBER_FORMATTER = {
   price: formatPrice,
   /** PriceChange */
   priceChange: formatPriceChange,
+  /** PriceChange with capping and > symbol support */
+  priceChangeCapped: formatPriceChangeCapped,
   /** DeFi */
   value: formatValue,
   /** FDV / MarketCap / Volume / Liquidty / TVL / TokenSupply */
