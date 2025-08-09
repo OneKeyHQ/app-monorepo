@@ -73,13 +73,7 @@ export function useMarketHolders({
         list: processedList,
       };
     },
-    [
-      tokenAddress,
-      networkId,
-      isReady,
-      tokenDetail?.fdv,
-      tokenDetail?.price,
-    ],
+    [tokenAddress, networkId, isReady, tokenDetail?.fdv, tokenDetail?.price],
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),

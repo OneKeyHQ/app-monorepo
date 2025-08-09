@@ -2,9 +2,9 @@ import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 import type {
+  IDexTVIndicatorParams,
   IDexTVIntervalParams,
   IDexTVLineParams,
-  IDexTVIndicatorParams,
   IDexTVPriceMCParams,
 } from '../types';
 
