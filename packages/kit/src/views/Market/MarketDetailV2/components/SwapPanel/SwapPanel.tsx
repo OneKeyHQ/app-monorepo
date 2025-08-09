@@ -9,7 +9,6 @@ import {
   Stack,
   View,
   useInModalDialog,
-  useInTabDialog,
   useMedia,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -35,7 +34,7 @@ export function SwapPanel({
 }) {
   const intl = useIntl();
   const media = useMedia();
-  const inModalDialog = useInTabDialog();
+  const inModalDialog = useInModalDialog();
   const dialogRef = useRef<IDialogInstance>(null);
 
   if (!networkId || !tokenAddress) {
