@@ -509,7 +509,7 @@ const SwapTokenSelectPage = () => {
           ...(searchKeyword?.length === 0 && {
             addOns: [
               {
-                iconName: 'ClipboardOutline',
+                iconName: 'Copy2Outline',
                 onPress: handlePaste,
               },
             ],
