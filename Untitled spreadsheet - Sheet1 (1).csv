@@ -1,0 +1,49 @@
+Market DEX,,,,,,
+dexEnter,进入新版Market,,预置属性,,从外部页面进入到market,
+,,,enterWay,进入方式,,HomeTab / Search / link / others
+dexList,选择查看热门还是收藏,,预置属性,,点击首页的热门 / 收藏才算，默认选中不打点,
+,,,dexListName,,列表的名称,Trending / watchlist
+dexNetwork,选择查看哪个网络下的列表,,预置属性,,点击首页的热门 / 收藏才算，默认选中不打点,
+,,,network,,网络名称,
+dexNetworkloading,在某个网络下，加载了多少代币,,预置属性,,客户端向后端拉取一次数据，上报一次,
+,,,network,,网络名称,
+,,,tokenLoading,,拉取后，用户总共加载了多少代币,
+dexAddToWatchlist,添加代币收藏,,预置属性,,单个添加代币收藏,
+,,,network,,,
+,,,tokenSymbol,代币符号,,
+,,,tokenContract,代币合约,,
+,,,addFrom,从何处添加,,Homepage / detail / onboard / Search/ others
+dexRemoveFromWatchlist,移除代币收藏,,预置属性,,,
+,,,network,,,
+,,,tokenSymbol,代币符号,,
+,,,tokenContract,代币合约,,
+,,,removeFrom,从何处移除,,Homepage / detail / Search/ others
+dexSort,首页排序,,预置属性,,,
+,,,sortWay,通过哪个选项排序,点击排序,Liquidity / volume / MC / 
+dexCopyCA,复制合约地址,,预置属性,,,
+,,,copyFrom,在何处复制,,Homepage / detail / others
+dexCheckRisk,查看代币风险详情,,预置属性,,,
+dexVisitSite,,,预置属性,,,
+,,,visitTarget,,访问的页面，官网，官推，还是搜索,OfficialWebsite / X / SearchOnX
+dexSwap,代币买卖,,预置属性,,提交购买的时候,
+,,,walletType,钱包类型,,软件 HD 钱包/硬件钱包/观察钱包
+,,,amountEnterType,数值输入方式,,"预设选择 1/2/3/4 ，分别代表四个选项
+手动输入"
+,,,slippageSetting,滑点设置,,auto / manual
+,,,sourceToeknSymbol,源代币,,
+,,,receivedTokenSymbol,目标代币,,
+,,,network,网络,,
+,,,SwapType,兑换类型，买入还是卖出,,Buy / Sell
+,,,Router,路由,,当前只有OKX，先加上
+dexInterval,代币的区间数据切换,,预置属性,,,
+,,,intervalSelect,区间选择,,1h/4h/8h/24h
+dexButtonTab,代币底部的信息页点击,,预置属性,,点击tab上报一次，默认不算,
+,,,tabSelect,tab选择,,交易数 / 持有者
+dexTVInterval,TV 表的时间区间选择,,预置属性,,,
+,,,TVIntervalSelect,区间选择,点击上报，默认选中的不上报,1m / 15m / 1h /4h / D /W
+dexTVLine,TV 表的K线样式选择,,预置属性,,,
+,,,TVLineSelect,k线样式选择,,按照其配置一一上报
+dexTVIndicator,TV 表的K线指标选择,,预置属性,,,
+,,,TVIndicatorSelect,指标选择,,按照其配置一一上报
+dexTVPriceMC,TV 表的价格/市值切换,,预置属性,,,
+,,,TVPriceMCSelect,价格/市值切换选择,,Price / MC
