@@ -156,7 +156,7 @@ function PrimeTransferImportProcessingDialogContent({
                   if (isDone || importProgress) {
                     return intl.formatMessage(
                       {
-                        id: ETranslations.global_bulk_accounts_loading,
+                        id: ETranslations.global_transfer_accounts_loading,
                       },
                       {
                         amount: platformEnv.isDev

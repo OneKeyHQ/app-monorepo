@@ -2,8 +2,8 @@
 
 // @ts-ignore
 /* eslint-disable  */
-  
-  export enum ETranslations {
+
+export enum ETranslations {
   Limit_expire_day = 'Limit.expire_day',
   Limit_expire_days = 'Limit.expire_days',
   Limit_expire_hour = 'Limit.expire_hour',
@@ -1067,6 +1067,7 @@
   global_biometric = 'global.biometric',
   global_biometric_disabled = 'global.biometric_disabled',
   global_biometric_disabled_desc = 'global.biometric_disabled_desc',
+  global_block_explorer = 'global.block_explorer',
   global_block_height = 'global.block_height',
   global_bluetooth = 'global.bluetooth',
   global_bluetooth_firmware = 'global.bluetooth_firmware',
@@ -1117,6 +1118,7 @@
   global_client_side = 'global.client_side',
   global_close = 'global.close',
   global_close_confirm_description = 'global.close_confirm_description',
+  global_collapse = 'global.collapse',
   global_collect_to_device = 'global.collect_to_device',
   global_collect_to_device_canceled = 'global.collect_to_device_canceled',
   global_collect_to_device_failed = 'global.collect_to_device_failed',
@@ -1174,6 +1176,7 @@
   global_deny = 'global.deny',
   global_derivation_path = 'global.derivation_path',
   global_description = 'global.description',
+  global_deselect_all = 'global.deselect_all',
   global_details = 'global.details',
   global_dev_mode = 'global.dev_mode',
   global_device_info = 'global.device_info',
@@ -1206,6 +1209,7 @@
   global_est_network_fee = 'global.est_network_fee',
   global_estimated_results = 'global.estimated_results',
   global_exit = 'global.exit',
+  global_expand = 'global.expand',
   global_expand_view = 'global.expand_view',
   global_explore_now = 'global.explore_now',
   global_explorers = 'global.explorers',
@@ -1507,6 +1511,7 @@
   global_trade = 'global.trade',
   global_transaction_id = 'global.transaction_id',
   global_transfer = 'global.transfer',
+  global_transfer_accounts_loading = 'global.transfer_accounts_loading',
   global_try_again = 'global.try_again',
   global_unhide = 'global.unhide',
   global_universal_search_placeholder = 'global.universal_search_placeholder',
@@ -2023,6 +2028,8 @@
   prime_end_to_end_encryption_protection = 'prime.end_to_end_encryption_protection',
   prime_end_to_end_encryption_protection_description = 'prime.end_to_end_encryption_protection_description',
   prime_enter_verification_code = 'prime.enter_verification_code',
+  prime_enter_verification_code_from_other_device = 'prime.enter_verification_code_from_other_device',
+  prime_enter_verification_code_on_other_device = 'prime.enter_verification_code_on_other_device',
   prime_enter_your_password = 'prime.enter_your_password',
   prime_error_passcode_not_match = 'prime.error_passcode_not_match',
   prime_error_passcode_too_long = 'prime.error_passcode_too_long',
@@ -2128,6 +2135,7 @@
   prime_transfer_description = 'prime.transfer_description',
   prime_update_email_address = 'prime.update_email_address',
   prime_update_email_address_description = 'prime.update_email_address_description',
+  prime_verification_code = 'prime.verification_code',
   prime_verify_backup_password = 'prime.verify_backup_password',
   prime_verify_passcode_change_sync_password = 'prime.verify_passcode_change_sync_password',
   prime_verify_passcode_enable_cloud = 'prime.verify_passcode_enable_cloud',
@@ -3136,6 +3144,8 @@
   wallet_history_settings_hide_risk_transaction_title = 'wallet.history_settings_hide_risk_transaction_title',
   wallet_history_settings_hide_small_transaction_desc = 'wallet.history_settings_hide_small_transaction_desc',
   wallet_history_settings_hide_small_transaction_title = 'wallet.history_settings_hide_small_transaction_title',
+  wallet_label_private_key = 'wallet.label_private_key',
+  wallet_label_watch_only = 'wallet.label_watch_only',
   wallet_last_ledger_sequence = 'wallet.last_ledger_sequence',
   wallet_ledger_index = 'wallet.ledger_index',
   wallet_no_address = 'wallet.no_address',
@@ -3175,7 +3185,5 @@
   wallet_backup_backup_warning = 'wallet_backup.backup_warning',
   wallet_backup_save_recovery_phrase = 'wallet_backup.save_recovery_phrase',
   wallet_backup_status_not_backed_up = 'wallet_backup.status_not_backed_up',
-  wallet_label_private_key = 'wallet_label_private_key',
-  wallet_label_watch_only = 'wallet_label_watch_only',
   word = 'word',
 }
