@@ -10,6 +10,11 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -26,7 +31,7 @@ export function SwapPanel({
 }) {
   const intl = useIntl();
   const media = useMedia();
-  const InModalDialog = useInModalDialog();
+  const inModalDialog = useInModalDialog();
 
   if (!networkId || !tokenAddress) {
     return (
@@ -43,7 +48,14 @@ export function SwapPanel({
 
   const showSwapDialog = () => {
     if (networkId && tokenAddress) {
-      InModalDialog.show({
+      inModalDialog.show({
+        onClose: () => {
+          appEventBus.emit(
+            EAppEventBusNames.SwapPanelDismissKeyboard,
+            undefined,
+          );
+          void dismissKeyboardWithDelay(100);
+        },
         title: intl.formatMessage({ id: ETranslations.global_swap }),
         showFooter: false,
         showExitButton: true,

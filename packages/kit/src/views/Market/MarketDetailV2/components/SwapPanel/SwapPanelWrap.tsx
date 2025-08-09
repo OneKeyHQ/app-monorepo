@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
@@ -111,6 +112,12 @@ export function SwapPanelWrap() {
   const handleSwap = useCallback(() => {
     void speedSwapBuildTx();
   }, [speedSwapBuildTx]);
+
+  useEffect(() => {
+    return () => {
+      dismissKeyboard();
+    };
+  }, []);
 
   return (
     <SwapPanelContent
