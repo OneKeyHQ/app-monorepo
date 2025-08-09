@@ -17,11 +17,13 @@ import {
   fetchTradingViewV2DataWithSlicing,
   useAutoKLineUpdate,
   useAutoTokenDetailUpdate,
+  useNavigationHandler,
 } from './hooks';
 
 import type { ICustomReceiveHandlerData } from './types';
 import type { IWebViewRef } from '../../WebView/types';
 import type { WebViewProps } from 'react-native-webview';
+import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 interface IBaseTradingViewV2Props {
   mode: 'overview' | 'realtime';
@@ -48,6 +50,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
   const systemLocale = useLocaleVariant();
   const theme = useThemeVariant();
   const [devSettings] = useDevSettingsPersistAtom();
+  const { handleNavigation } = useNavigationHandler();
 
   const {
     mode,
@@ -217,6 +220,11 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     enabled: mode === 'realtime',
   });
 
+  const onShouldStartLoadWithRequest = useCallback(
+    (event: WebViewNavigation) => handleNavigation(event),
+    [handleNavigation],
+  );
+
   return (
     <Stack position="relative" flex={1}>
       <WebView
@@ -227,6 +235,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
         onWebViewRef={(ref) => {
           webRef.current = ref;
         }}
+        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         displayProgressBar={false}
         pullToRefreshEnabled={false}
         scrollEnabled={false}

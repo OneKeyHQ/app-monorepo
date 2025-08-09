@@ -25,7 +25,7 @@ export function useToDetailPage() {
   const toDetailPage = useCallback(
     (item: IMarketToken) => {
       if (platformEnv.isNative) {
-        appNavigation.pushModal(EModalRoutes.MarketModal, {
+        appNavigation.pushFullModal(EModalRoutes.MarketModal, {
           screen: EModalMarketRoutes.MarketDetailV2,
           params: {
             tokenAddress: item.tokenAddress,
