@@ -24,9 +24,9 @@ function MarketFilterBarSmall({
     onNetworkIdChange?.(networkId);
   };
 
-  if (isLoading) {
-    return null; // Could add skeleton later if needed
-  }
+  // if (isLoading) {
+  //   return null; // Could add skeleton later if needed
+  // }
 
   return (
     <Stack h="$40">
