@@ -15,6 +15,7 @@ import {
   Stack,
   Toast,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
@@ -48,17 +49,42 @@ import { usePrimeTransferExit } from './components/hooks/usePrimeTransferExit';
 import { PrimeTransferExitPrevent } from './components/PrimeTransferExitPrevent';
 import { showPrimeTransferImportProcessingDialog } from './components/PrimeTransferImportProcessingDialog';
 
-function PreviewHeader({ title }: { title: string }) {
+function PreviewHeader({
+  title,
+  isFirst = false,
+  buttonProps,
+}: {
+  title: string;
+  isFirst?: boolean;
+  buttonProps?: {
+    isAllSelected: boolean;
+    onPress: () => void;
+  };
+}) {
+  const intl = useIntl();
+
   return (
-    <SizableText
-      mt="$4"
+    <XStack
+      mt={isFirst ? '$0' : '$4'}
       mb="$2"
-      size="$headingLg"
-      color="$textSubdued"
-      fontWeight="bold"
+      alignItems="center"
+      justifyContent="space-between"
     >
-      {title}
-    </SizableText>
+      <SizableText pl="$3" size="$headingSm" color="$textSubdued">
+        {title}
+      </SizableText>
+      <XStack pr="$2.5">
+        {buttonProps ? (
+          <Button size="small" variant="tertiary" onPress={buttonProps.onPress}>
+            {intl.formatMessage({
+              id: buttonProps.isAllSelected
+                ? ETranslations.global_deselect_all
+                : ETranslations.global_select_all,
+            })}
+          </Button>
+        ) : null}
+      </XStack>
+    </XStack>
   );
 }
 
@@ -92,24 +118,18 @@ function PreviewItem({
       onPress={() => {
         onChange();
       }}
-      p="$4"
+      px="$3"
+      py="$2"
       borderRadius="$3"
       backgroundColor="$bgSubdued"
+      hoverStyle={{
+        backgroundColor: '$bgHover',
+      }}
       alignItems="center"
       justifyContent="space-between"
+      cursor="pointer"
     >
       <XStack gap="$3" alignItems="center" flex={1}>
-        <Checkbox
-          disabled={selectedItemMapInfo[itemId].disabled}
-          shouldStopPropagation
-          value={selectedItemMapInfo[itemId].checked}
-          onChange={() => {
-            onChange();
-          }}
-          onChangeForDisabled={() => {
-            onChange();
-          }}
-        />
         {wallet?.avatarInfo ? (
           <WalletAvatar wallet={wallet as unknown as IDBWallet} />
         ) : null}
@@ -119,8 +139,8 @@ function PreviewItem({
             networkId={account.createAtNetwork}
           />
         ) : null}
-        <Stack gap="$1">
-          <SizableText size="$bodyLg" color="$text">
+        <YStack>
+          <SizableText size="$bodyLgMedium" color="$text">
             {wallet?.name || account?.name}
           </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
@@ -132,8 +152,19 @@ function PreviewItem({
                   trailingLength: 4,
                 })}
           </SizableText>
-        </Stack>
+        </YStack>
       </XStack>
+      <Checkbox
+        disabled={selectedItemMapInfo[itemId].disabled}
+        shouldStopPropagation
+        value={selectedItemMapInfo[itemId].checked}
+        onChange={() => {
+          onChange();
+        }}
+        onChangeForDisabled={() => {
+          onChange();
+        }}
+      />
     </XStack>
   );
 }
@@ -148,6 +179,7 @@ function WalletList({
   data,
   selectedItemMap,
   onItemSelectChange,
+  onGroupSelectChange,
 }: {
   data: IPrimeTransferData;
   selectedItemMap: IPrimeTransferSelectedItemMap;
@@ -157,6 +189,13 @@ function WalletList({
   }: {
     type: keyof IPrimeTransferSelectedItemMap;
     id: string;
+  }) => void;
+  onGroupSelectChange?: ({
+    type,
+    selectAll,
+  }: {
+    type: keyof IPrimeTransferSelectedItemMap;
+    selectAll: boolean;
   }) => void;
 }) {
   const { wallets, importedAccounts, watchingAccounts } = useMemo(() => {
@@ -172,9 +211,46 @@ function WalletList({
 
   const intl = useIntl();
 
+  // 计算分组的选择状态
+  const getGroupSelectStatus = useCallback(
+    (type: keyof IPrimeTransferSelectedItemMap) => {
+      const items = selectedItemMap[type];
+      const availableItems = Object.values(items).filter(
+        (item) => !item.disabled,
+      );
+      const selectedItems = availableItems.filter((item) => item.checked);
+
+      return {
+        isAllSelected:
+          selectedItems.length === availableItems.length &&
+          availableItems.length > 0,
+      };
+    },
+    [selectedItemMap],
+  );
+
+  const walletGroupStatus = getGroupSelectStatus('wallet');
+  const importedAccountGroupStatus = getGroupSelectStatus('importedAccount');
+  const watchingAccountGroupStatus = getGroupSelectStatus('watchingAccount');
+
   return (
     <Stack gap={1}>
-      {/* <SizableText>Wallets</SizableText> */}
+      {wallets?.length ? (
+        <PreviewHeader
+          title={intl.formatMessage({
+            id: ETranslations.global_standard_wallet,
+          })}
+          isFirst
+          buttonProps={{
+            isAllSelected: walletGroupStatus.isAllSelected,
+            onPress: () =>
+              onGroupSelectChange?.({
+                type: 'wallet',
+                selectAll: !walletGroupStatus.isAllSelected,
+              }),
+          }}
+        />
+      ) : null}
       {wallets.map((wallet) => (
         <PreviewItem
           key={wallet.id}
@@ -187,8 +263,16 @@ function WalletList({
       {importedAccounts?.length ? (
         <PreviewHeader
           title={intl.formatMessage({
-            id: ETranslations.global_import_wallet,
+            id: ETranslations.wallet_label_private_key,
           })}
+          buttonProps={{
+            isAllSelected: importedAccountGroupStatus.isAllSelected,
+            onPress: () =>
+              onGroupSelectChange?.({
+                type: 'importedAccount',
+                selectAll: !importedAccountGroupStatus.isAllSelected,
+              }),
+          }}
         />
       ) : null}
       {importedAccounts.map((account) => (
@@ -207,6 +291,14 @@ function WalletList({
           title={intl.formatMessage({
             id: ETranslations.global_watched,
           })}
+          buttonProps={{
+            isAllSelected: watchingAccountGroupStatus.isAllSelected,
+            onPress: () =>
+              onGroupSelectChange?.({
+                type: 'watchingAccount',
+                selectAll: !watchingAccountGroupStatus.isAllSelected,
+              }),
+          }}
         />
       ) : null}
       {watchingAccounts.map((account) => (
@@ -315,14 +407,39 @@ export default function PagePrimeTransferPreview() {
       type: keyof IPrimeTransferSelectedItemMap;
       id: string;
     }) => {
-      const newSelectedItemMap = { ...selectedItemMap };
-      newSelectedItemMap[type][id] = {
-        ...newSelectedItemMap[type][id],
-        checked: !newSelectedItemMap[type][id].checked,
-      };
-      setSelectedItemMap(newSelectedItemMap);
+      setSelectedItemMap((prev) => ({
+        ...prev,
+        [type]: {
+          ...prev[type],
+          [id]: {
+            ...prev[type][id],
+            checked: !prev[type][id].checked,
+          },
+        },
+      }));
     },
-    [selectedItemMap],
+    [],
+  );
+
+  const handleGroupSelectChange = useCallback(
+    ({
+      type,
+      selectAll,
+    }: {
+      type: keyof IPrimeTransferSelectedItemMap;
+      selectAll: boolean;
+    }) => {
+      setSelectedItemMap((prev) => {
+        const next = { ...prev, [type]: { ...prev[type] } };
+        Object.keys(next[type]).forEach((id) => {
+          if (!next[type][id].disabled) {
+            next[type][id] = { ...next[type][id], checked: selectAll };
+          }
+        });
+        return next;
+      });
+    },
+    [],
   );
 
   const { result: selectedTransferData } = usePromiseResult(async () => {
@@ -537,11 +654,12 @@ export default function PagePrimeTransferPreview() {
         })}
       />
       <Page.Body>
-        <Stack p="$5" gap="$5">
+        <Stack px="$5" pt="$2" gap="$5">
           <WalletList
             selectedItemMap={selectedItemMap}
             data={transferData}
             onItemSelectChange={handleItemSelectChange}
+            onGroupSelectChange={handleGroupSelectChange}
           />
           {debugButtons}
         </Stack>
