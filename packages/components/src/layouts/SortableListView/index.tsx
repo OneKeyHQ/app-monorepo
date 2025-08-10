@@ -359,7 +359,9 @@ function BaseSortableListView<T>(
               (item, _index) =>
                 keyExtractor(item, _index) === snapshot.draggingFromThisWith,
             );
-            overridePaddingBottom += getItemLayout?.(data, index)?.length ?? 0;
+            overridePaddingBottom += useFlashList
+              ? 0
+              : getItemLayout?.(data, index)?.length ?? 0;
           }
           const ListViewComponent = useFlashList ? FlashList : ListView;
           return (
