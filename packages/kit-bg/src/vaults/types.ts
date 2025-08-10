@@ -580,6 +580,8 @@ export interface IBuildUnsignedTxParams {
   isInternalSwap?: boolean;
   isInternalTransfer?: boolean;
   disableMev?: boolean;
+  withoutNonce?: boolean;
+  withUuid?: boolean;
 }
 
 export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };

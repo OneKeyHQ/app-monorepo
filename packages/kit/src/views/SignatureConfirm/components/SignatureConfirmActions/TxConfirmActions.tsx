@@ -18,6 +18,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
+import type { IHasId, LinkedDeck } from '@onekeyhq/kit/src/hooks/useLinkedList';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import useShouldRejectDappAction from '@onekeyhq/kit/src/hooks/useShouldRejectDappAction';
 import {
@@ -66,6 +67,8 @@ type IProps = {
   useFeeInTx?: boolean;
   feeInfoEditable?: boolean;
   popStack?: boolean;
+  isQueueMode?: boolean;
+  unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
 };
 
 function TxConfirmActions(props: IProps) {
@@ -81,6 +84,8 @@ function TxConfirmActions(props: IProps) {
     useFeeInTx,
     feeInfoEditable,
     popStack = true,
+    isQueueMode,
+    unsignedTxQueue,
   } = props;
   const intl = useIntl();
   const isSubmitted = useRef(false);
@@ -98,7 +103,8 @@ function TxConfirmActions(props: IProps) {
   const [preCheckTxStatus] = usePreCheckTxStatusAtom();
   const [txAdvancedSettings] = useTxAdvancedSettingsAtom();
   const [{ isBuildingDecodedTxs, decodedTxs }] = useDecodedTxsAtom();
-  const { updateSendTxStatus } = useSignatureConfirmActions().current;
+  const { updateSendTxStatus, updateUnsignedTxs } =
+    useSignatureConfirmActions().current;
   const successfullySentTxs = useRef<string[]>([]);
   const { bottom } = useSafeAreaInsets();
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
@@ -449,6 +455,14 @@ function TxConfirmActions(props: IProps) {
 
   const handleOnCancel = useCallback(
     (close: () => void, closePageStack: () => void) => {
+      if (isQueueMode && unsignedTxQueue && unsignedTxQueue.size > 1) {
+        unsignedTxQueue.removeCurrent();
+        if (unsignedTxQueue.current) {
+          updateUnsignedTxs([unsignedTxQueue.current]);
+        }
+        return;
+      }
+
       dappApprove.reject();
       if (!sourceInfo) {
         closePageStack();
@@ -457,7 +471,14 @@ function TxConfirmActions(props: IProps) {
       }
       onCancelOnce();
     },
-    [dappApprove, onCancelOnce, sourceInfo],
+    [
+      dappApprove,
+      isQueueMode,
+      onCancelOnce,
+      sourceInfo,
+      unsignedTxQueue,
+      updateUnsignedTxs,
+    ],
   );
 
   const showTakeRiskAlert = useMemo(() => {

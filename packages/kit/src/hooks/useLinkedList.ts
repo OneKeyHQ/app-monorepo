@@ -1,15 +1,16 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef } from 'react';
 
-export type IHasId = { id: string };
+export type IHasId = { uuid: string };
+export type ILinkedListOptions = { circular?: boolean };
 
 type ILinkedNode<T extends IHasId> = {
-  id: string;
+  uuid: string;
   data: T;
   prev?: ILinkedNode<T>;
   next?: ILinkedNode<T>;
 };
 
-class LinkedDeck<T extends IHasId> {
+export class LinkedDeck<T extends IHasId> {
   private nodes = new Map<string, ILinkedNode<T>>();
 
   private _head?: ILinkedNode<T>;
@@ -18,10 +19,42 @@ class LinkedDeck<T extends IHasId> {
 
   private _current?: ILinkedNode<T>;
 
+  private _circular = false;
+
+  private listeners = new Set<() => void>();
+
+  private _version = 0;
+
   size = 0;
 
-  constructor(items: T[] = []) {
+  constructor(items: T[] = [], options: ILinkedListOptions = {}) {
+    this._circular = !!options.circular;
     this.reset(items);
+  }
+
+  subscribe = (listener: () => void) => {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  };
+
+  private emit() {
+    this._version += 1;
+    this.listeners.forEach((l) => l());
+  }
+
+  get version() {
+    return this._version;
+  }
+
+  get circular() {
+    return this._circular;
+  }
+
+  set circular(v: boolean) {
+    this._circular = !!v;
+    this.emit();
   }
 
   reset(items: T[] = []) {
@@ -33,8 +66,13 @@ class LinkedDeck<T extends IHasId> {
 
     let prev: ILinkedNode<T> | undefined;
     for (const it of items) {
-      const n: ILinkedNode<T> = { id: it.id, data: it, prev, next: undefined };
-      this.nodes.set(it.id, n);
+      const n: ILinkedNode<T> = {
+        uuid: it.uuid,
+        data: it,
+        prev,
+        next: undefined,
+      };
+      this.nodes.set(n.uuid, n);
       if (!this._head) this._head = n;
       if (prev) prev.next = n;
       prev = n;
@@ -42,6 +80,7 @@ class LinkedDeck<T extends IHasId> {
     }
     this._tail = prev;
     this._current = this._head;
+    this.emit();
   }
 
   get current(): T | undefined {
@@ -56,13 +95,30 @@ class LinkedDeck<T extends IHasId> {
     return this._tail?.data;
   }
 
+  get currentIndex(): number {
+    let i = 0;
+    let p = this._head;
+    while (p) {
+      if (p === this._current) return i;
+      p = p.next;
+      i += 1;
+    }
+    return -1;
+  }
+
   next(): T | undefined {
-    if (this._current?.next) this._current = this._current.next;
+    if (!this._current) return undefined;
+    if (this._current.next) this._current = this._current.next;
+    else if (this._circular && this._head) this._current = this._head;
+    this.emit();
     return this._current?.data;
   }
 
   prev(): T | undefined {
-    if (this._current?.prev) this._current = this._current.prev;
+    if (!this._current) return undefined;
+    if (this._current.prev) this._current = this._current.prev;
+    else if (this._circular && this._tail) this._current = this._tail;
+    this.emit();
     return this._current?.data;
   }
 
@@ -70,7 +126,31 @@ class LinkedDeck<T extends IHasId> {
     const n = this.nodes.get(id);
     if (!n) return this._current?.data;
     this._current = n;
+    this.emit();
     return n.data;
+  }
+
+  jumpToIndex(index: number): T | undefined {
+    if (this.size === 0) return undefined;
+    let i = index;
+    if (this._circular) {
+      i = ((index % this.size) + this.size) % this.size;
+    }
+    if (!this._circular) {
+      if (index < 0) {
+        i = 0;
+      } else if (index >= this.size) {
+        i = this.size - 1;
+      } else {
+        i = index;
+      }
+    }
+
+    let p = this._head!;
+    for (let k = 0; k < i; k += 1) p = p.next!;
+    this._current = p;
+    this.emit();
+    return p.data;
   }
 
   remove(id: string): void {
@@ -83,11 +163,19 @@ class LinkedDeck<T extends IHasId> {
     if (this._current === n) this._current = n.next ?? n.prev;
     this.nodes.delete(id);
     this.size -= 1;
+    this.emit();
+  }
+
+  removeCurrent(): T | undefined {
+    const uuid = this._current?.uuid;
+    if (!uuid) return undefined;
+    this.remove(uuid);
+    return this._current?.data;
   }
 
   append(item: T): void {
     const node: ILinkedNode<T> = {
-      id: item.id,
+      uuid: item.uuid,
       data: item,
       prev: this._tail,
       next: undefined,
@@ -95,14 +183,15 @@ class LinkedDeck<T extends IHasId> {
     if (this._tail) this._tail.next = node;
     else this._head = node;
     this._tail = node;
-    this.nodes.set(item.id, node);
+    this.nodes.set(item.uuid, node);
     this.size += 1;
     if (!this._current) this._current = node;
+    this.emit();
   }
 
   prepend(item: T): void {
     const node: ILinkedNode<T> = {
-      id: item.id,
+      uuid: item.uuid,
       data: item,
       prev: undefined,
       next: this._head,
@@ -110,9 +199,10 @@ class LinkedDeck<T extends IHasId> {
     if (this._head) this._head.prev = node;
     else this._tail = node;
     this._head = node;
-    this.nodes.set(item.id, node);
+    this.nodes.set(item.uuid, node);
     this.size += 1;
     if (!this._current) this._current = node;
+    this.emit();
   }
 
   toArray(): T[] {
@@ -126,70 +216,51 @@ class LinkedDeck<T extends IHasId> {
   }
 }
 
-export function useLinkedList<T extends IHasId>(initial: T[] = []) {
+export function useLinkedList<T extends IHasId>(
+  initial: T[] = [],
+  options: ILinkedListOptions = {},
+) {
   const deckRef = useRef<LinkedDeck<T> | null>(null);
-  if (deckRef.current === null) deckRef.current = new LinkedDeck(initial);
+  if (deckRef.current === null)
+    deckRef.current = new LinkedDeck(initial, options);
+  const deck = deckRef.current;
 
-  const [, setV] = useState(0);
-  const bump = useCallback(() => setV((x) => x + 1), []);
+  return useMemo(
+    () =>
+      ({
+        get size() {
+          return deck.size;
+        },
+        get current() {
+          return deck.current;
+        },
+        get head() {
+          return deck.head;
+        },
+        get tail() {
+          return deck.tail;
+        },
+        get currentIndex() {
+          return deck.currentIndex;
+        },
+        get circular() {
+          return deck.circular;
+        },
+        toArray: () => deck.toArray(),
 
-  const api = useMemo(() => {
-    const deck = deckRef.current as LinkedDeck<T>;
-    return {
-      get size() {
-        return deck.size;
-      },
-      get current() {
-        return deck.current;
-      },
-      get head() {
-        return deck.head;
-      },
-      get tail() {
-        return deck.tail;
-      },
-      toArray: () => deck.toArray(),
-
-      next: () => {
-        const r = deck.next();
-        bump();
-        return r;
-      },
-      prev: () => {
-        const r = deck.prev();
-        bump();
-        return r;
-      },
-      jumpTo: (id: string) => {
-        const r = deck.jumpTo(id);
-        bump();
-        return r;
-      },
-      remove: (id: string) => {
-        deck.remove(id);
-        bump();
-      },
-      removeCurrent: () => {
-        const id = deck.current?.id;
-        if (id) {
-          deck.remove(id);
-          bump();
-        }
-      },
-      append: (item: T) => {
-        deck.append(item);
-        bump();
-      },
-      prepend: (item: T) => {
-        deck.prepend(item);
-        bump();
-      },
-      reset: (items: T[] = []) => {
-        deck.reset(items);
-        bump();
-      },
-    } as const;
-  }, [bump]);
-
-  return api;
+        next: () => deck.next(),
+        prev: () => deck.prev(),
+        jumpTo: (id: string) => deck.jumpTo(id),
+        jumpToIndex: (i: number) => deck.jumpToIndex(i),
+        remove: (id: string) => deck.remove(id),
+        removeCurrent: () => deck.removeCurrent(),
+        append: (item: T) => deck.append(item),
+        prepend: (item: T) => deck.prepend(item),
+        reset: (items: T[] = []) => deck.reset(items),
+        setCircular: (v: boolean) => {
+          deck.circular = v;
+        },
+      } as const),
+    [deck],
+  );
 }

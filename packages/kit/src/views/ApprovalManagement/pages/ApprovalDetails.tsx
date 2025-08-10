@@ -17,6 +17,7 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -35,7 +36,11 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useContractMapAtom } from '../../../states/jotai/contexts/approvalList';
+import { type IHasId, LinkedDeck } from '../../../hooks/useLinkedList';
+import {
+  useContractMapAtom,
+  useTokenMapAtom,
+} from '../../../states/jotai/contexts/approvalList';
 import { openExplorerAddressUrl } from '../../../utils/explorerUtils';
 import { HomeApprovalListProviderMirror } from '../../Home/components/HomeApprovalListProvider/HomeApprovalListProviderMirror';
 import ApprovalActions from '../components/ApprovalActions';
@@ -67,6 +72,8 @@ function ApprovalDetails() {
   const isRiskApproval = approval.highestRiskLevel >= TX_RISKY_LEVEL_SPAM;
 
   const [isBulkRevokeMode, setIsBulkRevokeMode] = useState(false);
+
+  const [{ tokenMap }] = useTokenMapAtom();
 
   const { selectedTokens, setSelectedTokens, setIsBuildingRevokeTxs } =
     useApprovalManagementContext();
@@ -159,7 +166,57 @@ function ApprovalDetails() {
     ],
   );
 
-  const handleOnConfirm = useCallback(() => {}, []);
+  const handleOnConfirm = useCallback(async () => {
+    const revokeInfos: IApproveInfo[] = approval.approvals.map((item) => ({
+      owner: approval.owner,
+      spender: approval.contractAddress,
+      amount: '0',
+      tokenInfo:
+        tokenMap[
+          approvalUtils.buildTokenMapKey({
+            networkId: approval.networkId,
+            tokenAddress: item.tokenAddress,
+          })
+        ].info,
+    }));
+
+    const unsignedTxs: (IUnsignedTxPro & IHasId)[] = [];
+
+    for (const revokeInfo of revokeInfos) {
+      const unsignedTx =
+        (await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+          networkId: approval.networkId,
+          accountId: approval.accountId,
+          approveInfo: revokeInfo,
+          withoutNonce: true,
+          withUuid: true,
+        })) as IUnsignedTxPro & IHasId;
+      unsignedTxs.push(unsignedTx);
+    }
+
+    const unsignedTxQueue = new LinkedDeck<IUnsignedTxPro & IHasId>(
+      unsignedTxs,
+    );
+
+    navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+      screen: EModalSignatureConfirmRoutes.TxConfirm,
+      params: {
+        accountId: approval.accountId,
+        networkId: approval.networkId,
+        unsignedTxs: [unsignedTxs[0]],
+        isQueueMode: true,
+        unsignedTxQueue,
+      },
+    });
+  }, [
+    approval.accountId,
+    approval.approvals,
+    approval.contractAddress,
+    approval.networkId,
+    approval.owner,
+    navigation,
+    tokenMap,
+  ]);
 
   const handleOnCancel = useCallback(() => {
     console.log('handleOnCancel');

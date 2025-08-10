@@ -24,6 +24,7 @@ import type { IAccountNFT } from '../../types/nft';
 import type { ISwapTxInfo } from '../../types/swap/types';
 import type { IToken, ITokenFiat } from '../../types/token';
 import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
+import { IHasId, LinkedDeck } from '@onekeyhq/kit/src/hooks/useLinkedList';
 
 export enum EModalSignatureConfirmRoutes {
   TxDataInput = 'TxDataInput',
@@ -74,6 +75,8 @@ export type IModalSignatureConfirmParamList = {
     onCancel?: () => void;
     transferPayload?: ITransferPayload;
     popStack?: boolean;
+    isQueueMode?: boolean;
+    unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
   };
   [EModalSignatureConfirmRoutes.MessageConfirm]: {
     accountId: string;
