@@ -28,9 +28,7 @@ export function MobileLayout({
   filterBarProps,
   selectedNetworkId,
   liquidityFilter,
-  onTabChange,
 }: IMobileLayoutProps) {
-  const intl = useIntl();
   const [watchlistState] = useMarketWatchListV2Atom();
   const watchlist = watchlistState.data || [];
 
@@ -43,47 +41,6 @@ export function MobileLayout({
           shadowColor: 'transparent',
         }}
         renderTabBar={(props) => <Tabs.TabBar {...props} />}
-        // renderTabBar={(props) => (
-        //   <Tabs.TabBar
-        //     {...props}
-        //     onTabPress={(name) => {
-        //       onTabChange(name as IMarketHomeTabValue);
-        //     }}
-        //     containerStyle={{
-        //       px: '$4',
-        //       py: '$2',
-        //     }}
-        //     renderItem={({
-        //       name,
-        //       isFocused,
-        //       onPress,
-        //       tabItemStyle,
-        //       focusedTabStyle,
-        //     }) => (
-        //       <Tabs.TabBarItem
-        //         key={name}
-        //         // @ts-expect-error name is not a valid prop for Tabs.TabBarItem
-        //         name={
-        //           name === 'watchlist' ? (
-        //             <Icon
-        //               name="StarOutline"
-        //               size="$5"
-        //               color={isFocused ? '$iconActive' : '$iconSubdued'}
-        //             />
-        //           ) : (
-        //             intl.formatMessage({
-        //               id: ETranslations.market_trending,
-        //             })
-        //           )
-        //         }
-        //         isFocused={isFocused}
-        //         onPress={onPress}
-        //         tabItemStyle={tabItemStyle}
-        //         focusedTabStyle={focusedTabStyle}
-        //       />
-        //     )}
-        //   />
-        // )}
         pagerProps={{ scrollEnabled: true }}
       >
         <Tabs.Tab name="watchlist">
