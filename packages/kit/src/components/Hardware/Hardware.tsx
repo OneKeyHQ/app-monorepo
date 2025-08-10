@@ -1204,7 +1204,10 @@ export function BluetoothDevicePairingContent({
             features,
           },
         );
-
+      await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
+        connectId: usbConnectId,
+        reason: 'Bluetooth pairing success',
+      });
       await backgroundApiProxy.servicePromise.resolveCallback({
         id: promiseId,
         data: result,
