@@ -29,7 +29,7 @@ function MarketFilterBarSmall({
   // }
 
   return (
-    <Stack h="$40">
+    <Stack px="$4">
       <MarketTokenListNetworkSelector
         selectedNetworkId={selectedNetworkId}
         onSelectNetworkId={handleNetworkIdChange}
