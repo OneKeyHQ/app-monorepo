@@ -12,6 +12,7 @@ export function TransactionRow({
   buyCount,
   sellCount,
   totalCount,
+  isLoading,
 }: ITransactionRowProps) {
   const intl = useIntl();
   const buyPercentage = totalCount > 0 ? (buyCount / totalCount) * 100 : 0;
@@ -21,12 +22,16 @@ export function TransactionRow({
       <Stack flexDirection="row" alignItems="center" gap="$2">
         <SizableText size="$bodyLgMedium">
           {label}:{' '}
-          <NumberSizeableText size="$bodyLgMedium" formatter="marketCap">
-            {totalCount}
-          </NumberSizeableText>
+          {isLoading ? (
+            '--'
+          ) : (
+            <NumberSizeableText size="$bodyLgMedium" formatter="marketCap">
+              {totalCount}
+            </NumberSizeableText>
+          )}
         </SizableText>
       </Stack>
-      <BuySellRatioBar buyPercentage={buyPercentage} />
+      <BuySellRatioBar buyPercentage={buyPercentage} isLoading={isLoading} />
       <Stack flexDirection="row" justifyContent="space-between">
         <Stack flexDirection="row" gap="$1">
           <SizableText size="$bodyMd" color="$textSubdued">
@@ -36,13 +41,17 @@ export function TransactionRow({
           </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
             (
-            <NumberSizeableText
-              size="$bodyMd"
-              color="$textSubdued"
-              formatter="marketCap"
-            >
-              {buyCount}
-            </NumberSizeableText>
+            {isLoading ? (
+              '--'
+            ) : (
+              <NumberSizeableText
+                size="$bodyMd"
+                color="$textSubdued"
+                formatter="marketCap"
+              >
+                {buyCount}
+              </NumberSizeableText>
+            )}
             )
           </SizableText>
         </Stack>
@@ -55,13 +64,17 @@ export function TransactionRow({
           </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
             (
-            <NumberSizeableText
-              size="$bodyMd"
-              color="$textSubdued"
-              formatter="marketCap"
-            >
-              {sellCount}
-            </NumberSizeableText>
+            {isLoading ? (
+              '--'
+            ) : (
+              <NumberSizeableText
+                size="$bodyMd"
+                color="$textSubdued"
+                formatter="marketCap"
+              >
+                {sellCount}
+              </NumberSizeableText>
+            )}
             )
           </SizableText>
         </Stack>
