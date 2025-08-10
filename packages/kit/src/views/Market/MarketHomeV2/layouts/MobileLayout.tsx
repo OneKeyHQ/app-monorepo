@@ -1,8 +1,7 @@
-import { useIntl } from 'react-intl';
+import { Dimensions } from 'react-native';
 
-import { Icon, Stack, Tabs } from '@onekeyhq/components';
+import { Stack, Tabs, useSafeAreaInsets } from '@onekeyhq/components';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketTokenList } from '../components/MarketTokenList';
@@ -31,6 +30,9 @@ export function MobileLayout({
 }: IMobileLayoutProps) {
   const [watchlistState] = useMarketWatchListV2Atom();
   const watchlist = watchlistState.data || [];
+  const { top, bottom } = useSafeAreaInsets();
+
+  const availableHeight = Dimensions.get('window').height - top - bottom - 220;
 
   return (
     <Stack flex={1}>
@@ -55,12 +57,14 @@ export function MobileLayout({
         <Tabs.Tab name="trending">
           <Tabs.ScrollView>
             <MarketFilterBarSmall {...filterBarProps} />
-            <MarketTokenList
-              networkId={selectedNetworkId}
-              liquidityFilter={liquidityFilter}
-              showWatchlistOnly={false}
-              watchlist={watchlist}
-            />
+            <Stack h={availableHeight}>
+              <MarketTokenList
+                networkId={selectedNetworkId}
+                liquidityFilter={liquidityFilter}
+                showWatchlistOnly={false}
+                watchlist={watchlist}
+              />
+            </Stack>
           </Tabs.ScrollView>
         </Tabs.Tab>
       </Tabs.Container>
