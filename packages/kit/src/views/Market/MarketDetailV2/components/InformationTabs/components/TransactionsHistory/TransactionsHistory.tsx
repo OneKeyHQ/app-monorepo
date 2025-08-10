@@ -20,7 +20,7 @@ import { TransactionsHeaderNormal } from './layout/TransactionItemNormal/Transac
 import { TransactionItemSmall } from './layout/TransactionItemSmall/TransactionItemSmall';
 import { TransactionsHeaderSmall } from './layout/TransactionItemSmall/TransactionsHeaderSmall';
 
-import type { FlashListProps } from '@shopify/flash-list';
+import type { FlashListProps, FlashListRef } from '@shopify/flash-list';
 
 interface ITransactionsHistoryProps {
   tokenAddress: string;
@@ -38,7 +38,7 @@ export function TransactionsHistory({
     tokenAddress,
     networkId,
   });
-  const listRef = useRef<any>(null);
+  const listRef = useRef<FlashListRef<IMarketTokenTransaction>>(null);
   const [hasUserScrolled, setHasUserScrolled] = useState(false);
 
   const shouldEnableScroll = leftColumnWidth < 930;
@@ -46,7 +46,7 @@ export function TransactionsHistory({
   // Scroll to top when transactions update, only if user hasn't scrolled
   useEffect(() => {
     if (transactions.length > 0 && listRef.current && !hasUserScrolled) {
-      listRef.current.scrollToOffset({ animated: false, offset: 0 });
+      listRef.current?.scrollToOffset({ animated: false, offset: 0 });
     }
   }, [transactions, hasUserScrolled]);
 
