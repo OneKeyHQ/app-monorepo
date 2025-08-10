@@ -43,10 +43,6 @@ export function MobileLayout() {
                 networkId={networkId}
                 tokenSymbol={tokenDetail?.symbol}
                 onPanesCountChange={(count: number) => {
-                  console.log(
-                    '📊 MobileLayout - Panels count changed to:',
-                    count,
-                  );
                   setPanesCount(count);
                 }}
               />
