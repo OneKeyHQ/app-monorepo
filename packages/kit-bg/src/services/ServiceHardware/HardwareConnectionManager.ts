@@ -203,6 +203,7 @@ export class HardwareConnectionManager {
             rawPayload: bleAvailableState,
           },
         });
+        await timerUtils.wait(50);
       }
 
       return Boolean(bleAvailableState?.available);
