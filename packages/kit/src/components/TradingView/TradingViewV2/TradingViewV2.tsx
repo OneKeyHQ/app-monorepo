@@ -38,6 +38,7 @@ interface IBaseTradingViewV2Props {
   timeFrom?: number;
   timeTo?: number;
   decimal: number;
+  onPanesCountChange?: (count: number) => void;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -59,6 +60,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     networkId = '',
     symbol,
     decimal,
+    onPanesCountChange,
   } = props;
 
   const { handleNavigation } = useNavigationHandler();
@@ -66,6 +68,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     tokenAddress,
     networkId,
     webRef,
+    onPanesCountChange,
   });
 
   // Determine the URL to use based on dev settings

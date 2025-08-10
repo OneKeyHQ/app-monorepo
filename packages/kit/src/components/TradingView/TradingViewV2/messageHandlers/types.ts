@@ -17,6 +17,7 @@ export interface IMessageHandlerContext {
   tokenAddress?: string;
   networkId?: string;
   webRef: React.RefObject<IWebViewRef | null>;
+  onPanesCountChange?: (count: number) => void;
 }
 
 export interface IMessageHandlerParams {
