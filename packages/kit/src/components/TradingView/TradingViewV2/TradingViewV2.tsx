@@ -4,6 +4,7 @@ import { useCalendars } from 'expo-localization';
 
 import { Stack, useOrientation } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { TRADING_VIEW_URL } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -46,22 +47,38 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
   const calendars = useCalendars();
   const systemLocale = useLocaleVariant();
   const theme = useThemeVariant();
+  const [devSettings] = useDevSettingsPersistAtom();
 
   const {
     mode,
     onLoadEnd,
-    tradingViewUrl = TRADING_VIEW_URL,
+    tradingViewUrl,
     tokenAddress = '',
     networkId = '',
     symbol,
     decimal,
   } = props;
 
+  // Determine the URL to use based on dev settings
+  const finalTradingViewUrl = useMemo(() => {
+    if (tradingViewUrl) {
+      return tradingViewUrl;
+    }
+
+    return devSettings.enabled && devSettings.settings?.useLocalTradingViewUrl
+      ? 'http://localhost:5173/'
+      : TRADING_VIEW_URL;
+  }, [
+    tradingViewUrl,
+    devSettings.enabled,
+    devSettings.settings?.useLocalTradingViewUrl,
+  ]);
+
   const tradingViewUrlWithParams = useMemo(() => {
     const timezone = getTradingViewTimezone(calendars);
     const locale = systemLocale;
 
-    const url = new URL(tradingViewUrl);
+    const url = new URL(finalTradingViewUrl);
     url.searchParams.set('timezone', timezone);
     url.searchParams.set('locale', locale);
     url.searchParams.set('platform', platformEnv.appPlatform ?? 'web');
@@ -69,7 +86,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     url.searchParams.set('symbol', symbol);
     url.searchParams.set('decimal', decimal?.toString());
     return url.toString();
-  }, [tradingViewUrl, calendars, systemLocale, theme, symbol, decimal]);
+  }, [finalTradingViewUrl, calendars, systemLocale, theme, symbol, decimal]);
 
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {

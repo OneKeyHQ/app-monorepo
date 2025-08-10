@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack, XStack } from '@onekeyhq/components';
+import { Dialog, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
+import { TokenSecurityAlertDialogContent } from '../TokenSecurityAlert/components';
 import { useTokenSecurity } from '../TokenSecurityAlert/hooks/useTokenSecurity';
 
 import { StatCard } from './components/StatCard';
@@ -53,10 +54,23 @@ const formatCirculatingSupply = (tokenDetail: ITokenDetail): string => {
 export function TokenOverview() {
   const intl = useIntl();
   const { tokenDetail, tokenAddress, networkId } = useTokenDetail();
-  const { warningCount, securityStatus } = useTokenSecurity({
+  const { warningCount, securityStatus, securityData } = useTokenSecurity({
     tokenAddress,
     networkId,
   });
+
+  const handleAuditPress = useCallback(() => {
+    Dialog.show({
+      title: intl.formatMessage({ id: ETranslations.dexmarket_audit }),
+      showFooter: false,
+      renderContent: (
+        <TokenSecurityAlertDialogContent
+          securityData={securityData}
+          warningCount={warningCount}
+        />
+      ),
+    });
+  }, [intl, securityData, warningCount]);
 
   // Optimized stat builders
   const auditStat = useMemo<IStatItem>(
@@ -66,10 +80,11 @@ export function TokenOverview() {
         { id: ETranslations.dexmarket_details_audit_issue },
         { amount: warningCount },
       ),
-      icon: 'ShieldCheckDoneSolid',
-      iconColor: securityStatus === 'safe' ? '$iconSuccess' : '$iconCritical',
+      icon: securityStatus === 'safe' ? 'ShieldCheckDoneSolid' : 'BugOutline',
+      iconColor: securityStatus === 'safe' ? '$iconSuccess' : '$iconCaution',
+      onPress: securityData ? handleAuditPress : undefined,
     }),
-    [intl, warningCount, securityStatus],
+    [intl, warningCount, securityStatus, handleAuditPress, securityData],
   );
 
   const holdersStat = useMemo<IStatItem>(
