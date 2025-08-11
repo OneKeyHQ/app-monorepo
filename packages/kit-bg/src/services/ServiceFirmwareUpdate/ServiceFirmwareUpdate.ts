@@ -90,6 +90,7 @@ import type {
   IVersionArray,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
+import { IDBDevice } from '../../dbs/local/types';
 
 export type IAutoUpdateFirmwareParams = {
   connectId: string | undefined;
@@ -493,8 +494,26 @@ class ServiceFirmwareUpdate extends ServiceBase {
       }
     }
 
+
+    let device: IDBDevice | undefined;
+    let fixedUpdatingConnectId = updatingConnectId;
+    try {
+      if (platformEnv.isSupportDesktopBle) {
+        device = await localDb.getDeviceByQuery({
+         connectId: originalConnectId,
+       });
+       fixedUpdatingConnectId = deviceUtils.getFixedUpdatingConnectId({
+        updatingConnectId,
+        currentTransportType,
+        device,
+       });
+      }
+    } catch (error) {
+      // ignore
+    }
+
     return {
-      updatingConnectId,
+      updatingConnectId: fixedUpdatingConnectId,
       originalConnectId,
       features,
       deviceType,
