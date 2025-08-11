@@ -1,3 +1,4 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import axios from 'axios';
 import { isPlainObject } from 'lodash';
 
@@ -38,6 +39,10 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
       EOneKeyErrorClassNames.DeviceNotFound,
     ].includes(err?.className)
   ) {
+    return;
+  }
+  // Ignore DefectiveFirmware errors - use Dialog instead of Toast
+  if (err?.code === HardwareErrorCode.DefectiveFirmware) {
     return;
   }
   let shouldMuteToast = false;
