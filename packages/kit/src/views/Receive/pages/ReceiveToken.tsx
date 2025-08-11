@@ -23,6 +23,7 @@ import {
   EHardwareUiStateAction,
   useHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -35,9 +36,11 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import AddressTypeSelector from '../../../components/AddressTypeSelector/AddressTypeSelector';
 import { useAccountData } from '../../../hooks/useAccountData';
 import { useHelpLink } from '../../../hooks/useHelpLink';
 import { EAddressState } from '../types';
@@ -63,6 +66,14 @@ function ReceiveToken() {
       networkId,
       walletId,
     });
+
+  const [currentDeriveType, setCurrentDeriveType] = useState<
+    IAccountDeriveTypes | undefined
+  >(deriveType);
+
+  const [currentAccount, setCurrentAccount] = useState<
+    INetworkAccount | undefined
+  >(account);
 
   const { bottom } = useSafeAreaInsets();
 
@@ -124,19 +135,20 @@ function ReceiveToken() {
   const handleVerifyOnDevicePress = useCallback(async () => {
     setAddressState(EAddressState.Verifying);
     try {
-      if (!deriveType) return;
+      if (!currentDeriveType) return;
 
       const addresses =
         await backgroundApiProxy.serviceAccount.verifyHWAccountAddresses({
           walletId,
           networkId,
-          indexedAccountId: account?.indexedAccountId,
-          deriveType,
+          indexedAccountId: currentAccount?.indexedAccountId,
+          deriveType: currentDeriveType,
           confirmOnDevice: EConfirmOnDeviceType.EveryItem,
         });
 
       const isSameAddress =
-        addresses?.[0]?.toLowerCase() === account?.address?.toLowerCase();
+        addresses?.[0]?.toLowerCase() ===
+        currentAccount?.address?.toLowerCase();
 
       defaultLogger.transaction.receive.showReceived({
         walletType: wallet?.type,
@@ -181,9 +193,9 @@ function ReceiveToken() {
       throw e;
     }
   }, [
-    account?.address,
-    account?.indexedAccountId,
-    deriveType,
+    currentAccount?.address,
+    currentAccount?.indexedAccountId,
+    currentDeriveType,
     intl,
     networkId,
     requestsUrl,
@@ -215,6 +227,15 @@ function ReceiveToken() {
     }
   }, [isHardwareWallet, wallet?.type]);
 
+  useEffect(() => {
+    if (deriveType) {
+      setCurrentDeriveType(deriveType);
+    }
+    if (account) {
+      setCurrentAccount(account);
+    }
+  }, [account, deriveType]);
+
   const renderCopyAddressButton = useCallback(() => {
     if (
       isHardwareWallet &&
@@ -228,11 +249,11 @@ function ReceiveToken() {
       <IconButton
         size="medium"
         icon="Copy3Outline"
-        onPress={() => copyText(account?.address ?? '')}
+        onPress={() => copyText(currentAccount?.address ?? '')}
         variant="primary"
       />
     );
-  }, [account?.address, addressState, copyText, isHardwareWallet]);
+  }, [currentAccount?.address, addressState, copyText, isHardwareWallet]);
 
   const renderVerifyAddressButton = useCallback(() => {
     if (!isHardwareWallet || shouldShowAddress) return null;
@@ -302,13 +323,14 @@ function ReceiveToken() {
   ]);
 
   const renderAddress = useCallback(() => {
-    if (!account || !network || !wallet) return null;
+    if (!currentAccount || !network || !wallet) return null;
 
     let addressContent = '';
 
     if (shouldShowAddress) {
       addressContent =
-        account.address.match(/.{1,4}/g)?.join(' ') || account.address;
+        currentAccount.address.match(/.{1,4}/g)?.join(' ') ||
+        currentAccount.address;
     } else {
       addressContent = Array.from({ length: 11 })
         .map(() => '****')
@@ -320,7 +342,7 @@ function ReceiveToken() {
         maxWidth={288}
         flexWrap="wrap"
         {...(shouldShowAddress && {
-          onPress: () => copyText(account?.address ?? ''),
+          onPress: () => copyText(currentAccount?.address ?? ''),
           userSelect: 'none',
           borderRadius: '$1',
           hoverStyle: {
@@ -341,10 +363,10 @@ function ReceiveToken() {
         <SizableText fontFamily="$monoMedium">{addressContent}</SizableText>
       </XStack>
     );
-  }, [account, network, shouldShowAddress, wallet, copyText]);
+  }, [currentAccount, network, shouldShowAddress, wallet, copyText]);
 
   const renderReceiveFooter = useCallback(() => {
-    if (!account || !network || !wallet) return null;
+    if (!currentAccount || !network || !wallet) return null;
 
     return (
       <YStack
@@ -361,13 +383,21 @@ function ReceiveToken() {
               {token?.symbol ?? network.symbol}
             </SizableText>
             <Badge>
-              <Badge.Text>
-                {network.name}
-                {vaultSettings?.showAddressType && addressType
-                  ? ` / ${addressType}`
-                  : ''}
-              </Badge.Text>
+              <Badge.Text>{network.name}</Badge.Text>
             </Badge>
+            {vaultSettings?.mergeDeriveAssetsEnabled ? (
+              <AddressTypeSelector
+                networkId={networkId}
+                indexedAccountId={currentAccount?.indexedAccountId ?? ''}
+                onSelect={async (value) => {
+                  if (value.account) {
+                    setAddressState(EAddressState.Unverified);
+                    setCurrentAccount(value.account);
+                    setCurrentDeriveType(value.deriveType);
+                  }
+                }}
+              />
+            ) : null}
             {shouldShowAddress && addressState === EAddressState.ForceShow ? (
               <Badge badgeType="critical">
                 {intl.formatMessage({
@@ -397,23 +427,23 @@ function ReceiveToken() {
       </YStack>
     );
   }, [
-    account,
     addressState,
-    addressType,
     bottom,
+    currentAccount,
     intl,
     network,
+    networkId,
     renderAddress,
     renderCopyAddressButton,
     renderVerifyAddressButton,
     shouldShowAddress,
     token?.symbol,
-    vaultSettings?.showAddressType,
+    vaultSettings?.mergeDeriveAssetsEnabled,
     wallet,
   ]);
 
   const renderReceiveQrCode = useCallback(() => {
-    if (!account || !network || !wallet) return null;
+    if (!currentAccount || !network || !wallet) return null;
 
     return (
       <YStack
@@ -457,7 +487,7 @@ function ReceiveToken() {
       >
         {shouldShowQRCode ? (
           <QRCode
-            value={account.address}
+            value={currentAccount.address}
             size={224}
             logo={
               network.isCustomNetwork
@@ -488,7 +518,7 @@ function ReceiveToken() {
       </YStack>
     );
   }, [
-    account,
+    currentAccount,
     network,
     wallet,
     intl,
