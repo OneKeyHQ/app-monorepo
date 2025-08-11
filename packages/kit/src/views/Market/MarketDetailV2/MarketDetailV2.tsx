@@ -99,7 +99,7 @@ function MarketDetail({
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Market}
         customHeaderLeftItems={customHeaderLeft}
-        customHeaderRightItems={platformEnv.isNative ? customHeaderRight : null}
+        // customHeaderRightItems={platformEnv.isNative ? customHeaderRight : null}
         hideSearch={!media.gtMd}
       />
 
