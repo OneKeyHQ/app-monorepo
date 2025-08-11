@@ -10,6 +10,7 @@ export const Tabs = {
   Container,
   Tab,
   Lazy: (children: React.ReactNode) => children,
+  List,
   FlatList: List,
   ScrollView,
   SectionList: List,

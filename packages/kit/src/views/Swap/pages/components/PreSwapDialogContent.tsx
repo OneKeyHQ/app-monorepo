@@ -1,5 +1,6 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
+import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -12,7 +13,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useSwapStepsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  useSwapStepNetFeeLevelAtom,
+  useSwapStepsAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -44,6 +48,13 @@ const PreSwapDialogContent = ({
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
+  const { preSwapBeforeStepActions } = useSwapBuildTx();
+  const [swapStepNetFeeLevel, setSwapStepNetFeeLevel] =
+    useSwapStepNetFeeLevelAtom();
+  const swapStepsRef = useRef(swapSteps);
+  if (!isEqual(swapStepsRef.current, swapSteps)) {
+    swapStepsRef.current = swapSteps;
+  }
   const { preSwapData, quoteResult } = useMemo(() => {
     return {
       preSwapData: swapSteps.preSwapData,
@@ -120,6 +131,20 @@ const PreSwapDialogContent = ({
     setInAppNotificationAtom,
     swapSteps,
   ]);
+
+  useEffect(() => {
+    if (
+      swapStepsRef.current.preSwapData.supportNetworkFeeLevel &&
+      swapStepsRef.current.preSwapData.supportPreBuild
+    ) {
+      void preSwapBeforeStepActions(
+        swapStepsRef.current.quoteResult,
+        swapStepsRef.current.preSwapData.fromToken,
+        swapStepsRef.current.preSwapData.toToken,
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [swapStepNetFeeLevel.networkFeeLevel]);
 
   const lastStep = useMemo(() => {
     return swapSteps.steps[swapSteps.steps.length - 1];
@@ -210,7 +235,11 @@ const PreSwapDialogContent = ({
             </SizableText>
 
             {/* To token item */}
-            <PreSwapTokenItem token={preSwapData?.toToken} amount={toAmount} />
+            <PreSwapTokenItem
+              token={preSwapData?.toToken}
+              amount={toAmount}
+              loading={preSwapData.swapBuildLoading}
+            />
           </YStack>
 
           <Divider />
@@ -222,20 +251,9 @@ const PreSwapDialogContent = ({
               <PreSwapInfoGroup
                 preSwapData={swapSteps.preSwapData}
                 onSelectNetworkFeeLevel={(value) => {
-                  setSwapSteps(
-                    (prevSteps: {
-                      steps: ISwapStep[];
-                      preSwapData: ISwapPreSwapData;
-                    }) => {
-                      return {
-                        ...prevSteps,
-                        preSwapData: {
-                          ...prevSteps.preSwapData,
-                          netWorkFee: { feeLevel: value },
-                        },
-                      };
-                    },
-                  );
+                  setSwapStepNetFeeLevel({
+                    networkFeeLevel: value,
+                  });
                 }}
               />
               {/* Primary button */}
@@ -252,7 +270,16 @@ const PreSwapDialogContent = ({
                     </SizableText>
                   </XStack>
                 ) : null}
-                <Button variant="primary" onPress={onConfirm} size="medium">
+                <Button
+                  variant="primary"
+                  onPress={onConfirm}
+                  size="medium"
+                  disabled={
+                    swapSteps.preSwapData.estimateNetworkFeeLoading ||
+                    swapSteps.preSwapData.swapBuildLoading ||
+                    swapSteps.preSwapData.stepBeforeActionsLoading
+                  }
+                >
                   {intl.formatMessage({
                     id: isHwWallet
                       ? ETranslations.global_confirm_on_device

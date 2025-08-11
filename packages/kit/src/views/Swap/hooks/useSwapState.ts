@@ -153,10 +153,11 @@ export function useSwapBatchTransferType(
   accountId?: string,
   providerDisableBatchTransfer?: boolean,
   swapShouldSignedData?: boolean,
+  needApprove?: boolean,
 ) {
   let type = ESwapBatchTransferType.NORMAL;
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  if (settingsPersistAtom.swapBatchApproveAndSwap) {
+  if (settingsPersistAtom.swapBatchApproveAndSwap && needApprove) {
     type = ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP;
   }
   const isExternalAccount = accountUtils.isExternalAccount({
@@ -165,7 +166,7 @@ export function useSwapBatchTransferType(
   const isHDAccount = accountUtils.isHwOrQrAccount({
     accountId: accountId ?? '',
   });
-  if (isExternalAccount || isHDAccount) {
+  if ((isExternalAccount || isHDAccount) && needApprove) {
     type = ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP;
   }
   const isUnSupportBatchTransferNet =

@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useRef,
   useState,
 } from 'react';
 import type { Ref } from 'react';
@@ -17,13 +18,16 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IInputRef } from '@onekeyhq/components';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { ISwapNativeTokenReserveGas } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
 
@@ -45,6 +49,7 @@ export interface ITokenInputSectionProps {
   onPressTokenSelector?: () => void;
   tradeType: ITradeType;
   balance?: BigNumber;
+  swapNativeTokenReserveGas: ISwapNativeTokenReserveGas[];
 }
 
 function TokenInputSectionComponent(
@@ -55,12 +60,14 @@ function TokenInputSectionComponent(
     onTokenChange,
     tradeType,
     balance,
+    swapNativeTokenReserveGas,
   }: ITokenInputSectionProps,
   ref: Ref<ITokenInputSectionRef>,
 ) {
   const intl = useIntl();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [internalValue, setInternalValue] = useState('');
+  const inputRef = useRef<IInputRef>(null);
 
   useImperativeHandle(
     ref,
@@ -133,9 +140,31 @@ function TokenInputSectionComponent(
     };
   }, [selectedToken, onChange]);
 
+  // Listen for keyboard dismiss events
+  useEffect(() => {
+    const handleDismissKeyboard = () => {
+      inputRef.current?.blur();
+      dismissKeyboard();
+    };
+
+    appEventBus.on(
+      EAppEventBusNames.SwapPanelDismissKeyboard,
+      handleDismissKeyboard,
+    );
+
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.SwapPanelDismissKeyboard,
+        handleDismissKeyboard,
+      );
+      dismissKeyboard();
+    };
+  }, []);
+
   return (
     <YStack gap="$1">
       <Input
+        ref={inputRef}
         size="medium"
         keyboardType="decimal-pad"
         value={internalValue}
@@ -200,9 +229,12 @@ function TokenInputSectionComponent(
           })) ?? []
         }
         selectedTokenDecimals={selectedToken?.decimals}
+        selectedTokenNetworkId={selectedToken?.networkId}
+        selectedTokenIsNative={selectedToken?.isNative}
         onSelect={handleInternalChange}
         tradeType={tradeType}
         balance={balance}
+        swapNativeTokenReserveGas={swapNativeTokenReserveGas}
       />
     </YStack>
   );

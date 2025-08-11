@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import type { IPopoverProps } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -26,21 +25,23 @@ function MarketTokenListNetworkSelector({
   const normalComponentRef =
     useRef<IMarketTokenListNetworkSelectorNormalRef>(null);
 
-  const { result: marketChainsData, isLoading } = usePromiseResult(
-    () => backgroundApiProxy.serviceMarketV2.fetchMarketChains(),
-    [],
-  );
+  const { networkList, isLoading } = useMarketBasicConfig();
 
   const marketNetworks: IServerNetwork[] = useMemo(() => {
-    if (!marketChainsData?.list) return [];
-    return marketChainsData.list
-      .map((chain) => {
-        const networkInfo = networkUtils.getLocalNetworkInfo(chain.networkId);
+    if (!networkList || networkList.length === 0) return [];
+
+    // Sort by index (smaller numbers first) then map to local network info
+    return networkList
+      .sort((a, b) => a.index - b.index)
+      .map((configNetwork) => {
+        const networkInfo = networkUtils.getLocalNetworkInfo(
+          configNetwork.networkId,
+        );
         if (!networkInfo) return null;
         return networkInfo;
       })
       .filter(Boolean);
-  }, [marketChainsData]);
+  }, [networkList]);
 
   // Derive currently selected network purely from props to keep component stateless.
   const currentSelectNetwork = useMemo(() => {

@@ -1,9 +1,10 @@
-import { Stack, XStack } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { Dimensions } from 'react-native';
+
+import { Stack, Tabs, useSafeAreaInsets } from '@onekeyhq/components';
+import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
 import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketTokenList } from '../components/MarketTokenList';
-import { ToggleButton } from '../components/MarketViewToggle/MarketViewToggle';
 
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketHomeTabValue } from '../types';
@@ -19,7 +20,6 @@ interface IMobileLayoutProps {
   };
   selectedNetworkId: string;
   liquidityFilter: ILiquidityFilter;
-  activeTab: IMarketHomeTabValue;
   onTabChange: (tabId: IMarketHomeTabValue) => void;
 }
 
@@ -27,45 +27,47 @@ export function MobileLayout({
   filterBarProps,
   selectedNetworkId,
   liquidityFilter,
-  activeTab,
-  onTabChange,
 }: IMobileLayoutProps) {
+  const [watchlistState] = useMarketWatchListV2Atom();
+  const watchlist = watchlistState.data || [];
+  const { top, bottom } = useSafeAreaInsets();
+
+  const availableHeight = Dimensions.get('window').height - top - bottom - 220;
+
   return (
     <Stack flex={1}>
-      {/* Tab Header using ToggleButton style from MarketViewToggle */}
-      <XStack gap="$6" px="$4" py="$2">
-        <ToggleButton
-          isActive={activeTab === 'watchlist'}
-          onPress={
-            activeTab !== 'watchlist'
-              ? () => onTabChange('watchlist')
-              : undefined
-          }
-          disabled={false}
-          translationId={ETranslations.global_watchlist}
-          defaultMessage="Watchlist"
-        />
-        <ToggleButton
-          isActive={activeTab === 'trending'}
-          onPress={
-            activeTab !== 'trending' ? () => onTabChange('trending') : undefined
-          }
-          disabled={false}
-          translationId={ETranslations.market_trending}
-          defaultMessage="Trending"
-        />
-      </XStack>
+      <Tabs.Container
+        initialTabName="trending"
+        headerContainerStyle={{
+          width: '100%',
+          shadowColor: 'transparent',
+        }}
+        renderTabBar={(props) => <Tabs.TabBar {...props} />}
+        pagerProps={{ scrollEnabled: true }}
+      >
+        <Tabs.Tab name="watchlist">
+          <MarketTokenList
+            networkId={selectedNetworkId}
+            liquidityFilter={liquidityFilter}
+            showWatchlistOnly
+            watchlist={watchlist}
+          />
+        </Tabs.Tab>
 
-      {/* Tab Content */}
-      <Stack flex={1} position="relative">
-        {activeTab === 'trending' ? (
-          <MarketFilterBarSmall {...filterBarProps} />
-        ) : null}
-        <MarketTokenList
-          networkId={selectedNetworkId}
-          liquidityFilter={liquidityFilter}
-        />
-      </Stack>
+        <Tabs.Tab name="trending">
+          <Tabs.ScrollView>
+            <MarketFilterBarSmall {...filterBarProps} />
+            <Stack h={availableHeight}>
+              <MarketTokenList
+                networkId={selectedNetworkId}
+                liquidityFilter={liquidityFilter}
+                showWatchlistOnly={false}
+                watchlist={watchlist}
+              />
+            </Stack>
+          </Tabs.ScrollView>
+        </Tabs.Tab>
+      </Tabs.Container>
     </Stack>
   );
 }

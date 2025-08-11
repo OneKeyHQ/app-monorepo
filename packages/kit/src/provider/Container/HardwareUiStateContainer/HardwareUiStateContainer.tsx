@@ -758,6 +758,8 @@ function HardwareUiStateContainerCmpControlled() {
         const showBluetoothTroubleshooting =
           platformEnv.isNative || platformEnv.isSupportDesktopBle;
 
+        void serviceHardwareUI.cleanHardwareUiState();
+
         hardwareErrorDialogInstanceRef.current = Dialog.show({
           title: intl.formatMessage({
             id: ETranslations.communication_timeout,
@@ -815,7 +817,7 @@ function HardwareUiStateContainerCmpControlled() {
       appEventBus.off(EAppEventBusNames.ShowHardwareErrorDialog, callback);
       hardwareErrorDialogInstanceRef.current = null;
     };
-  }, [intl]);
+  }, [intl, serviceHardwareUI]);
 
   useEffect(() => {
     const instanceRef: {

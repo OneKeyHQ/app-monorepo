@@ -1,3 +1,5 @@
+import { Stack } from '@onekeyhq/components';
+
 import { MarketTokenListNetworkSelector } from '../MarketTokenListNetworkSelector';
 
 import type { ILiquidityFilter } from '../../types';
@@ -22,17 +24,19 @@ function MarketFilterBarSmall({
     onNetworkIdChange?.(networkId);
   };
 
-  if (isLoading) {
-    return null; // Could add skeleton later if needed
-  }
+  // if (isLoading) {
+  //   return null; // Could add skeleton later if needed
+  // }
 
   return (
-    <MarketTokenListNetworkSelector
-      selectedNetworkId={selectedNetworkId}
-      onSelectNetworkId={handleNetworkIdChange}
-      forceLoading={isLoading}
-      placement="bottom-start"
-    />
+    <Stack px="$4">
+      <MarketTokenListNetworkSelector
+        selectedNetworkId={selectedNetworkId}
+        onSelectNetworkId={handleNetworkIdChange}
+        forceLoading={isLoading}
+        placement="bottom-start"
+      />
+    </Stack>
   );
 }
 

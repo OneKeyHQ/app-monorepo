@@ -5,12 +5,14 @@ export interface IRateDisplayProps {
   rate?: number;
   fromTokenSymbol?: string;
   toTokenSymbol?: string;
+  loading?: boolean;
 }
 
 export function RateDisplay({
   rate,
   fromTokenSymbol,
   toTokenSymbol,
+  loading,
 }: IRateDisplayProps) {
   const rateFormatted = rate
     ? numberFormat(rate.toString(), {
@@ -21,15 +23,13 @@ export function RateDisplay({
       })
     : '-';
 
-  const isLoading = !rate || !fromTokenSymbol || !toTokenSymbol;
-
   return (
     <XStack alignItems="center" height="$4">
-      {isLoading ? (
+      {loading ? (
         <Skeleton width="$32" height="$4" />
       ) : (
         <SizableText size="$bodySm" userSelect="none" color="$textSubdued">
-          {`1 ${fromTokenSymbol} = ${rateFormatted as string}`}
+          {`1 ${fromTokenSymbol ?? '-'} = ${rateFormatted as string}`}
         </SizableText>
       )}
     </XStack>

@@ -1,13 +1,19 @@
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Input } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { showDevOnlyPasswordDialog } from '../pages/Tab/DevSettingsSection';
 
 // for open dev mode
 let clickCount = 0;
 let startTime: Date | undefined;
-
 let isPasswordVerifying = false;
+
+const resetClickCount = () => {
+  clickCount = 0;
+  startTime = undefined;
+  isPasswordVerifying = false;
+};
 
 const showPromoteDialog = async () =>
   new Promise((resolve, reject) => {
@@ -29,6 +35,55 @@ const showPromoteDialog = async () =>
     });
   });
 
+const getCorrectDevOnlyPwd = () => {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  return `${yyyy}${mm}${dd}-onekey-dev`;
+};
+export const showDevModePasswordDialog = async () => {
+  return new Promise((resolve, reject) => {
+    Dialog.show({
+      title: 'Developer Mode (Risk Warning)',
+      tone: 'warning',
+      icon: 'ErrorOutline',
+      description:
+        'Developer mode is for development only and may cause data loss. Do NOT enable if unsure.',
+      dismissOnOverlayPress: false,
+      confirmButtonProps: {
+        testID: 'confirm-button',
+      },
+      renderContent: (
+        <Dialog.Form formProps={{ values: { password: '' } }}>
+          <Dialog.FormField
+            name="password"
+            rules={{
+              required: { value: true, message: 'password is required.' },
+            }}
+          >
+            <Input placeholder="Please enter the dev mode password." />
+          </Dialog.FormField>
+        </Dialog.Form>
+      ),
+      onConfirm: async ({ getForm }) => {
+        const form = getForm();
+        if (form) {
+          const password = form.getValues('password');
+          if (password === getCorrectDevOnlyPwd()) {
+            resolve(true);
+          } else {
+            reject(new OneKeyLocalError('Invalid dev password'));
+          }
+        }
+      },
+      onCancel: () => {
+        reject(new OneKeyLocalError('User canceled'));
+      },
+    });
+  });
+};
+
 export const handleOpenDevMode = async (callback: () => void) => {
   const nowTime = new Date();
   if (clickCount === 0) {
@@ -48,6 +103,13 @@ export const handleOpenDevMode = async (callback: () => void) => {
   }
   if (clickCount >= 9) {
     isPasswordVerifying = true;
+    try {
+      await showDevModePasswordDialog();
+    } catch (error) {
+      console.error(error);
+      resetClickCount();
+      return;
+    }
     try {
       await showPromoteDialog();
       try {
@@ -74,8 +136,7 @@ export const handleOpenDevMode = async (callback: () => void) => {
     } catch (error) {
       /* empty */
     } finally {
-      clickCount = 0;
-      isPasswordVerifying = false;
+      resetClickCount();
     }
   }
 };

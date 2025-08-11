@@ -34,7 +34,6 @@ const MarketTokenListNetworkSelectorNormal = forwardRef<
       onSelectCurrentNetwork,
       handleMoreNetworkSelect,
       isLoading,
-      forceLoading,
       placement,
     },
     ref,
@@ -54,8 +53,8 @@ const MarketTokenListNetworkSelectorNormal = forwardRef<
     );
 
     return (
-      <Stack pt="$3" pb="$2">
-        {isLoading || forceLoading ? (
+      <Stack>
+        {isLoading ? (
           <MarketTokenListNetworkSelectorNormalSkeleton />
         ) : (
           <MarketNetworkFilter

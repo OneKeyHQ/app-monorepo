@@ -122,15 +122,24 @@ class ServiceFirmwareUpdate extends ServiceBase {
     super({ backgroundApi });
   }
 
-  async getSDKInstance(): Promise<CoreApi> {
-    const hardwareSDK =
-      await this.backgroundApi.serviceHardware.getSDKInstance();
+  async getSDKInstance({
+    connectId,
+  }: {
+    connectId: string | undefined;
+  }): Promise<CoreApi> {
+    const hardwareSDK = await this.backgroundApi.serviceHardware.getSDKInstance(
+      {
+        connectId,
+      },
+    );
     return hardwareSDK;
   }
 
   @backgroundMethod()
   async rebootToBootloader(connectId: string): Promise<boolean> {
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId,
+    });
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceUpdateReboot(connectId),
     );
@@ -138,7 +147,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   @backgroundMethod()
   async rebootToBoardloader(connectId: string): Promise<Success> {
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId,
+    });
 
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceRebootToBoardloader(connectId),
@@ -191,7 +202,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   @backgroundMethod()
   async uploadResource(connectId: string, params: DeviceUploadResourceParams) {
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId,
+    });
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceUploadResource(connectId, params),
     );
@@ -335,7 +348,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
     await firmwareUpdateRetryAtom.set(undefined);
     serviceHardwareUtils.hardwareLog('checkAllFirmwareRelease');
 
-    const sdk = await this.getSDKInstance();
+    const sdk = await this.getSDKInstance({
+      connectId: originalConnectId,
+    });
     try {
       sdk.cancel(originalConnectId);
     } catch (error) {
@@ -529,7 +544,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }: {
     connectId: string | undefined;
   }) {
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId,
+    });
     const checkBridgeRelease = await this._hasUseBridge();
     const currentTransportType =
       await this.backgroundApi.serviceSetting.getHardwareTransportType();
@@ -836,7 +853,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   async withFirmwareUpdateEvents<T>(fn: () => Promise<T>): Promise<T> {
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: undefined,
+    });
     const listener = (data: any) => {
       serviceHardwareUtils.hardwareLog('autoUpdateFirmware', data);
       // dispatch(setUpdateFirmwareStep(get(data, 'data.message', '')));
@@ -893,7 +912,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
     params: IUpdateFirmwareWorkflowParams,
     updateInfo: IBootloaderUpdateInfo,
   ): Promise<undefined | Success> {
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: params.releaseResult.updatingConnectId,
+    });
 
     const deviceType = params.releaseResult?.deviceType;
     if (!deviceType) return;
@@ -956,7 +977,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
   ) {
     // eslint-disable-next-line no-async-promise-executor
     return new Promise(async (resolve) => {
-      const hardwareSDK = await this.getSDKInstance();
+      const hardwareSDK = await this.getSDKInstance({
+        connectId: params.releaseResult.updatingConnectId,
+      });
       // restart count down
       await timerUtils.wait(8000);
       let tryCount = 0;
@@ -1011,7 +1034,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
     // const { dispatch } = this.backgroundApi;
     // dispatch(setUpdateFirmwareStep(''));
 
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId,
+    });
 
     return this.withFirmwareUpdateEvents(async () => {
       // dev
@@ -1071,7 +1096,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
       return Promise.resolve({ status: true });
     }
 
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: undefined,
+    });
 
     try {
       const bridgeStatus = await convertDeviceResponse(() =>
@@ -1658,7 +1685,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async updatingFirmwareV3(
     params: IFirmwareUpdateV3VersionParams,
   ): Promise<Success> {
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: params.connectId,
+    });
 
     return this.withFirmwareUpdateEvents(async () => {
       const { connectId } = params;

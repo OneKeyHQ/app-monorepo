@@ -392,7 +392,10 @@ export function SearchResultContent({
             >
               {item?.keyword
                 ? item.name.replace(
-                    new RegExp(item.keyword, 'ig'),
+                    new RegExp(
+                      item.keyword.replace(/[[\]()+?*^$.|\\{}]/g, '\\$&'),
+                      'ig',
+                    ),
                     (match) => `<a>${match}</a>`,
                   )
                 : item.name}

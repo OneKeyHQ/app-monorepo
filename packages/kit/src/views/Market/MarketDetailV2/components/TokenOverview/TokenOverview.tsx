@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack, XStack } from '@onekeyhq/components';
+import { Dialog, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -11,6 +11,8 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
+import { TokenSecurityAlertDialogContent } from '../TokenSecurityAlert/components';
+import { useTokenSecurity } from '../TokenSecurityAlert/hooks/useTokenSecurity';
 
 import { StatCard } from './components/StatCard';
 import { TokenOverviewSkeleton } from './TokenOverviewSkeleton';
@@ -51,7 +53,24 @@ const formatCirculatingSupply = (tokenDetail: ITokenDetail): string => {
 
 export function TokenOverview() {
   const intl = useIntl();
-  const { tokenDetail } = useTokenDetail();
+  const { tokenDetail, tokenAddress, networkId } = useTokenDetail();
+  const { warningCount, securityStatus, securityData } = useTokenSecurity({
+    tokenAddress,
+    networkId,
+  });
+
+  const handleAuditPress = useCallback(() => {
+    Dialog.show({
+      title: intl.formatMessage({ id: ETranslations.dexmarket_audit }),
+      showFooter: false,
+      renderContent: (
+        <TokenSecurityAlertDialogContent
+          securityData={securityData}
+          warningCount={warningCount}
+        />
+      ),
+    });
+  }, [intl, securityData, warningCount]);
 
   // Optimized stat builders
   const auditStat = useMemo<IStatItem>(
@@ -59,12 +78,13 @@ export function TokenOverview() {
       label: intl.formatMessage({ id: ETranslations.dexmarket_audit }),
       value: intl.formatMessage(
         { id: ETranslations.dexmarket_details_audit_issue },
-        { amount: 0 },
+        { amount: warningCount },
       ),
-      icon: 'CheckLargeSolid',
-      iconColor: '$iconSuccess',
+      icon: securityStatus === 'safe' ? 'ShieldCheckDoneSolid' : 'BugOutline',
+      iconColor: securityStatus === 'safe' ? '$iconSuccess' : '$iconCaution',
+      onPress: securityData ? handleAuditPress : undefined,
     }),
-    [intl],
+    [intl, warningCount, securityStatus, handleAuditPress, securityData],
   );
 
   const holdersStat = useMemo<IStatItem>(
@@ -79,6 +99,7 @@ export function TokenOverview() {
     () => ({
       label: intl.formatMessage({ id: ETranslations.dexmarket_market_cap }),
       value: formatCurrencyValue(tokenDetail?.marketCap),
+      tooltip: intl.formatMessage({ id: ETranslations.dexmarket_mc_tips }),
     }),
     [intl, tokenDetail?.marketCap],
   );
@@ -87,6 +108,7 @@ export function TokenOverview() {
     () => ({
       label: intl.formatMessage({ id: ETranslations.dexmarket_liquidity }),
       value: formatCurrencyValue(tokenDetail?.tvl),
+      tooltip: intl.formatMessage({ id: ETranslations.dexmarket_Liq_tips }),
     }),
     [intl, tokenDetail?.tvl],
   );
@@ -97,6 +119,9 @@ export function TokenOverview() {
         id: ETranslations.dexmarket_details_circulating_supply,
       }),
       value: tokenDetail ? formatCirculatingSupply(tokenDetail) : '--',
+      tooltip: intl.formatMessage({
+        id: ETranslations.dexmarket_circulating_supply_tips,
+      }),
     }),
     [intl, tokenDetail],
   );
@@ -105,6 +130,8 @@ export function TokenOverview() {
     () => ({
       label: 'FDV',
       value: formatCurrencyValue(tokenDetail?.fdv),
+      tooltip:
+        'Fully Diluted Valuation - the total value if all tokens were in circulation',
     }),
     [tokenDetail?.fdv],
   );

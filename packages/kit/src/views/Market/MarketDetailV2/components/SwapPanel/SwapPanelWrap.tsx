@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
@@ -14,7 +15,11 @@ import { SwapPanelContent } from './SwapPanelContent';
 
 import type { IToken } from './types';
 
-export function SwapPanelWrap() {
+interface ISwapPanelWrapProps {
+  onCloseDialog?: () => void;
+}
+
+export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   const { networkId, tokenDetail } = useTokenDetail();
 
   const swapPanel = useSwapPanel({
@@ -62,6 +67,7 @@ export function SwapPanelWrap() {
     tradeType: tradeType || ESwapDirection.BUY,
     fromTokenAmount: paymentAmount.toFixed(),
     antiMEV: swapMevNetConfig?.includes(swapPanel.networkId ?? ''),
+    onCloseDialog,
   };
 
   const speedSwapActions = useSpeedSwapActions(useSpeedSwapActionsParams);
@@ -77,6 +83,7 @@ export function SwapPanelWrap() {
     balanceToken,
     fetchBalanceLoading,
     priceRate,
+    swapNativeTokenReserveGas,
   } = speedSwapActions;
 
   const filterDefaultTokens = useMemo(() => {
@@ -112,10 +119,17 @@ export function SwapPanelWrap() {
     void speedSwapBuildTx();
   }, [speedSwapBuildTx]);
 
+  useEffect(() => {
+    return () => {
+      dismissKeyboard();
+    };
+  }, []);
+
   return (
     <SwapPanelContent
       priceRate={priceRate}
       swapMevNetConfig={swapMevNetConfig}
+      swapNativeTokenReserveGas={swapNativeTokenReserveGas}
       swapPanel={swapPanel}
       balance={balance ?? new BigNumber(0)}
       balanceToken={balanceToken as IToken}

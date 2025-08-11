@@ -24,10 +24,13 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   ISwapApproveTransaction,
+  ISwapNativeTokenReserveGas,
   ISwapTokenBase,
   ISwapTxHistory,
   ISwapTxInfo,
@@ -54,6 +57,7 @@ export function useSpeedSwapActions(props: {
   slippage: number;
   defaultTradeTokens: ISwapTokenBase[];
   antiMEV: boolean;
+  onCloseDialog?: () => void;
 }) {
   const {
     marketToken,
@@ -65,6 +69,7 @@ export function useSpeedSwapActions(props: {
     slippage,
     defaultTradeTokens,
     antiMEV,
+    // onCloseDialog,
   } = props;
 
   const intl = useIntl();
@@ -79,11 +84,16 @@ export function useSpeedSwapActions(props: {
     useState(false);
   const [baseToken, setBaseToken] = useState<ISwapTokenBase | undefined>();
   const [fetchBalanceLoading, setFetchBalanceLoading] = useState(false);
+  const [swapNativeTokenReserveGas, setSwapNativeTokenReserveGas] = useState<
+    ISwapNativeTokenReserveGas[]
+  >([]);
+  const [{ isFirstTimeSwap }] = useSettingsPersistAtom();
   const [priceRate, setPriceRate] = useState<
     | {
-        rate: number;
-        fromTokenSymbol: string;
-        toTokenSymbol: string;
+        rate?: number;
+        fromTokenSymbol?: string;
+        toTokenSymbol?: string;
+        loading?: boolean;
       }
     | undefined
   >(undefined);
@@ -322,6 +332,7 @@ export function useSpeedSwapActions(props: {
           },
         },
       };
+      // onCloseDialog?.();
       await navigationToTxConfirm({
         isInternalSwap: true,
         transfersInfo: transferInfo ? [transferInfo] : undefined,
@@ -332,9 +343,49 @@ export function useSpeedSwapActions(props: {
         onCancel: cancelSpeedSwapBuildTx,
         disableMev: !antiMEV,
       });
+
+      defaultLogger.swap.createSwapOrder.swapCreateOrder({
+        fromTokenAmount,
+        fromAddress: userAddress,
+        toAddress: userAddress,
+        toTokenAmount: buildRes.result?.toAmount ?? '',
+        status: ESwapEventAPIStatus.SUCCESS,
+        swapProvider: buildRes.result?.info.provider ?? '',
+        swapProviderName: buildRes.result?.info.providerName ?? '',
+        swapType: ESwapTabSwitchType.SWAP,
+        slippage: slippage.toString(),
+        sourceChain: fromToken.networkId ?? '',
+        receivedChain: toToken.networkId ?? '',
+        sourceTokenSymbol: fromToken.symbol ?? '',
+        receivedTokenSymbol: toToken.symbol ?? '',
+        feeType: buildRes.result?.fee?.percentageFee?.toString() ?? '0',
+        router: JSON.stringify(buildRes.result?.routesData ?? ''),
+        isFirstTime: isFirstTimeSwap,
+        createFrom: 'marketDex',
+      });
+
       return buildRes;
     } catch (e) {
       setSpeedSwapBuildTxLoading(false);
+      defaultLogger.swap.createSwapOrder.swapCreateOrder({
+        fromTokenAmount,
+        fromAddress: userAddress,
+        toAddress: userAddress,
+        toTokenAmount: buildRes.result?.toAmount ?? '',
+        status: ESwapEventAPIStatus.FAIL,
+        swapProvider: buildRes.result?.info.provider ?? '',
+        swapProviderName: buildRes.result?.info.providerName ?? '',
+        swapType: ESwapTabSwitchType.SWAP,
+        slippage: slippage.toString(),
+        sourceChain: fromToken.networkId ?? '',
+        receivedChain: toToken.networkId ?? '',
+        sourceTokenSymbol: fromToken.symbol ?? '',
+        receivedTokenSymbol: toToken.symbol ?? '',
+        feeType: buildRes.result?.fee?.percentageFee?.toString() ?? '0',
+        router: JSON.stringify(buildRes.result?.routesData ?? ''),
+        isFirstTime: isFirstTimeSwap,
+        createFrom: 'marketDex',
+      });
     }
   }, [
     netAccountRes.result?.address,
@@ -349,6 +400,8 @@ export function useSpeedSwapActions(props: {
     handleSpeedSwapBuildTxSuccess,
     cancelSpeedSwapBuildTx,
     antiMEV,
+    isFirstTimeSwap,
+    // onCloseDialog,
   ]);
 
   // --- approve
@@ -665,6 +718,10 @@ export function useSpeedSwapActions(props: {
   );
 
   const fetchTokenPrice = useCallback(async () => {
+    setPriceRate((prev) => ({
+      ...(prev ?? {}),
+      loading: true,
+    }));
     const [fromTokenPrice, toTokenPrice] = await Promise.all([
       backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
         networkId: fromToken.networkId ?? '',
@@ -684,7 +741,13 @@ export function useSpeedSwapActions(props: {
           : fromTokenPriceBN.dividedBy(toTokenPriceBN).toNumber(),
         fromTokenSymbol: fromToken.symbol,
         toTokenSymbol: toToken.symbol,
+        loading: false,
       });
+    } else {
+      setPriceRate((prev) => ({
+        ...(prev ?? {}),
+        loading: false,
+      }));
     }
   }, [
     fromToken.symbol,
@@ -700,6 +763,32 @@ export function useSpeedSwapActions(props: {
       void fetchTokenPrice();
     }
   }, [fetchTokenPrice, fromToken.networkId, toToken.networkId]);
+
+  useEffect(() => {
+    if (fromToken?.networkId && fromToken?.isNative) {
+      void (async () => {
+        const nativeTokenConfig =
+          await backgroundApiProxy.serviceSwap.fetchSwapNativeTokenConfig({
+            networkId: fromToken.networkId,
+          });
+        setSwapNativeTokenReserveGas((pre) => {
+          const find = pre.find(
+            (item) => item.networkId === fromToken.networkId,
+          );
+          if (find) {
+            return [
+              ...pre.filter((item) => item.networkId !== fromToken.networkId),
+              {
+                networkId: fromToken.networkId,
+                reserveGas: nativeTokenConfig.reserveGas,
+              },
+            ];
+          }
+          return [...pre, nativeTokenConfig];
+        });
+      })();
+    }
+  }, [fromToken?.networkId, fromToken?.isNative, setSwapNativeTokenReserveGas]);
 
   useEffect(() => {
     appEventBus.off(
@@ -814,6 +903,7 @@ export function useSpeedSwapActions(props: {
     balance,
     balanceToken,
     fetchBalanceLoading,
+    swapNativeTokenReserveGas,
     priceRate,
   };
 }

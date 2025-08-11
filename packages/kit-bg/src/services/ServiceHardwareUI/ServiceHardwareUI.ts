@@ -71,7 +71,9 @@ class ServiceHardwareUI extends ServiceBase {
   @backgroundMethod()
   async sendUiResponse(response: UiResponseEvent) {
     return (
-      await this.backgroundApi.serviceHardware.getSDKInstance()
+      await this.backgroundApi.serviceHardware.getSDKInstance({
+        connectId: undefined,
+      })
     ).uiResponse(response);
   }
 

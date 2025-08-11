@@ -64,7 +64,6 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapDirectionType,
-  ESwapNetworkFeeLevel,
   ESwapQuoteKind,
   ESwapSelectTokenSource,
   ESwapStepStatus,
@@ -72,6 +71,7 @@ import {
   ESwapTabSwitchType,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   SwapBuildShouldFallBackNetworkIds,
+  SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
@@ -279,6 +279,19 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     },
     [fromTokenBalance, fromSelectToken?.decimals, setFromInputAmount],
   );
+
+  const supportPreBuild = useMemo(() => {
+    if (currentQuoteRes && !currentQuoteRes?.allowanceResult) {
+      return true;
+    }
+    return (
+      !currentQuoteRes?.providerDisableBatchTransfer &&
+      !SwapBuildUseMultiplePopoversNetworkIds.includes(
+        fromSelectToken?.networkId ?? '',
+      )
+    );
+  }, [currentQuoteRes, fromSelectToken?.networkId]);
+
   const isWrapped = useMemo(
     () =>
       checkWrappedTokenPair({
@@ -292,6 +305,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapFromAddressInfo.accountInfo?.account?.id,
     currentQuoteRes?.providerDisableBatchTransfer,
     Boolean(currentQuoteRes?.swapShouldSignedData),
+    Boolean(currentQuoteRes?.allowanceResult),
   );
 
   const createWrapStep = useCallback(
@@ -482,6 +496,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         fromTokenAmount: fromAmount.value,
         toTokenAmount: swapToAmount.value,
         providerInfo: currentQuoteRes?.info,
+        supportPreBuild,
         slippage:
           currentQuoteRes?.protocol === EProtocolOfExchange.LIMIT ||
           currentQuoteRes?.unSupportSlippage
@@ -497,9 +512,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           steps[steps.length - 1].type === ESwapStepType.SIGN_MESSAGE
         )
           ? {
-              netWorkFee: {
-                feeLevel: ESwapNetworkFeeLevel.MEDIUM,
-              },
+              supportNetworkFeeLevel: true,
             }
           : {}),
       },
@@ -519,6 +532,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     intl,
     createBatchApproveSwapStep,
     createSendTxStep,
+    supportPreBuild,
   ]);
   const onActionHandler = useCallback(() => {
     if (
