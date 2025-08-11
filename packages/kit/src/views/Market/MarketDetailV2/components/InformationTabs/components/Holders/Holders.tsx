@@ -3,13 +3,7 @@ import { memo, useCallback } from 'react';
 import { FlashList, type FlashListProps } from '@shopify/flash-list';
 import { useIntl } from 'react-intl';
 
-import {
-  ScrollView,
-  SizableText,
-  Stack,
-  Tabs,
-  useMedia,
-} from '@onekeyhq/components';
+import { ScrollView, SizableText, Stack, useMedia } from '@onekeyhq/components';
 import { useLeftColumnWidthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketHolders } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
