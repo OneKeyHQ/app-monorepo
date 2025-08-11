@@ -1,7 +1,24 @@
-import { Fragment, forwardRef, useCallback, useEffect, useMemo } from 'react';
-import type { ForwardedRef, PropsWithChildren, ReactElement } from 'react';
+import {
+  Fragment,
+  forwardRef,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type {
+  CSSProperties,
+  ForwardedRef,
+  PropsWithChildren,
+  ReactElement,
+  RefObject,
+} from 'react';
 
+import { FlashList } from '@shopify/flash-list';
 import { useStyle } from '@tamagui/core';
+import { noop } from 'lodash';
 // eslint-disable-next-line spellcheck/spell-checker
 import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
 import {
@@ -9,6 +26,7 @@ import {
   ScaleDecorator,
   ShadowDecorator,
 } from 'react-native-draggable-flatlist';
+import Animated from 'react-native-reanimated';
 import { withStaticProperties } from 'tamagui';
 
 import {
@@ -25,8 +43,16 @@ import type {
   ISortableListViewProps,
   ISortableListViewRef,
 } from './types';
-import type { DragStart, DropResult } from 'react-beautiful-dnd';
-import type { ListRenderItem, ListRenderItemInfo } from 'react-native';
+import type {
+  DragStart,
+  DraggableProvided,
+  DropResult,
+} from 'react-beautiful-dnd';
+import type {
+  CellRendererProps,
+  ListRenderItem,
+  ListRenderItemInfo,
+} from 'react-native';
 
 // eslint-disable-next-line unicorn/prefer-global-this
 if (typeof window !== 'undefined') {
@@ -44,7 +70,7 @@ function FragmentComponent({
   key,
   children,
 }: PropsWithChildren & { key?: React.Key }) {
-  return <Fragment key={key}>{children}</Fragment>;
+  return <div key={key}>{children}</div>;
 }
 
 let lastIndexHeight: undefined | number;
@@ -52,6 +78,85 @@ let lastIndexHeight: undefined | number;
 const getBody = () => {
   return document.body;
 };
+
+function Item<T>({
+  item,
+  renderItem,
+  provided,
+  getIndex,
+  isDragging,
+  drag,
+  dragProps,
+  style,
+}: {
+  item: T;
+  renderItem: ISortableListViewProps<T>['renderItem'];
+  provided: DraggableProvided;
+  getIndex: () => number;
+  isDragging: boolean;
+  dragProps: Record<string, any>;
+  drag: () => void;
+  style?: CSSProperties;
+}) {
+  const dragHandleProps = (provided.dragHandleProps ?? {}) as Record<
+    string,
+    any
+  >;
+  const draggableProps = {
+    ...provided.draggableProps,
+    ...dragHandleProps,
+  };
+  return (
+    <div
+      ref={provided.innerRef}
+      {...draggableProps}
+      style={{
+        ...draggableProps.style,
+        ...style,
+      }}
+    >
+      {renderItem({
+        item,
+        drag,
+        dragProps,
+        getIndex,
+        isActive: isDragging,
+        index: getIndex(),
+      })}
+    </div>
+  );
+}
+
+function CellContainer<T>({
+  children,
+  ...props
+}: Omit<CellRendererProps<T>, 'ref'> & {
+  ref: RefObject<HTMLDivElement>;
+}) {
+  const { ref, index } = props;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number | undefined>(undefined);
+  useLayoutEffect(() => {
+    if (containerRef.current) {
+      const clientHeight = containerRef.current?.clientHeight;
+      if (clientHeight) {
+        setHeight(clientHeight);
+      }
+    }
+  }, [index, ref]);
+  return (
+    <Animated.View
+      {...(props as Record<string, any>)}
+      style={
+        height
+          ? { ...(props as Record<string, any>).style, height }
+          : props.style
+      }
+    >
+      <div ref={containerRef}>{children}</div>
+    </Animated.View>
+  );
+}
 
 function BaseSortableListView<T>(
   {
@@ -61,6 +166,7 @@ function BaseSortableListView<T>(
     onDragBegin,
     onDragEnd,
     keyExtractor,
+    useFlashList,
     getItemLayout,
     contentContainerStyle = {},
     stickyHeaderIndices = [],
@@ -139,24 +245,27 @@ function BaseSortableListView<T>(
     (props: ListRenderItemInfo<T>) => {
       const { item, index } = props;
       const id = keyExtractor?.(item, index);
-      const layout = getItemLayout?.(data, index);
+      const draggableId = id ? String(id) : String(index);
+      const layout = useFlashList ? undefined : getItemLayout?.(data, index);
       const isSticky =
         reallyStickyHeaderIndices.findIndex((x) => x === index) !== -1;
       const insertHeight = lastIndexHeight ?? 0;
       lastIndexHeight = layout?.length;
       return (
         <Draggable
-          draggableId={`${id}`}
+          // Setting key is crucial for react-beautiful-dnd to properly track and refresh
+          // the number of items in the list when the data changes
+          key={draggableId}
+          draggableId={draggableId}
           index={index}
           isDragDisabled={!enabled}
         >
           {(provided) => {
+            lastIndexHeight = undefined;
             const dragHandleProps = (provided.dragHandleProps ?? {}) as Record<
               string,
               any
             >;
-            lastIndexHeight = undefined;
-
             return (
               <>
                 {!isSticky ? (
@@ -170,37 +279,29 @@ function BaseSortableListView<T>(
                     }
                   />
                 ) : null}
-                <div
-                  ref={provided.innerRef}
-                  {...provided.draggableProps}
-                  style={{
-                    ...provided.draggableProps.style,
-                    ...(!isSticky
+                <Item
+                  style={
+                    !isSticky
                       ? {
-                          position: 'absolute',
-                          top: (layout?.offset ?? 0) + contentPaddingTop,
-                          height: layout?.length,
+                          position: useFlashList ? undefined : 'absolute',
+                          top: (layout?.offset ?? 0) + (contentPaddingTop ?? 0),
+                          height: useFlashList ? undefined : layout?.length,
                           width: '100%',
                         }
-                      : {}),
-                  }}
-                >
-                  {renderItem({
-                    item,
-                    drag: () => {},
-                    dragProps: Object.keys(dragHandleProps).reduce(
-                      (acc, key) => {
-                        const reloadKey = key.replace(/^data-/, '');
-                        acc[reloadKey] = dragHandleProps[key];
-                        return acc;
-                      },
-                      {} as Record<string, any>,
-                    ),
-                    getIndex: () => index,
-                    isActive: false,
-                    index,
-                  })}
-                </div>
+                      : {}
+                  }
+                  drag={noop}
+                  dragProps={Object.keys(dragHandleProps).reduce((acc, key) => {
+                    const reloadKey = key.replace(/^data-/, '');
+                    acc[reloadKey] = dragHandleProps[key];
+                    return acc;
+                  }, {} as Record<string, any>)}
+                  isDragging={false}
+                  item={item}
+                  getIndex={() => index}
+                  renderItem={renderItem as any}
+                  provided={provided}
+                />
               </>
             );
           }}
@@ -208,13 +309,14 @@ function BaseSortableListView<T>(
       );
     },
     [
-      renderItem,
-      data,
-      enabled,
-      getItemLayout,
       keyExtractor,
+      useFlashList,
+      getItemLayout,
+      data,
       reallyStickyHeaderIndices,
+      enabled,
       contentPaddingTop,
+      renderItem,
     ],
   );
 
@@ -233,20 +335,15 @@ function BaseSortableListView<T>(
         ignoreContainerClipping={false}
         renderClone={(provided, snapshot, rubric) => {
           return (
-            <div
-              ref={provided.innerRef}
-              {...provided.draggableProps}
-              {...provided.dragHandleProps}
-            >
-              {renderItem({
-                item: data[rubric.source.index],
-                drag: () => {},
-                dragProps: {},
-                getIndex: () => rubric.source.index,
-                isActive: true,
-                index: rubric.source.index,
-              })}
-            </div>
+            <Item
+              isDragging
+              dragProps={{}}
+              drag={noop}
+              item={data[rubric.source.index]}
+              renderItem={renderItem}
+              provided={provided}
+              getIndex={() => rubric.source.index}
+            />
           );
         }}
         getContainerForClone={getBody}
@@ -260,21 +357,37 @@ function BaseSortableListView<T>(
               (item, _index) =>
                 keyExtractor(item, _index) === snapshot.draggingFromThisWith,
             );
-            overridePaddingBottom += getItemLayout(data, index).length;
+            overridePaddingBottom += useFlashList
+              ? 0
+              : getItemLayout?.(data, index)?.length ?? 0;
           }
+          const ListViewComponent = useFlashList ? FlashList : ListView;
           return (
-            <ListView
-              // This property is invalid in SortableListView
-              estimatedItemSize={undefined as any}
-              // @ts-ignore
-              ref={(_ref) => {
-                if (typeof ref === 'function') {
-                  ref(_ref as any);
-                } else if (ref && 'current' in ref) {
-                  ref.current = _ref as any;
+            <ListViewComponent
+              ref={(_ref: any) => {
+                if (_ref) {
+                  if (typeof ref === 'function') {
+                    ref(_ref);
+                  } else if (ref && 'current' in ref) {
+                    ref.current = _ref;
+                  }
+                  // FlashList
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                  if (_ref?.getNativeScrollRef) {
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+                    const scrollRef = _ref?.getNativeScrollRef();
+                    if (scrollRef) {
+                      provided.innerRef(scrollRef);
+                    }
+                  }
+
+                  // FlatList
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                  if (_ref?._listRef?._scrollRef) {
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                    provided.innerRef(_ref?._listRef?._scrollRef);
+                  }
                 }
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                provided.innerRef((_ref as any)?._listRef?._scrollRef);
               }}
               data={data}
               contentContainerStyle={{
@@ -282,12 +395,14 @@ function BaseSortableListView<T>(
                 paddingBottom: overridePaddingBottom,
               }}
               renderItem={reloadRenderItem as ListRenderItem<T>}
-              CellRendererComponent={FragmentComponent}
-              getItemLayout={getItemLayout}
+              CellRendererComponent={
+                useFlashList ? CellContainer : FragmentComponent
+              }
+              getItemLayout={useFlashList ? undefined : getItemLayout}
               keyExtractor={keyExtractor}
               stickyHeaderIndices={stickyHeaderIndices}
               ListHeaderComponent={ListHeaderComponent}
-              {...restProps}
+              {...(restProps as any)}
             />
           );
         }}
