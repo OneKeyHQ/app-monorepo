@@ -74,7 +74,7 @@ function MarketDetail({
               storeName={EJotaiContextStoreNames.marketWatchListV2}
             >
               <TokenDetailHeader
-                containerProps={{ p: '$0' }}
+                containerProps={{ p: '$0', bg: '$red3' }}
                 showStats={false}
                 showMediaAndSecurity={false}
               />

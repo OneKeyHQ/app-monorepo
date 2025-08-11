@@ -34,7 +34,7 @@ export function TokenDetailHeader({
 
   return (
     <XStack
-      width="100%"
+      // width="100%"
       px="$5"
       pt="$4"
       pb="$2"
