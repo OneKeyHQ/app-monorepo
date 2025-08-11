@@ -77,6 +77,7 @@ import {
 } from './firmwareUpdateConsts';
 import { FirmwareUpdateDetectMap } from './FirmwareUpdateDetectMap';
 
+import type { IDBDevice } from '../../dbs/local/types';
 import type {
   IPromiseContainerCallbackCreate,
   IPromiseContainerReject,
@@ -493,8 +494,25 @@ class ServiceFirmwareUpdate extends ServiceBase {
       }
     }
 
+    let device: IDBDevice | undefined;
+    let fixedUpdatingConnectId = updatingConnectId;
+    try {
+      if (platformEnv.isSupportDesktopBle) {
+        device = await localDb.getDeviceByQuery({
+          connectId: originalConnectId,
+        });
+        fixedUpdatingConnectId = deviceUtils.getFixedUpdatingConnectId({
+          updatingConnectId,
+          currentTransportType,
+          device,
+        });
+      }
+    } catch (error) {
+      // ignore
+    }
+
     return {
-      updatingConnectId,
+      updatingConnectId: fixedUpdatingConnectId,
       originalConnectId,
       features,
       deviceType,
