@@ -9,7 +9,6 @@ import {
   HeightTransition,
   Icon,
   SizableText,
-  Skeleton,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -236,14 +235,11 @@ const PreSwapDialogContent = ({
             </SizableText>
 
             {/* To token item */}
-            {preSwapData.swapBuildLoading ? (
-              <Skeleton width={120} height={60} />
-            ) : (
-              <PreSwapTokenItem
-                token={preSwapData?.toToken}
-                amount={toAmount}
-              />
-            )}
+            <PreSwapTokenItem
+              token={preSwapData?.toToken}
+              amount={toAmount}
+              loading={preSwapData.swapBuildLoading}
+            />
           </YStack>
 
           <Divider />
