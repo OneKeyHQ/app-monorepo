@@ -175,15 +175,6 @@ function BaseSortableListView<T>(
   }: ISortableListViewProps<T>,
   ref: ForwardedRef<ISortableListViewRef<T>> | undefined,
 ) {
-  const size = useRef<{
-    [index: number]: number;
-  }>({});
-  const getSize = useCallback((index: number) => {
-    return size.current[index] ?? 0;
-  }, []);
-  const setSize = useCallback((index: number, height: number) => {
-    size.current[index] = height;
-  }, []);
   const reloadOnDragStart = useCallback(
     (params: DragStart) => {
       appEventBus.emit(EAppEventBusNames.onDragBeginInListView, undefined);
