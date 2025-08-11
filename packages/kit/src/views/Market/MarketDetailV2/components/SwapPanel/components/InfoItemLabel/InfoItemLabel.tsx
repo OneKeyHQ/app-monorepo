@@ -30,7 +30,7 @@ export const InfoItemLabel = ({
           />
         }
         renderContent={
-          <Stack p="$2">
+          <Stack px="$4" pb="$4">
             <SizableText size="$bodyMd" color="$text">
               {questionMarkContent}
             </SizableText>

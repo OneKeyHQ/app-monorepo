@@ -1,8 +1,9 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 
 import { YStack } from '@onekeyhq/components';
+import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import type { useSwapPanel } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSwapPanel';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import type { ISwapNativeTokenReserveGas } from '@onekeyhq/shared/types/swap/types';
@@ -72,7 +73,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   } = swapPanel;
 
   const tokenInputRef = useRef<ITokenInputSectionRef>(null);
-
+  const paymentAmountRef = useRef(paymentAmount);
   const handleBalanceClick = useCallback(() => {
     const reserveGas = swapNativeTokenReserveGas.find(
       (item) => item.networkId === balanceToken?.networkId,
@@ -95,6 +96,21 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     setPaymentAmount,
     swapNativeTokenReserveGas,
   ]);
+
+  useEffect(() => {
+    if (
+      !validateAmountInput(
+        paymentAmountRef.current?.toFixed(),
+        balanceToken?.decimals,
+      )
+    ) {
+      const changeAmount = new BigNumber(
+        paymentAmountRef.current?.toFixed(),
+      ).decimalPlaces(balanceToken?.decimals ?? 0, BigNumber.ROUND_DOWN);
+      tokenInputRef.current?.setValue(changeAmount.toFixed());
+    }
+  }, [tradeType, balanceToken?.decimals]);
+
   return (
     <YStack gap="$4">
       {/* Trade type selector */}

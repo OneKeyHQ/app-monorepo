@@ -1,6 +1,11 @@
 import { useIntl } from 'react-intl';
 
-import { SizableText, Skeleton, XStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  Skeleton,
+  XStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { InfoItemLabel } from './InfoItemLabel';
@@ -31,7 +36,7 @@ export function BalanceDisplay({
       {isLoading ? (
         <Skeleton height="$6" width="$24" />
       ) : (
-        <SizableText
+        <NumberSizeableText
           size="$bodyMdMedium"
           onPress={onBalanceClick}
           userSelect="none"
@@ -40,9 +45,13 @@ export function BalanceDisplay({
           borderRadius="$2"
           px="$1"
           py="$0.5"
+          formatter="balance"
+          formatterOptions={{
+            tokenSymbol: token?.symbol,
+          }}
         >
-          {balance?.toFixed() || '-'} {token?.symbol || ''}
-        </SizableText>
+          {balance?.toFixed()}
+        </NumberSizeableText>
       )}
     </XStack>
   );
