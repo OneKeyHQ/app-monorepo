@@ -176,6 +176,10 @@ const PreSwapInfoGroup = ({
             </SizableText>
           </XStack>
         }
+        ifPopover
+        popoverContent={intl.formatMessage({
+          id: ETranslations.swap_review_provider_popover_content,
+        })}
       />
       {!isNil(slippage) ? (
         <PreSwapInfoItem
@@ -183,13 +187,24 @@ const PreSwapInfoGroup = ({
             id: ETranslations.swap_page_provider_slippage_tolerance,
           })}
           value={`${slippage}%`}
+          ifPopover
+          popoverContent={intl.formatMessage({
+            id: ETranslations.slippage_tolerance_warning_message_1,
+          })}
         />
       ) : null}
       <PreSwapInfoItem
         title={intl.formatMessage({
-          id: ETranslations.fee_fee,
+          id: ETranslations.provider_ios_popover_onekey_fee,
         })}
         value={fee}
+        ifPopover
+        popoverContent={intl.formatMessage(
+          {
+            id: ETranslations.provider_ios_popover_onekey_fee_content,
+          },
+          { num: fee },
+        )}
       />
       {preSwapData.supportNetworkFeeLevel ? (
         <PreSwapInfoItem
@@ -197,6 +212,10 @@ const PreSwapInfoGroup = ({
             id: ETranslations.provider_network_fee,
           })}
           value={networkFeeSelect}
+          ifPopover
+          popoverContent={intl.formatMessage({
+            id: ETranslations.swap_review_network_cost_popover_content,
+          })}
         />
       ) : null}
     </YStack>
