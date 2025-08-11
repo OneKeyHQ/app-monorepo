@@ -50,7 +50,6 @@ const ListViewDemo = () => {
             <Button
               onPress={() => {
                 const scrollView = ref.current;
-                console.log('scrollView', scrollView);
                 scrollView?.scrollToIndex({ index: 0, animated: true });
               }}
             >
