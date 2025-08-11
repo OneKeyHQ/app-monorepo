@@ -1,12 +1,10 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { Semaphore } from 'async-mutex';
-import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import * as ethUtils from 'ethereumjs-util';
-import { ethers } from 'ethersV6';
 import stringify from 'fast-json-stable-stringify';
-import { cloneDeep, get, isNil } from 'lodash';
+import { get, isNil } from 'lodash';
 
 import { hashMessage } from '@onekeyhq/core/src/chains/evm/message';
 import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
@@ -17,7 +15,6 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -27,18 +24,12 @@ import { EVM_SAFE_RPC_METHODS } from '@onekeyhq/shared/src/rpcCache/constants';
 import { RpcCache } from '@onekeyhq/shared/src/rpcCache/RpcCache';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
-import type {
-  IHyperLiquidSignatureRSV,
-  IHyperLiquidTypedDataApproveAgent,
-  IHyperLiquidTypedDataApproveBuilderFee,
-} from '@onekeyhq/shared/types/hyperliquid';
+import type { IHyperLiquidTypedDataApproveAgent } from '@onekeyhq/shared/types/hyperliquid';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type {
   IAccountToken,
@@ -52,6 +43,7 @@ import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 
 export type ISwitchEthereumChainParameter = {
   chainId: string;
@@ -132,6 +124,26 @@ class ProviderApiEthereum extends ProviderApiBase {
       });
     }
     return this._rpcCache;
+  }
+
+  public async notifyHyperliquidPerpConfigChanged(
+    info: IProviderBaseBackgroundNotifyInfo,
+    params: {
+      hyperliquidBuilderAddress: string | undefined;
+      hyperliquidMaxBuilderFee: number | undefined;
+    },
+  ) {
+    info.send(
+      {
+        method: 'onekeyWalletEvents_builtInPerpConfigChanged',
+        params: {
+          hyperliquidBuilderAddress: params.hyperliquidBuilderAddress,
+          hyperliquidMaxBuilderFee: params.hyperliquidMaxBuilderFee,
+        },
+      },
+      // only notify to hyperliquid official dapp
+      HYPER_LIQUID_ORIGIN,
+    );
   }
 
   public override notifyDappAccountsChanged(
@@ -677,95 +689,12 @@ class ProviderApiEthereum extends ProviderApiBase {
     });
   }
 
-  // eslint-disable-next-line spellcheck/spell-checker
-  /*
-  let e = await r({
-                            domain: {
-                                name: "HyperliquidSignTransaction",
-                                version: "1",
-                                chainId: 42161,
-                                verifyingContract: "0x0000000000000000000000000000000000000000"
-                            },
-                            message: {
-                                hyperliquidChain: l.hyperliquidChain,
-                                maxFeeRate: l.maxFeeRate,
-                                builder: l.builder,
-                                nonce: l.nonce,
-                                signatureChainId: l.signatureChainId
-                            },
-                            primaryType: "HyperliquidTransaction:ApproveBuilderFee",
-                            types: {
-                                "HyperliquidTransaction:ApproveBuilderFee": [{
-                                    name: "hyperliquidChain",
-                                    type: "string"
-                                }, {
-                                    name: "maxFeeRate",
-                                    type: "string"
-                                }, {
-                                    name: "builder",
-                                    type: "address"
-                                }, {
-                                    name: "nonce",
-                                    type: "uint64"
-                                }]
-                            }
-                        });
-                        if (!e)
-                            throw Error("Failed to sign message");
-                        let a = "0x" + e.slice(2, 66)
-                          , t = "0x" + e.slice(66, 130)
-                          , s = parseInt(e.slice(130), 16);
-                        return {
-                            action: l,
-                            signature: {
-                                r: a,
-                                s: t,
-                                v: s
-                            }
-                        }
-                            */
-
-  parseSignatureToRSV(signature: string): IHyperLiquidSignatureRSV {
-    // Remove 0x prefix if present
-    const sig = signature.startsWith('0x') ? signature.slice(2) : signature;
-
-    // Ensure signature is the correct length (65 bytes = 130 hex chars)
-    if (sig.length !== 130) {
-      throw new OneKeyError('Invalid signature length');
-    }
-
-    const r = `0x${signature.slice(2, 66)}`;
-    const s = `0x${signature.slice(66, 130)}`;
-    const v = parseInt(signature.slice(130), 16);
-
-    // Extract r, s, v components
-    // const r = `0x${sig.slice(0, 64)}`;
-    // const s = `0x${sig.slice(64, 128)}`;
-    // const v = parseInt(sig.slice(128, 130), 16);
-
-    const rsv = ethers.Signature.from(signature);
-    // return { r, s, v: 888 };
-    const rsvJson = rsv.toJSON() as IHyperLiquidSignatureRSV;
-    const result = {
-      r: rsvJson.r,
-      s: rsvJson.s,
-      v: rsvJson.v,
-    };
-    const result2 = {
-      r,
-      s,
-      v,
-    };
-    console.log('parseSignatureToRSV', result, result2);
-    return result;
-  }
-
   @providerApiMethod()
   async eth_signTypedData_v4(
     request: IJsBridgeMessagePayload,
     ...messages: any[]
   ) {
-    const isHyperLiquid = request.origin === 'https://app.hyperliquid.xyz';
+    const isHyperLiquid = request.origin === HYPER_LIQUID_ORIGIN;
     let isHyperLiquidApproveAgentMessage = false;
     let hyperLiquidApproveAgentTypedData:
       | IHyperLiquidTypedDataApproveAgent
@@ -806,149 +735,14 @@ class ProviderApiEthereum extends ProviderApiBase {
       networkId: networkId ?? '',
       accountId: accountId ?? '',
     });
-    console.log(
-      'eth_signTypedData_v4>>>>>result',
-      this.parseSignatureToRSV(result as string),
-    );
-
-    if (
-      result &&
-      isHyperLiquid &&
-      isHyperLiquidApproveAgentMessage &&
-      hyperLiquidApproveAgentTypedData
-    ) {
-      setTimeout(async () => {
-        const newRequest = cloneDeep(request);
-        const builder =
-          '0x4EF880525383ab4E3d94b7689e3146bF899A296e'.toLowerCase();
-        const maxFeeRate = '0.013%';
-        // const nonce = 1_754_474_751_838; // Date.now();  1_754_474_751_838
-        const nonce = Date.now();
-        const newTypedData: IHyperLiquidTypedDataApproveBuilderFee = cloneDeep({
-          domain: hyperLiquidApproveAgentTypedData.domain,
-          message: {
-            maxFeeRate,
-            builder,
-            nonce,
-            hyperliquidChain:
-              hyperLiquidApproveAgentTypedData.message.hyperliquidChain,
-            signatureChainId:
-              hyperLiquidApproveAgentTypedData.message.signatureChainId,
-          },
-          primaryType: 'HyperliquidTransaction:ApproveBuilderFee',
-          types: {
-            EIP712Domain: hyperLiquidApproveAgentTypedData.types.EIP712Domain,
-            'HyperliquidTransaction:ApproveBuilderFee': [
-              {
-                'name': 'hyperliquidChain',
-                'type': 'string',
-              },
-              { 'name': 'maxFeeRate', 'type': 'string' },
-              { 'name': 'builder', 'type': 'address' },
-              {
-                'name': 'nonce',
-                'type': 'uint64',
-              },
-            ],
-          },
-        });
-        const newMessages = cloneDeep([
-          messages[0],
-          stringUtils.stableStringify(newTypedData),
-        ]);
-        const newMessages0 = [
-          '0x5618207d27D78F09f61A5D92190d58c453feB4b7',
-          stringUtils.stableStringify({
-            'domain': {
-              'name': 'HyperliquidSignTransaction',
-              'version': '1',
-              'chainId': 42_161,
-              'verifyingContract': '0x0000000000000000000000000000000000000000',
-            },
-            'message': {
-              'hyperliquidChain': 'Mainnet',
-              'maxFeeRate': '0.001%',
-              'builder': '0x4ef880525383ab4e3d94b7689e3146bf899a296e',
-              'nonce': 1_754_474_751_838,
-              'signatureChainId': '0xa4b1',
-            },
-            'primaryType': 'HyperliquidTransaction:ApproveBuilderFee',
-            'types': {
-              'EIP712Domain': [
-                { 'name': 'name', 'type': 'string' },
-                { 'name': 'version', 'type': 'string' },
-                { 'name': 'chainId', 'type': 'uint256' },
-                { 'name': 'verifyingContract', 'type': 'address' },
-              ],
-              'HyperliquidTransaction:ApproveBuilderFee': [
-                { 'name': 'hyperliquidChain', 'type': 'string' },
-                { 'name': 'maxFeeRate', 'type': 'string' },
-                { 'name': 'builder', 'type': 'address' },
-                { 'name': 'nonce', 'type': 'uint64' },
-              ],
-            },
-          }),
-        ];
-
-        console.log(
-          'newMessages0___newMessages',
-          newMessages0,
-          newMessages,
-          newMessages0[1] === newMessages[1],
-          JSON.parse(newMessages0[1]),
-          JSON.parse(newMessages[1]),
-        );
-
-        // const signerAddress = newMessages[0];
-        (newRequest.data as IJsonRpcRequest).params = newMessages;
-        const action = JSON.parse(
-          newMessages[1],
-        ) as IHyperLiquidTypedDataApproveBuilderFee;
-
-        const signature: string = (await this.eth_signTypedData_v4(
-          newRequest,
-          ...newMessages,
-        )) as string;
-        const rsv = this.parseSignatureToRSV(signature);
-        console.log(
-          'HyperliquidTransaction:ApproveBuilderFee signature:',
-          signature,
-          rsv,
-        );
-        const apiPayload = {
-          // action = {"maxFeeRate": max_fee_rate, "builder": builder, "nonce": timestamp, "type": "approveBuilderFee"}
-          action: {
-            ...action.message,
-            type: 'approveBuilderFee',
-          },
-          nonce: action.message.nonce,
-          signature: rsv,
-          vaultAddress: null,
-          // vaultAddress: messages?.[0],
-          // expiresAfter: 2_000_000_000_000,
-        };
-        const headers = {
-          // 'Content-Type': 'application/json',
-          // 'X-User-Address': signerAddress?.toLowerCase?.(),
-        };
-        // https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/exchange-endpoint#approve-a-builder-fee
-        void axios.post('https://api.hyperliquid.xyz/exchange', apiPayload, {
-          headers,
-        });
-        void axios.post(
-          'https://hyperdash.info/api/hyperliquid/exchange',
-          apiPayload,
-          {
-            headers,
-          },
-        );
-      }, 1000);
-    }
 
     return result;
   }
 
-  // TODO getBuilderFee readonly method, execute when dapp start
+  @providerApiMethod()
+  async hl_getBuilderFeeConfig(_: IJsBridgeMessagePayload) {
+    return this.backgroundApi.servicePerp.getBuilderFeeConfig();
+  }
 
   @providerApiMethod()
   async hl_checkUserStatus(
@@ -974,52 +768,35 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  async hl_checkUserBuilderFee2(
+  async hl_logApiEvent(
     request: IJsBridgeMessagePayload,
     {
-      userAddress,
+      apiPayload,
     }: {
-      userAddress: string;
-    },
-  ): Promise<{
-    isDone: boolean;
-    canSetBuilderFee: boolean;
-    currentMaxBuilderFee: number;
-    expectMaxBuilderFee: number;
-    expectBuilderAddress: string;
-    accountValue: string | null;
-  }> {
-    // TODO get builderAddress,builderFeeValue from onekey server API
-    const expectBuilderAddress = '0x4EF880525383ab4E3d94b7689e3146bF899A296e';
-    const expectMaxBuilderFee = 13;
-    // TODO cache user value
-    const currentMaxBuilderFee =
-      await this.backgroundApi.servicePerp.getMaxBuilderFee({
-        userAddress,
-        builderAddress: expectBuilderAddress,
-      });
-    if (currentMaxBuilderFee === expectMaxBuilderFee) {
-      return {
-        isDone: true,
-        canSetBuilderFee: true,
-        currentMaxBuilderFee,
-        expectMaxBuilderFee,
-        expectBuilderAddress,
-        accountValue: null,
+      apiPayload: {
+        action: { type: string };
+        nonce: number;
       };
-    }
-    const { accountValue } =
-      await this.backgroundApi.servicePerp.getAccountBalance({
-        userAddress,
+    },
+  ) {
+    if (apiPayload?.action?.type === 'order') {
+      const orderAction = apiPayload.action as {
+        type: 'order';
+        builder?: {
+          b: string;
+          f: number;
+        };
+        grouping?: string;
+        orders?: object[];
+      };
+      defaultLogger.perp.common.placeOrder({
+        builderAddress: orderAction?.builder?.b ?? '',
+        builderFee: orderAction?.builder?.f ?? 0,
+        grouping: orderAction?.grouping ?? '',
+        orders: orderAction?.orders ?? [],
+        nonce: apiPayload?.nonce,
       });
-    return {
-      isDone: false,
-      canSetBuilderFee: Number(accountValue) > 0,
-      currentMaxBuilderFee,
-      expectMaxBuilderFee,
-      expectBuilderAddress,
-      accountValue,
-    };
+    }
   }
 
   @providerApiMethod()

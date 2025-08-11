@@ -1,0 +1,1 @@
+export const HYPER_LIQUID_ORIGIN = 'https://app.hyperliquid.xyz';

@@ -65,10 +65,10 @@ function PerpApiTests() {
   const loadPerpConfig = async () => {
     try {
       const config = await backgroundApiProxy.simpleDb.perp.getPerpConfig();
-      setStoredBuilderAddress(config.expectBuilderAddress || '');
-      setStoredMaxBuilderFee(config.expectMaxBuilderFee?.toString() || '');
-      setNewBuilderAddress(config.expectBuilderAddress || '');
-      setNewMaxBuilderFee(config.expectMaxBuilderFee?.toString() || '');
+      setStoredBuilderAddress(config.hyperliquidBuilderAddress || '');
+      setStoredMaxBuilderFee(config.hyperliquidMaxBuilderFee?.toString() || '');
+      setNewBuilderAddress(config.hyperliquidBuilderAddress || '');
+      setNewMaxBuilderFee(config.hyperliquidMaxBuilderFee?.toString() || '');
     } catch (error) {
       console.error('Error loading perp config:', error);
     }
@@ -78,14 +78,14 @@ function PerpApiTests() {
   const updatePerpConfig = async () => {
     try {
       if (newBuilderAddress) {
-        await backgroundApiProxy.servicePerp.updateExpectBuilderAddress(
-          newBuilderAddress,
-        );
+        await backgroundApiProxy.servicePerp.updatePerpConfig({
+          address: newBuilderAddress,
+        });
       }
       if (newMaxBuilderFee) {
-        await backgroundApiProxy.servicePerp.updateExpectMaxBuilderFee(
-          Number(newMaxBuilderFee),
-        );
+        await backgroundApiProxy.servicePerp.updatePerpConfig({
+          fee: Number(newMaxBuilderFee),
+        });
       }
       await loadPerpConfig(); // Reload to confirm changes
       Toast.success({

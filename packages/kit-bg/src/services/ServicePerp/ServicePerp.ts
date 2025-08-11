@@ -1,6 +1,6 @@
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
-import { cloneDeep } from 'lodash';
+import { cloneDeep, isEqual, isNil } from 'lodash';
 
 import {
   backgroundClass,
@@ -16,6 +16,7 @@ import type {
 
 import ServiceBase from '../ServiceBase';
 
+import type { ISimpleDbPerpConfig } from '../../dbs/simple/entity/SimpleDbEntityPerp';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 export interface IHyperliquidClearinghouseState {
@@ -126,25 +127,35 @@ class ServicePerp extends ServiceBase {
 
   @backgroundMethod()
   async initializePerpConfig() {
-    const config = await this.backgroundApi.simpleDb.perp.getPerpConfig();
-    if (!config.expectBuilderAddress) {
-      await this.backgroundApi.simpleDb.perp.setExpectBuilderAddress(
-        '0x4EF880525383ab4E3d94b7689e3146bF899A296e',
-      );
-    }
-    if (!config.expectMaxBuilderFee) {
-      await this.backgroundApi.simpleDb.perp.setExpectMaxBuilderFee(58);
-    }
+    // TODO init by server api
   }
 
   @backgroundMethod()
-  async updateExpectBuilderAddress(address: string) {
-    await this.backgroundApi.simpleDb.perp.setExpectBuilderAddress(address);
-  }
-
-  @backgroundMethod()
-  async updateExpectMaxBuilderFee(fee: number) {
-    await this.backgroundApi.simpleDb.perp.setExpectMaxBuilderFee(fee);
+  async updatePerpConfig({ address, fee }: { address?: string; fee?: number }) {
+    let shouldNotifyToDapp = false;
+    await this.backgroundApi.simpleDb.perp.setPerpConfig(
+      (prev): ISimpleDbPerpConfig => {
+        const newConfig: ISimpleDbPerpConfig = {
+          ...prev,
+          hyperliquidBuilderAddress: address || prev?.hyperliquidBuilderAddress,
+          hyperliquidMaxBuilderFee: isNil(fee)
+            ? prev?.hyperliquidMaxBuilderFee
+            : fee,
+        };
+        if (isEqual(newConfig, prev)) {
+          return prev || {};
+        }
+        shouldNotifyToDapp = true;
+        return newConfig;
+      },
+    );
+    if (shouldNotifyToDapp) {
+      const config = await this.backgroundApi.simpleDb.perp.getPerpConfig();
+      await this.backgroundApi.serviceDApp.notifyHyperliquidPerpConfigChanged({
+        hyperliquidBuilderAddress: config.hyperliquidBuilderAddress,
+        hyperliquidMaxBuilderFee: config.hyperliquidMaxBuilderFee,
+      });
+    }
   }
 
   private async hyperliquidRequest<T>(body: Record<string, any>): Promise<T> {
@@ -430,9 +441,10 @@ class ServicePerp extends ServiceBase {
   }: {
     request: IJsBridgeMessagePayload;
     userAddress: string;
+    // eslint-disable-next-line spellcheck/spell-checker
     chainId: string; // 0xa4b1 Arbitrum hex chainId
     skipApproveAction?: boolean;
-  }) {
+  }): Promise<IHyperLiquidUserBuilderFeeStatus> {
     const status = await this.getUserBuilderFeeStatus({
       userAddress,
     });
@@ -455,23 +467,19 @@ class ServicePerp extends ServiceBase {
         await this.backgroundApi.providers.ethereum.handleMethods(req);
       const rsv = this.parseSignatureToRSV(signature);
       apiPayload.signature = rsv;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const response =
         await this.hyperliquidExchangeRequest<IHyperliquidExchangeResponse>(
           apiPayload,
         );
-      return response;
+      return status;
     }
     return status;
   }
 
-  async getUserBuilderFeeStatus({
-    userAddress,
-  }: {
-    userAddress: string;
-  }): Promise<IHyperLiquidUserBuilderFeeStatus> {
-    // Initialize perp config with default values if not set
-    await this.initializePerpConfig();
-
+  @backgroundMethod()
+  async getBuilderFeeConfig() {
+    const shouldModifyPlaceOrderPayload = true;
     // Get builderAddress and builderFeeValue from simpleDB
     const expectBuilderAddress =
       (await this.backgroundApi.simpleDb.perp.getExpectBuilderAddress()) ||
@@ -479,7 +487,24 @@ class ServicePerp extends ServiceBase {
     // Need to check this formula returns an integer in the browser: 1e5 * (num/1e5)
     const expectMaxBuilderFee =
       (await this.backgroundApi.simpleDb.perp.getExpectMaxBuilderFee()) || 58; // 1e5 * (num/1e5)
-    const shouldModifyPlaceOrderPayload = true;
+    return {
+      expectBuilderAddress,
+      expectMaxBuilderFee,
+      shouldModifyPlaceOrderPayload,
+    };
+  }
+
+  async getUserBuilderFeeStatus({
+    userAddress,
+  }: {
+    userAddress: string;
+  }): Promise<IHyperLiquidUserBuilderFeeStatus> {
+    const {
+      expectBuilderAddress,
+      expectMaxBuilderFee,
+      shouldModifyPlaceOrderPayload,
+    } = await this.getBuilderFeeConfig();
+
     // const shouldModifyPlaceOrderPayload = false;
     // TODO cache user value
     const currentMaxBuilderFee =

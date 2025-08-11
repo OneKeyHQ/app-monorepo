@@ -12,6 +12,7 @@ import { FiatCryptoScope } from './scopes/fiatCrypto';
 import { HardwareScope } from './scopes/hardware';
 import { MarketScope } from './scopes/market';
 import { NotificationScope } from './scopes/notification/notification';
+import { PerpScope } from './scopes/perp';
 import { ReferralScope } from './scopes/referral';
 import { RewardScope } from './scopes/reward';
 import { ScanQrCodeScope } from './scopes/scanQrCode';
@@ -61,6 +62,8 @@ export class DefaultLogger {
   notification = new NotificationScope();
 
   market = new MarketScope();
+
+  perp = new PerpScope();
 
   scanQrCode = new ScanQrCodeScope();
 

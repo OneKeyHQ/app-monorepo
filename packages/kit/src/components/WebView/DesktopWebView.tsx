@@ -17,6 +17,7 @@ import { JsBridgeDesktopHost } from '@onekeyfe/onekey-cross-webview';
 import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 
 import ErrorView from './ErrorView';
@@ -211,14 +212,17 @@ const DesktopWebView = forwardRef(
     );
 
     // TODO extract to hooks
-    const jsBridgeHost = useMemo(
-      () =>
-        new JsBridgeDesktopHost({
-          webviewRef,
-          receiveHandler,
-        }),
-      [receiveHandler],
-    );
+    const jsBridgeHost = useMemo(() => {
+      const b = new JsBridgeDesktopHost({
+        webviewRef,
+        receiveHandler,
+      });
+      if (process.env.NODE_ENV !== 'production') {
+        // @ts-ignore
+        b.$$devInstanceUUID = stringUtils.generateUUID();
+      }
+      return b;
+    }, [receiveHandler]);
 
     useImperativeHandle(ref as Ref<unknown>, (): IWebViewWrapperRef => {
       const wrapper = {

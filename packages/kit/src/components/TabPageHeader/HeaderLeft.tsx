@@ -146,6 +146,16 @@ export function HeaderLeft({
         </SizableText>
       );
     }
+
+    if (tabRoute === ETabRoutes.PerpTrade) {
+      return (
+        <SizableText size="$headingLg">
+          {/* {intl.formatMessage({
+            id: ETranslations.global_browser,
+          })} */}
+        </SizableText>
+      );
+    }
     return (
       <XStack gap="$3" ai="center">
         {accountSelectorTrigger}

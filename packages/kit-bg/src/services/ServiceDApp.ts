@@ -66,6 +66,7 @@ import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type { IDBAccount } from '../dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '../dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type ProviderApiBase from '../providers/ProviderApiBase';
+import type ProviderApiEthereum from '../providers/ProviderApiEthereum';
 import type { IAddEthereumChainParameter } from '../providers/ProviderApiEthereum';
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 import type { IAccountDeriveTypes, ITransferInfo } from '../vaults/types';
@@ -73,6 +74,7 @@ import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 
 function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
   const { scope, isWalletConnectRequest, options = {} } = params;
@@ -1049,6 +1051,25 @@ class ServiceDApp extends ServiceBase {
       {
         getNetworkName: params.getNetworkName,
       },
+    );
+  }
+
+  @backgroundMethod()
+  async notifyHyperliquidPerpConfigChanged(params: {
+    hyperliquidBuilderAddress: string | undefined;
+    hyperliquidMaxBuilderFee: number | undefined;
+  }) {
+    // use ethereum provider to send message to dapp
+    const ethereumProvider = this.backgroundApi.providers
+      .ethereum as ProviderApiEthereum;
+    await ethereumProvider.notifyHyperliquidPerpConfigChanged(
+      {
+        // use ethereum provider to send message to dapp
+        send: this.backgroundApi.sendForProvider('ethereum'),
+        // only notify to hyperliquid official dapp
+        targetOrigin: HYPER_LIQUID_ORIGIN,
+      },
+      params,
     );
   }
 
