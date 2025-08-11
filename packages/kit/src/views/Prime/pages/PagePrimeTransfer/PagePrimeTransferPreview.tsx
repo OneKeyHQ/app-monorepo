@@ -99,6 +99,7 @@ function PreviewItem({
   onSelect: (id: string) => void;
   selectedItemMapInfo: IPrimeTransferSelectedItemMapInfo;
 }) {
+  const intl = useIntl();
   const itemId = wallet?.id || account?.id || '';
   const onChange = useCallback(() => {
     if (!selectedItemMapInfo?.[itemId]?.disabled) {
@@ -145,7 +146,14 @@ function PreviewItem({
           </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
             {wallet
-              ? `${wallet?.indexedAccountUUIDs?.length || 0} accounts`
+              ? intl.formatMessage(
+                  {
+                    id: ETranslations.global_transfer_accounts_count,
+                  },
+                  {
+                    amount: wallet?.indexedAccountUUIDs?.length || 0,
+                  },
+                )
               : accountUtils.shortenAddress({
                   address: account?.address || '',
                   leadingLength: 6,
@@ -238,7 +246,7 @@ function WalletList({
       {wallets?.length ? (
         <PreviewHeader
           title={intl.formatMessage({
-            id: ETranslations.global_standard_wallet,
+            id: ETranslations.global_software_wallet,
           })}
           isFirst
           buttonProps={{

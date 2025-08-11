@@ -2,8 +2,8 @@
 
 // @ts-ignore
 /* eslint-disable  */
-
-export enum ETranslations {
+  
+  export enum ETranslations {
   Limit_expire_day = 'Limit.expire_day',
   Limit_expire_days = 'Limit.expire_days',
   Limit_expire_hour = 'Limit.expire_hour',
@@ -488,6 +488,7 @@ export enum ETranslations {
   dexmarket_max = 'dexmarket.max',
   dexmarket_max_supply_tips = 'dexmarket.max_supply_tips',
   dexmarket_mc_tips = 'dexmarket.mc_tips',
+  dexmarket_price_mc = 'dexmarket.price_mc',
   dexmarket_select_token = 'dexmarket.select_token',
   dexmarket_sell_tap = 'dexmarket.sell_tap',
   dexmarket_sell_token_default = 'dexmarket.sell_token_default',
@@ -1162,6 +1163,7 @@ export enum ETranslations {
   global_crop_image = 'global.crop_image',
   global_crypto = 'global.crypto',
   global_current = 'global.current',
+  global_current_of_total_confirmations = 'global.current_of_total_confirmations',
   global_customize_home_screen = 'global.customize_home_screen',
   global_customize_nonce = 'global.customize_nonce',
   global_customize_nonce_desc = 'global.customize_nonce_desc',
@@ -1477,6 +1479,7 @@ export enum ETranslations {
   global_single_chain_account = 'global.single_chain_account',
   global_skip = 'global.skip',
   global_skip_for_now = 'global.skip_for_now',
+  global_software_wallet = 'global.software_wallet',
   global_source_code = 'global.source_code',
   global_sped_up = 'global.sped_up',
   global_speed_up = 'global.speed_up',
@@ -1511,6 +1514,7 @@ export enum ETranslations {
   global_trade = 'global.trade',
   global_transaction_id = 'global.transaction_id',
   global_transfer = 'global.transfer',
+  global_transfer_accounts_count = 'global.transfer_accounts_count',
   global_transfer_accounts_loading = 'global.transfer_accounts_loading',
   global_try_again = 'global.try_again',
   global_unhide = 'global.unhide',
@@ -2597,6 +2601,7 @@ export enum ETranslations {
   swap_ch_status_hold = 'swap.ch_status_hold',
   swap_loading_content = 'swap.loading_content',
   swap_native_token_max_tip = 'swap.native_token_max_tip',
+  swap_native_token_max_tip_already = 'swap.native_token_max_tip_already',
   swap_network_cost_dialog_content = 'swap.network_cost_dialog_content',
   swap_network_cost_dialog_description = 'swap.network_cost_dialog_description',
   swap_network_cost_dialog_title = 'swap.network_cost_dialog_title',
@@ -3112,6 +3117,7 @@ export enum ETranslations {
   wallet_buy_crypto_instruction = 'wallet.buy_crypto_instruction',
   wallet_collapsed_assets = 'wallet.collapsed_assets',
   wallet_collapsed_risk_assets = 'wallet.collapsed_risk_assets',
+  wallet_collapsed_risk_assets_number = 'wallet.collapsed_risk_assets_number',
   wallet_connect_wallet_more_options = 'wallet.connect_wallet_more_options',
   wallet_currently_supports_up_to_str_all_networks_accounts = 'wallet.currently_supports_up_to_str_all_networks_accounts',
   wallet_description_no_approvals = 'wallet.description_no_approvals',
@@ -3139,6 +3145,7 @@ export enum ETranslations {
   wallet_get_trx_for_future_fees = 'wallet.get_trx_for_future_fees',
   wallet_hardware_wallet_connect_description_1 = 'wallet.hardware_wallet_connect_description_1',
   wallet_hardware_wallet_connect_description_2 = 'wallet.hardware_wallet_connect_description_2',
+  wallet_history_footer_view_full_history_in_explorer = 'wallet.history_footer_view_full_history_in_explorer',
   wallet_history_settings_hide_risk_transaction_desc = 'wallet.history_settings_hide_risk_transaction_desc',
   wallet_history_settings_hide_risk_transaction_desc_unsupported = 'wallet.history_settings_hide_risk_transaction_desc_unsupported',
   wallet_history_settings_hide_risk_transaction_title = 'wallet.history_settings_hide_risk_transaction_title',
