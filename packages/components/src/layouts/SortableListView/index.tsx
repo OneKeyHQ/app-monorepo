@@ -250,6 +250,7 @@ function BaseSortableListView<T>(
     (props: ListRenderItemInfo<T>) => {
       const { item, index } = props;
       const id = keyExtractor?.(item, index);
+      const draggableId = id ? String(id) : String(index);
       const layout = useFlashList ? undefined : getItemLayout?.(data, index);
       const isSticky =
         reallyStickyHeaderIndices.findIndex((x) => x === index) !== -1;
@@ -257,9 +258,11 @@ function BaseSortableListView<T>(
       lastIndexHeight = layout?.length;
       return (
         <Draggable
-          draggableId={String(index)}
+          // Setting key is crucial for react-beautiful-dnd to properly track and refresh
+          // the number of items in the list when the data changes
+          key={draggableId}
+          draggableId={draggableId}
           index={index}
-          key={index}
           isDragDisabled={!enabled}
         >
           {(provided) => {
