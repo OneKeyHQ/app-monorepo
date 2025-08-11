@@ -25,6 +25,7 @@ import {
   AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { TabPageHeaderContainer } from '../../../components/TabPageHeader/components/TabPageHeaderContainer';
 import { HeaderLeftCloseButton } from '../../../components/TabPageHeader/HeaderLeft';
 import { useTokenDetailActions } from '../../../states/jotai/contexts/marketV2';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
@@ -74,7 +75,7 @@ function MarketDetail({
               storeName={EJotaiContextStoreNames.marketWatchListV2}
             >
               <TokenDetailHeader
-                containerProps={{ p: '$0', bg: '$red3' }}
+                containerProps={{ p: '$0' }}
                 showStats={false}
                 showMediaAndSecurity={false}
               />
@@ -95,13 +96,19 @@ function MarketDetail({
 
   return (
     <Page>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.Market}
-        customHeaderLeftItems={customHeaderLeft}
-        // customHeaderRightItems={platformEnv.isNative ? customHeaderRight : null}
-        hideSearch={!media.gtMd}
-      />
+      {platformEnv.isNative ? (
+        <TabPageHeaderContainer>{customHeaderLeft}</TabPageHeaderContainer>
+      ) : (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.Market}
+          customHeaderLeftItems={customHeaderLeft}
+          customHeaderRightItems={
+            platformEnv.isNative ? customHeaderRight : null
+          }
+          hideSearch={!media.gtMd}
+        />
+      )}
 
       <Page.Body>{media.gtLg ? <DesktopLayout /> : <MobileLayout />}</Page.Body>
     </Page>
