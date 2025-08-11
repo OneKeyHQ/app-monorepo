@@ -327,8 +327,7 @@ export function AccountSelectorWalletListSideBar({
       <SortableListView
         useFlashList
         ref={listViewRef}
-        px="$2"
-        contentContainerStyle={{ py: '$2' }}
+        contentContainerStyle={{ py: '$2', px: '$2' }}
         showsVerticalScrollIndicator={false}
         getItemLayout={(_, index) => layoutList[index]}
         renderPlaceholder={({ item }) => (
