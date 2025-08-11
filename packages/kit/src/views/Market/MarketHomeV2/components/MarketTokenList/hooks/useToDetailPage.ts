@@ -24,24 +24,24 @@ export function useToDetailPage() {
 
   const toDetailPage = useCallback(
     (item: IMarketToken) => {
-      if (platformEnv.isNative) {
-        appNavigation.pushFullModal(EModalRoutes.MarketModal, {
-          screen: EModalMarketRoutes.MarketDetailV2,
-          params: {
-            tokenAddress: item.tokenAddress,
-            networkId: item.networkId,
-            symbol: item.symbol,
-          },
-        });
-      } else {
-        navigation.push(ETabMarketRoutes.MarketDetailV2, {
-          tokenAddress: item.tokenAddress,
-          networkId: item.networkId,
-          symbol: item.symbol,
-        });
-      }
+      // if (platformEnv.isNative) {
+      //   appNavigation.pushFullModal(EModalRoutes.MarketModal, {
+      //     screen: EModalMarketRoutes.MarketDetailV2,
+      //     params: {
+      //       tokenAddress: item.tokenAddress,
+      //       networkId: item.networkId,
+      //       symbol: item.symbol,
+      //     },
+      //   });
+      // } else {
+      navigation.push(ETabMarketRoutes.MarketDetailV2, {
+        tokenAddress: item.tokenAddress,
+        networkId: item.networkId,
+        symbol: item.symbol,
+      });
+      // }
     },
-    [navigation, appNavigation],
+    [navigation],
   );
 
   return toDetailPage;

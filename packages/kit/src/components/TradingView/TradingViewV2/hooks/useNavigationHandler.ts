@@ -29,13 +29,6 @@ export const useNavigationHandler = (): IUseNavigationHandlerReturn => {
         return false;
       }
 
-      // For other external links, also open in external browser instead of within webview
-      if (event.url.startsWith('http://') || event.url.startsWith('https://')) {
-        console.log('Opening external URL in browser:', event.url);
-        openUrlUtils.openUrlExternal(event.url);
-        return false;
-      }
-
       return true;
     } catch (error) {
       // If URL parsing fails, allow the request

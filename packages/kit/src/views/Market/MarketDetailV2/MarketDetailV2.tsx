@@ -8,6 +8,10 @@ import type {
 } from '@onekeyhq/components';
 import { NavBackButton, Page, XStack, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ETabMarketRoutes,
@@ -107,6 +111,14 @@ function MarketDetail({
 function MarketDetailV2(
   props: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>,
 ) {
+  appEventBus.emit(EAppEventBusNames.HideTabBar, true);
+
+  useEffect(() => {
+    return () => {
+      appEventBus.emit(EAppEventBusNames.HideTabBar, false);
+    };
+  }, []);
+
   return (
     <AccountSelectorProviderMirror
       config={{
