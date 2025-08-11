@@ -73,9 +73,9 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
         item.accountAddress + item.fiatValue + item.amount
       }
       showsVerticalScrollIndicator
-      // ListHeaderComponent={
-      //   gtLg ? <HoldersHeaderNormal /> : <HoldersHeaderSmall />
-      // }
+      ListHeaderComponent={
+        gtLg ? <HoldersHeaderNormal /> : <HoldersHeaderSmall />
+      }
     />
   );
 
