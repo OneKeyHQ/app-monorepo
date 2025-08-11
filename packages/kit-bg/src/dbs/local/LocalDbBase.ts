@@ -2735,7 +2735,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           break;
         case EHardwareTransportType.DesktopWebBle:
           // BLE connections - set bleConnectId but don't override connectId
-          bleConnectId = connectId;
+          // @ts-expect-error
+          bleConnectId = device.bleConnectId || connectId;
           // If connectId is empty, get it from getDeviceUUID for compatibility
           if (!compatibleConnectId) {
             const { getDeviceUUID } = await CoreSDKLoader();

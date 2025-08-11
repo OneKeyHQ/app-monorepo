@@ -10,12 +10,18 @@ import {
   Anchor,
   Heading,
   Icon,
+  ScrollView,
   SizableText,
   Stack,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import { FIRMWARE_CONTACT_US_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 // Define stable components outside of render function to avoid React warnings
 function LinkComponent({
@@ -268,5 +274,91 @@ export function ConnectionTroubleShootingAccordion({
         </Accordion.Item>
       ))}
     </Accordion>
+  );
+}
+
+export function DeviceNotFoundDialogContent({
+  connectId,
+}: {
+  connectId: string | undefined;
+}) {
+  const intl = useIntl();
+
+  const { result } = usePromiseResult(async () => {
+    if (!connectId) {
+      return {
+        device: undefined,
+      };
+    }
+    const device =
+      await backgroundApiProxy.serviceHardware.getDeviceByConnectId({
+        connectId,
+      });
+    return {
+      device,
+    };
+  }, [connectId]);
+
+  const showUsbTroubleshooting = useMemo(() => {
+    if (platformEnv.isNative) {
+      return false;
+    }
+    if (platformEnv.isSupportDesktopBle) {
+      return connectId && result?.device?.connectId === connectId;
+    }
+    return true;
+  }, [connectId, result?.device?.connectId]);
+
+  const showBluetoothTroubleshooting = useMemo(() => {
+    if (platformEnv.isNative) {
+      return true;
+    }
+    if (platformEnv.isSupportDesktopBle) {
+      return connectId && result?.device?.bleConnectId === connectId;
+    }
+    return false;
+  }, [connectId, result?.device?.bleConnectId]);
+
+  return (
+    <ScrollView maxHeight={480}>
+      {showUsbTroubleshooting ? (
+        <YStack>
+          <XStack alignItems="center" gap={7} mb="$2">
+            <Icon name="TypeCoutline" size="$3.5" />
+            <SizableText size="$headingSm">
+              {intl.formatMessage({
+                id: ETranslations.troubleshooting_usb,
+              })}
+            </SizableText>
+          </XStack>
+          <YStack>
+            <ConnectionTroubleShootingAccordion
+              connectionType="usb"
+              defaultValue={undefined}
+              indent={false}
+            />
+          </YStack>
+        </YStack>
+      ) : null}
+      {showBluetoothTroubleshooting ? (
+        <YStack mt={showUsbTroubleshooting ? '$5' : undefined}>
+          <XStack alignItems="center" gap={7} mb="$2">
+            <Icon name="BluetoothOutline" size="$3.5" />
+            <SizableText size="$headingSm">
+              {intl.formatMessage({
+                id: ETranslations.troubleshooting_bluetooth,
+              })}
+            </SizableText>
+          </XStack>
+          <YStack>
+            <ConnectionTroubleShootingAccordion
+              connectionType="bluetooth"
+              defaultValue={undefined}
+              indent={false}
+            />
+          </YStack>
+        </YStack>
+      ) : null}
+    </ScrollView>
   );
 }
