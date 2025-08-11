@@ -16,8 +16,8 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { FIRMWARE_CONTACT_US_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -58,18 +58,18 @@ export function ConnectionTroubleShootingAccordion({
     [],
   );
 
-  const helpCenterLinkTag = useCallback(
-    (chunks: ReactNode[]) => (
-      <LinkComponent href="https://help.onekey.so/?q=connect">
-        {chunks}
-      </LinkComponent>
-    ),
-    [],
-  );
-
   const contactUsLinkTag = useCallback(
     (chunks: ReactNode[]) => (
-      <LinkComponent href={FIRMWARE_CONTACT_US_URL}>{chunks}</LinkComponent>
+      <SizableText
+        size="$bodyMd"
+        color="$textInfo"
+        cursor="default"
+        onPress={() => {
+          void showIntercom();
+        }}
+      >
+        {chunks}
+      </SizableText>
     ),
     [],
   );
@@ -152,12 +152,6 @@ export function ConnectionTroubleShootingAccordion({
       common: [
         [
           intl.formatMessage(
-            { id: ETranslations.troubleshooting_help_center },
-            {
-              tag: helpCenterLinkTag,
-            },
-          ),
-          intl.formatMessage(
             { id: ETranslations.troubleshooting_request },
             {
               tag: contactUsLinkTag,
@@ -166,7 +160,7 @@ export function ConnectionTroubleShootingAccordion({
         ],
       ],
     }),
-    [intl, bridgeLinkTag, helpCenterLinkTag, contactUsLinkTag],
+    [intl, bridgeLinkTag, contactUsLinkTag],
   );
 
   const getTroubleshootingSolutions = () => {
@@ -174,7 +168,7 @@ export function ConnectionTroubleShootingAccordion({
       return [...solutions.usb, ...solutions.common];
     if (connectionType === 'bluetooth')
       return [...solutions.bluetooth, ...solutions.common];
-    return solutions.common;
+    return [...solutions.usb, ...solutions.bluetooth, ...solutions.common];
   };
 
   return (
