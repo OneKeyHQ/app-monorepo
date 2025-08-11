@@ -99,9 +99,7 @@ const usePopoverValue = (
         trackId: trackID,
       });
     }
-    if (platformEnv.isNative) {
-      void Keyboard.dismissWithDelay(50);
-    }
+    void Keyboard.dismissWithDelay(50);
   }, [isControlled, onOpenChange, trackID]);
 
   const closePopover = useCallback(() => {
@@ -117,9 +115,7 @@ const usePopoverValue = (
         trackId: trackID,
       });
     }
-    if (platformEnv.isNative) {
-      void Keyboard.dismissWithDelay(50);
-    }
+    void Keyboard.dismissWithDelay(50);
   }, [isControlled, onOpenChange, trackID]);
 
   return {
