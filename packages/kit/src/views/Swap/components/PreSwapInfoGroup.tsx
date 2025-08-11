@@ -176,7 +176,6 @@ const PreSwapInfoGroup = ({
             </SizableText>
           </XStack>
         }
-        ifPopover
         popoverContent={intl.formatMessage({
           id: ETranslations.swap_review_provider_popover_content,
         })}
@@ -187,7 +186,6 @@ const PreSwapInfoGroup = ({
             id: ETranslations.swap_page_provider_slippage_tolerance,
           })}
           value={`${slippage}%`}
-          ifPopover
           popoverContent={intl.formatMessage({
             id: ETranslations.slippage_tolerance_warning_message_1,
           })}
@@ -198,12 +196,11 @@ const PreSwapInfoGroup = ({
           id: ETranslations.provider_ios_popover_onekey_fee,
         })}
         value={fee}
-        ifPopover
         popoverContent={intl.formatMessage(
           {
             id: ETranslations.provider_ios_popover_onekey_fee_content,
           },
-          { num: fee },
+          { num: `${preSwapData?.fee?.percentageFee ?? '0'}%` },
         )}
       />
       {preSwapData.supportNetworkFeeLevel ? (
@@ -212,7 +209,6 @@ const PreSwapInfoGroup = ({
             id: ETranslations.provider_network_fee,
           })}
           value={networkFeeSelect}
-          ifPopover
           popoverContent={intl.formatMessage({
             id: ETranslations.swap_review_network_cost_popover_content,
           })}

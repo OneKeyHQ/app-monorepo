@@ -7,14 +7,12 @@ import {
 } from '@onekeyhq/components';
 
 interface IPreSwapInfoItemProps {
-  ifPopover?: boolean;
-  popoverContent?: string | React.ReactNode;
+  popoverContent?: string;
   title: string;
   value: string | React.ReactNode;
 }
 
 const PreSwapInfoItem = ({
-  ifPopover = false,
   popoverContent,
   title,
   value,
@@ -25,7 +23,7 @@ const PreSwapInfoItem = ({
         <SizableText size="$bodyMd" color="$textSubdued">
           {title}
         </SizableText>
-        {ifPopover ? (
+        {popoverContent ? (
           <Popover
             title={title}
             renderTrigger={
