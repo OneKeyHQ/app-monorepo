@@ -24,13 +24,12 @@ import {
   useMedia,
 } from 'tamagui';
 
-import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Toast } from '../../actions/Toast';
-import { SheetGrabber } from '../../content';
+import { Keyboard, SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { EPortalContainerConstantName, Portal } from '../../hocs';
 import {
@@ -496,7 +495,7 @@ function dialogShow({
   isOverTopAllViews,
   ...props
 }: IDialogShowFunctionProps): IDialogInstance {
-  dismissKeyboard();
+  void Keyboard.dismissWithDelay(50);
   let instanceRef: React.RefObject<IDialogInstance | null> | undefined =
     createRef();
 
@@ -527,6 +526,7 @@ function dialogShow({
             removeDialogInstance(dialogInstance);
             dialogInstance = undefined;
           }
+          void Keyboard.dismissWithDelay(50);
           void options.onClose?.(extra);
           resolve();
         }, 300);
