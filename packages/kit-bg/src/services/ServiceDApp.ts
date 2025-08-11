@@ -13,6 +13,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 import {
   IMPL_BTC,
   IMPL_EVM,
@@ -74,7 +75,6 @@ import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
-import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 
 function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
   const { scope, isWalletConnectRequest, options = {} } = params;

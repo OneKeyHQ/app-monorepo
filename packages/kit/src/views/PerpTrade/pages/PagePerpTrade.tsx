@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { HeaderIconButton, Page } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
+import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -17,7 +18,6 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { SingleAccountAndNetworkSelectorTrigger } from '../../Discovery/components/HeaderRightToolBar';
 
 import type { IWebViewRef } from '../../../components/WebView/types';
-import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 
 function PerpTradeView() {
   useDebugComponentRemountLog({ name: 'PerpTradePageContainer' });
@@ -40,7 +40,7 @@ function PerpTradeView() {
         allowpopups
       />
     ),
-    [],
+    [origin],
   );
 
   const {
@@ -106,7 +106,7 @@ function PerpTradeView() {
         </AccountSelectorProviderMirror>
       </>
     );
-  }, [afterChangeAccount, connectedAccountsInfo]);
+  }, [afterChangeAccount, connectedAccountsInfo, origin]);
 
   return (
     <Page fullPage>

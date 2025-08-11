@@ -14,6 +14,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -43,7 +44,6 @@ import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
-import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 
 export type ISwitchEthereumChainParameter = {
   chainId: string;
