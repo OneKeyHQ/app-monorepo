@@ -18,8 +18,8 @@ import type {
 
 import { FlashList } from '@shopify/flash-list';
 import { useStyle } from '@tamagui/core';
+import { noop } from 'lodash';
 // eslint-disable-next-line spellcheck/spell-checker
-import { get, noop } from 'lodash';
 import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
 import {
   OpacityDecorator,
@@ -146,8 +146,12 @@ function CellContainer<T>({
   }, [index, ref]);
   return (
     <Animated.View
-      {...(props as any)}
-      style={height ? { ...props.style, height } : props.style}
+      {...(props as Record<string, any>)}
+      style={
+        height
+          ? { ...(props as Record<string, any>).style, height }
+          : props.style
+      }
     >
       <div ref={containerRef}>{children}</div>
     </Animated.View>
