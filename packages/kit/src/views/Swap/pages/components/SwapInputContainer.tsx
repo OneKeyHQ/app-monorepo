@@ -268,13 +268,22 @@ const SwapInputContainer = ({
     const reserveGas = swapNativeTokenReserveGas.find(
       (item) => item.networkId === fromToken?.networkId,
     )?.reserveGas;
-    if (fromToken?.isNative && !reserveGas) {
+    if (fromToken?.isNative) {
       return (
         <XStack alignItems="center" p="$4">
           <SizableText size="$bodyMd">
-            {intl.formatMessage({
-              id: ETranslations.swap_native_token_max_tip,
-            })}
+            {intl.formatMessage(
+              {
+                id: reserveGas
+                  ? ETranslations.swap_native_token_max_tip_already
+                  : ETranslations.swap_native_token_max_tip,
+              },
+              {
+                num_token: reserveGas
+                  ? `${reserveGas} ${fromToken?.symbol}`
+                  : undefined,
+              },
+            )}
           </SizableText>
         </XStack>
       );
@@ -284,6 +293,7 @@ const SwapInputContainer = ({
     swapNativeTokenReserveGas,
     fromToken?.isNative,
     fromToken?.networkId,
+    fromToken?.symbol,
     intl,
   ]);
   return (

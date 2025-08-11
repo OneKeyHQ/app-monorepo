@@ -483,6 +483,9 @@ export function useSwapQuote() {
       approvedSwapInfo: ISwapApproveTransaction;
       enableFilled?: boolean;
     }) => {
+      if (swapShouldRefreshRef.current) {
+        return;
+      }
       setSwapManualSelectQuoteProviders({
         protocol: data.approvedSwapInfo.protocol,
         quoteId: data.approvedSwapInfo?.quoteId,
