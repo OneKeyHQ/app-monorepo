@@ -3,25 +3,25 @@
 export enum EEnterWay {
   HomeTab = 'HomeTab',
   Search = 'Search',
-  Link = 'link',
-  Others = 'others',
+  Link = 'Link',
+  Others = 'Others',
 }
 
 export enum EDexListName {
   Trending = 'Trending',
-  Watchlist = 'watchlist',
+  Watchlist = 'Watchlist',
 }
 
 export enum ESortWay {
   Liquidity = 'Liquidity',
-  Volume = 'volume',
+  Volume = 'Volume',
   MC = 'MC',
 }
 
 export enum ECopyFrom {
   Homepage = 'Homepage',
-  Detail = 'detail',
-  Others = 'others',
+  Detail = 'Detail',
+  Others = 'Others',
 }
 
 export enum EVisitTarget {
@@ -46,27 +46,27 @@ export enum EAmountEnterType {
   Preset2 = '2',
   Preset3 = '3',
   Preset4 = '4',
-  Manual = 'manual',
+  Manual = 'Manual',
 }
 
 export enum ESlippageSetting {
-  Auto = 'auto',
-  Manual = 'manual',
+  Auto = 'Auto',
+  Manual = 'Manual',
 }
 
 export enum EAddFrom {
   Homepage = 'Homepage',
-  Detail = 'detail',
-  Onboard = 'onboard',
+  Detail = 'Detail',
+  Onboard = 'Onboard',
   Search = 'Search',
-  Others = 'others',
+  Others = 'Others',
 }
 
 export enum ERemoveFrom {
   Homepage = 'Homepage',
-  Detail = 'detail',
+  Detail = 'Detail',
   Search = 'Search',
-  Others = 'others',
+  Others = 'Others',
 }
 
 export enum ERouter {
@@ -81,8 +81,8 @@ export enum EIntervalSelect {
 }
 
 export enum ETabSelect {
-  Transactions = '交易数',
-  Holders = '持有者',
+  Transactions = 'Transactions',
+  Holders = 'Holders',
 }
 
 export enum ETVIntervalSelect {
