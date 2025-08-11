@@ -1,5 +1,6 @@
 import { memo, useCallback } from 'react';
 
+import { FlashList, type FlashListProps } from '@shopify/flash-list';
 import { useIntl } from 'react-intl';
 
 import {
@@ -19,8 +20,6 @@ import { HolderItemNormal } from './layout/HolderItemNormal/HolderItemNormal';
 import { HoldersHeaderNormal } from './layout/HolderItemNormal/HoldersHeaderNormal';
 import { HolderItemSmall } from './layout/HolderItemSmall/HolderItemSmall';
 import { HoldersHeaderSmall } from './layout/HolderItemSmall/HoldersHeaderSmall';
-
-import type { FlashListProps } from '@shopify/flash-list';
 
 interface IHoldersProps {
   tokenAddress: string;
@@ -67,16 +66,16 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
   }
 
   const list = (
-    <Tabs.FlashList<IMarketTokenHolder>
+    <FlashList<IMarketTokenHolder>
       data={holders}
       renderItem={renderItem}
       keyExtractor={(item: IMarketTokenHolder) =>
-        item.accountAddress + item.fiatValue
+        item.accountAddress + item.fiatValue + item.amount
       }
       showsVerticalScrollIndicator
-      ListHeaderComponent={
-        gtLg ? <HoldersHeaderNormal /> : <HoldersHeaderSmall />
-      }
+      // ListHeaderComponent={
+      //   gtLg ? <HoldersHeaderNormal /> : <HoldersHeaderSmall />
+      // }
     />
   );
 
