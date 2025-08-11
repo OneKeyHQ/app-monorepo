@@ -8,7 +8,9 @@ import {
   Divider,
   HeightTransition,
   Icon,
+  Popover,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -228,17 +230,52 @@ const PreSwapDialogContent = ({
           </YStack>
           {/* You received */}
           <YStack gap="$1">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.swap_review_you_receive,
-              })}
-            </SizableText>
+            <XStack alignItems="center" gap="$1">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.provider_sort_item_received,
+                })}
+              </SizableText>
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.provider_sort_item_received,
+                })}
+                renderTrigger={
+                  <Icon
+                    cursor="pointer"
+                    name="InfoCircleOutline"
+                    size="$3.5"
+                    color="$iconSubdued"
+                  />
+                }
+                renderContent={() => {
+                  return (
+                    <Stack p="$4">
+                      {quoteResult?.info.providerName.includes('Floating') ? (
+                        <SizableText size="$bodyMd">
+                          {intl.formatMessage({
+                            id: ETranslations.provider_route_changelly_float,
+                          })}
+                        </SizableText>
+                      ) : (
+                        <SizableText size="$bodyMd">
+                          {intl.formatMessage({
+                            id: ETranslations.provider_ios_popover_onekey_fee_content_sub,
+                          })}
+                        </SizableText>
+                      )}
+                    </Stack>
+                  );
+                }}
+              />
+            </XStack>
 
             {/* To token item */}
             <PreSwapTokenItem
               token={preSwapData?.toToken}
               amount={toAmount}
               loading={preSwapData.swapBuildLoading}
+              providerName={quoteResult?.info.providerName}
             />
           </YStack>
 
