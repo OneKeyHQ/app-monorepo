@@ -1480,6 +1480,7 @@ class ServiceHardware extends ServiceBase {
         payload: {
           connectId,
           deviceId: featuresDeviceId || undefined,
+          inBluetoothCommunication: true,
         },
       });
     }
@@ -1492,6 +1493,7 @@ class ServiceHardware extends ServiceBase {
           payload: {
             connectId,
             deviceId: featuresDeviceId || undefined,
+            inBluetoothCommunication: true,
           },
         });
       }
@@ -1510,6 +1512,7 @@ class ServiceHardware extends ServiceBase {
           payload: {
             connectId,
             deviceId: featuresDeviceId || undefined,
+            inBluetoothCommunication: true,
           },
         });
       }
@@ -1546,6 +1549,7 @@ class ServiceHardware extends ServiceBase {
         payload: {
           connectId,
           deviceId: featuresDeviceId || undefined,
+          inBluetoothCommunication: true,
         },
       });
     } catch (error) {
@@ -1559,6 +1563,7 @@ class ServiceHardware extends ServiceBase {
         payload: {
           connectId,
           deviceId: featuresDeviceId || undefined,
+          inBluetoothCommunication: true,
         },
       });
     }

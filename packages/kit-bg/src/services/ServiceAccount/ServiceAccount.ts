@@ -2585,7 +2585,12 @@ class ServiceAccount extends ServiceBase {
         'createHWWalletBase ERROR: features is required',
       );
     }
-    const connectId = params.device.connectId ?? '';
+    const compatibleConnectId =
+      await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+        connectId: params.device.connectId ?? '',
+        featuresDeviceId: params.device.deviceId ?? '',
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      });
     const searchDeviceId = params.device.deviceId ?? '';
     const deviceId = deviceUtils.getRawDeviceId({
       device: params.device,
@@ -2593,7 +2598,7 @@ class ServiceAccount extends ServiceBase {
     });
 
     console.log('createHWWalletBase paramsInfo', {
-      connectId,
+      connectId: compatibleConnectId,
       deviceId,
       searchDeviceId,
     });
@@ -2601,12 +2606,12 @@ class ServiceAccount extends ServiceBase {
     let xfp: string | undefined;
     if (fillingXfpByCallingSdk && !isMockedStandardHwWallet) {
       xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
-        connectId,
+        connectId: compatibleConnectId,
         deviceId,
         passphraseState,
         throwError: true,
       });
-      console.log('createHWWalletBase xfp', xfp, connectId, deviceId);
+      console.log('createHWWalletBase xfp', xfp, compatibleConnectId, deviceId);
     }
     const result = await localDb.createHwWallet({
       ...params,
@@ -2619,7 +2624,7 @@ class ServiceAccount extends ServiceBase {
         const r: string | null =
           await this.backgroundApi.serviceHardware.getEvmAddressByStandardWallet(
             {
-              connectId,
+              connectId: compatibleConnectId,
               deviceId,
               path: FIRST_EVM_ADDRESS_PATH,
             },

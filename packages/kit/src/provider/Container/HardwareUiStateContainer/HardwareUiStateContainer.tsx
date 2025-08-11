@@ -760,6 +760,8 @@ function HardwareUiStateContainerCmpControlled() {
           renderContent: (
             <DeviceNotFoundDialogContent
               connectId={payload?.connectId as string | undefined}
+              // @ts-expect-error
+              inBluetoothCommunication={payload?.inBluetoothCommunication}
             />
           ),
         });
