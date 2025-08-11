@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Stack, Tabs } from '@onekeyhq/components';
@@ -16,6 +18,7 @@ import { useTokenDetail } from '../hooks/useTokenDetail';
 export function MobileLayout() {
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
   const intl = useIntl();
+  const [panesCount, setPanesCount] = useState(1);
 
   return (
     <>
@@ -34,11 +37,14 @@ export function MobileLayout() {
             {/* Information Panel */}
             <InformationPanel />
 
-            <Stack h={400}>
+            <Stack h={400 + panesCount * 100}>
               <MarketTradingView
                 tokenAddress={tokenAddress}
                 networkId={networkId}
                 tokenSymbol={tokenDetail?.symbol}
+                onPanesCountChange={(count: number) => {
+                  setPanesCount(count);
+                }}
               />
             </Stack>
 

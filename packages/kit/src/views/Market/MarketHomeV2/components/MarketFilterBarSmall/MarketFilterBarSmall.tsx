@@ -24,12 +24,12 @@ function MarketFilterBarSmall({
     onNetworkIdChange?.(networkId);
   };
 
-  if (isLoading) {
-    return null; // Could add skeleton later if needed
-  }
+  // if (isLoading) {
+  //   return null; // Could add skeleton later if needed
+  // }
 
   return (
-    <Stack h="$40">
+    <Stack px="$4">
       <MarketTokenListNetworkSelector
         selectedNetworkId={selectedNetworkId}
         onSelectNetworkId={handleNetworkIdChange}

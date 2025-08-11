@@ -105,4 +105,5 @@ export enum EAppEventBusNames {
   SettingsSearchResult = 'SettingsSearchResult',
   DesktopBleRepairRequired = 'DesktopBleRepairRequired',
   ShowHardwareErrorDialog = 'ShowHardwareErrorDialog',
+  SwapPanelDismissKeyboard = 'SwapPanelDismissKeyboard',
 }

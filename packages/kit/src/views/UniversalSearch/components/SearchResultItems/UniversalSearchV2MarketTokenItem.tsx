@@ -8,7 +8,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useMarketWatchListAtom } from '@onekeyhq/kit/src/states/jotai/contexts/market/atoms';
+import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
@@ -63,7 +63,7 @@ export function UniversalSearchV2MarketTokenItem({
   searchStatus,
 }: IUniversalSearchMarketTokenItemProps) {
   // Ensure market watch list atom is initialized
-  const [{ isMounted }] = useMarketWatchListAtom();
+  const [{ isMounted }] = useMarketWatchListV2Atom();
   const universalSearchActions = useUniversalSearchActions();
   const { logoUrl, price, symbol, name, address, network } = item.payload;
 

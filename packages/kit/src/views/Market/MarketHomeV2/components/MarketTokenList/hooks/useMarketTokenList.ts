@@ -43,7 +43,7 @@ export function useMarketTokenList({
     run: fetchMarketTokenList,
   } = usePromiseResult(
     async () => {
-      const pageCount = platformEnv.isNative ? 2 : 5;
+      const pageCount = platformEnv.isNative ? 1 : 1;
       const pageNumbers = Array.from({ length: pageCount }, (_, i) => i + 1);
 
       const promises = pageNumbers.map((page) =>
