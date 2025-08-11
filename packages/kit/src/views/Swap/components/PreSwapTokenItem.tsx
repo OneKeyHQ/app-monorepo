@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 
 import {
+  Icon,
   NumberSizeableText,
   Skeleton,
   XStack,
@@ -17,12 +18,14 @@ interface IPreSwapTokenItemProps {
   token?: ISwapToken;
   amount: string;
   loading?: boolean;
+  providerName?: string;
 }
 
 const PreSwapTokenItem = ({
   token,
   amount,
   loading,
+  providerName,
 }: IPreSwapTokenItemProps) => {
   const fiatValue = useMemo(() => {
     return token?.price && amount
@@ -45,15 +48,20 @@ const PreSwapTokenItem = ({
           </>
         ) : (
           <>
-            <NumberSizeableText
-              size="$heading3xl"
-              formatter="balance"
-              formatterOptions={{
-                tokenSymbol: token?.symbol ?? '-',
-              }}
-            >
-              {amount}
-            </NumberSizeableText>
+            <XStack alignItems="center">
+              {providerName && providerName.includes('Floating') ? (
+                <Icon name="TildeOutline" size="$5" color="$text" />
+              ) : null}
+              <NumberSizeableText
+                size="$heading3xl"
+                formatter="balance"
+                formatterOptions={{
+                  tokenSymbol: token?.symbol ?? '-',
+                }}
+              >
+                {amount}
+              </NumberSizeableText>
+            </XStack>
             <NumberSizeableText
               size="$bodyMd"
               color="$textSubdued"
