@@ -116,13 +116,13 @@ const PreSwapInfoGroup = ({
 
   const networkFeeSelect = useMemo(() => {
     return (
-      <XStack alignItems="center" gap="$1">
+      <XStack alignItems="center" gap="$2">
         <Select
           onChange={onSelectNetworkFeeLevel}
           renderTrigger={() => (
-            <XStack cursor="pointer" gap="$1" alignItems="center">
+            <XStack cursor="pointer" gap="$0.5" alignItems="center">
               <Icon name="ChevronGrabberVerOutline" size="$4" />
-              <SizableText size="$bodyMd" color="$text">
+              <SizableText size="$bodyMd" color="$textSubdued">
                 {networkFeeLevelLabel}
               </SizableText>
             </XStack>
@@ -133,12 +133,12 @@ const PreSwapInfoGroup = ({
           })}
           items={networkFeeLevelArray}
         />
-        {preSwapData.estimateNetworkFeeLoading ? (
+        {preSwapData.stepBeforeActionsLoading ? (
           <Skeleton width="$10" height="$4" />
         ) : (
           <NumberSizeableText
             size="$bodyMd"
-            color="$textSubdued"
+            color="$text"
             formatter="value"
             formatterOptions={{ currency: settings.currencyInfo.symbol }}
           >
@@ -152,10 +152,10 @@ const PreSwapInfoGroup = ({
     networkFeeLevelArray,
     networkFeeLevelLabel,
     onSelectNetworkFeeLevel,
-    preSwapData.estimateNetworkFeeLoading,
     preSwapData.netWorkFee?.gasFeeFiatValue,
     settings.currencyInfo.symbol,
     swapStepNetFeeLevel.networkFeeLevel,
+    preSwapData.stepBeforeActionsLoading,
   ]);
 
   return (

@@ -1,8 +1,14 @@
 import { useCallback } from 'react';
 
-import { XStack, rootNavigationRef } from '@onekeyhq/components';
+import {
+  IconButton,
+  SizableText,
+  XStack,
+  rootNavigationRef,
+  useClipboard,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useMarketWatchListAtom } from '@onekeyhq/kit/src/states/jotai/contexts/market/atoms';
+import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
@@ -11,12 +17,41 @@ import {
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/search';
 import { ESearchStatus } from '@onekeyhq/shared/types/search';
 
 import { MarketStarV2 } from '../../../Market/components/MarketStarV2';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { MarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
+
+function ContractAddress({ address }: { address: string }) {
+  const { copyText } = useClipboard();
+  const contractAddress = accountUtils.shortenAddress({
+    address,
+    leadingLength: 6,
+    trailingLength: 4,
+  });
+
+  if (!address) {
+    return null;
+  }
+
+  return (
+    <XStack ai="center" gap="$1">
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {contractAddress}
+      </SizableText>
+      <IconButton
+        variant="tertiary"
+        size="small"
+        iconSize="$4"
+        icon="Copy3Outline"
+        onPress={() => copyText(address)}
+      />
+    </XStack>
+  );
+}
 
 interface IUniversalSearchMarketTokenItemProps {
   item: IUniversalSearchV2MarketToken;
@@ -28,7 +63,7 @@ export function UniversalSearchV2MarketTokenItem({
   searchStatus,
 }: IUniversalSearchMarketTokenItemProps) {
   // Ensure market watch list atom is initialized
-  const [{ isMounted }] = useMarketWatchListAtom();
+  const [{ isMounted }] = useMarketWatchListV2Atom();
   const universalSearchActions = useUniversalSearchActions();
   const { logoUrl, price, symbol, name, address, network } = item.payload;
 
@@ -83,7 +118,7 @@ export function UniversalSearchV2MarketTokenItem({
       onPress={handlePress}
       renderAvatar={<MarketTokenIcon uri={logoUrl} size="lg" />}
       title={symbol.toUpperCase()}
-      subtitle={name}
+      subtitle={<ContractAddress address={address} />}
       subtitleProps={{
         numberOfLines: 1,
       }}

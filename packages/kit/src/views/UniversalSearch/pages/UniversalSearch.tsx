@@ -452,12 +452,15 @@ export function UniversalSearch({
         const marketSection = sectionsWithSliceData.find(
           (section) => section.tabIndex === 2, // market tab index
         );
+        const tokenSection = sectionsWithSliceData.find(
+          (section) => section.tabIndex === 3,
+        );
         const otherSections = sectionsWithSliceData.filter(
-          (section) => section.tabIndex !== 2,
+          (section) => section.tabIndex !== 2 && section.tabIndex !== 3,
         );
 
         return marketSection
-          ? [marketSection, ...otherSections]
+          ? [marketSection, tokenSection, ...otherSections].filter(Boolean)
           : sectionsWithSliceData;
       }
 

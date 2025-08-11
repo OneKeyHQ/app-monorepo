@@ -1,8 +1,7 @@
-import { useIntl } from 'react-intl';
+import { Dimensions } from 'react-native';
 
-import { Icon, Stack, Tabs } from '@onekeyhq/components';
+import { Stack, Tabs, useSafeAreaInsets } from '@onekeyhq/components';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketTokenList } from '../components/MarketTokenList';
@@ -28,11 +27,12 @@ export function MobileLayout({
   filterBarProps,
   selectedNetworkId,
   liquidityFilter,
-  onTabChange,
 }: IMobileLayoutProps) {
-  const intl = useIntl();
   const [watchlistState] = useMarketWatchListV2Atom();
   const watchlist = watchlistState.data || [];
+  const { top, bottom } = useSafeAreaInsets();
+
+  const availableHeight = Dimensions.get('window').height - top - bottom - 220;
 
   return (
     <Stack flex={1}>
@@ -42,47 +42,7 @@ export function MobileLayout({
           width: '100%',
           shadowColor: 'transparent',
         }}
-        renderTabBar={(props) => (
-          <Tabs.TabBar
-            {...props}
-            onTabPress={(name) => {
-              onTabChange(name as IMarketHomeTabValue);
-            }}
-            containerStyle={{
-              px: '$4',
-              py: '$2',
-            }}
-            renderItem={({
-              name,
-              isFocused,
-              onPress,
-              tabItemStyle,
-              focusedTabStyle,
-            }) => (
-              <Tabs.TabBarItem
-                key={name}
-                // @ts-expect-error name is not a valid prop for Tabs.TabBarItem
-                name={
-                  name === 'watchlist' ? (
-                    <Icon
-                      name="StarOutline"
-                      size="$5"
-                      color={isFocused ? '$iconActive' : '$iconSubdued'}
-                    />
-                  ) : (
-                    intl.formatMessage({
-                      id: ETranslations.market_trending,
-                    })
-                  )
-                }
-                isFocused={isFocused}
-                onPress={onPress}
-                tabItemStyle={tabItemStyle}
-                focusedTabStyle={focusedTabStyle}
-              />
-            )}
-          />
-        )}
+        renderTabBar={(props) => <Tabs.TabBar {...props} />}
         pagerProps={{ scrollEnabled: true }}
       >
         <Tabs.Tab name="watchlist">
@@ -95,13 +55,17 @@ export function MobileLayout({
         </Tabs.Tab>
 
         <Tabs.Tab name="trending">
-          <MarketFilterBarSmall {...filterBarProps} />
-          <MarketTokenList
-            networkId={selectedNetworkId}
-            liquidityFilter={liquidityFilter}
-            showWatchlistOnly={false}
-            watchlist={watchlist}
-          />
+          <Tabs.ScrollView>
+            <MarketFilterBarSmall {...filterBarProps} />
+            <Stack h={availableHeight}>
+              <MarketTokenList
+                networkId={selectedNetworkId}
+                liquidityFilter={liquidityFilter}
+                showWatchlistOnly={false}
+                watchlist={watchlist}
+              />
+            </Stack>
+          </Tabs.ScrollView>
         </Tabs.Tab>
       </Tabs.Container>
     </Stack>

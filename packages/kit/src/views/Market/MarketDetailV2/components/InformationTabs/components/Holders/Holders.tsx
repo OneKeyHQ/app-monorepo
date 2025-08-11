@@ -3,13 +3,12 @@ import { memo, useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  ListView,
   ScrollView,
   SizableText,
   Stack,
+  Tabs,
   useMedia,
 } from '@onekeyhq/components';
-import type { IListViewProps } from '@onekeyhq/components';
 import { useLeftColumnWidthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketHolders } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -20,6 +19,8 @@ import { HolderItemNormal } from './layout/HolderItemNormal/HolderItemNormal';
 import { HoldersHeaderNormal } from './layout/HolderItemNormal/HoldersHeaderNormal';
 import { HolderItemSmall } from './layout/HolderItemSmall/HolderItemSmall';
 import { HoldersHeaderSmall } from './layout/HolderItemSmall/HoldersHeaderSmall';
+
+import type { FlashListProps } from '@shopify/flash-list';
 
 interface IHoldersProps {
   tokenAddress: string;
@@ -37,7 +38,7 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
 
   const shouldEnableScroll = leftColumnWidth < 930;
 
-  const renderItem: IListViewProps<IMarketTokenHolder>['renderItem'] =
+  const renderItem: FlashListProps<IMarketTokenHolder>['renderItem'] =
     useCallback(
       ({ item, index }: { item: IMarketTokenHolder; index: number }) => {
         return gtLg ? (
@@ -66,10 +67,12 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
   }
 
   const list = (
-    <ListView<IMarketTokenHolder>
+    <Tabs.FlashList<IMarketTokenHolder>
       data={holders}
       renderItem={renderItem}
-      keyExtractor={(item) => item.accountAddress + item.fiatValue}
+      keyExtractor={(item: IMarketTokenHolder) =>
+        item.accountAddress + item.fiatValue
+      }
       showsVerticalScrollIndicator
       ListHeaderComponent={
         gtLg ? <HoldersHeaderNormal /> : <HoldersHeaderSmall />

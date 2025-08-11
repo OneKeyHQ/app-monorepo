@@ -3,13 +3,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  ListView,
   ScrollView,
   SizableText,
   Stack,
+  Tabs,
   useMedia,
 } from '@onekeyhq/components';
-import type { IListViewProps, IListViewRef } from '@onekeyhq/components';
 import { useLeftColumnWidthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketTransactions } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketTransactions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -20,6 +19,8 @@ import { TransactionItemNormal } from './layout/TransactionItemNormal/Transactio
 import { TransactionsHeaderNormal } from './layout/TransactionItemNormal/TransactionsHeaderNormal';
 import { TransactionItemSmall } from './layout/TransactionItemSmall/TransactionItemSmall';
 import { TransactionsHeaderSmall } from './layout/TransactionItemSmall/TransactionsHeaderSmall';
+
+import type { FlashListProps, FlashListRef } from '@shopify/flash-list';
 
 interface ITransactionsHistoryProps {
   tokenAddress: string;
@@ -37,7 +38,7 @@ export function TransactionsHistory({
     tokenAddress,
     networkId,
   });
-  const listRef = useRef<IListViewRef<IMarketTokenTransaction>>(null);
+  const listRef = useRef<FlashListRef<IMarketTokenTransaction>>(null);
   const [hasUserScrolled, setHasUserScrolled] = useState(false);
 
   const shouldEnableScroll = leftColumnWidth < 930;
@@ -45,11 +46,11 @@ export function TransactionsHistory({
   // Scroll to top when transactions update, only if user hasn't scrolled
   useEffect(() => {
     if (transactions.length > 0 && listRef.current && !hasUserScrolled) {
-      listRef.current.scrollToOffset({ animated: false, offset: 0 });
+      listRef.current?.scrollToOffset({ animated: false, offset: 0 });
     }
   }, [transactions, hasUserScrolled]);
 
-  const renderItem: IListViewProps<IMarketTokenTransaction>['renderItem'] =
+  const renderItem: FlashListProps<IMarketTokenTransaction>['renderItem'] =
     useCallback(
       ({ item }: { item: IMarketTokenTransaction }) => {
         return gtLg ? (
@@ -100,20 +101,20 @@ export function TransactionsHistory({
   }
 
   const list = (
-    <Stack flex={1}>
-      {gtLg ? <TransactionsHeaderNormal /> : <TransactionsHeaderSmall />}
-      <ListView<IMarketTokenTransaction>
-        ref={listRef}
-        data={transactions}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.hash}
-        showsVerticalScrollIndicator
-        onScroll={handleScroll}
-        contentContainerStyle={{
-          paddingBottom: '$4',
-        }}
-      />
-    </Stack>
+    <Tabs.FlashList<IMarketTokenTransaction>
+      ref={listRef}
+      data={transactions}
+      renderItem={renderItem}
+      keyExtractor={(item: IMarketTokenTransaction) => item.hash}
+      showsVerticalScrollIndicator
+      onScroll={handleScroll}
+      ListHeaderComponent={
+        gtLg ? <TransactionsHeaderNormal /> : <TransactionsHeaderSmall />
+      }
+      contentContainerStyle={{
+        paddingBottom: 16,
+      }}
+    />
   );
 
   if (gtLg && shouldEnableScroll) {

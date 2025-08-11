@@ -179,6 +179,7 @@ function MarketTokenList({
             />
           ) : (
             <Table<IMarketToken>
+              key={networkId}
               stickyHeader
               columns={marketTokenColumns}
               dataSource={data}
