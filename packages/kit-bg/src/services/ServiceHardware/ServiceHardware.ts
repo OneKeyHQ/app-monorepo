@@ -1166,7 +1166,7 @@ class ServiceHardware extends ServiceBase {
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
     const hardwareSDK = await this.getSDKInstance({
-      connectId,
+      connectId: compatibleConnectId,
     });
     return convertDeviceResponse(() => {
       // classic1s does not support getOnekeyFeatures method
@@ -1178,7 +1178,7 @@ class ServiceHardware extends ServiceBase {
           compatibleConnectId,
         ) as unknown as Response<OnekeyFeatures>;
       }
-      return hardwareSDK?.getOnekeyFeatures(connectId);
+      return hardwareSDK?.getOnekeyFeatures(compatibleConnectId);
     });
   }
 
