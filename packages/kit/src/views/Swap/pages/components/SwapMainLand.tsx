@@ -716,7 +716,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
                   >
                     <PreSwapDialogContent
                       onConfirm={handleConfirm}
-                      onDone={dialogClose}
+                      onDone={onPreSwapClose}
                     />
                   </SwapProviderMirror>
                 </AccountSelectorProviderMirror>
@@ -746,7 +746,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
                     }
                   >
                     <PreSwapDialogContent
-                      onDone={dialogClose}
+                      onDone={onPreSwapClose}
                       onConfirm={handleConfirm}
                     />
                   </SwapProviderMirror>
@@ -757,7 +757,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             });
     }, 100);
   }, [
-    dialogClose,
     InTabDialog,
     InModalDialog,
     currentQuoteRes,
