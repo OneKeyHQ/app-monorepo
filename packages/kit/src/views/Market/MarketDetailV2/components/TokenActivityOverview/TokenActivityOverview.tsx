@@ -38,8 +38,7 @@ const defaultTimeRangeConfigs: Array<{
 export function TokenActivityOverview() {
   const intl = useIntl();
   const [selectedTimeRange, setSelectedTimeRange] = useState('1h');
-  const { tokenDetail } = useTokenDetail();
-  const isLoading = true;
+  const { tokenDetail, isLoading } = useTokenDetail();
 
   const timeRangeOptions = useMemo(() => {
     const availableOptions = [
