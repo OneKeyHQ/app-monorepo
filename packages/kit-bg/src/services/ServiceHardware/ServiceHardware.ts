@@ -1629,6 +1629,9 @@ class ServiceHardware extends ServiceBase {
         return device.connectId;
       }
       if (device && !device.bleConnectId) {
+        if (hardwareCallContext === EHardwareCallContext.SILENT_CALL) {
+          return connectId;
+        }
         // Use servicePromise to wait for UI dialog to complete BLE pairing
         const bleConnectId = await new Promise<string>((resolve, reject) => {
           const promiseId = this.backgroundApi.servicePromise.createCallback({
