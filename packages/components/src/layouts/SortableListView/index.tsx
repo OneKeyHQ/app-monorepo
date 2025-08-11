@@ -139,7 +139,6 @@ function CellContainer<T>({
   useLayoutEffect(() => {
     if (containerRef.current) {
       const clientHeight = containerRef.current?.clientHeight;
-      console.log('clientHeight', clientHeight);
       if (clientHeight) {
         setHeight(clientHeight);
       }
@@ -258,8 +257,9 @@ function BaseSortableListView<T>(
       lastIndexHeight = layout?.length;
       return (
         <Draggable
-          draggableId={String(id)}
+          draggableId={String(index)}
           index={index}
+          key={index}
           isDragDisabled={!enabled}
         >
           {(provided) => {
