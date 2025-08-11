@@ -664,9 +664,18 @@ class ServiceBatchCreateAccount extends ServiceBase {
                   undefined,
                 );
                 try {
+                  const compatibleConnectId =
+                    await this.backgroundApi.serviceHardware.getCompatibleConnectId(
+                      {
+                        connectId: deviceParams.dbDevice?.connectId || '',
+                        featuresDeviceId: deviceParams.dbDevice?.deviceId || '',
+                        hardwareCallContext:
+                          EHardwareCallContext.USER_INTERACTION,
+                      },
+                    );
                   const sdkAllNetworkGetAddressResponse =
                     await sdk.allNetworkGetAddress(
-                      deviceParams.dbDevice?.connectId || '',
+                      compatibleConnectId,
                       deviceParams.dbDevice?.deviceId || '',
                       {
                         ...deviceParams.deviceCommonParams,
