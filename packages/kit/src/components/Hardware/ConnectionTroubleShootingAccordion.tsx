@@ -279,8 +279,10 @@ export function ConnectionTroubleShootingAccordion({
 
 export function DeviceNotFoundDialogContent({
   connectId,
+  inBluetoothCommunication,
 }: {
   connectId: string | undefined;
+  inBluetoothCommunication?: boolean;
 }) {
   const intl = useIntl();
 
@@ -304,20 +306,27 @@ export function DeviceNotFoundDialogContent({
       return false;
     }
     if (platformEnv.isSupportDesktopBle) {
-      return connectId && result?.device?.connectId === connectId;
+      return (
+        connectId &&
+        result?.device?.connectId === connectId &&
+        !inBluetoothCommunication
+      );
     }
     return true;
-  }, [connectId, result?.device?.connectId]);
+  }, [connectId, result?.device?.connectId, inBluetoothCommunication]);
 
   const showBluetoothTroubleshooting = useMemo(() => {
     if (platformEnv.isNative) {
       return true;
     }
     if (platformEnv.isSupportDesktopBle) {
-      return connectId && result?.device?.bleConnectId === connectId;
+      return (
+        (connectId && result?.device?.bleConnectId === connectId) ||
+        inBluetoothCommunication
+      );
     }
     return false;
-  }, [connectId, result?.device?.bleConnectId]);
+  }, [connectId, result?.device?.bleConnectId, inBluetoothCommunication]);
 
   return (
     <ScrollView maxHeight={480}>
