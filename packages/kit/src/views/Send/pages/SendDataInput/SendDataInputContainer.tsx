@@ -189,7 +189,7 @@ function SendDataInputContainer() {
   const [txMessageLinkedString, setTxMessageLinkedString] = useState('');
   const [lnUnit, setLnUnit] = useState<ELightningUnit>(ELightningUnit.SATS);
 
-  const { account, network } = useAccountData({
+  const { account, network, vaultSettings } = useAccountData({
     accountId: currentAccount.accountId,
     networkId: currentAccount.networkId,
   });
@@ -216,24 +216,32 @@ function SendDataInputContainer() {
     });
   }, [currentAccount.accountId]);
 
+  const [
+    displayMemoForm,
+    displayPaymentIdForm,
+    memoMaxLength,
+    numericOnlyMemo,
+    displayNoteForm,
+    noteMaxLength,
+    displayTxMessageForm,
+  ] = useMemo(() => {
+    return [
+      vaultSettings?.withMemo,
+      vaultSettings?.withPaymentId,
+      vaultSettings?.memoMaxLength,
+      vaultSettings?.numericOnlyMemo,
+      vaultSettings?.withNote,
+      vaultSettings?.noteMaxLength,
+      vaultSettings?.withTxMessage,
+    ];
+  }, [vaultSettings]);
+
   const {
-    result: [
-      tokenDetails,
-      nftDetails,
-      vaultSettings,
-      hasFrozenBalance,
-      displayMemoForm,
-      displayPaymentIdForm,
-      memoMaxLength,
-      numericOnlyMemo,
-      displayNoteForm,
-      noteMaxLength,
-      displayTxMessageForm,
-    ] = [],
+    result: [tokenDetails, nftDetails, hasFrozenBalance] = [],
     isLoading: isLoadingAssets,
   } = usePromiseResult(
     async () => {
-      if (!account || !network) return;
+      if (!account?.id || !network?.id) return;
       if (!token && !nft) {
         throw new OneKeyInternalError('token and nft info are both missing.');
       }
@@ -275,29 +283,13 @@ function SendDataInputContainer() {
         });
       }
 
-      const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
-        networkId: network.id,
-      });
-
       const frozenBalanceSettings =
         await backgroundApiProxy.serviceSend.getFrozenBalanceSetting({
           networkId: network.id,
           tokenDetails: tokenResp?.[0],
         });
 
-      return [
-        tokenResp?.[0],
-        nftResp?.[0],
-        vs,
-        frozenBalanceSettings,
-        vs.withMemo,
-        vs.withPaymentId,
-        vs.memoMaxLength,
-        vs.numericOnlyMemo,
-        vs.withNote,
-        vs.noteMaxLength,
-        vs.withTxMessage,
-      ];
+      return [tokenResp?.[0], nftResp?.[0], frozenBalanceSettings];
     },
     [
       account,
@@ -473,12 +465,41 @@ function SendDataInputContainer() {
             tokenType: 'Token',
           });
           if (data.accountId && data.networkId) {
+            if (data.networkId && data.networkId !== networkId) {
+              setEnsureAddressValid(false);
+            }
+
+            let selectedAccountId = data.accountId;
+
+            const currentVaultSettings =
+              await backgroundApiProxy.serviceNetwork.getVaultSettings({
+                networkId: data.networkId,
+              });
+            if (currentVaultSettings?.mergeDeriveAssetsEnabled) {
+              const defaultDeriveType =
+                await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                  {
+                    networkId: data.networkId,
+                  },
+                );
+
+              const { accounts } =
+                await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts(
+                  {
+                    indexedAccountIds: [account?.indexedAccountId ?? ''],
+                    networkId: data.networkId,
+                    deriveType: defaultDeriveType,
+                  },
+                );
+              selectedAccountId = accounts?.[0]?.id ?? data.accountId;
+            }
+
             setCurrentAccount({
-              accountId: data.accountId,
+              accountId: selectedAccountId,
               networkId: data.networkId,
             });
-            // TODO: need remove
-            form.setValue('accountId', data.accountId);
+
+            form.setValue('accountId', selectedAccountId);
             form.setValue('networkId', data.networkId);
           }
           setTokenInfo(data);
@@ -488,6 +509,7 @@ function SendDataInputContainer() {
       },
     });
   }, [
+    account?.indexedAccountId,
     accountId,
     activeAccountId,
     activeNetworkId,
@@ -923,6 +945,7 @@ function SendDataInputContainer() {
           walletId={walletId}
           networkId={currentAccount.networkId}
           indexedAccountId={account?.indexedAccountId ?? ''}
+          tokenMap={map}
           onSelect={async ({ account: a }) => {
             if (a) {
               setCurrentAccount((prev) => ({
@@ -943,6 +966,7 @@ function SendDataInputContainer() {
     walletId,
     currentAccount.networkId,
     account?.indexedAccountId,
+    map,
   ]);
 
   const renderTokenDataInputForm = useCallback(
