@@ -2,6 +2,7 @@ import {
   Children,
   isValidElement,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useLayoutEffect,
   useMemo,
@@ -82,6 +83,7 @@ export function Container({
   onTabChange,
   width: containerWidth,
   ref: containerRef,
+  initialTabName,
   ...props
 }: PropsWithChildren<CollapsibleProps> & IRefProps) {
   // Get tab names from children props
@@ -277,6 +279,18 @@ export function Container({
       onTabPress(tabNames[index]);
     },
   }));
+
+  useEffect(() => {
+    if (initialTabName) {
+      focusedTab.set(initialTabName);
+      listContainerRef.current?.scrollTo({
+        left:
+          (scrollElement?.clientWidth || 0) *
+          tabNames.findIndex((name) => name === initialTabName),
+        behavior: 'instant',
+      });
+    }
+  }, [focusedTab, initialTabName, scrollElement?.clientWidth, tabNames]);
 
   return (
     <YStack

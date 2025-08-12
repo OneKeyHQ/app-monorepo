@@ -253,7 +253,7 @@ const TabsWithInitialTabDemo = () => {
   );
 
   return (
-    <Tabs.Container initialTabName="Favorites">
+    <Tabs.Container initialTabName="Archive">
       <Tabs.Tab name="Recent">
         <YStack p="$4" gap="$2">
           <SizableText size="$bodyMdMedium" color="$textSubdued">
