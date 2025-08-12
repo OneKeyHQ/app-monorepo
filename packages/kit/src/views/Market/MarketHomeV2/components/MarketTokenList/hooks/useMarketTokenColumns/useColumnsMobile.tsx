@@ -38,6 +38,8 @@ export const useColumnsMobile = (
               networkLogoURI={record.networkLogoUri}
               symbol={record.symbol}
               address={record.address}
+              showVolume={true}
+              volume={record.turnover}
             />
           </XStack>
         );
