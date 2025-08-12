@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -6,25 +6,81 @@ import { StyleSheet } from 'react-native';
 import {
   Button,
   Icon,
-  Input,
   SizableText,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { UniversalSearchInput } from '@onekeyhq/kit/src/components/SearchInput/UniversalSearchInput';
 import { TermsAndPrivacy } from '@onekeyhq/kit/src/views/Onboarding/pages/GetStarted/components/TermsAndPrivacy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
+import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 function WebDappEmptyView() {
   const intl = useIntl();
   const [trackAddress, setTrackAddress] = useState('');
 
-  const handleTrackAddress = () => {
+  const handleTrackAddress = useCallback(() => {
     if (trackAddress.trim()) {
       console.log('Track address:', trackAddress);
+      // TODO: Implement track address logic
+      setTrackAddress('');
     }
-  };
+  }, [trackAddress]);
+
+  const handleAddressSelect = useCallback((address: string) => {
+    setTrackAddress(address);
+    console.log('Selected address:', address);
+    // TODO: Implement track address logic
+  }, []);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setTrackAddress(value);
+  }, []);
+
+  // Custom render for search results in WebDapp context
+  const renderResultItem = useCallback(
+    (
+      item: IUniversalSearchResultItem,
+      index: number,
+      onSelect: (address: string) => void,
+    ) => {
+      if (
+        item.type === EUniversalSearchType.Address &&
+        item.payload.addressInfo
+      ) {
+        const { addressInfo, network, accountInfo } = item.payload;
+
+        return (
+          <ListItem
+            key={index}
+            title={accountInfo?.formattedName || addressInfo.displayAddress}
+            subtitle={`${network?.name || 'Unknown'} • ${
+              addressInfo.displayAddress
+            }`}
+            renderAvatar={
+              <Icon
+                name={
+                  network?.impl === 'evm'
+                    ? 'WalletCryptoOutline'
+                    : 'GlobusOutline'
+                }
+                size="$8"
+                color="$iconSubdued"
+              />
+            }
+            onPress={() => onSelect(addressInfo.displayAddress)}
+            py="$3"
+            px="$4"
+          />
+        );
+      }
+      return null;
+    },
+    [],
+  );
 
   return (
     <YStack
@@ -150,13 +206,21 @@ function WebDappEmptyView() {
         </YStack>
 
         <XStack gap="$2.5" px="$5">
-          <Input
+          <UniversalSearchInput
             flex={1}
+            searchType="address"
             placeholder={intl.formatMessage({
               id: ETranslations.wallet_track_any_address_placeholder,
             })}
-            value={trackAddress}
-            onChangeText={setTrackAddress}
+            onAddressSelect={handleAddressSelect}
+            onSearchChange={handleSearchChange}
+            renderResultItem={renderResultItem}
+            popoverContainerProps={{
+              mx: '$0',
+            }}
+            minSearchLength={3}
+            debounceMs={300}
+            maxResultHeight={240}
           />
           <Button
             size="$4"
