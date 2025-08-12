@@ -133,9 +133,29 @@ export function ActionButton({
     shouldDisable = false;
   }
 
+  // Use colored style only for normal trading states (has amount, not disabled, has account)
+  const shouldUseColoredStyle = hasAmount && !shouldDisable && !noAccount;
+
+  const buttonStyleProps = shouldUseColoredStyle
+    ? {
+        bg:
+          tradeType === ESwapDirection.BUY
+            ? '$buttonSuccess'
+            : '$buttonCritical',
+        color: '$textOnColor',
+        hoverStyle: {
+          opacity: 0.9,
+        },
+        pressStyle: {
+          opacity: 0.8,
+        },
+      }
+    : {
+        variant: 'primary' as const,
+      };
+
   return (
     <Button
-      variant="primary"
       size="medium"
       disabled={shouldDisable || disabled || !hasAmount}
       onPress={
@@ -151,6 +171,7 @@ export function ActionButton({
               onPress?.(event);
             }
       }
+      {...buttonStyleProps}
       {...otherProps}
     >
       {buttonText}
