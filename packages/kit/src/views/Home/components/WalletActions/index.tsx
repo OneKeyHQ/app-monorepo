@@ -86,25 +86,24 @@ function WalletActionSend() {
         deriveInfoItems.length > 1 &&
         !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
       ) {
-        navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
-          screen: EModalSignatureConfirmRoutes.TxSelectDeriveAddress,
-          params: {
+        const defaultDeriveType =
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
             networkId: network.id,
-            indexedAccountId: indexedAccount?.id ?? '',
-            walletId: wallet?.id ?? '',
-            actionType: EDeriveAddressActionType.Select,
+          });
+        const { accounts } =
+          await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
+            indexedAccountIds: [indexedAccount?.id ?? ''],
+            networkId: network.id,
+            deriveType: defaultDeriveType,
+          });
+
+        navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+          screen: EModalSignatureConfirmRoutes.TxDataInput,
+          params: {
+            accountId: accounts?.[0]?.id ?? account?.id ?? '',
+            networkId: network.id,
+            isNFT: false,
             token: nativeToken,
-            tokenMap: map,
-            onUnmounted: () => {},
-            onSelected: ({ account: a }: { account: INetworkAccount }) => {
-              navigation.push(EModalSignatureConfirmRoutes.TxDataInput, {
-                accountId: a.id,
-                networkId: network.id,
-                isNFT: false,
-                token: nativeToken,
-                isAllNetworks: network?.isAllNetworks,
-              });
-            },
           },
         });
       } else {
@@ -149,31 +148,29 @@ function WalletActionSend() {
             network.isAllNetworks &&
             !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
           ) {
-            const walletId = accountUtils.getWalletIdFromAccountId({
-              accountId: token.accountId ?? '',
-            });
-            navigation.push(
-              EModalSignatureConfirmRoutes.TxSelectDeriveAddress,
-              {
-                networkId: token.networkId ?? '',
-                indexedAccountId: indexedAccount?.id ?? '',
-                walletId,
-                accountId: token.accountId ?? '',
-                actionType: EDeriveAddressActionType.Select,
-                token,
-                tokenMap: map,
-                onUnmounted: () => {},
-                onSelected: ({ account: a }: { account: INetworkAccount }) => {
-                  navigation.push(EModalSignatureConfirmRoutes.TxDataInput, {
-                    accountId: a.id,
-                    networkId: token.networkId ?? network.id,
-                    isNFT: false,
-                    token,
-                    isAllNetworks: network?.isAllNetworks,
-                  });
+            const defaultDeriveType =
+              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                {
+                  networkId: token.networkId ?? '',
                 },
-              },
-            );
+              );
+            const { accounts } =
+              await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts(
+                {
+                  indexedAccountIds: [indexedAccount?.id ?? ''],
+                  networkId: token.networkId ?? '',
+                  deriveType: defaultDeriveType,
+                },
+              );
+
+            navigation.push(EModalSignatureConfirmRoutes.TxDataInput, {
+              accountId: accounts?.[0]?.id ?? account?.id ?? '',
+              networkId: token.networkId ?? network.id,
+              isNFT: false,
+              token,
+              isAllNetworks: network?.isAllNetworks,
+            });
+
             return;
           }
 

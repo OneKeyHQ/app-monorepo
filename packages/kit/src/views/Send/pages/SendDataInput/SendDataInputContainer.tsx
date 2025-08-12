@@ -33,6 +33,7 @@ import {
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
+import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
@@ -52,7 +53,6 @@ import {
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import type {
   IChainValue,
-  IEthereumValue,
   IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -76,11 +76,7 @@ import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import {
-  EDeriveAddressActionType,
-  EInputAddressChangeType,
-} from '@onekeyhq/shared/types/address';
+import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
@@ -213,6 +209,12 @@ function SendDataInputContainer() {
 
     return new BigNumber(1).shiftedBy(-tokenInfo.decimals).toFixed();
   }, [tokenInfo]);
+
+  const walletId = useMemo(() => {
+    return accountUtils.getWalletIdFromAccountId({
+      accountId: currentAccount.accountId,
+    });
+  }, [currentAccount.accountId]);
 
   const {
     result: [
@@ -890,6 +892,59 @@ function SendDataInputContainer() {
     tokenInfo?.symbol,
   ]);
 
+  const renderAmountInputAddOn = useCallback(() => {
+    if (isLightningNetwork && !isUseFiat) {
+      return (
+        <LightningUnitSwitch
+          value={lnUnit}
+          onChange={(v) => {
+            setLnUnit(v as ELightningUnit);
+            if (!isUseFiat) {
+              form.setValue(
+                'amount',
+                v === ELightningUnit.BTC
+                  ? chainValueUtils.convertSatsToBtc(form.getValues('amount'))
+                  : chainValueUtils.convertBtcToSats(form.getValues('amount')),
+              );
+              if (form.formState.isDirty) {
+                setTimeout(() => {
+                  void form.trigger('amount');
+                }, 100);
+              }
+            }
+          }}
+        />
+      );
+    }
+
+    if (vaultSettings?.mergeDeriveAssetsEnabled) {
+      return (
+        <AddressTypeSelector
+          walletId={walletId}
+          networkId={currentAccount.networkId}
+          indexedAccountId={account?.indexedAccountId ?? ''}
+          onSelect={async ({ account: a }) => {
+            if (a) {
+              setCurrentAccount((prev) => ({
+                ...prev,
+                accountId: a?.id,
+              }));
+            }
+          }}
+        />
+      );
+    }
+  }, [
+    isLightningNetwork,
+    isUseFiat,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    lnUnit,
+    form,
+    walletId,
+    currentAccount.networkId,
+    account?.indexedAccountId,
+  ]);
+
   const renderTokenDataInputForm = useCallback(
     () => (
       <>
@@ -937,33 +992,7 @@ function SendDataInputContainer() {
               }
             },
           }}
-          labelAddon={
-            isLightningNetwork && !isUseFiat ? (
-              <LightningUnitSwitch
-                value={lnUnit}
-                onChange={(v) => {
-                  setLnUnit(v as ELightningUnit);
-                  if (!isUseFiat) {
-                    form.setValue(
-                      'amount',
-                      v === ELightningUnit.BTC
-                        ? chainValueUtils.convertSatsToBtc(
-                            form.getValues('amount'),
-                          )
-                        : chainValueUtils.convertBtcToSats(
-                            form.getValues('amount'),
-                          ),
-                    );
-                    if (form.formState.isDirty) {
-                      setTimeout(() => {
-                        void form.trigger('amount');
-                      }, 100);
-                    }
-                  }
-                }}
-              />
-            ) : null
-          }
+          labelAddon={renderAmountInputAddOn()}
         >
           <AmountInput
             reversible
@@ -1057,6 +1086,7 @@ function SendDataInputContainer() {
       network?.logoURI,
       network?.name,
       nft?.metadata?.image,
+      renderAmountInputAddOn,
       selectedTokenSymbol,
       showPercentToolbar,
       tokenDetails?.info.decimals,
