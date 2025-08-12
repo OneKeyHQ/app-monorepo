@@ -6,7 +6,6 @@ import {
   Skeleton,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -19,14 +18,17 @@ export const useColumnsMobile = (
   networkId?: string,
   _watchlistActive = false,
 ): ITableColumn<IMarketToken>[] => {
-  const { md } = useMedia();
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
   const intl = useIntl();
 
   return [
     {
-      title: intl.formatMessage({ id: ETranslations.global_name }),
+      title: `${intl.formatMessage({
+        id: ETranslations.global_name,
+      })} / ${intl.formatMessage({
+        id: ETranslations.dexmarket_mobiletitle_mcap,
+      })}`,
       titleProps: { paddingLeft: '$5' },
       dataIndex: 'tokenInfo',
       columnWidth: '40%',
@@ -38,7 +40,7 @@ export const useColumnsMobile = (
               networkLogoURI={record.networkLogoUri}
               symbol={record.symbol}
               address={record.address}
-              showVolume={true}
+              showVolume
               volume={record.turnover}
             />
           </XStack>
