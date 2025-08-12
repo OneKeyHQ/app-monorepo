@@ -3,12 +3,14 @@ import { useCallback, useMemo, useRef } from 'react';
 import { useIntl } from 'react-intl';
 import { useSharedValue } from 'react-native-reanimated';
 
-import { Carousel, ICarouselInstance, Stack, Tabs, YStack } from '@onekeyhq/components';
+import type { ICarouselInstance } from '@onekeyhq/components';
+import { Carousel, Stack, Tabs, YStack } from '@onekeyhq/components';
 import {
   useMarketWatchListV2Atom,
   useSelectedMarketTabAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketFilterBar } from '../components/MarketFilterBar';
 import { MarketTokenList } from '../components/MarketTokenList';
@@ -69,12 +71,12 @@ export function DesktopLayout({
   //       <Tabs.Tab name={watchlistTabName}>
   //         <Tabs.ScrollView>
   //           <Stack px="$4" flex={1}>
-  //             <MarketTokenList
-  //               networkId={selectedNetworkId}
-  //               liquidityFilter={liquidityFilter}
-  //               showWatchlistOnly
-  //               watchlist={watchlist}
-  //             />
+  // <MarketTokenList
+  //   networkId={selectedNetworkId}
+  //   liquidityFilter={liquidityFilter}
+  //   showWatchlistOnly
+  //   watchlist={watchlist}
+  // />
   //           </Stack>
   //         </Tabs.ScrollView>
   //       </Tabs.Tab>
@@ -111,6 +113,45 @@ export function DesktopLayout({
     [focusedTab, tabNames],
   );
 
+  const height = useMemo(() => {
+    return platformEnv.isNative ? undefined : 'calc(100vh - 96px)';
+  }, []);
+  const renderItem = useCallback(
+    ({ item }: { item: string }) => {
+      if (item === watchlistTabName) {
+        return (
+          <YStack px="$4" height={height}>
+            <MarketTokenList
+              networkId={selectedNetworkId}
+              liquidityFilter={liquidityFilter}
+              showWatchlistOnly
+              watchlist={watchlist}
+            />
+          </YStack>
+        );
+      }
+      return (
+        <YStack px="$4" height={height}>
+          <MarketFilterBar {...filterBarProps} />
+          <MarketTokenList
+            networkId={selectedNetworkId}
+            liquidityFilter={liquidityFilter}
+            showWatchlistOnly={false}
+            watchlist={watchlist}
+          />
+        </YStack>
+      );
+    },
+    [
+      filterBarProps,
+      height,
+      liquidityFilter,
+      selectedNetworkId,
+      watchlist,
+      watchlistTabName,
+    ],
+  );
+
   return (
     <YStack>
       <Tabs.TabBar
@@ -120,13 +161,12 @@ export function DesktopLayout({
         focusedTab={focusedTab}
       />
       <Carousel
-        ref={carouselRef}
+        containerStyle={{ height }}
+        ref={carouselRef as any}
         loop={false}
+        showPagination={false}
         data={tabNames}
-        containerStyle={{ height: 800 }}
-        renderItem={({ index }) => (
-          <YStack bg={index === 0 ? 'red' : 'blue'} flex={1} />
-        )}
+        renderItem={renderItem}
       />
     </YStack>
   );

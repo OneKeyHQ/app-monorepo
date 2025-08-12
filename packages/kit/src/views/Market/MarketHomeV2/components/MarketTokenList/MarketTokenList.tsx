@@ -182,6 +182,7 @@ function MarketTokenList({
             <Table<IMarketToken>
               key={networkId}
               stickyHeader
+              scrollEnabled
               columns={marketTokenColumns}
               dataSource={data}
               keyExtractor={(item) => item.address + item.symbol + item.name}
