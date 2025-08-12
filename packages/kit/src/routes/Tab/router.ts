@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 
@@ -15,10 +15,13 @@ import {
   useIsShowMyOneKeyOnTabbar,
   useToMyOneKeyModalByRootNavigation,
 } from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
+import { HYPER_LIQUID_TRADE_URL } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useToReferFriendsModalByRootNavigation } from '../../hooks/useReferFriends';
 import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';
@@ -149,7 +152,18 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           freezeOnBlur: Boolean(params?.freezeOnBlur),
           rewrite: '/perp',
           exact: true,
-          children: perpTradeRouters,
+          tabbarOnPress: platformEnv.isExtension
+            ? async () => {
+                if (platformEnv.isExtension) {
+                  await backgroundApiProxy.servicePerp.openExtPerpTab();
+                }
+              }
+            : undefined,
+          children: platformEnv.isExtension
+            ? // small screen error: Cannot read properties of null (reading 'filter')
+              // null
+              perpTradeRouters
+            : perpTradeRouters,
           trackId: 'global-perp',
         },
         {

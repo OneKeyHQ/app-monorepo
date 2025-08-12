@@ -6,7 +6,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { HYPER_LIQUID_TRADE_URL } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
   IHyperLiquidSignatureRSV,
@@ -482,11 +485,13 @@ class ServicePerp extends ServiceBase {
     const shouldModifyPlaceOrderPayload = true;
     // Get builderAddress and builderFeeValue from simpleDB
     const expectBuilderAddress =
-      (await this.backgroundApi.simpleDb.perp.getExpectBuilderAddress()) ||
-      '0x4EF880525383ab4E3d94b7689e3146bF899A296e';
+      (await this.backgroundApi.simpleDb.perp.getExpectBuilderAddress()) || '';
     // Need to check this formula returns an integer in the browser: 1e5 * (num/1e5)
-    const expectMaxBuilderFee =
-      (await this.backgroundApi.simpleDb.perp.getExpectMaxBuilderFee()) || 58; // 1e5 * (num/1e5)
+    let expectMaxBuilderFee =
+      (await this.backgroundApi.simpleDb.perp.getExpectMaxBuilderFee()) || 0; // 1e5 * (num/1e5)
+    if (expectMaxBuilderFee < 0) {
+      expectMaxBuilderFee = 0;
+    }
     return {
       expectBuilderAddress,
       expectMaxBuilderFee,
@@ -529,13 +534,27 @@ class ServicePerp extends ServiceBase {
       });
     return {
       isDone: false,
-      canSetBuilderFee: Number(accountValue) > 0,
+      canSetBuilderFee: Number(accountValue) >= 0,
       currentMaxBuilderFee,
       expectMaxBuilderFee,
       expectBuilderAddress,
       accountValue,
       shouldModifyPlaceOrderPayload,
     };
+  }
+
+  lastExtPerpTab: chrome.tabs.Tab | undefined;
+
+  @backgroundMethod()
+  async openExtPerpTab() {
+    if (platformEnv.isExtension) {
+      this.lastExtPerpTab = await extUtils.openUrlInTab(
+        HYPER_LIQUID_TRADE_URL,
+        {
+          tabId: this.lastExtPerpTab?.id,
+        },
+      );
+    }
   }
 }
 

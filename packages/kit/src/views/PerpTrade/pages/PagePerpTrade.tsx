@@ -2,11 +2,15 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { HeaderIconButton, Page } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
-import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
+import {
+  HYPER_LIQUID_ORIGIN,
+  HYPER_LIQUID_TRADE_URL,
+} from '@onekeyhq/shared/src/consts/perp';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -19,19 +23,31 @@ import { SingleAccountAndNetworkSelectorTrigger } from '../../Discovery/componen
 
 import type { IWebViewRef } from '../../../components/WebView/types';
 
+const origin = HYPER_LIQUID_ORIGIN;
+const url = HYPER_LIQUID_TRADE_URL;
+
+function PerpTradeViewExt() {
+  useEffect(() => {
+    if (platformEnv.isExtension) {
+      void backgroundApiProxy.servicePerp.openExtPerpTab();
+      setTimeout(() => {
+        window.close();
+      }, 300);
+    }
+  }, []);
+  return null;
+}
+
 function PerpTradeView() {
   useDebugComponentRemountLog({ name: 'PerpTradePageContainer' });
 
   const webviewRef = useRef<IWebViewRef | null>(null);
 
-  const origin = HYPER_LIQUID_ORIGIN;
-
   const webview = useMemo(
     () => (
       <WebView
         id="perp-trade"
-        // src="https://www.bing.com"
-        src={`${origin}/trade?isOneKeyBuiltInPerpView=true`}
+        src={url}
         onWebViewRef={(ref) => {
           // Simple ref handling for the perp trade
           console.log('PerpTrade WebView ref ready:', ref);
@@ -40,7 +56,7 @@ function PerpTradeView() {
         allowpopups
       />
     ),
-    [origin],
+    [],
   );
 
   const {
@@ -59,7 +75,7 @@ function PerpTradeView() {
 
       return connectedAccount;
     },
-    [origin],
+    [],
     {
       checkIsFocused: false,
     },
@@ -106,7 +122,7 @@ function PerpTradeView() {
         </AccountSelectorProviderMirror>
       </>
     );
-  }, [afterChangeAccount, connectedAccountsInfo, origin]);
+  }, [afterChangeAccount, connectedAccountsInfo]);
 
   return (
     <Page fullPage>
@@ -145,7 +161,7 @@ const PagePerpTrade = () => {
       }}
       enabledNum={[0]}
     >
-      <PerpTradeView />
+      {platformEnv.isExtension ? <PerpTradeViewExt /> : <PerpTradeView />}
     </AccountSelectorProviderMirror>
   );
 };
