@@ -387,6 +387,8 @@ function ReceiveToken() {
             </Badge>
             {vaultSettings?.mergeDeriveAssetsEnabled ? (
               <AddressTypeSelector
+                showTriggerWhenDisabled
+                walletId={walletId}
                 networkId={networkId}
                 indexedAccountId={currentAccount?.indexedAccountId ?? ''}
                 onSelect={async (value) => {
@@ -440,6 +442,7 @@ function ReceiveToken() {
     token?.symbol,
     vaultSettings?.mergeDeriveAssetsEnabled,
     wallet,
+    walletId,
   ]);
 
   const renderReceiveQrCode = useCallback(() => {

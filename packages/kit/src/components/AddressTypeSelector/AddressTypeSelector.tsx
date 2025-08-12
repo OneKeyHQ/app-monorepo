@@ -38,6 +38,7 @@ import AddressTypeSelectorItem from './AddressTypeSelectorItem';
 import AddressTypeSelectorTrigger from './AddressTypeSelectorTrigger';
 
 type IProps = {
+  walletId: string;
   networkId: string;
   indexedAccountId: string;
   activeDeriveType?: IAccountDeriveTypes;
@@ -54,6 +55,7 @@ type IProps = {
   tokenMap?: Record<string, ITokenFiat>;
   disableSelector?: boolean;
   doubleConfirm?: boolean;
+  showTriggerWhenDisabled?: boolean;
 };
 
 function AddressTypeSelectorContent(
@@ -231,6 +233,7 @@ function AddressTypeSelectorContent(
 function AddressTypeSelector(props: IProps) {
   const intl = useIntl();
   const {
+    walletId,
     networkId,
     indexedAccountId,
     title,
@@ -239,7 +242,12 @@ function AddressTypeSelector(props: IProps) {
     tokenMap: tokenMapProp,
     activeDeriveType: activeDeriveTypeProp,
     disableSelector,
+    showTriggerWhenDisabled = false,
   } = props;
+
+  const isSelectorDisabled = useMemo(() => {
+    return disableSelector || accountUtils.isOthersWallet({ walletId });
+  }, [disableSelector, walletId]);
 
   const [activeDeriveType, setActiveDeriveType] = useState<
     IAccountDeriveTypes | undefined
@@ -388,15 +396,21 @@ function AddressTypeSelector(props: IProps) {
     }
   }, [tokenMapProp, networkAccounts, networkId]);
 
+  if (isSelectorDisabled && showTriggerWhenDisabled) {
+    return (
+      <AddressTypeSelectorTrigger
+        activeDeriveInfo={activeDeriveInfo}
+        disableSelector={isSelectorDisabled}
+      />
+    );
+  }
+
   return (
     <Popover
       title={selectorTitle}
       renderTrigger={
         renderSelectorTrigger ?? (
-          <AddressTypeSelectorTrigger
-            activeDeriveInfo={activeDeriveInfo}
-            disableSelector={disableSelector}
-          />
+          <AddressTypeSelectorTrigger activeDeriveInfo={activeDeriveInfo} />
         )
       }
       renderContent={({ isOpen, closePopover }) => (
