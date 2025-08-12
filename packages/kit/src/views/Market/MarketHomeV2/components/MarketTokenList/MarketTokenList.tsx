@@ -165,6 +165,7 @@ function MarketTokenList({
         flex={1}
         className="normal-scrollbar"
         style={{
+          paddingTop: 10,
           overflowX: 'auto',
         }}
       >
@@ -185,9 +186,6 @@ function MarketTokenList({
               dataSource={data}
               keyExtractor={(item) => item.address + item.symbol + item.name}
               onHeaderRow={handleHeaderRow}
-              rowProps={{
-                minHeight: '$14',
-              }}
               estimatedItemSize="$14"
               onRow={
                 onItemPress

@@ -130,10 +130,11 @@ export function TokenOverview() {
     () => ({
       label: 'FDV',
       value: formatCurrencyValue(tokenDetail?.fdv),
-      tooltip:
-        'Fully Diluted Valuation - the total value if all tokens were in circulation',
+      tooltip: intl.formatMessage({
+        id: ETranslations.dexmarket_fdv_desc,
+      }),
     }),
-    [tokenDetail?.fdv],
+    [intl, tokenDetail?.fdv],
   );
 
   if (!tokenDetail) {

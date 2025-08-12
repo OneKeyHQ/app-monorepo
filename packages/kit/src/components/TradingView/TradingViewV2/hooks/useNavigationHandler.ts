@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
+
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 interface IUseNavigationHandlerReturn {
@@ -8,18 +10,22 @@ interface IUseNavigationHandlerReturn {
 
 /**
  * Custom hook for handling WebView navigation in TradingView
- * @returns Navigation handler function that blocks unwanted redirects
+ * @returns Navigation handler function that redirects external URLs to system browser
  */
 export const useNavigationHandler = (): IUseNavigationHandlerReturn => {
   const handleNavigation = useCallback((event: WebViewNavigation): boolean => {
-    // Block navigation to www.tradingview.com
     try {
       const requestUrl = new URL(event.url);
       const isBlockedTradingViewUrl =
         requestUrl.hostname === 'www.tradingview.com';
 
       if (isBlockedTradingViewUrl) {
-        console.log('Blocked navigation to www.tradingview.com:', event.url);
+        console.log(
+          'Blocked navigation to www.tradingview.com, opening in external browser:',
+          event.url,
+        );
+        // Open the blocked URL in external browser
+        openUrlUtils.openUrlExternal(event.url);
         return false;
       }
 

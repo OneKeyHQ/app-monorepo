@@ -37,7 +37,7 @@ export function MobileLayout() {
             {/* Information Panel */}
             <InformationPanel />
 
-            <Stack h={400 + panesCount * 100}>
+            <Stack h={350 + panesCount * 50}>
               <MarketTradingView
                 tokenAddress={tokenAddress}
                 networkId={networkId}
