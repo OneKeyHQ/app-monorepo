@@ -1,9 +1,16 @@
-import { Suspense, useCallback, useEffect, useRef } from 'react';
+import {
+  PropsWithChildren,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+} from 'react';
 
 import { isNil } from 'lodash';
+import { createPortal } from 'react-dom';
 import { useIntl } from 'react-intl';
 
-import { Dialog, Spinner } from '@onekeyhq/components';
+import { Dialog, Portal, Spinner } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePasswordPromptPromiseTriggerAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
@@ -23,6 +30,8 @@ const PasswordVerifyPromptMount = () => {
   }, []);
 
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
+
+ 
 
   const showPasswordSetupPrompt = useCallback(
     (id: number) => {
@@ -57,6 +66,7 @@ const PasswordVerifyPromptMount = () => {
         title: intl.formatMessage({
           id: ETranslations.enter_passcode,
         }),
+        portalContainer: Portal.Constant.PASSWORD_VERIFY_CONTAINER_PORTAL,
         onClose() {
           onClose(id);
         },
