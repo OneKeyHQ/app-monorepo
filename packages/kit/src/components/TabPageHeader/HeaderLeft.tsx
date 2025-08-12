@@ -13,6 +13,7 @@ import {
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabHomeRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -38,8 +39,10 @@ export function HeaderLeftCloseButton() {
 
 function AccountSelectorTriggerWithSpotlight({
   isFocus,
+  linkNetworkId,
 }: {
   isFocus: boolean;
+  linkNetworkId?: string;
 }) {
   const intl = useIntl();
   const { tourTimes, tourVisited } = useSpotlight(
@@ -55,6 +58,7 @@ function AccountSelectorTriggerWithSpotlight({
     <AccountSelectorTriggerHome
       num={0}
       key="accountSelectorTrigger"
+      linkNetworkId={linkNetworkId}
       spotlightProps={{
         visible: spotlightVisible,
         content: (
@@ -121,11 +125,29 @@ export function HeaderLeft({
       );
     }
 
+    let linkNetworkId: string | undefined;
+    if (tabRoute === ETabRoutes.PerpTrade) {
+      linkNetworkId = presetNetworksMap.arbitrum.id;
+    }
+
     const accountSelectorTrigger = (
-      <MemoizedAccountSelectorTriggerWithSpotlight isFocus={isFocus} />
+      <MemoizedAccountSelectorTriggerWithSpotlight
+        isFocus={isFocus}
+        linkNetworkId={linkNetworkId}
+      />
     );
 
     if (tabRoute === ETabRoutes.Discovery) {
+      return (
+        <SizableText size="$headingLg">
+          {/* {intl.formatMessage({
+            id: ETranslations.global_browser,
+          })} */}
+        </SizableText>
+      );
+    }
+
+    if (tabRoute === ETabRoutes.PerpTrade) {
       return (
         <SizableText size="$headingLg">
           {/* {intl.formatMessage({

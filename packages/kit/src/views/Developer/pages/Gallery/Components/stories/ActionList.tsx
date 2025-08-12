@@ -212,7 +212,7 @@ const ActionListDemo3 = () => (
 
 const ActionListGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    filePath={globalThis.__CURRENT_FILE_PATH__}
     componentName="ActionList"
     elements={[
       {

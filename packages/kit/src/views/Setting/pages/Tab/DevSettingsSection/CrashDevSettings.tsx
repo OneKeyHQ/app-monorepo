@@ -6,6 +6,7 @@ export function CrashDevSettings() {
   return (
     <>
       <SectionPressItem
+        icon="GalaxyOutline"
         title="Crash Test with Private Key"
         onPress={() => {
           throw new OneKeyLocalError(
@@ -14,6 +15,7 @@ export function CrashDevSettings() {
         }}
       />
       <SectionPressItem
+        icon="GalaxyOutline"
         title="Crash Test with Mnemonic"
         onPress={() => {
           throw new OneKeyLocalError(

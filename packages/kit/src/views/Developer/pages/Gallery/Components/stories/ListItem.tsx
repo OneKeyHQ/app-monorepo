@@ -86,7 +86,7 @@ export const NFTDATA = [
 
 const ListItemGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    filePath={globalThis.__CURRENT_FILE_PATH__}
     componentName="ListItem"
     elements={[
       {
