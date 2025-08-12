@@ -218,6 +218,25 @@ function getUpdatingConnectId({
   return platformEnv.isNative ? connectId : undefined;
 }
 
+function getFixedUpdatingConnectId({
+  updatingConnectId,
+  currentTransportType,
+  device,
+}: {
+  updatingConnectId: string | undefined;
+  currentTransportType: EHardwareTransportType;
+  device: IDBDevice | undefined;
+}) {
+  if (
+    platformEnv.isSupportDesktopBle &&
+    currentTransportType === EHardwareTransportType.DesktopWebBle &&
+    device?.connectId
+  ) {
+    return device?.connectId || updatingConnectId;
+  }
+  return updatingConnectId;
+}
+
 async function buildDeviceLabel({
   features,
   buildModelName,
@@ -513,6 +532,7 @@ export default {
   existsFirmwareFromSearchDevice,
   getDeviceScanner,
   getUpdatingConnectId,
+  getFixedUpdatingConnectId,
   isConfirmOnDeviceAction,
   buildDeviceLabel,
   buildDeviceName,
