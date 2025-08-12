@@ -79,7 +79,10 @@ export function MobileLayout({
 
         <Tabs.Tab name={trendingTabName}>
           <Tabs.ScrollView>
-            <MarketFilterBarSmall {...filterBarProps} />
+            <Stack p="$4">
+              <MarketFilterBarSmall {...filterBarProps} />
+            </Stack>
+
             <Stack h={availableHeight}>
               <MarketTokenList
                 networkId={selectedNetworkId}
