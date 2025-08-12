@@ -21,7 +21,10 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import ServiceBase from '../ServiceBase';
 
 import type { IDBAccount } from '../../dbs/local/types';
-import type { IAccountDeriveTypes } from '../../vaults/types';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '../../vaults/types';
 
 export type IAllNetworkAccountInfo = {
   networkId: string;
@@ -33,6 +36,7 @@ export type IAllNetworkAccountInfo = {
   isNftEnabled: boolean;
   isBackendIndexed: boolean | undefined;
   deriveType: IAccountDeriveTypes | undefined;
+  deriveInfo: IAccountDeriveInfo | undefined;
   isTestnet: boolean;
 };
 export type IAllNetworkAccountsInfoResult = {
@@ -285,7 +289,7 @@ class ServiceAllNetwork extends ServiceBase {
               ? isCompatible
               : networkId === realNetworkId;
 
-            const { deriveType } =
+            const { deriveType, deriveInfo } =
               await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate({
                 accountId: a.id,
                 networkId: realNetworkId,
@@ -354,6 +358,7 @@ class ServiceAllNetwork extends ServiceBase {
                 isTestnet: n.isTestnet,
                 dbAccount: a,
                 deriveType,
+                deriveInfo,
               };
 
               appendAccountInfo(accountInfo);
@@ -381,6 +386,7 @@ class ServiceAllNetwork extends ServiceBase {
             isBackendIndexed,
             dbAccount: undefined,
             deriveType: undefined,
+            deriveInfo: undefined,
             isTestnet: n.isTestnet,
           });
         }

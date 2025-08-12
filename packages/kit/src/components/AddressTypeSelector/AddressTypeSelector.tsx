@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -42,6 +42,7 @@ type IProps = {
   networkId: string;
   indexedAccountId: string;
   activeDeriveType?: IAccountDeriveTypes;
+  activeDeriveInfo?: IAccountDeriveInfo;
   title?: string | ReactElement;
   description?: string | ReactElement;
   helpLink?: string;
@@ -244,6 +245,7 @@ function AddressTypeSelector(props: IProps) {
     renderSelectorTrigger,
     tokenMap: tokenMapProp,
     activeDeriveType: activeDeriveTypeProp,
+    activeDeriveInfo: activeDeriveInfoProp,
     disableSelector,
     showTriggerWhenDisabled = false,
   } = props;
@@ -283,9 +285,13 @@ function AddressTypeSelector(props: IProps) {
     );
 
   const activeDeriveInfo = useMemo(() => {
+    if (activeDeriveInfoProp) {
+      return activeDeriveInfoProp;
+    }
+
     return networkAccounts.find((item) => item.deriveType === activeDeriveType)
       ?.deriveInfo;
-  }, [networkAccounts, activeDeriveType]);
+  }, [activeDeriveInfoProp, networkAccounts, activeDeriveType]);
 
   const selectorTitle = useMemo(() => {
     let defaultTitle = 'Select address type';
@@ -440,4 +446,4 @@ function AddressTypeSelector(props: IProps) {
   );
 }
 
-export default AddressTypeSelector;
+export default memo(AddressTypeSelector);

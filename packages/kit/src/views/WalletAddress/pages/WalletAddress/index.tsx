@@ -41,10 +41,7 @@ import { useFuseSearch } from '@onekeyhq/kit/src/views/ChainSelector/hooks/useFu
 import type { IAllNetworksDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAllNetworks';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useAllNetworksPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type {
-  IAccountDeriveInfo,
-  IAccountDeriveTypes,
-} from '@onekeyhq/kit-bg/src/vaults/types';
+
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
@@ -74,7 +71,6 @@ import {
 import { WalletAddressContext } from './WalletAddressContext';
 
 import type { IWalletAddressContext } from './WalletAddressContext';
-import { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 const log = debugUtils.createSimpleDebugLog('<WalletAddressPage>', true);
 
@@ -124,6 +120,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     () => networkAccountMap[network.id]?.[0],
     [networkAccountMap, network.id],
   );
+
   const subtitle = useMemo(() => {
     if (account) {
       if (networkUtils.isLightningNetworkByNetworkId(network.id)) {
@@ -240,6 +237,8 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
                   <AddressTypeSelector
                     walletId={walletId ?? ''}
                     networkId={network.id}
+                    activeDeriveType={account?.deriveType}
+                    activeDeriveInfo={account?.deriveInfo}
                     indexedAccountId={indexedAccountId ?? ''}
                     onSelect={async () => {
                       refreshLocalData();
