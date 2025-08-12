@@ -1,10 +1,16 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Dimensions } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 
 import type { ICarouselInstance } from '@onekeyhq/components';
-import { Carousel, Stack, Tabs, YStack } from '@onekeyhq/components';
+import {
+  Carousel,
+  Tabs,
+  YStack,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import {
   useMarketWatchListV2Atom,
   useSelectedMarketTabAtom,
@@ -41,7 +47,7 @@ export function DesktopLayout({
   const intl = useIntl();
   const [watchlistState] = useMarketWatchListV2Atom();
   const watchlist = watchlistState.data || [];
-  const [selectedTab, setSelectedTab] = useSelectedMarketTabAtom();
+  const [, setSelectedTab] = useSelectedMarketTabAtom();
 
   const watchlistTabName = intl.formatMessage({
     id: ETranslations.global_watchlist,
@@ -49,54 +55,6 @@ export function DesktopLayout({
   const trendingTabName = intl.formatMessage({
     id: ETranslations.market_trending,
   });
-
-  // return (
-  //   <Stack flex={1} height="100%">
-  //     <Tabs.Container
-  //       initialTabName={
-  //         selectedTab === 'watchlist' ? watchlistTabName : trendingTabName
-  //       }
-  //       headerContainerStyle={{
-  //         borderBottomWidth: 0,
-  //         width: '100%',
-  //         shadowColor: 'transparent',
-  //       }}
-  //       onTabChange={(data: { tabName: string }) => {
-  //         const tabValue =
-  //           data.tabName === watchlistTabName ? 'watchlist' : 'trending';
-  //         setSelectedTab(tabValue);
-  //         onTabChange(tabValue);
-  //       }}
-  //     >
-  //       <Tabs.Tab name={watchlistTabName}>
-  //         <Tabs.ScrollView>
-  //           <Stack px="$4" flex={1}>
-  // <MarketTokenList
-  //   networkId={selectedNetworkId}
-  //   liquidityFilter={liquidityFilter}
-  //   showWatchlistOnly
-  //   watchlist={watchlist}
-  // />
-  //           </Stack>
-  //         </Tabs.ScrollView>
-  //       </Tabs.Tab>
-
-  //       <Tabs.Tab name={trendingTabName}>
-  //         <Tabs.ScrollView>
-  //           <Stack px="$4">
-  //             <MarketFilterBar {...filterBarProps} />
-  //             <MarketTokenList
-  //               networkId={selectedNetworkId}
-  //               liquidityFilter={liquidityFilter}
-  //               showWatchlistOnly={false}
-  //               watchlist={watchlist}
-  //             />
-  //           </Stack>
-  //         </Tabs.ScrollView>
-  //       </Tabs.Tab>
-  //     </Tabs.Container>
-  //   </Stack>
-  // );
 
   const carouselRef = useRef<ICarouselInstance>(null);
   const tabNames = useMemo(() => {
@@ -107,15 +65,22 @@ export function DesktopLayout({
 
   const handleTabChange = useCallback(
     (tabName: string) => {
+      setSelectedTab(tabName as IMarketHomeTabValue);
+      onTabChange(tabName as IMarketHomeTabValue);
       focusedTab.value = tabName;
       carouselRef.current?.scrollTo({ index: tabNames.indexOf(tabName) });
     },
-    [focusedTab, tabNames],
+    [focusedTab, onTabChange, setSelectedTab, tabNames],
   );
 
+  const { top, bottom } = useSafeAreaInsets();
+
   const height = useMemo(() => {
-    return platformEnv.isNative ? undefined : 'calc(100vh - 96px)';
-  }, []);
+    return platformEnv.isNative
+      ? Dimensions.get('window').height - top - bottom - 220
+      : 'calc(100vh - 96px)';
+  }, [bottom, top]);
+
   const renderItem = useCallback(
     ({ item }: { item: string }) => {
       if (item === watchlistTabName) {
