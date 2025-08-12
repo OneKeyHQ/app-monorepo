@@ -43,7 +43,7 @@ function demoError(error: unknown, apiName: string) {
   }
 }
 
-function PerpApiTests() {
+export function PerpApiTests() {
   const [userAddress, setUserAddress] = useState(
     '0x1234567890123456789012345678901234567890',
   );
@@ -492,7 +492,7 @@ function PerpApiTests() {
 
 const PerpGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    filePath={globalThis.__CURRENT_FILE_PATH__}
     componentName="PerpGallery"
     elements={[
       {
