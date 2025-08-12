@@ -76,15 +76,13 @@ export function MobileLayout({
   );
 
   const height = useMemo(() => {
-    return platformEnv.isNative
-      ? Dimensions.get('window').height - top - bottom - 0
-      : 'calc(100vh - 96px)';
-  }, [bottom, top]);
+    return platformEnv.isNative ? undefined : 'calc(100vh - 96px)';
+  }, []);
   const renderItem = useCallback(
     ({ item }: { item: string }) => {
       if (item === watchlistTabName) {
         return (
-          <YStack flex={1}>
+          <YStack flex={1} height={height}>
             <MarketTokenList
               networkId={selectedNetworkId}
               liquidityFilter={liquidityFilter}
@@ -95,7 +93,7 @@ export function MobileLayout({
         );
       }
       return (
-        <YStack flex={1}>
+        <YStack flex={1} height={height}>
           <MarketFilterBarSmall {...filterBarProps} />
           <MarketTokenList
             networkId={selectedNetworkId}
@@ -108,6 +106,7 @@ export function MobileLayout({
     },
     [
       filterBarProps,
+      height,
       liquidityFilter,
       selectedNetworkId,
       watchlist,
