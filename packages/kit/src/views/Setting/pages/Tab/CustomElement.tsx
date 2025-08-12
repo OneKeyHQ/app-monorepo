@@ -49,6 +49,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -611,6 +612,7 @@ export function DesktopBluetoothListItem(props: ICustomElementProps) {
   const [{ enableDesktopBluetooth }] = useSettingsPersistAtom();
   const toggleBluetooth = useCallback(async (value: boolean) => {
     await backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(value);
+    defaultLogger.setting.page.settingsEnableBluetooth({ enabled: value });
   }, []);
   return (
     <TabSettingsListItem {...props} userSelect="none">
