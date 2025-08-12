@@ -63,7 +63,7 @@ const invalidExternalAccount: IDBExternalAccount = {
 
 const ToastGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    filePath={globalThis.__CURRENT_FILE_PATH__}
     componentName="AccountAvatar"
     elements={[
       {

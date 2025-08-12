@@ -253,7 +253,7 @@ const TabsWithInitialTabDemo = () => {
   );
 
   return (
-    <Tabs.Container initialTabName="Favorites">
+    <Tabs.Container initialTabName="Archive">
       <Tabs.Tab name="Recent">
         <YStack p="$4" gap="$2">
           <SizableText size="$bodyMdMedium" color="$textSubdued">
@@ -323,7 +323,7 @@ const TabsWithInitialTabDemo = () => {
 
 const NewTabsGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    filePath={globalThis.__CURRENT_FILE_PATH__}
     componentName="NewTabs"
     suggestions={[
       '使用 Tabs.Container 作为容器组件',

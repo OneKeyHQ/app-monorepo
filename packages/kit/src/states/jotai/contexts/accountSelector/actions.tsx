@@ -555,6 +555,17 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       }
       set(accountSelectorEditModeAtom(), false);
 
+      let linkNetworkDeriveType: IAccountDeriveTypes | undefined;
+      if (others.linkNetworkId) {
+        linkNetworkDeriveType =
+          others.linkNetworkDeriveType ||
+          (await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+            {
+              networkId: others.linkNetworkId,
+            },
+          ));
+      }
+
       navigation.pushModal(EModalRoutes.AccountManagerStacks, {
         screen: EAccountManagerStacksRoutes.AccountSelectorStack,
         params: {
@@ -562,6 +573,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           sceneName,
           sceneUrl,
           ...others,
+          linkNetworkDeriveType,
         },
       });
     },
