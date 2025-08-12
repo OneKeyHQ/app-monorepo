@@ -145,7 +145,7 @@ const Demo2 = ({ networkId, num = 0 }: { networkId: string; num: number }) => {
 
 const AddressInputGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    filePath={globalThis.__CURRENT_FILE_PATH__}
     componentName="AddressInput"
     elements={[
       {

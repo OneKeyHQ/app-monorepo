@@ -44,6 +44,7 @@ export enum EGalleryRoutes {
   ComponentOTPInput = 'component-OTPInput',
   ComponentPasswordDemo = 'component-PasswordDemo',
   ComponentPasswordKeyboardGallery = 'component-PasswordKeyboard',
+  ComponentPerp = 'component-Perp',
   ComponentPopover = 'component-Popover',
   ComponentPortal = 'component-Portal',
   ComponentProgress = 'component-Progress',

@@ -21,7 +21,7 @@ const RadioExample = () => {
 
 const RadioGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    filePath={globalThis.__CURRENT_FILE_PATH__}
     componentName="Radio"
     elements={[
       {
