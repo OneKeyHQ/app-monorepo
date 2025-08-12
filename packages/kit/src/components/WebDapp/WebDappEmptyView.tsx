@@ -5,13 +5,13 @@ import { StyleSheet } from 'react-native';
 
 import {
   Button,
+  Divider,
   Icon,
   SizableText,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/SearchInput/UniversalSearchInput';
@@ -171,13 +171,7 @@ function WebDappEmptyView() {
         </YStack>
       </YStack>
 
-      <XStack alignItems="center" py="$4" gap="$2" width="$full">
-        <Stack flex={1} height="$px" bg="$neutral3" />
-        <SizableText size="$bodySmMedium" color="$textDisabled">
-          OR
-        </SizableText>
-        <Stack flex={1} height="$px" bg="$neutral3" />
-      </XStack>
+      <Divider my="$4" width="100%" />
 
       <YStack py="$4" bg="$bgSubdued" borderRadius="$4" width="$full">
         <YStack px="$5" pb="$4">
