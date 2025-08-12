@@ -67,6 +67,13 @@ const DesktopApiProxyTestDevSettings = LazyLoadPage(
     ),
 );
 
+const PerpGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PerpGallery'
+    ),
+);
+
 const ExportCustomNetworkConfig = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/ExportCustomNetworkConfig'),
@@ -150,6 +157,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevDesktopApiProxyTestModal,
     component: DesktopApiProxyTestDevSettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevPerpGalleryModal,
+    component: PerpGallery,
   },
   {
     name: EModalSettingRoutes.SettingExportCustomNetworkConfig,

@@ -31,7 +31,7 @@ const data = [
 const CarouselGallery = () => (
   <Layout
     componentName="Carousel"
-    filePath={__CURRENT_FILE_PATH__}
+    filePath={globalThis.__CURRENT_FILE_PATH__}
     elements={[
       {
         title: 'Variants',

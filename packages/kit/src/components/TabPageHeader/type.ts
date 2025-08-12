@@ -7,6 +7,11 @@ export interface ITabPageHeaderProp {
   children?: ReactNode;
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
+  renderCustomHeaderRightItems?: ({
+    fixedItems,
+  }: {
+    fixedItems: ReactNode;
+  }) => ReactNode;
   customHeaderRightItems?: ReactNode;
   customHeaderLeftItems?: ReactNode;
   hideSearch?: boolean;
