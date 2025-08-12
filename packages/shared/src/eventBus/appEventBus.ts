@@ -336,6 +336,7 @@ export interface IAppEventBusPayload {
     promiseId?: number;
   };
   [EAppEventBusNames.ShowHardwareErrorDialog]: IHardwareErrorDialogPayload;
+  [EAppEventBusNames.SwapPanelDismissKeyboard]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

@@ -450,6 +450,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     } else if (listViewLayout.height) {
       sectionListView = (
         <SectionList
+          useFlashList
           ref={listRef}
           // TODO performance
           onLayout={(e) => {

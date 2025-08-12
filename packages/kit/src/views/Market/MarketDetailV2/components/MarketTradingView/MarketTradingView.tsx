@@ -6,6 +6,7 @@ interface IMarketTradingViewProps {
   tokenSymbol?: string;
   identifier?: string;
   decimal?: number;
+  onPanesCountChange?: (count: number) => void;
 }
 
 export function MarketTradingView({
@@ -14,6 +15,7 @@ export function MarketTradingView({
   tokenSymbol = '',
   identifier = 'OneKey',
   decimal = 8,
+  onPanesCountChange,
 }: IMarketTradingViewProps) {
   return (
     <TradingView
@@ -27,6 +29,10 @@ export function MarketTradingView({
       networkId={networkId}
       decimal={decimal}
       onLoadEnd={() => {}}
+      onPanesCountChange={(count) => {
+        console.log('📊 MarketDetailV2 - Panels count:', count);
+        onPanesCountChange?.(count);
+      }}
     />
   );
 }

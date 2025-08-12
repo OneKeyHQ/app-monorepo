@@ -1166,7 +1166,7 @@ class ServiceHardware extends ServiceBase {
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
     const hardwareSDK = await this.getSDKInstance({
-      connectId,
+      connectId: compatibleConnectId,
     });
     return convertDeviceResponse(() => {
       // classic1s does not support getOnekeyFeatures method
@@ -1178,7 +1178,7 @@ class ServiceHardware extends ServiceBase {
           compatibleConnectId,
         ) as unknown as Response<OnekeyFeatures>;
       }
-      return hardwareSDK?.getOnekeyFeatures(connectId);
+      return hardwareSDK?.getOnekeyFeatures(compatibleConnectId);
     });
   }
 
@@ -1480,6 +1480,7 @@ class ServiceHardware extends ServiceBase {
         payload: {
           connectId,
           deviceId: featuresDeviceId || undefined,
+          inBluetoothCommunication: true,
         },
       });
     }
@@ -1492,6 +1493,7 @@ class ServiceHardware extends ServiceBase {
           payload: {
             connectId,
             deviceId: featuresDeviceId || undefined,
+            inBluetoothCommunication: true,
           },
         });
       }
@@ -1510,6 +1512,7 @@ class ServiceHardware extends ServiceBase {
           payload: {
             connectId,
             deviceId: featuresDeviceId || undefined,
+            inBluetoothCommunication: true,
           },
         });
       }
@@ -1546,6 +1549,7 @@ class ServiceHardware extends ServiceBase {
         payload: {
           connectId,
           deviceId: featuresDeviceId || undefined,
+          inBluetoothCommunication: true,
         },
       });
     } catch (error) {
@@ -1559,6 +1563,7 @@ class ServiceHardware extends ServiceBase {
         payload: {
           connectId,
           deviceId: featuresDeviceId || undefined,
+          inBluetoothCommunication: true,
         },
       });
     }
@@ -1629,6 +1634,9 @@ class ServiceHardware extends ServiceBase {
         return device.connectId;
       }
       if (device && !device.bleConnectId) {
+        if (hardwareCallContext === EHardwareCallContext.SILENT_CALL) {
+          return connectId;
+        }
         // Use servicePromise to wait for UI dialog to complete BLE pairing
         const bleConnectId = await new Promise<string>((resolve, reject) => {
           const promiseId = this.backgroundApi.servicePromise.createCallback({

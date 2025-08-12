@@ -13,7 +13,6 @@ import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirro
 
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileLayout } from './layouts/MobileLayout';
-import { EMarketHomeTab } from './types';
 
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketHomeTabValue } from './types';
@@ -45,9 +44,9 @@ function MarketHome() {
   }, [formattedMinLiquidity, liquidityFilter.min]);
   const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('5m');
 
-  const [_activeTab, setActiveTab] = useState<IMarketHomeTabValue>(
-    EMarketHomeTab.Trending,
-  );
+  const handleTabChange = (_tabId: IMarketHomeTabValue) => {
+    // Tab change is now handled by the atomic state in layouts
+  };
 
   const mobileProps = useMemo(
     () => ({
@@ -61,7 +60,7 @@ function MarketHome() {
       },
       selectedNetworkId,
       liquidityFilter,
-      onTabChange: setActiveTab,
+      onTabChange: handleTabChange,
     }),
     [selectedNetworkId, timeRange, liquidityFilter, setSelectedNetworkId],
   );
@@ -78,7 +77,7 @@ function MarketHome() {
       },
       selectedNetworkId,
       liquidityFilter,
-      onTabChange: setActiveTab,
+      onTabChange: handleTabChange,
     }),
     [selectedNetworkId, timeRange, liquidityFilter, setSelectedNetworkId],
   );

@@ -1151,7 +1151,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         const device = walletWithDevice.device;
 
         if (wallet?.id && device?.connectId) {
-          const isSameConnectId = device.connectId === connectId;
+          const isSameConnectId =
+            device.connectId === connectId || device.bleConnectId === connectId;
           const isSameDevice = device.deviceId === deviceId;
 
           // only handle wallet with same connectId
