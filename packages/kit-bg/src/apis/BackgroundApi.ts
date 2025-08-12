@@ -88,6 +88,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get servicePerp() {
+    const Service =
+      require('../services/ServicePerp') as typeof import('../services/ServicePerp');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'servicePerp', { value });
+    return value;
+  }
+
   get serviceNetwork() {
     const Service =
       require('../services/ServiceNetwork') as typeof import('../services/ServiceNetwork');
