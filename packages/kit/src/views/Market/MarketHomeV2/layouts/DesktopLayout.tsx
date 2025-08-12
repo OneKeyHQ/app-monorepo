@@ -78,7 +78,7 @@ export function DesktopLayout({
 
         <Tabs.Tab name={trendingTabName}>
           <Tabs.ScrollView>
-            <Stack p="$4">
+            <Stack px="$4" pt="$2">
               <MarketFilterBar {...filterBarProps} />
               <MarketTokenList
                 networkId={selectedNetworkId}

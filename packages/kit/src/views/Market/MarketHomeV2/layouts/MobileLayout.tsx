@@ -79,7 +79,7 @@ export function MobileLayout({
 
         <Tabs.Tab name={trendingTabName}>
           <Tabs.ScrollView>
-            <Stack p="$4">
+            <Stack px="$4" pt="$2">
               <MarketFilterBarSmall {...filterBarProps} />
             </Stack>
 
