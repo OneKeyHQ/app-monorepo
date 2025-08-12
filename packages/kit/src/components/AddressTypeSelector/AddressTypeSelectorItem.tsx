@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { find } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -44,8 +44,17 @@ function AddressTypeSelectorItem(props: IProps) {
   const { data, onSelect } = props;
   const { deriveInfo, deriveType, account } = data;
   const intl = useIntl();
-  const { tokenMap, activeDeriveType, networkId, isCreatingAddress } =
-    useAddressTypeSelectorContext();
+  const {
+    tokenMap,
+    activeDeriveType,
+    networkId,
+    isCreatingAddress,
+    creatingDeriveType,
+  } = useAddressTypeSelectorContext();
+
+  const isCreatingCurrentDeriveType = useMemo(() => {
+    return deriveType === creatingDeriveType && isCreatingAddress;
+  }, [deriveType, creatingDeriveType, isCreatingAddress]);
 
   const [settings] = useSettingsPersistAtom();
   let tokenFiat: ITokenFiat | undefined;
@@ -92,13 +101,13 @@ function AddressTypeSelectorItem(props: IProps) {
       }}
       childrenBefore={
         <Stack w="$5" mr="$-1">
-          {!account && !isCreatingAddress ? (
+          {!account && !isCreatingCurrentDeriveType ? (
             <Icon size="$4" name="PlusLargeOutline" color="$iconSubdued" />
           ) : null}
           {account && deriveType === activeDeriveType ? (
             <Icon size="$4" name="CheckmarkSolid" color="$iconActive" />
           ) : null}
-          {isCreatingAddress ? <Spinner /> : null}
+          {isCreatingCurrentDeriveType ? <Spinner /> : null}
         </Stack>
       }
       onPress={() => {

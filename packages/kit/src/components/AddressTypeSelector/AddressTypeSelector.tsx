@@ -13,6 +13,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
@@ -51,6 +52,11 @@ type IProps = {
     deriveInfo: IAccountDeriveInfo;
     deriveType: IAccountDeriveTypes;
   }) => Promise<void>;
+  onCreate?: (value: {
+    account: IDBAccount | undefined;
+    deriveInfo: IAccountDeriveInfo;
+    deriveType: IAccountDeriveTypes;
+  }) => Promise<void>;
   renderSelectorTrigger?: ReactNode;
   changeDefaultAddressTypeAfterSelect?: boolean;
   tokenMap?: Record<string, ITokenFiat>;
@@ -77,6 +83,7 @@ function AddressTypeSelectorContent(
     indexedAccountId,
     description,
     onSelect,
+    onCreate,
     changeDefaultAddressTypeAfterSelect = true,
     networkAccounts,
     refreshNetworkAccounts,
@@ -89,7 +96,7 @@ function AddressTypeSelectorContent(
 
   const { gtMd } = useMedia();
 
-  const { setIsCreatingAddress, setActiveDeriveType } =
+  const { setIsCreatingAddress, setActiveDeriveType, setCreatingDeriveType } =
     useAddressTypeSelectorContext();
 
   const { createAddress } = useAccountSelectorCreateAddress();
@@ -139,6 +146,7 @@ function AddressTypeSelectorContent(
       if (!account) {
         try {
           setIsCreatingAddress(true);
+          setCreatingDeriveType(deriveType);
           const walletId = accountUtils.getWalletIdFromAccountId({
             accountId: indexedAccountId,
           });
@@ -158,10 +166,16 @@ function AddressTypeSelectorContent(
                 id: ETranslations.swap_page_toast_address_generated,
               }),
             });
+            void onCreate?.({
+              account: createAddressResult.accounts[0],
+              deriveInfo,
+              deriveType,
+            });
           }
           void refreshNetworkAccounts?.();
         } finally {
           setIsCreatingAddress(false);
+          setCreatingDeriveType(undefined);
         }
         return;
       }
@@ -192,11 +206,13 @@ function AddressTypeSelectorContent(
       doubleConfirm,
       onSelect,
       setIsCreatingAddress,
+      setCreatingDeriveType,
       indexedAccountId,
       createAddress,
       networkId,
       refreshNetworkAccounts,
       intl,
+      onCreate,
       closePopover,
       changeDefaultAddressTypeAfterSelect,
     ],
@@ -257,6 +273,10 @@ function AddressTypeSelector(props: IProps) {
   const [activeDeriveType, setActiveDeriveType] = useState<
     IAccountDeriveTypes | undefined
   >(activeDeriveTypeProp);
+
+  const [creatingDeriveType, setCreatingDeriveType] = useState<
+    IAccountDeriveTypes | undefined
+  >(undefined);
 
   const [tokenMap, setTokenMap] = useState<
     Record<string, ITokenFiat> | undefined
@@ -337,20 +357,24 @@ function AddressTypeSelector(props: IProps) {
     () => ({
       tokenMap,
       activeDeriveType,
+      creatingDeriveType,
       networkId,
       isFetchingTokenMap,
       isCreatingAddress,
       setIsCreatingAddress,
       setActiveDeriveType,
+      setCreatingDeriveType,
     }),
     [
       tokenMap,
       activeDeriveType,
+      creatingDeriveType,
       networkId,
       isFetchingTokenMap,
       isCreatingAddress,
       setIsCreatingAddress,
       setActiveDeriveType,
+      setCreatingDeriveType,
     ],
   );
 

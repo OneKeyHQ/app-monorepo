@@ -242,6 +242,17 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
                     onSelect={async () => {
                       refreshLocalData();
                     }}
+                    onCreate={async ({ deriveType }) => {
+                      const defaultDeriveType =
+                        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                          {
+                            networkId: network.id,
+                          },
+                        );
+                      if (deriveType === defaultDeriveType) {
+                        refreshLocalData();
+                      }
+                    }}
                   />
                 ) : null}
               </XStack>
