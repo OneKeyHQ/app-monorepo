@@ -11,3 +11,7 @@ export interface ITabPageHeaderProp {
   customHeaderLeftItems?: ReactNode;
   hideSearch?: boolean;
 }
+
+export interface ITabPageHeaderContainerProps {
+  children: ReactNode;
+}
