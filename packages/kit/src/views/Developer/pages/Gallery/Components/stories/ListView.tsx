@@ -20,7 +20,9 @@ const ListViewDemo = () => {
   const ref = useRef<IListViewRef<any> | null>(null);
   return (
     <ListView
+      useFlashList
       h="$60"
+      maxHeight="$60"
       estimatedItemSize="$10"
       contentContainerStyle={{
         bg: '$borderLight',
@@ -85,7 +87,7 @@ const ListViewGallery = () => {
 
   return !showPerformanceList ? (
     <Layout
-      filePath={__CURRENT_FILE_PATH__}
+      filePath={globalThis.__CURRENT_FILE_PATH__}
       componentName="ListView"
       elements={[
         {

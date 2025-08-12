@@ -25,7 +25,7 @@ export const GradientMask = ({ position, opacity = 1 }: IGradientMaskProps) => {
       <LinearGradient
         width="100%"
         height="100%"
-        colors={['$bgApp', 'transparent']}
+        colors={['$bgApp', 'rgba(255, 255, 255, 0)']}
         start={position === 'left' ? [0, 0] : [1, 0]}
         end={position === 'left' ? [1, 0] : [0, 0]}
       />

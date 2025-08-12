@@ -20,6 +20,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FIX_SHEET_PROPS } from '../../composite/Dialog';
+import { Keyboard } from '../../content';
 import { Portal } from '../../hocs';
 import {
   ModalNavigatorContext,
@@ -98,6 +99,7 @@ const usePopoverValue = (
         trackId: trackID,
       });
     }
+    void Keyboard.dismissWithDelay(50);
   }, [isControlled, onOpenChange, trackID]);
 
   const closePopover = useCallback(() => {
@@ -113,6 +115,7 @@ const usePopoverValue = (
         trackId: trackID,
       });
     }
+    void Keyboard.dismissWithDelay(50);
   }, [isControlled, onOpenChange, trackID]);
 
   return {

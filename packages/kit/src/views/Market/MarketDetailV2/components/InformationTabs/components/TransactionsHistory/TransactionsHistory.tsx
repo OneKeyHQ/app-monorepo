@@ -108,9 +108,9 @@ export function TransactionsHistory({
       keyExtractor={(item: IMarketTokenTransaction) => item.hash}
       showsVerticalScrollIndicator
       onScroll={handleScroll}
-      ListHeaderComponent={
-        gtLg ? <TransactionsHeaderNormal /> : <TransactionsHeaderSmall />
-      }
+      // ListHeaderComponent={
+      //   gtLg ? <TransactionsHeaderNormal /> : <TransactionsHeaderSmall />
+      // }
       contentContainerStyle={{
         paddingBottom: 16,
       }}
