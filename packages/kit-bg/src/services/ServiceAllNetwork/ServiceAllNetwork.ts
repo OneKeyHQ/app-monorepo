@@ -48,6 +48,7 @@ export type IAllNetworkAccountsParams = {
   nftEnabledOnly?: boolean;
   includingNonExistingAccount?: boolean;
   includingNotEqualGlobalDeriveTypeAccount?: boolean;
+  includingDeriveTypeMismatchInDefaultVisibleNetworks?: boolean;
   fetchAllNetworkAccounts?: boolean;
   networksEnabledOnly?: boolean;
   excludeTestNetwork?: boolean;
@@ -170,6 +171,7 @@ class ServiceAllNetwork extends ServiceBase {
       deriveType: singleNetworkDeriveType,
       includingNonExistingAccount,
       includingNotEqualGlobalDeriveTypeAccount,
+      includingDeriveTypeMismatchInDefaultVisibleNetworks = true,
       fetchAllNetworkAccounts,
       networksEnabledOnly,
       excludeTestNetwork = true,
@@ -295,9 +297,12 @@ class ServiceAllNetwork extends ServiceBase {
               isAllNetwork &&
               isMatched &&
               a.template &&
-              !networkUtils
-                .getDefaultDeriveTypeVisibleNetworks()
-                .includes(realNetworkId)
+              !(
+                networkUtils
+                  .getDefaultDeriveTypeVisibleNetworks()
+                  .includes(realNetworkId) &&
+                includingDeriveTypeMismatchInDefaultVisibleNetworks
+              )
             ) {
               const globalDeriveType =
                 await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork(

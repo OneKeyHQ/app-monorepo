@@ -207,6 +207,9 @@ function AddressTypeSelectorContent(
       $gtMd={{
         pt: '$3',
       }}
+      onPress={(e) => {
+        e.stopPropagation();
+      }}
     >
       <YStack px="$4">
         {gtMd ? selectorTitle : null}

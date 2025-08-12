@@ -464,79 +464,33 @@ function SendDataInputContainer() {
         },
         closeAfterSelect: false,
         onSelect: async (data: IToken) => {
-          const tokenVaultSettings =
-            await backgroundApiProxy.serviceNetwork.getVaultSettings({
-              networkId: data.networkId ?? '',
+          defaultLogger.transaction.send.sendSelect({
+            network: data.networkId ?? networkId,
+            tokenAddress: data.address,
+            tokenSymbol: data.symbol,
+            tokenType: 'Token',
+          });
+          if (data.accountId && data.networkId) {
+            setCurrentAccount({
+              accountId: data.accountId,
+              networkId: data.networkId,
             });
-
-          if (
-            tokenVaultSettings.mergeDeriveAssetsEnabled &&
-            isAllNetworks &&
-            !accountUtils.isOthersAccount({
-              accountId: currentAccount.accountId,
-            })
-          ) {
-            const walletId = accountUtils.getWalletIdFromAccountId({
-              accountId: data.accountId ?? '',
-            });
-            navigation.push(EAssetSelectorRoutes.DeriveTypesAddressSelector, {
-              networkId: data.networkId ?? '',
-              indexedAccountId: account?.indexedAccountId ?? '',
-              walletId,
-              accountId: data.accountId ?? '',
-              actionType: EDeriveAddressActionType.Select,
-              token: data,
-              tokenMap: map,
-              onUnmounted: () => {},
-              onSelected: ({ account: a }: { account: INetworkAccount }) => {
-                data.accountId = a.id;
-                defaultLogger.transaction.send.sendSelect({
-                  network: data.networkId ?? networkId,
-                  tokenAddress: data.address,
-                  tokenSymbol: data.symbol,
-                  tokenType: 'Token',
-                });
-                if (data.accountId && data.networkId) {
-                  setCurrentAccount({
-                    accountId: data.accountId,
-                    networkId: data.networkId,
-                  });
-                }
-                setTokenInfo(data);
-                navigation.popStack();
-              },
-            });
-          } else {
-            defaultLogger.transaction.send.sendSelect({
-              network: data.networkId ?? networkId,
-              tokenAddress: data.address,
-              tokenSymbol: data.symbol,
-              tokenType: 'Token',
-            });
-            if (data.accountId && data.networkId) {
-              setCurrentAccount({
-                accountId: data.accountId,
-                networkId: data.networkId,
-              });
-              // TODO: need remove
-              form.setValue('accountId', data.accountId);
-              form.setValue('networkId', data.networkId);
-            }
-            setTokenInfo(data);
-            navigation.popStack();
+            // TODO: need remove
+            form.setValue('accountId', data.accountId);
+            form.setValue('networkId', data.networkId);
           }
+          setTokenInfo(data);
+          navigation.popStack();
         },
         isAllNetworks,
       },
     });
   }, [
-    account?.indexedAccountId,
     accountId,
     activeAccountId,
     activeNetworkId,
     allTokens.keys,
     allTokens.tokens,
-    currentAccount.accountId,
     form,
     isAllNetworks,
     isSelectTokenDisabled,
