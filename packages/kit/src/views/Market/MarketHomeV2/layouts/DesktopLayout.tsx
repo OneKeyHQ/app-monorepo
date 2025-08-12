@@ -76,16 +76,14 @@ export function DesktopLayout({
   const { top, bottom } = useSafeAreaInsets();
 
   const height = useMemo(() => {
-    return platformEnv.isNative
-      ? Dimensions.get('window').height - top - bottom - 220
-      : 'calc(100vh - 96px)';
-  }, [bottom, top]);
+    return platformEnv.isNative ? undefined : 'calc(100vh - 96px)';
+  }, []);
 
   const renderItem = useCallback(
     ({ item }: { item: string }) => {
       if (item === watchlistTabName) {
         return (
-          <YStack px="$4" height={height}>
+          <YStack px="$4" height={height} flex={1}>
             <MarketTokenList
               networkId={selectedNetworkId}
               liquidityFilter={liquidityFilter}
@@ -96,7 +94,7 @@ export function DesktopLayout({
         );
       }
       return (
-        <YStack px="$4" height={height}>
+        <YStack px="$4" height={height} flex={1}>
           <MarketFilterBar {...filterBarProps} />
           <MarketTokenList
             networkId={selectedNetworkId}
