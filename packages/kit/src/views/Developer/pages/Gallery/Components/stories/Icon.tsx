@@ -26,7 +26,7 @@ const IconGallery = () => {
 
   return (
     <Layout
-      filePath={__CURRENT_FILE_PATH__}
+      filePath={globalThis.__CURRENT_FILE_PATH__}
       componentName="Icon"
       description="图标是一种视觉符号，用于表示对象或概念"
       suggestions={['图标的设计应该简洁、易于理解、易于识别']}

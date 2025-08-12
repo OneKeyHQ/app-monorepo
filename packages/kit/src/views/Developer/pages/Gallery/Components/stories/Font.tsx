@@ -5,7 +5,7 @@ import { Layout } from './utils/Layout';
 const FontGallery = () => {
   return (
     <Layout
-      filePath={__CURRENT_FILE_PATH__}
+      filePath={globalThis.__CURRENT_FILE_PATH__}
       componentName="Empty"
       elements={[
         {
