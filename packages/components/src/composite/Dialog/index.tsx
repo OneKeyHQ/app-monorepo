@@ -328,9 +328,15 @@ function DialogFrame({
               exitStyle={{ opacity: 0, scale: 0.85 }}
               borderRadius="$4"
               borderWidth="$0"
-              outlineColor="$borderSubdued"
-              outlineStyle="solid"
-              outlineWidth="$px"
+              $theme-dark={{
+                outlineColor: '$neutral5',
+              }}
+              outlineWidth={1}
+              outlineOffset={0}
+              outlineColor="$neutral3"
+              style={{
+                outlineStyle: 'solid',
+              }}
               bg="$bg"
               width={MAX_CONTENT_WIDTH}
               p="$0"
