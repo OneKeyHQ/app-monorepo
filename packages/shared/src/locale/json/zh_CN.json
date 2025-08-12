@@ -472,7 +472,7 @@
   "dexmarket.details_transactions_buy": "买入",
   "dexmarket.details_transactions_sell": "卖出",
   "dexmarket.enter_amount": "输入代币数量",
-  "dexmarket.fdv_desc": "完全稀释估值 - 如果所有代币都在流通中的总价值",
+  "dexmarket.fdv_desc": "全流通价值 - 如果所有代币都在流通中的总价值",
   "dexmarket.fdv_title": "全流通价值",
   "dexmarket.holders": "持币地址",
   "dexmarket.hp_time_filter_1h": "1小时",
