@@ -86,7 +86,6 @@ export function HeaderLeft({
   tabRoute: ETabRoutes;
   customHeaderLeftItems?: ReactNode;
 }) {
-  const intl = useIntl();
   const { gtMd } = useMedia();
 
   const [isFocus, setIsFocus] = useState(false);

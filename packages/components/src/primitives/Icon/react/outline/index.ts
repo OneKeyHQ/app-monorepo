@@ -745,6 +745,7 @@ export { default as ThumbackRotateOff } from './ThumbackRotateOff';
 export { default as ThumbackRotate } from './ThumbackRotate';
 export { default as Thumbtack } from './Thumbtack';
 export { default as Ticket } from './Ticket';
+export { default as Tilde } from './Tilde';
 export { default as TitleCase } from './TitleCase';
 export { default as Toast } from './Toast';
 export { default as Toolbox } from './Toolbox';
