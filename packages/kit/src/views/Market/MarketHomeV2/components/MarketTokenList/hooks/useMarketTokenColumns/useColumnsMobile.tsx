@@ -62,7 +62,9 @@ export const useColumnsMobile = (
       },
     },
     {
-      title: intl.formatMessage({ id: ETranslations.dexmarket_token_change }),
+      title: `${intl.formatMessage({
+        id: ETranslations.dexmarket_token_change,
+      })}(%)`,
       titleProps: { paddingRight: '$5' },
       dataIndex: 'change',
       columnWidth: '30%',
