@@ -118,9 +118,9 @@ function MarketDetail({
 function MarketDetailV2(
   props: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>,
 ) {
-  appEventBus.emit(EAppEventBusNames.HideTabBar, true);
-
   useEffect(() => {
+    appEventBus.emit(EAppEventBusNames.HideTabBar, true);
+
     return () => {
       appEventBus.emit(EAppEventBusNames.HideTabBar, false);
     };
