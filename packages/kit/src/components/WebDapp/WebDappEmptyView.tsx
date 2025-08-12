@@ -11,10 +11,13 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/SearchInput/UniversalSearchInput';
 import { TermsAndPrivacy } from '@onekeyhq/kit/src/views/Onboarding/pages/GetStarted/components/TermsAndPrivacy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
@@ -40,7 +43,7 @@ function WebDappEmptyView() {
     setTrackAddress(value);
   }, []);
 
-  // Custom render for search results in WebDapp context
+  // Custom render for search results in WebDapp context - styled like UniversalSearchAddressItem
   const renderResultItem = useCallback(
     (
       item: IUniversalSearchResultItem,
@@ -51,29 +54,17 @@ function WebDappEmptyView() {
         item.type === EUniversalSearchType.Address &&
         item.payload.addressInfo
       ) {
-        const { addressInfo, network, accountInfo } = item.payload;
-
+        const { addressInfo, network } = item.payload;
+        // External address version (like watching address)
         return (
           <ListItem
             key={index}
-            title={accountInfo?.formattedName || addressInfo.displayAddress}
-            subtitle={`${network?.name || 'Unknown'} • ${
-              addressInfo.displayAddress
-            }`}
-            renderAvatar={
-              <Icon
-                name={
-                  network?.impl === 'evm'
-                    ? 'WalletCryptoOutline'
-                    : 'GlobusOutline'
-                }
-                size="$8"
-                color="$iconSubdued"
-              />
-            }
             onPress={() => onSelect(addressInfo.displayAddress)}
-            py="$3"
-            px="$4"
+            renderAvatar={<NetworkAvatar networkId={network?.id} size="$10" />}
+            title={network?.shortname || network?.name}
+            subtitle={accountUtils.shortenAddress({
+              address: addressInfo.displayAddress,
+            })}
           />
         );
       }
