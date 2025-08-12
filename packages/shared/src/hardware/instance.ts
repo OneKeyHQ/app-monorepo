@@ -21,9 +21,8 @@ let HardwareSDK: CoreApi;
 let HardwareLowLevelSDK: LowLevelCoreApi;
 
 export const generateConnectSrc = () => {
-  // const connectSrc = `${HARDWARE_SDK_IFRAME_SRC_ONEKEYSO}/${HARDWARE_SDK_VERSION}/`;
-  // return connectSrc;
-  return 'https://localhost:8087/';
+  const connectSrc = `${HARDWARE_SDK_IFRAME_SRC_ONEKEYSO}/${HARDWARE_SDK_VERSION}/`;
+  return connectSrc;
 };
 
 // Clean up current SDK instance and its event listeners
