@@ -1688,7 +1688,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-lite-card (1.0.13):
+  - react-native-lite-card (1.0.14):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -3417,7 +3417,7 @@ SPEC CHECKSUMS:
   react-native-compat: 81ec34c5738beae429211f8cb38294efb49b2edc
   react-native-get-random-values: 419569b6ed3d15bfb9b6781b2f2e058f8e8d2698
   react-native-keyboard-controller: 9c9a77993f7449e8b7d8c5989289f65e08c7ab74
-  react-native-lite-card: 9542785a69b22ef0bdc3ed799d76e104a32d2de4
+  react-native-lite-card: da6e268aa346e8ab6b80e272364637f228fe09cd
   react-native-mmkv: c8da06f2c3ed40726ac6b51ed4e3653d099f0b6a
   react-native-pager-view: 38d37b9c7dcddfacf97ad4a0a1ee7a6db7b85b76
   react-native-performance-stats: a45aa22f574c01d00bc5cadd0a3b8d34b308ae2e

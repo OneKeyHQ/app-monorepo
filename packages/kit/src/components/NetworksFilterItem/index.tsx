@@ -31,14 +31,7 @@ export function NetworksFilterItem({
 }: INetworksFilterItemProps) {
   const renderNetworkImage = useCallback(() => {
     if (isAllNetworks) {
-      return (
-        <Icon
-          name="GlobusOutline"
-          color="$iconActive"
-          size="$6"
-          $gtMd={{ size: '$5' }}
-        />
-      );
+      return <Icon name="GlobusOutline" color="$iconActive" size="$6" />;
     }
     return networkImageUri ? (
       <Image
@@ -91,9 +84,6 @@ export function NetworksFilterItem({
           numberOfLines={1}
           color={isSelected ? '$text' : '$textSubdued'}
           size="$bodyLgMedium"
-          $gtMd={{
-            size: '$bodyMdMedium',
-          }}
         >
           {networkName}
         </SizableText>
