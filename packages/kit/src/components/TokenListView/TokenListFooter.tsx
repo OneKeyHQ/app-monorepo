@@ -288,9 +288,12 @@ function TokenListFooter(props: IProps) {
               <Icon name="ErrorSolid" color="$iconSubdued" size="$6" />
             </Stack>
             <ListItem.Text
-              primary={`${blockedTokensLength} ${intl.formatMessage({
-                id: ETranslations.wallet_collapsed_risk_assets,
-              })}`}
+              primary={intl.formatMessage(
+                {
+                  id: ETranslations.wallet_collapsed_risk_assets_number,
+                },
+                { number: blockedTokensLength },
+              )}
               {...(tableLayout && {
                 primaryTextProps: { size: '$bodyMdMedium' },
               })}
