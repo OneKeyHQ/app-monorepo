@@ -83,9 +83,9 @@ export function MobileLayout({
 
   const onPageChanged = useCallback(
     (index: number) => {
-      handleTabChange(tabNames[index]);
+      focusedTab.value = tabNames[index];
     },
-    [handleTabChange, tabNames],
+    [focusedTab, tabNames],
   );
 
   const renderItem = useCallback(
