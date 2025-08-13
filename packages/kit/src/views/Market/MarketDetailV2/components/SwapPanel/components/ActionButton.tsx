@@ -234,28 +234,15 @@ export function ActionButton({
   return (
     <Button
       size="medium"
-      onPress={
-        shouldDisable
-          ? undefined
-          : (event: GestureResponderEvent) => {
-              if (noAccount) {
-                navigation.pushModal(EModalRoutes.OnboardingModal, {
-                  screen: EOnboardingPages.GetStarted,
-                });
-                return;
-              }
-              onPress?.(event);
-            }
-      }
-      {...buttonStyleProps}
       disabled={Boolean(
         (shouldDisable || disabled || !hasAmount) &&
           !shouldCreateAddress?.result &&
           !noAccount,
       )}
       onPress={shouldDisable ? undefined : handlePress}
-      {...otherProps}
       loading={createAddressLoading || otherProps.loading}
+      {...otherProps}
+      {...buttonStyleProps}
     >
       {buttonText}
     </Button>
