@@ -45,7 +45,7 @@ function TokenSecurityAlertDialogContent({
 
         {securityData && formattedData.length === 0 ? (
           <XStack gap="$2" alignItems="center" justifyContent="center" py="$4">
-            <Icon name="CheckRadioSolid" size="$4" color="$iconSuccess" />
+            <Icon name="CheckRadioSolid" size="$5" color="$iconSuccess" />
 
             <SizableText color="$textSuccess">
               No security issues detected

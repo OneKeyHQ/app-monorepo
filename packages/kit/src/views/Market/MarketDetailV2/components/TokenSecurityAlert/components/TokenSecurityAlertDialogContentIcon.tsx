@@ -10,7 +10,7 @@ function TokenSecurityAlertDialogContentIcon({
   const iconName = isWarning ? 'ErrorSolid' : 'CheckRadioSolid';
   const iconColor = isWarning ? '$iconCaution' : '$iconSuccess';
 
-  return <Icon name={iconName} size="$4" color={iconColor} />;
+  return <Icon name={iconName} size="$5" color={iconColor} />;
 }
 
 export { TokenSecurityAlertDialogContentIcon };

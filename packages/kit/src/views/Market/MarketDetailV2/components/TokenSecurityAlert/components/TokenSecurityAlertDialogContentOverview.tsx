@@ -25,9 +25,7 @@ function TokenSecurityAlertDialogContentOverviewBase({
         width="$12"
         height="$12"
         borderRadius="$full"
-        backgroundColor={
-          hasWarnings ? '$bgCautionSubdued' : '$bgSuccessSubdued'
-        }
+        backgroundColor={hasWarnings ? '$bgCaution' : '$bgSuccess'}
         alignItems="center"
         justifyContent="center"
       >

@@ -34,9 +34,9 @@ function TransactionItemSmallBase({ item }: ITransactionItemSmallProps) {
   } = useTransactionItemData({ item });
 
   return (
-    <XStack py="$1" px="$4" alignItems="center">
+    <XStack py="$2.5" px="$4" alignItems="center">
       <YStack {...styles.time}>
-        <SizableText size="$bodySmMedium" color={typeColor}>
+        <SizableText size="$bodyMdMedium" color={typeColor}>
           {typeText}
         </SizableText>
 
@@ -57,7 +57,7 @@ function TransactionItemSmallBase({ item }: ITransactionItemSmallProps) {
       <YStack {...styles.price} justifyContent="flex-end">
         <NumberSizeableText
           textAlign="right"
-          size="$bodySmMedium"
+          size="$bodyMdMedium"
           color="$text"
           autoFormatter="price-marketCap"
           formatterOptions={{
