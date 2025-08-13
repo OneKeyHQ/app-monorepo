@@ -20,12 +20,12 @@ export function TransactionRow({
   return (
     <Stack gap="$2">
       <Stack flexDirection="row" alignItems="center" gap="$2">
-        <SizableText size="$bodyLgMedium">
+        <SizableText size="$bodyMdMedium">
           {label}:{' '}
           {isLoading ? (
             '--'
           ) : (
-            <NumberSizeableText size="$bodyLgMedium" formatter="marketCap">
+            <NumberSizeableText size="$bodyMdMedium" formatter="marketCap">
               {totalCount}
             </NumberSizeableText>
           )}
