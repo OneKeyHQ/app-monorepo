@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Dimensions } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
+import { useDebouncedCallback } from 'use-debounce';
 
 import type { ICarouselInstance } from '@onekeyhq/components';
 import {
@@ -23,7 +23,6 @@ import { MarketTokenList } from '../components/MarketTokenList';
 
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketHomeTabValue } from '../types';
-import { useThrottledCallback } from 'use-debounce';
 
 interface IDesktopLayoutProps {
   filterBarProps: {
@@ -67,7 +66,7 @@ export function DesktopLayout({
 
   const focusedTab = useSharedValue(tabNames[0]);
 
-  const handleTabChange = useThrottledCallback((tabName: string) => {
+  const handleTabChange = useDebouncedCallback((tabName: string) => {
     setSelectedTab(tabName as IMarketHomeTabValue);
     onTabChange(tabName as IMarketHomeTabValue);
     focusedTab.value = tabName;

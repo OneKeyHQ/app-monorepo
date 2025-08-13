@@ -3,7 +3,7 @@ import { useCallback, useMemo, useRef } from 'react';
 import { useIntl } from 'react-intl';
 import { Dimensions } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
-import { useThrottledCallback } from 'use-debounce';
+import { useDebouncedCallback } from 'use-debounce';
 
 import type { ICarouselInstance } from '@onekeyhq/components';
 import {
@@ -68,7 +68,7 @@ export function MobileLayout({
 
   const focusedTab = useSharedValue(tabNames[0]);
 
-  const handleTabChange = useThrottledCallback((tabName: string) => {
+  const handleTabChange = useDebouncedCallback((tabName: string) => {
     setSelectedTab(tabName as IMarketHomeTabValue);
     onTabChange(tabName as IMarketHomeTabValue);
     focusedTab.value = tabName;
@@ -78,7 +78,7 @@ export function MobileLayout({
   const height = useMemo(() => {
     return platformEnv.isNative
       ? Dimensions.get('window').height - top - bottom - 0
-      : 'calc(100vh - 96px)';
+      : 'calc(100vh - 140px)';
   }, [bottom, top]);
 
   const onPageChanged = useCallback(
@@ -103,7 +103,7 @@ export function MobileLayout({
         );
       }
       return (
-        <YStack flex={1} height={height}>
+        <YStack flex={1} height={100}>
           <MarketFilterBarSmall {...filterBarProps} />
           <MarketTokenList
             networkId={selectedNetworkId}
