@@ -1,17 +1,10 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Dimensions } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 
 import type { ICarouselInstance } from '@onekeyhq/components';
-import {
-  Carousel,
-  Stack,
-  Tabs,
-  YStack,
-  useSafeAreaInsets,
-} from '@onekeyhq/components';
+import { Carousel, Tabs, YStack } from '@onekeyhq/components';
 import {
   useMarketWatchListV2Atom,
   useSelectedMarketTabAtom,
@@ -51,7 +44,6 @@ export function MobileLayout({
     () => watchlistState.data || [],
     [watchlistState.data],
   );
-  const { top, bottom } = useSafeAreaInsets();
   const [selectedTab, setSelectedTab] = useSelectedMarketTabAtom();
 
   const watchlistTabName = intl.formatMessage({
