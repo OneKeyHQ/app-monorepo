@@ -90,8 +90,6 @@ export function MobileInformationTabs({
     return items;
   }, [intl, tokenAddress, networkId, shouldShowHolders]);
 
-  const { gtLg } = useMedia();
-
   const renderTabBar = useCallback(({ ...props }: any) => {
     return <MobileInformationTabsHeader {...props} />;
   }, []);
