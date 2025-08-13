@@ -74,7 +74,7 @@ export function TransactionsHistory({
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       showsVerticalScrollIndicator
-      ListFooterComponent={
+      ListEmptyComponent={
         isRefreshing ? (
           <TransactionsSkeleton />
         ) : (
