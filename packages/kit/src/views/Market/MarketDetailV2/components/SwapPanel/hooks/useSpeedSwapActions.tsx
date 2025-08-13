@@ -102,13 +102,19 @@ export function useSpeedSwapActions(props: {
   );
 
   const netAccountRes = usePromiseResult(async () => {
-    const res = await backgroundApiProxy.serviceAccount.getNetworkAccount({
-      accountId: account?.indexedAccount?.id ? undefined : account?.account?.id,
-      indexedAccountId: account?.indexedAccount?.id ?? '',
-      networkId: marketToken?.networkId,
-      deriveType: account?.deriveType ?? 'default',
-    });
-    return res;
+    try {
+      const res = await backgroundApiProxy.serviceAccount.getNetworkAccount({
+        accountId: account?.indexedAccount?.id
+          ? undefined
+          : account?.account?.id,
+        indexedAccountId: account?.indexedAccount?.id ?? '',
+        networkId: marketToken?.networkId,
+        deriveType: account?.deriveType ?? 'default',
+      });
+      return res;
+    } catch (e) {
+      return undefined;
+    }
   }, [account, marketToken?.networkId]);
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: netAccountRes.result?.id ?? '',
@@ -466,8 +472,20 @@ export function useSpeedSwapActions(props: {
 
   const checkTokenApproveAllowance = useCallback(
     async (amount: string) => {
+      const amountBN = new BigNumber(amount ?? 0);
       try {
+        if (
+          !spenderAddress ||
+          netAccountRes.result?.addressDetail.networkId !==
+            fromToken.networkId ||
+          !netAccountRes.result?.address ||
+          amountBN.isZero() ||
+          amountBN.isNaN()
+        ) {
+          return;
+        }
         setCheckTokenAllowanceLoading(true);
+
         const userAddress = netAccountRes.result?.address ?? '';
 
         const fetchApproveAllowanceParams = {
@@ -497,6 +515,7 @@ export function useSpeedSwapActions(props: {
       fromToken.contractAddress,
       fromToken.networkId,
       netAccountRes.result?.address,
+      netAccountRes.result?.addressDetail.networkId,
       spenderAddress,
     ],
   );
@@ -706,6 +725,8 @@ export function useSpeedSwapActions(props: {
         } catch (e) {
           setFetchBalanceLoading(false);
         }
+      } else {
+        setBalance(new BigNumber(0));
       }
     },
     [
@@ -889,6 +910,7 @@ export function useSpeedSwapActions(props: {
     balanceToken?.name,
     balanceToken?.networkId,
     balanceToken?.symbol,
+    netAccountRes.result?.address,
     syncTokensBalance,
   ]);
 
