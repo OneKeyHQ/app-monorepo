@@ -2,8 +2,8 @@
 
 // @ts-ignore
 /* eslint-disable  */
-  
-  export enum ETranslations {
+
+export enum ETranslations {
   Limit_expire_day = 'Limit.expire_day',
   Limit_expire_days = 'Limit.expire_days',
   Limit_expire_hour = 'Limit.expire_hour',
@@ -1585,6 +1585,7 @@
   hardware_connect_unknown_device_error = 'hardware.connect_unknown_device_error',
   hardware_data_erased_use_as_new = 'hardware.data_erased_use_as_new',
   hardware_default_error = 'hardware.default_error',
+  hardware_defective_firmware_error = 'hardware.defective_firmware_error',
   hardware_device_ble_already_connected = 'hardware.device_ble_already_connected',
   hardware_device_ble_location_disabled = 'hardware.device_ble_location_disabled',
   hardware_device_ble_scan_error = 'hardware.device_ble_scan_error',

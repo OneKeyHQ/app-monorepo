@@ -1580,6 +1580,7 @@
   "hardware.connect_unknown_device_error": "알 수 없는 장치, 현재 버전의 앱은 연결을 지원하지 않습니다.",
   "hardware.data_erased_use_as_new": "이 OneKey Lite의 데이터는 완전히 지워졌으며, 새로운 OneKey Lite로 사용할 수 있습니다.",
   "hardware.default_error": "하드웨어 통신에 실패했습니다, 다시 시도해 주세요",
+  "hardware.defective_firmware_error": "기기의 펌웨어에 결함이 있어 연결할 수 없습니다. 기기 교체를 위해 고객지원에 문의하세요.",
   "hardware.device_ble_already_connected": "장치가 이미 다른 곳에 연결되어 있습니다. 연결을 해제하고 다시 시도해 주세요",
   "hardware.device_ble_location_disabled": "위치 서비스를 사용할 수 없습니다, 활성화하고 다시 시도해 주세요",
   "hardware.device_ble_scan_error": "블루투스 스캔에 실패했습니다, 다시 시도해 주세요",

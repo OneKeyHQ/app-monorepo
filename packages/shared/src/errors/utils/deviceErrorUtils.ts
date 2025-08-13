@@ -214,6 +214,8 @@ export function convertDeviceError(
       return new HardwareErrors.FirmwareUpdateTransferInterruptedError({
         payload,
       });
+    case HardwareErrorCode.DefectiveFirmware:
+      return new HardwareErrors.DefectiveFirmware({ payload });
 
     // Bridge error
     case 'ERR_BAD_REQUEST':
