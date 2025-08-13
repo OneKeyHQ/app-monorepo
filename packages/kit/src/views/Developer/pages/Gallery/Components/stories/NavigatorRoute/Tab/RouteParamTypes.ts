@@ -3,7 +3,6 @@ import type {
   EDemoHomeTabRoutes,
   EDemoMeTabRoutes,
   EDemoTabRoutes,
-  EDemoTabsTabRoutes,
 } from './Routes';
 
 export type IDemoHomeTabParamList = {

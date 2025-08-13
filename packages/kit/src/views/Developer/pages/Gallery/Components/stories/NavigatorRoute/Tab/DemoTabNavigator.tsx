@@ -9,7 +9,6 @@ import {
   EDemoHomeTabRoutes,
   EDemoMeTabRoutes,
   EDemoTabRoutes,
-  EDemoTabsTabRoutes,
 } from './Routes';
 import DemoRootDeveloper from './View/DemoRootDeveloper';
 import DemoRootDeveloperOptions from './View/DemoRootDeveloperOptions';
