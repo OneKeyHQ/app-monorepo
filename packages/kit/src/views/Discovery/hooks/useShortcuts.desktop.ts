@@ -1,10 +1,13 @@
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { useClipboard, useShortcuts } from '@onekeyhq/components';
+import {
+  useClipboard,
+  useShortcuts,
+  useShortcutsRouteStatus,
+} from '@onekeyhq/components';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
@@ -24,17 +27,7 @@ export const useDiscoveryShortcuts = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
 
-  const isAtDiscoveryTab = useRef(false);
-  const isAtBrowserTab = useRef(false);
-  useListenTabFocusState(ETabRoutes.Discovery, (isFocus) => {
-    isAtDiscoveryTab.current = isFocus;
-  });
-  useListenTabFocusState(
-    ETabRoutes.MultiTabBrowser,
-    (isFocus, isHideByModal) => {
-      isAtBrowserTab.current = !isHideByModal && isFocus;
-    },
-  );
+  const { isAtBrowserTab, shouldReloadAppByCmdR } = useShortcutsRouteStatus();
 
   const { activeTabId } = useActiveTabId();
   const { closeWebTab } = useBrowserTabActions().current;
@@ -101,7 +94,7 @@ export const useDiscoveryShortcuts = () => {
             } catch {
               // empty
             }
-          } else {
+          } else if (shouldReloadAppByCmdR.current) {
             void globalThis.desktopApiProxy?.system?.reload?.();
           }
           break;
@@ -131,7 +124,14 @@ export const useDiscoveryShortcuts = () => {
           break;
       }
     },
-    [activeTabId, copyText, handleCloseWebTab, navigation],
+    [
+      activeTabId,
+      copyText,
+      handleCloseWebTab,
+      isAtBrowserTab,
+      navigation,
+      shouldReloadAppByCmdR,
+    ],
   );
 
   useShortcuts(undefined, handleShortcuts);

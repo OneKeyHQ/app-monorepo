@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { HeaderIconButton, Page } from '@onekeyhq/components';
+import {
+  HeaderIconButton,
+  Page,
+  useShortcuts,
+  useShortcutsRouteStatus,
+} from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import {
   HYPER_LIQUID_ORIGIN,
@@ -12,6 +17,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -25,6 +31,38 @@ import type { IWebViewRef } from '../../../components/WebView/types';
 
 const origin = HYPER_LIQUID_ORIGIN;
 const url = HYPER_LIQUID_TRADE_URL;
+
+function usePerpPageShortcuts({
+  webviewRef,
+}: {
+  webviewRef: React.RefObject<IWebViewRef | null>;
+}) {
+  const { isAtPerpTab, shouldReloadAppByCmdR } = useShortcutsRouteStatus();
+
+  const refresh = useCallback(() => {
+    if (isAtPerpTab.current) {
+      try {
+        console.log('refresh webview@@@@');
+        webviewRef.current?.reload?.();
+      } catch {
+        // empty
+      }
+    } else if (shouldReloadAppByCmdR.current) {
+      void globalThis.desktopApiProxy?.system?.reload?.();
+    }
+  }, [webviewRef, isAtPerpTab, shouldReloadAppByCmdR]);
+
+  const handleShortcuts = useCallback(
+    (data: EShortcutEvents) => {
+      if (data === EShortcutEvents.Refresh) {
+        refresh();
+      }
+    },
+    [refresh],
+  );
+
+  useShortcuts(undefined, handleShortcuts);
+}
 
 function PerpTradeViewExt() {
   useEffect(() => {
@@ -42,6 +80,7 @@ function PerpTradeView() {
   useDebugComponentRemountLog({ name: 'PerpTradePageContainer' });
 
   const webviewRef = useRef<IWebViewRef | null>(null);
+  usePerpPageShortcuts({ webviewRef });
 
   const webview = useMemo(
     () => (
