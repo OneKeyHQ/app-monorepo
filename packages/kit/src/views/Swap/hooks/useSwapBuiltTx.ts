@@ -786,6 +786,27 @@ export function useSwapBuildTx() {
     }
   }, [goBackQrCodeModal, swapFromAddressInfo.accountInfo?.account?.id]);
 
+  const findGasInfo = useCallback(
+    (
+      stepGasInfos: { encodeTx: IEncodedTx; gasInfo: ISwapGasInfo }[],
+      encodedTx: IEncodedTx,
+    ) => {
+      return stepGasInfos?.find(
+        (s) =>
+          isEqual(s.encodeTx, encodedTx) ||
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          ((s.encodeTx as any)?.rawSignTx &&
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            (encodedTx as any)?.rawSignTx &&
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            (s.encodeTx as any)?.rawSignTx ===
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              (encodedTx as any)?.rawSignTx),
+      );
+    },
+    [],
+  );
+
   const buildGasInfo = useCallback(
     (
       gasRes: {
@@ -927,25 +948,14 @@ export function useSwapBuildTx() {
         const unsignedTxArr = [...approveUnsignedTxArr, unsignedTx];
         if (
           unsignedTxArr.every((tx) =>
-            stepGasInfos?.find(
-              (s) =>
-                isEqual(s.encodeTx, tx.encodedTx) ||
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                (s.encodeTx as any)?.rawSignTx ===
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                  (tx.encodedTx as any)?.rawSignTx,
-            ),
+            findGasInfo(stepGasInfos ?? [], tx.encodedTx),
           )
         ) {
           for (let i = 0; i < unsignedTxArr.length; i += 1) {
             const unsignedTxItem = unsignedTxArr[i];
-            const gasInfoFinal = stepGasInfos?.find(
-              (s) =>
-                isEqual(s.encodeTx, unsignedTxItem.encodedTx) ||
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                (s.encodeTx as any)?.rawSignTx ===
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                  (unsignedTxItem.encodedTx as any)?.rawSignTx,
+            const gasInfoFinal = findGasInfo(
+              stepGasInfos ?? [],
+              unsignedTxItem.encodedTx,
             )?.gasInfo;
             if (gasInfoFinal) {
               try {
@@ -1086,25 +1096,14 @@ export function useSwapBuildTx() {
         const unsignedTxArr = [...approveUnsignedTxArr, unsignedTx];
         if (
           unsignedTxArr.every((tx) =>
-            stepGasInfos?.find(
-              (s) =>
-                isEqual(s.encodeTx, tx.encodedTx) ||
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                (s.encodeTx as any)?.rawSignTx ===
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                  (tx.encodedTx as any)?.rawSignTx,
-            ),
+            findGasInfo(stepGasInfos ?? [], tx.encodedTx),
           )
         ) {
           for (let i = 0; i < unsignedTxArr.length; i += 1) {
             const unsignedTxItem = unsignedTxArr[i];
-            const gasInfoFinal = stepGasInfos?.find(
-              (s) =>
-                isEqual(s.encodeTx, unsignedTxItem.encodedTx) ||
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                (s.encodeTx as any)?.rawSignTx ===
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                  (unsignedTxItem.encodedTx as any)?.rawSignTx,
+            const gasInfoFinal = findGasInfo(
+              stepGasInfos ?? [],
+              unsignedTxItem.encodedTx,
             )?.gasInfo;
             if (gasInfoFinal) {
               try {
@@ -1358,6 +1357,7 @@ export function useSwapBuildTx() {
       swapFromAddressInfo.address,
       setSwapSteps,
       intl,
+      findGasInfo,
       updateStepTitle,
       updateUnsignedTxAndSendTx,
       onApproveTxSuccess,
@@ -2218,7 +2218,8 @@ export function useSwapBuildTx() {
           accountAddress: swapFromAddressInfo.address,
           receivingAddress: swapToAddressInfo.address ?? '',
           swapBuildResData: {
-            result: { ...data, orderId: data.quoteId ?? '' },
+            result: { ...data },
+            orderId: data.quoteId ?? '',
           },
         };
 
@@ -2451,7 +2452,7 @@ export function useSwapBuildTx() {
               gasFeeInfos = [
                 ...gasFeeInfos,
                 {
-                  encodeTx: unsignedTxItem.encodedTx,
+                  encodeTx: unsignedTxItem.encodedTx ?? {},
                   gasInfo,
                 },
               ];
