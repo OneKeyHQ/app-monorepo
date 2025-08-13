@@ -216,7 +216,6 @@ function AddressTypeSelectorContent(
       }
     },
     [
-      onSelect,
       activeDeriveType,
       setActiveDeriveType,
       doubleConfirm,
@@ -230,6 +229,7 @@ function AddressTypeSelectorContent(
       onCreate,
       closePopover,
       changeDefaultAddressTypeAfterSelect,
+      onSelect,
     ],
   );
 
@@ -325,7 +325,7 @@ function AddressTypeSelector(props: IProps) {
 
   const [activeDeriveType, setActiveDeriveType] = useState<
     IAccountDeriveTypes | undefined
-  >(activeDeriveTypeProp);
+  >();
 
   const [creatingDeriveType, setCreatingDeriveType] = useState<
     IAccountDeriveTypes | undefined
@@ -333,7 +333,7 @@ function AddressTypeSelector(props: IProps) {
 
   const [tokenMap, setTokenMap] = useState<
     Record<string, ITokenFiat> | undefined
-  >(tokenMapProp);
+  >();
 
   const [isFetchingTokenMap, setIsFetchingTokenMap] = useState(false);
   const [isCreatingAddress, setIsCreatingAddress] = useState(false);
@@ -442,6 +442,8 @@ function AddressTypeSelector(props: IProps) {
 
     if (!activeDeriveTypeProp) {
       void fetchDefaultDeriveType();
+    } else {
+      setActiveDeriveType(activeDeriveTypeProp);
     }
   }, [activeDeriveTypeProp, networkId]);
 
@@ -479,6 +481,8 @@ function AddressTypeSelector(props: IProps) {
 
     if (!tokenMapProp) {
       void fetchTokenMap();
+    } else {
+      setTokenMap(tokenMapProp);
     }
   }, [tokenMapProp, networkAccounts, networkId]);
 
