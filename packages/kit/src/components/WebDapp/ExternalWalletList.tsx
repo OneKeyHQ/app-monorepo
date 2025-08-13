@@ -189,6 +189,29 @@ function WalletItem({
   );
 }
 
+// Reusable WalletConnect component
+function WalletConnectItem({ impl }: { impl?: string }) {
+  return (
+    <WalletItem
+      name={walletConnectInfo.name}
+      logo={walletConnectInfo.logo}
+      connectionInfo={{
+        walletConnect: {
+          impl,
+          isNewConnection: true,
+          topic: '',
+          peerMeta: {
+            name: '',
+            icons: [],
+            description: '',
+            url: '',
+          },
+        },
+      }}
+    />
+  );
+}
+
 function ExternalWalletList({ impl }: { impl?: string }) {
   // detect available wallets
   const { result: allWallets = { wallets: {} } } = usePromiseResult(
@@ -229,26 +252,77 @@ function ExternalWalletList({ impl }: { impl?: string }) {
           })}
 
         {/* WalletConnect - put at the end */}
-        <WalletItem
-          name={walletConnectInfo.name}
-          logo={walletConnectInfo.logo}
-          connectionInfo={{
-            walletConnect: {
-              impl,
-              isNewConnection: true,
-              topic: '',
-              peerMeta: {
-                name: '',
-                icons: [],
-                description: '',
-                url: '',
-              },
-            },
-          }}
-        />
+        <WalletConnectItem impl={impl} />
       </XStack>
     </Stack>
   );
 }
 
-export { ExternalWalletList };
+// Reusable WalletConnect component for ListItem style (used in OneKeyWalletConnectionOptions)
+function WalletConnectListItem({ impl }: { impl?: string }) {
+  const intl = useIntl();
+  const { connectToWalletWithDialog } = useConnectExternalWallet();
+  const [localLoading, setLocalLoading] = useState(false);
+  const dialogRef = useRef<IDialogInstance | null>(null);
+
+  const connectToWallet = useCallback(async () => {
+    try {
+      setLocalLoading(true);
+      const connectionInfo: IExternalConnectionInfo = {
+        walletConnect: {
+          impl,
+          isNewConnection: true,
+          topic: '',
+          peerMeta: {
+            name: '',
+            icons: [],
+            description: '',
+            url: '',
+          },
+        },
+      };
+      await connectToWalletWithDialog(connectionInfo);
+      await dialogRef.current?.close();
+    } catch (error) {
+      console.error('Connect wallet error:', error);
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.global_connection_failed,
+        }),
+      });
+    } finally {
+      setLocalLoading(false);
+    }
+  }, [connectToWalletWithDialog, impl, intl]);
+
+  const connectToWalletWithDialogShow = useCallback(async () => {
+    if (localLoading) {
+      return;
+    }
+    await dialogRef.current?.close();
+    dialogRef.current = Dialog.show({
+      title: intl.formatMessage(
+        { id: ETranslations.global_connect_to_wallet },
+        {
+          wallet: walletConnectInfo.name || 'Wallet',
+        },
+      ),
+      showFooter: false,
+      dismissOnOverlayPress: false,
+      onClose() {
+        setLocalLoading(false);
+      },
+      renderContent: <ConnectToWalletDialogContent loading={localLoading} />,
+    });
+    await connectToWallet();
+  }, [connectToWallet, intl, localLoading]);
+
+  return {
+    name: walletConnectInfo.name,
+    logo: walletConnectInfo.logo,
+    onPress: connectToWalletWithDialogShow,
+    loading: localLoading,
+  };
+}
+
+export { ExternalWalletList, WalletConnectItem, WalletConnectListItem };

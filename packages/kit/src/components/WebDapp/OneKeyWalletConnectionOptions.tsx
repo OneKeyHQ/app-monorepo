@@ -2,7 +2,13 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Icon, SizableText } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  Image,
+  SizableText,
+  useMedia,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { EXT_RATE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -13,6 +19,8 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { useConnectExternalWallet } from '../../hooks/useWebDapp/useConnectExternalWallet';
 import { useOneKeyWalletDetection } from '../../hooks/useWebDapp/useOneKeyWalletDetection';
 
+import { WalletConnectListItem } from './ExternalWalletList';
+
 function OneKeyWalletConnectionOptions() {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
@@ -20,6 +28,10 @@ function OneKeyWalletConnectionOptions() {
   const { connectToWalletWithDialog, loading } = useConnectExternalWallet();
   const { isOneKeyInstalled, getOneKeyConnectionInfo } =
     useOneKeyWalletDetection();
+  const media = useMedia();
+
+  // Check if mobile (small screen)
+  const isMobile = media.md;
 
   const handleExtensionPress = useCallback(async () => {
     const connectionInfo = getOneKeyConnectionInfo();
@@ -37,6 +49,49 @@ function OneKeyWalletConnectionOptions() {
     });
   }, [appNavigation]);
 
+  // Get WalletConnect connection logic
+  const walletConnectData = WalletConnectListItem({ impl: 'evm' });
+
+  // Mobile: show only hardware wallet + WalletConnect
+  if (isMobile) {
+    return (
+      <>
+        <ListItem
+          py="$4"
+          px="$5"
+          mx="$0"
+          bg="$bgSubdued"
+          title="OneKey hardware wallet"
+          subtitle={intl.formatMessage({
+            id: ETranslations.wallet_hardware_wallet_connect_description_1,
+          })}
+          renderAvatar={<Icon name="OnekeyBrand" size="$10" />}
+          drillIn
+          onPress={handleConnectHardwarePress}
+        />
+        <ListItem
+          py="$4"
+          px="$5"
+          mx="$0"
+          bg="$bgSubdued"
+          title={walletConnectData.name}
+          renderAvatar={
+            <Image
+              w="$10"
+              h="$10"
+              source={walletConnectData.logo}
+              borderRadius="$3"
+            />
+          }
+          drillIn={!walletConnectData.loading}
+          onPress={walletConnectData.onPress}
+          isLoading={walletConnectData.loading}
+        />
+      </>
+    );
+  }
+
+  // Desktop: show original layout (extension + hardware)
   return (
     <>
       <ListItem

@@ -11,6 +11,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
@@ -27,8 +28,11 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 
 function WebDappEmptyView() {
   const intl = useIntl();
+  const media = useMedia();
   const appNavigation = useAppNavigation();
   const [trackAddress, setTrackAddress] = useState('');
+
+  const isMobileLayout = media.md;
 
   const handleTrackAddress = useCallback(() => {
     if (trackAddress.trim()) {
@@ -92,8 +96,14 @@ function WebDappEmptyView() {
       flex={1}
       justifyContent="center"
       alignItems="center"
-      width={424}
-      alignSelf="center"
+      $gtMd={{
+        width: 424,
+        alignSelf: 'center',
+      }}
+      $md={{
+        mx: '$5',
+        width: 'auto',
+      }}
     >
       <YStack
         bg="$bgSubdued"
@@ -110,7 +120,7 @@ function WebDappEmptyView() {
           shadowRadius="$1"
           shadowColor="$shadowColor"
           shadowOpacity={0.1}
-          borderBottomWidth={StyleSheet.hairlineWidth}
+          borderBottomWidth={isMobileLayout ? 0 : StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
           gap="$4"
           w="$full"
@@ -132,23 +142,25 @@ function WebDappEmptyView() {
           />
         </YStack>
 
-        <YStack
-          alignItems="center"
-          justifyContent="center"
-          p="$5"
-          pt="$1.5"
-          pb="$2"
-        >
-          <Button
-            size="small"
-            variant="tertiary"
-            onPress={handleShowMoreOptions}
+        {!isMobileLayout ? null : (
+          <YStack
+            alignItems="center"
+            justifyContent="center"
+            p="$5"
+            pt="$1.5"
+            pb="$2"
           >
-            {intl.formatMessage({
-              id: ETranslations.wallet_connect_wallet_more_options,
-            })}
-          </Button>
-        </YStack>
+            <Button
+              size="small"
+              variant="tertiary"
+              onPress={handleShowMoreOptions}
+            >
+              {intl.formatMessage({
+                id: ETranslations.wallet_connect_wallet_more_options,
+              })}
+            </Button>
+          </YStack>
+        )}
       </YStack>
 
       <Divider my="$4" width="100%" />
