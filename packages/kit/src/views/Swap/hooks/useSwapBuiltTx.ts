@@ -40,6 +40,7 @@ import {
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IFeeAlgo,
   IFeeCkb,
@@ -383,17 +384,22 @@ export function useSwapBuildTx() {
         ) {
           throw new OneKeyError('No account found');
         }
-        const orderAccount =
-          await backgroundApiProxy.serviceAccount.getNetworkAccount({
-            accountId: swapFromAddressInfo.accountInfo?.indexedAccount?.id
-              ? undefined
-              : swapFromAddressInfo?.accountInfo?.account?.id,
-            indexedAccountId:
-              swapFromAddressInfo?.accountInfo?.indexedAccount?.id ?? '',
-            networkId: item.networkId,
-            deriveType:
-              swapFromAddressInfo.accountInfo?.deriveType ?? 'default',
-          });
+        let orderAccount: INetworkAccount | undefined;
+        try {
+          orderAccount =
+            await backgroundApiProxy.serviceAccount.getNetworkAccount({
+              accountId: swapFromAddressInfo.accountInfo?.indexedAccount?.id
+                ? undefined
+                : swapFromAddressInfo?.accountInfo?.account?.id,
+              indexedAccountId:
+                swapFromAddressInfo?.accountInfo?.indexedAccount?.id ?? '',
+              networkId: item.networkId,
+              deriveType:
+                swapFromAddressInfo.accountInfo?.deriveType ?? 'default',
+            });
+        } catch (e) {
+          orderAccount = undefined;
+        }
         if (dataMessage) {
           const signHash = await new Promise<string>((resolve, reject) => {
             if (dataMessage && item.userAddress && orderAccount) {
@@ -921,13 +927,25 @@ export function useSwapBuildTx() {
         const unsignedTxArr = [...approveUnsignedTxArr, unsignedTx];
         if (
           unsignedTxArr.every((tx) =>
-            stepGasInfos?.find((s) => isEqual(s.encodeTx, tx.encodedTx)),
+            stepGasInfos?.find(
+              (s) =>
+                isEqual(s.encodeTx, tx.encodedTx) ||
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                (s.encodeTx as any)?.rawSignTx ===
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                  (tx.encodedTx as any)?.rawSignTx,
+            ),
           )
         ) {
           for (let i = 0; i < unsignedTxArr.length; i += 1) {
             const unsignedTxItem = unsignedTxArr[i];
-            const gasInfoFinal = stepGasInfos?.find((s) =>
-              isEqual(s.encodeTx, unsignedTxItem.encodedTx),
+            const gasInfoFinal = stepGasInfos?.find(
+              (s) =>
+                isEqual(s.encodeTx, unsignedTxItem.encodedTx) ||
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                (s.encodeTx as any)?.rawSignTx ===
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                  (unsignedTxItem.encodedTx as any)?.rawSignTx,
             )?.gasInfo;
             if (gasInfoFinal) {
               try {
@@ -1068,13 +1086,25 @@ export function useSwapBuildTx() {
         const unsignedTxArr = [...approveUnsignedTxArr, unsignedTx];
         if (
           unsignedTxArr.every((tx) =>
-            stepGasInfos?.find((s) => isEqual(s.encodeTx, tx.encodedTx)),
+            stepGasInfos?.find(
+              (s) =>
+                isEqual(s.encodeTx, tx.encodedTx) ||
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                (s.encodeTx as any)?.rawSignTx ===
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                  (tx.encodedTx as any)?.rawSignTx,
+            ),
           )
         ) {
           for (let i = 0; i < unsignedTxArr.length; i += 1) {
             const unsignedTxItem = unsignedTxArr[i];
-            const gasInfoFinal = stepGasInfos?.find((s) =>
-              isEqual(s.encodeTx, unsignedTxItem.encodedTx),
+            const gasInfoFinal = stepGasInfos?.find(
+              (s) =>
+                isEqual(s.encodeTx, unsignedTxItem.encodedTx) ||
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                (s.encodeTx as any)?.rawSignTx ===
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                  (unsignedTxItem.encodedTx as any)?.rawSignTx,
             )?.gasInfo;
             if (gasInfoFinal) {
               try {
@@ -1207,10 +1237,22 @@ export function useSwapBuildTx() {
           }
         }
       } else if (
-        stepGasInfos?.find((s) => isEqual(s.encodeTx, unsignedTx.encodedTx))
+        stepGasInfos?.find(
+          (s) =>
+            isEqual(s.encodeTx, unsignedTx.encodedTx) ||
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            (s.encodeTx as any)?.rawSignTx ===
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              (unsignedTx.encodedTx as any)?.rawSignTx,
+        )
       ) {
-        const gasInfoFinal = stepGasInfos?.find((s) =>
-          isEqual(s.encodeTx, unsignedTx.encodedTx),
+        const gasInfoFinal = stepGasInfos?.find(
+          (s) =>
+            isEqual(s.encodeTx, unsignedTx.encodedTx) ||
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            (s.encodeTx as any)?.rawSignTx ===
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              (unsignedTx.encodedTx as any)?.rawSignTx,
         )?.gasInfo;
         if (gasInfoFinal) {
           try {

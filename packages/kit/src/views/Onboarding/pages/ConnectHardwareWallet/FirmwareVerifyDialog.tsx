@@ -27,13 +27,14 @@ import {
   type OneKeyError,
   type OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
+import { DefectiveFirmware } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IDeviceVerifyVersionCompareResult,
@@ -58,6 +59,7 @@ export enum EFirmwareAuthenticationDialogContentType {
   verification_temporarily_unavailable = 'verification_temporarily_unavailable',
   error_fallback = 'error_fallback',
   unofficial_firmware_detected = 'unofficial_firmware_detected',
+  defective_firmware_detected = 'defective_firmware_detected',
 }
 
 function useFirmwareVerifyBase({
@@ -165,6 +167,16 @@ function useFirmwareVerifyBase({
 
       // Handle local exceptions
       const { code, message } = error as OneKeyError;
+
+      // Handle DefectiveFirmware error specifically
+      if (error instanceof DefectiveFirmware) {
+        setContentType(
+          EFirmwareAuthenticationDialogContentType.defective_firmware_detected,
+        );
+        setErrorObj({ code, message });
+        return;
+      }
+
       switch (code) {
         case HardwareErrorCode.ActionCancelled:
         case HardwareErrorCode.NewFirmwareForceUpdate:
@@ -187,6 +199,12 @@ function useFirmwareVerifyBase({
           );
           setErrorObj({ code, message });
           break;
+        case HardwareErrorCode.DefectiveFirmware:
+          setContentType(
+            EFirmwareAuthenticationDialogContentType.defective_firmware_detected,
+          );
+          setErrorObj({ code, message });
+          return;
         default:
           setContentType(
             EFirmwareAuthenticationDialogContentType.error_fallback,
@@ -472,6 +490,7 @@ export function EnumBasicDialogContentContainer({
   useNewProcess?: boolean;
 }) {
   const intl = useIntl();
+  const dialogInstance = useDialogInstance();
 
   const [showRiskyWarning, setShowRiskyWarning] = useState(false);
   const renderFooter = useCallback(
@@ -811,6 +830,38 @@ export function EnumBasicDialogContentContainer({
             {renderFooter()}
           </>
         );
+      case EFirmwareAuthenticationDialogContentType.defective_firmware_detected:
+        return (
+          <>
+            <Dialog.Header>
+              <Dialog.Icon icon="CrossedLargeOutline" tone="destructive" />
+              <Dialog.Title>
+                {intl.formatMessage({
+                  id: ETranslations.global_an_error_occurred,
+                })}
+              </Dialog.Title>
+              <Dialog.Description>
+                {intl.formatMessage({
+                  id: ETranslations.hardware_defective_firmware_error,
+                })}
+              </Dialog.Description>
+            </Dialog.Header>
+            <Button
+              $md={
+                {
+                  size: 'large',
+                } as any
+              }
+              variant="primary"
+              onPress={async () => {
+                await showIntercom();
+                void dialogInstance.close();
+              }}
+            >
+              {intl.formatMessage({ id: ETranslations.global_contact_us })}
+            </Button>
+          </>
+        );
       default:
         return (
           <>
@@ -860,6 +911,7 @@ export function EnumBasicDialogContentContainer({
     versionCompareResult,
     useNewProcess,
     canSkipUnofficialDevice,
+    dialogInstance,
   ]);
   return <YStack>{content}</YStack>;
 }

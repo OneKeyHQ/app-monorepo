@@ -74,6 +74,9 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
 
   const tokenInputRef = useRef<ITokenInputSectionRef>(null);
   const paymentAmountRef = useRef(paymentAmount);
+  if (paymentAmount !== paymentAmountRef.current) {
+    paymentAmountRef.current = paymentAmount;
+  }
   const handleBalanceClick = useCallback(() => {
     const reserveGas = swapNativeTokenReserveGas.find(
       (item) => item.networkId === balanceToken?.networkId,
@@ -107,9 +110,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       const changeAmount = new BigNumber(
         paymentAmountRef.current?.toFixed(),
       ).decimalPlaces(balanceToken?.decimals ?? 0, BigNumber.ROUND_DOWN);
+      setPaymentAmount(changeAmount);
       tokenInputRef.current?.setValue(changeAmount.toFixed());
     }
-  }, [tradeType, balanceToken?.decimals]);
+  }, [tradeType, balanceToken?.decimals, setPaymentAmount]);
 
   return (
     <YStack gap="$4">

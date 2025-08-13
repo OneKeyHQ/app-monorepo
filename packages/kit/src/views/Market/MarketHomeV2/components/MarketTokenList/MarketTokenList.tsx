@@ -144,6 +144,10 @@ function MarketTokenList({
     [handleSortChange],
   );
 
+  const handleEndReached = useCallback(() => {
+    console.log('onEndReached');
+  }, []);
+
   const result = showWatchlistOnly ? watchlistResult : normalResult;
   const { data, isLoading } = result;
 
@@ -182,7 +186,9 @@ function MarketTokenList({
             <Table<IMarketToken>
               key={networkId}
               stickyHeader
+              scrollEnabled
               columns={marketTokenColumns}
+              onEndReached={handleEndReached}
               dataSource={data}
               keyExtractor={(item) => item.address + item.symbol + item.name}
               onHeaderRow={handleHeaderRow}
