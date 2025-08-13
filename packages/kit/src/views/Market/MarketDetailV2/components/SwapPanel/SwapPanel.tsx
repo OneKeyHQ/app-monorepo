@@ -64,7 +64,7 @@ export function SwapPanel({
         showFooter: false,
         showExitButton: true,
         renderContent: (
-          <View p="$4">
+          <View>
             <AccountSelectorProviderMirror
               config={{
                 sceneName: EAccountSelectorSceneName.home,
