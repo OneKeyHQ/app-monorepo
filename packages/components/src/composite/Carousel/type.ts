@@ -7,6 +7,7 @@ export interface ICarouselInstance {
   next: () => void;
   getCurrentIndex: () => number;
   scrollTo: ({ index }: { index: number }) => void;
+  setScrollEnabled: (scrollEnabled: boolean) => void;
 }
 
 export interface IPaginationItemProps<T> {
