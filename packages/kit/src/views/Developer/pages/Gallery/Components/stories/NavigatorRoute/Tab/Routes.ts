@@ -19,7 +19,3 @@ export enum EDemoDeveloperTabRoutes {
 export enum EDemoMeTabRoutes {
   DemoRootMe = 'DemoRootMe',
 }
-
-export enum EDemoTabsTabRoutes {
-  DemoRootTabs = 'DemoRootTabs',
-}

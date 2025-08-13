@@ -17,7 +17,6 @@ import DemoRootHome from './View/DemoRootHome';
 import DemoRootHomeOptions from './View/DemoRootHomeOptions';
 import DemoRootHomeSearch from './View/DemoRootHomeSearch';
 import DemoRootMe from './View/DemoRootMe';
-import DemoRootTabs from './View/DemoRootTabs';
 
 const config: ITabNavigatorConfig<EDemoTabRoutes>[] = [
   {
@@ -59,22 +58,6 @@ const config: ITabNavigatorConfig<EDemoTabRoutes>[] = [
         component: DemoRootMe,
         // @ts-expect-error
         translationId: 'msg__mine',
-      },
-    ],
-  },
-  {
-    name: EDemoTabRoutes.Tabs,
-    tabBarIcon: (focused?: boolean) =>
-      focused ? 'ChatGptSolid' : 'ChatGptOutline',
-    // @ts-expect-error
-    translationId: 'title__str_tabs',
-    freezeOnBlur: true,
-    children: [
-      {
-        name: EDemoTabsTabRoutes.DemoRootTabs,
-        component: DemoRootTabs,
-        // @ts-expect-error
-        translationId: 'title__str_tabs',
       },
     ],
   },
