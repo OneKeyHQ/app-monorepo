@@ -74,7 +74,7 @@ function AddressTypeSelectorItem(props: IProps) {
     <ListItem
       disabled={isCreatingAddress}
       alignItems="flex-start"
-      mx="$0"
+      mx="$1"
       title={
         deriveInfo.labelKey
           ? intl.formatMessage({ id: deriveInfo.labelKey })

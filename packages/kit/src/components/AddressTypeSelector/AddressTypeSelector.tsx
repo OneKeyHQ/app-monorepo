@@ -4,6 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   IconButton,
   ListView,
   Popover,
@@ -38,6 +39,8 @@ import {
 import AddressTypeSelectorItem from './AddressTypeSelectorItem';
 import AddressTypeSelectorTrigger from './AddressTypeSelectorTrigger';
 
+import type { PopoverProps } from 'tamagui';
+
 type IProps = {
   walletId: string;
   networkId: string;
@@ -63,6 +66,7 @@ type IProps = {
   disableSelector?: boolean;
   doubleConfirm?: boolean;
   showTriggerWhenDisabled?: boolean;
+  placement?: PopoverProps['placement'];
 };
 
 function AddressTypeSelectorContent(
@@ -184,12 +188,6 @@ function AddressTypeSelectorContent(
         return;
       }
 
-      void onSelect?.({
-        account,
-        deriveInfo,
-        deriveType,
-      });
-
       if (deriveType === activeDeriveType) {
         if (!doubleConfirm) {
           closePopover();
@@ -200,7 +198,6 @@ function AddressTypeSelectorContent(
       setActiveDeriveType(deriveType);
 
       if (!doubleConfirm) {
-        closePopover();
         if (changeDefaultAddressTypeAfterSelect) {
           console.log('saveGlobalDeriveTypeForNetwork', networkId, deriveType);
           await backgroundApiProxy.serviceNetwork.saveGlobalDeriveTypeForNetwork(
@@ -210,6 +207,12 @@ function AddressTypeSelectorContent(
             },
           );
         }
+        void onSelect?.({
+          account,
+          deriveInfo,
+          deriveType,
+        });
+        closePopover();
       }
     },
     [
@@ -245,9 +248,6 @@ function AddressTypeSelectorContent(
         {selectorDescription}
       </YStack>
       <ListView
-        contentContainerStyle={{
-          px: '$1',
-        }}
         data={networkAccounts}
         renderItem={({ item }) => {
           return (
@@ -258,6 +258,45 @@ function AddressTypeSelectorContent(
           );
         }}
       />
+      {doubleConfirm ? (
+        <XStack px="$5" pt="$4">
+          <Button
+            flex={1}
+            size="medium"
+            variant="primary"
+            onPress={async () => {
+              if (!activeDeriveType) {
+                return;
+              }
+              const currentNetworkAccount = networkAccounts.find(
+                (item) => item.deriveType === activeDeriveType,
+              );
+              if (changeDefaultAddressTypeAfterSelect) {
+                await backgroundApiProxy.serviceNetwork.saveGlobalDeriveTypeForNetwork(
+                  {
+                    networkId,
+                    deriveType: activeDeriveType,
+                  },
+                );
+              }
+
+              if (currentNetworkAccount) {
+                void onSelect?.({
+                  account: currentNetworkAccount.account,
+                  deriveInfo: currentNetworkAccount.deriveInfo,
+                  deriveType: currentNetworkAccount.deriveType,
+                });
+              }
+              closePopover();
+            }}
+            $gtMd={{
+              size: 'small',
+            }}
+          >
+            Confirm receiving address
+          </Button>
+        </XStack>
+      ) : null}
     </YStack>
   );
 }
@@ -276,6 +315,8 @@ function AddressTypeSelector(props: IProps) {
     activeDeriveInfo: activeDeriveInfoProp,
     disableSelector,
     showTriggerWhenDisabled = false,
+    placement,
+    doubleConfirm,
   } = props;
 
   const isSelectorDisabled = useMemo(() => {
@@ -452,6 +493,7 @@ function AddressTypeSelector(props: IProps) {
 
   return (
     <Popover
+      placement={placement}
       title={selectorTitle}
       renderTrigger={
         renderSelectorTrigger ?? (
@@ -478,6 +520,17 @@ function AddressTypeSelector(props: IProps) {
           </AddressTypeSelectorContext.Provider>
         </AccountSelectorProviderMirror>
       )}
+      onOpenChange={(open) => {
+        if (!open && doubleConfirm) {
+          void backgroundApiProxy.serviceNetwork
+            .getGlobalDeriveTypeOfNetwork({
+              networkId,
+            })
+            .then((deriveType) => {
+              setActiveDeriveType(deriveType);
+            });
+        }
+      }}
     />
   );
 }
