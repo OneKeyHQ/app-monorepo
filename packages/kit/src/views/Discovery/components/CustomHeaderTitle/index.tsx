@@ -48,7 +48,7 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       borderCurve="continuous"
     >
       <Popover
-        title="dApp info"
+        title={intl.formatMessage({ id: ETranslations.global_info })}
         open={dappInfoIsOpen}
         onOpenChange={setDappInfoIsOpen}
         renderTrigger={

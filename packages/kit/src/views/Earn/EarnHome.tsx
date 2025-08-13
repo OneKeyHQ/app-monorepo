@@ -287,6 +287,7 @@ function RecommendedContainer({ children }: PropsWithChildren) {
       {/* since the children have been used negative margin, so we should use zIndex to make sure the trigger of popover is on top of the children */}
       <YStack
         gap="$1"
+        pointerEvents="box-none"
         zIndex={10}
         $md={
           platformEnv.isNative
@@ -296,7 +297,7 @@ function RecommendedContainer({ children }: PropsWithChildren) {
             : undefined
         }
       >
-        <SizableText size="$headingLg">
+        <SizableText size="$headingLg" pointerEvents="box-none">
           {intl.formatMessage({ id: ETranslations.market_trending })}
         </SizableText>
       </YStack>
@@ -525,6 +526,7 @@ function Overview({
           $gtLg={{
             pl: '$0.5',
           }}
+          pointerEvents="box-none"
         >
           {intl.formatMessage({ id: ETranslations.earn_total_staked_value })}
         </SizableText>
@@ -535,6 +537,7 @@ function Overview({
             color={getNumberColor(totalFiatValue, '$text')}
             formatterOptions={{ currency: settings.currencyInfo.symbol }}
             numberOfLines={1}
+            pointerEvents="box-none"
           >
             {totalFiatValue}
           </NumberSizeableText>
@@ -569,6 +572,7 @@ function Overview({
           $gtLg={{
             size: '$heading5xl',
           }}
+          pointerEvents="box-none"
         >
           {earnings24h}
         </NumberSizeableText>
@@ -581,6 +585,7 @@ function Overview({
               color: '$text',
               size: '$bodyLgMedium',
             }}
+            pointerEvents="box-none"
           >
             {intl.formatMessage({ id: ETranslations.earn_24h_earnings })}
           </SizableText>
@@ -983,7 +988,13 @@ function BasicEarnHome() {
               } as any
             }
             renderHeader={() => (
-              <YStack flex={1} gap="$4" pt="$5" bg="$bgApp">
+              <YStack
+                flex={1}
+                gap="$4"
+                pt="$5"
+                bg="$bgApp"
+                pointerEvents="box-none"
+              >
                 {/* overview and banner */}
                 <YStack gap="$8">
                   <Overview
@@ -1013,7 +1024,12 @@ function BasicEarnHome() {
                   {/* FAQ Panel */}
                   {banners ? gtLgFaqPanel : null}
                 </YStack>
-                <SizableText mx="$5" pb="$4" size="$headingLg">
+                <SizableText
+                  mx="$5"
+                  pb="$4"
+                  size="$headingLg"
+                  pointerEvents="box-none"
+                >
                   {intl.formatMessage({
                     id: ETranslations.earn_available_assets,
                   })}

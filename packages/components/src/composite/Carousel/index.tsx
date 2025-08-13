@@ -49,6 +49,7 @@ export function Carousel<T>({
   onPageChanged,
   marginRatio = 0,
   maxPageWidth,
+  showPagination = true,
   renderPaginationItem = defaultRenderPaginationItem,
 }: ICarouselProps<T>) {
   const pagerRef = useRef<NativePagerView>(undefined);
@@ -198,7 +199,7 @@ export function Carousel<T>({
           </Stack>
         ) : null}
       </XStack>
-      {data.length > 1 ? (
+      {showPagination && data.length > 1 ? (
         <XStack
           gap="$0.5"
           ai="center"
