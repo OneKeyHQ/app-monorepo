@@ -52,9 +52,8 @@ function OneKeyWalletConnectionOptions() {
           px="$5"
           mx="$0"
           bg="$bgSubdued"
-          title="OneKey hardware wallet"
-          subtitle={intl.formatMessage({
-            id: ETranslations.wallet_hardware_wallet_connect_description_1,
+          title={intl.formatMessage({
+            id: ETranslations.global_onekey_wallet_hardware_wallet,
           })}
           renderAvatar={<Icon name="OnekeyBrand" size="$10" />}
           drillIn

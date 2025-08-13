@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Badge,
   Button,
   Divider,
   Icon,
@@ -18,6 +19,7 @@ import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/SearchInput/UniversalSearchInput';
 import { OneKeyWalletConnectionOptions } from '@onekeyhq/kit/src/components/WebDapp/OneKeyWalletConnectionOptions';
 import { TermsAndPrivacy } from '@onekeyhq/kit/src/views/Onboarding/pages/GetStarted/components/TermsAndPrivacy';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -26,6 +28,8 @@ import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { urlAccountNavigation } from '../../views/Home/pages/urlAccount/urlAccountUtils';
+
+const ETH_DEV_ADDRESS = '0xde0b295669a9fd93d5f28d9ec85e40f4cb697bae';
 
 function WebDappEmptyView() {
   const intl = useIntl();
@@ -182,25 +186,7 @@ function WebDappEmptyView() {
           />
         </YStack>
 
-        {!isMobileLayout ? (
-          <YStack
-            alignItems="center"
-            justifyContent="center"
-            p="$5"
-            pt="$1.5"
-            pb="$2"
-          >
-            <Button
-              size="small"
-              variant="tertiary"
-              onPress={handleShowMoreOptions}
-            >
-              {intl.formatMessage({
-                id: ETranslations.wallet_connect_wallet_more_options,
-              })}
-            </Button>
-          </YStack>
-        ) : (
+        {isMobileLayout ? null : (
           <YStack
             alignItems="center"
             justifyContent="center"
@@ -223,7 +209,7 @@ function WebDappEmptyView() {
 
       <Divider my="$4" width="100%" />
 
-      <YStack py="$4" bg="$bgSubdued" borderRadius="$4" width="$full">
+      <YStack py="$4" bg="$bgSubdued" borderRadius="$4" width="100%">
         <YStack px="$5" pb="$4">
           <XStack alignItems="center" gap="$2">
             <Icon name="EyeOutline" size="$5" color="$icon" />
@@ -274,23 +260,38 @@ function WebDappEmptyView() {
 
         <XStack gap="$1.5" px="$5" pb="$0" pt="$3">
           <SizableText size="$bodyMd" color="$textDisabled">
-            e.g.
+            {intl.formatMessage({
+              id: ETranslations.global_eg,
+            })}
           </SizableText>
-          <XStack
+          <Badge
             gap="$1"
             py="$0.5"
             px="$2"
             bg="$bgStrong"
             borderRadius="$1"
             alignItems="center"
+            onPress={() => {
+              void urlAccountNavigation.pushOrReplaceUrlAccountPage(
+                appNavigation,
+                {
+                  address: ETH_DEV_ADDRESS,
+                  networkId: getNetworkIdsMap().eth,
+                },
+              );
+            }}
           >
             <SizableText size="$bodyMdMedium" color="$text">
               EthDev
             </SizableText>
             <SizableText size="$bodyMd" color="$textSubdued">
-              0xde0b29...697bae
+              {accountUtils.shortenAddress({
+                address: ETH_DEV_ADDRESS,
+                trailingLength: 6,
+                leadingLength: 4,
+              })}
             </SizableText>
-          </XStack>
+          </Badge>
         </XStack>
       </YStack>
     </YStack>
