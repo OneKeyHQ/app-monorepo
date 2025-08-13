@@ -22,7 +22,10 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  TransferInvalidCodeError,
+} from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -68,6 +71,7 @@ import e2eeClientToClientApi, {
 } from './e2ee/e2eeClientToClientApi';
 import { createE2EEClientToClientApiProxy } from './e2ee/e2eeClientToClientApiProxy';
 import { createE2EEServerApiProxy } from './e2ee/e2eeServerApiProxy';
+import transferErrors from './e2ee/transferErrors';
 
 import type {
   IECDHEKeyExchangeRequest,
@@ -75,7 +79,6 @@ import type {
 } from './e2ee/e2eeClientToClientApi';
 import type { E2EEClientToClientApiProxy } from './e2ee/e2eeClientToClientApiProxy';
 import type { E2EEServerApiProxy } from './e2ee/e2eeServerApiProxy';
-import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type {
   IDBAccount,
   IDBUtxoAccount,
@@ -417,23 +420,23 @@ class ServicePrimeTransfer extends ServiceBase {
           myCreatedRoomId: result.roomId,
         }),
       );
-      return this.joinRoom(result);
+      return this.joinRoom({
+        roomId: result.roomId,
+        isJoinAfterCreate: true,
+      });
     }
     return undefined;
   }
 
   checkRoomIdValid(roomId: string | undefined | null) {
     if (!roomId || roomId.length !== ROOM_ID_LENGTH) {
-      throw new OneKeyLocalError('Invalid room ID');
+      throw new TransferInvalidCodeError();
     }
   }
 
   checkPairingCodeValid(pairingCode: string | undefined | null) {
     if (!pairingCode || pairingCode.length !== PAIRING_CODE_LENGTH) {
-      const message = appLocale.intl.formatMessage({
-        id: ETranslations.transfer_invalid_code,
-      });
-      throw new OneKeyLocalError(message);
+      throw new TransferInvalidCodeError();
     }
   }
 
@@ -444,14 +447,27 @@ class ServicePrimeTransfer extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async joinRoom({ roomId }: { roomId: string }) {
+  async joinRoom({
+    roomId,
+    isJoinAfterCreate,
+  }: {
+    roomId: string;
+    isJoinAfterCreate?: boolean;
+  }) {
     try {
       this.checkRoomIdValid(roomId);
       this.checkWebSocketConnected();
       // const settings = await settingsPersistAtom.get();
       const deviceInfo = await appDeviceInfo.getDeviceInfo();
+      const joinFn = isJoinAfterCreate
+        ? this.e2eeServerApiProxy?.roomManager.joinRoomAfterCreate.bind(
+            this.e2eeServerApiProxy.roomManager,
+          )
+        : this.e2eeServerApiProxy?.roomManager.joinRoom.bind(
+            this.e2eeServerApiProxy.roomManager,
+          );
       // TODO try to join room from client side?
-      const result = await this.e2eeServerApiProxy?.roomManager.joinRoom({
+      const result = await joinFn?.({
         roomId,
         appPlatformName: deviceInfo.displayName || 'Unknown Device',
         appVersion: platformEnv.version || '',
@@ -841,6 +857,7 @@ class ServicePrimeTransfer extends ServiceBase {
             accountIds: [],
             indexedAccountUUIDs: [],
             nextIds: wallet.nextIds,
+            walletOrder: wallet.walletOrder,
             avatarInfo: wallet.avatarInfo,
             version: HDWALLET_BACKUP_VERSION,
           };
@@ -1119,6 +1136,12 @@ class ServicePrimeTransfer extends ServiceBase {
       b.accountOrder ?? b.accountOrderSaved ?? 0,
     );
 
+  walletSortFn = (a: IPrimeTransferHDWallet, b: IPrimeTransferHDWallet) =>
+    natsort({ insensitive: true })(
+      a.walletOrder ?? a.walletOrderSaved ?? 0,
+      b.walletOrder ?? b.walletOrderSaved ?? 0,
+    );
+
   @backgroundMethod()
   @toastIfError()
   async getSelectedTransferData({
@@ -1133,7 +1156,7 @@ class ServicePrimeTransfer extends ServiceBase {
       selectedItemMapInfo: selectedItemMap.wallet,
       dataSource: data.privateData.wallets,
       credentials: data.privateData.credentials,
-    });
+    }).sort((a, b) => this.walletSortFn(a.item, b.item));
 
     // Extract selected imported accounts
     const importedAccounts = this.extractSelectedItems({
@@ -1280,6 +1303,8 @@ class ServicePrimeTransfer extends ServiceBase {
     });
   }
 
+  currentImportTaskUUID: string | undefined;
+
   @backgroundMethod()
   @toastIfError()
   async startImport({
@@ -1298,6 +1323,8 @@ class ServicePrimeTransfer extends ServiceBase {
       error: string;
     }[];
   }> {
+    const taskUUID = stringUtils.generateUUID();
+    this.currentImportTaskUUID = taskUUID;
     // const { watchingAccounts, importedAccounts } = selectedTransferData;
     // const { wallets, ...others } = selectedTransferData;
     // console.log(others);
@@ -1309,10 +1336,20 @@ class ServicePrimeTransfer extends ServiceBase {
       error: string;
     }[] = [];
 
+    const cancelledResult = {
+      success: false,
+      errorsInfo: [],
+    };
+
     const { serviceAccount, serviceNetwork, servicePassword } =
       this.backgroundApi;
 
     for (const { item: wallet, credential } of selectedTransferData.wallets) {
+      if (this.currentImportTaskUUID !== taskUUID) {
+        // task cancelled
+        return cancelledResult;
+      }
+
       let newWallet: IDBWallet | undefined;
       try {
         if (!credential) {
@@ -1354,6 +1391,10 @@ class ServicePrimeTransfer extends ServiceBase {
       } = {};
 
       for (const hdAccount of wallet.accounts) {
+        if (this.currentImportTaskUUID !== taskUUID) {
+          // task cancelled
+          return cancelledResult;
+        }
         try {
           const index = accountUtils.getHDAccountPathIndex({
             account: hdAccount,
@@ -1394,6 +1435,10 @@ class ServicePrimeTransfer extends ServiceBase {
 
       const createNetworkParamsEntries = Object.entries(createNetworkParams);
       for (const [, { customNetworks, index }] of createNetworkParamsEntries) {
+        if (this.currentImportTaskUUID !== taskUUID) {
+          // task cancelled
+          return cancelledResult;
+        }
         try {
           if (newWallet) {
             await this.backgroundApi.serviceBatchCreateAccount.startBatchCreateAccountsFlowForAllNetwork(
@@ -1431,6 +1476,10 @@ class ServicePrimeTransfer extends ServiceBase {
       item: importedAccount,
       credential,
     } of selectedTransferData.importedAccounts) {
+      if (this.currentImportTaskUUID !== taskUUID) {
+        // task cancelled
+        return cancelledResult;
+      }
       if (!credential) {
         throw new OneKeyLocalError('Credential is required');
       }
@@ -1467,6 +1516,10 @@ class ServicePrimeTransfer extends ServiceBase {
     for (const {
       item: watchingAccount,
     } of selectedTransferData.watchingAccounts) {
+      if (this.currentImportTaskUUID !== taskUUID) {
+        // task cancelled
+        return cancelledResult;
+      }
       const watchingAccountUtxo = watchingAccount as IDBUtxoAccount;
       let addedAccounts: IDBAccount[] = [];
       const networkId = await serviceAccount.getAccountCreatedNetworkId({
@@ -1477,6 +1530,10 @@ class ServicePrimeTransfer extends ServiceBase {
       }
 
       if (watchingAccount?.pub) {
+        if (this.currentImportTaskUUID !== taskUUID) {
+          // task cancelled
+          return cancelledResult;
+        }
         const result = await serviceAccount.restoreWatchingAccountByInput({
           watchingAccount,
           input: watchingAccount.pub,
@@ -1486,6 +1543,10 @@ class ServicePrimeTransfer extends ServiceBase {
       }
 
       if (watchingAccountUtxo?.xpub) {
+        if (this.currentImportTaskUUID !== taskUUID) {
+          // task cancelled
+          return cancelledResult;
+        }
         const result = await serviceAccount.restoreWatchingAccountByInput({
           watchingAccount,
           input: watchingAccountUtxo.xpub,
@@ -1495,6 +1556,10 @@ class ServicePrimeTransfer extends ServiceBase {
       }
 
       if (watchingAccountUtxo?.xpubSegwit) {
+        if (this.currentImportTaskUUID !== taskUUID) {
+          // task cancelled
+          return cancelledResult;
+        }
         const result = await serviceAccount.restoreWatchingAccountByInput({
           watchingAccount,
           input: watchingAccountUtxo.xpubSegwit,
@@ -1504,6 +1569,10 @@ class ServicePrimeTransfer extends ServiceBase {
       }
 
       if (watchingAccount?.address && addedAccounts?.length === 0) {
+        if (this.currentImportTaskUUID !== taskUUID) {
+          // task cancelled
+          return cancelledResult;
+        }
         const result = await serviceAccount.restoreWatchingAccountByInput({
           watchingAccount,
           input: watchingAccount.address,

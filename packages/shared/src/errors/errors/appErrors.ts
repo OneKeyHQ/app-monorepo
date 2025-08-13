@@ -71,6 +71,28 @@ export class LocalDBRecordNotFoundError extends OneKeyAppError {
   override className = EOneKeyErrorClassNames.LocalDBRecordNotFoundError;
 }
 
+export class TransferInvalidCodeError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'TransferInvalidCodeError',
+        defaultKey: ETranslations.transfer_invalid_code,
+      }),
+    );
+  }
+}
+
+export class RequestLimitExceededError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'RequestLimitExceededError',
+        defaultKey: ETranslations.global_request_limit,
+      }),
+    );
+  }
+}
+
 export class SystemDiskFullError extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(
