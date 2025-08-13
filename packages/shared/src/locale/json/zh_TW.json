@@ -1580,6 +1580,7 @@
   "hardware.connect_unknown_device_error": "未知的裝置，目前版本的應用程式不支援連接。",
   "hardware.data_erased_use_as_new": "這張 OneKey Lite 上的數據已被完全擦除，您可以將其作爲一張新的 OneKey Lite 使用。",
   "hardware.default_error": "硬體通訊失敗，請再試一次",
+  "hardware.defective_firmware_error": "Your device has defective firmware and cannot be connected. Please contact support for device replacement.",
   "hardware.device_ble_already_connected": "裝置已在其他地方連接，請斷開並再試一次",
   "hardware.device_ble_location_disabled": "位置服務不可用，請啟用後再試一次",
   "hardware.device_ble_scan_error": "藍牙掃描失敗，請再試一次",

@@ -1580,6 +1580,7 @@
   "hardware.connect_unknown_device_error": "অজানা ডিভাইস, বর্তমান সংস্করণ অ্যাপ সংযোগ সমর্থন করে না।",
   "hardware.data_erased_use_as_new": "এই OneKey Lite এর উপর থাকা ডাটা সম্পূর্ণরূপে মুছে ফেলা হয়েছে, এবং আপনি এটি একটি নতুন OneKey Lite হিসেবে ব্যবহার করতে পারেন।",
   "hardware.default_error": "হার্ডওয়্যার যোগাযোগ ব্যর্থ হয়েছে, দয়া করে আবার চেষ্টা করুন",
+  "hardware.defective_firmware_error": "Your device has defective firmware and cannot be connected. Please contact support for device replacement.",
   "hardware.device_ble_already_connected": "ডিভাইস ইতিমধ্যে অন্য কোথাও সংযুক্ত, দয়া করে সংযোগ বিচ্ছিন্ন করুন এবং আবার চেষ্টা করুন",
   "hardware.device_ble_location_disabled": "অবস্থান সেবা অনুপলব্ধ নয়, দয়া করে সক্রিয় করুন এবং আবার চেষ্টা করুন",
   "hardware.device_ble_scan_error": "ব্লুটুথ স্ক্যান ব্যর্থ হয়েছে, দয়া করে আবার চেষ্টা করুন",

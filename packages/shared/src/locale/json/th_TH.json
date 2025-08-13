@@ -1580,6 +1580,7 @@
   "hardware.connect_unknown_device_error": "อุปกรณ์ที่ไม่รู้จัก, แอปเวอร์ชันปัจจุบันไม่รองรับการเชื่อมต่อ.",
   "hardware.data_erased_use_as_new": "ข้อมูลบน OneKey Lite นี้ได้ถูกลบทั้งหมดแล้ว และคุณสามารถใช้มันเป็น OneKey Lite ใหม่ได้",
   "hardware.default_error": "การสื่อสารฮาร์ดแวร์ล้มเหลว โปรดลองอีกครั้ง",
+  "hardware.defective_firmware_error": "Your device has defective firmware and cannot be connected. Please contact support for device replacement.",
   "hardware.device_ble_already_connected": "อุปกรณ์เชื่อมต่ออยู่ที่อื่นแล้ว โปรดยกเลิกการเชื่อมต่อและลองอีกครั้ง",
   "hardware.device_ble_location_disabled": "บริการตำแหน่งที่ตั้งไม่สามารถใช้งานได้ กรุณาเปิดใช้งานและลองอีกครั้ง",
   "hardware.device_ble_scan_error": "การสแกน Bluetooth ล้มเหลว โปรดลองอีกครั้ง",

@@ -205,7 +205,7 @@
   "balance_detail.disable_protection_warning_description": "Disabling inscription protection may result in the accidental transfer of inscription tokens or NFTs. To migrate your inscription assets safely, please use an inscription-compatible wallet such as Unisat or OKX.",
   "balance_detail.disable_protection_warning_title": "Disabling inscription protection may lead to loss of inscription assets",
   "balance_detail.enable_protection_title": "Enabling Inscription Protection",
-  "balance_detail.enable_protection_warning": "Inscription assets (Ordinals NFT and BRC-20 tokens) are currently not supported. To view the details of the protection, check \"Balance Details\". \nTo migrate your inscription assets safely, please use an inscription-compatible wallet such as Unisat or OKX.",
+  "balance_detail.enable_protection_warning": "Inscription assets (Ordinals NFT and BRC-20 tokens) are currently not supported.To view the details of the protection, check \"Balance Details\".\nTo migrate your inscription assets safely, please use an inscription-compatible wallet such as Unisat or OKX.",
   "balance_detail.frozen": "Frozen",
   "balance_detail.frozen_by_inscription": "Inscription Protection",
   "balance_detail.how_to_migrate": "How to Migrate Ordinals NFT / BRC-20 Tokens?",
@@ -1580,6 +1580,7 @@
   "hardware.connect_unknown_device_error": "Unknown device, the current version App does not support connection.",
   "hardware.data_erased_use_as_new": "The data on this OneKey Lite has been completely erased, and you can use it as a new OneKey Lite.",
   "hardware.default_error": "Hardware communication failed, please try again",
+  "hardware.defective_firmware_error": "Your device has defective firmware and cannot be connected. Please contact support for device replacement.",
   "hardware.device_ble_already_connected": "Device already connected elsewhere, please disconnect and try again",
   "hardware.device_ble_location_disabled": "Location services unavailable, please enable and try again",
   "hardware.device_ble_scan_error": "Bluetooth scan failed, please try again",

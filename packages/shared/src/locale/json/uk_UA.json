@@ -1580,6 +1580,7 @@
   "hardware.connect_unknown_device_error": "Невідомий пристрій, поточна версія додатку не підтримує підключення.",
   "hardware.data_erased_use_as_new": "Дані на цьому OneKey Lite були повністю видалені, і ви можете використовувати його як новий OneKey Lite.",
   "hardware.default_error": "Збій у спілкуванні з обладнанням, будь ласка, спробуйте ще раз",
+  "hardware.defective_firmware_error": "Your device has defective firmware and cannot be connected. Please contact support for device replacement.",
   "hardware.device_ble_already_connected": "Пристрій вже підключений в іншому місці, будь ласка, відключіть його та спробуйте знову",
   "hardware.device_ble_location_disabled": "Служби геолокації недоступні, будь ласка, увімкніть їх та спробуйте знову",
   "hardware.device_ble_scan_error": "Помилка сканування Bluetooth, будь ласка, спробуйте ще раз",
