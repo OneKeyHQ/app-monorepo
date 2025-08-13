@@ -280,6 +280,7 @@ function TableSkeletonRow<T = any>({
   );
 }
 export interface ITableProps<T> {
+  useFlashList?: boolean;
   scrollEnabled?: boolean;
   showHeader?: boolean;
   showBackToTopButton?: boolean;
@@ -482,6 +483,7 @@ function BasicTable<T>({
   onEndReached,
   onEndReachedThreshold,
   scrollEnabled = true,
+  useFlashList = false,
   showSkeleton = false,
   skeletonCount = 3,
 }: ITableProps<T>) {
@@ -597,6 +599,7 @@ function BasicTable<T>({
       draggable ? (
         <SortableListView
           enabled
+          useFlashList={useFlashList}
           scrollEnabled={scrollEnabled}
           ref={listViewRef as any}
           contentContainerStyle={contentContainerStyle}
@@ -632,6 +635,7 @@ function BasicTable<T>({
         />
       ) : (
         <ListView
+          useFlashList={useFlashList}
           scrollEnabled={scrollEnabled}
           ref={listViewRef as any}
           contentContainerStyle={contentContainerStyle}
@@ -680,6 +684,7 @@ function BasicTable<T>({
       renderScrollComponent,
       onEndReached,
       onEndReachedThreshold,
+      useFlashList,
       estimatedItemSize,
       handleRenderItem,
       itemSize,
