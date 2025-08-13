@@ -1,10 +1,10 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Dimensions } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 
-import type { ICarouselInstance } from '@onekeyhq/components';
+import type { ICarouselInstance, IScrollViewRef } from '@onekeyhq/components';
 import {
   Carousel,
   ScrollView,
@@ -38,23 +38,31 @@ export function MobileLayout() {
     [intl],
   );
 
-  const carouselRef = useRef<ICarouselInstance>(null);
+  const { top, bottom } = useSafeAreaInsets();
+
+  const height = useMemo(() => {
+    return platformEnv.isNative
+      ? Dimensions.get('window').height - top - bottom - 158
+      : 'calc(100vh - 96px)';
+  }, [bottom, top]);
+
+  const width = useMemo(() => {
+    return Dimensions.get('window').width;
+  }, []);
+
+  const scrollViewRef = useRef<IScrollViewRef>(null);
   const focusedTab = useSharedValue(tabNames[0]);
 
   const handleTabChange = useCallback(
     (tabName: string) => {
       focusedTab.value = tabName;
-      carouselRef.current?.scrollTo({ index: tabNames.indexOf(tabName) });
+      scrollViewRef.current?.scrollTo({
+        x: width * tabNames.indexOf(tabName),
+        animated: true,
+      });
     },
-    [focusedTab, tabNames],
+    [focusedTab, tabNames, width],
   );
-  const { top, bottom } = useSafeAreaInsets();
-
-  const height = useMemo(() => {
-    return platformEnv.isNative
-      ? Dimensions.get('window').height - top - bottom - 88
-      : 'calc(100vh - 96px)';
-  }, [bottom, top]);
 
   const onPageChanged = useCallback(
     (index: number) => {
@@ -89,35 +97,42 @@ export function MobileLayout() {
         );
       }
       return (
-        <ScrollView flex={1}>
-          <TokenOverview />
-          <TokenActivityOverview />
-        </ScrollView>
+        <YStack flex={1} height={height}>
+          <YStack h={30} />
+          <ScrollView>
+            <TokenOverview />
+            <TokenActivityOverview />
+          </ScrollView>
+        </YStack>
       );
     },
     [height, networkId, tokenAddress, tokenDetail?.symbol],
   );
 
   return (
-    <YStack>
+    <YStack flex={1}>
       <Tabs.TabBar
         divider={false}
         onTabPress={handleTabChange}
         tabNames={tabNames}
         focusedTab={focusedTab}
       />
-      <Carousel
+      <ScrollView horizontal ref={scrollViewRef} flex={1} scrollEnabled={false}>
+        {tabNames.map((item, index) => (
+          <YStack key={index} h={height} w={width}>
+            {renderItem({ index })}
+          </YStack>
+        ))}
+      </ScrollView>
+      {/* <Carousel
         containerStyle={{ height }}
         ref={carouselRef as any}
-        pagerProps={{
-          scrollSensitivity: 4,
-        }}
         onPageChanged={onPageChanged}
         loop={false}
         showPagination={false}
         data={tabNames}
         renderItem={renderItem}
-      />
+      /> */}
       <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />
     </YStack>
   );
