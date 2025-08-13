@@ -193,7 +193,7 @@ export function AccountSelectorActiveAccountHome({
   }, [activeAccount, selectedAccount]);
 
   const handleAddressOnPress = useCallback(async () => {
-    if (!account?.address || !network || !deriveInfo || !wallet) {
+    if (!account?.address || !network || !wallet) {
       return;
     }
 
@@ -226,15 +226,7 @@ export function AccountSelectorActiveAccountHome({
       copyText(account.address);
     }
     logActiveAccount();
-  }, [
-    account,
-    copyText,
-    deriveInfo,
-    logActiveAccount,
-    navigation,
-    network,
-    wallet,
-  ]);
+  }, [account, copyText, logActiveAccount, navigation, network, wallet]);
 
   useShortcutsOnRouteFocused(
     EShortcutEvents.CopyAddressOrUrl,
