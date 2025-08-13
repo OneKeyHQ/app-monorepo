@@ -59,7 +59,6 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
         item.accountAddress + item.fiatValue + item.amount
       }
       showsVerticalScrollIndicator
-      stickyHeaderIndices={platformEnv.isNativeIOS ? undefined : [0]}
       ListEmptyComponent={
         isRefreshing ? (
           <HoldersSkeleton />
