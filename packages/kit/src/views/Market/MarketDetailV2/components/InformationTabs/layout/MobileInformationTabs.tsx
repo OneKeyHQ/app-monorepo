@@ -44,7 +44,9 @@ function MobileInformationTabsHeader(props: TabBarProps<string>) {
   return (
     <YStack>
       <Tabs.TabBar {...props} />
-      {focusedTab === firstTabName ? transactionsHeader : holdersHeader}
+      <Stack pointerEvents="none">
+        {focusedTab === firstTabName ? transactionsHeader : holdersHeader}
+      </Stack>
     </YStack>
   );
 }
