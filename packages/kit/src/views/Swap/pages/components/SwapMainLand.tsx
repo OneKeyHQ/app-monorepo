@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -280,18 +280,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     [fromTokenBalance, fromSelectToken?.decimals, setFromInputAmount],
   );
 
-  const supportPreBuild = useMemo(() => {
-    if (currentQuoteRes && !currentQuoteRes?.allowanceResult) {
-      return true;
-    }
-    return (
-      !currentQuoteRes?.providerDisableBatchTransfer &&
-      !SwapBuildUseMultiplePopoversNetworkIds.includes(
-        fromSelectToken?.networkId ?? '',
-      )
-    );
-  }, [currentQuoteRes, fromSelectToken?.networkId]);
-
   const isWrapped = useMemo(
     () =>
       checkWrappedTokenPair({
@@ -307,6 +295,21 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     Boolean(currentQuoteRes?.swapShouldSignedData),
     Boolean(currentQuoteRes?.allowanceResult),
   );
+
+  const supportPreBuild = useMemo(() => {
+    if (isWrapped) {
+      return false;
+    }
+    if (currentQuoteRes && !currentQuoteRes?.allowanceResult) {
+      return true;
+    }
+    return (
+      !currentQuoteRes?.providerDisableBatchTransfer &&
+      !SwapBuildUseMultiplePopoversNetworkIds.includes(
+        fromSelectToken?.networkId ?? '',
+      )
+    );
+  }, [currentQuoteRes, fromSelectToken?.networkId, isWrapped]);
 
   const createWrapStep = useCallback(
     (quoteRes: IFetchQuoteResult) => {

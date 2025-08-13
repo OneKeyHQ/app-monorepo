@@ -17,6 +17,7 @@ import {
 import type {
   IApproveInfo,
   ITransferInfo,
+  IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
@@ -27,7 +28,12 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import {
+  checkWrappedTokenPair,
+  equalTokenNoCaseSensitive,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
+import { wrappedTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapApproveTransaction,
   ISwapNativeTokenReserveGas,
@@ -42,6 +48,7 @@ import {
   ESwapQuoteKind,
   ESwapTabSwitchType,
   ESwapTxHistoryStatus,
+  EWrappedType,
 } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
@@ -264,6 +271,11 @@ export function useSpeedSwapActions(props: {
     setSpeedSwapBuildTxLoading(false);
   }, []);
 
+  const isWrapped = useMemo(
+    () => checkWrappedTokenPair({ fromToken, toToken }),
+    [fromToken, toToken],
+  );
+
   const speedSwapBuildTx = useCallback(async () => {
     setSpeedSwapBuildTxLoading(true);
     const userAddress = netAccountRes.result?.address ?? '';
@@ -410,6 +422,79 @@ export function useSpeedSwapActions(props: {
     // onCloseDialog,
   ]);
 
+  const speedSwapWrappedTx = useCallback(async () => {
+    if (netAccountRes.result?.address) {
+      const wrappedType = fromToken.isNative
+        ? EWrappedType.DEPOSIT
+        : EWrappedType.WITHDRAW;
+      const wrappedInfo: IWrappedInfo = {
+        from: netAccountRes.result?.address,
+        type: wrappedType,
+        contract:
+          wrappedType === EWrappedType.WITHDRAW
+            ? fromToken.contractAddress
+            : toToken.contractAddress,
+        amount: fromTokenAmountDebounced,
+      };
+      const swapInfo: ISwapTxInfo = {
+        protocol: EProtocolOfExchange.SWAP,
+        sender: {
+          amount: fromTokenAmountDebounced,
+          token: fromToken,
+          accountInfo: {
+            accountId: netAccountRes.result?.id ?? '',
+            networkId: fromToken.networkId,
+          },
+        },
+        receiver: {
+          amount: fromTokenAmountDebounced,
+          token: toToken,
+          accountInfo: {
+            accountId: netAccountRes.result?.id ?? '',
+            networkId: toToken.networkId,
+          },
+        },
+        accountAddress: netAccountRes.result?.address,
+        receivingAddress: netAccountRes.result?.address,
+        swapBuildResData: {
+          orderId: stringUtils.generateUUID(),
+          result: {
+            info: {
+              provider: 'wrapped',
+              providerName: 'wrapped',
+              providerLogo: wrappedTokens.find(
+                (item) => item.networkId === fromToken.networkId,
+              )?.logo,
+            },
+            fromTokenInfo: fromToken,
+            toTokenInfo: toToken,
+            fromAmount: fromTokenAmountDebounced,
+            toAmount: fromTokenAmountDebounced,
+          },
+        },
+      };
+      setSpeedSwapBuildTxLoading(true);
+      await navigationToTxConfirm({
+        isInternalSwap: true,
+        wrappedInfo,
+        swapInfo,
+        onSuccess: handleSpeedSwapBuildTxSuccess,
+        onCancel: cancelSpeedSwapBuildTx,
+        disableMev: !antiMEV,
+      });
+    }
+  }, [
+    netAccountRes.result?.address,
+    netAccountRes.result?.id,
+    fromToken,
+    toToken,
+    fromTokenAmountDebounced,
+    navigationToTxConfirm,
+    handleSpeedSwapBuildTxSuccess,
+    cancelSpeedSwapBuildTx,
+    antiMEV,
+  ]);
+
   // --- approve
 
   const handleSpeedSwapApproveTxSuccess = useCallback(
@@ -480,7 +565,8 @@ export function useSpeedSwapActions(props: {
             fromToken.networkId ||
           !netAccountRes.result?.address ||
           amountBN.isZero() ||
-          amountBN.isNaN()
+          amountBN.isNaN() ||
+          isWrapped
         ) {
           return;
         }
@@ -517,6 +603,7 @@ export function useSpeedSwapActions(props: {
       netAccountRes.result?.address,
       netAccountRes.result?.addressDetail.networkId,
       spenderAddress,
+      isWrapped,
     ],
   );
 
@@ -845,6 +932,7 @@ export function useSpeedSwapActions(props: {
       (!fromTokenAmountDebouncedBN.isNaN() &&
         fromTokenAmountDebouncedBN.gt(0) &&
         !fromToken.isNative &&
+        !isWrapped &&
         spenderAddress &&
         netAccountRes?.result?.address &&
         balance?.gt(0)) ||
@@ -857,6 +945,7 @@ export function useSpeedSwapActions(props: {
       setShouldResetApprove(false);
     }
   }, [
+    isWrapped,
     balance,
     fromToken.isNative,
     fromTokenAmountDebounced,
@@ -916,6 +1005,7 @@ export function useSpeedSwapActions(props: {
 
   return {
     speedSwapBuildTx,
+    speedSwapWrappedTx,
     speedSwapBuildTxLoading,
     checkTokenApproveAllowance,
     checkTokenAllowanceLoading,
@@ -927,5 +1017,6 @@ export function useSpeedSwapActions(props: {
     fetchBalanceLoading,
     swapNativeTokenReserveGas,
     priceRate,
+    isWrapped,
   };
 }
