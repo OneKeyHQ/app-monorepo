@@ -1,12 +1,10 @@
 import { useMemo } from 'react';
 
 import {
-  IconButton,
   ListView,
   SizableText,
   Stack,
   Tabs,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -29,7 +27,6 @@ const BasicTabsDemo = () => {
       <Tabs.Tab name="Tokens">
         <ListView
           data={data}
-          estimatedItemSize="$10"
           scrollEnabled={platformEnv.isWebTouchable}
           disableScrollViewPanResponder
           renderItem={({ item }) => (
@@ -46,7 +43,6 @@ const BasicTabsDemo = () => {
       <Tabs.Tab name="NFTs">
         <ListView
           data={data.slice(0, 10)}
-          estimatedItemSize="$10"
           scrollEnabled={platformEnv.isWebTouchable}
           disableScrollViewPanResponder
           renderItem={({ item }) => (
@@ -63,7 +59,6 @@ const BasicTabsDemo = () => {
       <Tabs.Tab name="History">
         <ListView
           data={data.slice(0, 15)}
-          estimatedItemSize="$10"
           scrollEnabled={platformEnv.isWebTouchable}
           disableScrollViewPanResponder
           renderItem={({ item }) => (
@@ -123,7 +118,6 @@ const TabsWithCustomTabBarDemo = () => {
       <Tabs.Tab name="Assets">
         <ListView
           data={data}
-          estimatedItemSize="$10"
           scrollEnabled={platformEnv.isWebTouchable}
           disableScrollViewPanResponder
           renderItem={({ item }) => (
@@ -140,7 +134,6 @@ const TabsWithCustomTabBarDemo = () => {
       <Tabs.Tab name="DeFi">
         <ListView
           data={data.slice(0, 12)}
-          estimatedItemSize="$10"
           scrollEnabled={platformEnv.isWebTouchable}
           disableScrollViewPanResponder
           renderItem={({ item }) => (
@@ -245,15 +238,99 @@ const TabsWithHeaderDemo = () => {
   );
 };
 
+// Tabs with Initial Tab Name Demo
+const TabsWithInitialTabDemo = () => {
+  const data = useMemo(
+    () =>
+      new Array(15).fill({}).map((_, index) => ({
+        id: index,
+        title: `Item ${index + 1}`,
+        category: ['Recent', 'Favorites', 'Archive'][
+          Math.floor(Math.random() * 3)
+        ],
+      })),
+    [],
+  );
+
+  return (
+    <Tabs.Container initialTabName="Archive">
+      <Tabs.Tab name="Recent">
+        <YStack p="$4" gap="$2">
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            Recent items (默认不会显示，因为设置了 initialTabName="Favorites")
+          </SizableText>
+          <ListView
+            data={data.filter((item) => item.category === 'Recent')}
+            scrollEnabled={platformEnv.isWebTouchable}
+            disableScrollViewPanResponder
+            renderItem={({ item }) => (
+              <Stack
+                p="$3"
+                borderBottomWidth="$px"
+                borderBottomColor="$borderSubdued"
+              >
+                <SizableText>📝 Recent: {item.title}</SizableText>
+              </Stack>
+            )}
+          />
+        </YStack>
+      </Tabs.Tab>
+      <Tabs.Tab name="Favorites">
+        <YStack p="$4" gap="$2">
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            收藏项目 (默认显示此标签页)
+          </SizableText>
+          <ListView
+            data={data.filter((item) => item.category === 'Favorites')}
+            scrollEnabled={platformEnv.isWebTouchable}
+            disableScrollViewPanResponder
+            renderItem={({ item }) => (
+              <Stack
+                p="$3"
+                borderBottomWidth="$px"
+                borderBottomColor="$borderSubdued"
+              >
+                <SizableText>⭐ Favorite: {item.title}</SizableText>
+              </Stack>
+            )}
+          />
+        </YStack>
+      </Tabs.Tab>
+      <Tabs.Tab name="Archive">
+        <YStack p="$4" gap="$2">
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            已归档的项目
+          </SizableText>
+          <ListView
+            data={data.filter((item) => item.category === 'Archive')}
+            scrollEnabled={platformEnv.isWebTouchable}
+            disableScrollViewPanResponder
+            renderItem={({ item }) => (
+              <Stack
+                p="$3"
+                borderBottomWidth="$px"
+                borderBottomColor="$borderSubdued"
+              >
+                <SizableText>📦 Archive: {item.title}</SizableText>
+              </Stack>
+            )}
+          />
+        </YStack>
+      </Tabs.Tab>
+    </Tabs.Container>
+  );
+};
+
 const NewTabsGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    filePath={globalThis.__CURRENT_FILE_PATH__}
     componentName="NewTabs"
     suggestions={[
       '使用 Tabs.Container 作为容器组件',
       'Tabs.Tab 定义每个标签页的内容',
       'renderTabBar 可以自定义标签栏样式和工具栏',
       'renderHeader 可以添加粘性头部内容',
+      'initialTabName 设置默认显示的标签页',
       'ref 可以用来程序化控制标签切换',
       '适用于需要分类展示大量数据的场景',
     ]}
@@ -279,6 +356,14 @@ const NewTabsGallery = () => (
         element: (
           <Stack h={400}>
             <TabsWithHeaderDemo />
+          </Stack>
+        ),
+      },
+      {
+        title: 'Tabs with Initial Tab Name',
+        element: (
+          <Stack h={400}>
+            <TabsWithInitialTabDemo />
           </Stack>
         ),
       },

@@ -59,7 +59,7 @@ function HeaderRightToolBarSkeleton() {
   );
 }
 
-function SingleAccountAndNetworkSelectorTrigger({
+export function SingleAccountAndNetworkSelectorTrigger({
   origin,
   num,
   account,

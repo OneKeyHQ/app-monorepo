@@ -1,17 +1,17 @@
 export const useHoldersLayoutSmall = () => {
   const styles = {
     rank: {
-      width: '$10',
+      width: '$8',
     },
     address: {
-      width: 200,
+      width: 170,
     },
     percentage: {
-      width: '$20',
+      width: '$14',
       textAlign: 'right' as const,
     },
     value: {
-      width: '$24',
+      width: '$18',
       textAlign: 'right' as const,
     },
   };

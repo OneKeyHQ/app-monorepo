@@ -38,7 +38,7 @@ const defaultTimeRangeConfigs: Array<{
 export function TokenActivityOverview() {
   const intl = useIntl();
   const [selectedTimeRange, setSelectedTimeRange] = useState('1h');
-  const { tokenDetail } = useTokenDetail();
+  const { tokenDetail, isLoading } = useTokenDetail();
 
   const timeRangeOptions = useMemo(() => {
     const availableOptions = [
@@ -81,6 +81,7 @@ export function TokenActivityOverview() {
         options={timeRangeOptions}
         value={selectedTimeRange}
         onChange={(value) => setSelectedTimeRange(value)}
+        isLoading={isLoading}
       />
       {tokenDetail ? (
         <>
@@ -91,6 +92,7 @@ export function TokenActivityOverview() {
             buyCount={buys}
             sellCount={sells}
             totalCount={totalTransactions}
+            isLoading={isLoading}
           />
           <VolumeRow
             label={intl
@@ -102,6 +104,7 @@ export function TokenActivityOverview() {
             buyVolume={buyVolume}
             sellVolume={sellVolume}
             totalVolume={totalVolume}
+            isLoading={isLoading}
           />
         </>
       ) : null}

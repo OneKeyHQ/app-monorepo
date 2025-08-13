@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 
 import { YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -98,7 +99,7 @@ export function TokenList({
             : undefined;
         return {
           ...token,
-          balance: swapTokenDetail?.balanceParsed,
+          balance: swapTokenDetail?.balanceParsed ?? '0',
           price: swapTokenDetail?.price,
           networkImageSrc: networkConfig?.logoURI,
           valueProps,
@@ -134,7 +135,7 @@ export function TokenList({
       <YStack gap="$1" px="$1" py="$1">
         {displayTokens?.map((token: IEnhancedToken) => (
           <TokenListItem
-            isLoading={Boolean(!token.balance && !token.error)}
+            isLoading={Boolean(isNil(token.balance) && !token.error)}
             key={`${token.networkId}-${token.contractAddress}`}
             tokenImageSrc={token.logoURI}
             networkImageSrc={token.networkImageSrc}

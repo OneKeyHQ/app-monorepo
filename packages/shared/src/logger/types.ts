@@ -32,6 +32,8 @@ export enum EScopeName {
   ui = 'ui',
   referral = 'referral',
   reward = 'reward',
+  dex = 'dex',
+  perp = 'perp',
 }
 export interface IScope {
   getName: () => EScopeName;

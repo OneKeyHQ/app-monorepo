@@ -94,18 +94,22 @@ export const useColumnsDesktop = (
       renderSkeleton: () => <Skeleton width={70} height={16} />,
     },
     {
-      title: intl.formatMessage({ id: ETranslations.dexmarket_token_change }),
+      title: `${intl.formatMessage({
+        id: ETranslations.dexmarket_token_change,
+      })}(%)`,
       dataIndex: 'change24h',
       columnProps: { flex: 1 },
       render: (text: number) => {
         return (
           <NumberSizeableText
             size="$bodyMd"
-            formatter="priceChange"
+            formatter="priceChangeCapped"
             color={text >= 0 ? '$textSuccess' : '$textCritical'}
-            formatterOptions={{ showPlusMinusSigns: true }}
+            formatterOptions={{
+              showPlusMinusSigns: true,
+            }}
           >
-            {clampPercentage(text)}
+            {text}
           </NumberSizeableText>
         );
       },

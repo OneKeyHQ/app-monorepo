@@ -62,7 +62,9 @@ export const useColumnsMobile = (
       },
     },
     {
-      title: intl.formatMessage({ id: ETranslations.dexmarket_token_change }),
+      title: `${intl.formatMessage({
+        id: ETranslations.dexmarket_token_change,
+      })}(%)`,
       titleProps: { paddingRight: '$5' },
       dataIndex: 'change',
       columnWidth: '30%',
@@ -93,8 +95,10 @@ export const useColumnsMobile = (
                 userSelect="none"
                 size="$bodyMdMedium"
                 color="white"
-                formatter="priceChange"
-                formatterOptions={{ showPlusMinusSigns: true }}
+                formatter="priceChangeCapped"
+                formatterOptions={{
+                  showPlusMinusSigns: true,
+                }}
               >
                 {record.change24h}
               </NumberSizeableText>
