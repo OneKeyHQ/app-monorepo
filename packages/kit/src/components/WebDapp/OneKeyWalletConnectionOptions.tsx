@@ -1,29 +1,31 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText } from '@onekeyhq/components';
+import { Button, Icon, SizableText } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { EXT_RATE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-interface IOneKeyWalletConnectionOptionsProps {
-  onExtensionPress?: () => void;
-  onHardwarePress?: () => void;
-}
+import useAppNavigation from '../../hooks/useAppNavigation';
 
-function OneKeyWalletConnectionOptions({
-  onExtensionPress,
-  onHardwarePress,
-}: IOneKeyWalletConnectionOptionsProps) {
+function OneKeyWalletConnectionOptions() {
   const intl = useIntl();
+  const appNavigation = useAppNavigation();
 
-  const handleExtensionPress = () => {
+  const isOneKeyExtWalletInstalled = !!globalThis.$onekey?.$private?.isOneKey;
+
+  const handleExtensionPress = useCallback(() => {
     console.log('OneKey wallet extension');
-    onExtensionPress?.();
-  };
+  }, []);
 
-  const handleHardwarePress = () => {
-    console.log('OneKey hardware wallet');
-    onHardwarePress?.();
-  };
+  const handleConnectHardwarePress = useCallback(() => {
+    appNavigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.ConnectYourDevice,
+    });
+  }, [appNavigation]);
 
   return (
     <>
@@ -33,11 +35,23 @@ function OneKeyWalletConnectionOptions({
         mx="$0"
         bg="$bgSubdued"
         title="OneKey wallet extension"
-        subtitle="EVM"
+        subtitle={isOneKeyExtWalletInstalled ? 'EVM' : 'Go to Chrome Web Store'}
         renderAvatar={<Icon name="OnekeyBrand" size="$10" />}
-        drillIn
-        onPress={handleExtensionPress}
-      />
+        drillIn={isOneKeyExtWalletInstalled}
+        onPress={isOneKeyExtWalletInstalled ? handleExtensionPress : undefined}
+      >
+        {isOneKeyExtWalletInstalled ? null : (
+          <Button
+            size="small"
+            variant="secondary"
+            onPress={() => {
+              openUrlExternal(EXT_RATE_URL.chrome);
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.global_add })}
+          </Button>
+        )}
+      </ListItem>
       <ListItem
         py="$4"
         px="$5"
@@ -60,7 +74,7 @@ function OneKeyWalletConnectionOptions({
         }
         renderAvatar={<Icon name="OnekeyBrand" size="$10" />}
         drillIn
-        onPress={handleHardwarePress}
+        onPress={handleConnectHardwarePress}
       />
     </>
   );
