@@ -2,8 +2,8 @@
 
 // @ts-ignore
 /* eslint-disable  */
-  
-  export enum ETranslations {
+
+export enum ETranslations {
   Limit_expire_day = 'Limit.expire_day',
   Limit_expire_days = 'Limit.expire_days',
   Limit_expire_hour = 'Limit.expire_hour',
@@ -1585,6 +1585,7 @@
   hardware_connect_unknown_device_error = 'hardware.connect_unknown_device_error',
   hardware_data_erased_use_as_new = 'hardware.data_erased_use_as_new',
   hardware_default_error = 'hardware.default_error',
+  hardware_defective_firmware_error = 'hardware.defective_firmware_error',
   hardware_device_ble_already_connected = 'hardware.device_ble_already_connected',
   hardware_device_ble_location_disabled = 'hardware.device_ble_location_disabled',
   hardware_device_ble_scan_error = 'hardware.device_ble_scan_error',
@@ -2209,6 +2210,8 @@
   receive_send_asset_warning_message = 'receive.send_asset_warning_message',
   receive_show_address_any = 'receive.show_address_any',
   receive_token_list_footer_text = 'receive_token_list_footer_text',
+  recovery_phrase_screenshot_protected_desc = 'recovery_phrase_screenshot_protected_desc',
+  recovery_phrase_screenshot_protected_title = 'recovery_phrase_screenshot_protected_title',
   referral_address_update_desc = 'referral.address_update_desc',
   referral_address_updated = 'referral.address_updated',
   referral_cumulative_rewards = 'referral.cumulative_rewards',
