@@ -1580,6 +1580,7 @@
   "hardware.connect_unknown_device_error": "Thiết bị không xác định, phiên bản ứng dụng hiện tại không hỗ trợ kết nối.",
   "hardware.data_erased_use_as_new": "Dữ liệu trên OneKey Lite này đã được xóa hoàn toàn, và bạn có thể sử dụng nó như một OneKey Lite mới.",
   "hardware.default_error": "Giao tiếp phần cứng thất bại, vui lòng thử lại",
+  "hardware.defective_firmware_error": "Your device has defective firmware and cannot be connected. Please contact support for device replacement.",
   "hardware.device_ble_already_connected": "Thiết bị đã được kết nối ở nơi khác, vui lòng ngắt kết nối và thử lại",
   "hardware.device_ble_location_disabled": "Dịch vụ định vị không khả dụng, vui lòng kích hoạt và thử lại",
   "hardware.device_ble_scan_error": "Quét Bluetooth thất bại, vui lòng thử lại",

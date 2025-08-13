@@ -1580,6 +1580,7 @@
   "hardware.connect_unknown_device_error": "未知のデバイス、現在のバージョンのアプリは接続をサポートしていません。",
   "hardware.data_erased_use_as_new": "このOneKey Liteのデータは完全に消去され、新しいOneKey Liteとして使用できます。",
   "hardware.default_error": "ハードウェアの通信に失敗しました、もう一度お試しください",
+  "hardware.defective_firmware_error": "お使いのデバイスのファームウェアに欠陥があり、接続できません。デバイスの交換についてサポートにお問い合わせください。",
   "hardware.device_ble_already_connected": "デバイスはすでに他の場所に接続されています。切断してから再度お試しください",
   "hardware.device_ble_location_disabled": "位置情報サービスが利用できません、有効にしてから再試行してください",
   "hardware.device_ble_scan_error": "Bluetoothのスキャンに失敗しました、もう一度お試しください",

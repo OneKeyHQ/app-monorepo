@@ -1580,6 +1580,7 @@
   "hardware.connect_unknown_device_error": "Unbekanntes Gerät, die aktuelle App-Version unterstützt keine Verbindung.",
   "hardware.data_erased_use_as_new": "Die Daten auf diesem OneKey Lite wurden vollständig gelöscht und Sie können es als neues OneKey Lite verwenden.",
   "hardware.default_error": "Die Hardware-Kommunikation ist fehlgeschlagen, bitte versuchen Sie es erneut",
+  "hardware.defective_firmware_error": "Ihr Gerät hat eine defekte Firmware und kann nicht verbunden werden. Bitte kontaktieren Sie den Support für einen Geräteaustausch.",
   "hardware.device_ble_already_connected": "Gerät bereits anderswo verbunden, bitte trennen Sie die Verbindung und versuchen Sie es erneut",
   "hardware.device_ble_location_disabled": "Standortdienste nicht verfügbar, bitte aktivieren und erneut versuchen",
   "hardware.device_ble_scan_error": "Bluetooth-Scan fehlgeschlagen, bitte versuchen Sie es erneut",

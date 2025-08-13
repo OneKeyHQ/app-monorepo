@@ -1580,6 +1580,7 @@
   "hardware.connect_unknown_device_error": "Perangkat tidak dikenal, versi aplikasi saat ini tidak mendukung koneksi.",
   "hardware.data_erased_use_as_new": "Data pada OneKey Lite ini telah sepenuhnya dihapus, dan Anda dapat menggunakannya sebagai OneKey Lite baru.",
   "hardware.default_error": "Komunikasi perangkat keras gagal, silakan coba lagi",
+  "hardware.defective_firmware_error": "Your device has defective firmware and cannot be connected. Please contact support for device replacement.",
   "hardware.device_ble_already_connected": "Perangkat sudah terhubung di tempat lain, silakan putuskan koneksi dan coba lagi",
   "hardware.device_ble_location_disabled": "Layanan lokasi tidak tersedia, silakan aktifkan dan coba lagi",
   "hardware.device_ble_scan_error": "Pemindaian Bluetooth gagal, silakan coba lagi",
