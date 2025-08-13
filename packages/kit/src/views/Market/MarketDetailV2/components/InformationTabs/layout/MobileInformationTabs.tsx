@@ -10,10 +10,12 @@ import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { Holders } from '../components/Holders';
 import { TransactionsHistory } from '../components/TransactionsHistory';
 
+import type { CollapsibleProps } from 'react-native-collapsible-tab-view';
+
 export function MobileInformationTabs({
   renderHeader,
 }: {
-  renderHeader: () => React.ReactNode;
+  renderHeader: CollapsibleProps['renderHeader'];
 }) {
   const intl = useIntl();
   const { tokenAddress, networkId } = useTokenDetail();
@@ -33,29 +35,24 @@ export function MobileInformationTabs({
         id: ETranslations.dexmarket_details_transactions,
       })}
     >
-      <Stack flex={1} height={600} pt="$11">
-        <TransactionsHistory
-          tokenAddress={tokenAddress}
-          networkId={networkId}
-        />
-      </Stack>
+      <TransactionsHistory tokenAddress={tokenAddress} networkId={networkId} />
     </Tabs.Tab>,
   ];
 
-  if (shouldShowHolders) {
-    tabs.push(
-      <Tabs.Tab
-        key="holders"
-        name={intl.formatMessage({
-          id: ETranslations.dexmarket_holders,
-        })}
-      >
-        <Stack flex={1} height={600} pt="$11">
-          <Holders tokenAddress={tokenAddress} networkId={networkId} />
-        </Stack>
-      </Tabs.Tab>,
-    );
-  }
+  // if (shouldShowHolders) {
+  //   tabs.push(
+  //     <Tabs.Tab
+  //       key="holders"
+  //       name={intl.formatMessage({
+  //         id: ETranslations.dexmarket_holders,
+  //       })}
+  //     >
+  //       <Stack flex={1} height={600} pt="$11">
+  //         <Holders tokenAddress={tokenAddress} networkId={networkId} />
+  //       </Stack>
+  //     </Tabs.Tab>,
+  //   );
+  // }
 
   return (
     <Stack flex={1}>
