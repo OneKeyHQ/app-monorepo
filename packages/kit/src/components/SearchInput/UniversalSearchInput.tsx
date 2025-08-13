@@ -135,6 +135,11 @@ export function UniversalSearchInput({
           }
         }}
         onBlur={handleInputBlur}
+        autoComplete="new-password"
+        data-form-type="other"
+        data-1p-ignore=""
+        data-lpignore="true"
+        data-bwignore="true"
         {...inputProps}
       />
 

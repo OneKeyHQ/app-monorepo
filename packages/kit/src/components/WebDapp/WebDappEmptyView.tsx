@@ -15,6 +15,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/SearchInput/UniversalSearchInput';
+import { OneKeyWalletConnectionOptions } from '@onekeyhq/kit/src/components/WebDapp/OneKeyWalletConnectionOptions';
 import { TermsAndPrivacy } from '@onekeyhq/kit/src/views/Onboarding/pages/GetStarted/components/TermsAndPrivacy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -109,45 +110,7 @@ function WebDappEmptyView() {
           </XStack>
 
           <YStack gap="$4">
-            <ListItem
-              py="$4"
-              px="$5"
-              mx="$0"
-              bg="$bgSubdued"
-              title="OneKey wallet extension"
-              subtitle="EVM"
-              renderAvatar={<Icon name="OnekeyBrand" size="$10" />}
-              drillIn
-              onPress={() => {
-                console.log('OneKey wallet extension');
-              }}
-            />
-            <ListItem
-              py="$4"
-              px="$5"
-              mx="$0"
-              bg="$bgSubdued"
-              title="OneKey hardware wallet"
-              subtitle={
-                <>
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.wallet_hardware_wallet_connect_description_1,
-                    })}
-                  </SizableText>
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.wallet_hardware_wallet_connect_description_2,
-                    })}
-                  </SizableText>
-                </>
-              }
-              renderAvatar={<Icon name="OnekeyBrand" size="$10" />}
-              drillIn
-              onPress={() => {
-                console.log('OneKey wallet extension');
-              }}
-            />
+            <OneKeyWalletConnectionOptions />
           </YStack>
           <TermsAndPrivacy
             contentContainerProps={{
@@ -190,32 +153,35 @@ function WebDappEmptyView() {
           </SizableText>
         </YStack>
 
-        <XStack gap="$2.5" px="$5">
-          <UniversalSearchInput
-            flex={1}
-            searchType="address"
-            placeholder={intl.formatMessage({
-              id: ETranslations.wallet_track_any_address_placeholder,
-            })}
-            onAddressSelect={handleAddressSelect}
-            onSearchChange={handleSearchChange}
-            renderResultItem={renderResultItem}
-            popoverContainerProps={{
-              mx: '$0',
-            }}
-            minSearchLength={3}
-            debounceMs={300}
-            maxResultHeight={240}
-          />
-          <Button
-            size="$4"
-            variant="primary"
-            minWidth="$24"
-            onPress={handleTrackAddress}
-          >
-            Track
-          </Button>
-        </XStack>
+        <Stack px="$5">
+          <XStack gap="$2" alignItems="stretch">
+            <Stack flex={1}>
+              <UniversalSearchInput
+                searchType="address"
+                placeholder={intl.formatMessage({
+                  id: ETranslations.wallet_track_any_address_placeholder,
+                })}
+                onAddressSelect={handleAddressSelect}
+                onSearchChange={handleSearchChange}
+                renderResultItem={renderResultItem}
+                popoverContainerProps={{
+                  mx: '$0',
+                }}
+                minSearchLength={3}
+                debounceMs={300}
+                maxResultHeight={240}
+              />
+            </Stack>
+            <Button
+              size="$4"
+              variant="primary"
+              onPress={handleTrackAddress}
+              minWidth={80}
+            >
+              Track
+            </Button>
+          </XStack>
+        </Stack>
 
         <XStack gap="$1.5" px="$5" pb="$0" pt="$3">
           <SizableText size="$bodyMd" color="$textDisabled">
