@@ -10,16 +10,26 @@ import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { useConnectExternalWallet } from '../../hooks/useWebDapp/useConnectExternalWallet';
+import { useOneKeyWalletDetection } from '../../hooks/useWebDapp/useOneKeyWalletDetection';
 
 function OneKeyWalletConnectionOptions() {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
 
-  const isOneKeyExtWalletInstalled = !!globalThis.$onekey?.$private?.isOneKey;
+  const { connectToWalletWithDialog, loading } = useConnectExternalWallet();
+  const { isOneKeyInstalled, getOneKeyConnectionInfo } =
+    useOneKeyWalletDetection();
 
-  const handleExtensionPress = useCallback(() => {
-    console.log('OneKey wallet extension');
-  }, []);
+  const handleExtensionPress = useCallback(async () => {
+    const connectionInfo = getOneKeyConnectionInfo();
+    if (!connectionInfo) {
+      console.warn('OneKey wallet not detected');
+      return;
+    }
+
+    void connectToWalletWithDialog(connectionInfo);
+  }, [connectToWalletWithDialog, getOneKeyConnectionInfo]);
 
   const handleConnectHardwarePress = useCallback(() => {
     appNavigation.pushModal(EModalRoutes.OnboardingModal, {
@@ -35,12 +45,13 @@ function OneKeyWalletConnectionOptions() {
         mx="$0"
         bg="$bgSubdued"
         title="OneKey wallet extension"
-        subtitle={isOneKeyExtWalletInstalled ? 'EVM' : 'Go to Chrome Web Store'}
+        subtitle={isOneKeyInstalled ? 'EVM' : 'Go to Chrome Web Store'}
         renderAvatar={<Icon name="OnekeyBrand" size="$10" />}
-        drillIn={isOneKeyExtWalletInstalled}
-        onPress={isOneKeyExtWalletInstalled ? handleExtensionPress : undefined}
+        drillIn={Boolean(isOneKeyInstalled && !loading)}
+        onPress={isOneKeyInstalled ? handleExtensionPress : undefined}
+        isLoading={loading}
       >
-        {isOneKeyExtWalletInstalled ? null : (
+        {isOneKeyInstalled ? null : (
           <Button
             size="small"
             variant="secondary"
