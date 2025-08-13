@@ -46,7 +46,10 @@ export function DesktopLayout({
 }: IDesktopLayoutProps) {
   const intl = useIntl();
   const [watchlistState] = useMarketWatchListV2Atom();
-  const watchlist = watchlistState.data || [];
+  const watchlist = useMemo(
+    () => watchlistState.data || [],
+    [watchlistState.data],
+  );
   const [, setSelectedTab] = useSelectedMarketTabAtom();
 
   const watchlistTabName = intl.formatMessage({

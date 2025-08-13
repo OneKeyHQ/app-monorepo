@@ -47,7 +47,10 @@ export function MobileLayout({
 }: IMobileLayoutProps) {
   const intl = useIntl();
   const [watchlistState] = useMarketWatchListV2Atom();
-  const watchlist = watchlistState.data || [];
+  const watchlist = useMemo(
+    () => watchlistState.data || [],
+    [watchlistState.data],
+  );
   const { top, bottom } = useSafeAreaInsets();
   const [selectedTab, setSelectedTab] = useSelectedMarketTabAtom();
 
