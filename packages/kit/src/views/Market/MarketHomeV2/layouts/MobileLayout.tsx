@@ -7,7 +7,6 @@ import { useSharedValue } from 'react-native-reanimated';
 import type { ICarouselInstance } from '@onekeyhq/components';
 import {
   Carousel,
-  Stack,
   Tabs,
   YStack,
   useSafeAreaInsets,
@@ -79,8 +78,10 @@ export function MobileLayout({
   );
 
   const height = useMemo(() => {
-    return platformEnv.isNative ? undefined : 'calc(100vh - 96px)';
-  }, []);
+    return platformEnv.isNative
+      ? Dimensions.get('window').height - top - bottom - 0
+      : 'calc(100vh - 96px)';
+  }, [bottom, top]);
   const renderItem = useCallback(
     ({ item }: { item: string }) => {
       if (item === watchlistTabName) {
