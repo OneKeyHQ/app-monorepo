@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
@@ -35,7 +34,6 @@ import {
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { RawActions } from './RawActions';
-import { WalletActionBuy } from './WalletActionBuy';
 import { WalletActionMore } from './WalletActionMore';
 import { WalletActionReceive } from './WalletActionReceive';
 
@@ -260,12 +258,9 @@ function WalletActionSwap() {
 function WalletActions({ ...rest }: IXStackProps) {
   return (
     <RawActions {...rest}>
-      <ReviewControl>
-        <WalletActionBuy />
-      </ReviewControl>
-      <WalletActionSwap />
       <WalletActionSend />
       <WalletActionReceive />
+      <WalletActionSwap />
       <WalletActionMore />
     </RawActions>
   );

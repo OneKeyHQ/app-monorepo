@@ -39,6 +39,7 @@ export function TokenActivityOverview() {
   const intl = useIntl();
   const [selectedTimeRange, setSelectedTimeRange] = useState('1h');
   const { tokenDetail, isLoading } = useTokenDetail();
+  const needShowLoading = isLoading && !tokenDetail?.buy1mCount;
 
   const timeRangeOptions = useMemo(() => {
     const availableOptions = [
@@ -81,7 +82,7 @@ export function TokenActivityOverview() {
         options={timeRangeOptions}
         value={selectedTimeRange}
         onChange={(value) => setSelectedTimeRange(value)}
-        isLoading={isLoading}
+        isLoading={needShowLoading}
       />
       {tokenDetail ? (
         <>
@@ -92,7 +93,7 @@ export function TokenActivityOverview() {
             buyCount={buys}
             sellCount={sells}
             totalCount={totalTransactions}
-            isLoading={isLoading}
+            isLoading={needShowLoading}
           />
           <VolumeRow
             label={intl
@@ -104,7 +105,7 @@ export function TokenActivityOverview() {
             buyVolume={buyVolume}
             sellVolume={sellVolume}
             totalVolume={totalVolume}
-            isLoading={isLoading}
+            isLoading={needShowLoading}
           />
         </>
       ) : null}

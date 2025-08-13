@@ -486,6 +486,7 @@ export interface IFetchQuoteResult {
   eventId?: string;
   protocol?: EProtocolOfExchange;
   info: IFetchQuoteInfo;
+  isFloating?: boolean;
   expirationTime?: number; // limit order expiration time
   errorMessage?: string;
   shouldWrappedToken?: ISwapTokenBase;
@@ -939,7 +940,6 @@ export interface IFetchLimitOrderRes {
     signedType: EMessageTypesEth;
   };
 }
-
 export interface ISpeedSwapConfig {
   provider: string;
   speedConfig: {
