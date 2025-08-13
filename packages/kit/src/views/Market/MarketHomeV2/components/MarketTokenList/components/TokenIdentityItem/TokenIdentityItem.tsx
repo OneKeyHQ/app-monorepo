@@ -8,6 +8,7 @@ import {
   Stack,
   XStack,
   useClipboard,
+  useMedia,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -58,6 +59,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   onCopied,
   showCopyButton = false,
 }) => {
+  const { gtMd } = useMedia();
   const { copyText } = useClipboard();
 
   const shortened = useMemo(
@@ -107,7 +109,11 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
           {symbol}
         </SizableText>
         <XStack alignItems="center" gap="$1" height="$4">
-          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+          <SizableText
+            size={gtMd ? '$bodySm' : '$bodyMd'}
+            color="$textSubdued"
+            numberOfLines={1}
+          >
             {shortened}
           </SizableText>
           {showCopyButton ? (

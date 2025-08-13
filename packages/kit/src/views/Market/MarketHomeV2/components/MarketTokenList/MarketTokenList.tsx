@@ -167,6 +167,7 @@ function MarketTokenList({
         style={{
           paddingTop: 10,
           overflowX: 'auto',
+          ...(md ? { marginLeft: 8, marginRight: 8 } : {}),
         }}
       >
         <Stack minWidth={md ? '100%' : 1466} flex={1} minHeight={400}>
