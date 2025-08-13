@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -24,7 +24,7 @@ import type {
   TabBarProps,
 } from 'react-native-collapsible-tab-view';
 
-function MobileInformationTabsHeader(props: TabBarProps<string>) {
+function BaseStickHeader({ firstTabName }: { firstTabName: string }) {
   const { gtLg } = useMedia();
   const focusedTab = useFocusedTab();
 
@@ -36,17 +36,23 @@ function MobileInformationTabsHeader(props: TabBarProps<string>) {
     return gtLg ? <HoldersHeaderNormal /> : <HoldersHeaderSmall />;
   }, [gtLg]);
 
+  return (
+    <Stack pointerEvents="none" h={40}>
+      {focusedTab === firstTabName ? transactionsHeader : holdersHeader}
+    </Stack>
+  );
+}
+const StickHeader = memo(BaseStickHeader);
+
+function MobileInformationTabsHeader(props: TabBarProps<string>) {
   const firstTabName = useMemo(() => {
     const { tabNames } = props;
     return tabNames[0];
   }, [props]);
-
   return (
     <YStack>
       <Tabs.TabBar {...props} />
-      <Stack pointerEvents="none">
-        {focusedTab === firstTabName ? transactionsHeader : holdersHeader}
-      </Stack>
+      <StickHeader firstTabName={firstTabName} />
     </YStack>
   );
 }
