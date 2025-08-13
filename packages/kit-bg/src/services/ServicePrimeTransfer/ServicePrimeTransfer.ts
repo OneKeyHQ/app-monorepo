@@ -486,13 +486,12 @@ class ServicePrimeTransfer extends ServiceBase {
       }
       return result;
     } catch (error) {
-      const e = transferErrors.convertToLocalError(error);
-      console.error('joinRoom error', e);
+      console.error('joinRoom error', error);
       void this.leaveRoom({
         roomId: roomId || (await primeTransferAtom.get()).pairedRoomId || '',
         userId: (await primeTransferAtom.get()).myUserId || '',
       });
-      throw e;
+      throw error;
     }
   }
 
