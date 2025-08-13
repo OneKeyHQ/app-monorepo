@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -135,11 +135,13 @@ function WalletItem({
   networkType?: string;
 }) {
   const intl = useIntl();
-  const { connectToWalletWithDialog, loading } = useConnectExternalWallet();
+  const { connectToWalletWithDialog } = useConnectExternalWallet();
+  const [localLoading, setLocalLoading] = useState(false);
   const dialogRef = useRef<IDialogInstance | null>(null);
 
   const connectToWallet = useCallback(async () => {
     try {
+      setLocalLoading(true);
       await connectToWalletWithDialog(connectionInfo);
       await dialogRef.current?.close();
     } catch (error) {
@@ -149,11 +151,13 @@ function WalletItem({
           id: ETranslations.global_connection_failed,
         }),
       });
+    } finally {
+      setLocalLoading(false);
     }
   }, [connectToWalletWithDialog, connectionInfo, intl]);
 
   const connectToWalletWithDialogShow = useCallback(async () => {
-    if (loading) {
+    if (localLoading) {
       return;
     }
     await dialogRef.current?.close();
@@ -167,19 +171,19 @@ function WalletItem({
       showFooter: false,
       dismissOnOverlayPress: false,
       onClose() {
-        // Dialog closed, no additional state to manage
+        setLocalLoading(false);
       },
-      renderContent: <ConnectToWalletDialogContent loading={loading} />,
+      renderContent: <ConnectToWalletDialogContent loading={localLoading} />,
     });
     await connectToWallet();
-  }, [connectToWallet, intl, loading, name]);
+  }, [connectToWallet, intl, localLoading, name]);
 
   return (
     <WalletItemView
       onPress={connectToWalletWithDialogShow}
       logo={logo}
       name={name || 'unknown'}
-      loading={loading}
+      loading={localLoading}
       networkType={networkType}
     />
   );
