@@ -1,7 +1,6 @@
 import type {
   EDemoDeveloperTabRoutes,
   EDemoHomeTabRoutes,
-  EDemoMeTabRoutes,
   EDemoTabRoutes,
 } from './Routes';
 
@@ -18,12 +17,7 @@ export type IDemoDeveloperTabParamList = {
   };
 };
 
-export type IDemoMeTabParamList = {
-  [EDemoMeTabRoutes.DemoRootMe]: undefined;
-};
-
 export type ITabStackParamList = {
   [EDemoTabRoutes.Home]: IDemoHomeTabParamList;
-  [EDemoTabRoutes.Me]: IDemoMeTabParamList;
   [EDemoTabRoutes.Developer]: IDemoDeveloperTabParamList;
 };

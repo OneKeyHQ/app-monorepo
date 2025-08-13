@@ -15,7 +15,3 @@ export enum EDemoDeveloperTabRoutes {
   DemoRootDeveloper = 'DemoRootDeveloper',
   DemoRootDeveloperOptions = 'DemoRootDeveloperOptions',
 }
-
-export enum EDemoMeTabRoutes {
-  DemoRootMe = 'DemoRootMe',
-}
