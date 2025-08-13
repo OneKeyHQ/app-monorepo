@@ -128,6 +128,9 @@ export function MobileLayout({
       <Carousel
         containerStyle={{ height }}
         ref={carouselRef as any}
+        pagerProps={{
+          scrollSensitivity: 4,
+        }}
         loop={false}
         showPagination={false}
         data={tabNames}

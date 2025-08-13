@@ -51,6 +51,7 @@ export function Carousel<T>({
   maxPageWidth,
   showPagination = true,
   renderPaginationItem = defaultRenderPaginationItem,
+  pagerProps,
 }: ICarouselProps<T>) {
   const pagerRef = useRef<NativePagerView>(undefined);
   const [pageIndex, setPageIndex] = useState<number>(0);
@@ -177,6 +178,7 @@ export function Carousel<T>({
             key={`${layout.width}-${layout.height}`}
           >
             <PagerView
+              {...pagerProps}
               ref={pagerRef as RefObject<NativePagerView>}
               style={{ width: layout.width, height: layout.height }}
               initialPage={0}
