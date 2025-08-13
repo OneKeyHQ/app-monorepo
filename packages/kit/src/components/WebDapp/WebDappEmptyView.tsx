@@ -18,12 +18,16 @@ import { UniversalSearchInput } from '@onekeyhq/kit/src/components/SearchInput/U
 import { OneKeyWalletConnectionOptions } from '@onekeyhq/kit/src/components/WebDapp/OneKeyWalletConnectionOptions';
 import { TermsAndPrivacy } from '@onekeyhq/kit/src/views/Onboarding/pages/GetStarted/components/TermsAndPrivacy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
+import useAppNavigation from '../../hooks/useAppNavigation';
+
 function WebDappEmptyView() {
   const intl = useIntl();
+  const appNavigation = useAppNavigation();
   const [trackAddress, setTrackAddress] = useState('');
 
   const handleTrackAddress = useCallback(() => {
@@ -43,6 +47,15 @@ function WebDappEmptyView() {
   const handleSearchChange = useCallback((value: string) => {
     setTrackAddress(value);
   }, []);
+
+  const handleShowMoreOptions = useCallback(() => {
+    appNavigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.ConnectWalletOptions,
+      params: {
+        defaultTab: 'others',
+      },
+    });
+  }, [appNavigation]);
 
   // Custom render for search results in WebDapp context - styled like UniversalSearchAddressItem
   const renderResultItem = useCallback(
@@ -126,7 +139,11 @@ function WebDappEmptyView() {
           pt="$1.5"
           pb="$2"
         >
-          <Button size="small" variant="tertiary">
+          <Button
+            size="small"
+            variant="tertiary"
+            onPress={handleShowMoreOptions}
+          >
             {intl.formatMessage({
               id: ETranslations.wallet_connect_wallet_more_options,
             })}
