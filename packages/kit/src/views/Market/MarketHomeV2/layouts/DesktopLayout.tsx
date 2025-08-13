@@ -5,12 +5,7 @@ import { useSharedValue } from 'react-native-reanimated';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type { ICarouselInstance } from '@onekeyhq/components';
-import {
-  Carousel,
-  Tabs,
-  YStack,
-  useSafeAreaInsets,
-} from '@onekeyhq/components';
+import { Carousel, Tabs, YStack } from '@onekeyhq/components';
 import {
   useMarketWatchListV2Atom,
   useSelectedMarketTabAtom,
@@ -64,7 +59,7 @@ export function DesktopLayout({
     return [watchlistTabName, trendingTabName];
   }, [watchlistTabName, trendingTabName]);
 
-  const focusedTab = useSharedValue(tabNames[0]);
+  const focusedTab = useSharedValue(tabNames[1]);
 
   const handleTabChange = useDebouncedCallback((tabName: string) => {
     setSelectedTab(tabName as IMarketHomeTabValue);
@@ -72,8 +67,6 @@ export function DesktopLayout({
     focusedTab.value = tabName;
     carouselRef.current?.scrollTo({ index: tabNames.indexOf(tabName) });
   }, 100);
-
-  const { top, bottom } = useSafeAreaInsets();
 
   const height = useMemo(() => {
     return platformEnv.isNative ? undefined : 'calc(100vh - 96px)';

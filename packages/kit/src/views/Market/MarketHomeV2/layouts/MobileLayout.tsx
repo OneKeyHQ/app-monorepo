@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Dimensions } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -51,7 +50,6 @@ export function MobileLayout({
     () => watchlistState.data || [],
     [watchlistState.data],
   );
-  const { top, bottom } = useSafeAreaInsets();
   const [selectedTab, setSelectedTab] = useSelectedMarketTabAtom();
 
   const watchlistTabName = intl.formatMessage({

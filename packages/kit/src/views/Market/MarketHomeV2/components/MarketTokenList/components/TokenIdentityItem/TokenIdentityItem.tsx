@@ -4,12 +4,14 @@ import { memo, useMemo } from 'react';
 import {
   Icon,
   NATIVE_HIT_SLOP,
+  NumberSizeableText,
   SizableText,
   Stack,
   XStack,
   useClipboard,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -48,6 +50,14 @@ interface ITokenIdentityItemProps {
    * Whether to show the copy button. Defaults to false.
    */
   showCopyButton?: boolean;
+  /**
+   * Whether to show volume instead of address. Defaults to false.
+   */
+  showVolume?: boolean;
+  /**
+   * Volume value to display when showVolume is true.
+   */
+  volume?: number;
 }
 
 const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
@@ -57,8 +67,12 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   networkLogoURI,
   onCopied,
   showCopyButton = false,
+  showVolume = false,
+  volume,
 }) => {
   const { copyText } = useClipboard();
+  const [settings] = useSettingsPersistAtom();
+  const currency = settings.currencyInfo.symbol;
 
   const shortened = useMemo(
     () =>
@@ -107,9 +121,21 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
           {symbol}
         </SizableText>
         <XStack alignItems="center" gap="$1" height="$4">
-          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-            {shortened}
-          </SizableText>
+          {showVolume && volume !== undefined ? (
+            <NumberSizeableText
+              size="$bodySm"
+              color="$textSubdued"
+              numberOfLines={1}
+              formatter="marketCap"
+              formatterOptions={{ currency }}
+            >
+              {volume}
+            </NumberSizeableText>
+          ) : (
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+              {shortened}
+            </SizableText>
+          )}
           {showCopyButton ? (
             <Stack
               cursor="pointer"
