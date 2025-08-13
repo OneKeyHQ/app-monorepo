@@ -51,7 +51,7 @@ function PrimeTransferImportProcessingDialogContent({
     return Boolean(
       importProgress &&
         !importProgress.isImporting &&
-        importProgress.current === importProgress.total,
+        importProgress.current >= importProgress.total,
     );
   }, [importProgress]);
 
