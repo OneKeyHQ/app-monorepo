@@ -6,6 +6,7 @@ import {
   AnimatePresence,
   Button,
   Image,
+  LottieView,
   SizableText,
   XStack,
   YStack,
@@ -111,11 +112,11 @@ const PreSwapConfirmResult = ({
               </YStack>
             ) : (
               <YStack key={lastStep.status}>
-                <Image
-                  key={lastStep.status}
-                  source={require('@onekeyhq/kit/assets/preSwapPending2.png')}
+                <LottieView
+                  source={require('@onekeyhq/kit/assets/animations/swap_order_pending.json')}
                   width={110}
                   height={110}
+                  autoPlay
                 />
               </YStack>
             )}

@@ -120,11 +120,11 @@ const PreSwapInfoGroup = ({
         <Select
           onChange={onSelectNetworkFeeLevel}
           renderTrigger={() => (
-            <XStack cursor="pointer" gap="$0.5" alignItems="center">
-              <Icon name="ChevronGrabberVerOutline" size="$4" />
+            <XStack cursor="pointer" gap="$1" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
                 {networkFeeLevelLabel}
               </SizableText>
+              <Icon name="ChevronGrabberVerOutline" size="$4" />
             </XStack>
           )}
           value={swapStepNetFeeLevel.networkFeeLevel}
