@@ -5,7 +5,6 @@ import type { IPopoverProps } from '@onekeyhq/components';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { GradientMask } from './GradientMask';
-
 import { NetworksFilterItem } from './NetworksFilterItem';
 
 import type { ScrollView as ScrollViewType } from 'react-native';
@@ -101,8 +100,8 @@ const MarketNetworkFilterMobile = forwardRef<
             const width = event.nativeEvent.layout.width;
             setScrollViewWidth(width);
           }}
-          onContentSizeChange={(contentWidth) => {
-            setContentWidth(contentWidth);
+          onContentSizeChange={(width) => {
+            setContentWidth(width);
           }}
         >
           <XStack gap="$2" pr="$3">
