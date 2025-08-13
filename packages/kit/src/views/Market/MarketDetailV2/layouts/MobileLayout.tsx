@@ -29,7 +29,7 @@ import { useTokenDetail } from '../hooks/useTokenDetail';
 export function MobileLayout() {
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
   const intl = useIntl();
-  const [panesCount, setPanesCount] = useState(1);
+  // const [panesCount, setPanesCount] = useState(1);
   const tabNames = useMemo(
     () => [
       intl.formatMessage({ id: ETranslations.market_chart }),
@@ -68,7 +68,23 @@ export function MobileLayout() {
       if (index === 0) {
         return (
           <YStack flex={1} height={height}>
-            <InformationPanel />
+            <MobileInformationTabs
+              renderHeader={() => (
+                <YStack>
+                  <InformationPanel />
+                  <Stack h={350}>
+                    <MarketTradingView
+                      tokenAddress={tokenAddress}
+                      networkId={networkId}
+                      tokenSymbol={tokenDetail?.symbol}
+                      // onPanesCountChange={(count: number) => {
+                      //   setPanesCount(count);
+                      // }}
+                    />
+                  </Stack>
+                </YStack>
+              )}
+            />
           </YStack>
         );
       }
@@ -79,7 +95,7 @@ export function MobileLayout() {
         </ScrollView>
       );
     },
-    [height],
+    [height, networkId, tokenAddress, tokenDetail?.symbol],
   );
 
   return (
@@ -102,56 +118,7 @@ export function MobileLayout() {
         data={tabNames}
         renderItem={renderItem}
       />
-    </YStack>
-  );
-  return (
-    <>
-      {/* Header */}
-
-      <Tabs.Container
-        headerContainerStyle={{
-          width: '100%',
-          shadowColor: 'transparent',
-        }}
-        pagerProps={{ scrollEnabled: false }}
-      >
-        <Tabs.Tab name={intl.formatMessage({ id: ETranslations.market_chart })}>
-          <Tabs.ScrollView>
-            {/* Information Panel */}
-            <InformationPanel />
-
-            <Stack h={350 + panesCount * 50}>
-              <MarketTradingView
-                tokenAddress={tokenAddress}
-                networkId={networkId}
-                tokenSymbol={tokenDetail?.symbol}
-                onPanesCountChange={(count: number) => {
-                  setPanesCount(count);
-                }}
-              />
-            </Stack>
-
-            <Stack h={400}>
-              <MobileInformationTabs />
-            </Stack>
-          </Tabs.ScrollView>
-        </Tabs.Tab>
-
-        <Tabs.Tab
-          name={intl.formatMessage({ id: ETranslations.global_overview })}
-        >
-          <Tabs.ScrollView>
-            {/* Token Stats */}
-            <TokenOverview />
-
-            {/* Activity overview (only in overview tab) */}
-            <TokenActivityOverview />
-          </Tabs.ScrollView>
-        </Tabs.Tab>
-      </Tabs.Container>
-
-      {/* Swap panel placed outside the tabs for global visibility */}
       <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />
-    </>
+    </YStack>
   );
 }

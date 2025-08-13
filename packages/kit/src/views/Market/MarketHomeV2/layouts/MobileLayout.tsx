@@ -3,6 +3,7 @@ import { useCallback, useMemo, useRef } from 'react';
 import { useIntl } from 'react-intl';
 import { Dimensions } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
+import { useThrottledCallback } from 'use-debounce';
 
 import type { ICarouselInstance } from '@onekeyhq/components';
 import {
@@ -67,15 +68,12 @@ export function MobileLayout({
 
   const focusedTab = useSharedValue(tabNames[0]);
 
-  const handleTabChange = useCallback(
-    (tabName: string) => {
-      setSelectedTab(tabName as IMarketHomeTabValue);
-      onTabChange(tabName as IMarketHomeTabValue);
-      focusedTab.value = tabName;
-      carouselRef.current?.scrollTo({ index: tabNames.indexOf(tabName) });
-    },
-    [focusedTab, onTabChange, setSelectedTab, tabNames],
-  );
+  const handleTabChange = useThrottledCallback((tabName: string) => {
+    setSelectedTab(tabName as IMarketHomeTabValue);
+    onTabChange(tabName as IMarketHomeTabValue);
+    focusedTab.value = tabName;
+    carouselRef.current?.scrollTo({ index: tabNames.indexOf(tabName) });
+  }, 100);
 
   const height = useMemo(() => {
     return platformEnv.isNative

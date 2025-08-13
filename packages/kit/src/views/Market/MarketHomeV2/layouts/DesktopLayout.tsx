@@ -23,6 +23,7 @@ import { MarketTokenList } from '../components/MarketTokenList';
 
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketHomeTabValue } from '../types';
+import { useThrottledCallback } from 'use-debounce';
 
 interface IDesktopLayoutProps {
   filterBarProps: {
@@ -66,15 +67,12 @@ export function DesktopLayout({
 
   const focusedTab = useSharedValue(tabNames[0]);
 
-  const handleTabChange = useCallback(
-    (tabName: string) => {
-      setSelectedTab(tabName as IMarketHomeTabValue);
-      onTabChange(tabName as IMarketHomeTabValue);
-      focusedTab.value = tabName;
-      carouselRef.current?.scrollTo({ index: tabNames.indexOf(tabName) });
-    },
-    [focusedTab, onTabChange, setSelectedTab, tabNames],
-  );
+  const handleTabChange = useThrottledCallback((tabName: string) => {
+    setSelectedTab(tabName as IMarketHomeTabValue);
+    onTabChange(tabName as IMarketHomeTabValue);
+    focusedTab.value = tabName;
+    carouselRef.current?.scrollTo({ index: tabNames.indexOf(tabName) });
+  }, 100);
 
   const { top, bottom } = useSafeAreaInsets();
 

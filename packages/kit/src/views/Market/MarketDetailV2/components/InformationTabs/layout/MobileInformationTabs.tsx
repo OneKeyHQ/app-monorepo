@@ -10,7 +10,11 @@ import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { Holders } from '../components/Holders';
 import { TransactionsHistory } from '../components/TransactionsHistory';
 
-export function MobileInformationTabs() {
+export function MobileInformationTabs({
+  renderHeader,
+}: {
+  renderHeader: () => React.ReactNode;
+}) {
   const intl = useIntl();
   const { tokenAddress, networkId } = useTokenDetail();
 
@@ -60,6 +64,7 @@ export function MobileInformationTabs() {
           width: '100%',
           shadowColor: 'transparent',
         }}
+        renderHeader={renderHeader}
       >
         {tabs}
       </Tabs.Container>
