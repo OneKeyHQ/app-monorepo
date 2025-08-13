@@ -3,7 +3,6 @@ import type {
   EDemoHomeTabRoutes,
   EDemoTabRoutes,
 } from './Routes';
-
 export type IDemoHomeTabParamList = {
   [EDemoHomeTabRoutes.DemoRootHome]: undefined;
   [EDemoHomeTabRoutes.DemoRootHomeSearch]: undefined;
