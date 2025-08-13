@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -25,31 +25,56 @@ import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { urlAccountNavigation } from '../../views/Home/pages/urlAccount/urlAccountUtils';
 
 function WebDappEmptyView() {
   const intl = useIntl();
   const media = useMedia();
   const appNavigation = useAppNavigation();
-  const [trackAddress, setTrackAddress] = useState('');
+  const [searchResults, setSearchResults] = useState<
+    IUniversalSearchResultItem[]
+  >([]);
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
 
   const isMobileLayout = media.md;
 
-  const handleTrackAddress = useCallback(() => {
-    if (trackAddress.trim()) {
-      console.log('Track address:', trackAddress);
-      // TODO: Implement track address logic
-      setTrackAddress('');
+  const isTrackEnabled = useMemo(() => {
+    if (Array.isArray(searchResults) && searchResults.length > 0) {
+      return true;
     }
-  }, [trackAddress]);
+    return false;
+  }, [searchResults]);
 
-  const handleAddressSelect = useCallback((address: string) => {
-    setTrackAddress(address);
-    console.log('Selected address:', address);
-    // TODO: Implement track address logic
-  }, []);
+  const handleTrackAddress = useCallback(async () => {
+    if (searchResults.length === 0) {
+      return;
+    }
 
-  const handleSearchChange = useCallback((value: string) => {
-    setTrackAddress(value);
+    // Use first search result if available, otherwise use input text
+    const firstResult = searchResults[0];
+    if (
+      firstResult?.type === EUniversalSearchType.Address &&
+      firstResult.payload.addressInfo
+    ) {
+      const { network, addressInfo } = firstResult.payload;
+      if (network && addressInfo) {
+        await urlAccountNavigation.pushOrReplaceUrlAccountPage(appNavigation, {
+          address: addressInfo.displayAddress,
+          networkId: network.id,
+        });
+      }
+    }
+  }, [searchResults, appNavigation]);
+
+  const handleResultsChange = useCallback(
+    (results: IUniversalSearchResultItem[]) => {
+      setSearchResults(results);
+    },
+    [],
+  );
+
+  const handleLoadingChange = useCallback((loading: boolean) => {
+    setIsSearchLoading(loading);
   }, []);
 
   const handleShowMoreOptions = useCallback(() => {
@@ -61,23 +86,37 @@ function WebDappEmptyView() {
     });
   }, [appNavigation]);
 
+  // Handle address press directly - navigate to URL account page
+  const handleAddressPressFromResult = useCallback(
+    async (item: IUniversalSearchResultItem) => {
+      if (
+        item.type === EUniversalSearchType.Address &&
+        item.payload.addressInfo
+      ) {
+        const { network, addressInfo } = item.payload;
+        if (!network || !addressInfo) return;
+
+        await urlAccountNavigation.pushOrReplaceUrlAccountPage(appNavigation, {
+          address: addressInfo.displayAddress,
+          networkId: network.id,
+        });
+      }
+    },
+    [appNavigation],
+  );
+
   // Custom render for search results in WebDapp context - styled like UniversalSearchAddressItem
   const renderResultItem = useCallback(
-    (
-      item: IUniversalSearchResultItem,
-      index: number,
-      onSelect: (address: string) => void,
-    ) => {
+    (item: IUniversalSearchResultItem, index: number) => {
       if (
         item.type === EUniversalSearchType.Address &&
         item.payload.addressInfo
       ) {
         const { addressInfo, network } = item.payload;
-        // External address version (like watching address)
         return (
           <ListItem
             key={index}
-            onPress={() => onSelect(addressInfo.displayAddress)}
+            onPress={() => handleAddressPressFromResult(item)}
             renderAvatar={<NetworkAvatar networkId={network?.id} size="$10" />}
             title={network?.shortname || network?.name}
             subtitle={accountUtils.shortenAddress({
@@ -88,7 +127,7 @@ function WebDappEmptyView() {
       }
       return null;
     },
-    [],
+    [handleAddressPressFromResult],
   );
 
   return (
@@ -209,8 +248,8 @@ function WebDappEmptyView() {
                 placeholder={intl.formatMessage({
                   id: ETranslations.wallet_track_any_address_placeholder,
                 })}
-                onAddressSelect={handleAddressSelect}
-                onSearchChange={handleSearchChange}
+                onResultsChange={handleResultsChange}
+                onLoadingChange={handleLoadingChange}
                 renderResultItem={renderResultItem}
                 popoverContainerProps={{
                   mx: '$0',
@@ -225,6 +264,8 @@ function WebDappEmptyView() {
               variant="primary"
               onPress={handleTrackAddress}
               minWidth={80}
+              disabled={!isTrackEnabled ? !isSearchLoading : null}
+              loading={isSearchLoading}
             >
               Track
             </Button>

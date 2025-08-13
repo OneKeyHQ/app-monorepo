@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -18,6 +18,8 @@ import { SearchPopover } from '../../views/Discovery/pages/Dashboard/Welcome/Sea
 export interface IUniversalSearchInputProps extends Partial<IInputProps> {
   onAddressSelect?: (address: string) => void;
   onSearchChange?: (value: string) => void;
+  onResultsChange?: (results: IUniversalSearchResultItem[]) => void;
+  onLoadingChange?: (loading: boolean) => void;
   searchType?: 'address' | 'dapp' | 'full';
   renderResultItem?: (
     item: IUniversalSearchResultItem,
@@ -34,6 +36,8 @@ export interface IUniversalSearchInputProps extends Partial<IInputProps> {
 export function UniversalSearchInput({
   onAddressSelect,
   onSearchChange,
+  onResultsChange,
+  onLoadingChange,
   searchType = 'address',
   renderResultItem,
   placeholder,
@@ -50,9 +54,11 @@ export function UniversalSearchInput({
   const scrollViewRef = useRef<IScrollViewRef>(null);
 
   // Universal search using searchUrlAccount for address search
-  const { result: searchResults, run: runSearch } = usePromiseResult<
-    IUniversalSearchSingleResult | undefined
-  >(
+  const {
+    result: searchResults,
+    run: runSearch,
+    isLoading,
+  } = usePromiseResult<IUniversalSearchSingleResult | undefined>(
     async () => {
       if (!searchValue.trim() || searchValue.length < minSearchLength) {
         return undefined;
@@ -73,6 +79,17 @@ export function UniversalSearchInput({
       debounced: debounceMs,
     },
   );
+
+  // Notify parent about search results changes
+  useEffect(() => {
+    const results = searchResults?.items || [];
+    onResultsChange?.(results);
+  }, [searchResults, onResultsChange]);
+
+  // Notify parent about loading state changes
+  useEffect(() => {
+    onLoadingChange?.(isLoading || false);
+  }, [isLoading, onLoadingChange]);
 
   const handleInputChange = useCallback(
     (text: string) => {
