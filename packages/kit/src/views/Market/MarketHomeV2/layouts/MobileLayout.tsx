@@ -1,16 +1,17 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Dimensions } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useDebouncedCallback } from 'use-debounce';
 
-import type { ICarouselInstance } from '@onekeyhq/components';
 import {
   Carousel,
   Tabs,
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import type { ICarouselInstance } from '@onekeyhq/components';
 import {
   useMarketWatchListV2Atom,
   useSelectedMarketTabAtom,
@@ -73,6 +74,7 @@ export function MobileLayout({
     carouselRef.current?.scrollTo({ index: tabNames.indexOf(tabName) });
   }, 100);
 
+  const { top, bottom } = useSafeAreaInsets();
   const height = useMemo(() => {
     return platformEnv.isNative
       ? Dimensions.get('window').height - top - bottom - 188
