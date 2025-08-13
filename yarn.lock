@@ -7616,6 +7616,7 @@ __metadata:
     openpgp: "npm:5.11.3"
     p-limit: "npm:^6.2.0"
     p-retry: "npm:^6.2.1"
+    p-timeout: "npm:^6.1.4"
     patch-package: "npm:8.0.0"
     prettier: "npm:^2.8.1"
     progress-bar-webpack-plugin: "npm:^2.1.0"
@@ -32897,6 +32898,13 @@ __metadata:
     is-network-error: "npm:^1.0.0"
     retry: "npm:^0.13.1"
   checksum: 10/7104ef13703b155d70883b0d3654ecc03148407d2711a4516739cf93139e8bec383451e14925e25e3c1ae04dbace3ed53c26dc3853c1e9b9867fcbdde25f4cdc
+  languageName: node
+  linkType: hard
+
+"p-timeout@npm:^6.1.4":
+  version: 6.1.4
+  resolution: "p-timeout@npm:6.1.4"
+  checksum: 10/5ee0df408ba353cc2d7036af90d2eb1724c428fd1cf67cd9110c03f0035077c29f6506bff7198dfbef4910ec558c711f21f9741d89d043a6f2c2ff82064afcaf
   languageName: node
   linkType: hard
 
