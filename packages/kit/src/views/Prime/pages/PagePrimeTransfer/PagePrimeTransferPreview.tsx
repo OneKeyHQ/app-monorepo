@@ -114,7 +114,7 @@ function PreviewItem({
   }, [itemId, onSelect, selectedItemMapInfo]);
 
   return (
-    <XStack
+    <Stack
       opacity={selectedItemMapInfo?.[itemId]?.disabled ? 0.5 : 1}
       onPress={() => {
         onChange();
@@ -126,8 +126,6 @@ function PreviewItem({
       hoverStyle={{
         backgroundColor: '$bgHover',
       }}
-      alignItems="center"
-      justifyContent="space-between"
       cursor="pointer"
     >
       <XStack gap="$3" alignItems="center" flex={1}>
@@ -140,8 +138,8 @@ function PreviewItem({
             networkId={account.createAtNetwork}
           />
         ) : null}
-        <YStack>
-          <SizableText size="$bodyLgMedium" color="$text">
+        <YStack flex={1}>
+          <SizableText size="$bodyLgMedium" color="$text" w="100%">
             {wallet?.name || account?.name}
           </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
@@ -161,19 +159,21 @@ function PreviewItem({
                 })}
           </SizableText>
         </YStack>
+        <Stack w="$5">
+          <Checkbox
+            disabled={selectedItemMapInfo[itemId].disabled}
+            shouldStopPropagation
+            value={selectedItemMapInfo[itemId].checked}
+            onChange={() => {
+              onChange();
+            }}
+            onChangeForDisabled={() => {
+              onChange();
+            }}
+          />
+        </Stack>
       </XStack>
-      <Checkbox
-        disabled={selectedItemMapInfo[itemId].disabled}
-        shouldStopPropagation
-        value={selectedItemMapInfo[itemId].checked}
-        onChange={() => {
-          onChange();
-        }}
-        onChangeForDisabled={() => {
-          onChange();
-        }}
-      />
-    </XStack>
+    </Stack>
   );
 }
 
@@ -181,6 +181,12 @@ const accountSortFn = (a: IDBAccount, b: IDBAccount) =>
   natsort({ insensitive: true })(
     a.accountOrder ?? a.accountOrderSaved ?? 0,
     b.accountOrder ?? b.accountOrderSaved ?? 0,
+  );
+
+const walletSortFn = (a: IPrimeTransferHDWallet, b: IPrimeTransferHDWallet) =>
+  natsort({ insensitive: true })(
+    a.walletOrder ?? a.walletOrderSaved ?? 0,
+    b.walletOrder ?? b.walletOrderSaved ?? 0,
   );
 
 function WalletList({
@@ -211,7 +217,7 @@ function WalletList({
     const _importedAccounts = Object.values(data.privateData.importedAccounts);
     const _watchingAccounts = Object.values(data.privateData.watchingAccounts);
     return {
-      wallets: _wallets,
+      wallets: _wallets.sort((a, b) => walletSortFn(a, b)),
       importedAccounts: _importedAccounts.sort((a, b) => accountSortFn(a, b)),
       watchingAccounts: _watchingAccounts.sort((a, b) => accountSortFn(a, b)),
     };

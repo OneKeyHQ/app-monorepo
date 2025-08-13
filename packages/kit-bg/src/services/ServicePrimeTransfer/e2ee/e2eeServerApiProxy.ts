@@ -18,6 +18,15 @@ interface IRoomManager {
     appDeviceName: string;
   }): Promise<{ roomId: string; userId: string }>;
 
+  joinRoomAfterCreate(params: {
+    roomId: string;
+    appPlatformName: string;
+    appVersion: string;
+    appBuildNumber: string;
+    appPlatform: string;
+    appDeviceName: string;
+  }): Promise<{ roomId: string; userId: string }>;
+
   leaveRoom(params: {
     roomId: string;
     userId: string;
