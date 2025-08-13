@@ -54,12 +54,12 @@ function ConnectWalletModal() {
         <Page.Body>
           <Stack flex={1}>
             <Tabs.Container initialTabName={initialTabName}>
-              <Tabs.Tab name="onekey">
-                <Stack p="$5">
+              <Tabs.Tab name={onekeyTitle}>
+                <Stack p="$5" gap="$4">
                   <OneKeyWalletConnectionOptions />
                 </Stack>
               </Tabs.Tab>
-              <Tabs.Tab name="others">
+              <Tabs.Tab name={othersTitle}>
                 <ExternalWalletList impl="evm" />
               </Tabs.Tab>
             </Tabs.Container>
