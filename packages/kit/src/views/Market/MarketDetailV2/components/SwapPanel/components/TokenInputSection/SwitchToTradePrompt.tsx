@@ -30,7 +30,7 @@ export function SwitchToTradePrompt(props: ISwitchToTradePromptProps) {
       justifyContent="center"
     >
       <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-        If you wish to trade other tokens, switch to{' '}
+        {intl.formatMessage({ id: ETranslations.dexmarket_switch_to_trade })}
         <SizableText fontWeight="bold" cursor="pointer">
           {intl.formatMessage({ id: ETranslations.global_trade })}
         </SizableText>

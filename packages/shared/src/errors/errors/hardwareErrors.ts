@@ -682,6 +682,20 @@ export class NewFirmwareForceUpdate extends OneKeyHardwareError {
   override code = HardwareErrorCode.NewFirmwareForceUpdate;
 }
 
+export class DefectiveFirmware extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DefectiveFirmware',
+        defaultKey: ETranslations.hardware_defective_firmware_error,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.DefectiveFirmware;
+}
+
 export class DeviceNotSame extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(

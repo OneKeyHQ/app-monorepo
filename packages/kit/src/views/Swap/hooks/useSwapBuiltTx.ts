@@ -40,6 +40,7 @@ import {
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IFeeAlgo,
   IFeeCkb,
@@ -383,17 +384,22 @@ export function useSwapBuildTx() {
         ) {
           throw new OneKeyError('No account found');
         }
-        const orderAccount =
-          await backgroundApiProxy.serviceAccount.getNetworkAccount({
-            accountId: swapFromAddressInfo.accountInfo?.indexedAccount?.id
-              ? undefined
-              : swapFromAddressInfo?.accountInfo?.account?.id,
-            indexedAccountId:
-              swapFromAddressInfo?.accountInfo?.indexedAccount?.id ?? '',
-            networkId: item.networkId,
-            deriveType:
-              swapFromAddressInfo.accountInfo?.deriveType ?? 'default',
-          });
+        let orderAccount: INetworkAccount | undefined;
+        try {
+          orderAccount =
+            await backgroundApiProxy.serviceAccount.getNetworkAccount({
+              accountId: swapFromAddressInfo.accountInfo?.indexedAccount?.id
+                ? undefined
+                : swapFromAddressInfo?.accountInfo?.account?.id,
+              indexedAccountId:
+                swapFromAddressInfo?.accountInfo?.indexedAccount?.id ?? '',
+              networkId: item.networkId,
+              deriveType:
+                swapFromAddressInfo.accountInfo?.deriveType ?? 'default',
+            });
+        } catch (e) {
+          orderAccount = undefined;
+        }
         if (dataMessage) {
           const signHash = await new Promise<string>((resolve, reject) => {
             if (dataMessage && item.userAddress && orderAccount) {
@@ -780,6 +786,27 @@ export function useSwapBuildTx() {
     }
   }, [goBackQrCodeModal, swapFromAddressInfo.accountInfo?.account?.id]);
 
+  const findGasInfo = useCallback(
+    (
+      stepGasInfos: { encodeTx: IEncodedTx; gasInfo: ISwapGasInfo }[],
+      encodedTx: IEncodedTx,
+    ) => {
+      return stepGasInfos?.find(
+        (s) =>
+          isEqual(s.encodeTx, encodedTx) ||
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          ((s.encodeTx as any)?.rawSignTx &&
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            (encodedTx as any)?.rawSignTx &&
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            (s.encodeTx as any)?.rawSignTx ===
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              (encodedTx as any)?.rawSignTx),
+      );
+    },
+    [],
+  );
+
   const buildGasInfo = useCallback(
     (
       gasRes: {
@@ -921,13 +948,14 @@ export function useSwapBuildTx() {
         const unsignedTxArr = [...approveUnsignedTxArr, unsignedTx];
         if (
           unsignedTxArr.every((tx) =>
-            stepGasInfos?.find((s) => isEqual(s.encodeTx, tx.encodedTx)),
+            findGasInfo(stepGasInfos ?? [], tx.encodedTx),
           )
         ) {
           for (let i = 0; i < unsignedTxArr.length; i += 1) {
             const unsignedTxItem = unsignedTxArr[i];
-            const gasInfoFinal = stepGasInfos?.find((s) =>
-              isEqual(s.encodeTx, unsignedTxItem.encodedTx),
+            const gasInfoFinal = findGasInfo(
+              stepGasInfos ?? [],
+              unsignedTxItem.encodedTx,
             )?.gasInfo;
             if (gasInfoFinal) {
               try {
@@ -1068,13 +1096,14 @@ export function useSwapBuildTx() {
         const unsignedTxArr = [...approveUnsignedTxArr, unsignedTx];
         if (
           unsignedTxArr.every((tx) =>
-            stepGasInfos?.find((s) => isEqual(s.encodeTx, tx.encodedTx)),
+            findGasInfo(stepGasInfos ?? [], tx.encodedTx),
           )
         ) {
           for (let i = 0; i < unsignedTxArr.length; i += 1) {
             const unsignedTxItem = unsignedTxArr[i];
-            const gasInfoFinal = stepGasInfos?.find((s) =>
-              isEqual(s.encodeTx, unsignedTxItem.encodedTx),
+            const gasInfoFinal = findGasInfo(
+              stepGasInfos ?? [],
+              unsignedTxItem.encodedTx,
             )?.gasInfo;
             if (gasInfoFinal) {
               try {
@@ -1207,10 +1236,22 @@ export function useSwapBuildTx() {
           }
         }
       } else if (
-        stepGasInfos?.find((s) => isEqual(s.encodeTx, unsignedTx.encodedTx))
+        stepGasInfos?.find(
+          (s) =>
+            isEqual(s.encodeTx, unsignedTx.encodedTx) ||
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            (s.encodeTx as any)?.rawSignTx ===
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              (unsignedTx.encodedTx as any)?.rawSignTx,
+        )
       ) {
-        const gasInfoFinal = stepGasInfos?.find((s) =>
-          isEqual(s.encodeTx, unsignedTx.encodedTx),
+        const gasInfoFinal = stepGasInfos?.find(
+          (s) =>
+            isEqual(s.encodeTx, unsignedTx.encodedTx) ||
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            (s.encodeTx as any)?.rawSignTx ===
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              (unsignedTx.encodedTx as any)?.rawSignTx,
         )?.gasInfo;
         if (gasInfoFinal) {
           try {
@@ -1316,6 +1357,7 @@ export function useSwapBuildTx() {
       swapFromAddressInfo.address,
       setSwapSteps,
       intl,
+      findGasInfo,
       updateStepTitle,
       updateUnsignedTxAndSendTx,
       onApproveTxSuccess,
@@ -2176,7 +2218,8 @@ export function useSwapBuildTx() {
           accountAddress: swapFromAddressInfo.address,
           receivingAddress: swapToAddressInfo.address ?? '',
           swapBuildResData: {
-            result: { ...data, orderId: data.quoteId ?? '' },
+            result: { ...data },
+            orderId: data.quoteId ?? '',
           },
         };
 
@@ -2409,7 +2452,7 @@ export function useSwapBuildTx() {
               gasFeeInfos = [
                 ...gasFeeInfos,
                 {
-                  encodeTx: unsignedTxItem.encodedTx,
+                  encodeTx: unsignedTxItem.encodedTx ?? {},
                   gasInfo,
                 },
               ];
