@@ -12,28 +12,21 @@ export interface IMarketFilterBarSmallProps {
   onNetworkIdChange?: (networkId: string) => void;
   onTimeRangeChange?: (value: ITimeRangeSelectorValue) => void;
   onLiquidityFilterChange?: (filter: ILiquidityFilter) => void;
-  isLoading?: boolean;
 }
 
 function MarketFilterBarSmall({
   selectedNetworkId,
   onNetworkIdChange,
-  isLoading = false,
 }: IMarketFilterBarSmallProps) {
   const handleNetworkIdChange = (networkId: string) => {
     onNetworkIdChange?.(networkId);
   };
-
-  // if (isLoading) {
-  //   return null; // Could add skeleton later if needed
-  // }
 
   return (
     <Stack px="$4">
       <MarketTokenListNetworkSelector
         selectedNetworkId={selectedNetworkId}
         onSelectNetworkId={handleNetworkIdChange}
-        forceLoading={isLoading}
         placement="bottom-start"
       />
     </Stack>

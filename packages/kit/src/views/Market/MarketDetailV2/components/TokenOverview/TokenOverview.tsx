@@ -128,7 +128,7 @@ export function TokenOverview() {
 
   const fdvStat = useMemo<IStatItem>(
     () => ({
-      label: 'FDV',
+      label: intl.formatMessage({ id: ETranslations.dexmarket_fdv_title }),
       value: formatCurrencyValue(tokenDetail?.fdv),
       tooltip: intl.formatMessage({
         id: ETranslations.dexmarket_fdv_desc,
