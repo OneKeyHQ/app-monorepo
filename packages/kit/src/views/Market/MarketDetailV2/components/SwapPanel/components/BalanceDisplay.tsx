@@ -1,11 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import {
-  NumberSizeableText,
-  SizableText,
-  Skeleton,
-  XStack,
-} from '@onekeyhq/components';
+import { NumberSizeableText, Skeleton, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { InfoItemLabel } from './InfoItemLabel';
@@ -43,11 +38,13 @@ export function BalanceDisplay({
           hoverStyle={{ bg: '$bgHover' }}
           pressStyle={{ bg: '$bgActive' }}
           borderRadius="$2"
-          px="$1"
-          py="$0.5"
           formatter="balance"
           formatterOptions={{
             tokenSymbol: token?.symbol,
+          }}
+          contentStyle={{
+            px: '$1',
+            py: '$0.5',
           }}
         >
           {balance?.toFixed()}

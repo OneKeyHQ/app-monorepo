@@ -33,8 +33,10 @@ export type ISwapPanelContentProps = {
   balanceToken?: IToken;
   onApprove: () => void;
   onSwap: () => void;
+  onWrappedSwap: () => void;
   swapMevNetConfig: string[];
   swapNativeTokenReserveGas: ISwapNativeTokenReserveGas[];
+  isWrapped: boolean;
   priceRate?: {
     rate?: number;
     fromTokenSymbol?: string;
@@ -59,6 +61,8 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     onSwap,
     swapMevNetConfig,
     priceRate,
+    onWrappedSwap,
+    isWrapped,
   } = props;
 
   const {
@@ -162,12 +166,13 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           disabled={!supportSpeedSwap}
           loading={isLoading}
           tradeType={tradeType}
-          onPress={onSwap}
+          onPress={isWrapped ? onWrappedSwap : onSwap}
           amount={paymentAmount.toFixed()}
           token={
             tradeType === ESwapDirection.SELL ? balanceToken : paymentToken
           }
           balance={balance}
+          isWrapped={isWrapped}
           paymentToken={paymentToken}
           networkId={networkId}
         />

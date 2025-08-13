@@ -31,6 +31,7 @@ export interface IActionButtonProps extends IButtonProps {
   balance?: BigNumber;
   paymentToken?: IToken;
   networkId?: string;
+  isWrapped?: boolean;
 }
 
 export function ActionButton({
@@ -40,6 +41,7 @@ export function ActionButton({
   balance,
   disabled,
   onPress,
+  isWrapped,
   paymentToken,
   networkId,
   ...otherProps
@@ -160,7 +162,13 @@ export function ActionButton({
     });
   }
 
-  if (shouldCreateAddress?.result) {
+  if (isWrapped) {
+    buttonText = intl.formatMessage({
+      id: ETranslations.swap_page_button_wrap,
+    });
+  }
+
+  if (shouldCreateAddress?.result || createAddressLoading) {
     buttonText = intl.formatMessage({
       id: ETranslations.global_create_address,
     });
