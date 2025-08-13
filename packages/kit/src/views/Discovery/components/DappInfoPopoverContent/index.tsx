@@ -188,9 +188,9 @@ export function DappInfoPopoverContent({
             color={iconConfig.iconColor}
             size="$5"
           />
-          <XStack pl="$3" flex={1}>
+          <YStack pl="$3" flex={1}>
             {securityElement}
-          </XStack>
+          </YStack>
           {securityStatus === EHostSecurityLevel.Unknown ? null : (
             <Icon
               name="ChevronRightSmallOutline"
