@@ -20,7 +20,8 @@ import { TransactionsHeaderNormal } from './layout/TransactionItemNormal/Transac
 import { TransactionItemSmall } from './layout/TransactionItemSmall/TransactionItemSmall';
 import { TransactionsHeaderSmall } from './layout/TransactionItemSmall/TransactionsHeaderSmall';
 
-import type { FlashListProps, FlashListRef } from '@shopify/flash-list';
+import type { FlashListRef } from '@shopify/flash-list';
+import type { FlatListProps } from 'react-native';
 
 interface ITransactionsHistoryProps {
   tokenAddress: string;
@@ -38,7 +39,7 @@ export function TransactionsHistory({
     tokenAddress,
     networkId,
   });
-  const listRef = useRef<FlashListRef<IMarketTokenTransaction>>(null);
+  // const listRef = useRef<FlashListRef<IMarketTokenTransaction>>(null);
   // const [hasUserScrolled, setHasUserScrolled] = useState(false);
 
   const shouldEnableScroll = leftColumnWidth < 930;
@@ -50,7 +51,7 @@ export function TransactionsHistory({
   //   }
   // }, [transactions, hasUserScrolled]);
 
-  const renderItem: FlashListProps<IMarketTokenTransaction>['renderItem'] =
+  const renderItem: FlatListProps<IMarketTokenTransaction>['renderItem'] =
     useCallback(
       ({ item }: { item: IMarketTokenTransaction }) => {
         return gtLg ? (
