@@ -457,6 +457,19 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           ],
           [
             {
+              icon: 'RemovePeopleOutline',
+              title: intl.formatMessage({
+                id: ETranslations.id_delete_onekey_id,
+              }),
+              onPress: (navigation) => {
+                navigation?.pushModal(EModalRoutes.PrimeModal, {
+                  screen: EPrimePages.PrimeDeleteAccount,
+                });
+              },
+            },
+          ],
+          [
+            {
               icon: 'FolderDeleteOutline',
               title: intl.formatMessage({
                 id: ETranslations.settings_clear_data,

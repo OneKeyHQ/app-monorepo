@@ -15,6 +15,7 @@ export function AutoUpdateSection() {
   ) {
     return (
       <SectionPressItem
+        icon="ErrorOutline"
         title="Auto-Update failed test suits"
         onPress={() => {
           Dialog.cancel({
