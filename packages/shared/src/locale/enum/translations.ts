@@ -2209,6 +2209,8 @@
   receive_send_asset_warning_message = 'receive.send_asset_warning_message',
   receive_show_address_any = 'receive.show_address_any',
   receive_token_list_footer_text = 'receive_token_list_footer_text',
+  recovery_phrase_screenshot_protected_desc = 'recovery_phrase_screenshot_protected_desc',
+  recovery_phrase_screenshot_protected_title = 'recovery_phrase_screenshot_protected_title',
   referral_address_update_desc = 'referral.address_update_desc',
   referral_address_updated = 'referral.address_updated',
   referral_cumulative_rewards = 'referral.cumulative_rewards',
