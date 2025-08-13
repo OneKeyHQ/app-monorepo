@@ -52,7 +52,7 @@ export function MobileLayout() {
 
   const height = useMemo(() => {
     return platformEnv.isNative
-      ? Dimensions.get('window').height - top - bottom - 0
+      ? Dimensions.get('window').height - top - bottom - 88
       : 'calc(100vh - 96px)';
   }, [bottom, top]);
 
