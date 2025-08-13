@@ -58,8 +58,14 @@ function ReceiveToken() {
       RouteProp<IModalReceiveParamList, EModalReceiveRoutes.ReceiveToken>
     >();
 
-  const { networkId, accountId, walletId, token, onDeriveTypeChange } =
-    route.params;
+  const {
+    networkId,
+    accountId,
+    indexedAccountId,
+    walletId,
+    token,
+    onDeriveTypeChange,
+  } = route.params;
 
   const { account, network, wallet, vaultSettings, addressType, deriveType } =
     useAccountData({
@@ -217,6 +223,35 @@ function ReceiveToken() {
       );
     };
   }, []);
+
+  useEffect(() => {
+    const fetchAccount = async () => {
+      if (!accountId && networkId && indexedAccountId) {
+        const defaultDeriveType =
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId,
+          });
+
+        const { accounts } =
+          await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
+            indexedAccountIds: [indexedAccountId],
+            networkId,
+            deriveType: defaultDeriveType,
+          });
+
+        if (accounts?.[0]) {
+          setCurrentAccount(accounts[0]);
+        }
+      }
+    };
+    void fetchAccount();
+  }, [
+    accountId,
+    currentDeriveType,
+    indexedAccountId,
+    networkId,
+    onDeriveTypeChange,
+  ]);
 
   useEffect(() => {
     if (!isHardwareWallet) {

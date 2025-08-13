@@ -21,6 +21,7 @@ export type IModalReceiveParamList = {
     networkId: string;
     accountId: string;
     walletId: string;
+    indexedAccountId?: string;
     token?: IToken;
     onDeriveTypeChange?: (deriveType: IAccountDeriveTypes) => void;
   };
