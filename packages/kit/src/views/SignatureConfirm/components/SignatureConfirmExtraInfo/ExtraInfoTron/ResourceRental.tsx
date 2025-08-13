@@ -23,6 +23,10 @@ import {
   useSignatureConfirmActions,
   useTronResourceRentalInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import {
+  settingsTronRentalPersistAtom,
+  useSettingsTronRentalPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
@@ -95,12 +99,43 @@ function ResourceRental() {
     saveTRX,
     resourcePrice,
   } = resourceRentalInfo;
+  const [{ preventDisableTronRental }] = useSettingsTronRentalPersistAtom();
 
   const handleResourceRentalToggle = useCallback(
     (value: boolean) => {
+      if (!preventDisableTronRental && !value) {
+        void settingsTronRentalPersistAtom.set({
+          preventDisableTronRental: true,
+        });
+        showResourceRentalDetailsDialog({
+          title: intl.formatMessage({
+            id: ETranslations.wallet_disable_energy_rental_title,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.wallet_disable_energy_rental_description,
+          }),
+          content: <ResourceRentalLearnMoreButton />,
+          onCancelText: intl.formatMessage({
+            id: ETranslations.global_disable_button,
+          }),
+          onCancel: (close) => {
+            updateTronResourceRentalInfo({ isResourceRentalEnabled: value });
+            void close();
+          },
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_cancel,
+          }),
+          onConfirm: ({ close }) => {
+            void close();
+          },
+          showCancelButton: true,
+        });
+        return;
+      }
+
       updateTronResourceRentalInfo({ isResourceRentalEnabled: value });
     },
-    [updateTronResourceRentalInfo],
+    [intl, preventDisableTronRental, updateTronResourceRentalInfo],
   );
 
   const handleSwapTrxToggle = useCallback(
