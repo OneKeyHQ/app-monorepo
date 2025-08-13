@@ -90,6 +90,25 @@ export function WalletActionMore() {
     return false;
   }, [isSellSupported, wallet?.type]);
 
+  const { isSupported: isBuySupported, handleFiatCrypto: buyCrypto } =
+    useFiatCrypto({
+      networkId: network?.id ?? '',
+      accountId: account?.id ?? '',
+      fiatCryptoType: 'buy',
+    });
+
+  const isBuyDisabled = useMemo(() => {
+    if (wallet?.type === WALLET_TYPE_WATCHING && !platformEnv.isDev) {
+      return true;
+    }
+
+    if (!isBuySupported) {
+      return true;
+    }
+
+    return false;
+  }, [isBuySupported, wallet?.type]);
+
   const show = useReviewControl();
 
   const rewardCenterConfig = getRewardCenterConfig({
@@ -241,6 +260,88 @@ export function WalletActionMore() {
     isSoftwareWalletOnlyUser,
   ]);
 
+  const handleBuyToken = useCallback(async () => {
+    if (isBuyDisabled) return;
+
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+        walletId: wallet?.id ?? '',
+      })
+    ) {
+      return;
+    }
+
+    defaultLogger.wallet.walletActions.actionBuy({
+      walletType: wallet?.type ?? '',
+      networkId: network?.id ?? '',
+      source: 'homePage',
+      isSoftwareWalletOnlyUser,
+    });
+
+    if (vaultSettings?.isSingleToken) {
+      const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
+        networkId: network?.id ?? '',
+        accountId: account?.id ?? '',
+      });
+
+      if (
+        network &&
+        wallet &&
+        nativeToken &&
+        deriveInfoItems.length > 1 &&
+        vaultSettings?.mergeDeriveAssetsEnabled &&
+        !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
+      ) {
+        navigation.pushModal(EModalRoutes.FiatCryptoModal, {
+          screen: EModalFiatCryptoRoutes.DeriveTypesAddress,
+          params: {
+            networkId: network.id,
+            indexedAccountId: indexedAccount?.id ?? '',
+            actionType: EDeriveAddressActionType.Select,
+            token: nativeToken,
+            tokenMap: map,
+            onUnmounted: () => {},
+            onSelected: async ({
+              account: a,
+            }: {
+              account: INetworkAccount;
+            }) => {
+              defaultLogger.wallet.walletActions.buyStarted({
+                tokenAddress: nativeToken.address,
+                tokenSymbol: nativeToken.symbol,
+                networkID: network?.id ?? '',
+              });
+              const { url } =
+                await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
+                  networkId: network?.id ?? '',
+                  tokenAddress: nativeToken.address,
+                  accountId: a.id,
+                  type: 'buy',
+                });
+              openUrlExternal(url);
+            },
+          },
+        });
+        return;
+      }
+    }
+
+    buyCrypto();
+  }, [
+    isBuyDisabled,
+    vaultSettings?.isSingleToken,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    buyCrypto,
+    network,
+    account?.id,
+    wallet,
+    deriveInfoItems.length,
+    navigation,
+    indexedAccount?.id,
+    map,
+    isSoftwareWalletOnlyUser,
+  ]);
+
   const viewExplorerDisabled = usePromiseResult(async () => {
     if (!network?.isCustomNetwork) {
       return false;
@@ -368,6 +469,13 @@ export function WalletActionMore() {
   if (show) {
     sections.unshift({
       items: [
+        {
+          label: intl.formatMessage({ id: ETranslations.global_buy }),
+          icon: 'PlusLargeOutline',
+          disabled: Boolean(isBuyDisabled || !account?.id || !network?.id),
+          onPress: handleBuyToken,
+          trackID: 'wallet-buy',
+        },
         {
           label: intl.formatMessage({ id: ETranslations.global_cash_out }),
           icon: 'MinusLargeOutline',

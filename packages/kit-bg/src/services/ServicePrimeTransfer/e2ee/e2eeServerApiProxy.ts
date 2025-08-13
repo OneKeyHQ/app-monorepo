@@ -3,9 +3,9 @@ import type { IE2EESocketUserInfo } from '@onekeyhq/shared/types/prime/primeTran
 import { RemoteApiProxyBase } from '../../../apis/RemoteApiProxyBase';
 
 import { JsBridgeE2EEClient } from './JsBridgeE2EEClient';
+import transferErrors from './transferErrors';
 
 import type { Socket } from 'socket.io-client';
-import transferErrors from './transferErrors';
 
 interface IRoomManager {
   createRoom(): Promise<{ roomId: string }>;

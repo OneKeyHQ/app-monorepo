@@ -669,7 +669,6 @@ function RewardCenterDetails() {
         </XStack>
       );
     }
-    return null;
   }, [showAccountSelector, intl, navigation]);
 
   return (
@@ -683,7 +682,7 @@ function RewardCenterDetails() {
               })
         }
         headerRight={renderHeaderRight}
-        headerLeft={renderHeaderLeft}
+        headerLeft={showAccountSelector ? renderHeaderLeft : undefined}
       />
       <Page.Body px="$5">
         <Alert

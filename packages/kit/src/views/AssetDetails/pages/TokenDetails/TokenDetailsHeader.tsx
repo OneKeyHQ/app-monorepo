@@ -309,41 +309,6 @@ function TokenDetailsHeader(props: IProps) {
           </XStack>
           {/* Actions */}
           <RawActions gap="$8" flexWrap="wrap" flexDirection="row">
-            <ReviewControl>
-              <ActionBuy
-                walletId={wallet?.id ?? ''}
-                networkId={networkId}
-                accountId={accountId}
-                walletType={wallet?.type}
-                tokenAddress={tokenInfo.address}
-                tokenSymbol={tokenInfo.symbol}
-                source="tokenDetails"
-                trackID="wallet-token-details-buy"
-              />
-            </ReviewControl>
-
-            <RawActions.Swap
-              onPress={handleOnSwap}
-              disabled={disableSwapAction}
-              trackID="wallet-token-details-swap"
-            />
-            <RawActions.Bridge
-              onPress={handleOnBridge}
-              disabled={disableSwapAction}
-              trackID="wallet-token-details-bridge"
-            />
-            <ReviewControl>
-              <ActionSell
-                walletId={wallet?.id ?? ''}
-                networkId={networkId}
-                accountId={accountId}
-                walletType={wallet?.type}
-                tokenAddress={tokenInfo.address}
-                tokenSymbol={tokenInfo.symbol}
-                source="tokenDetails"
-                trackID="wallet-token-details-sell"
-              />
-            </ReviewControl>
             <RawActions.Send
               onPress={handleSendPress}
               trackID="wallet-token-details-send"
@@ -370,6 +335,16 @@ function TokenDetailsHeader(props: IProps) {
               }}
               trackID="wallet-token-details-receive"
             />
+            <RawActions.Swap
+              onPress={handleOnSwap}
+              disabled={disableSwapAction}
+              trackID="wallet-token-details-swap"
+            />
+            <RawActions.Bridge
+              onPress={handleOnBridge}
+              disabled={disableSwapAction}
+              trackID="wallet-token-details-bridge"
+            />
             <WalletActionEarn
               accountId={accountId}
               tokenAddress={tokenInfo.address}
@@ -379,6 +354,32 @@ function TokenDetailsHeader(props: IProps) {
               source="tokenDetails"
               trackID="wallet-token-details-stake"
             />
+            <ReviewControl>
+              <ActionBuy
+                walletId={wallet?.id ?? ''}
+                networkId={networkId}
+                accountId={accountId}
+                walletType={wallet?.type}
+                tokenAddress={tokenInfo.address}
+                tokenSymbol={tokenInfo.symbol}
+                source="tokenDetails"
+                trackID="wallet-token-details-buy"
+              />
+            </ReviewControl>
+
+            <ReviewControl>
+              <ActionSell
+                walletId={wallet?.id ?? ''}
+                networkId={networkId}
+                accountId={accountId}
+                walletType={wallet?.type}
+                tokenAddress={tokenInfo.address}
+                tokenSymbol={tokenInfo.symbol}
+                source="tokenDetails"
+                trackID="wallet-token-details-sell"
+              />
+            </ReviewControl>
+
             <Stack w={50} />
           </RawActions>
         </Stack>
