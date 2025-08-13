@@ -24,47 +24,51 @@ export function MobileInformationTabs({
     return networkId === getNetworkIdsMap().sol;
   }, [networkId]);
 
+  const tabs = useMemo(() => {
+    const items = [
+      <Tabs.Tab
+        key="transactions"
+        name={intl.formatMessage({
+          id: ETranslations.dexmarket_details_transactions,
+        })}
+      >
+        <TransactionsHistory
+          tokenAddress={tokenAddress}
+          networkId={networkId}
+        />
+      </Tabs.Tab>,
+    ];
+    if (shouldShowHolders) {
+      items.push(
+        <Tabs.Tab
+          key="holders"
+          name={intl.formatMessage({
+            id: ETranslations.dexmarket_holders,
+          })}
+        >
+          <Stack flex={1} height={600} pt="$11">
+            <Holders tokenAddress={tokenAddress} networkId={networkId} />
+          </Stack>
+        </Tabs.Tab>,
+      );
+    }
+    return items;
+  }, [intl, tokenAddress, networkId, shouldShowHolders]);
+
   if (!tokenAddress || !networkId) {
     return null;
   }
 
-  const tabs = [
-    <Tabs.Tab
-      key="transactions"
-      name={intl.formatMessage({
-        id: ETranslations.dexmarket_details_transactions,
-      })}
-    >
-      <TransactionsHistory tokenAddress={tokenAddress} networkId={networkId} />
-    </Tabs.Tab>,
-  ];
-
-  // if (shouldShowHolders) {
-  //   tabs.push(
-  //     <Tabs.Tab
-  //       key="holders"
-  //       name={intl.formatMessage({
-  //         id: ETranslations.dexmarket_holders,
-  //       })}
-  //     >
-  //       <Stack flex={1} height={600} pt="$11">
-  //         <Holders tokenAddress={tokenAddress} networkId={networkId} />
-  //       </Stack>
-  //     </Tabs.Tab>,
-  //   );
-  // }
-
   return (
-    <Stack flex={1}>
-      <Tabs.Container
-        headerContainerStyle={{
-          width: '100%',
-          shadowColor: 'transparent',
-        }}
-        renderHeader={renderHeader}
-      >
-        {tabs}
-      </Tabs.Container>
-    </Stack>
+    <Tabs.Container
+      key={tabs.length}
+      headerContainerStyle={{
+        width: '100%',
+        shadowColor: 'transparent',
+      }}
+      renderHeader={renderHeader}
+    >
+      {tabs}
+    </Tabs.Container>
   );
 }
