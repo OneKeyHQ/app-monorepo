@@ -22,6 +22,7 @@ export interface ICarouselProps<T> {
   ref?: React.RefObject<ICarouselInstance>;
   renderItem: ({ item, index }: { item: T; index: number }) => React.ReactNode;
   containerStyle?: IXStackProps;
+  showPagination?: boolean;
   paginationContainerStyle?: IStackStyle;
   activeDotStyle?: IYStackProps;
   dotStyle?: IYStackProps;
