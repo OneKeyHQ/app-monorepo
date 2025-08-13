@@ -5,11 +5,21 @@ import { RemoteApiProxyBase } from '../../../apis/RemoteApiProxyBase';
 import { JsBridgeE2EEClient } from './JsBridgeE2EEClient';
 
 import type { Socket } from 'socket.io-client';
+import transferErrors from './transferErrors';
 
 interface IRoomManager {
   createRoom(): Promise<{ roomId: string }>;
 
   joinRoom(params: {
+    roomId: string;
+    appPlatformName: string;
+    appVersion: string;
+    appBuildNumber: string;
+    appPlatform: string;
+    appDeviceName: string;
+  }): Promise<{ roomId: string; userId: string }>;
+
+  joinRoomAfterCreate(params: {
     roomId: string;
     appPlatformName: string;
     appVersion: string;
@@ -73,11 +83,18 @@ export class E2EEServerApiProxy
       params,
     };
 
-    return this.bridge.request({
-      data: message,
-      // scope,
-      // remoteId,
-    });
+    try {
+      const result = await this.bridge.request({
+        data: message,
+        // scope,
+        // remoteId,
+      });
+      return result;
+    } catch (error) {
+      const e = transferErrors.convertToLocalError(error);
+      // throw error;
+      throw e;
+    }
   }
 
   roomManager: IRoomManager =
