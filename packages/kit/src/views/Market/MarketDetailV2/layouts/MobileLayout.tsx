@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Dimensions } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 
 import type { ICarouselInstance } from '@onekeyhq/components';
@@ -10,6 +11,7 @@ import {
   Stack,
   Tabs,
   YStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -46,10 +48,20 @@ export function MobileLayout() {
     },
     [focusedTab, tabNames],
   );
+  const { top, bottom } = useSafeAreaInsets();
 
   const height = useMemo(() => {
-    return platformEnv.isNative ? undefined : 'calc(100vh - 96px)';
-  }, []);
+    return platformEnv.isNative
+      ? Dimensions.get('window').height - top - bottom - 0
+      : 'calc(100vh - 96px)';
+  }, [bottom, top]);
+
+  const onPageChanged = useCallback(
+    (index: number) => {
+      focusedTab.value = tabNames[index];
+    },
+    [focusedTab, tabNames],
+  );
 
   const renderItem = useCallback(
     ({ index }: { index: number }) => {
@@ -61,7 +73,7 @@ export function MobileLayout() {
         );
       }
       return (
-        <ScrollView  flex={1}>
+        <ScrollView flex={1}>
           <TokenOverview />
           <TokenActivityOverview />
         </ScrollView>
@@ -84,6 +96,7 @@ export function MobileLayout() {
         pagerProps={{
           scrollSensitivity: 4,
         }}
+        onPageChanged={onPageChanged}
         loop={false}
         showPagination={false}
         data={tabNames}

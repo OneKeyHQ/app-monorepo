@@ -82,6 +82,14 @@ export function MobileLayout({
       ? Dimensions.get('window').height - top - bottom - 0
       : 'calc(100vh - 96px)';
   }, [bottom, top]);
+
+  const onPageChanged = useCallback(
+    (index: number) => {
+      handleTabChange(tabNames[index]);
+    },
+    [handleTabChange, tabNames],
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: string }) => {
       if (item === watchlistTabName) {
@@ -129,6 +137,7 @@ export function MobileLayout({
       <Carousel
         containerStyle={{ height }}
         ref={carouselRef as any}
+        onPageChanged={onPageChanged}
         pagerProps={{
           scrollSensitivity: 4,
         }}
