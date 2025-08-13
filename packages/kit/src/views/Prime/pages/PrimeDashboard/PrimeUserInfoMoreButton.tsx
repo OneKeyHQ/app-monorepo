@@ -187,38 +187,6 @@ function PrimeUserInfoMoreButtonDropDownMenu({
         }}
       />
 
-      <Divider mx="$2" my="$1" />
-      <ActionList.Item
-        label={intl.formatMessage({
-          id: ETranslations.id_delete_onekey_id,
-        })}
-        icon="ErrorOutline"
-        destructive
-        onClose={handleActionListClose}
-        onPress={() => {
-          navigation.pushModal(EModalRoutes.PrimeModal, {
-            screen: EPrimePages.PrimeDeleteAccount,
-          });
-
-          // Dialog.show({
-          //   icon: 'ErrorOutline',
-          //   tone: 'destructive',
-          //   title: intl.formatMessage({
-          //     id: ETranslations.id_delete_onekey_id,
-          //   }),
-          //   description: intl.formatMessage({
-          //     id: ETranslations.id_delete_onekey_id_desc,
-          //   }),
-          //   onConfirmText: intl.formatMessage({
-          //     id: ETranslations.id_delete_onekey_id,
-          //   }),
-          //   onConfirm: async () => {
-          //     await logout();
-          //     await onLogoutSuccess?.();
-          //   },
-          // });
-        }}
-      />
     </>
   );
 }

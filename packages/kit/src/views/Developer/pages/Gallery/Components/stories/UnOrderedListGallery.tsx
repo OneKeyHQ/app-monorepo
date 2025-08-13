@@ -4,7 +4,7 @@ import { Layout } from './utils/Layout';
 
 const UnOrderedListGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    filePath={globalThis.__CURRENT_FILE_PATH__}
     componentName="UnOrderedList"
     elements={[
       {

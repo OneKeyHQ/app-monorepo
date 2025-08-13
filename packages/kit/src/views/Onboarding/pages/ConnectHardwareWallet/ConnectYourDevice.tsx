@@ -105,7 +105,10 @@ type IHardwareCommunicationType = 'Bluetooth' | 'WebUSB' | 'USB' | 'QRCode';
 function getHardwareCommunicationTypeString(
   hardwareTransportType: EHardwareTransportType | undefined | 'QRCode',
 ): IHardwareCommunicationType {
-  if (hardwareTransportType === EHardwareTransportType.BLE) {
+  if (
+    hardwareTransportType === EHardwareTransportType.BLE ||
+    hardwareTransportType === EHardwareTransportType.DesktopWebBle
+  ) {
     return 'Bluetooth';
   }
   if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
@@ -1530,10 +1533,9 @@ export function ConnectYourDevicePage() {
         addMethod: 'ConnectHWWallet',
         details: {
           hardwareWalletType: 'Standard',
-          communication:
-            tabValue === EConnectDeviceChannel.bluetooth
-              ? 'Bluetooth'
-              : getHardwareCommunicationTypeString(hardwareTransportType),
+          communication: getHardwareCommunicationTypeString(
+            hardwareTransportType,
+          ),
         },
         isSoftwareWalletOnlyUser,
       });

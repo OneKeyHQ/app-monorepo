@@ -471,6 +471,13 @@ const PasswordKeyboardGallery = LazyLoadPage(
     ),
 );
 
+const PerpGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PerpGallery'
+    ),
+);
+
 const TradingViewGallery = LazyLoadPage(
   () =>
     import(
@@ -827,6 +834,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentPasswordKeyboardGallery,
     component: PasswordKeyboardGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentPerp,
+    component: PerpGallery,
   },
   {
     name: EGalleryRoutes.ComponentTradingViewGallery,

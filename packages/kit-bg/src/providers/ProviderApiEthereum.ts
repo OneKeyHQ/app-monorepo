@@ -14,6 +14,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -29,6 +30,7 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type { IHyperLiquidTypedDataApproveAgent } from '@onekeyhq/shared/types/hyperliquid';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type {
   IAccountToken,
@@ -122,6 +124,26 @@ class ProviderApiEthereum extends ProviderApiBase {
       });
     }
     return this._rpcCache;
+  }
+
+  public async notifyHyperliquidPerpConfigChanged(
+    info: IProviderBaseBackgroundNotifyInfo,
+    params: {
+      hyperliquidBuilderAddress: string | undefined;
+      hyperliquidMaxBuilderFee: number | undefined;
+    },
+  ) {
+    info.send(
+      {
+        method: 'onekeyWalletEvents_builtInPerpConfigChanged',
+        params: {
+          hyperliquidBuilderAddress: params.hyperliquidBuilderAddress,
+          hyperliquidMaxBuilderFee: params.hyperliquidMaxBuilderFee,
+        },
+      },
+      // only notify to hyperliquid official dapp
+      HYPER_LIQUID_ORIGIN,
+    );
   }
 
   public override notifyDappAccountsChanged(
@@ -256,6 +278,11 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async eth_accounts(request: IJsBridgeMessagePayload): Promise<string[]> {
+    console.log('eth_accounts', request.origin, request.data);
+    if (!request.data) {
+      // TODO maybe called by notifyDAppAccountsChanged
+      // debugger;
+    }
     const accountsInfo =
       await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
         request,
@@ -667,12 +694,38 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     ...messages: any[]
   ) {
+    const isHyperLiquid = request.origin === HYPER_LIQUID_ORIGIN;
+    let isHyperLiquidApproveAgentMessage = false;
+    let hyperLiquidApproveAgentTypedData:
+      | IHyperLiquidTypedDataApproveAgent
+      | undefined;
+    try {
+      if (isHyperLiquid) {
+        hyperLiquidApproveAgentTypedData = JSON.parse(
+          messages?.[1],
+        ) as IHyperLiquidTypedDataApproveAgent;
+        isHyperLiquidApproveAgentMessage =
+          hyperLiquidApproveAgentTypedData?.message?.type === 'approveAgent' &&
+          hyperLiquidApproveAgentTypedData?.primaryType ===
+            'HyperliquidTransaction:ApproveAgent';
+
+        console.log(
+          'hyperliquid——eth_signTypedData_v4',
+          messages?.[0],
+          hyperLiquidApproveAgentTypedData,
+          isHyperLiquidApproveAgentMessage,
+        );
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-empty
+    }
+
     defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
     console.log('eth_signTypedData_v4', messages, request);
-    return this.backgroundApi.serviceDApp.openSignMessageModal({
+    const result = await this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
       unsignedMessage: {
         type: EMessageTypesEth.TYPED_DATA_V4,
@@ -682,6 +735,68 @@ class ProviderApiEthereum extends ProviderApiBase {
       networkId: networkId ?? '',
       accountId: accountId ?? '',
     });
+
+    return result;
+  }
+
+  @providerApiMethod()
+  async hl_getBuilderFeeConfig(_: IJsBridgeMessagePayload) {
+    return this.backgroundApi.servicePerp.getBuilderFeeConfig();
+  }
+
+  @providerApiMethod()
+  async hl_checkUserStatus(
+    request: IJsBridgeMessagePayload,
+    {
+      userAddress,
+      chainId,
+      shouldApproveBuilderFee,
+    }: {
+      userAddress: string;
+      chainId: string;
+      shouldApproveBuilderFee: boolean;
+    },
+  ) {
+    const status =
+      await this.backgroundApi.servicePerp.approveBuilderFeeIfRequired({
+        request,
+        userAddress,
+        chainId,
+        skipApproveAction: !shouldApproveBuilderFee,
+      });
+    return status;
+  }
+
+  @providerApiMethod()
+  async hl_logApiEvent(
+    request: IJsBridgeMessagePayload,
+    {
+      apiPayload,
+    }: {
+      apiPayload: {
+        action: { type: string };
+        nonce: number;
+      };
+    },
+  ) {
+    if (apiPayload?.action?.type === 'order') {
+      const orderAction = apiPayload.action as {
+        type: 'order';
+        builder?: {
+          b: string;
+          f: number;
+        };
+        grouping?: string;
+        orders?: object[];
+      };
+      defaultLogger.perp.common.placeOrder({
+        builderAddress: orderAction?.builder?.b ?? '',
+        builderFee: orderAction?.builder?.f ?? 0,
+        grouping: orderAction?.grouping ?? '',
+        orders: orderAction?.orders ?? [],
+        nonce: apiPayload?.nonce,
+      });
+    }
   }
 
   @providerApiMethod()

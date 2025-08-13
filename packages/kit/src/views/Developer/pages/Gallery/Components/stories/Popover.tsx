@@ -110,7 +110,7 @@ const KeepChildrenMountedDemo = () => {
 
 const PopoverGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    filePath={globalThis.__CURRENT_FILE_PATH__}
     componentName="Popover"
     elements={[
       {
