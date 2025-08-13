@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -20,7 +20,6 @@ import { TransactionsHeaderNormal } from './layout/TransactionItemNormal/Transac
 import { TransactionItemSmall } from './layout/TransactionItemSmall/TransactionItemSmall';
 import { TransactionsHeaderSmall } from './layout/TransactionItemSmall/TransactionsHeaderSmall';
 
-import type { FlashListRef } from '@shopify/flash-list';
 import type { FlatListProps } from 'react-native';
 
 interface ITransactionsHistoryProps {
@@ -63,44 +62,6 @@ export function TransactionsHistory({
       [networkId, gtLg],
     );
 
-  // const handleScroll = useCallback(
-  //   (e: {
-  //     nativeEvent?: {
-  //       contentOffset?: {
-  //         y?: number;
-  //       };
-  //     };
-  //   }) => {
-  //     const scrollY = e.nativeEvent?.contentOffset?.y || 0;
-  //     console.log('Transactions list scroll distance:', scrollY);
-
-  //     // Mark as user scrolled if scroll distance > 10
-  //     if (scrollY > 10 && !hasUserScrolled) {
-  //       setHasUserScrolled(true);
-  //     } else if (scrollY <= 10 && hasUserScrolled) {
-  //       // Reset if user scrolls back to near top
-  //       setHasUserScrolled(false);
-  //     }
-  //   },
-  //   [hasUserScrolled],
-  // );
-
-  // if (isRefreshing && transactions.length === 0) {
-  //   return <TransactionsSkeleton />;
-  // }
-
-  // if (!isRefreshing && transactions.length === 0) {
-  //   return (
-  //     <Stack flex={1} alignItems="center" justifyContent="center" p="$8">
-  //       <SizableText size="$bodyLg" color="$textSubdued">
-  //         {intl.formatMessage({
-  //           id: ETranslations.dexmarket_details_nodata,
-  //         })}
-  //       </SizableText>
-  //     </Stack>
-  //   );
-  // }
-
   const keyExtractor = useCallback(
     (item: IMarketTokenTransaction) => item.hash,
     [],
@@ -113,6 +74,19 @@ export function TransactionsHistory({
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       showsVerticalScrollIndicator
+      ListFooterComponent={
+        isRefreshing ? (
+          <TransactionsSkeleton />
+        ) : (
+          <Stack flex={1} alignItems="center" justifyContent="center" p="$8">
+            <SizableText size="$bodyLg" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.dexmarket_details_nodata,
+              })}
+            </SizableText>
+          </Stack>
+        )
+      }
       ListHeaderComponent={
         gtLg ? <TransactionsHeaderNormal /> : <TransactionsHeaderSmall />
       }

@@ -51,22 +51,6 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
       [networkId, gtLg],
     );
 
-  if (isRefreshing && holders.length === 0) {
-    return <HoldersSkeleton />;
-  }
-
-  if (!isRefreshing && holders.length === 0) {
-    return (
-      <Stack flex={1} alignItems="center" justifyContent="center" p="$8">
-        <SizableText size="$bodyLg" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.dexmarket_details_nodata,
-          })}
-        </SizableText>
-      </Stack>
-    );
-  }
-
   const list = (
     <Tabs.FlatList<IMarketTokenHolder>
       data={holders}
@@ -76,6 +60,19 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
       }
       showsVerticalScrollIndicator
       stickyHeaderIndices={platformEnv.isNativeIOS ? undefined : [0]}
+      ListEmptyComponent={
+        isRefreshing ? (
+          <HoldersSkeleton />
+        ) : (
+          <Stack flex={1} alignItems="center" justifyContent="center" p="$8">
+            <SizableText size="$bodyLg" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.dexmarket_details_nodata,
+              })}
+            </SizableText>
+          </Stack>
+        )
+      }
       ListHeaderComponent={
         gtLg ? <HoldersHeaderNormal /> : <HoldersHeaderSmall />
       }
