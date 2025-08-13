@@ -21,6 +21,7 @@ import { useStyle } from '@tamagui/core';
 import { noop } from 'lodash';
 // eslint-disable-next-line spellcheck/spell-checker
 import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
+import { View } from 'react-native';
 import {
   OpacityDecorator,
   ScaleDecorator,
@@ -50,6 +51,7 @@ import type {
 } from 'react-beautiful-dnd';
 import type {
   CellRendererProps,
+  LayoutChangeEvent,
   ListRenderItem,
   ListRenderItemInfo,
 } from 'react-native';
@@ -144,6 +146,17 @@ function CellContainer<T>({
       }
     }
   }, [index, ref]);
+
+  const onLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const changedHeight = event.nativeEvent.layout.height;
+      if (changedHeight !== height) {
+        setHeight(changedHeight);
+      }
+    },
+    [height],
+  );
+
   return (
     <Animated.View
       {...(props as Record<string, any>)}
@@ -153,7 +166,9 @@ function CellContainer<T>({
           : props.style
       }
     >
-      <div ref={containerRef}>{children}</div>
+      <View ref={containerRef as any} onLayout={onLayout}>
+        {children}
+      </View>
     </Animated.View>
   );
 }
