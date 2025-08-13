@@ -46,9 +46,7 @@ export function MobileInformationTabs({
             id: ETranslations.dexmarket_holders,
           })}
         >
-          <Stack flex={1} height={600} pt="$11">
-            <Holders tokenAddress={tokenAddress} networkId={networkId} />
-          </Stack>
+          <Holders tokenAddress={tokenAddress} networkId={networkId} />
         </Tabs.Tab>,
       );
     }

@@ -60,7 +60,7 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
   }
 
   const list = (
-    <Tabs.FlashList<IMarketTokenHolder>
+    <Tabs.FlatList<IMarketTokenHolder>
       data={holders}
       renderItem={renderItem}
       keyExtractor={(item: IMarketTokenHolder) =>

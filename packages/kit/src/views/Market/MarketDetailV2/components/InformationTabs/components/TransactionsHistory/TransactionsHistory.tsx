@@ -106,7 +106,7 @@ export function TransactionsHistory({
   );
 
   const list = (
-    <Tabs.FlashList<IMarketTokenTransaction>
+    <Tabs.FlatList<IMarketTokenTransaction>
       // ref={listRef}
       data={transactions}
       renderItem={renderItem}
