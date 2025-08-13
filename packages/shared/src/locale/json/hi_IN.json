@@ -1580,6 +1580,7 @@
   "hardware.connect_unknown_device_error": "अज्ञात उपकरण, वर्तमान संस्करण ऐप कनेक्शन का समर्थन नहीं करता है।",
   "hardware.data_erased_use_as_new": "इस OneKey Lite पर मौजूद डेटा पूरी तरह से मिटा दिया गया है, और आप इसे एक नए OneKey Lite के रूप में उपयोग कर सकते हैं।",
   "hardware.default_error": "हार्डवेयर संचार विफल रहा, कृपया पुनः प्रयास करें",
+  "hardware.defective_firmware_error": "Your device has defective firmware and cannot be connected. Please contact support for device replacement.",
   "hardware.device_ble_already_connected": "उपकरण पहले से ही कहीं और जुड़ा हुआ है, कृपया डिस्कनेक्ट करें और पुनः प्रयास करें",
   "hardware.device_ble_location_disabled": "स्थान सेवाएं अनुपलब्ध हैं, कृपया सक्षम करें और पुनः प्रयास करें",
   "hardware.device_ble_scan_error": "ब्लूटूथ स्कैन विफल रहा, कृपया पुनः प्रयास करें",

@@ -1580,6 +1580,7 @@
   "hardware.connect_unknown_device_error": "Dispositivo desconhecido, a versão atual do aplicativo não suporta conexão.",
   "hardware.data_erased_use_as_new": "Os dados neste OneKey Lite foram completamente apagados, e você pode usá-lo como um novo OneKey Lite.",
   "hardware.default_error": "Falha na comunicação do hardware, por favor tente novamente",
+  "hardware.defective_firmware_error": "Seu dispositivo tem firmware defeituoso e não pode ser conectado. Entre em contato com o suporte para substituição do dispositivo.",
   "hardware.device_ble_already_connected": "Dispositivo já conectado em outro lugar, por favor desconecte e tente novamente",
   "hardware.device_ble_location_disabled": "Serviços de localização indisponíveis, por favor ative e tente novamente",
   "hardware.device_ble_scan_error": "A varredura Bluetooth falhou, por favor tente novamente",
