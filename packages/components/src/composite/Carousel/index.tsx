@@ -114,6 +114,9 @@ export function Carousel<T>({
         pagerRef.current?.setPage(index);
         debouncedSetPageIndex(index);
       },
+      setScrollEnabled: (scrollEnabled: boolean) => {
+        pagerRef.current?.setScrollEnabled(scrollEnabled);
+      },
     };
   });
 
@@ -178,13 +181,13 @@ export function Carousel<T>({
             key={`${layout.width}-${layout.height}`}
           >
             <PagerView
-              {...pagerProps}
               ref={pagerRef as RefObject<NativePagerView>}
               style={{ width: layout.width, height: layout.height }}
               initialPage={0}
               pageWidth={pageWidth}
               onPageSelected={onPageSelected}
               keyboardDismissMode="on-drag"
+              {...pagerProps}
             >
               {data.map((item, index) => (
                 <Stack
