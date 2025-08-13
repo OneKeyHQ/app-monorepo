@@ -60,7 +60,6 @@ export function MobileInformationTabs() {
           width: '100%',
           shadowColor: 'transparent',
         }}
-        renderTabBar={(props) => <Tabs.TabBar {...props} />}
       >
         {tabs}
       </Tabs.Container>

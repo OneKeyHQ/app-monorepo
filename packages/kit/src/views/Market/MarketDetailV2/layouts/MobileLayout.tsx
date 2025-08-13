@@ -29,7 +29,6 @@ export function MobileLayout() {
           width: '100%',
           shadowColor: 'transparent',
         }}
-        renderTabBar={(props) => <Tabs.TabBar {...props} />}
         pagerProps={{ scrollEnabled: false }}
       >
         <Tabs.Tab name={intl.formatMessage({ id: ETranslations.market_chart })}>

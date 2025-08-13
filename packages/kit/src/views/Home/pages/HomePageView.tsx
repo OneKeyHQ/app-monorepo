@@ -193,15 +193,6 @@ export function HomePageView({
         key={key}
         allowHeaderOverscroll
         width={tabContainerWidth}
-        headerContainerStyle={{
-          shadowOpacity: 0,
-          elevation: 0,
-        }}
-        pagerProps={
-          {
-            scrollSensitivity: 4,
-          } as any
-        }
         renderHeader={renderHeader}
         renderTabBar={(props: any) => (
           <Tabs.TabBar
