@@ -50,7 +50,7 @@ function MobileInformationTabsHeader(props: TabBarProps<string>) {
     return tabNames[0];
   }, [props]);
   return (
-    <YStack>
+    <YStack bg="$bgApp">
       <Tabs.TabBar {...props} />
       <StickHeader firstTabName={firstTabName} />
     </YStack>
