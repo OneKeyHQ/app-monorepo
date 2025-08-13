@@ -58,7 +58,8 @@ function ReceiveToken() {
       RouteProp<IModalReceiveParamList, EModalReceiveRoutes.ReceiveToken>
     >();
 
-  const { networkId, accountId, walletId, token } = route.params;
+  const { networkId, accountId, walletId, token, onDeriveTypeChange } =
+    route.params;
 
   const { account, network, wallet, vaultSettings, addressType, deriveType } =
     useAccountData({
@@ -396,6 +397,7 @@ function ReceiveToken() {
                     setAddressState(EAddressState.Unverified);
                     setCurrentAccount(value.account);
                     setCurrentDeriveType(value.deriveType);
+                    onDeriveTypeChange?.(value.deriveType);
                   }
                 }}
               />
@@ -435,6 +437,7 @@ function ReceiveToken() {
     intl,
     network,
     networkId,
+    onDeriveTypeChange,
     renderAddress,
     renderCopyAddressButton,
     renderVerifyAddressButton,

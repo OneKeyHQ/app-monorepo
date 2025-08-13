@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { useClipboard } from '@onekeyhq/components';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -17,10 +18,12 @@ export const useCopyAccountAddress = () => {
       accountId,
       networkId,
       token,
+      onDeriveTypeChange,
     }: {
       accountId: string;
       networkId: string;
       token?: IToken;
+      onDeriveTypeChange?: (deriveType: IAccountDeriveTypes) => void;
     }) => {
       if (
         accountUtils.isHwAccount({ accountId }) ||
@@ -34,6 +37,7 @@ export const useCopyAccountAddress = () => {
             accountId,
             walletId,
             token,
+            onDeriveTypeChange,
           },
         });
       } else {

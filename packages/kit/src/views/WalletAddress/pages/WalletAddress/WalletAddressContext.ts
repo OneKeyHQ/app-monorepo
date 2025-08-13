@@ -8,7 +8,7 @@ export type IWalletAddressContext = {
   accountId?: string;
   walletId?: string;
   indexedAccountId?: string;
-  refreshLocalData: () => void;
+  refreshLocalData: (config?: { alwaysSetState?: boolean }) => void;
   accountsCreated: boolean;
   setAccountsCreated: (accountsCreated: boolean) => void;
   originalAllNetworksState: IAllNetworksDBStruct;

@@ -28,7 +28,7 @@ import type { ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import { AccountSelectorProviderMirror } from '../AccountSelector';
+import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 import { useAccountSelectorCreateAddress } from '../AccountSelector/hooks/useAccountSelectorCreateAddress';
 
 import {
@@ -96,8 +96,12 @@ function AddressTypeSelectorContent(
 
   const { gtMd } = useMedia();
 
-  const { setIsCreatingAddress, setActiveDeriveType, setCreatingDeriveType } =
-    useAddressTypeSelectorContext();
+  const {
+    activeDeriveType,
+    setIsCreatingAddress,
+    setActiveDeriveType,
+    setCreatingDeriveType,
+  } = useAddressTypeSelectorContext();
 
   const { createAddress } = useAccountSelectorCreateAddress();
 
@@ -180,31 +184,39 @@ function AddressTypeSelectorContent(
         return;
       }
 
-      setActiveDeriveType(deriveType);
-
-      if (!doubleConfirm) {
-        closePopover();
-        if (changeDefaultAddressTypeAfterSelect) {
-          await backgroundApiProxy.serviceNetwork.saveGlobalDeriveTypeForNetwork(
-            {
-              networkId,
-              deriveType,
-              eventEmitDisabled: true,
-            },
-          );
-        }
-      }
-
       void onSelect?.({
         account,
         deriveInfo,
         deriveType,
       });
+
+      if (deriveType === activeDeriveType) {
+        if (!doubleConfirm) {
+          closePopover();
+        }
+        return;
+      }
+
+      setActiveDeriveType(deriveType);
+
+      if (!doubleConfirm) {
+        closePopover();
+        if (changeDefaultAddressTypeAfterSelect) {
+          console.log('saveGlobalDeriveTypeForNetwork', networkId, deriveType);
+          await backgroundApiProxy.serviceNetwork.saveGlobalDeriveTypeForNetwork(
+            {
+              networkId,
+              deriveType,
+            },
+          );
+        }
+      }
     },
     [
+      onSelect,
+      activeDeriveType,
       setActiveDeriveType,
       doubleConfirm,
-      onSelect,
       setIsCreatingAddress,
       setCreatingDeriveType,
       indexedAccountId,
