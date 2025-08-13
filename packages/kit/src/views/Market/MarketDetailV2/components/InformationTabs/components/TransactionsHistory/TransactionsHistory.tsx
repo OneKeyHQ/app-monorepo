@@ -67,9 +67,14 @@ export function TransactionsHistory({
     [],
   );
 
+  const handleEndReached = useCallback(() => {
+    console.log('handleEndReached');
+  }, []);
+
   const list = (
     <Tabs.FlatList<IMarketTokenTransaction>
       // ref={listRef}
+      onEndReached={handleEndReached}
       data={transactions}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
