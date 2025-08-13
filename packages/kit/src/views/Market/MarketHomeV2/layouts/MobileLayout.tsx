@@ -136,9 +136,6 @@ export function MobileLayout({
         containerStyle={{ height }}
         ref={carouselRef as any}
         onPageChanged={onPageChanged}
-        pagerProps={{
-          scrollSensitivity: 4,
-        }}
         loop={false}
         showPagination={false}
         data={tabNames}
