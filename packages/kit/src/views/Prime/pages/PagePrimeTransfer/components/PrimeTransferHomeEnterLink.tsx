@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import pTimeout from 'p-timeout';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
@@ -65,29 +66,41 @@ export function PrimeTransferHomeEnterLink({
   const isConnectingRef = useRef(isConnecting);
   isConnectingRef.current = isConnecting;
 
-  const connectRemoteDevice = useCallback(async (pairingCode: string) => {
-    if (isConnectingRef.current) {
-      return;
-    }
-    setIsConnecting(true);
-    try {
-      // Validation is now handled by Form validate rules
-      // Get room ID for connection
-      const remoteRoomId =
-        await backgroundApiProxy.servicePrimeTransfer.getRoomIdFromPairingCode(
-          pairingCode,
-        );
+  const connectRemoteDeviceFn = useCallback(async (pairingCode: string) => {
+    // Validation is now handled by Form validate rules
+    // Get room ID for connection
+    const remoteRoomId =
+      await backgroundApiProxy.servicePrimeTransfer.getRoomIdFromPairingCode(
+        pairingCode,
+      );
 
-      await backgroundApiProxy.servicePrimeTransfer.joinRoom({
-        roomId: remoteRoomId,
-      });
-      await backgroundApiProxy.servicePrimeTransfer.verifyPairingCode({
-        pairingCode: pairingCode.toUpperCase(),
-      });
-    } finally {
-      setIsConnecting(false);
-    }
+    await backgroundApiProxy.servicePrimeTransfer.joinRoom({
+      roomId: remoteRoomId,
+    });
+    await backgroundApiProxy.servicePrimeTransfer.verifyPairingCode({
+      pairingCode: pairingCode.toUpperCase(),
+    });
+    return undefined;
   }, []);
+
+  const connectRemoteDevice = useCallback(
+    async (pairingCode: string) => {
+      if (isConnectingRef.current) {
+        return;
+      }
+      setIsConnecting(true);
+      try {
+        const p = connectRemoteDeviceFn(pairingCode);
+        await pTimeout(p, {
+          // milliseconds: 100,
+          milliseconds: 30_000,
+        });
+      } finally {
+        setIsConnecting(false);
+      }
+    },
+    [connectRemoteDeviceFn],
+  );
 
   const cleanTextFn = useCallback((text: string) => {
     return text.replace(/[^a-zA-Z0-9-]/g, '').replace(/-/g, '');
