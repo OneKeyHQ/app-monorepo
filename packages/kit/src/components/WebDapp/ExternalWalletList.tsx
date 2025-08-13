@@ -138,7 +138,15 @@ function useWalletConnection({
         />
       ),
     });
-    await connectToWallet(connectionInfo);
+
+    try {
+      await connectToWallet(connectionInfo);
+      // Connection successful - close the dialog
+      await dialogRef.current?.close();
+    } catch (error) {
+      // Connection failed - dialog stays open to show retry button
+      console.error('Wallet connection failed:', error);
+    }
   }, [connectToWallet, connectionInfo, intl, name, setJotaiLoading]);
 
   return {
