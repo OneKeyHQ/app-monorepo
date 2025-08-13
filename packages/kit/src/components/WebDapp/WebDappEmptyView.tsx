@@ -94,15 +94,16 @@ function WebDappEmptyView() {
   return (
     <YStack
       flex={1}
-      justifyContent="center"
       alignItems="center"
       $gtMd={{
         width: 424,
         alignSelf: 'center',
+        pt: 80,
       }}
       $md={{
         mx: '$5',
         width: 'auto',
+        pt: 20,
       }}
     >
       <YStack
