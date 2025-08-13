@@ -1,10 +1,17 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Dimensions } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
+import { useDebouncedCallback } from 'use-debounce';
 
+import {
+  Carousel,
+  Tabs,
+  YStack,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import type { ICarouselInstance } from '@onekeyhq/components';
-import { Carousel, Tabs, YStack } from '@onekeyhq/components';
 import {
   useMarketWatchListV2Atom,
   useSelectedMarketTabAtom,
@@ -60,19 +67,27 @@ export function MobileLayout({
 
   const focusedTab = useSharedValue(tabNames[0]);
 
-  const handleTabChange = useCallback(
-    (tabName: string) => {
-      setSelectedTab(tabName as IMarketHomeTabValue);
-      onTabChange(tabName as IMarketHomeTabValue);
-      focusedTab.value = tabName;
-      carouselRef.current?.scrollTo({ index: tabNames.indexOf(tabName) });
+  const handleTabChange = useDebouncedCallback((tabName: string) => {
+    setSelectedTab(tabName as IMarketHomeTabValue);
+    onTabChange(tabName as IMarketHomeTabValue);
+    focusedTab.value = tabName;
+    carouselRef.current?.scrollTo({ index: tabNames.indexOf(tabName) });
+  }, 100);
+
+  const { top, bottom } = useSafeAreaInsets();
+  const height = useMemo(() => {
+    return platformEnv.isNative
+      ? Dimensions.get('window').height - top - bottom - 188
+      : 'calc(100vh - 140px)';
+  }, [bottom, top]);
+
+  const onPageChanged = useCallback(
+    (index: number) => {
+      focusedTab.value = tabNames[index];
     },
-    [focusedTab, onTabChange, setSelectedTab, tabNames],
+    [focusedTab, tabNames],
   );
 
-  const height = useMemo(() => {
-    return platformEnv.isNative ? undefined : 'calc(100vh - 96px)';
-  }, []);
   const renderItem = useCallback(
     ({ item }: { item: string }) => {
       if (item === watchlistTabName) {
@@ -120,6 +135,7 @@ export function MobileLayout({
       <Carousel
         containerStyle={{ height }}
         ref={carouselRef as any}
+        onPageChanged={onPageChanged}
         loop={false}
         showPagination={false}
         data={tabNames}

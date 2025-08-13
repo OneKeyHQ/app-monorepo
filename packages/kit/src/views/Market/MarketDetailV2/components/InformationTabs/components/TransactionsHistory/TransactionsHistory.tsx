@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -20,7 +20,7 @@ import { TransactionsHeaderNormal } from './layout/TransactionItemNormal/Transac
 import { TransactionItemSmall } from './layout/TransactionItemSmall/TransactionItemSmall';
 import { TransactionsHeaderSmall } from './layout/TransactionItemSmall/TransactionsHeaderSmall';
 
-import type { FlashListProps, FlashListRef } from '@shopify/flash-list';
+import type { FlatListProps } from 'react-native';
 
 interface ITransactionsHistoryProps {
   tokenAddress: string;
@@ -38,19 +38,19 @@ export function TransactionsHistory({
     tokenAddress,
     networkId,
   });
-  const listRef = useRef<FlashListRef<IMarketTokenTransaction>>(null);
-  const [hasUserScrolled, setHasUserScrolled] = useState(false);
+  // const listRef = useRef<FlashListRef<IMarketTokenTransaction>>(null);
+  // const [hasUserScrolled, setHasUserScrolled] = useState(false);
 
   const shouldEnableScroll = leftColumnWidth < 930;
 
   // Scroll to top when transactions update, only if user hasn't scrolled
-  useEffect(() => {
-    if (transactions.length > 0 && listRef.current && !hasUserScrolled) {
-      listRef.current?.scrollToOffset({ animated: false, offset: 0 });
-    }
-  }, [transactions, hasUserScrolled]);
+  // useEffect(() => {
+  //   if (transactions.length > 0 && listRef.current && !hasUserScrolled) {
+  //     listRef.current?.scrollToOffset({ animated: false, offset: 0 });
+  //   }
+  // }, [transactions, hasUserScrolled]);
 
-  const renderItem: FlashListProps<IMarketTokenTransaction>['renderItem'] =
+  const renderItem: FlatListProps<IMarketTokenTransaction>['renderItem'] =
     useCallback(
       ({ item }: { item: IMarketTokenTransaction }) => {
         return gtLg ? (
@@ -62,55 +62,36 @@ export function TransactionsHistory({
       [networkId, gtLg],
     );
 
-  const handleScroll = useCallback(
-    (e: {
-      nativeEvent?: {
-        contentOffset?: {
-          y?: number;
-        };
-      };
-    }) => {
-      const scrollY = e.nativeEvent?.contentOffset?.y || 0;
-      console.log('Transactions list scroll distance:', scrollY);
-
-      // Mark as user scrolled if scroll distance > 10
-      if (scrollY > 10 && !hasUserScrolled) {
-        setHasUserScrolled(true);
-      } else if (scrollY <= 10 && hasUserScrolled) {
-        // Reset if user scrolls back to near top
-        setHasUserScrolled(false);
-      }
-    },
-    [hasUserScrolled],
+  const keyExtractor = useCallback(
+    (item: IMarketTokenTransaction) => item.hash,
+    [],
   );
 
-  if (isRefreshing && transactions.length === 0) {
-    return <TransactionsSkeleton />;
-  }
-
-  if (!isRefreshing && transactions.length === 0) {
-    return (
-      <Stack flex={1} alignItems="center" justifyContent="center" p="$8">
-        <SizableText size="$bodyLg" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.dexmarket_details_nodata,
-          })}
-        </SizableText>
-      </Stack>
-    );
-  }
+  const handleEndReached = useCallback(() => {
+    console.log('handleEndReached');
+  }, []);
 
   const list = (
-    <Tabs.FlashList<IMarketTokenTransaction>
-      ref={listRef}
+    <Tabs.FlatList<IMarketTokenTransaction>
+      // ref={listRef}
+      onEndReached={handleEndReached}
       data={transactions}
       renderItem={renderItem}
-      keyExtractor={(item: IMarketTokenTransaction) => item.hash}
+      keyExtractor={keyExtractor}
       showsVerticalScrollIndicator
-      onScroll={handleScroll}
-      // ListHeaderComponent={
-      //   gtLg ? <TransactionsHeaderNormal /> : <TransactionsHeaderSmall />
-      // }
+      ListEmptyComponent={
+        isRefreshing ? (
+          <TransactionsSkeleton />
+        ) : (
+          <Stack flex={1} alignItems="center" justifyContent="center" p="$8">
+            <SizableText size="$bodyLg" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.dexmarket_details_nodata,
+              })}
+            </SizableText>
+          </Stack>
+        )
+      }
       contentContainerStyle={{
         paddingBottom: 16,
       }}

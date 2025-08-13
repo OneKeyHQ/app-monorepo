@@ -51,6 +51,7 @@ export function Carousel<T>({
   maxPageWidth,
   showPagination = true,
   renderPaginationItem = defaultRenderPaginationItem,
+  pagerProps,
 }: ICarouselProps<T>) {
   const pagerRef = useRef<NativePagerView>(undefined);
   const [pageIndex, setPageIndex] = useState<number>(0);
@@ -112,6 +113,9 @@ export function Carousel<T>({
       scrollTo: ({ index }: { index: number }) => {
         pagerRef.current?.setPage(index);
         debouncedSetPageIndex(index);
+      },
+      setScrollEnabled: (scrollEnabled: boolean) => {
+        pagerRef.current?.setScrollEnabled(scrollEnabled);
       },
     };
   });
@@ -183,6 +187,7 @@ export function Carousel<T>({
               pageWidth={pageWidth}
               onPageSelected={onPageSelected}
               keyboardDismissMode="on-drag"
+              {...pagerProps}
             >
               {data.map((item, index) => (
                 <Stack
