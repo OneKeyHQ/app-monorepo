@@ -594,6 +594,7 @@ export function useSwapBuildTx() {
       message?: string,
       encodedTx?: string,
       swapInfo?: ISwapTxInfo,
+      quoteResult?: IFetchQuoteResult,
     ) => {
       let swapType = ESwapTabSwitchType.SWAP;
       if (swapInfo?.protocol === EProtocolOfExchange.LIMIT) {
@@ -617,6 +618,7 @@ export function useSwapBuildTx() {
         toTokenSymbol: swapInfo?.receiver.token.symbol ?? '',
         fromTokenAmount: swapInfo?.sender.amount ?? '',
         toTokenAmount: swapInfo?.receiver.amount ?? '',
+        quoteToTokenAmount: quoteResult?.toAmount ?? '',
         router: JSON.stringify(
           swapInfo?.swapBuildResData.result.routesData ?? [],
         ),
@@ -895,6 +897,7 @@ export function useSwapBuildTx() {
       accountId: string,
       buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams,
       approveUnsignedTxArr?: IUnsignedTxPro[],
+      quoteResult?: IFetchQuoteResult,
     ) => {
       if (
         !fromToken ||
@@ -980,6 +983,7 @@ export function useSwapBuildTx() {
                     undefined,
                     JSON.stringify(unsignedTxItem.encodedTx ?? ''),
                     swapInfo,
+                    quoteResult,
                   );
                 }
               } catch (e: any) {
@@ -992,6 +996,7 @@ export function useSwapBuildTx() {
                     e?.message ?? 'unknown error',
                     JSON.stringify(unsignedTxItem.encodedTx ?? ''),
                     swapInfo,
+                    quoteResult,
                   );
                 }
                 throw e;
@@ -1054,6 +1059,7 @@ export function useSwapBuildTx() {
                     undefined,
                     JSON.stringify(unsignedTxItem.encodedTx ?? ''),
                     swapInfo,
+                    quoteResult,
                   );
                 }
               } catch (e: any) {
@@ -1066,6 +1072,7 @@ export function useSwapBuildTx() {
                     e?.message ?? 'unknown error',
                     JSON.stringify(unsignedTxItem.encodedTx ?? ''),
                     swapInfo,
+                    quoteResult,
                   );
                 }
                 throw e;
@@ -1128,6 +1135,7 @@ export function useSwapBuildTx() {
                     undefined,
                     JSON.stringify(unsignedTxItem.encodedTx ?? ''),
                     swapInfo,
+                    quoteResult,
                   );
                 }
               } catch (e: any) {
@@ -1140,6 +1148,7 @@ export function useSwapBuildTx() {
                     e?.message ?? 'unknown error',
                     JSON.stringify(unsignedTxItem.encodedTx ?? ''),
                     swapInfo,
+                    quoteResult,
                   );
                 }
                 throw e;
@@ -1272,6 +1281,7 @@ export function useSwapBuildTx() {
                 e?.message ?? 'unknown error',
                 JSON.stringify(unsignedTx.encodedTx ?? ''),
                 swapInfo,
+                quoteResult,
               );
             }
             throw e;
@@ -1318,6 +1328,7 @@ export function useSwapBuildTx() {
                 undefined,
                 JSON.stringify(unsignedTx.encodedTx ?? ''),
                 swapInfo,
+                quoteResult,
               );
             }
           } catch (e: any) {
@@ -1330,6 +1341,7 @@ export function useSwapBuildTx() {
                 e?.message ?? 'unknown error',
                 JSON.stringify(unsignedTx.encodedTx ?? ''),
                 swapInfo,
+                quoteResult,
               );
             }
             throw e;
@@ -1457,6 +1469,7 @@ export function useSwapBuildTx() {
                 approveInfo,
               },
               undefined,
+              data,
             );
             if (res) {
               void onApproveTxSuccess();
@@ -1478,7 +1491,10 @@ export function useSwapBuildTx() {
   );
 
   const swapBuildFinish = useCallback(
-    async (buildSwapRes: { result?: IFetchQuoteResult }) => {
+    async (
+      buildSwapRes: { orderId?: string; result?: IFetchQuoteResult },
+      quoteResult?: IFetchQuoteResult,
+    ) => {
       let swapType = ESwapTabSwitchType.SWAP;
       if (buildSwapRes?.result?.protocol === EProtocolOfExchange.SWAP) {
         void syncRecentTokenPairs({
@@ -1505,6 +1521,7 @@ export function useSwapBuildTx() {
       defaultLogger.swap.createSwapOrder.swapCreateOrder({
         fromTokenAmount: buildSwapRes.result?.fromAmount ?? '',
         toTokenAmount: buildSwapRes.result?.toAmount ?? '',
+        quoteToTokenAmount: quoteResult?.toAmount ?? '',
         fromAddress: swapFromAddressInfo.address ?? '',
         toAddress: swapToAddressInfo.address ?? '',
         status: ESwapEventAPIStatus.SUCCESS,
@@ -1520,6 +1537,7 @@ export function useSwapBuildTx() {
         router: JSON.stringify(buildSwapRes.result?.routesData ?? ''),
         isFirstTime: isFirstTimeSwap,
         createFrom: isModalPage ? 'modal' : 'swapPage',
+        orderId: buildSwapRes?.orderId ?? '',
       });
       setPersistSettings((prev) => ({
         ...prev,
@@ -1608,7 +1626,8 @@ export function useSwapBuildTx() {
           }
           defaultLogger.swap.createSwapOrder.swapCreateOrder({
             fromTokenAmount: data?.fromAmount ?? '',
-            toTokenAmount: data?.toAmount ?? '',
+            toTokenAmount: buildSwapRes?.result?.toAmount ?? '',
+            quoteToTokenAmount: data?.toAmount ?? '',
             fromAddress: swapFromAddressInfo.address ?? '',
             toAddress: swapToAddressInfo.address ?? '',
             status: ESwapEventAPIStatus.FAIL,
@@ -1626,6 +1645,7 @@ export function useSwapBuildTx() {
             router: JSON.stringify(data?.routesData ?? ''),
             isFirstTime: isFirstTimeSwap,
             createFrom: isModalPage ? 'modal' : 'swapPage',
+            orderId: buildSwapRes?.orderId ?? '',
           });
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           const ne = new Error(e?.message ?? 'unknown error');
@@ -1794,7 +1814,7 @@ export function useSwapBuildTx() {
               },
             },
           }));
-          void swapBuildFinish(buildSwapRes);
+          void swapBuildFinish(buildSwapRes, data);
           return {
             swapInfo,
             orderId,
@@ -1930,6 +1950,7 @@ export function useSwapBuildTx() {
                 swapInfo,
               },
               approveUnsignedTxArr,
+              data,
             );
             if (sendTxRes) {
               void onBuildTxSuccess(sendTxRes.txid, swapInfo, orderId);
@@ -2234,6 +2255,8 @@ export function useSwapBuildTx() {
             wrappedInfo,
             swapInfo,
           },
+          undefined,
+          data,
         );
 
         if (sendTxRes) {
