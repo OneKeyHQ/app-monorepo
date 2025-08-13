@@ -103,7 +103,7 @@ export function MobileLayout({
         );
       }
       return (
-        <YStack flex={1} height={100}>
+        <YStack flex={1}>
           <MarketFilterBarSmall {...filterBarProps} />
           <MarketTokenList
             networkId={selectedNetworkId}
