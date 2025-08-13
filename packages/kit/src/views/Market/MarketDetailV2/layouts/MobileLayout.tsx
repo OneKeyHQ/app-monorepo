@@ -124,15 +124,6 @@ export function MobileLayout() {
           </YStack>
         ))}
       </ScrollView>
-      {/* <Carousel
-        containerStyle={{ height }}
-        ref={carouselRef as any}
-        onPageChanged={onPageChanged}
-        loop={false}
-        showPagination={false}
-        data={tabNames}
-        renderItem={renderItem}
-      /> */}
       <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />
     </YStack>
   );

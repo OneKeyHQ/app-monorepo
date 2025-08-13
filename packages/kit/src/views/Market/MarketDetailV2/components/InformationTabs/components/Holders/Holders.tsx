@@ -73,9 +73,6 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
           </Stack>
         )
       }
-      ListHeaderComponent={
-        gtLg ? <HoldersHeaderNormal /> : <HoldersHeaderSmall />
-      }
     />
   );
 

@@ -92,9 +92,6 @@ export function TransactionsHistory({
           </Stack>
         )
       }
-      ListHeaderComponent={
-        gtLg ? <TransactionsHeaderNormal /> : <TransactionsHeaderSmall />
-      }
       contentContainerStyle={{
         paddingBottom: 16,
       }}

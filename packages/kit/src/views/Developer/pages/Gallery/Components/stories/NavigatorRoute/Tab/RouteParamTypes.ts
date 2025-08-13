@@ -22,7 +22,6 @@ export type IDemoMeTabParamList = {
   [EDemoMeTabRoutes.DemoRootMe]: undefined;
 };
 
-
 export type ITabStackParamList = {
   [EDemoTabRoutes.Home]: IDemoHomeTabParamList;
   [EDemoTabRoutes.Me]: IDemoMeTabParamList;

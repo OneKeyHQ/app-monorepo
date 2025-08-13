@@ -1,16 +1,53 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Stack, Tabs } from '@onekeyhq/components';
+import { Stack, Tabs, YStack, useMedia } from '@onekeyhq/components';
+import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { Holders } from '../components/Holders';
-import { TransactionsHistory } from '../components/TransactionsHistory';
+import {
+  HoldersHeaderNormal,
+  HoldersHeaderSmall,
+} from '../components/Holders/layout';
+import {
+  TransactionsHeaderNormal,
+  TransactionsHeaderSmall,
+  TransactionsHistory,
+} from '../components/TransactionsHistory';
 
-import type { CollapsibleProps } from 'react-native-collapsible-tab-view';
+import type {
+  CollapsibleProps,
+  TabBarProps,
+} from 'react-native-collapsible-tab-view';
+
+function MobileInformationTabsHeader(props: TabBarProps<string>) {
+  const { gtLg } = useMedia();
+  const focusedTab = useFocusedTab();
+
+  const transactionsHeader = useMemo(() => {
+    return gtLg ? <TransactionsHeaderNormal /> : <TransactionsHeaderSmall />;
+  }, [gtLg]);
+
+  const holdersHeader = useMemo(() => {
+    return gtLg ? <HoldersHeaderNormal /> : <HoldersHeaderSmall />;
+  }, [gtLg]);
+
+  const firstTabName = useMemo(() => {
+    const { tabNames } = props;
+    return tabNames[0];
+  }, [props]);
+
+  return (
+    <YStack>
+      <Tabs.TabBar {...props} />
+      {focusedTab === firstTabName ? transactionsHeader : holdersHeader}
+    </YStack>
+  );
+}
 
 export function MobileInformationTabs({
   renderHeader,
@@ -53,6 +90,12 @@ export function MobileInformationTabs({
     return items;
   }, [intl, tokenAddress, networkId, shouldShowHolders]);
 
+  const { gtLg } = useMedia();
+
+  const renderTabBar = useCallback(({ ...props }: any) => {
+    return <MobileInformationTabsHeader {...props} />;
+  }, []);
+
   if (!tokenAddress || !networkId) {
     return null;
   }
@@ -65,6 +108,7 @@ export function MobileInformationTabs({
         shadowColor: 'transparent',
       }}
       renderHeader={renderHeader}
+      renderTabBar={renderTabBar}
     >
       {tabs}
     </Tabs.Container>
