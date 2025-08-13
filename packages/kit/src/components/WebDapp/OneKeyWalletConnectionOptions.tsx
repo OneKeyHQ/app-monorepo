@@ -78,7 +78,9 @@ function OneKeyWalletConnectionOptions() {
         px="$5"
         mx="$0"
         bg="$bgSubdued"
-        title="OneKey wallet extension"
+        title={intl.formatMessage({
+          id: ETranslations.global_onekey_wallet_extension,
+        })}
         subtitle={isOneKeyInstalled ? 'EVM' : 'Go to Chrome Web Store'}
         renderAvatar={<Icon name="OnekeyBrand" size="$10" />}
         drillIn={Boolean(isOneKeyInstalled && !loading)}
@@ -102,15 +104,19 @@ function OneKeyWalletConnectionOptions() {
         px="$5"
         mx="$0"
         bg="$bgSubdued"
-        title="OneKey hardware wallet"
+        title={intl.formatMessage({
+          id: ETranslations.global_onekey_wallet_hardware_wallet,
+        })}
         subtitle={
           <>
             <SizableText size="$bodyMd" color="$textSubdued">
+              1.{' '}
               {intl.formatMessage({
                 id: ETranslations.wallet_hardware_wallet_connect_description_1,
               })}
             </SizableText>
             <SizableText size="$bodyMd" color="$textSubdued">
+              2.{' '}
               {intl.formatMessage({
                 id: ETranslations.wallet_hardware_wallet_connect_description_2,
               })}
