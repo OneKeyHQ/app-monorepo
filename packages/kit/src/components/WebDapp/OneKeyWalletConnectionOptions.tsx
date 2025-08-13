@@ -2,13 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Icon,
-  Image,
-  SizableText,
-  useMedia,
-} from '@onekeyhq/components';
+import { Button, Icon, SizableText, useMedia } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { EXT_RATE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -19,7 +13,7 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { useConnectExternalWallet } from '../../hooks/useWebDapp/useConnectExternalWallet';
 import { useOneKeyWalletDetection } from '../../hooks/useWebDapp/useOneKeyWalletDetection';
 
-import { WalletConnectListItem } from './ExternalWalletList';
+import { WalletConnectListItemComponent } from './ExternalWalletList';
 
 function OneKeyWalletConnectionOptions() {
   const intl = useIntl();
@@ -49,9 +43,6 @@ function OneKeyWalletConnectionOptions() {
     });
   }, [appNavigation]);
 
-  // Get WalletConnect connection logic
-  const walletConnectData = WalletConnectListItem({ impl: 'evm' });
-
   // Mobile: show only hardware wallet + WalletConnect
   if (isMobile) {
     return (
@@ -69,23 +60,12 @@ function OneKeyWalletConnectionOptions() {
           drillIn
           onPress={handleConnectHardwarePress}
         />
-        <ListItem
+        <WalletConnectListItemComponent
+          impl="evm"
           py="$4"
           px="$5"
           mx="$0"
           bg="$bgSubdued"
-          title={walletConnectData.name}
-          renderAvatar={
-            <Image
-              w="$10"
-              h="$10"
-              source={walletConnectData.logo}
-              borderRadius="$3"
-            />
-          }
-          drillIn={!walletConnectData.loading}
-          onPress={walletConnectData.onPress}
-          isLoading={walletConnectData.loading}
         />
       </>
     );

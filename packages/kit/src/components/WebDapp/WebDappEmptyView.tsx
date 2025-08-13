@@ -142,7 +142,25 @@ function WebDappEmptyView() {
           />
         </YStack>
 
-        {!isMobileLayout ? null : (
+        {!isMobileLayout ? (
+          <YStack
+            alignItems="center"
+            justifyContent="center"
+            p="$5"
+            pt="$1.5"
+            pb="$2"
+          >
+            <Button
+              size="small"
+              variant="tertiary"
+              onPress={handleShowMoreOptions}
+            >
+              {intl.formatMessage({
+                id: ETranslations.wallet_connect_wallet_more_options,
+              })}
+            </Button>
+          </YStack>
+        ) : (
           <YStack
             alignItems="center"
             justifyContent="center"
