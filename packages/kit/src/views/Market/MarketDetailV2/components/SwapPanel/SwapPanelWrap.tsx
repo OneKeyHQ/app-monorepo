@@ -74,6 +74,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
 
   const {
     speedSwapBuildTx,
+    speedSwapWrappedTx,
     speedSwapBuildTxLoading,
     checkTokenAllowanceLoading,
     speedSwapApproveHandler,
@@ -84,6 +85,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     fetchBalanceLoading,
     priceRate,
     swapNativeTokenReserveGas,
+    isWrapped,
   } = speedSwapActions;
 
   const filterDefaultTokens = useMemo(() => {
@@ -119,6 +121,10 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     void speedSwapBuildTx();
   }, [speedSwapBuildTx]);
 
+  const handleWrappedSwap = useCallback(() => {
+    void speedSwapWrappedTx();
+  }, [speedSwapWrappedTx]);
+
   useEffect(() => {
     return () => {
       dismissKeyboard();
@@ -146,6 +152,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       supportSpeedSwap={supportSpeedSwap}
       defaultTokens={filterDefaultTokens}
       onApprove={handleApprove}
+      onWrappedSwap={handleWrappedSwap}
+      isWrapped={isWrapped}
     />
   );
 }

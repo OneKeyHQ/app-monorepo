@@ -1183,6 +1183,7 @@
   "global.device_info": "Informasi perangkat",
   "global.device_management": "Manajemen perangkat",
   "global.dex": "DEX",
+  "global.disable_button": "Nonaktifkan",
   "global.disabled": "Dengan disabilitas",
   "global.discord": "Discord",
   "global.done": "Selesai",
@@ -3126,6 +3127,8 @@
   "wallet.currently_supports_up_to_str_all_networks_accounts": "Saat ini mendukung hingga {0} akun di semua jaringan.",
   "wallet.description_no_approvals": "Persetujuan Anda akan ditampilkan di sini",
   "wallet.destination_tag": "Tag tujuan",
+  "wallet.disable_energy_rental_description": "Sewa energi adalah fitur tepercaya di ekosistem TRON. Fitur ini mengurangi biaya melalui smart contract dan sepenuhnya non-kustodian, aman, serta transparan. Menonaktifkannya akan menyebabkan biaya yang lebih tinggi.",
+  "wallet.disable_energy_rental_title": "Nonaktifkan penyewaan energi",
   "wallet.energy_confirmations_required": "Mengirim transaksi dengan penyewaan energi memerlukan dua konfirmasi pada dompet perangkat keras Anda. Harap selesaikan keduanya segera untuk menghindari kedaluwarsa transaksi.",
   "wallet.energy_rental_description": "Sewa energi diaktifkan untuk mengurangi biaya karena energi rendah. Ini akan mengubah nonce transaksi. Nonaktifkan jika tidak diperlukan. Mendukung penggunaan USDT untuk membayar gas saat TRX tidak mencukupi. Layanan sewa disediakan oleh pihak ketiga.",
   "wallet.energy_rental_insufficient_trx": "TRX tidak mencukupi terdeteksi. USDT akan digunakan untuk menyewa energi.",

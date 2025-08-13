@@ -1183,6 +1183,7 @@
   "global.device_info": "Geräteinformationen",
   "global.device_management": "Geräteverwaltung",
   "global.dex": "DEX",
+  "global.disable_button": "Deaktivieren",
   "global.disabled": "Deaktiviert",
   "global.discord": "Diskord",
   "global.done": "Erledigt",
@@ -3126,6 +3127,8 @@
   "wallet.currently_supports_up_to_str_all_networks_accounts": "Unterstützt derzeit bis zu {0} Konten über alle Netzwerke hinweg.",
   "wallet.description_no_approvals": "Ihre Genehmigungen werden hier angezeigt",
   "wallet.destination_tag": "Ziel-Tag",
+  "wallet.disable_energy_rental_description": "Energy-Miete ist eine vertrauenswürdige Funktion im TRON-Ökosystem. Sie senkt die Gebühren durch Smart Contracts und ist vollständig non-custodial, sicher und transparent. Das Deaktivieren führt zu höheren Gebühren.",
+  "wallet.disable_energy_rental_title": "Energievermietung deaktivieren",
   "wallet.energy_confirmations_required": "Das Senden einer Transaktion mit Energieleasing erfordert zwei Bestätigungen auf Ihrer Hardware-Wallet. Bitte führen Sie beide Bestätigungen zügig durch, um ein Ablaufen der Transaktion zu vermeiden.",
   "wallet.energy_rental_description": "Die Energieleihe wurde aktiviert, um die Gebühren bei geringer Energie zu senken. Dadurch ändert sich die Transaktions-Nonce. Deaktivieren Sie diese Option, wenn sie nicht benötigt wird. Unterstützt die Zahlung von gas mit USDT, wenn TRX nicht ausreicht. Der Mietservice wird von einem Drittanbieter bereitgestellt.",
   "wallet.energy_rental_insufficient_trx": "Unzureichende TRX erkannt. USDT wird verwendet, um Energie zu mieten.",
