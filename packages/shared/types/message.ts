@@ -13,6 +13,7 @@ export enum ESigningScheme {
 
 export enum EMessageTypesAptos {
   SIGN_MESSAGE = 'aptosSignMessage',
+  SIGN_IN = 'aptosSignIn',
 }
 
 export enum EMessageTypesCommon {
