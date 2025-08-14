@@ -129,6 +129,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
   const { isPrimeAvailable } = usePrimeAvailable();
+  const { isLoggedIn } = usePrimeAuthV2();
   const [settings] = useSettingsPersistAtom();
   return useMemo(
     () => [
@@ -456,17 +457,19 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               : undefined,
           ],
           [
-            {
-              icon: 'RemovePeopleOutline',
-              title: intl.formatMessage({
-                id: ETranslations.id_delete_onekey_id,
-              }),
-              onPress: (navigation) => {
-                navigation?.pushModal(EModalRoutes.PrimeModal, {
-                  screen: EPrimePages.PrimeDeleteAccount,
-                });
-              },
-            },
+            isLoggedIn
+              ? {
+                  icon: 'RemovePeopleOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.id_delete_onekey_id,
+                  }),
+                  onPress: (navigation) => {
+                    navigation?.pushModal(EModalRoutes.PrimeModal, {
+                      screen: EPrimePages.PrimeDeleteAccount,
+                    });
+                  },
+                }
+              : null,
           ],
           [
             {
@@ -749,6 +752,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     [
       intl,
       isPrimeAvailable,
+      isLoggedIn,
       isPasswordSet,
       biologyAuthIsSupport,
       webAuthIsSupport,
