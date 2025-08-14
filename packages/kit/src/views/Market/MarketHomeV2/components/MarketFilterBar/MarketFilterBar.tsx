@@ -33,7 +33,6 @@ export function MarketFilterBar({
       <MarketTokenListNetworkSelector
         selectedNetworkId={selectedNetworkId}
         onSelectNetworkId={handleNetworkIdChange}
-        forceLoading={isLoading}
       />
     </YStack>
   );
