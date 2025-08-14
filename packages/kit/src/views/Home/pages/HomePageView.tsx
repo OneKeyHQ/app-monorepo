@@ -6,6 +6,7 @@ import { type LayoutChangeEvent, useWindowDimensions } from 'react-native';
 import {
   Icon,
   Page,
+  ScrollView,
   Stack,
   Tabs,
   YStack,
@@ -319,9 +320,9 @@ export function HomePageView({
     }
 
     let content = (
-      <Stack h="100%" justifyContent="center">
+      <ScrollView h="100%" contentContainerStyle={{ justifyContent: 'center' }}>
         {platformEnv.isWebDappMode ? <WebDappEmptyView /> : <EmptyWallet />}
-      </Stack>
+      </ScrollView>
     );
 
     if (wallet) {
