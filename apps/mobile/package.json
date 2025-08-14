@@ -127,6 +127,7 @@
     "readable-stream": "^3.6.0",
     "realm": "12.14.2",
     "realm-flipper-plugin-device": "^1.1.0",
+    "recyclerlistview": "4.2.3",
     "stream-http": "^3.2.0",
     "uuid": "^3.0.0"
   },

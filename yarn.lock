@@ -7722,7 +7722,6 @@ __metadata:
     react-native-tab-view: "npm:^3.5.1"
     react-native-typewriter: "npm:^0.7.0"
     react-player: "npm:^2.11.2"
-    recyclerlistview: "npm:^4.2.0"
     rimraf: "npm:^3"
   languageName: unknown
   linkType: soft
@@ -7974,6 +7973,7 @@ __metadata:
     readable-stream: "npm:^3.6.0"
     realm: "npm:12.14.2"
     realm-flipper-plugin-device: "npm:^1.1.0"
+    recyclerlistview: "npm:4.2.3"
     rimraf: "npm:^3"
     stream-http: "npm:^3.2.0"
     uuid: "npm:^3.0.0"
@@ -36132,7 +36132,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"recyclerlistview@npm:^4.2.0":
+"recyclerlistview@npm:4.2.3":
   version: 4.2.3
   resolution: "recyclerlistview@npm:4.2.3"
   dependencies:

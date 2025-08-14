@@ -26,8 +26,7 @@
     "react-native-svg": "15.12.0",
     "react-native-tab-view": "^3.5.1",
     "react-native-typewriter": "^0.7.0",
-    "react-player": "^2.11.2",
-    "recyclerlistview": "^4.2.0"
+    "react-player": "^2.11.2"
   },
   "devDependencies": {
     "@svgr/cli": "8.1.0",
