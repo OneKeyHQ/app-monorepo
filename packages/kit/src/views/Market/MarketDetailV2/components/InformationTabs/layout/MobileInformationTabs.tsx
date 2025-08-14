@@ -18,10 +18,10 @@ import type {
 } from 'react-native-collapsible-tab-view';
 
 function MobileInformationTabsHeader(props: TabBarProps<string>) {
+  const { tabNames } = props;
   const firstTabName = useMemo(() => {
-    const { tabNames } = props;
     return tabNames[0];
-  }, [props]);
+  }, [tabNames]);
   return (
     <YStack bg="$bgApp" pointerEvents="box-none">
       <Tabs.TabBar {...props} />
