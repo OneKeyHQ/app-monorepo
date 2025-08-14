@@ -26,14 +26,14 @@ export async function handleKLineDataRequest({
     const to = safeData.to as number;
     const firstDataRequest = safeData.firstDataRequest as boolean;
 
-    console.log('TradingView request received:', {
-      method,
-      resolution,
-      from,
-      to,
-      firstDataRequest,
-      origin: data.origin,
-    });
+    // console.log('TradingView request received:', {
+    //   method,
+    //   resolution,
+    //   from,
+    //   to,
+    //   firstDataRequest,
+    //   origin: data.origin,
+    // });
 
     // Use combined function to get sliced data
     try {
