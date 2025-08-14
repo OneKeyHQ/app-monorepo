@@ -739,8 +739,25 @@ class ProviderApiEthereum extends ProviderApiBase {
     return result;
   }
 
+  ensureHyperLiquidOrigin(request: IJsBridgeMessagePayload) {
+    if (request.origin !== HYPER_LIQUID_ORIGIN) {
+      throw web3Errors.rpc.invalidRequest(
+        `Unsupported origin: ${request.origin ?? 'unknown origin'}.`,
+      );
+    }
+    if (
+      !(request?.data as { '$$isOneKeyBuiltInPerpRequest': boolean })
+        ?.$$isOneKeyBuiltInPerpRequest
+    ) {
+      throw web3Errors.rpc.invalidRequest(
+        `Should be called by OneKey built in hyperliquid`,
+      );
+    }
+  }
+
   @providerApiMethod()
-  async hl_getBuilderFeeConfig(_: IJsBridgeMessagePayload) {
+  async hl_getBuilderFeeConfig(request: IJsBridgeMessagePayload) {
+    this.ensureHyperLiquidOrigin(request);
     return this.backgroundApi.servicePerp.getBuilderFeeConfig();
   }
 
@@ -757,6 +774,8 @@ class ProviderApiEthereum extends ProviderApiBase {
       shouldApproveBuilderFee: boolean;
     },
   ) {
+    this.ensureHyperLiquidOrigin(request);
+
     const status =
       await this.backgroundApi.servicePerp.approveBuilderFeeIfRequired({
         request,
@@ -779,6 +798,8 @@ class ProviderApiEthereum extends ProviderApiBase {
       };
     },
   ) {
+    this.ensureHyperLiquidOrigin(request);
+
     if (apiPayload?.action?.type === 'order') {
       const orderAction = apiPayload.action as {
         type: 'order';
