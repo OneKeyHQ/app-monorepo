@@ -44,6 +44,7 @@ import type {
   IDeviceVerifyVersionCompareResult,
   IDeviceVersionCacheInfo,
   IFirmwareReleasePayload,
+  IHardwareCallContext,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 import {
@@ -111,6 +112,7 @@ export type IDeviceGetFeaturesOptions = {
   params?: CommonParams & {
     allowEmptyConnectId?: boolean;
   };
+  hardwareCallContext?: IHardwareCallContext;
 };
 
 // skip events
@@ -829,7 +831,7 @@ class ServiceHardware extends ServiceBase {
   }
 
   _getFeaturesLowLevel = async (options: IDeviceGetFeaturesOptions) => {
-    const { connectId, params, silentMode } = options;
+    const { connectId, params, silentMode, hardwareCallContext } = options;
     serviceHardwareUtils.hardwareLog('call getFeatures()', connectId);
     if (!params?.allowEmptyConnectId && !connectId) {
       throw new OneKeyLocalError(
@@ -838,6 +840,7 @@ class ServiceHardware extends ServiceBase {
     }
     const hardwareSDK = await this.getSDKInstance({
       connectId,
+      hardwareCallContext,
     });
     const features = await convertDeviceResponse(
       () => hardwareSDK?.getFeatures(connectId, params),
