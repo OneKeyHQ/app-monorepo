@@ -756,6 +756,12 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
+  async hl_clearUserBuilderFeeCache(request: IJsBridgeMessagePayload) {
+    this.ensureHyperLiquidOrigin(request);
+    this.backgroundApi.servicePerp.clearUserApprovedMaxBuilderCache();
+  }
+
+  @providerApiMethod()
   async hl_getBuilderFeeConfig(request: IJsBridgeMessagePayload) {
     this.ensureHyperLiquidOrigin(request);
     return this.backgroundApi.servicePerp.getBuilderFeeConfig();

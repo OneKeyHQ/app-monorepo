@@ -1,6 +1,6 @@
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
-import { cloneDeep, isEqual, isNil } from 'lodash';
+import { isEqual, isNil, isString } from 'lodash';
 
 import {
   backgroundClass,
@@ -11,10 +11,13 @@ import {
   HYPER_LIQUID_TRADE_URL,
 } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import thirdpartyLocaleConverter from '@onekeyhq/shared/src/locale/thirdpartyLocaleConverter';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IHyperLiquidSignatureRSV,
   IHyperLiquidTypedDataApproveBuilderFee,
@@ -25,7 +28,10 @@ import { settingsPersistAtom } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
 import type { ISimpleDbPerpConfig } from '../../dbs/simple/entity/SimpleDbEntityPerp';
-import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+import type {
+  IJsBridgeMessagePayload,
+  IJsonRpcRequest,
+} from '@onekeyfe/cross-inpage-provider-types';
 
 export interface IHyperliquidClearinghouseState {
   marginSummary: {
@@ -182,15 +188,30 @@ class ServicePerp extends ServiceBase {
       );
       return response.data;
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        throw new OneKeyError(
-          `Hyperliquid API error: ${error.response?.status ?? 'unknown'} ${
-            error.response?.statusText || error.message
-          }`,
-        );
+      if (error && axios.isAxiosError(error)) {
+        const errorMessage = `Hyperliquid API error 8712: ${[
+          error?.name,
+          error?.code,
+          error?.message,
+          error?.response?.status,
+          error?.response?.statusText,
+          isString(error?.response?.data) ? error?.response?.data : undefined,
+        ]
+          .filter(Boolean)
+          .join(',')}`;
+
+        throw new OneKeyError(errorMessage);
       }
+      const e = error as IOneKeyError | undefined;
       throw new OneKeyError(
-        `Hyperliquid API error: ${(error as Error).message}`,
+        `Hyperliquid API error 6632: ${[
+          e?.name,
+          e?.code,
+          e?.message,
+          e?.className,
+        ]
+          .filter(Boolean)
+          .join(',')}`,
       );
     }
   }
@@ -302,6 +323,27 @@ class ServicePerp extends ServiceBase {
       user: userAddress.toLowerCase(),
       builder: builderAddress.toLowerCase(),
     });
+  }
+
+  getUserApprovedMaxBuilderFeeWithCache = cacheUtils.memoizee(
+    async ({
+      userAddress,
+      builderAddress,
+    }: {
+      userAddress: string;
+      builderAddress: string;
+    }) => {
+      return this.getUserApprovedMaxBuilderFee({ userAddress, builderAddress });
+    },
+    {
+      max: 20,
+      maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
+      promise: true,
+    },
+  );
+
+  clearUserApprovedMaxBuilderCache() {
+    this.getUserApprovedMaxBuilderFeeWithCache.clear();
   }
 
   @backgroundMethod()
@@ -428,12 +470,11 @@ class ServicePerp extends ServiceBase {
     return { r, s, v };
   }
 
-  async callEthereumProviderMethod<T>(request: IJsBridgeMessagePayload) {
+  async callEthereumProviderMethod<T>(data: IJsonRpcRequest) {
     const resp = await this.backgroundApi.handleProviderMethods<T>({
       scope: 'ethereum',
-      origin: request.origin,
-      data: request.data,
-      isWalletConnectRequest: true,
+      origin: HYPER_LIQUID_ORIGIN,
+      data,
     });
     return resp;
   }
@@ -453,7 +494,12 @@ class ServicePerp extends ServiceBase {
     const status = await this.getUserBuilderFeeStatus({
       userAddress,
     });
-    if (!skipApproveAction && !status.isDone && status.canSetBuilderFee) {
+    if (
+      !skipApproveAction &&
+      status.expectBuilderAddress &&
+      !status.isDone &&
+      status.canSetBuilderFee
+    ) {
       const { apiPayload, typedData } =
         await this.createApproveBuilderFeePayload({
           builderAddress: status.expectBuilderAddress,
@@ -463,12 +509,10 @@ class ServicePerp extends ServiceBase {
             .toFixed(3)}%`,
           chainId,
         });
-      const req: IJsBridgeMessagePayload = cloneDeep(request);
-      req.data = {
+      const resp = await this.callEthereumProviderMethod<string>({
         method: 'eth_signTypedData_v4',
         params: [userAddress, stringUtils.stableStringify(typedData)],
-      };
-      const resp = await this.callEthereumProviderMethod<string>(req);
+      });
       const signature = resp.result;
       const rsv = this.parseSignatureToRSV(signature);
       apiPayload.signature = rsv;
@@ -484,17 +528,11 @@ class ServicePerp extends ServiceBase {
 
   @backgroundMethod()
   async connectToDapp() {
-    const request: IJsBridgeMessagePayload = {
-      scope: 'ethereum',
-      origin: HYPER_LIQUID_ORIGIN,
-      data: {
-        method: 'eth_requestAccounts',
-        params: [],
-      },
-      isWalletConnectRequest: true,
-    };
-    const resp = await this.callEthereumProviderMethod<string>(request);
-    return resp;
+    const resp = await this.callEthereumProviderMethod<string[]>({
+      method: 'eth_requestAccounts',
+      params: [],
+    });
+    return resp.result as string[];
   }
 
   @backgroundMethod()
@@ -539,24 +577,27 @@ class ServicePerp extends ServiceBase {
       expectMaxBuilderFee,
       shouldModifyPlaceOrderPayload,
     } = await this.getBuilderFeeConfig();
+    let currentMaxBuilderFee = 0;
 
-    // const shouldModifyPlaceOrderPayload = false;
-    // TODO cache user value
-    const currentMaxBuilderFee = await this.getUserApprovedMaxBuilderFee({
-      userAddress,
-      builderAddress: expectBuilderAddress,
-    });
-    if (currentMaxBuilderFee === expectMaxBuilderFee) {
-      return {
-        isDone: true,
-        canSetBuilderFee: true,
-        currentMaxBuilderFee,
-        expectMaxBuilderFee,
-        expectBuilderAddress,
-        accountValue: null,
-        shouldModifyPlaceOrderPayload,
-      };
+    if (expectBuilderAddress) {
+      // const shouldModifyPlaceOrderPayload = false;
+      currentMaxBuilderFee = await this.getUserApprovedMaxBuilderFeeWithCache({
+        userAddress,
+        builderAddress: expectBuilderAddress,
+      });
+      if (currentMaxBuilderFee === expectMaxBuilderFee) {
+        return {
+          isDone: true,
+          canSetBuilderFee: true,
+          currentMaxBuilderFee,
+          expectMaxBuilderFee,
+          expectBuilderAddress,
+          accountValue: null,
+          shouldModifyPlaceOrderPayload,
+        };
+      }
     }
+
     const { accountValue } = await this.getAccountBalance({
       userAddress,
     });
