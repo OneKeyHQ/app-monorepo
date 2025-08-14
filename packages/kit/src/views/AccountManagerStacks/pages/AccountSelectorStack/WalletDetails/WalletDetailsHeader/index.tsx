@@ -118,7 +118,13 @@ export function WalletDetailsHeader({
           <AddressTypeSelector
             walletId={wallet?.id ?? ''}
             networkId={linkedNetworkId}
-            indexedAccountId={selectedAccount.indexedAccountId ?? ''}
+            indexedAccountId={
+              selectedAccount.indexedAccountId ??
+              accountUtils.buildIndexedAccountId({
+                walletId: wallet?.id ?? '',
+                index: 0,
+              })
+            }
             renderSelectorTrigger={
               <IconButton
                 onPress={() => {}}
