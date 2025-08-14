@@ -15,10 +15,10 @@ import { StickyHeader } from './StickyHeader';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
 function DesktopInformationTabsHeader(props: TabBarProps<string>) {
+  const { tabNames } = props;
   const firstTabName = useMemo(() => {
-    const { tabNames } = props;
     return tabNames[0];
-  }, [props]);
+  }, [tabNames]);
   return (
     <YStack
       bg="$bgApp"
