@@ -397,6 +397,7 @@ function BaseDialogContainer(
         });
       }
       changeIsOpen(false);
+      void Keyboard.dismissWithDelay(50);
       return onClose(extra);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
