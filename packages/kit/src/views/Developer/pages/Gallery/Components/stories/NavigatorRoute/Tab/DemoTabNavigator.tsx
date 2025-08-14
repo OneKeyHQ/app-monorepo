@@ -7,17 +7,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EDemoDeveloperTabRoutes,
   EDemoHomeTabRoutes,
-  EDemoMeTabRoutes,
   EDemoTabRoutes,
-  EDemoTabsTabRoutes,
 } from './Routes';
 import DemoRootDeveloper from './View/DemoRootDeveloper';
 import DemoRootDeveloperOptions from './View/DemoRootDeveloperOptions';
 import DemoRootHome from './View/DemoRootHome';
 import DemoRootHomeOptions from './View/DemoRootHomeOptions';
 import DemoRootHomeSearch from './View/DemoRootHomeSearch';
-import DemoRootMe from './View/DemoRootMe';
-import DemoRootTabs from './View/DemoRootTabs';
 
 const config: ITabNavigatorConfig<EDemoTabRoutes>[] = [
   {
@@ -43,38 +39,6 @@ const config: ITabNavigatorConfig<EDemoTabRoutes>[] = [
         component: DemoRootHomeOptions,
         // @ts-expect-error
         translationId: 'RootHomeOptions',
-      },
-    ],
-  },
-  {
-    name: EDemoTabRoutes.Me,
-    tabBarIcon: (focused?: boolean) =>
-      focused ? 'EmailSolid' : 'EmailOutline',
-    // @ts-expect-error
-    translationId: 'msg__mine',
-    freezeOnBlur: true,
-    children: [
-      {
-        name: EDemoMeTabRoutes.DemoRootMe,
-        component: DemoRootMe,
-        // @ts-expect-error
-        translationId: 'msg__mine',
-      },
-    ],
-  },
-  {
-    name: EDemoTabRoutes.Tabs,
-    tabBarIcon: (focused?: boolean) =>
-      focused ? 'ChatGptSolid' : 'ChatGptOutline',
-    // @ts-expect-error
-    translationId: 'title__str_tabs',
-    freezeOnBlur: true,
-    children: [
-      {
-        name: EDemoTabsTabRoutes.DemoRootTabs,
-        component: DemoRootTabs,
-        // @ts-expect-error
-        translationId: 'title__str_tabs',
       },
     ],
   },
