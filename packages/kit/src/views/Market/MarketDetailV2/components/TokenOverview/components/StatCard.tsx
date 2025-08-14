@@ -27,7 +27,7 @@ export function StatCard({
   const content = (
     <Stack
       onPress={onPress}
-      bg="$bgSubdued"
+      bg="$bgStrong"
       borderRadius="$3"
       p="$3"
       flexGrow={1}
@@ -37,7 +37,7 @@ export function StatCard({
       justifyContent="space-between"
       alignItems="center"
     >
-      <XStack alignItems="center" gap="$1" mb="$2" justifyContent="center">
+      <XStack alignItems="center" gap="$1" mb="$1" justifyContent="center">
         <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
           {label}
         </SizableText>
@@ -62,7 +62,7 @@ export function StatCard({
         {icon ? (
           <Icon name={icon} size="$4" color={iconColor || '$iconSuccess'} />
         ) : null}
-        <SizableText size="$headingMd" color="$text" fontWeight="600">
+        <SizableText size="$bodyLgMedium" color="$text">
           {value}
         </SizableText>
       </XStack>
