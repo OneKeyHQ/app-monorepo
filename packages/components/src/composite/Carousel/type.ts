@@ -36,6 +36,10 @@ export interface ICarouselProps<T> {
     index: number,
   ) => React.ReactNode;
   /**
+   * @description Disable animation for page transitions
+   */
+  disableAnimation?: boolean;
+  /**
    * @platform native
    * @description Props for the PagerView component
    */
