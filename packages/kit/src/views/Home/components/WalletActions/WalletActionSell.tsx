@@ -122,6 +122,7 @@ export function WalletActionSell({ onClose }: { onClose: () => void }) {
           openUrlExternal(url);
           onClose();
         }}
+        doubleConfirm
       />
     );
   }

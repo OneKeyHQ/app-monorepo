@@ -23,7 +23,10 @@ import {
   EHardwareUiStateAction,
   useHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -42,6 +45,7 @@ import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressTypeSelector from '../../../components/AddressTypeSelector/AddressTypeSelector';
 import { useAccountData } from '../../../hooks/useAccountData';
+import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddress';
 import { useHelpLink } from '../../../hooks/useHelpLink';
 import { EAddressState } from '../types';
 
@@ -67,7 +71,7 @@ function ReceiveToken() {
     onDeriveTypeChange,
   } = route.params;
 
-  const { account, network, wallet, vaultSettings, addressType, deriveType } =
+  const { account, network, wallet, vaultSettings, deriveType, deriveInfo } =
     useAccountData({
       accountId,
       networkId,
@@ -77,6 +81,10 @@ function ReceiveToken() {
   const [currentDeriveType, setCurrentDeriveType] = useState<
     IAccountDeriveTypes | undefined
   >(deriveType);
+
+  const [currentDeriveInfo, setCurrentDeriveInfo] = useState<
+    IAccountDeriveInfo | undefined
+  >(deriveInfo);
 
   const [currentAccount, setCurrentAccount] = useState<
     INetworkAccount | undefined
@@ -91,6 +99,8 @@ function ReceiveToken() {
   const [hardwareUiState] = useHardwareUiStateAtom();
 
   const { copyText } = useClipboard();
+
+  const copyAddressWithDeriveType = useCopyAddressWithDeriveType();
 
   const requestsUrl = useHelpLink({ path: 'requests/new' });
 
@@ -138,6 +148,23 @@ function ReceiveToken() {
 
     return false;
   }, [addressState, isHardwareWallet]);
+
+  const handleCopyAddress = useCallback(() => {
+    if (vaultSettings?.mergeDeriveAssetsEnabled && currentDeriveInfo) {
+      copyAddressWithDeriveType({
+        address: currentAccount?.address ?? '',
+        deriveInfo: currentDeriveInfo,
+      });
+    } else {
+      copyText(currentAccount?.address ?? '');
+    }
+  }, [
+    copyAddressWithDeriveType,
+    copyText,
+    currentAccount?.address,
+    currentDeriveInfo,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+  ]);
 
   const handleVerifyOnDevicePress = useCallback(async () => {
     setAddressState(EAddressState.Verifying);
@@ -240,6 +267,13 @@ function ReceiveToken() {
           });
 
         if (accounts?.[0]) {
+          const deriveResp =
+            await backgroundApiProxy.serviceNetwork.getDeriveTypeByTemplate({
+              networkId,
+              template: accounts[0].template,
+              accountId: accounts[0].id,
+            });
+          setCurrentDeriveInfo(deriveResp.deriveInfo);
           setCurrentAccount(accounts[0]);
         }
       }
@@ -285,11 +319,11 @@ function ReceiveToken() {
       <IconButton
         size="medium"
         icon="Copy3Outline"
-        onPress={() => copyText(currentAccount?.address ?? '')}
+        onPress={handleCopyAddress}
         variant="primary"
       />
     );
-  }, [currentAccount?.address, addressState, copyText, isHardwareWallet]);
+  }, [addressState, handleCopyAddress, isHardwareWallet]);
 
   const renderVerifyAddressButton = useCallback(() => {
     if (!isHardwareWallet || shouldShowAddress) return null;
@@ -378,7 +412,7 @@ function ReceiveToken() {
         maxWidth={288}
         flexWrap="wrap"
         {...(shouldShowAddress && {
-          onPress: () => copyText(currentAccount?.address ?? ''),
+          onPress: handleCopyAddress,
           userSelect: 'none',
           borderRadius: '$1',
           hoverStyle: {
@@ -399,7 +433,7 @@ function ReceiveToken() {
         <SizableText fontFamily="$monoMedium">{addressContent}</SizableText>
       </XStack>
     );
-  }, [currentAccount, network, shouldShowAddress, wallet, copyText]);
+  }, [currentAccount, network, wallet, shouldShowAddress, handleCopyAddress]);
 
   const renderReceiveFooter = useCallback(() => {
     if (!currentAccount || !network || !wallet) return null;
@@ -432,6 +466,7 @@ function ReceiveToken() {
                     setAddressState(EAddressState.Unverified);
                     setCurrentAccount(value.account);
                     setCurrentDeriveType(value.deriveType);
+                    setCurrentDeriveInfo(value.deriveInfo);
                     onDeriveTypeChange?.(value.deriveType);
                   }
                 }}

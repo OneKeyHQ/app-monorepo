@@ -126,6 +126,8 @@ export function WalletActionBuy({ onClose }: { onClose: () => void }) {
           openUrlExternal(url);
           onClose();
         }}
+        doubleConfirm
+        confirmText="Confirm receiving address"
       />
     );
   }

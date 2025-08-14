@@ -307,7 +307,7 @@ function AddressTypeSelectorContent(
               size: 'small',
             }}
           >
-            {confirmText || 'Confirm receiving address'}
+            {confirmText || 'Confirm address'}
           </Button>
         </XStack>
       ) : null}

@@ -187,6 +187,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
       await copyAccountAddress({
         accountId: account.accountId,
         networkId: network.id,
+        deriveInfo: account.deriveInfo,
         onDeriveTypeChange: () => {
           refreshLocalData({ alwaysSetState: true });
         },

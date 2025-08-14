@@ -26,12 +26,12 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useCopyAddressWithDeriveType } from '../../hooks/useCopyAccountAddress';
 import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
 import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
-import AddressTypeSelector from '../AddressTypeSelector/AddressTypeSelector';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
 
@@ -164,14 +164,14 @@ export function AccountSelectorActiveAccountHome({
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   const { copyText } = useClipboard();
+  const copyAddressWithDeriveType = useCopyAddressWithDeriveType();
   const {
     account,
     wallet,
     network,
-    deriveInfo,
-    deriveType,
-    deriveInfoItems,
+    indexedAccount,
     vaultSettings,
+    deriveInfoItems,
   } = activeAccount;
 
   const { selectedAccount } = useSelectedAccount({ num });
@@ -222,11 +222,45 @@ export function AccountSelectorActiveAccountHome({
           walletId: wallet.id,
         },
       });
+    } else if (
+      vaultSettings?.mergeDeriveAssetsEnabled &&
+      accountUtils.isHdWallet({ walletId: wallet?.id ?? '' })
+    ) {
+      const defaultDeriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: network?.id ?? '',
+        });
+
+      const { accounts } =
+        await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
+          indexedAccountIds: [indexedAccount?.id ?? ''],
+          networkId: network?.id ?? '',
+          deriveType: defaultDeriveType,
+        });
+
+      copyAddressWithDeriveType({
+        address: accounts?.[0]?.address || '',
+        deriveInfo: deriveInfoItems.find(
+          (item) => item.value === defaultDeriveType,
+        )?.item,
+      });
     } else {
       copyText(account.address);
     }
     logActiveAccount();
-  }, [account, copyText, logActiveAccount, navigation, network, wallet]);
+  }, [
+    account?.address,
+    account?.id,
+    copyAddressWithDeriveType,
+    copyText,
+    deriveInfoItems,
+    indexedAccount?.id,
+    logActiveAccount,
+    navigation,
+    network,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    wallet,
+  ]);
 
   useShortcutsOnRouteFocused(
     EShortcutEvents.CopyAddressOrUrl,
@@ -243,40 +277,6 @@ export function AccountSelectorActiveAccountHome({
 
   if (accountUtils.isAllNetworkMockAddress({ address: account?.address })) {
     return null;
-  }
-
-  // show copy address icon button if account has multiple derive types
-  if (
-    vaultSettings?.mergeDeriveAssetsEnabled &&
-    accountUtils.isHdWallet({ walletId: wallet?.id ?? '' })
-  ) {
-    return (
-      <AddressTypeSelector
-        renderSelectorTrigger={
-          <CopyButton onPress={async () => {}} visible={showCopyButton} />
-        }
-        walletId={wallet?.id ?? ''}
-        networkId={network?.id ?? ''}
-        activeDeriveType={deriveType}
-        activeDeriveInfo={deriveInfo}
-        indexedAccountId={activeAccount.indexedAccount?.id ?? ''}
-        onSelect={async ({ account: _account }) => {
-          if (
-            (await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
-              walletId: wallet?.id ?? '',
-            })) ||
-            !_account
-          ) {
-            return;
-          }
-          copyText(_account.address || _account.addressDetail.displayAddress);
-        }}
-        doubleConfirm
-        confirmText={intl.formatMessage({
-          id: ETranslations.global_copy_address,
-        })}
-      />
-    );
   }
 
   // show address if account has an address
