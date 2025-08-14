@@ -116,7 +116,9 @@ export function UniversalSearchV2MarketTokenItem({
     <ListItem
       jc="space-between"
       onPress={handlePress}
-      renderAvatar={<MarketTokenIcon uri={logoUrl} size="lg" />}
+      renderAvatar={
+        <MarketTokenIcon uri={logoUrl} size="lg" networkId={network} />
+      }
       title={symbol.toUpperCase()}
       subtitle={<ContractAddress address={address} />}
       subtitleProps={{
