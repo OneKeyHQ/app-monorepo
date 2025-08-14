@@ -19,6 +19,7 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -40,6 +41,12 @@ import AddressTypeSelectorItem from './AddressTypeSelectorItem';
 import AddressTypeSelectorTrigger from './AddressTypeSelectorTrigger';
 
 import type { PopoverProps } from 'tamagui';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+
+const helpLinkMap: Record<string, string> = {
+  [IMPL_BTC]: 'https://help.onekey.so/articles/11461370',
+  [IMPL_TBTC]: 'https://help.onekey.so/articles/11461370',
+};
 
 type IProps = {
   walletId: string;
@@ -308,7 +315,7 @@ function AddressTypeSelector(props: IProps) {
     networkId,
     indexedAccountId,
     title,
-    helpLink,
+    helpLink: helpLinkProp,
     renderSelectorTrigger,
     tokenMap: tokenMapProp,
     activeDeriveType: activeDeriveTypeProp,
@@ -318,6 +325,11 @@ function AddressTypeSelector(props: IProps) {
     placement,
     doubleConfirm,
   } = props;
+
+  const helpLink = useMemo(() => {
+    const impl = networkUtils.getNetworkImpl({ networkId });
+    return helpLinkProp || helpLinkMap[impl];
+  }, [networkId, helpLinkProp]);
 
   const isSelectorDisabled = useMemo(() => {
     return disableSelector || accountUtils.isOthersWallet({ walletId });
