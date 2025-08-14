@@ -131,7 +131,7 @@ function AddressTypeSelectorItem(props: IProps) {
       }}
     >
       {tokenFiat ? (
-        <YStack alignItems="flex-end">
+        <YStack alignItems="flex-end" userSelect="none">
           <XStack alignItems="center" gap="$1" pb="$0.5">
             <NetworkAvatar networkId={networkId} size={16} />
             <NumberSizeableText
