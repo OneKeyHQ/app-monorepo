@@ -1,4 +1,4 @@
-import { Image, SizableText, XStack } from '@onekeyhq/components';
+import { Image, SizableText, XStack, useMedia } from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
 
 export type INetworksFilterItemProps = {
@@ -15,14 +15,15 @@ export function NetworksFilterItem({
   disabled,
   ...rest
 }: INetworksFilterItemProps) {
+  const { md } = useMedia();
   return (
     <XStack
       alignItems="center"
       justifyContent="center"
       px="$2.5"
       py="$1.5"
-      gap="$2"
-      borderRadius="$2"
+      gap={md ? '$1' : '$2'}
+      borderRadius={md ? '$full' : '$2.5'}
       userSelect="none"
       backgroundColor={isSelected ? '$bgActive' : '$transparent'}
       {...(!isSelected &&
@@ -45,10 +46,10 @@ export function NetworksFilterItem({
       })}
       {...rest}
     >
-      {networkImageUri ? (
+      {networkImageUri && (!md || isSelected) ? (
         <Image
-          size="$6"
-          width="$6"
+          size={md ? '$5' : '$6'}
+          width={md ? '$5' : '$6'}
           borderRadius="$full"
           $gtMd={
             {
@@ -65,10 +66,7 @@ export function NetworksFilterItem({
         <SizableText
           numberOfLines={1}
           color={isSelected ? '$text' : '$textSubdued'}
-          size="$bodyLgMedium"
-          $gtMd={{
-            size: '$bodyMdMedium',
-          }}
+          size="$bodyMdMedium"
         >
           {networkName}
         </SizableText>
