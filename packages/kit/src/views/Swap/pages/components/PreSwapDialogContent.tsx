@@ -275,7 +275,6 @@ const PreSwapDialogContent = ({
               token={preSwapData?.toToken}
               amount={toAmount}
               loading={preSwapData.swapBuildLoading}
-              providerName={quoteResult?.info.providerName}
               isFloating={quoteResult?.isFloating}
             />
           </YStack>

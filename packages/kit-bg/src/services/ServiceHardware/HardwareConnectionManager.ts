@@ -117,7 +117,9 @@ export class HardwareConnectionManager {
     }
   }
 
-  async detectBluetoothAvailability(): Promise<boolean> {
+  async detectBluetoothAvailability(
+    hardwareCallContext?: IHardwareCallContext,
+  ): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) {
       return false;
     }
@@ -187,7 +189,12 @@ export class HardwareConnectionManager {
         bleAvailableState,
       );
 
-      if (bleAvailableState?.state === 'unauthorized') {
+      // Skip dialog for USER_INTERACTION_NO_BLE_DIALOG context
+      if (
+        bleAvailableState?.state === 'unauthorized' &&
+        hardwareCallContext !==
+          EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG
+      ) {
         // Show bluetooth permission unauthorized dialog
         await hardwareUiStateAtom.set({
           action: EHardwareUiStateAction.DeviceChecking,
@@ -213,7 +220,9 @@ export class HardwareConnectionManager {
     }
   }
 
-  async determineOptimalTransportType(): Promise<EHardwareTransportType> {
+  async determineOptimalTransportType(
+    hardwareCallContext?: IHardwareCallContext,
+  ): Promise<EHardwareTransportType> {
     const currentSettingType =
       await this.backgroundApi.serviceSetting.getHardwareTransportType();
 
@@ -226,7 +235,9 @@ export class HardwareConnectionManager {
       }
 
       // No USB devices, check if Bluetooth is available before fallback
-      const bluetoothAvailable = await this.detectBluetoothAvailability();
+      const bluetoothAvailable = await this.detectBluetoothAvailability(
+        hardwareCallContext,
+      );
 
       if (bluetoothAvailable) {
         // Bluetooth is available, fallback to DesktopWebBle for seamless wireless connection
@@ -305,7 +316,9 @@ export class HardwareConnectionManager {
         };
       }
 
-      const optimalType = await this.determineOptimalTransportType();
+      const optimalType = await this.determineOptimalTransportType(
+        hardwareCallContext,
+      );
       const shouldSwitch = this.actualTransportType !== optimalType;
 
       console.log(

@@ -517,6 +517,7 @@ class ServiceHardwareUI extends ServiceBase {
             wallet: deviceParams?.dbWallet,
             connectId,
             deviceId: device?.deviceId,
+            withUserInteraction: false,
           });
         }
         void this.backgroundApi.serviceFirmwareUpdate.delayShouldDetectTimeCheck(
