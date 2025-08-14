@@ -6925,7 +6925,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-ble-sdk@npm:^1.1.7":
+"@onekeyfe/hd-ble-sdk@npm:1.1.7":
   version: 1.1.7
   resolution: "@onekeyfe/hd-ble-sdk@npm:1.1.7"
   dependencies:
@@ -6936,7 +6936,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-common-connect-sdk@npm:^1.1.7":
+"@onekeyfe/hd-common-connect-sdk@npm:1.1.7":
   version: 1.1.7
   resolution: "@onekeyfe/hd-common-connect-sdk@npm:1.1.7"
   dependencies:
@@ -6950,7 +6950,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-core@npm:1.1.7, @onekeyfe/hd-core@npm:^1.1.7":
+"@onekeyfe/hd-core@npm:1.1.7":
   version: 1.1.7
   resolution: "@onekeyfe/hd-core@npm:1.1.7"
   dependencies:
@@ -6969,14 +6969,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-shared@npm:1.1.7, @onekeyfe/hd-shared@npm:^1.1.7":
+"@onekeyfe/hd-shared@npm:1.1.7":
   version: 1.1.7
   resolution: "@onekeyfe/hd-shared@npm:1.1.7"
   checksum: 10/02c22211751c5e4927ad04f527647b3e9634a86af3299808f269a27b2259532eca35ceeaff9973128e3ff52575201952238ba9a9e248fed51c704b21898591cb
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-electron@npm:^1.1.7":
+"@onekeyfe/hd-transport-electron@npm:1.1.7":
   version: 1.1.7
   resolution: "@onekeyfe/hd-transport-electron@npm:1.1.7"
   dependencies:
@@ -7044,7 +7044,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport@npm:1.1.7, @onekeyfe/hd-transport@npm:^1.1.7":
+"@onekeyfe/hd-transport@npm:1.1.7":
   version: 1.1.7
   resolution: "@onekeyfe/hd-transport@npm:1.1.7"
   dependencies:
@@ -7055,7 +7055,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-web-sdk@npm:^1.1.7":
+"@onekeyfe/hd-web-sdk@npm:1.1.7":
   version: 1.1.7
   resolution: "@onekeyfe/hd-web-sdk@npm:1.1.7"
   dependencies:
@@ -7490,13 +7490,13 @@ __metadata:
     "@onekeyfe/cross-inpage-provider-injected": "npm:2.2.37-alpha.0"
     "@onekeyfe/cross-inpage-provider-types": "npm:2.2.37-alpha.0"
     "@onekeyfe/extension-bridge-hosted": "npm:2.2.37-alpha.0"
-    "@onekeyfe/hd-ble-sdk": "npm:^1.1.7"
-    "@onekeyfe/hd-common-connect-sdk": "npm:^1.1.7"
-    "@onekeyfe/hd-core": "npm:^1.1.7"
-    "@onekeyfe/hd-shared": "npm:^1.1.7"
-    "@onekeyfe/hd-transport": "npm:^1.1.7"
-    "@onekeyfe/hd-transport-electron": "npm:^1.1.7"
-    "@onekeyfe/hd-web-sdk": "npm:^1.1.7"
+    "@onekeyfe/hd-ble-sdk": "npm:1.1.7"
+    "@onekeyfe/hd-common-connect-sdk": "npm:1.1.7"
+    "@onekeyfe/hd-core": "npm:1.1.7"
+    "@onekeyfe/hd-shared": "npm:1.1.7"
+    "@onekeyfe/hd-transport": "npm:1.1.7"
+    "@onekeyfe/hd-transport-electron": "npm:1.1.7"
+    "@onekeyfe/hd-web-sdk": "npm:1.1.7"
     "@onekeyfe/onekey-cross-webview": "npm:2.2.37-alpha.0"
     "@open-wc/webpack-import-meta-loader": "npm:^0.4.7"
     "@pmmmwh/react-refresh-webpack-plugin": "npm:^0.5.11"
