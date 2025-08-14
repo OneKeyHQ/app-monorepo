@@ -9,6 +9,7 @@ import {
   Tooltip,
   useShortcuts,
 } from '@onekeyhq/components';
+import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import {
   HYPER_LIQUID_ORIGIN,
@@ -164,8 +165,11 @@ function PerpTradeView() {
   const leftHeaderItems = useMemo(() => {
     const accountInfo = connectedAccountsInfo?.[0];
     if (!accountInfo) {
+      if (isLoading) {
+        return null;
+      }
       return (
-        <>
+        <DelayedRender delay={600}>
           <Button
             isLoading={isConnectingRef.current}
             onPress={async () => {
@@ -182,7 +186,7 @@ function PerpTradeView() {
           >
             {intl.formatMessage({ id: ETranslations.global_connect })}
           </Button>
-        </>
+        </DelayedRender>
       );
     }
     return (
@@ -208,7 +212,7 @@ function PerpTradeView() {
         </AccountSelectorProviderMirror>
       </>
     );
-  }, [afterChangeAccount, connectedAccountsInfo, intl]);
+  }, [afterChangeAccount, connectedAccountsInfo, intl, isLoading]);
 
   return (
     <Page fullPage>
