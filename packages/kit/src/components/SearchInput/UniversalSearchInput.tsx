@@ -157,6 +157,19 @@ export function UniversalSearchInput({
         data-1p-ignore=""
         data-lpignore="true"
         data-bwignore="true"
+        addOns={
+          isLoading
+            ? [
+                {
+                  loading: true,
+                  iconName: 'LoaderOutline',
+                },
+              ]
+            : undefined
+        }
+        addOnsItemProps={{
+          bg: '$bgApp',
+        }}
         {...inputProps}
       />
 
