@@ -288,7 +288,9 @@ export function PrimeTransferHomeEnterLink({
               maxLength={59}
               allowSecureTextEye
               onPaste={onPasteClearText}
-              autoCapitalize="characters"
+              // Fix for Android secureTextEntry not working properly with autoComplete
+              // See: https://stackoverflow.com/questions/54684814/react-native-securetextentry-not-working-on-android
+              autoCapitalize="none"
               textTransform="uppercase"
               onSubmitEditing={form.handleSubmit(onSubmit)}
               placeholder="224RU-EZ172-4B483-ZN695-RM9XC-CJ6Z9-MQ67J-ZM3B2-4LXBS-JZP7D"

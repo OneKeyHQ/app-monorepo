@@ -12,6 +12,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { EMessageTypesAptos } from '@onekeyhq/shared/types/message';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -177,19 +178,26 @@ export class KeyringHardware extends KeyringHardwareBase {
     const account = await this.vault.getAccount();
     return Promise.all(
       messages.map(async (e) => {
-        const payload = e.payload as ISignMessageRequest;
-        const res = await convertDeviceResponse(() =>
-          sdk.aptosSignMessage(connectId, deviceId, {
-            ...deviceCommonParams,
-            path: account.path,
-            payload: {
-              ...payload,
-              chainId: payload.chainId?.toString(),
-              nonce: payload.nonce.toString(),
-            },
-          }),
-        );
-        return res.signature;
+        if (e.type === EMessageTypesAptos.SIGN_IN) {
+          throw new OneKeyLocalError(
+            'SignIn messages are not supported on hardware',
+          );
+        } else if (e.type === EMessageTypesAptos.SIGN_MESSAGE) {
+          const payload = e.payload as ISignMessageRequest;
+          const res = await convertDeviceResponse(() =>
+            sdk.aptosSignMessage(connectId, deviceId, {
+              ...deviceCommonParams,
+              path: account.path,
+              payload: {
+                ...payload,
+                chainId: payload.chainId?.toString(),
+                nonce: payload.nonce.toString(),
+              },
+            }),
+          );
+          return res.signature;
+        }
+        throw new OneKeyLocalError('Unsupported message type');
       }),
     );
   }
