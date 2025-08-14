@@ -2796,6 +2796,7 @@
   swap_review_min_receive_popover = 'swap_review.min_receive_popover',
   swap_review_network_cost_popover_content = 'swap_review.network_cost_popover_content',
   swap_review_provider_popover_content = 'swap_review.provider_popover_content',
+  swap_review_recipient_popover = 'swap_review.recipient_popover',
   swap_review_review_swap = 'swap_review.review_swap',
   swap_review_sign_and_submit = 'swap_review.sign_and_submit',
   swap_review_transaction_failed = 'swap_review.transaction_failed',
