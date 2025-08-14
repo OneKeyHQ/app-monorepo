@@ -191,7 +191,10 @@ const ListItemFiatToken = ({
     [handlePress, intl, item, loading, network?.logoURI, network?.name, symbol],
   );
 
-  if (vaultSettings?.mergeDeriveAssetsEnabled) {
+  if (
+    vaultSettings?.mergeDeriveAssetsEnabled &&
+    !accountUtils.isOthersWallet({ walletId })
+  ) {
     return (
       <AddressTypeSelector
         walletId={walletId}

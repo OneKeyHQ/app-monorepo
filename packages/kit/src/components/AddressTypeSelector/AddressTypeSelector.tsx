@@ -74,6 +74,7 @@ type IProps = {
   doubleConfirm?: boolean;
   showTriggerWhenDisabled?: boolean;
   placement?: PopoverProps['placement'];
+  confirmText?: string;
 };
 
 function AddressTypeSelectorContent(
@@ -101,6 +102,7 @@ function AddressTypeSelectorContent(
     selectorTitle,
     closePopover,
     doubleConfirm,
+    confirmText,
   } = props;
 
   const intl = useIntl();
@@ -197,6 +199,11 @@ function AddressTypeSelectorContent(
 
       if (deriveType === activeDeriveType) {
         if (!doubleConfirm) {
+          void onSelect?.({
+            account,
+            deriveInfo,
+            deriveType,
+          });
           closePopover();
         }
         return;
@@ -300,7 +307,7 @@ function AddressTypeSelectorContent(
               size: 'small',
             }}
           >
-            Confirm receiving address
+            {confirmText || 'Confirm receiving address'}
           </Button>
         </XStack>
       ) : null}
@@ -332,7 +339,7 @@ function AddressTypeSelector(props: IProps) {
   }, [networkId, helpLinkProp]);
 
   const isSelectorDisabled = useMemo(() => {
-    return disableSelector || accountUtils.isOthersWallet({ walletId });
+    return disableSelector ?? accountUtils.isOthersWallet({ walletId });
   }, [disableSelector, walletId]);
 
   const [activeDeriveType, setActiveDeriveType] = useState<
@@ -498,13 +505,15 @@ function AddressTypeSelector(props: IProps) {
     }
   }, [tokenMapProp, networkAccounts, networkId]);
 
-  if (isSelectorDisabled && showTriggerWhenDisabled) {
-    return (
-      <AddressTypeSelectorTrigger
-        activeDeriveInfo={activeDeriveInfo}
-        disableSelector={isSelectorDisabled}
-      />
-    );
+  if (isSelectorDisabled) {
+    return showTriggerWhenDisabled
+      ? renderSelectorTrigger ?? (
+          <AddressTypeSelectorTrigger
+            activeDeriveInfo={activeDeriveInfo}
+            disableSelector={isSelectorDisabled}
+          />
+        )
+      : null;
   }
 
   return (

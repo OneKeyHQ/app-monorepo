@@ -271,6 +271,10 @@ export function AccountSelectorActiveAccountHome({
           }
           copyText(_account.address || _account.addressDetail.displayAddress);
         }}
+        doubleConfirm
+        confirmText={intl.formatMessage({
+          id: ETranslations.global_copy_address,
+        })}
       />
     );
   }

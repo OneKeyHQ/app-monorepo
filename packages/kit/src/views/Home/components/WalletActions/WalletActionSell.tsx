@@ -11,21 +11,21 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { useAllTokenListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-export function WalletActionBuy({ onClose }: { onClose: () => void }) {
+export function WalletActionSell({ onClose }: { onClose: () => void }) {
   const {
     activeAccount: { network, account, wallet, vaultSettings, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const { isSupported, handleFiatCrypto } = useFiatCrypto({
     networkId: network?.id ?? '',
     accountId: account?.id ?? '',
-    fiatCryptoType: 'buy',
+    fiatCryptoType: 'sell',
   });
 
   const intl = useIntl();
@@ -41,7 +41,7 @@ export function WalletActionBuy({ onClose }: { onClose: () => void }) {
     [network?.id, account?.id],
   );
 
-  const isBuyDisabled = useMemo(() => {
+  const isSellDisabled = useMemo(() => {
     if (wallet?.type === WALLET_TYPE_WATCHING && !platformEnv.isDev) {
       return true;
     }
@@ -54,8 +54,8 @@ export function WalletActionBuy({ onClose }: { onClose: () => void }) {
   }, [isSupported, wallet?.type]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
-  const handleBuyToken = useCallback(async () => {
-    if (isBuyDisabled) return;
+  const handleSellToken = useCallback(async () => {
+    if (isSellDisabled) return;
 
     if (
       await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
@@ -65,7 +65,7 @@ export function WalletActionBuy({ onClose }: { onClose: () => void }) {
       return;
     }
 
-    defaultLogger.wallet.walletActions.actionBuy({
+    defaultLogger.wallet.walletActions.actionSell({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
       source: 'homePage',
@@ -75,11 +75,12 @@ export function WalletActionBuy({ onClose }: { onClose: () => void }) {
     handleFiatCrypto();
     onClose();
   }, [
-    isBuyDisabled,
-    handleFiatCrypto,
-    network,
-    wallet,
+    isSellDisabled,
+    wallet?.id,
+    wallet?.type,
+    network?.id,
     isSoftwareWalletOnlyUser,
+    handleFiatCrypto,
     onClose,
   ]);
 
@@ -88,7 +89,7 @@ export function WalletActionBuy({ onClose }: { onClose: () => void }) {
     !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
     vaultSettings?.mergeDeriveAssetsEnabled &&
     nativeToken &&
-    !isBuyDisabled
+    !isSellDisabled
   ) {
     return (
       <AddressTypeSelector
@@ -97,10 +98,10 @@ export function WalletActionBuy({ onClose }: { onClose: () => void }) {
         indexedAccountId={indexedAccount?.id ?? ''}
         renderSelectorTrigger={
           <ActionList.Item
-            trackID="wallet-buy"
-            icon="PlusLargeOutline"
-            label={intl.formatMessage({ id: ETranslations.global_buy })}
-            disabled={isBuyDisabled}
+            trackID="wallet-sell"
+            icon="MinusLargeOutline"
+            label={intl.formatMessage({ id: ETranslations.global_cash_out })}
+            disabled={isSellDisabled}
             onClose={() => {}}
             onPress={() => {}}
           />
@@ -111,17 +112,12 @@ export function WalletActionBuy({ onClose }: { onClose: () => void }) {
         }: {
           account: INetworkAccount | undefined;
         }) => {
-          defaultLogger.wallet.walletActions.buyStarted({
-            tokenAddress: nativeToken.address,
-            tokenSymbol: nativeToken.symbol,
-            networkID: network?.id ?? '',
-          });
           const { url } =
             await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
               networkId: network?.id ?? '',
               tokenAddress: nativeToken.address,
               accountId: a?.id ?? '',
-              type: 'buy',
+              type: 'sell',
             });
           openUrlExternal(url);
           onClose();
@@ -132,12 +128,12 @@ export function WalletActionBuy({ onClose }: { onClose: () => void }) {
 
   return (
     <ActionList.Item
-      trackID="wallet-buy"
-      icon="PlusLargeOutline"
-      label={intl.formatMessage({ id: ETranslations.global_buy })}
+      trackID="wallet-sell"
+      icon="MinusLargeOutline"
+      label={intl.formatMessage({ id: ETranslations.global_cash_out })}
       onClose={() => {}}
-      onPress={handleBuyToken}
-      disabled={isBuyDisabled}
+      onPress={handleSellToken}
+      disabled={isSellDisabled}
     />
   );
 }
