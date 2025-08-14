@@ -317,12 +317,6 @@ const SwitchGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Switch'
     ),
 );
-const TabViewGallery = LazyLoadPage(
-  () =>
-    import(
-      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TabView'
-    ),
-);
 const NewTabsGallery = LazyLoadPage(
   () =>
     import(
@@ -742,10 +736,6 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentForm,
     component: FormGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentTabview,
-    component: TabViewGallery,
   },
   {
     name: EGalleryRoutes.ComponentNewTabs,

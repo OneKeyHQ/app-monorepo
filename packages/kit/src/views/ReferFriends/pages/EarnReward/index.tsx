@@ -413,15 +413,6 @@ export default function EarnReward() {
     return (
       <Tabs.Container
         renderHeader={() => ListHeaderComponent}
-        headerContainerStyle={{
-          shadowOpacity: 0,
-          elevation: 0,
-        }}
-        pagerProps={
-          {
-            scrollSensitivity: 4,
-          } as any
-        }
         renderTabBar={(props) => <Tabs.TabBar {...props} />}
       >
         <Tabs.Tab

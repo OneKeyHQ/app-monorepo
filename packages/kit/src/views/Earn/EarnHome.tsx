@@ -978,15 +978,6 @@ function BasicEarnHome() {
           <Stack h={tabPageHeight} />
           <Tabs.Container
             allowHeaderOverscroll
-            headerContainerStyle={{
-              shadowOpacity: 0,
-              elevation: 0,
-            }}
-            pagerProps={
-              {
-                scrollSensitivity: 4,
-              } as any
-            }
             renderHeader={() => (
               <YStack
                 flex={1}

@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 
-import { XStack } from '@onekeyhq/components';
+import { XStack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 
@@ -19,6 +19,7 @@ export function TokenDetailHeader({
   containerProps?: ComponentProps<typeof XStack>;
 }) {
   const { tokenDetail, networkId } = useTokenDetail();
+  const media = useMedia();
 
   const { result: networkData } = usePromiseResult(
     () =>
@@ -34,7 +35,7 @@ export function TokenDetailHeader({
 
   return (
     <XStack
-      width="90%"
+      width={media.lg ? '90%' : '100%'}
       px="$5"
       pt="$4"
       pb="$2"

@@ -180,6 +180,27 @@ export function ActionButton({
     });
   }
 
+  // Use colored style only for normal trading states (has amount, not disabled, has account)
+  const shouldUseColoredStyle = hasAmount && !shouldDisable && !noAccount;
+
+  const buttonStyleProps = shouldUseColoredStyle
+    ? {
+        bg:
+          tradeType === ESwapDirection.BUY
+            ? '$buttonSuccess'
+            : '$buttonCritical',
+        color: '$textOnColor',
+        hoverStyle: {
+          opacity: 0.9,
+        },
+        pressStyle: {
+          opacity: 0.8,
+        },
+      }
+    : {
+        variant: 'primary' as const,
+      };
+
   const handlePress = useCallback(
     async (event: GestureResponderEvent) => {
       if (noAccount) {
@@ -220,7 +241,6 @@ export function ActionButton({
 
   return (
     <Button
-      variant="primary"
       size="medium"
       disabled={Boolean(
         (shouldDisable || disabled || !hasAmount) &&
@@ -228,8 +248,9 @@ export function ActionButton({
           !noAccount,
       )}
       onPress={shouldDisable ? undefined : handlePress}
-      {...otherProps}
       loading={createAddressLoading || otherProps.loading}
+      {...otherProps}
+      {...buttonStyleProps}
     >
       {buttonText}
     </Button>

@@ -249,7 +249,7 @@ export function Container({
   );
 
   const onTabPress = useCallback(
-    (tabName: string) => {
+    (tabName: string, emitEvents = true) => {
       if (!isEffectValid.current) {
         return;
       }
@@ -262,10 +262,12 @@ export function Container({
         prevTabName,
         tabName,
       };
-      setTimeout(() => {
-        onIndexChange?.(index);
-        onTabChange?.(onTabChangeData);
-      }, 100);
+      if (emitEvents) {
+        setTimeout(() => {
+          onIndexChange?.(index);
+          onTabChange?.(onTabChangeData);
+        }, 100);
+      }
       focusedTab.set(tabName);
     },
     [focusedTab, onIndexChange, onTabChange, tabNames],
@@ -282,15 +284,11 @@ export function Container({
 
   useEffect(() => {
     if (initialTabName) {
-      focusedTab.set(initialTabName);
-      listContainerRef.current?.scrollTo({
-        left:
-          (scrollElement?.clientWidth || 0) *
-          tabNames.findIndex((name) => name === initialTabName),
-        behavior: 'instant',
-      });
+      setTimeout(() => {
+        onTabPress(initialTabName, false);
+      }, 100);
     }
-  }, [focusedTab, initialTabName, scrollElement?.clientWidth, tabNames]);
+  }, [initialTabName, onTabPress]);
 
   return (
     <YStack

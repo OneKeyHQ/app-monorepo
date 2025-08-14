@@ -15,7 +15,6 @@ interface IMarketTokenListNetworkSelectorNormalProps {
   onSelectCurrentNetwork: (network: IServerNetwork) => void;
   handleMoreNetworkSelect: (network: IServerNetwork) => void;
   isLoading?: boolean;
-  forceLoading?: boolean;
   placement?: IPopoverProps['placement'];
 }
 
@@ -52,21 +51,19 @@ const MarketTokenListNetworkSelectorNormal = forwardRef<
       [],
     );
 
+    if (isLoading) {
+      return <MarketTokenListNetworkSelectorNormalSkeleton />;
+    }
+
     return (
-      <Stack>
-        {isLoading ? (
-          <MarketTokenListNetworkSelectorNormalSkeleton />
-        ) : (
-          <MarketNetworkFilter
-            ref={marketNetworkFilterRef}
-            networks={marketNetworks}
-            selectedNetwork={currentSelectNetwork}
-            onSelectNetwork={onSelectCurrentNetwork}
-            onMoreNetworkSelect={handleMoreNetworkSelect}
-            placement={placement}
-          />
-        )}
-      </Stack>
+      <MarketNetworkFilter
+        ref={marketNetworkFilterRef}
+        networks={marketNetworks}
+        selectedNetwork={currentSelectNetwork}
+        onSelectNetwork={onSelectCurrentNetwork}
+        onMoreNetworkSelect={handleMoreNetworkSelect}
+        placement={placement}
+      />
     );
   },
 );
