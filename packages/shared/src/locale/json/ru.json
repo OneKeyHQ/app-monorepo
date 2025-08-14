@@ -2784,6 +2784,8 @@
   "swap_review.confirm_2_on_device": "Подтвердите дважды на устройстве",
   "swap_review.confirm_3_on_device": "Подтвердите три раза на устройстве",
   "swap_review.confirm_swap": "Подтвердить обмен",
+  "swap_review.min_receive": "Мин. получено",
+  "swap_review.min_receive_popover": "Минимальная сумма получения после проскальзывания и комиссии.",
   "swap_review.network_cost_popover_content": "Это стоимость обработки вашей транзакции в блокчейне. OneKey не получает никакой части этих комиссий.",
   "swap_review.provider_popover_content": "Внешний поставщик, обрабатывающий обмен для текущего заказа",
   "swap_review.review_swap": "Проверить обмен",

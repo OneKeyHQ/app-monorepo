@@ -2784,6 +2784,8 @@
   "swap_review.confirm_2_on_device": "Bestätigen Sie zweimal auf dem Gerät",
   "swap_review.confirm_3_on_device": "Bestätigen Sie dreimal auf dem Gerät",
   "swap_review.confirm_swap": "Tausch bestätigen",
+  "swap_review.min_receive": "Min. erhalten",
+  "swap_review.min_receive_popover": "Mindestbetrag nach Slippage und Gebühr.",
   "swap_review.network_cost_popover_content": "Dies sind die Kosten für die Verarbeitung Ihrer Transaktion auf der Blockchain. OneKey erhält keinen Anteil an diesen Gebühren.",
   "swap_review.provider_popover_content": "Externer Anbieter, der den Umtausch für die aktuelle Bestellung abwickelt",
   "swap_review.review_swap": "Rezensionsaustausch",

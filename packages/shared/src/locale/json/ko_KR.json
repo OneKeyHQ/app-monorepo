@@ -2784,6 +2784,8 @@
   "swap_review.confirm_2_on_device": "기기에서 두 번 확인하세요",
   "swap_review.confirm_3_on_device": "기기에서 세 번 확인하세요",
   "swap_review.confirm_swap": "스왑 확인",
+  "swap_review.min_receive": "민이 받았습니다",
+  "swap_review.min_receive_popover": "슬리피지 및 수수료 적용 후 최소 수령 금액입니다.",
   "swap_review.network_cost_popover_content": "이것은 블록체인에서 거래를 처리하는 데 드는 비용입니다. OneKey는 이 수수료에서 어떠한 몫도 받지 않습니다.",
   "swap_review.provider_popover_content": "현재 주문의 교환을 처리하는 외부 제공업체",
   "swap_review.review_swap": "리뷰 교환",

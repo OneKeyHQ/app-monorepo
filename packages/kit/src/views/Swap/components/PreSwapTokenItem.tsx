@@ -19,7 +19,6 @@ interface IPreSwapTokenItemProps {
   amount: string;
   loading?: boolean;
   isFloating?: boolean;
-  providerName?: string;
 }
 
 const PreSwapTokenItem = ({
@@ -27,7 +26,6 @@ const PreSwapTokenItem = ({
   amount,
   loading,
   isFloating,
-  providerName,
 }: IPreSwapTokenItemProps) => {
   const fiatValue = useMemo(() => {
     return token?.price && amount

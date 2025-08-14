@@ -2784,6 +2784,8 @@
   "swap_review.confirm_2_on_device": "Konfirmasi dua kali pada perangkat",
   "swap_review.confirm_3_on_device": "Konfirmasi tiga kali pada perangkat",
   "swap_review.confirm_swap": "Konfirmasi pertukaran",
+  "swap_review.min_receive": "Min diterima",
+  "swap_review.min_receive_popover": "Jumlah minimum yang diterima setelah slippage dan biaya.",
   "swap_review.network_cost_popover_content": "Ini adalah biaya untuk memproses transaksi Anda di blockchain. OneKey tidak menerima bagian apa pun dari biaya ini.",
   "swap_review.provider_popover_content": "Penyedia eksternal yang menangani pertukaran untuk pesanan saat ini",
   "swap_review.review_swap": "Tinjau pertukaran",

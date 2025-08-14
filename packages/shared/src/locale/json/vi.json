@@ -2784,6 +2784,8 @@
   "swap_review.confirm_2_on_device": "Xác nhận hai lần trên thiết bị",
   "swap_review.confirm_3_on_device": "Xác nhận ba lần trên thiết bị",
   "swap_review.confirm_swap": "Xác nhận hoán đổi",
+  "swap_review.min_receive": "Tối thiểu nhận được",
+  "swap_review.min_receive_popover": "Số tiền nhận tối thiểu sau khi trượt giá và phí.",
   "swap_review.network_cost_popover_content": "Đây là chi phí để xử lý giao dịch của bạn trên blockchain. OneKey không nhận bất kỳ phần nào của các khoản phí này.",
   "swap_review.provider_popover_content": "Nhà cung cấp bên ngoài xử lý việc trao đổi cho đơn hàng hiện tại",
   "swap_review.review_swap": "Xem lại hoán đổi",

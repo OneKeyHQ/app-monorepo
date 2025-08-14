@@ -2784,6 +2784,8 @@
   "swap_review.confirm_2_on_device": "ডিভাইসে দুইবার নিশ্চিত করুন",
   "swap_review.confirm_3_on_device": "ডিভাইসে তিনবার নিশ্চিত করুন",
   "swap_review.confirm_swap": "বদল নিশ্চিত করুন",
+  "swap_review.min_receive": "সর্বনিম্ন প্রাপ্তি",
+  "swap_review.min_receive_popover": "স্লিপেজ এবং ফি কেটে নেওয়ার পর সর্বনিম্ন প্রাপ্তির পরিমাণ।",
   "swap_review.network_cost_popover_content": "এটি ব্লকচেইনে আপনার লেনদেন প্রক্রিয়াকরণের খরচ। OneKey এই ফি থেকে কোনো অংশ পায় না।",
   "swap_review.provider_popover_content": "বর্তমান অর্ডারের জন্য এক্সচেঞ্জ পরিচালনা করছে একটি বাহ্যিক প্রদানকারী",
   "swap_review.review_swap": "রিভিউ অদলবদল",

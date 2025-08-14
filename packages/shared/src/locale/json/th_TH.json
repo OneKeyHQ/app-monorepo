@@ -2784,6 +2784,8 @@
   "swap_review.confirm_2_on_device": "ยืนยันสองครั้งบนอุปกรณ์",
   "swap_review.confirm_3_on_device": "ยืนยันสามครั้งบนอุปกรณ์",
   "swap_review.confirm_swap": "ยืนยันการสลับ",
+  "swap_review.min_receive": "มินได้รับ",
+  "swap_review.min_receive_popover": "จำนวนรับขั้นต่ำหลังจากหักสลิปเพจและค่าธรรมเนียม",
   "swap_review.network_cost_popover_content": "นี่คือค่าธรรมเนียมในการดำเนินธุรกรรมของคุณบนบล็อกเชน OneKey จะไม่ได้รับส่วนแบ่งใด ๆ จากค่าธรรมเนียมเหล่านี้",
   "swap_review.provider_popover_content": "ผู้ให้บริการภายนอกที่ดูแลการแลกเปลี่ยนสำหรับคำสั่งซื้อปัจจุบัน",
   "swap_review.review_swap": "ตรวจสอบการสลับ",

@@ -2784,6 +2784,8 @@
   "swap_review.confirm_2_on_device": "डिवाइस पर दो बार पुष्टि करें",
   "swap_review.confirm_3_on_device": "डिवाइस पर तीन बार पुष्टि करें",
   "swap_review.confirm_swap": "स्वैप की पुष्टि करें",
+  "swap_review.min_receive": "न्यूनतम प्राप्त",
+  "swap_review.min_receive_popover": "स्लिपेज और शुल्क के बाद न्यूनतम प्राप्त राशि।",
   "swap_review.network_cost_popover_content": "यह आपके लेन-देन को ब्लॉकचेन पर प्रोसेस करने की लागत है। OneKey को इन शुल्कों में से कोई भी हिस्सा नहीं मिलता है।",
   "swap_review.provider_popover_content": "वर्तमान ऑर्डर के लिए एक्सचेंज संभालने वाला बाहरी प्रदाता",
   "swap_review.review_swap": "समीक्षा अदला-बदली",
