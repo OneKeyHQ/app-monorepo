@@ -213,15 +213,6 @@ function WebDappEmptyView() {
               placeholder={intl.formatMessage({
                 id: ETranslations.wallet_track_any_address_placeholder,
               })}
-              onAddressSelect={(address) => {
-                void urlAccountNavigation.pushOrReplaceUrlAccountPage(
-                  appNavigation,
-                  {
-                    address,
-                    networkId: getNetworkIdsMap().eth, // Default to ETH for direct address input
-                  },
-                );
-              }}
               renderResultItem={renderResultItem}
               popoverContainerProps={{
                 mx: '$0',
