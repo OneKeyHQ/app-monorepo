@@ -29,6 +29,7 @@ import {
   useSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import {
   ESwapDirectionType,
@@ -161,7 +162,9 @@ const SwapActionsState = ({
   const onActionHandlerBefore = useCallback(() => {
     if (swapActionState.noConnectWallet) {
       navigation.pushModal(EModalRoutes.OnboardingModal, {
-        screen: EOnboardingPages.GetStarted,
+        screen: platformEnv.isWebDappMode
+          ? EOnboardingPages.ConnectWalletOptions
+          : EOnboardingPages.GetStarted,
       });
       return;
     }

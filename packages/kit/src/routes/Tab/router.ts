@@ -15,11 +15,9 @@ import {
   useIsShowMyOneKeyOnTabbar,
   useToMyOneKeyModalByRootNavigation,
 } from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
-import { HYPER_LIQUID_TRADE_URL } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
-import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useToReferFriendsModalByRootNavigation } from '../../hooks/useReferFriends';
@@ -73,6 +71,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   const isShowMDDiscover = useMemo(
     () =>
       !isShowDesktopDiscover &&
+      !platformEnv.isWebDappMode &&
       !platformEnv.isExtensionUiPopup &&
       !(platformEnv.isExtensionUiSidePanel && md),
     [isShowDesktopDiscover, md],
