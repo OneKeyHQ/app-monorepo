@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
@@ -18,8 +19,6 @@ export interface IUseMarketWatchlistTokenListParams {
   initialSortBy?: string;
   initialSortType?: 'asc' | 'desc';
   pageSize?: number;
-  minLiquidity?: number;
-  maxLiquidity?: number;
 }
 
 export function useMarketWatchlistTokenList({
@@ -27,9 +26,9 @@ export function useMarketWatchlistTokenList({
   initialSortBy,
   initialSortType,
   pageSize = 100,
-  minLiquidity,
-  maxLiquidity,
 }: IUseMarketWatchlistTokenListParams) {
+  // Get minLiquidity from market config
+  const { minLiquidity } = useMarketBasicConfig();
   const [currentPage, setCurrentPage] = useState(1);
   const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
   const [sortBy, setSortBy] = useState<string | undefined>(initialSortBy);
@@ -104,17 +103,13 @@ export function useMarketWatchlistTokenList({
     setTransformedData(filteredTransformed);
   }, [apiResult, watchlist]);
 
-  // Apply liquidity filter
+  // Apply minimum liquidity filter (maxLiquidity no longer exists)
   const filteredData = useMemo(() => {
-    let res = transformedData;
     if (typeof minLiquidity === 'number') {
-      res = res.filter((d) => d.liquidity >= minLiquidity);
+      return transformedData.filter((d) => d.liquidity >= minLiquidity);
     }
-    if (typeof maxLiquidity === 'number') {
-      res = res.filter((d) => d.liquidity <= maxLiquidity);
-    }
-    return res;
-  }, [transformedData, minLiquidity, maxLiquidity]);
+    return transformedData;
+  }, [transformedData, minLiquidity]);
 
   // Sorting
   const sortedData = useMemo(() => {

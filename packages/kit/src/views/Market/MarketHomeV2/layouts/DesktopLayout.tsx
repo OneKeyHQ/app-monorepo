@@ -14,29 +14,26 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketFilterBar } from '../components/MarketFilterBar';
-import { MarketTokenList } from '../components/MarketTokenList';
+import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
+import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
-import type { ILiquidityFilter, IMarketHomeTabValue } from '../types';
+import type { IMarketHomeTabValue } from '../types';
 
 interface IDesktopLayoutProps {
   filterBarProps: {
     selectedNetworkId: string;
     timeRange: ITimeRangeSelectorValue;
-    liquidityFilter: ILiquidityFilter;
     onNetworkIdChange: (networkId: string) => void;
     onTimeRangeChange: (timeRange: ITimeRangeSelectorValue) => void;
-    onLiquidityFilterChange: (filter: ILiquidityFilter) => void;
   };
   selectedNetworkId: string;
-  liquidityFilter: ILiquidityFilter;
   onTabChange: (tabId: IMarketHomeTabValue) => void;
 }
 
 export function DesktopLayout({
   filterBarProps,
   selectedNetworkId,
-  liquidityFilter,
   onTabChange,
 }: IDesktopLayoutProps) {
   const intl = useIntl();
@@ -77,10 +74,8 @@ export function DesktopLayout({
       if (item === watchlistTabName) {
         return (
           <YStack px="$4" height={height} flex={1}>
-            <MarketTokenList
+            <MarketWatchlistTokenList
               networkId={selectedNetworkId}
-              liquidityFilter={liquidityFilter}
-              showWatchlistOnly
               watchlist={watchlist}
             />
           </YStack>
@@ -89,23 +84,11 @@ export function DesktopLayout({
       return (
         <YStack px="$4" height={height} flex={1}>
           <MarketFilterBar {...filterBarProps} />
-          <MarketTokenList
-            networkId={selectedNetworkId}
-            liquidityFilter={liquidityFilter}
-            showWatchlistOnly={false}
-            watchlist={watchlist}
-          />
+          <MarketNormalTokenList networkId={selectedNetworkId} />
         </YStack>
       );
     },
-    [
-      filterBarProps,
-      height,
-      liquidityFilter,
-      selectedNetworkId,
-      watchlist,
-      watchlistTabName,
-    ],
+    [filterBarProps, height, selectedNetworkId, watchlist, watchlistTabName],
   );
 
   return (

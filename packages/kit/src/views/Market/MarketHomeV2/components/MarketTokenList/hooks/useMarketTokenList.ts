@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -17,8 +18,6 @@ interface IUseMarketTokenListParams {
   initialSortBy?: string;
   initialSortType?: 'asc' | 'desc';
   pageSize?: number;
-  minLiquidity?: number;
-  maxLiquidity?: number;
 }
 
 export function useMarketTokenList({
@@ -26,9 +25,9 @@ export function useMarketTokenList({
   initialSortBy,
   initialSortType,
   pageSize = 50,
-  minLiquidity,
-  maxLiquidity,
 }: IUseMarketTokenListParams) {
+  // Get minLiquidity from market config
+  const { minLiquidity } = useMarketBasicConfig();
   const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
   const [sortBy, setSortBy] = useState<string | undefined>(
     initialSortBy || 'v24hUSD',
@@ -54,7 +53,6 @@ export function useMarketTokenList({
           page,
           limit: pageSize,
           minLiquidity,
-          maxLiquidity,
         }),
       );
 
@@ -69,7 +67,7 @@ export function useMarketTokenList({
         total: totalCount,
       };
     },
-    [networkId, sortBy, sortType, pageSize, minLiquidity, maxLiquidity],
+    [networkId, sortBy, sortType, pageSize, minLiquidity],
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 60 }),

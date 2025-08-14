@@ -7,17 +7,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
-
-import { parseValueToNumber } from '../../utils';
 
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
-import { useMarketTokenList } from './hooks/useMarketTokenList';
-import { useMarketWatchlistTokenList } from './hooks/useMarketWatchlistTokenList';
 import { useToDetailPage } from './hooks/useToDetailPage';
 import { type IMarketToken } from './MarketTokenData';
-
-import type { ILiquidityFilter } from '../../types';
 
 const SORTABLE_COLUMNS = {
   liquidity: 'liquidity',
@@ -25,74 +18,48 @@ const SORTABLE_COLUMNS = {
   turnover: 'v24hUSD',
 } as const;
 
-type IMarketTokenListProps = {
-  networkId?: string;
-  sortBy?: string;
-  sortType?: 'asc' | 'desc';
-  onItemPress?: (item: IMarketToken) => void;
-  pageSize?: number;
-  liquidityFilter?: ILiquidityFilter;
-  showWatchlistOnly?: boolean;
-  watchlist?: IMarketWatchListItemV2[];
-  toolbar?: ReactNode;
+export type IMarketTokenListResult = {
+  data: IMarketToken[];
+  isLoading: boolean | undefined;
+  setSortBy: (sortBy: string | undefined) => void;
+  setSortType: (sortType: 'asc' | 'desc' | undefined) => void;
 };
 
-function MarketTokenList({
+type IMarketTokenListBaseProps = {
+  networkId?: string;
+  onItemPress?: (item: IMarketToken) => void;
+  pageSize?: number;
+  toolbar?: ReactNode;
+  result: IMarketTokenListResult;
+  isWatchlistMode?: boolean;
+};
+
+function MarketTokenListBase({
   networkId = 'sol--101',
-  sortBy: initialSortBy,
-  sortType: initialSortType,
   onItemPress,
   pageSize = 20,
-  liquidityFilter,
   toolbar,
-  showWatchlistOnly = false,
-  watchlist = [],
-}: IMarketTokenListProps) {
+  result,
+  isWatchlistMode = false,
+}: IMarketTokenListBaseProps) {
   const toDetailPage = useToDetailPage();
-
   const { md } = useMedia();
 
-  const marketTokenColumns = useMarketTokenColumns(
-    networkId,
-    showWatchlistOnly,
-  );
+  const marketTokenColumns = useMarketTokenColumns(networkId, isWatchlistMode);
 
-  // Convert string values to numbers for the API
-  const minLiquidity = liquidityFilter?.min
-    ? parseValueToNumber(liquidityFilter.min)
-    : undefined;
-  const maxLiquidity = liquidityFilter?.max
-    ? parseValueToNumber(liquidityFilter.max)
-    : undefined;
-
-  // Call hooks unconditionally to follow React rules
-  const watchlistResult = useMarketWatchlistTokenList({
-    watchlist,
-    pageSize,
-    minLiquidity,
-    maxLiquidity,
-  });
-
-  const normalResult = useMarketTokenList({
-    networkId,
-    initialSortBy,
-    initialSortType,
-    pageSize,
-    minLiquidity,
-    maxLiquidity,
-  });
+  const { data, isLoading, setSortBy, setSortType } = result;
 
   // Listen to MarketWatchlistOnlyChanged event to update sort settings
   useEffect(() => {
     const handleWatchlistOnlyChanged = (payload: {
       showWatchlistOnly: boolean;
     }) => {
-      if (payload.showWatchlistOnly) {
-        watchlistResult.setSortBy(undefined);
-        watchlistResult.setSortType(undefined);
-      } else {
-        normalResult.setSortBy('v24hUSD');
-        normalResult.setSortType('desc');
+      if (payload.showWatchlistOnly && isWatchlistMode) {
+        setSortBy(undefined);
+        setSortType(undefined);
+      } else if (!payload.showWatchlistOnly && !isWatchlistMode) {
+        setSortBy('v24hUSD');
+        setSortType('desc');
       }
     };
 
@@ -109,20 +76,14 @@ function MarketTokenList({
         handleWatchlistOnlyChanged,
       );
     };
-  }, [watchlistResult, normalResult]);
+  }, [setSortBy, setSortType, isWatchlistMode]);
 
   const handleSortChange = useCallback(
     (sortBy: string, sortType: 'asc' | 'desc' | undefined) => {
-      const result: {
-        setSortBy: (sortBy: string | undefined) => void;
-        setSortType: (sortType: 'asc' | 'desc' | undefined) => void;
-      } = showWatchlistOnly ? watchlistResult : normalResult;
-
-      result.setSortBy(sortBy);
-      result.setSortType(sortType);
+      setSortBy(sortBy);
+      setSortType(sortType);
     },
-
-    [showWatchlistOnly, watchlistResult, normalResult],
+    [setSortBy, setSortType],
   );
 
   const handleHeaderRow = useCallback(
@@ -148,12 +109,9 @@ function MarketTokenList({
     console.log('onEndReached');
   }, []);
 
-  const result = showWatchlistOnly ? watchlistResult : normalResult;
-  const { data, isLoading } = result;
-
   // Show skeleton only on initial load (when there's no data yet)
   // This provides better UX by avoiding skeleton flash during pagination
-  const showSkeleton = isLoading && data.length === 0;
+  const showSkeleton = Boolean(isLoading) && data.length === 0;
 
   return (
     <Stack flex={1} width="100%">
@@ -216,4 +174,4 @@ function MarketTokenList({
   );
 }
 
-export { MarketTokenList };
+export { MarketTokenListBase };
