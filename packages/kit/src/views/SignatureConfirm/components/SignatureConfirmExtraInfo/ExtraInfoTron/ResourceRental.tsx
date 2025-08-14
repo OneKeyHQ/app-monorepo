@@ -62,7 +62,11 @@ const showResourceRentalDetailsDialog = ({
     ...dialogProps,
   });
 
-function ResourceRentalLearnMoreButton() {
+function ResourceRentalLearnMoreButton({
+  closeDialogAfterClick = true,
+}: {
+  closeDialogAfterClick?: boolean;
+}) {
   const intl = useIntl();
   const dialogInstance = useDialogInstance();
   return (
@@ -75,7 +79,9 @@ function ResourceRentalLearnMoreButton() {
       icon="QuestionmarkOutline"
       onPress={() => {
         openUrlInApp(TRON_RESOURCE_RENTAL_DOC_URL);
-        void dialogInstance.close();
+        if (closeDialogAfterClick) {
+          void dialogInstance.close();
+        }
       }}
     >
       {intl.formatMessage({
@@ -114,7 +120,9 @@ function ResourceRental() {
           description: intl.formatMessage({
             id: ETranslations.wallet_disable_energy_rental_description,
           }),
-          content: <ResourceRentalLearnMoreButton />,
+          content: (
+            <ResourceRentalLearnMoreButton closeDialogAfterClick={false} />
+          ),
           onCancelText: intl.formatMessage({
             id: ETranslations.global_disable_button,
           }),
