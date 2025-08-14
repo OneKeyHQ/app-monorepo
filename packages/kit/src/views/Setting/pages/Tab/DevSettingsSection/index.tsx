@@ -243,6 +243,20 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+      {platformEnv.isWeb ? (
+        <ListItem
+          icon="SwitchHorOutline"
+          drillIn
+          onPress={() => {
+            switchWebDappMode();
+            globalThis.location.reload();
+          }}
+          title={`Switch web mode: ${
+            isWebInDappMode() ? 'dapp' : 'wallet'
+          } mode`}
+          titleProps={{ color: '$textCritical' }}
+        />
+      ) : null}
       <SectionFieldItem
         icon="ChartTrendingOutline"
         name="enableAnalyticsRequest"
@@ -799,20 +813,6 @@ export const DevSettingsSection = () => {
             title={`Desktop arch: ${globalThis?.desktopApi?.arch || ''}`}
           />
         </>
-      ) : null}
-
-      {platformEnv.isWeb ? (
-        <ListItem
-          drillIn
-          onPress={() => {
-            switchWebDappMode();
-            globalThis.location.reload();
-          }}
-          title={`Switch web mode: ${
-            isWebInDappMode() ? 'dapp' : 'wallet'
-          } mode`}
-          titleProps={{ color: '$textCritical' }}
-        />
       ) : null}
 
       <AddressBookDevSetting />
