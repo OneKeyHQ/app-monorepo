@@ -71,7 +71,7 @@ export function TransactionsHistory({
     console.log('handleEndReached');
   }, []);
 
-  const list = (
+  return (
     <Tabs.FlatList<IMarketTokenTransaction>
       // ref={listRef}
       onEndReached={handleEndReached}
@@ -97,14 +97,4 @@ export function TransactionsHistory({
       }}
     />
   );
-
-  if (gtLg && shouldEnableScroll) {
-    return (
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {list}
-      </ScrollView>
-    );
-  }
-
-  return list;
 }

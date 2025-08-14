@@ -78,7 +78,7 @@ export function MobileLayout() {
           <YStack flex={1} height={height}>
             <MobileInformationTabs
               renderHeader={() => (
-                <YStack>
+                <YStack bg="$bgApp" pointerEvents="box-none">
                   <InformationPanel />
                   <Stack h={350}>
                     <MarketTradingView
