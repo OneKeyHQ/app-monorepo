@@ -51,7 +51,7 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
       [networkId, gtLg],
     );
 
-  const list = (
+  return (
     <Tabs.FlatList<IMarketTokenHolder>
       data={holders}
       renderItem={renderItem}
@@ -74,16 +74,6 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
       }
     />
   );
-
-  if (gtLg && shouldEnableScroll) {
-    return (
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {list}
-      </ScrollView>
-    );
-  }
-
-  return list;
 }
 
 const Holders = memo(HoldersBase);
