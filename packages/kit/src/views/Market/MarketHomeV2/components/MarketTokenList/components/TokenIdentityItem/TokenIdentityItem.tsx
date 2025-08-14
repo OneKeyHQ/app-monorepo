@@ -9,6 +9,7 @@ import {
   Stack,
   XStack,
   useClipboard,
+  useMedia,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -70,6 +71,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   showVolume = false,
   volume,
 }) => {
+  const { gtMd } = useMedia();
   const { copyText } = useClipboard();
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
@@ -123,7 +125,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
         <XStack alignItems="center" gap="$1" height="$4">
           {showVolume && volume !== undefined ? (
             <NumberSizeableText
-              size="$bodySm"
+              size={gtMd ? '$bodySm' : '$bodyMd'}
               color="$textSubdued"
               numberOfLines={1}
               formatter="marketCap"

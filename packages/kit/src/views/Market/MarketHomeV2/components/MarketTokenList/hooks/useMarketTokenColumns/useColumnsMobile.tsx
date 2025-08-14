@@ -29,12 +29,12 @@ export const useColumnsMobile = (
       })} / ${intl.formatMessage({
         id: ETranslations.dexmarket_mobiletitle_mcap,
       })}`,
-      titleProps: { paddingLeft: '$5' },
+      titleProps: { paddingBottom: '$2', paddingLeft: '$3' },
       dataIndex: 'tokenInfo',
-      columnWidth: '40%',
+      columnWidth: '50%',
       render: (_, record: IMarketToken) => {
         return (
-          <XStack alignItems="center" paddingLeft="$5">
+          <XStack alignItems="center" ml="$3">
             <TokenIdentityItem
               tokenLogoURI={record.tokenImageUri}
               networkLogoURI={record.networkLogoUri}
@@ -59,67 +59,37 @@ export const useColumnsMobile = (
       ),
     },
     {
-      title: intl.formatMessage({ id: ETranslations.global_price }),
-      dataIndex: 'price',
-      columnWidth: '30%',
-      align: 'right',
-      render: (_, record: IMarketToken) => {
-        return (
-          <XStack justifyContent="center" alignItems="center">
-            <NumberSizeableText
-              userSelect="none"
-              flexShrink={1}
-              numberOfLines={1}
-              size="$bodyLgMedium"
-              formatter="price"
-              formatterOptions={{ currency }}
-            >
-              {record.price}
-            </NumberSizeableText>
-          </XStack>
-        );
-      },
-      renderSkeleton: () => (
-        <XStack justifyContent="center" alignItems="center">
-          <Skeleton width={70} height={20} />
-        </XStack>
-      ),
-    },
-    {
       title: `${intl.formatMessage({
+        id: ETranslations.global_price,
+      })} / ${intl.formatMessage({
         id: ETranslations.dexmarket_token_change,
-      })}(%)`,
-      titleProps: { paddingRight: '$5' },
-      dataIndex: 'change',
-      columnWidth: '30%',
+      })}`,
+      titleProps: { paddingBottom: '$2', paddingRight: '$3' },
+      dataIndex: 'price',
+      columnWidth: '50%',
       align: 'right',
       render: (_, record: IMarketToken) => {
         return (
-          <XStack
-            justifyContent="flex-end"
-            alignItems="center"
-            paddingRight="$5"
-          >
-            <XStack
-              width="$20"
-              height="$8"
-              justifyContent="center"
-              alignItems="center"
-              backgroundColor={
-                Number(record.change24h) > 0
-                  ? '$bgSuccessStrong'
-                  : '$bgCriticalStrong'
-              }
-              borderRadius="$2"
-            >
+          <XStack justifyContent="flex-end" alignItems="center" mr="$3">
+            <XStack flexDirection="column" alignItems="flex-end">
               <NumberSizeableText
-                adjustsFontSizeToFit
-                numberOfLines={platformEnv.isNative ? 1 : 2}
-                paddingHorizontal="$1"
                 userSelect="none"
-                size="$bodyMdMedium"
-                color="white"
-                formatter="priceChangeCapped"
+                flexShrink={1}
+                numberOfLines={1}
+                size="$bodyLgMedium"
+                formatter="price"
+                formatterOptions={{ currency }}
+              >
+                {record.price}
+              </NumberSizeableText>
+              <NumberSizeableText
+                size="$bodyMd"
+                color={
+                  Number(record.change24h) >= 0
+                    ? '$textSuccess'
+                    : '$textCritical'
+                }
+                formatter="priceChange"
                 formatterOptions={{
                   showPlusMinusSigns: true,
                 }}
