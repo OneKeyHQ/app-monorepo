@@ -1269,11 +1269,13 @@ class ServiceHardware extends ServiceBase {
     deviceId,
     passphraseState,
     throwError,
+    withUserInteraction,
   }: {
     connectId: string | undefined | null;
     deviceId: string | undefined | null;
     passphraseState: string | undefined;
     throwError: boolean;
+    withUserInteraction: boolean;
   }): Promise<string | undefined> {
     if (!connectId) {
       return;
@@ -1282,7 +1284,9 @@ class ServiceHardware extends ServiceBase {
       const compatibleConnectId = await this.getCompatibleConnectId({
         connectId,
         featuresDeviceId: deviceId,
-        hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+        hardwareCallContext: withUserInteraction
+          ? EHardwareCallContext.USER_INTERACTION
+          : EHardwareCallContext.SILENT_CALL,
       });
       const hardwareSDK = await this.getSDKInstance({
         connectId: compatibleConnectId,
