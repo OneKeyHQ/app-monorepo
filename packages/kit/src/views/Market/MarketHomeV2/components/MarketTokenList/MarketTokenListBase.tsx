@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
 
-import { Stack, Table, useMedia } from '@onekeyhq/components';
+import { Spinner, Stack, Table, useMedia } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
@@ -21,6 +21,9 @@ const SORTABLE_COLUMNS = {
 export type IMarketTokenListResult = {
   data: IMarketToken[];
   isLoading: boolean | undefined;
+  isLoadingMore?: boolean;
+  canLoadMore?: boolean;
+  loadMore?: () => void | Promise<void>;
   setSortBy: (sortBy: string | undefined) => void;
   setSortType: (sortType: 'asc' | 'desc' | undefined) => void;
 };
@@ -47,7 +50,15 @@ function MarketTokenListBase({
 
   const marketTokenColumns = useMarketTokenColumns(networkId, isWatchlistMode);
 
-  const { data, isLoading, setSortBy, setSortType } = result;
+  const {
+    data,
+    isLoading,
+    isLoadingMore,
+    canLoadMore,
+    loadMore,
+    setSortBy,
+    setSortType,
+  } = result;
 
   // Listen to MarketWatchlistOnlyChanged event to update sort settings
   useEffect(() => {
@@ -106,8 +117,10 @@ function MarketTokenListBase({
   );
 
   const handleEndReached = useCallback(() => {
-    console.log('onEndReached');
-  }, []);
+    if (canLoadMore && loadMore && !isLoadingMore) {
+      void loadMore();
+    }
+  }, [canLoadMore, loadMore, isLoadingMore]);
 
   // Show skeleton only on initial load (when there's no data yet)
   // This provides better UX by avoiding skeleton flash during pagination
@@ -169,6 +182,13 @@ function MarketTokenListBase({
             />
           )}
         </Stack>
+
+        {/* Loading more indicator */}
+        {isLoadingMore ? (
+          <Stack alignItems="center" justifyContent="center" py="$4">
+            <Spinner size="small" />
+          </Stack>
+        ) : null}
       </Stack>
     </Stack>
   );

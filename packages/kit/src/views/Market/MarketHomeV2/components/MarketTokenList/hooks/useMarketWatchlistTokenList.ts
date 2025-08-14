@@ -160,7 +160,7 @@ export function useMarketWatchlistTokenList({
     data: paginatedData,
     isLoading,
     isLoadingMore,
-    hasMore,
+    canLoadMore: hasMore,
     currentPage,
     totalPages,
     totalCount,

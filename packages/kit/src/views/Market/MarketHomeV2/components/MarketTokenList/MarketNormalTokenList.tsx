@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 
 import { useMarketTokenList } from './hooks/useMarketTokenList';
-import { MarketTokenListBase } from './MarketTokenListBase';
 import { type IMarketToken } from './MarketTokenData';
+import { MarketTokenListBase } from './MarketTokenListBase';
 
 type IMarketNormalTokenListProps = {
   networkId?: string;

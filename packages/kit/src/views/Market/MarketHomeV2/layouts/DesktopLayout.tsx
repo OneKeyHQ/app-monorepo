@@ -14,8 +14,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketFilterBar } from '../components/MarketFilterBar';
-import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
+import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
 
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
 import type { IMarketHomeTabValue } from '../types';
