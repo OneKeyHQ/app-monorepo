@@ -23,13 +23,16 @@ function MarketFilterBarSmall({
   };
 
   return (
-    <Stack px="$4">
-      <MarketTokenListNetworkSelector
-        selectedNetworkId={selectedNetworkId}
-        onSelectNetworkId={handleNetworkIdChange}
-        placement="bottom-start"
-      />
-    </Stack>
+    <MarketTokenListNetworkSelector
+      selectedNetworkId={selectedNetworkId}
+      onSelectNetworkId={handleNetworkIdChange}
+      placement="bottom-start"
+      containerStyle={{
+        px: '$4',
+        pt: '$3',
+        pb: '$2',
+      }}
+    />
   );
 }
 
