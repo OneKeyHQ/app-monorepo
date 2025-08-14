@@ -6,7 +6,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { HYPER_LIQUID_ORIGIN, HYPER_LIQUID_TRADE_URL } from '@onekeyhq/shared/src/consts/perp';
+import {
+  HYPER_LIQUID_ORIGIN,
+  HYPER_LIQUID_TRADE_URL,
+} from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import thirdpartyLocaleConverter from '@onekeyhq/shared/src/locale/thirdpartyLocaleConverter';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -492,6 +495,15 @@ class ServicePerp extends ServiceBase {
     };
     const resp = await this.callEthereumProviderMethod<string>(request);
     return resp;
+  }
+
+  @backgroundMethod()
+  async disconnectFromDapp() {
+    await this.backgroundApi.serviceDApp.disconnectWebsite({
+      origin: HYPER_LIQUID_ORIGIN,
+      storageType: 'injectedProvider',
+      entry: 'Browser',
+    });
   }
 
   @backgroundMethod()

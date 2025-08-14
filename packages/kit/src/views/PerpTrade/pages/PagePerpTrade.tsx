@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   HeaderIconButton,
+  IconButton,
   Page,
   Tooltip,
   useShortcuts,
@@ -208,6 +209,20 @@ function PerpTradeView() {
             num={accountInfo.num}
             account={accountInfo}
             afterChangeAccount={afterChangeAccount}
+          />
+
+          <Tooltip
+            renderTrigger={
+              <IconButton
+                icon="BrokenLinkOutline"
+                onPress={() => {
+                  void backgroundApiProxy.servicePerp.disconnectFromDapp();
+                }}
+              />
+            }
+            renderContent={intl.formatMessage({
+              id: ETranslations.explore_disconnect,
+            })}
           />
         </AccountSelectorProviderMirror>
       </>
