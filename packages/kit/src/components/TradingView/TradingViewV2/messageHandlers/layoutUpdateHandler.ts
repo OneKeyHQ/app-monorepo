@@ -40,10 +40,10 @@ export async function handleLayoutUpdate({
         }
       }
 
-      console.log('🎨 Layout data parsed successfully:', {
-        keys: Object.keys(parsedLayoutData),
-        timestamp: Date.now(),
-      });
+      // console.log('🎨 Layout data parsed successfully:', {
+      //   keys: Object.keys(parsedLayoutData),
+      //   timestamp: Date.now(),
+      // });
     } catch (error) {
       console.error('❌ Failed to parse layout data:', error);
     }
