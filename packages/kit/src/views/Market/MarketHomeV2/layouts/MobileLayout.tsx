@@ -133,6 +133,9 @@ export function MobileLayout({
         focusedTab={focusedTab}
       />
       <Carousel
+        pagerProps={{
+          scrollSensitivity: 4,
+        }}
         containerStyle={{ height }}
         ref={carouselRef as any}
         onPageChanged={onPageChanged}
