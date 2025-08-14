@@ -10,6 +10,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -238,6 +239,14 @@ function RawPopover({
     void handleClosePopover();
     return true;
   }, [handleClosePopover, isOpen]);
+
+  const isOpenRef = useRef(isOpen);
+  useEffect(() => {
+    if (isOpenRef.current !== isOpen) {
+      isOpenRef.current = isOpen;
+      void Keyboard.dismissWithDelay(50);
+    }
+  }, [isOpen]);
 
   useBackHandler(handleBackPress);
 
