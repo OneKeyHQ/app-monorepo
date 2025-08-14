@@ -23,12 +23,12 @@ export function useTradingViewMessageHandler({
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
       // Debug: Log all incoming messages
-      console.log('🔍 TradingView message received:', {
-        scope: data.scope,
-        method: data.method,
-        origin: data.origin,
-        dataKeys: data.data ? Object.keys(data.data) : 'no data',
-      });
+      // console.log('🔍 TradingView message received:', {
+      //   scope: data.scope,
+      //   method: data.method,
+      //   origin: data.origin,
+      //   dataKeys: data.data ? Object.keys(data.data) : 'no data',
+      // });
 
       // Create context for message handlers
       const context: IMessageHandlerContext = {
