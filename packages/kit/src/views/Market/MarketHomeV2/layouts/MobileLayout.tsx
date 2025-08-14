@@ -1,9 +1,6 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
 import { Dimensions } from 'react-native';
-import { useSharedValue } from 'react-native-reanimated';
-import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Carousel,
@@ -11,20 +8,17 @@ import {
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import type { ICarouselInstance } from '@onekeyhq/components';
-import {
-  useMarketWatchListV2Atom,
-  useSelectedMarketTabAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
 
+import { useMarketTabsLogic } from './hooks';
+
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
 import type { IMarketHomeTabValue } from '../types';
+import type { SharedValue } from 'react-native-reanimated';
 
 interface IMobileLayoutProps {
   filterBarProps: {
@@ -42,34 +36,16 @@ export function MobileLayout({
   selectedNetworkId,
   onTabChange,
 }: IMobileLayoutProps) {
-  const intl = useIntl();
-  const [watchlistState] = useMarketWatchListV2Atom();
-  const watchlist = useMemo(
-    () => watchlistState.data || [],
-    [watchlistState.data],
-  );
-  const [selectedTab, setSelectedTab] = useSelectedMarketTabAtom();
+  const {
+    tabNames,
+    watchlistTabName,
+    focusedTab,
+    carouselRef,
+    handleTabChange,
+  } = useMarketTabsLogic(onTabChange);
 
-  const watchlistTabName = intl.formatMessage({
-    id: ETranslations.global_watchlist,
-  });
-  const trendingTabName = intl.formatMessage({
-    id: ETranslations.market_trending,
-  });
-
-  const carouselRef = useRef<ICarouselInstance>(null);
-  const tabNames = useMemo(() => {
-    return [watchlistTabName, trendingTabName];
-  }, [watchlistTabName, trendingTabName]);
-
-  const focusedTab = useSharedValue(tabNames[0]);
-
-  const handleTabChange = useDebouncedCallback((tabName: string) => {
-    setSelectedTab(tabName as IMarketHomeTabValue);
-    onTabChange(tabName as IMarketHomeTabValue);
-    focusedTab.value = tabName;
-    carouselRef.current?.scrollTo({ index: tabNames.indexOf(tabName) });
-  }, 100);
+  // Type assertion to help ESLint understand the type
+  const typedFocusedTab = focusedTab as SharedValue<string>;
 
   const { top, bottom } = useSafeAreaInsets();
   const height = useMemo(() => {
@@ -80,9 +56,9 @@ export function MobileLayout({
 
   const onPageChanged = useCallback(
     (index: number) => {
-      focusedTab.value = tabNames[index];
+      typedFocusedTab.value = tabNames[index];
     },
-    [focusedTab, tabNames],
+    [typedFocusedTab, tabNames],
   );
 
   const renderItem = useCallback(
@@ -90,10 +66,7 @@ export function MobileLayout({
       if (item === watchlistTabName) {
         return (
           <YStack flex={1} height={height}>
-            <MarketWatchlistTokenList
-              networkId={selectedNetworkId}
-              watchlist={watchlist}
-            />
+            <MarketWatchlistTokenList />
           </YStack>
         );
       }
@@ -104,7 +77,7 @@ export function MobileLayout({
         </YStack>
       );
     },
-    [filterBarProps, height, selectedNetworkId, watchlist, watchlistTabName],
+    [filterBarProps, height, selectedNetworkId, watchlistTabName],
   );
 
   return (
@@ -113,7 +86,7 @@ export function MobileLayout({
         divider={false}
         onTabPress={handleTabChange}
         tabNames={tabNames}
-        focusedTab={focusedTab}
+        focusedTab={typedFocusedTab}
       />
       <Carousel
         containerStyle={{ height }}

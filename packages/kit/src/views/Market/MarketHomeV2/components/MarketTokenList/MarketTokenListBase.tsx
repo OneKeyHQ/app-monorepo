@@ -32,7 +32,6 @@ export type IMarketTokenListResult = {
 type IMarketTokenListBaseProps = {
   networkId?: string;
   onItemPress?: (item: IMarketToken) => void;
-  pageSize?: number;
   toolbar?: ReactNode;
   result: IMarketTokenListResult;
   isWatchlistMode?: boolean;
@@ -41,7 +40,6 @@ type IMarketTokenListBaseProps = {
 function MarketTokenListBase({
   networkId = 'sol--101',
   onItemPress,
-  pageSize = 20,
   toolbar,
   result,
   isWatchlistMode = false,
@@ -153,7 +151,7 @@ function MarketTokenListBase({
           {showSkeleton ? (
             <Table.Skeleton
               columns={marketTokenColumns}
-              count={pageSize}
+              count={30}
               rowProps={{
                 minHeight: '$14',
               }}
