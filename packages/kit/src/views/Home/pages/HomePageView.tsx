@@ -30,6 +30,7 @@ import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WalletBackupAlert } from '../../../components/WalletBackup';
+import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
@@ -319,7 +320,7 @@ export function HomePageView({
 
     let content = (
       <Stack h="100%" justifyContent="center">
-        <EmptyWallet />
+        {platformEnv.isWebDappMode ? <WebDappEmptyView /> : <EmptyWallet />}
       </Stack>
     );
 

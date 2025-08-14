@@ -51,6 +51,7 @@ import {
   EAccountManagerStacksRoutes,
   EChainSelectorPages,
   EModalRoutes,
+  EOnboardingPages,
 } from '@onekeyhq/shared/src/routes';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -544,6 +545,20 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       });
 
       const activeAccountInfo = this.getActiveAccount.call(set, { num });
+
+      // In dapp mode, if no wallet exists, directly show connect wallet options
+      const isWebDappMode = platformEnv.isWebDappMode;
+      const hasWallet = activeAccountInfo?.wallet?.id;
+      const hasAccount =
+        activeAccountInfo?.account || activeAccountInfo?.indexedAccount;
+
+      if (isWebDappMode && !hasWallet && !hasAccount) {
+        navigation.pushModal(EModalRoutes.OnboardingModal, {
+          screen: EOnboardingPages.ConnectWalletOptions,
+        });
+        return;
+      }
+
       if (activeAccountInfo?.wallet?.id) {
         // focus to active wallet when open selector
         const focusedWalletNew: IAccountSelectorFocusedWallet =
