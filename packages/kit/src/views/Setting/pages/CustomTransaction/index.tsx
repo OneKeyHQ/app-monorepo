@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   Dialog,
   ESwitchSize,
   Page,
@@ -11,6 +12,9 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
+
+const CUSTOM_TX_DATA_DOC_URL = 'https://help.onekey.so/articles/11959368';
 
 function CustomTransaction() {
   const intl = useIntl();
@@ -74,6 +78,23 @@ function CustomTransaction() {
                           isCustomTxMessageEnabled: !!value,
                         }));
                       },
+                      renderContent: (
+                        <Button
+                          flex={1}
+                          textAlign="left"
+                          justifyContent="flex-start"
+                          size="small"
+                          variant="tertiary"
+                          icon="QuestionmarkOutline"
+                          onPress={() => {
+                            openUrlInApp(CUSTOM_TX_DATA_DOC_URL);
+                          }}
+                        >
+                          {intl.formatMessage({
+                            id: ETranslations.global_learn_more,
+                          })}
+                        </Button>
+                      ),
                     });
                   } else {
                     setSettings((v) => ({
