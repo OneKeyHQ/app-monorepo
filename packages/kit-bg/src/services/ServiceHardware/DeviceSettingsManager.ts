@@ -171,6 +171,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         const features =
           await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
             connectId: compatibleConnectId,
+            hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
         await this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog({
           connectId: compatibleConnectId,
