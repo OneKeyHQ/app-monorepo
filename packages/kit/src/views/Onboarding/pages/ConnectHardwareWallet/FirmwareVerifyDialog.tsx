@@ -837,7 +837,7 @@ export function EnumBasicDialogContentContainer({
               <Dialog.Icon icon="CrossedLargeOutline" tone="destructive" />
               <Dialog.Title>
                 {intl.formatMessage({
-                  id: ETranslations.global_an_error_occurred,
+                  id: ETranslations.hardware_defective_firmware_error_title,
                 })}
               </Dialog.Title>
               <Dialog.Description>
