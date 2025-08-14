@@ -1510,6 +1510,7 @@
   "global.total_supply": "總供應量",
   "global.touch_id": "觸控 ID",
   "global.touch_id_set_error": "設定生物識別授權失敗",
+  "global.track": "觀察",
   "global.track_any_address": "觀察任意地址",
   "global.track_any_address_description": "無需連接自己的錢包即可觀察任何錢包地址",
   "global.trade": "交易",

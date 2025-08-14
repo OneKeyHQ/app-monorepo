@@ -1510,6 +1510,7 @@
   "global.total_supply": "Suprimento total",
   "global.touch_id": "Touch ID",
   "global.touch_id_set_error": "Configuração de falha de autenticação em biologia",
+  "global.track": "Observar",
   "global.track_any_address": "Rastrear qualquer endereço",
   "global.track_any_address_description": "Monitorar qualquer endereço de carteira sem conectar sua própria carteira",
   "global.trade": "Troca",

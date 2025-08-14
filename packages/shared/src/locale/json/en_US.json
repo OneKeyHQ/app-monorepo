@@ -1510,6 +1510,7 @@
   "global.total_supply": "Total supply",
   "global.touch_id": "Touch ID",
   "global.touch_id_set_error": "Set biology auth fail",
+  "global.track": "Watch",
   "global.track_any_address": "Track any address",
   "global.track_any_address_description": "Monitor any wallet address without connecting your own wallet",
   "global.trade": "Trade",

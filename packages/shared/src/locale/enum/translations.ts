@@ -1515,6 +1515,7 @@
   global_total_supply = 'global.total_supply',
   global_touch_id = 'global.touch_id',
   global_touch_id_set_error = 'global.touch_id_set_error',
+  global_track = 'global.track',
   global_track_any_address = 'global.track_any_address',
   global_track_any_address_description = 'global.track_any_address_description',
   global_trade = 'global.trade',

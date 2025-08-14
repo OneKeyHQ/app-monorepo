@@ -1510,6 +1510,7 @@
   "global.total_supply": "จำนวนทั้งหมด",
   "global.touch_id": "Touch ID",
   "global.touch_id_set_error": "การตั้งค่าการยืนยันตัวตนด้านชีววิทยาล้วน",
+  "global.track": "เฝ้าดู",
   "global.track_any_address": "ติดตามที่อยู่ใดก็ได้",
   "global.track_any_address_description": "ติดตามที่อยู่กระเป๋าเงินใดๆ โดยไม่ต้องเชื่อมต่อกระเป๋าเงินของคุณเอง",
   "global.trade": "ซื้อขาย",

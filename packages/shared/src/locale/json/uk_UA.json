@@ -1510,6 +1510,7 @@
   "global.total_supply": "Загальний обсяг",
   "global.touch_id": "Touch ID",
   "global.touch_id_set_error": "Помилка авторизації в біології",
+  "global.track": "Спостерігати",
   "global.track_any_address": "Відстежувати будь-яку адресу",
   "global.track_any_address_description": "Відстежувати будь-яку адресу гаманця без підключення власного гаманця",
   "global.trade": "Торгівля",

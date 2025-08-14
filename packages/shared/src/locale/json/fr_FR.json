@@ -1510,6 +1510,7 @@
   "global.total_supply": "Offre totale",
   "global.touch_id": "Touch ID",
   "global.touch_id_set_error": "Échec de l'authentification en biologie",
+  "global.track": "Observer",
   "global.track_any_address": "Suivre toute adresse",
   "global.track_any_address_description": "Surveiller toute adresse de portefeuille sans connecter votre propre portefeuille",
   "global.trade": "Commerce",

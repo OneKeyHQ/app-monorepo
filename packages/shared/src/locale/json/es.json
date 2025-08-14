@@ -1510,6 +1510,7 @@
   "global.total_supply": "Suministro total",
   "global.touch_id": "Touch ID",
   "global.touch_id_set_error": "Error de autenticación en biología establecido",
+  "global.track": "Observar",
   "global.track_any_address": "Rastrear cualquier dirección",
   "global.track_any_address_description": "Monitorear cualquier dirección de billetera sin conectar tu propia billetera",
   "global.trade": "Comercio",

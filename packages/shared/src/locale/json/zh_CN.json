@@ -1510,6 +1510,7 @@
   "global.total_supply": "总供应量",
   "global.touch_id": "触控 ID",
   "global.touch_id_set_error": "生物识别授权失败",
+  "global.track": "观察",
   "global.track_any_address": "观察任意地址",
   "global.track_any_address_description": "无需连接自己的钱包即可观察任何钱包地址",
   "global.trade": "交易",

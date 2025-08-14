@@ -1510,6 +1510,7 @@
   "global.total_supply": "Offerta totale",
   "global.touch_id": "Touch ID",
   "global.touch_id_set_error": "Impostazione fallita dell'autenticazione biologica",
+  "global.track": "Osserva",
   "global.track_any_address": "Traccia qualsiasi indirizzo",
   "global.track_any_address_description": "Monitora qualsiasi indirizzo wallet senza collegare il tuo wallet",
   "global.trade": "Commercio",

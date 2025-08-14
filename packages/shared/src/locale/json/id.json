@@ -1510,6 +1510,7 @@
   "global.total_supply": "Jumlah pasokan",
   "global.touch_id": "Sentuh ID",
   "global.touch_id_set_error": "Pengaturan kegagalan otorisasi biologi",
+  "global.track": "Amati",
   "global.track_any_address": "Lacak alamat apapun",
   "global.track_any_address_description": "Pantau alamat wallet apapun tanpa menghubungkan wallet Anda sendiri",
   "global.trade": "Berdagang",

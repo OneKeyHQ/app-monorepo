@@ -1510,6 +1510,7 @@
   "global.total_supply": "মোট সরবরাহ",
   "global.touch_id": "Touch ID",
   "global.touch_id_set_error": "বায়োলজি অথরাইজেশন ব্যর্থ হয়েছে",
+  "global.track": "পর্যবেক্ষণ করুন",
   "global.track_any_address": "যেকোনো ঠিকানা ট্র্যাক করুন",
   "global.track_any_address_description": "আপনার নিজের ওয়ালেট সংযোগ না করে যেকোনো ওয়ালেট ঠিকানা পর্যবেক্ষণ করুন",
   "global.trade": "বাণিজ্য",

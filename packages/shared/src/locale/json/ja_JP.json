@@ -1510,6 +1510,7 @@
   "global.total_supply": "総供給量",
   "global.touch_id": "Touch ID",
   "global.touch_id_set_error": "生物学認証の設定失敗",
+  "global.track": "監視",
   "global.track_any_address": "任意のアドレスを追跡",
   "global.track_any_address_description": "自分のウォレットを接続せずに任意のウォレットアドレスを監視",
   "global.trade": "貿易",

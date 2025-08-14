@@ -176,6 +176,10 @@ function WalletItemView({
         borderColor="$borderSubdued"
         py="$3"
         px="$5"
+        cursor="pointer"
+        hoverStyle={{
+          bg: '$bgStrong',
+        }}
         pressStyle={{
           bg: '$bgActive',
         }}

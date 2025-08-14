@@ -1510,6 +1510,7 @@
   "global.total_supply": "총 공급량",
   "global.touch_id": "Touch ID",
   "global.touch_id_set_error": "생물학 인증 실패 설정",
+  "global.track": "관찰",
   "global.track_any_address": "모든 주소 추적",
   "global.track_any_address_description": "자신의 지갑을 연결하지 않고 모든 지갑 주소 모니터링",
   "global.trade": "거래",
