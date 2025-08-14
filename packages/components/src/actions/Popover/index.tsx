@@ -173,6 +173,22 @@ function ModalPortalProvider({ children }: PropsWithChildren) {
 }
 
 const when: (state: { media: UseMediaState }) => boolean = () => true;
+
+const useDismissKeyboard = platformEnv.isNative
+  ? (isOpen?: boolean) => {
+      useMemo(() => {
+        void Keyboard.dismissWithDelay(50);
+      }, []);
+      const isOpenRef = useRef(isOpen);
+      useEffect(() => {
+        if (isOpenRef.current !== isOpen) {
+          isOpenRef.current = isOpen;
+          void Keyboard.dismissWithDelay(50);
+        }
+      }, [isOpen]);
+    }
+  : () => {};
+
 function RawPopover({
   title,
   open: isOpen,
@@ -240,13 +256,7 @@ function RawPopover({
     return true;
   }, [handleClosePopover, isOpen]);
 
-  const isOpenRef = useRef(isOpen);
-  useEffect(() => {
-    if (isOpenRef.current !== isOpen) {
-      isOpenRef.current = isOpen;
-      void Keyboard.dismissWithDelay(50);
-    }
-  }, [isOpen]);
+  useDismissKeyboard(isOpen);
 
   useBackHandler(handleBackPress);
 
