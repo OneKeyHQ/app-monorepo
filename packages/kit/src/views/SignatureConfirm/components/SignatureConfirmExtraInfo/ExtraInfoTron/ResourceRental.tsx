@@ -19,6 +19,7 @@ import {
   useDialogInstance,
   useMedia,
 } from '@onekeyhq/components';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import {
   useSignatureConfirmActions,
   useTronResourceRentalInfoAtom,
@@ -34,8 +35,6 @@ import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { ETronResourceRentalPayType } from '@onekeyhq/shared/types/fee';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
-
-const TRON_RESOURCE_RENTAL_DOC_URL = 'https://help.onekey.so/articles/11461320';
 
 const showResourceRentalDetailsDialog = ({
   title,
@@ -69,6 +68,9 @@ function ResourceRentalLearnMoreButton({
 }) {
   const intl = useIntl();
   const dialogInstance = useDialogInstance();
+  const resourceRentalHelpLink = useHelpLink({
+    path: 'articles/11461320',
+  });
   return (
     <Button
       flex={1}
@@ -78,7 +80,7 @@ function ResourceRentalLearnMoreButton({
       variant="tertiary"
       icon="QuestionmarkOutline"
       onPress={() => {
-        openUrlInApp(TRON_RESOURCE_RENTAL_DOC_URL);
+        openUrlInApp(resourceRentalHelpLink);
         if (closeDialogAfterClick) {
           void dialogInstance.close();
         }

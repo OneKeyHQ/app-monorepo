@@ -10,15 +10,17 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-const CUSTOM_TX_DATA_DOC_URL = 'https://help.onekey.so/articles/11959368';
-
 function CustomTransaction() {
   const intl = useIntl();
   const [settings, setSettings] = useSettingsPersistAtom();
+  const customTxDataHelpLink = useHelpLink({
+    path: 'articles/11959368',
+  });
   return (
     <Page>
       <Page.Header
@@ -87,7 +89,7 @@ function CustomTransaction() {
                           variant="tertiary"
                           icon="QuestionmarkOutline"
                           onPress={() => {
-                            openUrlInApp(CUSTOM_TX_DATA_DOC_URL);
+                            openUrlInApp(customTxDataHelpLink);
                           }}
                         >
                           {intl.formatMessage({
