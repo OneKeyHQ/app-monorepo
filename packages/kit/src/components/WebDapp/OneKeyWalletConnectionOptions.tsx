@@ -2,7 +2,14 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Icon, SizableText, useMedia } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  Image,
+  SizableText,
+  Stack,
+  useMedia,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { EXT_RATE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -14,6 +21,31 @@ import { useConnectExternalWallet } from '../../hooks/useWebDapp/useConnectExter
 import { useOneKeyWalletDetection } from '../../hooks/useWebDapp/useOneKeyWalletDetection';
 
 import { WalletConnectListItemComponent } from './ExternalWalletList';
+
+function OneKeyHardwareWalletLogo() {
+  return (
+    <Stack position="relative" width="$10" height="$10">
+      <Image
+        w="$10"
+        h="$10"
+        bg="$bgStrong"
+        borderColor="$neutral3"
+        borderWidth="1px"
+        borderRadius="$2"
+        source={require('@onekeyhq/kit/assets/hardwallet_together_logo.png')}
+      />
+      <Icon
+        position="absolute"
+        right="-2px"
+        bottom="-2px"
+        name="OnekeyBrand"
+        size="$4.5"
+        bg="#44D62C"
+        borderRadius="$1"
+      />
+    </Stack>
+  );
+}
 
 function OneKeyWalletConnectionOptions() {
   const intl = useIntl();
@@ -55,7 +87,7 @@ function OneKeyWalletConnectionOptions() {
           title={intl.formatMessage({
             id: ETranslations.global_onekey_wallet_hardware_wallet,
           })}
-          renderAvatar={<Icon name="OnekeyBrand" size="$10" />}
+          renderAvatar={<OneKeyHardwareWalletLogo />}
           drillIn
           onPress={handleConnectHardwarePress}
         />
@@ -78,11 +110,38 @@ function OneKeyWalletConnectionOptions() {
         px="$5"
         mx="$0"
         bg="$bgSubdued"
+        hoverStyle={{
+          bg: '$bgStrong',
+        }}
+        cursor={isOneKeyInstalled ? 'pointer' : undefined}
         title={intl.formatMessage({
           id: ETranslations.global_onekey_wallet_extension,
         })}
-        subtitle={isOneKeyInstalled ? 'EVM' : 'Go to Chrome Web Store'}
-        renderAvatar={<Icon name="OnekeyBrand" size="$10" />}
+        subtitle={
+          isOneKeyInstalled
+            ? 'EVM'
+            : intl.formatMessage({
+                id: ETranslations.wallet_onekey_wallet_without_description,
+              })
+        }
+        renderAvatar={
+          <Stack position="relative" width="$10" height="$10">
+            <Icon
+              name="OnekeyBrand"
+              size="$10"
+              bg="#44D62C"
+              borderRadius="$2"
+            />
+            <Image
+              w="$4.5"
+              h="$4.5"
+              position="absolute"
+              right="-2px"
+              bottom="-2px"
+              source={require('@onekeyhq/kit/assets/chrome.png')}
+            />
+          </Stack>
+        }
         drillIn={Boolean(isOneKeyInstalled && !loading)}
         onPress={isOneKeyInstalled ? handleExtensionPress : undefined}
         isLoading={loading}
@@ -91,6 +150,7 @@ function OneKeyWalletConnectionOptions() {
           <Button
             size="small"
             variant="secondary"
+            cursor="pointer"
             onPress={() => {
               openUrlExternal(EXT_RATE_URL.chrome);
             }}
@@ -104,6 +164,7 @@ function OneKeyWalletConnectionOptions() {
         px="$5"
         mx="$0"
         bg="$bgSubdued"
+        cursor="pointer"
         title={intl.formatMessage({
           id: ETranslations.global_onekey_wallet_hardware_wallet,
         })}
@@ -123,7 +184,7 @@ function OneKeyWalletConnectionOptions() {
             </SizableText>
           </>
         }
-        renderAvatar={<Icon name="OnekeyBrand" size="$10" />}
+        renderAvatar={<OneKeyHardwareWalletLogo />}
         drillIn
         onPress={handleConnectHardwarePress}
       />

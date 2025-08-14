@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -35,51 +35,8 @@ function WebDappEmptyView() {
   const intl = useIntl();
   const media = useMedia();
   const appNavigation = useAppNavigation();
-  const [searchResults, setSearchResults] = useState<
-    IUniversalSearchResultItem[]
-  >([]);
-  const [isSearchLoading, setIsSearchLoading] = useState(false);
 
   const isMobileLayout = media.md;
-
-  const isTrackEnabled = useMemo(() => {
-    if (Array.isArray(searchResults) && searchResults.length > 0) {
-      return true;
-    }
-    return false;
-  }, [searchResults]);
-
-  const handleTrackAddress = useCallback(async () => {
-    if (searchResults.length === 0) {
-      return;
-    }
-
-    // Use first search result if available, otherwise use input text
-    const firstResult = searchResults[0];
-    if (
-      firstResult?.type === EUniversalSearchType.Address &&
-      firstResult.payload.addressInfo
-    ) {
-      const { network, addressInfo } = firstResult.payload;
-      if (network && addressInfo) {
-        await urlAccountNavigation.pushOrReplaceUrlAccountPage(appNavigation, {
-          address: addressInfo.displayAddress,
-          networkId: network.id,
-        });
-      }
-    }
-  }, [searchResults, appNavigation]);
-
-  const handleResultsChange = useCallback(
-    (results: IUniversalSearchResultItem[]) => {
-      setSearchResults(results);
-    },
-    [],
-  );
-
-  const handleLoadingChange = useCallback((loading: boolean) => {
-    setIsSearchLoading(loading);
-  }, []);
 
   const handleShowMoreOptions = useCallback(() => {
     appNavigation.pushModal(EModalRoutes.OnboardingModal, {
@@ -142,18 +99,20 @@ function WebDappEmptyView() {
         width: 424,
         alignSelf: 'center',
         pt: 80,
+        pb: 32,
       }}
       $md={{
         mx: '$5',
         width: 'auto',
         pt: 20,
+        pb: 40,
       }}
     >
       <YStack
         bg="$bgSubdued"
         borderRadius="$4"
         borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
+        borderColor="$neutral3"
         width="100%"
       >
         <YStack
@@ -198,6 +157,15 @@ function WebDappEmptyView() {
               size="small"
               variant="tertiary"
               onPress={handleShowMoreOptions}
+              cursor="pointer"
+              hoverStyle={{
+                opacity: 0.8,
+                bg: '$transparent',
+              }}
+              pressStyle={{
+                bg: '$transparent',
+              }}
+              width="100%"
             >
               {intl.formatMessage({
                 id: ETranslations.wallet_connect_wallet_more_options,
@@ -207,7 +175,19 @@ function WebDappEmptyView() {
         )}
       </YStack>
 
-      <Divider my="$4" width="100%" />
+      <XStack gap="$2" py="$8" alignItems="center" w="100%">
+        <Divider width="100%" borderColor="$borderDisabled" />
+        <SizableText
+          size="$bodySmMedium"
+          color="$textDisabled"
+          userSelect="none"
+        >
+          {intl.formatMessage({
+            id: ETranslations.global_or,
+          })}
+        </SizableText>
+        <Divider width="100%" borderColor="$borderDisabled" />
+      </XStack>
 
       <YStack py="$4" bg="$bgSubdued" borderRadius="$4" width="100%">
         <YStack px="$5" pb="$4">
@@ -227,38 +207,25 @@ function WebDappEmptyView() {
         </YStack>
 
         <Stack px="$5">
-          <XStack gap="$2" alignItems="stretch">
-            <Stack flex={1}>
-              <UniversalSearchInput
-                searchType="address"
-                placeholder={intl.formatMessage({
-                  id: ETranslations.wallet_track_any_address_placeholder,
-                })}
-                onResultsChange={handleResultsChange}
-                onLoadingChange={handleLoadingChange}
-                renderResultItem={renderResultItem}
-                popoverContainerProps={{
-                  mx: '$0',
-                }}
-                minSearchLength={3}
-                debounceMs={300}
-                maxResultHeight={240}
-              />
-            </Stack>
-            <Button
-              size="$4"
-              variant="primary"
-              onPress={handleTrackAddress}
-              minWidth={80}
-              disabled={!isTrackEnabled ? !isSearchLoading : null}
-              loading={isSearchLoading}
-            >
-              Track
-            </Button>
-          </XStack>
+          <Stack flex={1}>
+            <UniversalSearchInput
+              searchType="address"
+              placeholder={intl.formatMessage({
+                id: ETranslations.wallet_track_any_address_placeholder,
+              })}
+              renderResultItem={renderResultItem}
+              popoverContainerProps={{
+                mx: '$0',
+              }}
+              minSearchLength={3}
+              debounceMs={300}
+              maxResultHeight={240}
+              background="$bgApp"
+            />
+          </Stack>
         </Stack>
 
-        <XStack gap="$1.5" px="$5" pb="$0" pt="$3">
+        <XStack gap="$1.5" px="$5" pb="$0" pt="$3" alignItems="center">
           <SizableText size="$bodyMd" color="$textDisabled">
             {intl.formatMessage({
               id: ETranslations.global_eg,
@@ -271,6 +238,13 @@ function WebDappEmptyView() {
             bg="$bgStrong"
             borderRadius="$1"
             alignItems="center"
+            cursor="pointer"
+            hoverStyle={{
+              bg: '$bgStrong',
+            }}
+            pressStyle={{
+              bg: '$bgActive',
+            }}
             onPress={() => {
               void urlAccountNavigation.pushOrReplaceUrlAccountPage(
                 appNavigation,
