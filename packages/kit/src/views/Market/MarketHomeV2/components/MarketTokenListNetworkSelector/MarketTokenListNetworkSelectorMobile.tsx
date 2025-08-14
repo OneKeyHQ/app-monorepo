@@ -1,7 +1,7 @@
 import { forwardRef, memo, useImperativeHandle, useRef } from 'react';
 
 import { Stack } from '@onekeyhq/components';
-import type { IPopoverProps } from '@onekeyhq/components';
+import type { IListViewProps, IPopoverProps } from '@onekeyhq/components';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { MarketNetworkFilterMobile } from './MarketNetworkFilterMobile';
@@ -17,6 +17,7 @@ interface IMarketTokenListNetworkSelectorMobileProps {
   isLoading?: boolean;
   forceLoading?: boolean;
   placement?: IPopoverProps['placement'];
+  containerStyle?: IListViewProps<any>['contentContainerStyle'];
 }
 
 export interface IMarketTokenListNetworkSelectorMobileRef {
@@ -35,6 +36,7 @@ const MarketTokenListNetworkSelectorMobile = forwardRef<
       handleMoreNetworkSelect,
       isLoading,
       placement,
+      containerStyle,
     },
     ref,
   ) => {
@@ -64,6 +66,7 @@ const MarketTokenListNetworkSelectorMobile = forwardRef<
             onSelectNetwork={onSelectCurrentNetwork}
             onMoreNetworkSelect={handleMoreNetworkSelect}
             placement={placement}
+            containerStyle={containerStyle}
           />
         )}
       </Stack>
