@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { HYPER_LIQUID_TRADE_URL } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import thirdpartyLocaleConvertor from '@onekeyhq/shared/src/locale/thirdpartyLocaleConvertor';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -17,6 +18,10 @@ import type {
   IHyperLiquidUserBuilderFeeStatus,
 } from '@onekeyhq/shared/types/hyperliquid';
 
+import {
+  settingsPersistAtom,
+  useSettingsPersistAtom,
+} from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
 import type { ISimpleDbPerpConfig } from '../../dbs/simple/entity/SimpleDbEntityPerp';
@@ -492,7 +497,11 @@ class ServicePerp extends ServiceBase {
     if (expectMaxBuilderFee < 0) {
       expectMaxBuilderFee = 0;
     }
+    const { locale: storedLocale } = await settingsPersistAtom.get();
+    const locale = await this.backgroundApi.serviceSetting.getCurrentLocale();
     return {
+      locale: thirdpartyLocaleConvertor.toHyperLiquidWebDappLocale(locale),
+      storedLocale,
       expectBuilderAddress,
       expectMaxBuilderFee,
       shouldModifyPlaceOrderPayload,
@@ -512,11 +521,10 @@ class ServicePerp extends ServiceBase {
 
     // const shouldModifyPlaceOrderPayload = false;
     // TODO cache user value
-    const currentMaxBuilderFee =
-      await this.backgroundApi.servicePerp.getMaxBuilderFee({
-        userAddress,
-        builderAddress: expectBuilderAddress,
-      });
+    const currentMaxBuilderFee = await this.getMaxBuilderFee({
+      userAddress,
+      builderAddress: expectBuilderAddress,
+    });
     if (currentMaxBuilderFee === expectMaxBuilderFee) {
       return {
         isDone: true,
@@ -528,10 +536,9 @@ class ServicePerp extends ServiceBase {
         shouldModifyPlaceOrderPayload,
       };
     }
-    const { accountValue } =
-      await this.backgroundApi.servicePerp.getAccountBalance({
-        userAddress,
-      });
+    const { accountValue } = await this.getAccountBalance({
+      userAddress,
+    });
     return {
       isDone: false,
       canSetBuilderFee: Number(accountValue) >= 0,

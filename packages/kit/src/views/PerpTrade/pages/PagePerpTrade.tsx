@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import {
   HeaderIconButton,
   Page,
+  Tooltip,
   useShortcuts,
   useShortcutsRouteStatus,
 } from '@onekeyhq/components';
@@ -15,6 +18,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
@@ -27,7 +31,11 @@ import { TabPageHeader } from '../../../components/TabPageHeader';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { SingleAccountAndNetworkSelectorTrigger } from '../../Discovery/components/HeaderRightToolBar';
 
-import type { IWebViewRef } from '../../../components/WebView/types';
+import type {
+  IElectronWebView,
+  IWebViewRef,
+} from '../../../components/WebView/types';
+import type { WebView as ReactNativeWebView } from 'react-native-webview';
 
 const origin = HYPER_LIQUID_ORIGIN;
 const url = HYPER_LIQUID_TRADE_URL;
@@ -82,6 +90,17 @@ function PerpTradeView() {
   const webviewRef = useRef<IWebViewRef | null>(null);
   usePerpPageShortcuts({ webviewRef });
 
+  const [isWebViewLoading, setIsWebViewLoading] = useState(false);
+  const onDidStartLoading = useCallback(() => {
+    setIsWebViewLoading(true);
+  }, []);
+  const onDidFinishLoad = useCallback(() => {
+    setIsWebViewLoading(false);
+  }, []);
+  const onDidStartNavigation = useCallback(() => {
+    setIsWebViewLoading(true);
+  }, []);
+
   const webview = useMemo(
     () => (
       <WebView
@@ -93,9 +112,14 @@ function PerpTradeView() {
           webviewRef.current = ref;
         }}
         allowpopups
+        onDidStartLoading={onDidStartLoading}
+        onDidStartNavigation={onDidStartNavigation}
+        onDidFinishLoad={onDidFinishLoad}
+        onDidStopLoading={onDidFinishLoad}
+        onDidFailLoad={onDidFinishLoad}
       />
     ),
-    [],
+    [onDidFinishLoad, onDidStartLoading, onDidStartNavigation],
   );
 
   const {
@@ -163,6 +187,8 @@ function PerpTradeView() {
     );
   }, [afterChangeAccount, connectedAccountsInfo]);
 
+  const intl = useIntl();
+
   return (
     <Page fullPage>
       <TabPageHeader
@@ -173,11 +199,32 @@ function PerpTradeView() {
           <>
             <HeaderIconButton
               key="perp-trade-refresh"
-              title="Refresh"
-              icon="RefreshCwOutline"
+              title={
+                <Tooltip.Text shortcutKey={EShortcutEvents.Refresh}>
+                  {intl.formatMessage({ id: ETranslations.global_refresh })}
+                </Tooltip.Text>
+              }
+              icon={
+                isWebViewLoading
+                  ? 'CrossedLargeOutline'
+                  : 'RotateClockwiseOutline'
+              }
               onPress={() => {
-                // refresh webview
-                webviewRef.current?.reload?.();
+                if (isWebViewLoading) {
+                  if (platformEnv.isDesktop) {
+                    const innerRef = webviewRef.current
+                      ?.innerRef as IElectronWebView;
+                    innerRef?.stop?.();
+                  }
+                  if (platformEnv.isNative) {
+                    (
+                      webviewRef.current?.innerRef as ReactNativeWebView
+                    )?.stopLoading?.();
+                  }
+                } else {
+                  // refresh webview
+                  webviewRef.current?.reload?.();
+                }
               }}
               testID="header-right-perp-trade-refresh"
             />

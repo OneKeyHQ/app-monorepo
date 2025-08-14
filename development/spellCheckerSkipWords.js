@@ -18,6 +18,7 @@ module.exports = [
   'hyperliquid',
   'PerpTrade',
   'perpTradeRouters',
+  'thirdparty',
   'cors',
   '110xxxxx',
   '1110xxxx',
