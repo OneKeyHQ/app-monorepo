@@ -101,15 +101,6 @@ function BasicTokenDetailTabs({
 
   return (
     <Tabs.Container
-      headerContainerStyle={{
-        shadowOpacity: 0,
-        elevation: 0,
-      }}
-      pagerProps={
-        {
-          scrollSensitivity: 4,
-        } as any
-      }
       containerStyle={{
         ...(gtMdMedia ? { paddingRight: isModalPage ? 0 : 20 } : undefined),
         ...(md ? { marginTop: 20 } : undefined),

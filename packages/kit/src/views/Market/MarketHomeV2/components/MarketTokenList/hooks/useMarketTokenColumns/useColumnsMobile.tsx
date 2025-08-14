@@ -1,7 +1,12 @@
 import { useIntl } from 'react-intl';
 
 import type { ITableColumn } from '@onekeyhq/components';
-import { NumberSizeableText, XStack, useMedia } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  Skeleton,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -13,16 +18,17 @@ export const useColumnsMobile = (
   networkId?: string,
   _watchlistActive = false,
 ): ITableColumn<IMarketToken>[] => {
-  const { md } = useMedia();
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
   const intl = useIntl();
 
-  if (!md) return [];
-
   return [
     {
-      title: intl.formatMessage({ id: ETranslations.global_name }),
+      title: `${intl.formatMessage({
+        id: ETranslations.global_name,
+      })} / ${intl.formatMessage({
+        id: ETranslations.dexmarket_mobiletitle_mcap,
+      })}`,
       titleProps: { paddingLeft: '$5' },
       dataIndex: 'tokenInfo',
       columnWidth: '40%',
@@ -34,10 +40,23 @@ export const useColumnsMobile = (
               networkLogoURI={record.networkLogoUri}
               symbol={record.symbol}
               address={record.address}
+              showVolume
+              volume={record.turnover}
             />
           </XStack>
         );
       },
+      renderSkeleton: () => (
+        <XStack alignItems="center" paddingLeft="$5" gap="$3">
+          <XStack position="relative">
+            <Skeleton width={32} height={32} borderRadius="$full" />
+          </XStack>
+          <YStack gap="$1">
+            <Skeleton width={80} height={16} />
+            <Skeleton width={60} height={12} />
+          </YStack>
+        </XStack>
+      ),
     },
     {
       title: intl.formatMessage({ id: ETranslations.global_price }),
@@ -60,6 +79,11 @@ export const useColumnsMobile = (
           </XStack>
         );
       },
+      renderSkeleton: () => (
+        <XStack justifyContent="center" alignItems="center">
+          <Skeleton width={70} height={20} />
+        </XStack>
+      ),
     },
     {
       title: `${intl.formatMessage({
@@ -106,6 +130,11 @@ export const useColumnsMobile = (
           </XStack>
         );
       },
+      renderSkeleton: () => (
+        <XStack justifyContent="flex-end" alignItems="center" paddingRight="$5">
+          <Skeleton width="$20" height="$8" borderRadius="$2" />
+        </XStack>
+      ),
     },
   ];
 };

@@ -183,18 +183,7 @@ export default function YourReferred() {
         title={intl.formatMessage({ id: ETranslations.referral_your_referred })}
       />
       <Page.Body>
-        <Tabs.Container
-          headerContainerStyle={{
-            shadowOpacity: 0,
-            elevation: 0,
-          }}
-          pagerProps={
-            {
-              scrollSensitivity: 4,
-            } as any
-          }
-          renderTabBar={(props) => <Tabs.TabBar {...props} />}
-        >
+        <Tabs.Container>
           <Tabs.Tab
             name={intl.formatMessage({
               id: ETranslations.global_wallet,

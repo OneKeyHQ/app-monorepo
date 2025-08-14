@@ -12,14 +12,12 @@ import type { IMarketTokenListNetworkSelectorNormalRef } from './MarketTokenList
 interface IMarketTokenListNetworkSelectorProps {
   selectedNetworkId?: string;
   onSelectNetworkId?: (networkId: string) => void;
-  forceLoading?: boolean;
   placement?: IPopoverProps['placement'];
 }
 
 function MarketTokenListNetworkSelector({
   selectedNetworkId,
   onSelectNetworkId,
-  forceLoading,
   placement,
 }: IMarketTokenListNetworkSelectorProps) {
   const normalComponentRef =
@@ -85,7 +83,6 @@ function MarketTokenListNetworkSelector({
       onSelectCurrentNetwork={onSelectCurrentNetwork}
       handleMoreNetworkSelect={handleMoreNetworkSelect}
       isLoading={isLoading}
-      forceLoading={forceLoading}
       placement={placement}
     />
   );

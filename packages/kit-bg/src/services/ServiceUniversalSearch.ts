@@ -657,6 +657,45 @@ class ServiceUniversalSearch extends ServiceBase {
     return { items: sortedItems } as IUniversalSearchSingleResult;
   }
 
+  @backgroundMethod()
+  async searchUrlAccount({
+    input,
+    networkId,
+  }: {
+    input: string;
+    networkId?: string;
+  }): Promise<IUniversalSearchSingleResult> {
+    const { serviceValidator } = this.backgroundApi;
+    const trimmedInput = input.trim();
+
+    // Step 1: Get supported networks and batch validate
+    const networkIdList = await this.getUniversalValidateNetworkIds({
+      networkId,
+    });
+    const batchValidateResult =
+      await serviceValidator.serverBatchValidateAddress({
+        networkIdList,
+        accountAddress: trimmedInput,
+      });
+
+    if (!batchValidateResult.isValid) {
+      return { items: [] } as IUniversalSearchSingleResult;
+    }
+
+    // Step 2: Only search for external addresses
+    const externalAddressResults = await this.findExternalAddresses({
+      input: trimmedInput,
+      networkId,
+      batchValidateResult,
+    });
+
+    console.log('[searchUrlAccount] externalItems: ', {
+      items: externalAddressResults.items,
+    });
+
+    return externalAddressResults;
+  }
+
   private sortAddressResults(
     items: IUniversalSearchResultItem[],
     currentNetwork?: IServerNetwork,
