@@ -94,7 +94,6 @@ function MarketTokenListNetworkSelector({
         onSelectCurrentNetwork={onSelectCurrentNetwork}
         handleMoreNetworkSelect={handleMoreNetworkSelect}
         isLoading={isLoading}
-        forceLoading={forceLoading}
         placement={placement}
       />
     );
