@@ -386,7 +386,7 @@ export function PerpApiTests() {
             onPress={() =>
               handleApiCall(
                 () =>
-                  backgroundApiProxy.servicePerp.getMaxBuilderFee({
+                  backgroundApiProxy.servicePerp.getUserApprovedMaxBuilderFee({
                     userAddress,
                     builderAddress,
                   }),

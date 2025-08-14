@@ -3,11 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   HeaderIconButton,
   Page,
   Tooltip,
   useShortcuts,
-  useShortcutsRouteStatus,
 } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import {
@@ -28,6 +28,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { useShortcutsRouteStatus } from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { SingleAccountAndNetworkSelectorTrigger } from '../../Discovery/components/HeaderRightToolBar';
 
@@ -85,6 +86,8 @@ function PerpTradeViewExt() {
 }
 
 function PerpTradeView() {
+  const intl = useIntl();
+
   useDebugComponentRemountLog({ name: 'PerpTradePageContainer' });
 
   const webviewRef = useRef<IWebViewRef | null>(null);
@@ -157,10 +160,30 @@ function PerpTradeView() {
     };
   }, [afterChangeAccount]);
 
+  const isConnectingRef = useRef(false);
   const leftHeaderItems = useMemo(() => {
     const accountInfo = connectedAccountsInfo?.[0];
     if (!accountInfo) {
-      return null;
+      return (
+        <>
+          <Button
+            isLoading={isConnectingRef.current}
+            onPress={async () => {
+              try {
+                if (isConnectingRef.current) {
+                  return;
+                }
+                isConnectingRef.current = true;
+                await backgroundApiProxy.servicePerp.connectToDapp();
+              } finally {
+                isConnectingRef.current = false;
+              }
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.global_connect })}
+          </Button>
+        </>
+      );
     }
     return (
       <>
@@ -185,9 +208,7 @@ function PerpTradeView() {
         </AccountSelectorProviderMirror>
       </>
     );
-  }, [afterChangeAccount, connectedAccountsInfo]);
-
-  const intl = useIntl();
+  }, [afterChangeAccount, connectedAccountsInfo, intl]);
 
   return (
     <Page fullPage>

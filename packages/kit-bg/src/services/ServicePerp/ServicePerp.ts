@@ -6,9 +6,9 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { HYPER_LIQUID_TRADE_URL } from '@onekeyhq/shared/src/consts/perp';
+import { HYPER_LIQUID_ORIGIN, HYPER_LIQUID_TRADE_URL } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
-import thirdpartyLocaleConvertor from '@onekeyhq/shared/src/locale/thirdpartyLocaleConvertor';
+import thirdpartyLocaleConverter from '@onekeyhq/shared/src/locale/thirdpartyLocaleConverter';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -18,10 +18,7 @@ import type {
   IHyperLiquidUserBuilderFeeStatus,
 } from '@onekeyhq/shared/types/hyperliquid';
 
-import {
-  settingsPersistAtom,
-  useSettingsPersistAtom,
-} from '../../states/jotai/atoms';
+import { settingsPersistAtom } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
 import type { ISimpleDbPerpConfig } from '../../dbs/simple/entity/SimpleDbEntityPerp';
@@ -166,10 +163,13 @@ class ServicePerp extends ServiceBase {
     }
   }
 
-  private async hyperliquidRequest<T>(body: Record<string, any>): Promise<T> {
+  private async hyperliquidRequestBase<T>(
+    endpoint: string,
+    body: Record<string, any>,
+  ): Promise<T> {
     try {
       const response = await axios.post<T>(
-        'https://api.hyperliquid.xyz/info',
+        `https://api.hyperliquid.xyz/${endpoint}`,
         body,
         {
           headers: {
@@ -192,32 +192,16 @@ class ServicePerp extends ServiceBase {
     }
   }
 
+  private async hyperliquidInfoRequest<T>(
+    body: Record<string, any>,
+  ): Promise<T> {
+    return this.hyperliquidRequestBase<T>('info', body);
+  }
+
   private async hyperliquidExchangeRequest<T>(
     body: Record<string, any>,
   ): Promise<T> {
-    try {
-      const response = await axios.post<T>(
-        'https://api.hyperliquid.xyz/exchange',
-        body,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        },
-      );
-      return response.data;
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        throw new OneKeyError(
-          `Hyperliquid Exchange API error: ${
-            error.response?.status ?? 'unknown'
-          } ${error.response?.statusText || error.message}`,
-        );
-      }
-      throw new OneKeyError(
-        `Hyperliquid Exchange API error: ${(error as Error).message}`,
-      );
-    }
+    return this.hyperliquidRequestBase<T>('exchange', body);
   }
 
   @backgroundMethod()
@@ -226,9 +210,9 @@ class ServicePerp extends ServiceBase {
   }: {
     userAddress: string;
   }): Promise<IHyperliquidClearinghouseState> {
-    return this.hyperliquidRequest<IHyperliquidClearinghouseState>({
+    return this.hyperliquidInfoRequest<IHyperliquidClearinghouseState>({
       type: 'clearinghouseState',
-      user: userAddress,
+      user: userAddress.toLowerCase(),
     });
   }
 
@@ -238,9 +222,9 @@ class ServicePerp extends ServiceBase {
   }: {
     userAddress: string;
   }): Promise<IHyperliquidSubAccount[]> {
-    return this.hyperliquidRequest<IHyperliquidSubAccount[]>({
+    return this.hyperliquidInfoRequest<IHyperliquidSubAccount[]>({
       type: 'subAccounts',
-      user: userAddress,
+      user: userAddress.toLowerCase(),
     });
   }
 
@@ -256,7 +240,7 @@ class ServicePerp extends ServiceBase {
   }): Promise<IHyperliquidUserFunding[]> {
     const requestBody: Record<string, any> = {
       type: 'userFunding',
-      user: userAddress,
+      user: userAddress.toLowerCase(),
       startTime,
     };
 
@@ -264,7 +248,7 @@ class ServicePerp extends ServiceBase {
       requestBody.endTime = endTime;
     }
 
-    return this.hyperliquidRequest<IHyperliquidUserFunding[]>(requestBody);
+    return this.hyperliquidInfoRequest<IHyperliquidUserFunding[]>(requestBody);
   }
 
   @backgroundMethod()
@@ -279,7 +263,7 @@ class ServicePerp extends ServiceBase {
   }): Promise<IHyperliquidLedgerUpdate[]> {
     const requestBody: Record<string, any> = {
       type: 'userNonFundingLedgerUpdates',
-      user: userAddress,
+      user: userAddress.toLowerCase(),
       startTime,
     };
 
@@ -287,7 +271,7 @@ class ServicePerp extends ServiceBase {
       requestBody.endTime = endTime;
     }
 
-    return this.hyperliquidRequest<IHyperliquidLedgerUpdate[]>(requestBody);
+    return this.hyperliquidInfoRequest<IHyperliquidLedgerUpdate[]>(requestBody);
   }
 
   @backgroundMethod()
@@ -296,21 +280,21 @@ class ServicePerp extends ServiceBase {
   }: {
     userAddress: string;
   }): Promise<IHyperliquidVaultEquity[]> {
-    return this.hyperliquidRequest<IHyperliquidVaultEquity[]>({
+    return this.hyperliquidInfoRequest<IHyperliquidVaultEquity[]>({
       type: 'userVaultEquities',
       user: userAddress.toLowerCase(),
     });
   }
 
   @backgroundMethod()
-  async getMaxBuilderFee({
+  async getUserApprovedMaxBuilderFee({
     userAddress,
     builderAddress,
   }: {
     userAddress: string;
     builderAddress: string;
   }): Promise<IHyperliquidMaxBuilderFee> {
-    return this.hyperliquidRequest<IHyperliquidMaxBuilderFee>({
+    return this.hyperliquidInfoRequest<IHyperliquidMaxBuilderFee>({
       type: 'maxBuilderFee',
       user: userAddress.toLowerCase(),
       builder: builderAddress.toLowerCase(),
@@ -441,6 +425,16 @@ class ServicePerp extends ServiceBase {
     return { r, s, v };
   }
 
+  async callEthereumProviderMethod<T>(request: IJsBridgeMessagePayload) {
+    const resp = await this.backgroundApi.handleProviderMethods<T>({
+      scope: 'ethereum',
+      origin: request.origin,
+      data: request.data,
+      isWalletConnectRequest: true,
+    });
+    return resp;
+  }
+
   async approveBuilderFeeIfRequired({
     request,
     userAddress,
@@ -466,13 +460,13 @@ class ServicePerp extends ServiceBase {
             .toFixed(3)}%`,
           chainId,
         });
-      const req = cloneDeep(request);
+      const req: IJsBridgeMessagePayload = cloneDeep(request);
       req.data = {
         method: 'eth_signTypedData_v4',
         params: [userAddress, stringUtils.stableStringify(typedData)],
       };
-      const signature =
-        await this.backgroundApi.providers.ethereum.handleMethods(req);
+      const resp = await this.callEthereumProviderMethod<string>(req);
+      const signature = resp.result;
       const rsv = this.parseSignatureToRSV(signature);
       apiPayload.signature = rsv;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -483,6 +477,21 @@ class ServicePerp extends ServiceBase {
       return status;
     }
     return status;
+  }
+
+  @backgroundMethod()
+  async connectToDapp() {
+    const request: IJsBridgeMessagePayload = {
+      scope: 'ethereum',
+      origin: HYPER_LIQUID_ORIGIN,
+      data: {
+        method: 'eth_requestAccounts',
+        params: [],
+      },
+      isWalletConnectRequest: true,
+    };
+    const resp = await this.callEthereumProviderMethod<string>(request);
+    return resp;
   }
 
   @backgroundMethod()
@@ -500,7 +509,7 @@ class ServicePerp extends ServiceBase {
     const { locale: storedLocale } = await settingsPersistAtom.get();
     const locale = await this.backgroundApi.serviceSetting.getCurrentLocale();
     return {
-      locale: thirdpartyLocaleConvertor.toHyperLiquidWebDappLocale(locale),
+      locale: thirdpartyLocaleConverter.toHyperLiquidWebDappLocale(locale),
       storedLocale,
       expectBuilderAddress,
       expectMaxBuilderFee,
@@ -521,7 +530,7 @@ class ServicePerp extends ServiceBase {
 
     // const shouldModifyPlaceOrderPayload = false;
     // TODO cache user value
-    const currentMaxBuilderFee = await this.getMaxBuilderFee({
+    const currentMaxBuilderFee = await this.getUserApprovedMaxBuilderFee({
       userAddress,
       builderAddress: expectBuilderAddress,
     });
