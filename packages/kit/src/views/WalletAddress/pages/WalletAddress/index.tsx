@@ -238,6 +238,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
                   .getDefaultDeriveTypeVisibleNetworks()
                   .includes(network.id) ? (
                   <AddressTypeSelector
+                    placement="bottom-start"
                     walletId={walletId ?? ''}
                     networkId={network.id}
                     activeDeriveType={account?.deriveType}

@@ -457,6 +457,7 @@ function ReceiveToken() {
             </Badge>
             {vaultSettings?.mergeDeriveAssetsEnabled ? (
               <AddressTypeSelector
+                placement="top-start"
                 showTriggerWhenDisabled
                 walletId={walletId}
                 networkId={networkId}

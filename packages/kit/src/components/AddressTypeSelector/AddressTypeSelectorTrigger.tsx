@@ -2,7 +2,7 @@ import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Badge, Icon, XStack } from '@onekeyhq/components';
+import { Badge, Icon } from '@onekeyhq/components';
 import type { IAccountDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
 type IProps = {
@@ -19,14 +19,22 @@ function AddressTypeSelectorTrigger(props: IProps) {
   }
 
   return (
-    <Badge cursor="pointer">
-      <XStack alignItems="center" gap="$1">
-        <Badge.Text>
-          {activeDeriveInfo.labelKey
-            ? intl.formatMessage({ id: activeDeriveInfo.labelKey })
-            : activeDeriveInfo.label}
-        </Badge.Text>
-      </XStack>
+    <Badge
+      userSelect="none"
+      pr="$1"
+      gap="$0.5"
+      hoverStyle={{
+        bg: '$bgStrongHover',
+      }}
+      pressStyle={{
+        bg: '$bgStrongActive',
+      }}
+    >
+      <Badge.Text>
+        {activeDeriveInfo.labelKey
+          ? intl.formatMessage({ id: activeDeriveInfo.labelKey })
+          : activeDeriveInfo.label}
+      </Badge.Text>
       {disableSelector ? null : (
         <Icon size="$4" name="ChevronDownSmallOutline" color="$iconSubdued" />
       )}

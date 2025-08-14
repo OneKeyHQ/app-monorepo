@@ -13,7 +13,6 @@ import {
   Toast,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
@@ -76,7 +75,20 @@ type IProps = {
   showTriggerWhenDisabled?: boolean;
   placement?: PopoverProps['placement'];
   confirmText?: string;
+  offset?: PopoverProps['offset'];
 };
+
+const StrongText = (chunks: (string | ReactElement)[]) => (
+  <SizableText
+    size="$bodyMdMedium"
+    $gtMd={{
+      size: '$bodySmMedium',
+    }}
+    color="$text"
+  >
+    {chunks}
+  </SizableText>
+);
 
 function AddressTypeSelectorContent(
   props: IProps & {
@@ -108,8 +120,6 @@ function AddressTypeSelectorContent(
 
   const intl = useIntl();
 
-  const { gtMd } = useMedia();
-
   const {
     activeDeriveType,
     setIsCreatingAddress,
@@ -120,8 +130,14 @@ function AddressTypeSelectorContent(
   const { createAddress } = useAccountSelectorCreateAddress();
 
   const selectorDescription = useMemo(() => {
-    let defaultDescription =
-      'After selecting the address type, the new address will be set as the default for transactions.';
+    let defaultDescription = intl.formatMessage(
+      {
+        id: ETranslations.address_type_selector_desc,
+      },
+      {
+        strong: StrongText,
+      },
+    );
     let hasCustomDescription = false;
 
     if (description) {
@@ -148,7 +164,7 @@ function AddressTypeSelectorContent(
     }
 
     return null;
-  }, [changeDefaultAddressTypeAfterSelect, description]);
+  }, [changeDefaultAddressTypeAfterSelect, description, intl]);
 
   const handleAddressTypeOnSelect = useCallback(
     async ({
@@ -309,7 +325,10 @@ function AddressTypeSelectorContent(
               closePopover();
             }}
           >
-            {confirmText || 'Confirm address'}
+            {confirmText ||
+              intl.formatMessage({
+                id: ETranslations.address_type_selector_cta,
+              })}
           </Button>
         </XStack>
       ) : null}
@@ -333,6 +352,7 @@ function AddressTypeSelector(props: IProps) {
     showTriggerWhenDisabled = false,
     placement,
     doubleConfirm,
+    offset,
   } = props;
 
   const helpLink = useMemo(() => {
@@ -388,7 +408,9 @@ function AddressTypeSelector(props: IProps) {
   }, [activeDeriveInfoProp, networkAccounts, activeDeriveType]);
 
   const selectorTitle = useMemo(() => {
-    let defaultTitle = 'Select address type';
+    let defaultTitle = intl.formatMessage({
+      id: ETranslations.address_type_selector_title,
+    });
 
     if (title)
       if (typeof title === 'string') {
@@ -443,7 +465,7 @@ function AddressTypeSelector(props: IProps) {
         </Popover.Close>
       </XStack>
     );
-  }, [helpLink, title]);
+  }, [helpLink, intl, title]);
 
   const contextValue = useMemo(
     () => ({
@@ -538,6 +560,7 @@ function AddressTypeSelector(props: IProps) {
 
   return (
     <Popover
+      offset={offset}
       placement={placement}
       title=""
       showHeader={false}

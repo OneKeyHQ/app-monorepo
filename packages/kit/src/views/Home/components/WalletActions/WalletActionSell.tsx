@@ -93,6 +93,10 @@ export function WalletActionSell({ onClose }: { onClose: () => void }) {
   ) {
     return (
       <AddressTypeSelector
+        placement="bottom-end"
+        offset={{
+          crossAxis: -16,
+        }}
         walletId={wallet?.id ?? ''}
         networkId={network?.id ?? ''}
         indexedAccountId={indexedAccount?.id ?? ''}

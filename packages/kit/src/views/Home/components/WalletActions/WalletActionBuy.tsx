@@ -11,12 +11,12 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { useAllTokenListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function WalletActionBuy({ onClose }: { onClose: () => void }) {
   const {
@@ -92,6 +92,10 @@ export function WalletActionBuy({ onClose }: { onClose: () => void }) {
   ) {
     return (
       <AddressTypeSelector
+        placement="bottom-end"
+        offset={{
+          crossAxis: -16,
+        }}
         walletId={wallet?.id ?? ''}
         networkId={network?.id ?? ''}
         indexedAccountId={indexedAccount?.id ?? ''}
@@ -127,7 +131,6 @@ export function WalletActionBuy({ onClose }: { onClose: () => void }) {
           onClose();
         }}
         doubleConfirm
-        confirmText="Confirm receiving address"
       />
     );
   }

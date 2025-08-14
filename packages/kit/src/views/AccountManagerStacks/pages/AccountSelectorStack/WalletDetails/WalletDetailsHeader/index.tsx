@@ -116,6 +116,7 @@ export function WalletDetailsHeader({
           EAccountSelectorSceneName.addressInput,
         ].includes(accountSelectorContextData?.sceneName as any) ? (
           <AddressTypeSelector
+            placement="bottom-end"
             walletId={wallet?.id ?? ''}
             networkId={linkedNetworkId}
             indexedAccountId={selectedAccount.indexedAccountId ?? ''}

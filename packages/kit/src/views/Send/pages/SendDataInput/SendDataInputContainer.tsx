@@ -942,7 +942,7 @@ function SendDataInputContainer() {
     if (vaultSettings?.mergeDeriveAssetsEnabled) {
       return (
         <AddressTypeSelector
-          placement="top-start"
+          placement="top-end"
           walletId={walletId}
           networkId={currentAccount.networkId}
           indexedAccountId={account?.indexedAccountId ?? ''}

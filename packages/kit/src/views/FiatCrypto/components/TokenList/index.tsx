@@ -204,6 +204,10 @@ const ListItemFiatToken = ({
         onSelect={handlePress}
         doubleConfirm
         placement="bottom-start"
+        offset={{
+          mainAxis: 0,
+          crossAxis: 20,
+        }}
       />
     );
   }
