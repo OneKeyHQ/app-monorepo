@@ -117,6 +117,7 @@ export function DesktopLayout({
         focusedTab={focusedTab}
       />
       <Carousel
+        disableAnimation
         containerStyle={{ height }}
         ref={carouselRef as any}
         loop={false}

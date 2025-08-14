@@ -51,6 +51,7 @@ export function Carousel<T>({
   maxPageWidth,
   showPagination = true,
   renderPaginationItem = defaultRenderPaginationItem,
+  disableAnimation = false,
   pagerProps,
 }: ICarouselProps<T>) {
   const pagerRef = useRef<NativePagerView>(undefined);
@@ -60,13 +61,24 @@ export function Carousel<T>({
 
   const debouncedSetPageIndex = useDebouncedCallback(setPageIndex, 50);
 
+  const setPage = useCallback(
+    (page: number) => {
+      if (disableAnimation) {
+        pagerRef.current?.setPageWithoutAnimation(page);
+      } else {
+        pagerRef.current?.setPage(page);
+      }
+    },
+    [disableAnimation],
+  );
+
   const scrollToPreviousPage = useCallback(() => {
     const previousPage =
       currentPage.current > 0 ? currentPage.current - 1 : data.length - 1;
-    pagerRef.current?.setPage(previousPage);
+    setPage(previousPage);
     currentPage.current = previousPage;
     debouncedSetPageIndex(previousPage);
-  }, [data.length, debouncedSetPageIndex]);
+  }, [data.length, debouncedSetPageIndex, setPage]);
   const scrollToNextPage = useCallback(() => {
     if (currentPage.current >= data.length - 1) {
       pagerRef.current?.setPageWithoutAnimation(0);
@@ -75,10 +87,10 @@ export function Carousel<T>({
       return;
     }
     const nextPage = currentPage.current + 1;
-    pagerRef.current?.setPage(nextPage);
+    setPage(nextPage);
     currentPage.current = nextPage;
     debouncedSetPageIndex(nextPage);
-  }, [data.length, debouncedSetPageIndex]);
+  }, [data.length, debouncedSetPageIndex, setPage]);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -111,7 +123,7 @@ export function Carousel<T>({
         return currentPage.current || 0;
       },
       scrollTo: ({ index }: { index: number }) => {
-        pagerRef.current?.setPage(index);
+        setPage(index);
         debouncedSetPageIndex(index);
       },
       setScrollEnabled: (scrollEnabled: boolean) => {
@@ -121,7 +133,7 @@ export function Carousel<T>({
   });
 
   const onPressPagination = (index: number) => {
-    pagerRef.current?.setPage(index);
+    setPage(index);
     debouncedSetPageIndex(index);
   };
 
@@ -187,6 +199,7 @@ export function Carousel<T>({
               pageWidth={pageWidth}
               onPageSelected={onPageSelected}
               keyboardDismissMode="on-drag"
+              disableAnimation={disableAnimation}
               {...pagerProps}
             >
               {data.map((item, index) => (
