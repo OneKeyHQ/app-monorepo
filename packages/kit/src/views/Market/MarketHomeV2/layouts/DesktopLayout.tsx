@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useSharedValue } from 'react-native-reanimated';
+import { useDebouncedCallback } from 'use-debounce';
 
 import type { ICarouselInstance } from '@onekeyhq/components';
 import { Carousel, Tabs, YStack } from '@onekeyhq/components';
@@ -60,15 +61,12 @@ export function DesktopLayout({
 
   const focusedTab = useSharedValue(tabNames[1]);
 
-  const handleTabChange = useCallback(
-    (tabName: string) => {
-      setSelectedTab(tabName as IMarketHomeTabValue);
-      onTabChange(tabName as IMarketHomeTabValue);
-      focusedTab.value = tabName;
-      carouselRef.current?.scrollTo({ index: tabNames.indexOf(tabName) });
-    },
-    [focusedTab, onTabChange, setSelectedTab, tabNames],
-  );
+  const handleTabChange = useDebouncedCallback((tabName: string) => {
+    setSelectedTab(tabName as IMarketHomeTabValue);
+    onTabChange(tabName as IMarketHomeTabValue);
+    focusedTab.value = tabName;
+    carouselRef.current?.scrollTo({ index: tabNames.indexOf(tabName) });
+  }, 100);
 
   const height = useMemo(() => {
     return platformEnv.isNative ? undefined : 'calc(100vh - 96px)';
