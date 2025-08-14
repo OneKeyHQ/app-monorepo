@@ -134,7 +134,7 @@ export function MobileLayout({
       />
       <Carousel
         pagerProps={{
-          scrollSensitivity: 4,
+          scrollSensitivity: 5,
         }}
         containerStyle={{ height }}
         ref={carouselRef as any}
