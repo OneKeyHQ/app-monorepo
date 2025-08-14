@@ -503,6 +503,18 @@ const SwapQuoteResult = ({
                       </SizableText>
                     </XStack>
                   }
+                  questionMarkContent={
+                    <SizableText
+                      p="$4"
+                      $gtMd={{
+                        size: '$bodyMd',
+                      }}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.swap_review_recipient_popover,
+                      })}
+                    </SizableText>
+                  }
                 />
               ) : null}
               {quoteResult?.allowanceResult ? (
@@ -575,6 +587,18 @@ const SwapQuoteResult = ({
                         {quoteResult.fee?.estimatedFeeFiatValue}
                       </NumberSizeableText>
                     )
+                  }
+                  questionMarkContent={
+                    <SizableText
+                      p="$4"
+                      $gtMd={{
+                        size: '$bodyMd',
+                      }}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.swap_review_network_cost_popover_content,
+                      })}
+                    </SizableText>
                   }
                 />
               ) : null}

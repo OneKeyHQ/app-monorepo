@@ -78,7 +78,7 @@ export function SwapServiceFeeOverview({
       renderTrigger={
         <Icon
           name="InfoCircleOutline"
-          size="$4"
+          size="$3.5"
           cursor="pointer"
           color="$iconSubdued"
         />
