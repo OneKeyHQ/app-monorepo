@@ -2,22 +2,15 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Stack, Tabs, YStack, useMedia } from '@onekeyhq/components';
-import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
+import { Tabs, YStack } from '@onekeyhq/components';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { Holders } from '../components/Holders';
-import {
-  HoldersHeaderNormal,
-  HoldersHeaderSmall,
-} from '../components/Holders/layout';
-import {
-  TransactionsHeaderNormal,
-  TransactionsHeaderSmall,
-  TransactionsHistory,
-} from '../components/TransactionsHistory';
+import { TransactionsHistory } from '../components/TransactionsHistory';
+
+import { StickyHeader } from './StickyHeader';
 
 import type {
   CollapsibleProps,
@@ -25,26 +18,14 @@ import type {
 } from 'react-native-collapsible-tab-view';
 
 function MobileInformationTabsHeader(props: TabBarProps<string>) {
-  const { gtLg } = useMedia();
-  const focusedTab = useFocusedTab();
-
-  const transactionsHeader = useMemo(() => {
-    return gtLg ? <TransactionsHeaderNormal /> : <TransactionsHeaderSmall />;
-  }, [gtLg]);
-
-  const holdersHeader = useMemo(() => {
-    return gtLg ? <HoldersHeaderNormal /> : <HoldersHeaderSmall />;
-  }, [gtLg]);
-
+  const { tabNames } = props;
   const firstTabName = useMemo(() => {
-    const { tabNames } = props;
     return tabNames[0];
-  }, [props]);
-
+  }, [tabNames]);
   return (
-    <YStack>
+    <YStack bg="$bgApp" pointerEvents="box-none">
       <Tabs.TabBar {...props} />
-      {focusedTab === firstTabName ? transactionsHeader : holdersHeader}
+      <StickyHeader firstTabName={firstTabName} />
     </YStack>
   );
 }
@@ -89,8 +70,6 @@ export function MobileInformationTabs({
     }
     return items;
   }, [intl, tokenAddress, networkId, shouldShowHolders]);
-
-  const { gtLg } = useMedia();
 
   const renderTabBar = useCallback(({ ...props }: any) => {
     return <MobileInformationTabsHeader {...props} />;
