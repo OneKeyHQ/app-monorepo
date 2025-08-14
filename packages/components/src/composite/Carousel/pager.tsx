@@ -22,9 +22,11 @@ export function PagerView({
   onPageSelected,
   keyboardDismissMode,
   pageWidth,
+  disableAnimation = false,
 }: Omit<PagerViewProps, 'ref'> & {
   ref: React.RefObject<PagerViewType>;
   pageWidth: number;
+  disableAnimation?: boolean;
 }) {
   const scrollViewRef = useRef<ScrollView>(null);
   const pageIndex = useRef<number>(0);
@@ -76,7 +78,7 @@ export function PagerView({
           scrollViewRef.current?.scrollTo({
             x: getSafePageIndex(page) * pageWidth,
             y: 0,
-            animated: true,
+            animated: !disableAnimation,
           });
         },
         setPageWithoutAnimation: (page: number) => {
@@ -87,6 +89,7 @@ export function PagerView({
           });
         },
       } as PagerViewType),
+    [getSafePageIndex, pageWidth, disableAnimation],
   );
   return (
     <ScrollView

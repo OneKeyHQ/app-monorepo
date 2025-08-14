@@ -21,16 +21,19 @@ export class CreateOrderScene extends BaseScene {
     createFrom,
     router,
     slippage,
+    quoteToTokenAmount,
     fromTokenAmount,
     toTokenAmount,
     fromAddress,
     toAddress,
+    orderId,
   }: {
     status: ESwapEventAPIStatus;
     message?: string;
     swapType: string;
     slippage: string;
     router?: string;
+    quoteToTokenAmount?: string;
     sourceChain: string;
     swapProvider: string;
     swapProviderName: string;
@@ -44,8 +47,11 @@ export class CreateOrderScene extends BaseScene {
     fromTokenAmount: string;
     fromAddress: string;
     toAddress: string;
+    orderId?: string;
   }) {
     return {
+      orderId,
+      quoteToTokenAmount,
       fromTokenAmount,
       toTokenAmount,
       fromAddress,
