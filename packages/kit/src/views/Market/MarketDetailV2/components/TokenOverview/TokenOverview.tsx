@@ -142,7 +142,7 @@ export function TokenOverview() {
   }
 
   return (
-    <Stack gap="$3" px="$5" py="$3">
+    <Stack gap="$2" px="$5" py="$3">
       {/* Token Header with Avatar and Name */}
       <XStack alignItems="center" gap="$3" mb="$2">
         <Token size="lg" tokenImageUri={tokenDetail.logoUrl} />
@@ -157,19 +157,19 @@ export function TokenOverview() {
       </XStack>
 
       {/* First row: Audit and Holders */}
-      <XStack gap="$3">
+      <XStack gap="$2">
         <StatCard {...auditStat} />
         <StatCard {...holdersStat} />
       </XStack>
 
       {/* Second row: Market cap and Liquidity */}
-      <XStack gap="$3">
+      <XStack gap="$2">
         <StatCard {...marketCapStat} />
         <StatCard {...liquidityStat} />
       </XStack>
 
       {/* Third row: Circulating supply and FDV */}
-      <XStack gap="$3">
+      <XStack gap="$2">
         <StatCard {...circulatingSupplyStat} />
         <StatCard {...fdvStat} />
       </XStack>

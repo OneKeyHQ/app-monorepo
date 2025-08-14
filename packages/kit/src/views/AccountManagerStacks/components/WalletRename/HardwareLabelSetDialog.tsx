@@ -4,11 +4,10 @@ import emojiRegex from 'emoji-regex';
 import { useIntl } from 'react-intl';
 
 import type { IDialogShowProps } from '@onekeyhq/components';
-import { Dialog, Keyboard, Spinner, Stack, Toast } from '@onekeyhq/components';
+import { Dialog, Keyboard, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { RenameInputWithNameSelector } from '@onekeyhq/kit/src/components/RenameDialog';
 import { MAX_LENGTH_HW_LABEL_NAME } from '@onekeyhq/kit/src/components/RenameDialog/renameConsts';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -19,41 +18,17 @@ import {
 
 function DeviceLabelDialogContent(props: {
   wallet: IDBWallet | undefined;
-  onFail: (error: Error) => void;
+  deviceLabel: string;
   onSubmit: (name: string) => Promise<void>;
 }) {
   const intl = useIntl();
   const [isLoading, setIsLoading] = useState(false);
-  const { onFail, wallet, onSubmit } = props;
-  const { result } = usePromiseResult(
-    async () => {
-      try {
-        return await backgroundApiProxy.serviceHardware.getDeviceLabel({
-          walletId: wallet?.id || '',
-        });
-      } catch (error) {
-        onFail?.(error as Error);
-        throw error;
-      }
-    },
-    [onFail, wallet?.id],
-    {
-      debounced: 600,
-    },
-  );
-
-  if (!result) {
-    return (
-      <Stack borderRadius="$3" p="$5" bg="$bgSubdued" borderCurve="continuous">
-        <Spinner size="large" />
-      </Stack>
-    );
-  }
+  const { wallet, deviceLabel, onSubmit } = props;
 
   const maxLength = MAX_LENGTH_HW_LABEL_NAME;
   return (
     <>
-      <Dialog.Form formProps={{ values: { name: result || '' } }}>
+      <Dialog.Form formProps={{ values: { name: deviceLabel || '' } }}>
         <Dialog.FormField
           name="name"
           label={intl.formatMessage({
@@ -135,7 +110,7 @@ function DeviceLabelDialogContent(props: {
   );
 }
 
-export const showLabelSetDialog = (
+export const showLabelSetDialog = async (
   {
     wallet,
   }: {
@@ -150,18 +125,33 @@ export const showLabelSetDialog = (
     disabledMaxLengthLabel?: boolean;
   },
 ) => {
-  const dialog = Dialog.show({
-    title: appLocale.intl.formatMessage({ id: ETranslations.global_rename }),
-    renderContent: (
-      <DeviceLabelDialogContent
-        wallet={wallet}
-        onFail={() => {
-          void dialog.close();
-        }}
-        onSubmit={onSubmit}
-      />
-    ),
-    showFooter: false,
-    ...dialogProps,
-  });
+  try {
+    const deviceLabel = await backgroundApiProxy.serviceHardware.getDeviceLabel(
+      {
+        walletId: wallet?.id || '',
+      },
+    );
+
+    const dialog = Dialog.show({
+      title: appLocale.intl.formatMessage({ id: ETranslations.global_rename }),
+      renderContent: (
+        <DeviceLabelDialogContent
+          wallet={wallet}
+          deviceLabel={deviceLabel}
+          onSubmit={onSubmit}
+        />
+      ),
+      showFooter: false,
+      ...dialogProps,
+    });
+
+    return dialog;
+  } catch (error) {
+    Toast.error({
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.global_connet_error_try_again,
+      }),
+    });
+    throw error;
+  }
 };

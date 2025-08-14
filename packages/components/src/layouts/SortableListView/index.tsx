@@ -142,8 +142,21 @@ function CellContainer<T>({
       if (clientHeight) {
         setHeight(clientHeight);
       }
+      const resizeObserver = new ResizeObserver(() => {
+        if (containerRef.current) {
+          const changedHeight = containerRef.current.clientHeight;
+          if (changedHeight !== height) {
+            setHeight(changedHeight);
+          }
+        }
+      });
+      resizeObserver.observe(containerRef.current);
+      return () => {
+        resizeObserver.disconnect();
+      };
     }
-  }, [index, ref]);
+  }, [height, index, ref]);
+
   return (
     <Animated.View
       {...(props as Record<string, any>)}
@@ -153,7 +166,7 @@ function CellContainer<T>({
           : props.style
       }
     >
-      <div ref={containerRef}>{children}</div>
+      <div ref={containerRef as any}>{children}</div>
     </Animated.View>
   );
 }
