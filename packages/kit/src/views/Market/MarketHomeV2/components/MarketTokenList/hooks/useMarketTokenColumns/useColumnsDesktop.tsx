@@ -103,7 +103,7 @@ export const useColumnsDesktop = (
         return (
           <NumberSizeableText
             size="$bodyMd"
-            formatter="priceChangeCapped"
+            formatter="priceChange"
             color={text >= 0 ? '$textSuccess' : '$textCritical'}
             formatterOptions={{
               showPlusMinusSigns: true,

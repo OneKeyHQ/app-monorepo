@@ -77,7 +77,7 @@ export function TokenActivityOverview() {
   const totalTransactions = buys + sells;
 
   return (
-    <Stack gap="$5" p="$4">
+    <Stack gap="$5" px="$5" py="$4">
       <TimeRangeSelector
         options={timeRangeOptions}
         value={selectedTimeRange}
