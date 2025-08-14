@@ -1,48 +1,21 @@
-import { memo, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Stack, Tabs, YStack, useMedia } from '@onekeyhq/components';
-import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
+import { Tabs, YStack } from '@onekeyhq/components';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { Holders } from '../components/Holders';
-import {
-  HoldersHeaderNormal,
-  HoldersHeaderSmall,
-} from '../components/Holders/layout';
-import {
-  TransactionsHeaderNormal,
-  TransactionsHeaderSmall,
-  TransactionsHistory,
-} from '../components/TransactionsHistory';
+import { TransactionsHistory } from '../components/TransactionsHistory';
+
+import { StickyHeader } from './StickyHeader';
 
 import type {
   CollapsibleProps,
   TabBarProps,
 } from 'react-native-collapsible-tab-view';
-
-function BaseStickHeader({ firstTabName }: { firstTabName: string }) {
-  const { gtLg } = useMedia();
-  const focusedTab = useFocusedTab();
-
-  const transactionsHeader = useMemo(() => {
-    return gtLg ? <TransactionsHeaderNormal /> : <TransactionsHeaderSmall />;
-  }, [gtLg]);
-
-  const holdersHeader = useMemo(() => {
-    return gtLg ? <HoldersHeaderNormal /> : <HoldersHeaderSmall />;
-  }, [gtLg]);
-
-  return (
-    <Stack pointerEvents="none" h={40}>
-      {focusedTab === firstTabName ? transactionsHeader : holdersHeader}
-    </Stack>
-  );
-}
-const StickHeader = memo(BaseStickHeader);
 
 function MobileInformationTabsHeader(props: TabBarProps<string>) {
   const firstTabName = useMemo(() => {
@@ -52,7 +25,7 @@ function MobileInformationTabsHeader(props: TabBarProps<string>) {
   return (
     <YStack bg="$bgApp" pointerEvents="box-none">
       <Tabs.TabBar {...props} />
-      <StickHeader firstTabName={firstTabName} />
+      <StickyHeader firstTabName={firstTabName} />
     </YStack>
   );
 }
