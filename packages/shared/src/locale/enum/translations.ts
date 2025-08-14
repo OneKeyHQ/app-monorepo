@@ -2,8 +2,8 @@
 
 // @ts-ignore
 /* eslint-disable  */
-
-export enum ETranslations {
+  
+  export enum ETranslations {
   Limit_expire_day = 'Limit.expire_day',
   Limit_expire_days = 'Limit.expire_days',
   Limit_expire_hour = 'Limit.expire_hour',
@@ -1304,6 +1304,7 @@ export enum ETranslations {
   global_import = 'global.import',
   global_import_address = 'global.import_address',
   global_import_private_key = 'global.import_private_key',
+  global_import_progress = 'global.import_progress',
   global_import_recovery_phrase = 'global.import_recovery_phrase',
   global_import_ton = 'global.import_ton',
   global_import_ton_desc = 'global.import_ton_desc',
@@ -1588,7 +1589,6 @@ export enum ETranslations {
   hardware_connect_unknown_device_error = 'hardware.connect_unknown_device_error',
   hardware_data_erased_use_as_new = 'hardware.data_erased_use_as_new',
   hardware_default_error = 'hardware.default_error',
-  hardware_defective_firmware_error = 'hardware.defective_firmware_error',
   hardware_device_ble_already_connected = 'hardware.device_ble_already_connected',
   hardware_device_ble_location_disabled = 'hardware.device_ble_location_disabled',
   hardware_device_ble_scan_error = 'hardware.device_ble_scan_error',
@@ -1666,6 +1666,8 @@ export enum ETranslations {
   hardware_wallet_connection_is_not_currently_supported_but_we_are_working_on_it_stay_tuned = 'hardware.wallet_connection_is_not_currently_supported_but_we_are_working_on_it_stay_tuned',
   hardware_wallet_connection_is_only_available_on_the_official_app = 'hardware.wallet_connection_is_only_available_on_the_official_app',
   hardware_wallet_connection_is_only_available_on_the_third_party_apps = 'hardware.wallet_connection_is_only_available_on_the_third_party_apps',
+  hardware_defective_firmware_error = 'hardware_defective_firmware_error',
+  hardware_defective_firmware_error_title = 'hardware_defective_firmware_error_title',
   hidden_assets = 'hidden_assets',
   hidden_wallet_accessibility_title = 'hidden_wallet_accessibility_title',
   history_notification_receiver_label = 'history.notification_receiver_label',
@@ -2790,6 +2792,8 @@ export enum ETranslations {
   swap_review_confirm_2_on_device = 'swap_review.confirm_2_on_device',
   swap_review_confirm_3_on_device = 'swap_review.confirm_3_on_device',
   swap_review_confirm_swap = 'swap_review.confirm_swap',
+  swap_review_min_receive = 'swap_review.min_receive',
+  swap_review_min_receive_popover = 'swap_review.min_receive_popover',
   swap_review_network_cost_popover_content = 'swap_review.network_cost_popover_content',
   swap_review_provider_popover_content = 'swap_review.provider_popover_content',
   swap_review_review_swap = 'swap_review.review_swap',

@@ -191,6 +191,28 @@ const PreSwapInfoGroup = ({
           })}
         />
       ) : null}
+      {!isNil(preSwapData?.minToAmount) &&
+      new BigNumber(preSwapData?.minToAmount).gt(0) ? (
+        <PreSwapInfoItem
+          title={intl.formatMessage({
+            id: ETranslations.swap_review_min_receive,
+          })}
+          popoverContent={intl.formatMessage({
+            id: ETranslations.swap_review_min_receive_popover,
+          })}
+          value={
+            <NumberSizeableText
+              size="$bodyMd"
+              formatter="balance"
+              formatterOptions={{
+                tokenSymbol: preSwapData?.toToken?.symbol ?? '-',
+              }}
+            >
+              {preSwapData?.minToAmount}
+            </NumberSizeableText>
+          }
+        />
+      ) : null}
       <PreSwapInfoItem
         title={intl.formatMessage({
           id: ETranslations.provider_ios_popover_onekey_fee,
