@@ -243,6 +243,7 @@ export function AccountSelectorActiveAccountHome({
         deriveInfo: deriveInfoItems.find(
           (item) => item.value === defaultDeriveType,
         )?.item,
+        networkName: network?.shortname,
       });
     } else {
       copyText(account.address);

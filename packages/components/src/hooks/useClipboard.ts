@@ -26,14 +26,16 @@ export function useClipboard() {
   }, []);
 
   const copyText = useCallback(
-    (text: string, successMessageId?: ETranslations) => {
+    (text: string, successMessageId?: ETranslations, showToast = true) => {
       if (!text) return;
       setTimeout(() => setStringAsync(text), 200);
-      Toast.success({
-        title: intl.formatMessage({
-          id: successMessageId || ETranslations.global_copied,
-        }),
-      });
+      if (showToast) {
+        Toast.success({
+          title: intl.formatMessage({
+            id: successMessageId || ETranslations.global_copied,
+          }),
+        });
+      }
     },
     [intl],
   );

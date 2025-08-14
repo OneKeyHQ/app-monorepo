@@ -102,6 +102,7 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
         deriveInfo: deriveInfoItems.find(
           (item) => item.value === defaultDeriveType,
         )?.item,
+        networkName: network?.shortname,
       });
     } else {
       copyText(account?.address || '');
@@ -112,6 +113,7 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
     wallet?.type,
     network?.id,
     network?.isAllNetworks,
+    network?.shortname,
     isSoftwareWalletOnlyUser,
     isAllNetworkEnabled,
     vaultSettings?.mergeDeriveAssetsEnabled,

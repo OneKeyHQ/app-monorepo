@@ -154,6 +154,7 @@ function ReceiveToken() {
       copyAddressWithDeriveType({
         address: currentAccount?.address ?? '',
         deriveInfo: currentDeriveInfo,
+        networkName: network?.shortname,
       });
     } else {
       copyText(currentAccount?.address ?? '');
@@ -163,6 +164,7 @@ function ReceiveToken() {
     copyText,
     currentAccount?.address,
     currentDeriveInfo,
+    network?.shortname,
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
 
@@ -298,13 +300,17 @@ function ReceiveToken() {
   }, [isHardwareWallet, wallet?.type]);
 
   useEffect(() => {
+    if (deriveInfo) {
+      setCurrentDeriveInfo(deriveInfo);
+    }
+
     if (deriveType) {
       setCurrentDeriveType(deriveType);
     }
     if (account) {
       setCurrentAccount(account);
     }
-  }, [account, deriveType]);
+  }, [account, deriveInfo, deriveType]);
 
   const renderCopyAddressButton = useCallback(() => {
     if (

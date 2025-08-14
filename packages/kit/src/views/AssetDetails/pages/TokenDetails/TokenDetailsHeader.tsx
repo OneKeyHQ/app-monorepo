@@ -58,6 +58,7 @@ function TokenDetailsHeader(props: IProps) {
     networkId,
     walletId,
     deriveType,
+    deriveInfo,
     tokenInfo,
     isAllNetworks,
     indexedAccountId,
@@ -392,6 +393,7 @@ function TokenDetailsHeader(props: IProps) {
                   accountId,
                   networkId,
                   token: tokenInfo,
+                  deriveInfo,
                 })
               }
               px="$5"

@@ -50,25 +50,31 @@ export const useCopyAccountAddress = () => {
           },
         });
       } else {
-        const account = await backgroundApiProxy.serviceAccount.getAccount({
-          accountId,
-          networkId,
-        });
+        const [account, network] = await Promise.all([
+          backgroundApiProxy.serviceAccount.getAccount({
+            accountId,
+            networkId,
+          }),
+          backgroundApiProxy.serviceNetwork.getNetworkSafe({
+            networkId,
+          }),
+        ]);
         if (
           networkUtils
             .getDefaultDeriveTypeVisibleNetworks()
             .includes(networkId) &&
           deriveInfo
         ) {
-          copyText(account.address);
+          copyText(account.address, undefined, false);
           Toast.success({
-            title: `${
+            title: `${network?.shortname ?? ''} ${
               deriveInfo.labelKey
                 ? intl.formatMessage({
                     id: deriveInfo.labelKey,
                   })
                 : deriveInfo.label ?? ''
             } address copied`,
+            message: account.address,
           });
         } else {
           copyText(account.address);
@@ -86,21 +92,24 @@ export const useCopyAddressWithDeriveType = () => {
     ({
       address,
       deriveInfo,
+      networkName,
     }: {
       address: string;
       deriveInfo?: IAccountDeriveInfo;
+      networkName?: string;
     }) => {
-      copyText(address);
+      copyText(address, undefined, false);
 
       if (deriveInfo) {
         Toast.success({
-          title: `${
+          title: `${networkName ?? ''} ${
             deriveInfo.labelKey
               ? intl.formatMessage({
                   id: deriveInfo.labelKey,
                 })
               : deriveInfo.label ?? ''
           } address copied`,
+          message: address,
         });
       }
     },
