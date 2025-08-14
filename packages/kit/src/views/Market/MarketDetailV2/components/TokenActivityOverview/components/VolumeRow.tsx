@@ -21,14 +21,14 @@ export function VolumeRow({
   return (
     <Stack gap="$2">
       <Stack flexDirection="row" alignItems="center" gap="$2">
-        <SizableText size="$bodyLgMedium">
+        <SizableText size="$bodyMdMedium">
           {label}:{' '}
           {isLoading ? (
             '--'
           ) : (
             <NumberSizeableText
               formatter="marketCap"
-              size="$bodyLgMedium"
+              size="$bodyMdMedium"
               formatterOptions={{
                 currency: settingsPersistAtom.currencyInfo.symbol,
               }}

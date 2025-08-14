@@ -32,7 +32,7 @@ export function InformationPanel() {
 
   return (
     <XStack px="$5" py="$4" gap="$4" jc="space-between" width="100%">
-      <YStack>
+      <YStack pointerEvents="none">
         <MarketTokenPrice
           size="$heading3xl"
           price={currentPrice}
@@ -51,7 +51,7 @@ export function InformationPanel() {
 
       {/* Stats Row */}
       <YStack gap="$1" width="$40">
-        <XStack gap="$1" width="100%" jc="space-between">
+        <XStack pointerEvents="none" gap="$1" width="100%" jc="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.global_market_cap })}
           </SizableText>
@@ -59,7 +59,7 @@ export function InformationPanel() {
             ${numberFormat(marketCap, { formatter: 'marketCap' })}
           </SizableText>
         </XStack>
-        <XStack gap="$1" width="100%" jc="space-between">
+        <XStack pointerEvents="none" gap="$1" width="100%" jc="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.global_liquidity })}
           </SizableText>
@@ -67,7 +67,7 @@ export function InformationPanel() {
             ${numberFormat(volume24h, { formatter: 'marketCap' })}
           </SizableText>
         </XStack>
-        <XStack gap="$1" width="100%" jc="space-between">
+        <XStack pointerEvents="none" gap="$1" width="100%" jc="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.dexmarket_holders })}
           </SizableText>
@@ -78,7 +78,11 @@ export function InformationPanel() {
         {/* Audit / Security */}
         {networkId && address ? (
           <XStack gap="$1" ai="center" width="100%" jc="space-between">
-            <SizableText size="$bodySm" color="$textSubdued">
+            <SizableText
+              pointerEvents="none"
+              size="$bodySm"
+              color="$textSubdued"
+            >
               {intl.formatMessage({ id: ETranslations.dexmarket_audit })}
             </SizableText>
             <TokenSecurityAlert />

@@ -457,6 +457,7 @@ export interface ISwapPreSwapData {
   fromTokenAmount?: string;
   shouldFallback?: boolean;
   toTokenAmount?: string;
+  minToAmount?: string;
   swapBuildLoading?: boolean;
   estimateNetworkFeeLoading?: boolean;
   stepBeforeActionsLoading?: boolean;
@@ -486,11 +487,13 @@ export interface IFetchQuoteResult {
   eventId?: string;
   protocol?: EProtocolOfExchange;
   info: IFetchQuoteInfo;
+  isFloating?: boolean;
   expirationTime?: number; // limit order expiration time
   errorMessage?: string;
   shouldWrappedToken?: ISwapTokenBase;
   fromAmount?: string;
   toAmount?: string; // quote is after protocolFees, build_tx is after protocolFees + oneKeyFee
+  minToAmount?: string;
   fee?: IFetchQuoteFee;
   instantRate?: string;
   allowanceResult?: IAllowanceResult;
@@ -939,7 +942,6 @@ export interface IFetchLimitOrderRes {
     signedType: EMessageTypesEth;
   };
 }
-
 export interface ISpeedSwapConfig {
   provider: string;
   speedConfig: {

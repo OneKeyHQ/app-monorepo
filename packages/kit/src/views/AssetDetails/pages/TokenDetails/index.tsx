@@ -251,15 +251,6 @@ function TokenDetailsView() {
       if (tabs && !isEmpty(tabs) && tabs.length > 1) {
         return (
           <Tabs.Container
-            headerContainerStyle={{
-              shadowOpacity: 0,
-              elevation: 0,
-            }}
-            pagerProps={
-              {
-                scrollSensitivity: 4,
-              } as any
-            }
             renderTabBar={(props) => <Tabs.TabBar {...props} scrollable />}
           >
             {tabs}

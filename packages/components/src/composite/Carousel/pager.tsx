@@ -9,10 +9,11 @@ import {
 
 import { debounce } from 'lodash';
 import { ScrollView } from 'react-native';
+import { useDebouncedCallback } from 'use-debounce';
 
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import type PagerViewType from 'react-native-pager-view';
-import type { NativeProps } from 'react-native-pager-view/lib/typescript/PagerViewNativeComponent';
+import type { PagerViewProps } from 'react-native-pager-view';
 
 export function PagerView({
   children,
@@ -21,9 +22,11 @@ export function PagerView({
   onPageSelected,
   keyboardDismissMode,
   pageWidth,
-}: Omit<NativeProps, 'ref'> & {
+  disableAnimation = false,
+}: Omit<PagerViewProps, 'ref'> & {
   ref: React.RefObject<PagerViewType>;
   pageWidth: number;
+  disableAnimation?: boolean;
 }) {
   const scrollViewRef = useRef<ScrollView>(null);
   const pageIndex = useRef<number>(0);
@@ -31,16 +34,19 @@ export function PagerView({
     return Children.count(children);
   }, [children]);
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset } = event.nativeEvent;
-    const page = pageWidth ? Math.round(contentOffset.x / pageWidth) : 0;
-    pageIndex.current = page;
-    void onPageSelected?.({
-      nativeEvent: {
-        position: page,
-      },
-    } as any);
-  };
+  const handleScroll = useDebouncedCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset } = event.nativeEvent;
+      const page = pageWidth ? Math.round(contentOffset.x / pageWidth) : 0;
+      pageIndex.current = page;
+      void onPageSelected?.({
+        nativeEvent: {
+          position: page,
+        },
+      } as any);
+    },
+    300,
+  );
 
   const getSafePageIndex = useCallback(
     (page: number) => {
@@ -72,7 +78,7 @@ export function PagerView({
           scrollViewRef.current?.scrollTo({
             x: getSafePageIndex(page) * pageWidth,
             y: 0,
-            animated: true,
+            animated: !disableAnimation,
           });
         },
         setPageWithoutAnimation: (page: number) => {
@@ -83,6 +89,7 @@ export function PagerView({
           });
         },
       } as PagerViewType),
+    [getSafePageIndex, pageWidth, disableAnimation],
   );
   return (
     <ScrollView
@@ -92,6 +99,7 @@ export function PagerView({
       keyboardDismissMode={keyboardDismissMode as any}
       ref={scrollViewRef}
       showsHorizontalScrollIndicator={false}
+      scrollEventThrottle={150}
       onScroll={handleScroll}
     >
       {children}

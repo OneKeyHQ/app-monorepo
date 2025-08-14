@@ -1,29 +1,33 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import type { IPopoverProps } from '@onekeyhq/components';
+import { useMedia } from '@onekeyhq/components';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
+import { MarketTokenListNetworkSelectorMobile } from './MarketTokenListNetworkSelectorMobile';
 import { MarketTokenListNetworkSelectorNormal } from './MarketTokenListNetworkSelectorNormal';
 
+import type { IMarketTokenListNetworkSelectorMobileRef } from './MarketTokenListNetworkSelectorMobile';
 import type { IMarketTokenListNetworkSelectorNormalRef } from './MarketTokenListNetworkSelectorNormal';
 
 interface IMarketTokenListNetworkSelectorProps {
   selectedNetworkId?: string;
   onSelectNetworkId?: (networkId: string) => void;
-  forceLoading?: boolean;
   placement?: IPopoverProps['placement'];
 }
 
 function MarketTokenListNetworkSelector({
   selectedNetworkId,
   onSelectNetworkId,
-  forceLoading,
   placement,
 }: IMarketTokenListNetworkSelectorProps) {
+  const { md } = useMedia();
   const normalComponentRef =
     useRef<IMarketTokenListNetworkSelectorNormalRef>(null);
+  const mobileComponentRef =
+    useRef<IMarketTokenListNetworkSelectorMobileRef>(null);
 
   const { networkList, isLoading } = useMarketBasicConfig();
 
@@ -73,9 +77,27 @@ function MarketTokenListNetworkSelector({
 
   useEffect(() => {
     if (selectedNetworkId) {
-      normalComponentRef.current?.scrollToNetwork(selectedNetworkId);
+      if (md) {
+        mobileComponentRef.current?.scrollToNetwork(selectedNetworkId);
+      } else {
+        normalComponentRef.current?.scrollToNetwork(selectedNetworkId);
+      }
     }
-  }, [selectedNetworkId]);
+  }, [selectedNetworkId, md]);
+
+  if (md) {
+    return (
+      <MarketTokenListNetworkSelectorMobile
+        ref={mobileComponentRef}
+        marketNetworks={marketNetworks}
+        currentSelectNetwork={currentSelectNetwork}
+        onSelectCurrentNetwork={onSelectCurrentNetwork}
+        handleMoreNetworkSelect={handleMoreNetworkSelect}
+        isLoading={isLoading}
+        placement={placement}
+      />
+    );
+  }
 
   return (
     <MarketTokenListNetworkSelectorNormal
@@ -85,7 +107,6 @@ function MarketTokenListNetworkSelector({
       onSelectCurrentNetwork={onSelectCurrentNetwork}
       handleMoreNetworkSelect={handleMoreNetworkSelect}
       isLoading={isLoading}
-      forceLoading={forceLoading}
       placement={placement}
     />
   );

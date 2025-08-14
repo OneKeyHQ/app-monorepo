@@ -18,14 +18,14 @@ interface IPreSwapTokenItemProps {
   token?: ISwapToken;
   amount: string;
   loading?: boolean;
-  providerName?: string;
+  isFloating?: boolean;
 }
 
 const PreSwapTokenItem = ({
   token,
   amount,
   loading,
-  providerName,
+  isFloating,
 }: IPreSwapTokenItemProps) => {
   const fiatValue = useMemo(() => {
     return token?.price && amount
@@ -49,7 +49,7 @@ const PreSwapTokenItem = ({
         ) : (
           <>
             <XStack alignItems="center">
-              {providerName && providerName.includes('Floating') ? (
+              {isFloating ? (
                 <Icon name="TildeOutline" size="$5" color="$text" />
               ) : null}
               <NumberSizeableText

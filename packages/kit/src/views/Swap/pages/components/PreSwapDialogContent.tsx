@@ -251,7 +251,7 @@ const PreSwapDialogContent = ({
                 renderContent={() => {
                   return (
                     <Stack p="$4">
-                      {quoteResult?.info.providerName.includes('Floating') ? (
+                      {quoteResult?.isFloating ? (
                         <SizableText size="$bodyMd">
                           {intl.formatMessage({
                             id: ETranslations.provider_route_changelly_float,
@@ -275,7 +275,7 @@ const PreSwapDialogContent = ({
               token={preSwapData?.toToken}
               amount={toAmount}
               loading={preSwapData.swapBuildLoading}
-              providerName={quoteResult?.info.providerName}
+              isFloating={quoteResult?.isFloating}
             />
           </YStack>
 

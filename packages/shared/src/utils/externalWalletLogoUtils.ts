@@ -58,7 +58,7 @@ const map: Record<IExternalWalletLogoKeys, IExternalWalletLogoInfo> = {
     logo: require('@onekeyhq/shared/src/assets/wallet/external/logo/logo_zerion.png'),
   },
   'walletconnect': {
-    name: 'Walletconnect',
+    name: 'WalletConnect',
     logo: require('@onekeyhq/shared/src/assets/wallet/external/logo/logo_walletconnect.png'),
   },
   'fireblocks': {

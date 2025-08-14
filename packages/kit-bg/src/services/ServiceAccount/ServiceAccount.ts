@@ -2610,8 +2610,19 @@ class ServiceAccount extends ServiceBase {
         deviceId,
         passphraseState,
         throwError: true,
+        withUserInteraction: true,
       });
       console.log('createHWWalletBase xfp', xfp, compatibleConnectId, deviceId);
+    }
+    // if the connectId is not compatible, maybe the device is new bluetooth connection device, refresh the device info
+    if (compatibleConnectId !== params.device.connectId) {
+      const refreshedDevice = await localDb.getDeviceByQuery({
+        connectId: params.device.connectId || compatibleConnectId,
+        featuresDeviceId: deviceId,
+      });
+      if (refreshedDevice) {
+        params.device = refreshedDevice;
+      }
     }
     const result = await localDb.createHwWallet({
       ...params,
@@ -3804,11 +3815,13 @@ class ServiceAccount extends ServiceBase {
     wallet,
     connectId,
     deviceId,
+    withUserInteraction,
     throwError,
   }: {
     wallet: IDBWallet | undefined;
     connectId: string | undefined;
     deviceId: string | undefined;
+    withUserInteraction: boolean;
     throwError?: boolean;
   }) => {
     if (!wallet?.id) {
@@ -3837,6 +3850,7 @@ class ServiceAccount extends ServiceBase {
       deviceId,
       passphraseState: wallet?.passphraseState,
       throwError: throwError ?? false,
+      withUserInteraction,
     });
     if (xfp) {
       await localDb.updateWalletsHashAndXfp({
@@ -3948,15 +3962,18 @@ class ServiceAccount extends ServiceBase {
     wallet,
     connectId,
     deviceId,
+    withUserInteraction,
   }: {
     wallet: IDBWallet | undefined;
     connectId: string;
     deviceId: string | undefined;
+    withUserInteraction: boolean;
   }) {
     await this.generateHwWalletsMissingXfpDebounced({
       wallet,
       connectId,
       deviceId,
+      withUserInteraction,
     });
   }
 
@@ -4078,6 +4095,7 @@ class ServiceAccount extends ServiceBase {
             connectId: device?.connectId || '',
             deviceId: device?.deviceId || '',
             throwError: true,
+            withUserInteraction: true,
           });
           await timerUtils.wait(1000);
           walletUpdated = true;

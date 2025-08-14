@@ -44,6 +44,7 @@ import type {
   IDeviceVerifyVersionCompareResult,
   IDeviceVersionCacheInfo,
   IFirmwareReleasePayload,
+  IHardwareCallContext,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 import {
@@ -111,6 +112,7 @@ export type IDeviceGetFeaturesOptions = {
   params?: CommonParams & {
     allowEmptyConnectId?: boolean;
   };
+  hardwareCallContext?: IHardwareCallContext;
 };
 
 // skip events
@@ -829,7 +831,7 @@ class ServiceHardware extends ServiceBase {
   }
 
   _getFeaturesLowLevel = async (options: IDeviceGetFeaturesOptions) => {
-    const { connectId, params, silentMode } = options;
+    const { connectId, params, silentMode, hardwareCallContext } = options;
     serviceHardwareUtils.hardwareLog('call getFeatures()', connectId);
     if (!params?.allowEmptyConnectId && !connectId) {
       throw new OneKeyLocalError(
@@ -838,6 +840,7 @@ class ServiceHardware extends ServiceBase {
     }
     const hardwareSDK = await this.getSDKInstance({
       connectId,
+      hardwareCallContext,
     });
     const features = await convertDeviceResponse(
       () => hardwareSDK?.getFeatures(connectId, params),
@@ -1269,11 +1272,13 @@ class ServiceHardware extends ServiceBase {
     deviceId,
     passphraseState,
     throwError,
+    withUserInteraction,
   }: {
     connectId: string | undefined | null;
     deviceId: string | undefined | null;
     passphraseState: string | undefined;
     throwError: boolean;
+    withUserInteraction: boolean;
   }): Promise<string | undefined> {
     if (!connectId) {
       return;
@@ -1282,7 +1287,9 @@ class ServiceHardware extends ServiceBase {
       const compatibleConnectId = await this.getCompatibleConnectId({
         connectId,
         featuresDeviceId: deviceId,
-        hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+        hardwareCallContext: withUserInteraction
+          ? EHardwareCallContext.USER_INTERACTION
+          : EHardwareCallContext.SILENT_CALL,
       });
       const hardwareSDK = await this.getSDKInstance({
         connectId: compatibleConnectId,

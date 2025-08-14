@@ -31,6 +31,7 @@ export interface IActionButtonProps extends IButtonProps {
   balance?: BigNumber;
   paymentToken?: IToken;
   networkId?: string;
+  isWrapped?: boolean;
 }
 
 export function ActionButton({
@@ -40,6 +41,7 @@ export function ActionButton({
   balance,
   disabled,
   onPress,
+  isWrapped,
   paymentToken,
   networkId,
   ...otherProps
@@ -160,7 +162,13 @@ export function ActionButton({
     });
   }
 
-  if (shouldCreateAddress?.result) {
+  if (isWrapped) {
+    buttonText = intl.formatMessage({
+      id: ETranslations.swap_page_button_wrap,
+    });
+  }
+
+  if (shouldCreateAddress?.result || createAddressLoading) {
     buttonText = intl.formatMessage({
       id: ETranslations.global_create_address,
     });
@@ -171,6 +179,27 @@ export function ActionButton({
       id: ETranslations.swap_page_button_no_connected_wallet,
     });
   }
+
+  // Use colored style only for normal trading states (has amount, not disabled, has account)
+  const shouldUseColoredStyle = hasAmount && !shouldDisable && !noAccount;
+
+  const buttonStyleProps = shouldUseColoredStyle
+    ? {
+        bg:
+          tradeType === ESwapDirection.BUY
+            ? '$buttonSuccess'
+            : '$buttonCritical',
+        color: '$textOnColor',
+        hoverStyle: {
+          opacity: 0.9,
+        },
+        pressStyle: {
+          opacity: 0.8,
+        },
+      }
+    : {
+        variant: 'primary' as const,
+      };
 
   const handlePress = useCallback(
     async (event: GestureResponderEvent) => {
@@ -212,7 +241,6 @@ export function ActionButton({
 
   return (
     <Button
-      variant="primary"
       size="medium"
       disabled={Boolean(
         (shouldDisable || disabled || !hasAmount) &&
@@ -220,8 +248,9 @@ export function ActionButton({
           !noAccount,
       )}
       onPress={shouldDisable ? undefined : handlePress}
-      {...otherProps}
       loading={createAddressLoading || otherProps.loading}
+      {...otherProps}
+      {...buttonStyleProps}
     >
       {buttonText}
     </Button>
