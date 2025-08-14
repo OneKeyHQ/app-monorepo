@@ -22,6 +22,7 @@ export type IMarketTokenListResult = {
   data: IMarketToken[];
   isLoading: boolean | undefined;
   isLoadingMore?: boolean;
+  isNetworkSwitching?: boolean;
   canLoadMore?: boolean;
   loadMore?: () => void | Promise<void>;
   setSortBy: (sortBy: string | undefined) => void;
@@ -54,6 +55,7 @@ function MarketTokenListBase({
     data,
     isLoading,
     isLoadingMore,
+    isNetworkSwitching,
     canLoadMore,
     loadMore,
     setSortBy,
@@ -122,9 +124,11 @@ function MarketTokenListBase({
     }
   }, [canLoadMore, loadMore, isLoadingMore]);
 
-  // Show skeleton only on initial load (when there's no data yet)
-  // This provides better UX by avoiding skeleton flash during pagination
-  const showSkeleton = Boolean(isLoading) && data.length === 0;
+  // Show skeleton on initial load or network switching
+  // Initial load: when there's no data yet
+  // Network switching: when network is changing (provides better UX feedback)
+  const showSkeleton =
+    (Boolean(isLoading) && data.length === 0) || Boolean(isNetworkSwitching);
 
   return (
     <Stack flex={1} width="100%">

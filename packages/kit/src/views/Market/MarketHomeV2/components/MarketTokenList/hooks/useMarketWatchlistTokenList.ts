@@ -37,14 +37,21 @@ export function useMarketWatchlistTokenList({
   );
   const [isLoadingMore] = useState(false);
   const [hasMore] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const {
     result: apiResult,
-    isLoading,
+    isLoading: apiLoading,
     run: refetchData,
   } = usePromiseResult(
     async () => {
-      if (!watchlist || watchlist.length === 0) return { list: [] } as const;
+      if (!watchlist || watchlist.length === 0) {
+        // For empty watchlist, still simulate a brief loading period for better UX
+        if (isInitialLoad) {
+          await new Promise((resolve) => setTimeout(resolve, 300));
+        }
+        return { list: [] } as const;
+      }
       const tokenAddressList = watchlist.map((item) => ({
         chainId: item.chainId,
         contractAddress: item.contractAddress,
@@ -56,7 +63,7 @@ export function useMarketWatchlistTokenList({
         });
       return response;
     },
-    [watchlist],
+    [watchlist, isInitialLoad],
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
       watchLoading: true,
@@ -65,6 +72,9 @@ export function useMarketWatchlistTokenList({
       checkIsFocused: true,
     },
   );
+
+  // Combined loading state: show loading during initial load or when API is loading
+  const isLoading = isInitialLoad || apiLoading;
 
   useEffect(() => {
     if (!apiResult || !apiResult.list) return;
@@ -101,7 +111,12 @@ export function useMarketWatchlistTokenList({
     });
 
     setTransformedData(filteredTransformed);
-  }, [apiResult, watchlist]);
+
+    // Reset initial load state after first data arrives
+    if (isInitialLoad) {
+      setIsInitialLoad(false);
+    }
+  }, [apiResult, watchlist, isInitialLoad]);
 
   // Apply minimum liquidity filter (maxLiquidity no longer exists)
   const filteredData = useMemo(() => {
@@ -156,10 +171,15 @@ export function useMarketWatchlistTokenList({
     void refetchData();
   }, [refetchData]);
 
+  // Add isNetworkSwitching state for consistency with normal token list
+  // Watchlist doesn't switch networks, so always false
+  const isNetworkSwitching = false;
+
   return {
     data: paginatedData,
     isLoading,
     isLoadingMore,
+    isNetworkSwitching,
     canLoadMore: hasMore,
     currentPage,
     totalPages,

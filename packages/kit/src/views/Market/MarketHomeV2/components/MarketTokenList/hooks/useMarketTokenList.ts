@@ -38,6 +38,7 @@ export function useMarketTokenList({
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isNetworkSwitching, setIsNetworkSwitching] = useState(false);
   const maxPages = 5;
 
   // Optimize network logo URI calculation
@@ -102,6 +103,9 @@ export function useMarketTokenList({
 
     // Update data only after successful fetch (preserve existing data during loading)
     setTransformedData(transformed);
+
+    // Reset network switching state when new data arrives
+    setIsNetworkSwitching(false);
   }, [apiResult, networkId, networkLogoUri]);
 
   // Reset pagination when networkId, sortBy, or sortType changes
@@ -111,6 +115,11 @@ export function useMarketTokenList({
     // Don't clear data immediately to avoid UI flicker
     // The data will be replaced when new API result arrives
   }, [networkId, sortBy, sortType]);
+
+  // Handle network switching - separate effect to track networkId changes specifically
+  useEffect(() => {
+    setIsNetworkSwitching(true);
+  }, [networkId]);
 
   const totalCount = apiResult?.total || 0;
 
@@ -191,6 +200,7 @@ export function useMarketTokenList({
     data: transformedData,
     isLoading,
     isLoadingMore,
+    isNetworkSwitching,
     totalPages,
     totalCount,
     currentPage,
