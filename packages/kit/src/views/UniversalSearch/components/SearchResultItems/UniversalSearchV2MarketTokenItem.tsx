@@ -87,8 +87,8 @@ export function UniversalSearchV2MarketTokenItem({
           searchStatus === ESearchStatus.init ? 'trendingList' : 'searchList',
       });
 
-      // Only add to recent search list when not in trending section
-      if (searchStatus !== ESearchStatus.init) {
+      // Only add to recent search list when not in trending section and symbol is not empty
+      if (searchStatus !== ESearchStatus.init && symbol?.trim()) {
         setTimeout(() => {
           universalSearchActions.current.addIntoRecentSearchList({
             id: address,
