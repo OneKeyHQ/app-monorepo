@@ -500,6 +500,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         toTokenAmount: swapToAmount.value,
         providerInfo: currentQuoteRes?.info,
         supportPreBuild,
+        minToAmount: currentQuoteRes?.minToAmount,
         slippage:
           currentQuoteRes?.protocol === EProtocolOfExchange.LIMIT ||
           currentQuoteRes?.unSupportSlippage

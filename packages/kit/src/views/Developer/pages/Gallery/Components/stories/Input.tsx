@@ -68,6 +68,11 @@ const InputGallery = () => (
               ]}
             />
             <Input
+              size="small"
+              placeholder="allowSecureTextEye"
+              allowSecureTextEye
+            />
+            <Input
               size="medium"
               placeholder="Placeholder"
               addOns={[
