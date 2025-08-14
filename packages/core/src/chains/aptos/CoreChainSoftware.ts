@@ -1,9 +1,9 @@
+import { createSignInSigningMessage } from '@aptos-labs/siwa';
 import {
   Ed25519PublicKey,
   Ed25519Signature,
   SignedTransaction,
   TransactionAuthenticatorEd25519,
-  deriveTransactionType,
   generateSigningMessageForTransaction,
 } from '@aptos-labs/ts-sdk';
 // eslint-disable-next-line camelcase
@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import { EMessageTypesAptos } from '@onekeyhq/shared/types/message';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import {
@@ -150,8 +151,16 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       payload,
       curve: curveName,
     });
-    const [signature] = await signer.sign(Buffer.from(unsignedMsg.message));
-    return hexUtils.addHexPrefix(signature.toString('hex'));
+    if (unsignedMsg.type === EMessageTypesAptos.SIGN_IN) {
+      const signInMessage = createSignInSigningMessage(unsignedMsg.message);
+      const [signature] = await signer.sign(Buffer.from(signInMessage));
+      return hexUtils.addHexPrefix(signature.toString('hex'));
+    }
+    if (unsignedMsg.type === EMessageTypesAptos.SIGN_MESSAGE) {
+      const [signature] = await signer.sign(Buffer.from(unsignedMsg.message));
+      return hexUtils.addHexPrefix(signature.toString('hex'));
+    }
+    throw new OneKeyLocalError(`Unsupported message type`);
   }
 
   override async getAddressFromPublic(
