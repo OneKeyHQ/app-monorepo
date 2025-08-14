@@ -1,7 +1,7 @@
 import { forwardRef, memo, useImperativeHandle, useRef, useState } from 'react';
 
 import { ScrollView, XStack } from '@onekeyhq/components';
-import type { IPopoverProps } from '@onekeyhq/components';
+import type { IListViewProps, IPopoverProps } from '@onekeyhq/components';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { GradientMask } from './GradientMask';
@@ -16,6 +16,7 @@ interface IMarketNetworkFilterMobileProps {
   onMoreNetworkSelect: (network: IServerNetwork) => void;
   placement?: IPopoverProps['placement'];
   showMoreButton?: boolean;
+  containerStyle?: IListViewProps<any>['contentContainerStyle'];
 }
 
 // Layout constants for mobile network filter scrolling calculations
@@ -34,7 +35,7 @@ export interface IMarketNetworkFilterMobileRef {
 const MarketNetworkFilterMobile = forwardRef<
   IMarketNetworkFilterMobileRef,
   IMarketNetworkFilterMobileProps
->(({ networks, selectedNetwork, onSelectNetwork }, ref) => {
+>(({ networks, selectedNetwork, onSelectNetwork, containerStyle }, ref) => {
   const [scrollX, setScrollX] = useState(0);
   const [scrollViewWidth, setScrollViewWidth] = useState(0);
   const [contentWidth, setContentWidth] = useState(0);
@@ -80,8 +81,6 @@ const MarketNetworkFilterMobile = forwardRef<
 
   return (
     <XStack
-      pt="$3"
-      pb="$2"
       position="relative"
       maxWidth="100%"
       overflow="hidden"
@@ -90,6 +89,7 @@ const MarketNetworkFilterMobile = forwardRef<
         <ScrollView
           ref={scrollViewRef}
           horizontal
+          contentContainerStyle={containerStyle}
           showsHorizontalScrollIndicator={false}
           scrollEventThrottle={16}
           onScroll={(event) => {
