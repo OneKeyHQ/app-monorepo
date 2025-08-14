@@ -74,7 +74,10 @@ function AddressTypeSelectorItem(props: IProps) {
     <ListItem
       disabled={isCreatingAddress}
       alignItems="flex-start"
-      mx="$1"
+      borderRadius="$2"
+      mx="$0"
+      px="$2"
+      py="$1"
       title={
         deriveInfo.labelKey
           ? intl.formatMessage({ id: deriveInfo.labelKey })
@@ -85,6 +88,7 @@ function AddressTypeSelectorItem(props: IProps) {
         $gtMd: {
           size: '$bodySmMedium',
         },
+        pb: '$0.5',
       }}
       subtitle={
         account
@@ -100,14 +104,22 @@ function AddressTypeSelectorItem(props: IProps) {
         },
       }}
       childrenBefore={
-        <Stack w="$5" mr="$-1">
+        <Stack
+          w="$5"
+          h="$5"
+          $gtMd={{
+            w: '$4',
+            h: '$4',
+          }}
+          mr="$-1"
+        >
           {!account && !isCreatingCurrentDeriveType ? (
             <Icon size="$4" name="PlusLargeOutline" color="$iconSubdued" />
           ) : null}
           {account && deriveType === activeDeriveType ? (
             <Icon size="$4" name="CheckmarkSolid" color="$iconActive" />
           ) : null}
-          {isCreatingCurrentDeriveType ? <Spinner /> : null}
+          {isCreatingCurrentDeriveType ? <Spinner size="small" /> : null}
         </Stack>
       }
       onPress={() => {
@@ -120,7 +132,7 @@ function AddressTypeSelectorItem(props: IProps) {
     >
       {tokenFiat ? (
         <YStack alignItems="flex-end">
-          <XStack alignItems="center" gap="$1">
+          <XStack alignItems="center" gap="$1" pb="$0.5">
             <NetworkAvatar networkId={networkId} size={16} />
             <NumberSizeableText
               size="$bodyMdMedium"

@@ -106,6 +106,7 @@ const SwapAccountAddressContainer = ({
       activeAccount.vaultSettings?.mergeDeriveAssetsEnabled &&
       !!fromToken ? (
         <AddressTypeSelector
+          placement="bottom-start"
           networkId={fromToken.networkId}
           indexedAccountId={activeAccount.indexedAccount?.id ?? ''}
           walletId={activeAccount.wallet?.id ?? ''}

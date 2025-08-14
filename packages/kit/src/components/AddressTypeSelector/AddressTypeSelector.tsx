@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Icon,
   IconButton,
   ListView,
   Popover,
@@ -22,6 +23,7 @@ import type {
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { getMergedDeriveTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -41,7 +43,6 @@ import AddressTypeSelectorItem from './AddressTypeSelectorItem';
 import AddressTypeSelectorTrigger from './AddressTypeSelectorTrigger';
 
 import type { PopoverProps } from 'tamagui';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 const helpLinkMap: Record<string, string> = {
   [IMPL_BTC]: 'https://help.onekey.so/articles/11461370',
@@ -137,7 +138,6 @@ function AddressTypeSelectorContent(
         <SizableText
           size="$bodyMd"
           color="$textSubdued"
-          mb="$4"
           $gtMd={{
             size: '$bodySm',
           }}
@@ -249,19 +249,21 @@ function AddressTypeSelectorContent(
 
   return (
     <YStack
-      pb="$3"
+      p="$3"
       $gtMd={{
-        pt: '$3',
+        p: '$2',
       }}
+      gap="$4"
       onPress={(e) => {
         e.stopPropagation();
       }}
     >
-      <YStack px="$4">
-        {gtMd ? selectorTitle : null}
+      <YStack px="$2" py="$1" gap="$2">
+        {selectorTitle}
         {selectorDescription}
       </YStack>
       <ListView
+        gap="$1.5"
         data={networkAccounts}
         renderItem={({ item }) => {
           return (
@@ -273,11 +275,14 @@ function AddressTypeSelectorContent(
         }}
       />
       {doubleConfirm ? (
-        <XStack px="$5" pt="$4">
+        <XStack px="$2" pb="$2">
           <Button
             flex={1}
             size="medium"
             variant="primary"
+            $gtMd={{
+              size: 'small',
+            }}
             onPress={async () => {
               if (!activeDeriveType) {
                 return;
@@ -302,9 +307,6 @@ function AddressTypeSelectorContent(
                 });
               }
               closePopover();
-            }}
-            $gtMd={{
-              size: 'small',
             }}
           >
             {confirmText || 'Confirm address'}
@@ -396,31 +398,49 @@ function AddressTypeSelector(props: IProps) {
       }
 
     return (
-      <XStack
-        alignItems="center"
-        gap={6}
-        $gtMd={{
-          mb: '$2',
-        }}
-      >
-        <SizableText
-          size="$bodyLgMedium"
-          $gtMd={{
-            size: '$headingSm',
-          }}
-        >
-          {defaultTitle}
-        </SizableText>
-        {helpLink ? (
-          <IconButton
-            size="small"
-            variant="tertiary"
-            icon="QuestionmarkOutline"
-            onPress={() => {
+      <XStack alignItems="center" justifyContent="space-between">
+        <XStack
+          gap={6}
+          alignItems="center"
+          {...(helpLink && {
+            userSelect: 'none',
+            px: '$2',
+            py: '$1',
+            mx: '$-2',
+            my: '$-1',
+            borderRadius: '$2',
+            hoverStyle: {
+              bg: '$bgHover',
+            },
+            pressStyle: {
+              bg: '$bgActive',
+            },
+            onPress: () => {
               openUrlExternal(helpLink);
+            },
+          })}
+        >
+          <SizableText
+            size="$headingMd"
+            $gtMd={{
+              size: '$headingSm',
             }}
+          >
+            {defaultTitle}
+          </SizableText>
+          {helpLink ? (
+            <Icon name="QuestionmarkOutline" size="$4" color="$iconSubdued" />
+          ) : null}
+        </XStack>
+        <Popover.Close>
+          <IconButton
+            $gtMd={{
+              display: 'none',
+            }}
+            icon="CrossedSmallOutline"
+            variant="tertiary"
           />
-        ) : null}
+        </Popover.Close>
       </XStack>
     );
   }, [helpLink, title]);
@@ -519,7 +539,8 @@ function AddressTypeSelector(props: IProps) {
   return (
     <Popover
       placement={placement}
-      title={selectorTitle}
+      title=""
+      showHeader={false}
       renderTrigger={
         renderSelectorTrigger ?? (
           <AddressTypeSelectorTrigger activeDeriveInfo={activeDeriveInfo} />
@@ -555,6 +576,9 @@ function AddressTypeSelector(props: IProps) {
               setActiveDeriveType(deriveType);
             });
         }
+      }}
+      floatingPanelProps={{
+        width: '$80',
       }}
     />
   );
