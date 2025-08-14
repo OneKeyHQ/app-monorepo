@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import type { IPopoverProps } from '@onekeyhq/components';
+import type { IListViewProps, IPopoverProps } from '@onekeyhq/components';
 import { useMedia } from '@onekeyhq/components';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -16,12 +16,14 @@ interface IMarketTokenListNetworkSelectorProps {
   selectedNetworkId?: string;
   onSelectNetworkId?: (networkId: string) => void;
   placement?: IPopoverProps['placement'];
+  containerStyle?: IListViewProps<any>['contentContainerStyle'];
 }
 
 function MarketTokenListNetworkSelector({
   selectedNetworkId,
   onSelectNetworkId,
   placement,
+  containerStyle,
 }: IMarketTokenListNetworkSelectorProps) {
   const { md } = useMedia();
   const normalComponentRef =
@@ -95,6 +97,7 @@ function MarketTokenListNetworkSelector({
         handleMoreNetworkSelect={handleMoreNetworkSelect}
         isLoading={isLoading}
         placement={placement}
+        containerStyle={containerStyle}
       />
     );
   }
