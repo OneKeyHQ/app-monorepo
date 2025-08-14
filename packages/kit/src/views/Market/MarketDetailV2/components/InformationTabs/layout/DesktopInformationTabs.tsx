@@ -10,8 +10,9 @@ import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { Holders } from '../components/Holders';
 import { TransactionsHistory } from '../components/TransactionsHistory';
 
-import type { TabBarProps } from 'react-native-collapsible-tab-view';
 import { StickyHeader } from './StickyHeader';
+
+import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
 function DesktopInformationTabsHeader(props: TabBarProps<string>) {
   const firstTabName = useMemo(() => {
@@ -19,7 +20,13 @@ function DesktopInformationTabsHeader(props: TabBarProps<string>) {
     return tabNames[0];
   }, [props]);
   return (
-    <YStack bg="$bgApp" pointerEvents="box-none">
+    <YStack
+      bg="$bgApp"
+      pointerEvents="box-none"
+      position={'sticky' as any}
+      top={0}
+      zIndex={10}
+    >
       <Tabs.TabBar {...props} />
       <StickyHeader firstTabName={firstTabName} />
     </YStack>
