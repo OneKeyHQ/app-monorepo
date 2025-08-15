@@ -5,7 +5,7 @@ import { Layout } from './utils/Layout';
 
 const ShortcutGallery = () => (
   <Layout
-    filePath={globalThis.__CURRENT_FILE_PATH__}
+    filePath={__CURRENT_FILE_PATH__}
     componentName="Shortcut"
     elements={[
       {

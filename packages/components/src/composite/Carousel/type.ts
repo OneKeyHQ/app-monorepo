@@ -21,7 +21,7 @@ export interface ICarouselProps<T> {
   data?: T[];
   autoPlayInterval?: number;
   loop?: boolean;
-  ref?: React.RefObject<ICarouselInstance>;
+  ref?: React.RefObject<ICarouselInstance | null>;
   renderItem: ({ item, index }: { item: T; index: number }) => React.ReactNode;
   containerStyle?: IXStackProps;
   showPagination?: boolean;
@@ -31,6 +31,11 @@ export interface ICarouselProps<T> {
   marginRatio?: number;
   maxPageWidth?: number;
   onPageChanged?: (index: number) => void;
+  /**
+   * @description Default index to show initially (0-based)
+   * @default 0
+   */
+  defaultIndex?: number;
   renderPaginationItem?: (
     item: IPaginationItemProps<T>,
     index: number,

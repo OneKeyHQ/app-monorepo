@@ -114,10 +114,7 @@ const ThemeColorsGallery = () => {
   };
 
   return (
-    <Layout
-      filePath={globalThis.__CURRENT_FILE_PATH__}
-      componentName="Theme Colors"
-    >
+    <Layout filePath={__CURRENT_FILE_PATH__} componentName="Theme Colors">
       <YStack mb="$4">
         <SizableText size="$heading2xl" mb="$1">
           Current Theme: {themeVariant}
