@@ -70,6 +70,12 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     rewrite: '/earn/staking/v2/:symbol/:provider',
   },
   {
+    name: EModalStakingRoutes.ProtocolDetailsV2Share,
+    component: ProtocolDetailsV2,
+    exact: true,
+    rewrite: '/defi/:network/:symbol/:provider',
+  },
+  {
     name: EModalStakingRoutes.Stake,
     component: Stake,
   },
