@@ -77,7 +77,11 @@ export const useCopyAccountAddress = () => {
             message: account.address,
           });
         } else {
-          copyText(account.address);
+          copyText(account.address, undefined, false);
+          Toast.success({
+            title: `${network?.shortname ?? ''} address copied`,
+            message: account.address,
+          });
         }
       }
     },
@@ -109,6 +113,11 @@ export const useCopyAddressWithDeriveType = () => {
                 })
               : deriveInfo.label ?? ''
           } address copied`,
+          message: address,
+        });
+      } else {
+        Toast.success({
+          title: `${networkName ?? ''} address copied`,
           message: address,
         });
       }

@@ -157,11 +157,13 @@ function ReceiveToken() {
         networkName: network?.shortname,
       });
     } else {
-      copyText(currentAccount?.address ?? '');
+      copyAddressWithDeriveType({
+        address: currentAccount?.address ?? '',
+        networkName: network?.shortname,
+      });
     }
   }, [
     copyAddressWithDeriveType,
-    copyText,
     currentAccount?.address,
     currentDeriveInfo,
     network?.shortname,

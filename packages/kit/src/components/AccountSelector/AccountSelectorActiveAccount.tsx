@@ -246,14 +246,16 @@ export function AccountSelectorActiveAccountHome({
         networkName: network?.shortname,
       });
     } else {
-      copyText(account.address);
+      copyAddressWithDeriveType({
+        address: account.address,
+        networkName: network?.shortname,
+      });
     }
     logActiveAccount();
   }, [
     account?.address,
     account?.id,
     copyAddressWithDeriveType,
-    copyText,
     deriveInfoItems,
     indexedAccount?.id,
     logActiveAccount,

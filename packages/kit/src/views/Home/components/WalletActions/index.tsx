@@ -25,8 +25,6 @@ import {
   EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 import {
   ESwapSource,
   ESwapTabSwitchType,
