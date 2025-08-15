@@ -417,12 +417,16 @@ function ReceiveToken() {
 
     return (
       <XStack
-        maxWidth={288}
+        maxWidth={304}
         flexWrap="wrap"
         {...(shouldShowAddress && {
           onPress: handleCopyAddress,
           userSelect: 'none',
-          borderRadius: '$1',
+          py: '$1',
+          px: '$2',
+          mx: '$-2',
+          my: '$-1',
+          borderRadius: '$2',
           hoverStyle: {
             bg: '$bgHover',
           },
@@ -448,12 +452,21 @@ function ReceiveToken() {
 
     return (
       <YStack
-        borderTopWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
         backgroundColor="$bgSubdued"
         padding="$5"
         pb={bottom || '$5'}
         gap="$5"
+        $platform-native={{
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: '$neutral3',
+        }}
+        $theme-dark={{
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: '$neutral3',
+        }}
+        $platform-web={{
+          boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.10) inset',
+        }}
       >
         <YStack gap="$1.5">
           <XStack gap="$2" alignItems="center">
@@ -466,6 +479,9 @@ function ReceiveToken() {
             {vaultSettings?.mergeDeriveAssetsEnabled ? (
               <AddressTypeSelector
                 placement="top-start"
+                offset={{
+                  mainAxis: 8,
+                }}
                 showTriggerWhenDisabled
                 walletId={walletId}
                 networkId={networkId}
@@ -535,6 +551,7 @@ function ReceiveToken() {
         width={264}
         height={264}
         p="$5"
+        mb="$6"
         alignItems="center"
         justifyContent="center"
         bg="white"
@@ -545,10 +562,8 @@ function ReceiveToken() {
           borderColor: '$borderSubdued',
         }}
         $platform-web={{
-          outlineWidth: 1,
-          outlineColor: '$neutral3',
-          outlineStyle: 'solid',
-          outlineOffset: 0,
+          boxShadow:
+            '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.10), 0 1px 2px 0 rgba(0, 0, 0, 0.10)',
         }}
         elevation={0.5}
         {...(!shouldShowQRCode && {

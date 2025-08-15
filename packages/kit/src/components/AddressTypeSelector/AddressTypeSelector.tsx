@@ -425,7 +425,7 @@ function AddressTypeSelector(props: IProps) {
           gap={6}
           alignItems="center"
           {...(helpLink && {
-            userSelect: 'none',
+            cursor: 'pointer',
             px: '$2',
             py: '$1',
             mx: '$-2',

@@ -21,13 +21,26 @@ function AddressTypeSelectorTrigger(props: IProps) {
   return (
     <Badge
       userSelect="none"
+      role="button"
       pr="$1"
       gap="$0.5"
       hoverStyle={{
         bg: '$bgStrongHover',
       }}
-      pressStyle={{
-        bg: '$bgStrongActive',
+      $platform-native={{
+        hitSlop: {
+          top: 8,
+          bottom: 8,
+          left: 8,
+          right: 8,
+        },
+      }}
+      focusable
+      focusVisibleStyle={{
+        outlineWidth: 2,
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+        outlineOffset: 0,
       }}
     >
       <Badge.Text>
