@@ -7,6 +7,7 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -67,13 +68,26 @@ export const useCopyAccountAddress = () => {
         ) {
           copyText(account.address, undefined, false);
           Toast.success({
-            title: `${network?.shortname ?? ''} ${
-              deriveInfo.labelKey
-                ? intl.formatMessage({
-                    id: deriveInfo.labelKey,
-                  })
-                : deriveInfo.label ?? ''
-            } address copied`,
+            // title: `${network?.shortname ?? ''} ${
+            //   deriveInfo.labelKey
+            //     ? intl.formatMessage({
+            //         id: deriveInfo.labelKey,
+            //       })
+            //     : deriveInfo.label ?? ''
+            // } address copied`,
+            title: intl.formatMessage(
+              {
+                id: ETranslations.address_copied_toast_title,
+              },
+              {
+                network: network?.shortname ?? '',
+                addressType: deriveInfo.labelKey
+                  ? intl.formatMessage({
+                      id: deriveInfo.labelKey,
+                    })
+                  : deriveInfo.label ?? '',
+              },
+            ),
             message: account.address,
           });
         } else {

@@ -104,6 +104,7 @@
   address_book_edit_address_delete_contact_title = 'address_book_edit_address.delete_contact_title',
   address_book_edit_address_title = 'address_book_edit_address.title',
   address_book_select_title = 'address_book_select.title',
+  address_copied_toast_title = 'address_copied_toast_title',
   address_input_contract_popover = 'address_input.contract_popover',
   address_input_first_transfer_popover = 'address_input.first_transfer_popover',
   address_input_transferred_popover = 'address_input.transferred_popover',
