@@ -18,7 +18,6 @@ import { useMarketTabsLogic } from './hooks';
 
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
 import type { IMarketHomeTabValue } from '../types';
-import type { SharedValue } from 'react-native-reanimated';
 
 interface IMobileLayoutProps {
   filterBarProps: {

@@ -75,7 +75,7 @@ export function useMarketTabsLogic(
     // Note: This will be automatically updated by useEffect above, but we do it immediately for responsive UI
     focusedTab.value = tabName;
     carouselRef.current?.scrollTo({ index: tabNames.indexOf(tabName) });
-  }, 100);
+  }, 50);
 
   return {
     tabNames,
