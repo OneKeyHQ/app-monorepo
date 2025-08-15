@@ -107,6 +107,7 @@ export function MobileLayout() {
   }, [pointerEventsSharedValue, tradingViewPositionSharedValue]);
 
   const onScrollEnd = useCallback(() => {
+    if (pointerEventsSharedValue.value !== 'none') {
       runOnJS(setPointerEvents)('none');
     }
   }, [pointerEventsSharedValue]);
