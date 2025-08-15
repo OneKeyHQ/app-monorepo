@@ -106,9 +106,9 @@ export function MobileLayout() {
     });
   }, [pointerEventsSharedValue, tradingViewPositionSharedValue]);
 
-  const onScrollEnd = useCallback(() => {
+  const setPointerEventsToNone = useCallback(() => {
     if (pointerEventsSharedValue.value !== 'none') {
-      runOnJS(setPointerEvents)('none');
+      setPointerEvents('none');
     }
   }, [pointerEventsSharedValue]);
 
@@ -118,7 +118,7 @@ export function MobileLayout() {
         return (
           <YStack flex={1} height={height}>
             <MobileInformationTabs
-              onScrollEnd={onScrollEnd}
+              onScrollEnd={setPointerEventsToNone}
               renderHeader={() => (
                 <YStack bg="$bgApp" pointerEvents="box-none">
                   <InformationPanel />
@@ -126,7 +126,9 @@ export function MobileLayout() {
                     h={350}
                     ref={tradingViewContainerRef}
                     position="relative"
-                    pointerEvents={pointerEvents}
+                    pointerEvents={
+                      platformEnv.isNative ? pointerEvents : undefined
+                    }
                     onLayout={handleTradingViewContainerLayout}
                   >
                     <MarketTradingView
@@ -159,6 +161,7 @@ export function MobileLayout() {
       height,
       networkId,
       pointerEvents,
+      setPointerEventsToNone,
       tokenAddress,
       tokenDetail?.symbol,
     ],

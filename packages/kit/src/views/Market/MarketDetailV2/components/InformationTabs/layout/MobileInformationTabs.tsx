@@ -67,11 +67,7 @@ export function MobileInformationTabs({
             id: ETranslations.dexmarket_holders,
           })}
         >
-          <Holders
-            tokenAddress={tokenAddress}
-            networkId={networkId}
-            onScrollEnd={onScrollEnd}
-          />
+          <Holders tokenAddress={tokenAddress} networkId={networkId} />
         </Tabs.Tab>,
       );
     }

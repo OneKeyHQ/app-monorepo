@@ -1,24 +1,25 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
+import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
-  ScrollView,
   SizableText,
   Stack,
   Tabs,
+  useCurrentTabScrollY,
   useMedia,
 } from '@onekeyhq/components';
 import { useLeftColumnWidthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketTransactions } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketTransactions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import { TransactionsSkeleton } from './components/TransactionsSkeleton';
 import { TransactionItemNormal } from './layout/TransactionItemNormal/TransactionItemNormal';
-import { TransactionsHeaderNormal } from './layout/TransactionItemNormal/TransactionsHeaderNormal';
 import { TransactionItemSmall } from './layout/TransactionItemSmall/TransactionItemSmall';
-import { TransactionsHeaderSmall } from './layout/TransactionItemSmall/TransactionsHeaderSmall';
 
 import type { FlatListProps } from 'react-native';
 
@@ -27,6 +28,24 @@ interface ITransactionsHistoryProps {
   networkId: string;
   onScrollEnd: () => void;
 }
+
+const useScrollEnd = platformEnv.isNative
+  ? (onScrollEnd: () => void) => {
+      const scrollY = useCurrentTabScrollY();
+
+      const debouncedOnScrollEnd = useDebouncedCallback(onScrollEnd, 150);
+
+      useAnimatedReaction(
+        () => scrollY.value,
+        (current, prev) => {
+          if (current !== prev) {
+            runOnJS(debouncedOnScrollEnd)();
+          }
+        },
+        [onScrollEnd],
+      );
+    }
+  : () => {};
 
 export function TransactionsHistory({
   tokenAddress,
@@ -73,6 +92,8 @@ export function TransactionsHistory({
     console.log('handleEndReached');
   }, []);
 
+  useScrollEnd(onScrollEnd);
+
   return (
     <Tabs.FlatList<IMarketTokenTransaction>
       // ref={listRef}
@@ -81,7 +102,6 @@ export function TransactionsHistory({
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       showsVerticalScrollIndicator
-      onMomentumScrollEnd={onScrollEnd}
       ListEmptyComponent={
         isRefreshing ? (
           <TransactionsSkeleton />

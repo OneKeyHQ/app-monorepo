@@ -2,13 +2,7 @@ import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  ScrollView,
-  SizableText,
-  Stack,
-  Tabs,
-  useMedia,
-} from '@onekeyhq/components';
+import { SizableText, Stack, Tabs, useMedia } from '@onekeyhq/components';
 import { useLeftColumnWidthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketHolders } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -26,10 +20,9 @@ import type { FlatListProps } from 'react-native';
 interface IHoldersProps {
   tokenAddress: string;
   networkId: string;
-  onScrollEnd: () => void;
 }
 
-function HoldersBase({ tokenAddress, networkId, onScrollEnd }: IHoldersProps) {
+function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
   const intl = useIntl();
   const { gtLg } = useMedia();
   const [leftColumnWidth] = useLeftColumnWidthAtom();
@@ -59,7 +52,6 @@ function HoldersBase({ tokenAddress, networkId, onScrollEnd }: IHoldersProps) {
       keyExtractor={(item: IMarketTokenHolder) =>
         item.accountAddress + item.fiatValue + item.amount
       }
-      onMomentumScrollEnd={onScrollEnd}
       showsVerticalScrollIndicator
       ListEmptyComponent={
         isRefreshing ? (
