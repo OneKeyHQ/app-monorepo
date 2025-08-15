@@ -1321,6 +1321,7 @@ const icons = {
   ChecklistBoxNotificationSolid: () =>
     import("./react/solid/ChecklistBoxNotification"),
   ChecklistBoxSearchSolid: () => import("./react/solid/ChecklistBoxSearch"),
+  CheckmarkSolid: () => import("./react/solid/Checkmark"),
   ChevronBottomSolid: () => import("./react/solid/ChevronBottom"),
   ChevronDoubleDownSolid: () => import("./react/solid/ChevronDoubleDown"),
   ChevronDoubleLeftSolid: () =>

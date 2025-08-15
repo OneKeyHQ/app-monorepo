@@ -339,9 +339,6 @@ function RawPopover({
       {platformEnv.isNative ? null : (
         <TMPopover.Content
           unstyled
-          outlineColor="$neutral3"
-          outlineStyle="solid"
-          outlineWidth="$px"
           display={display}
           style={{
             transformOrigin,
@@ -354,7 +351,16 @@ function RawPopover({
           w="$96"
           bg="$bg"
           borderRadius="$3"
-          elevation={20}
+          $platform-web={{
+            outlineColor: '$neutral3',
+            outlineStyle: 'solid',
+            outlineWidth: '$px',
+            boxShadow:
+              '0 4px 6px -4px rgba(0, 0, 0, 0.10), 0 10px 15px -3px rgba(0, 0, 0, 0.10)',
+          }}
+          $platform-native={{
+            elevation: 20,
+          }}
           animation={[
             'quick',
             {
