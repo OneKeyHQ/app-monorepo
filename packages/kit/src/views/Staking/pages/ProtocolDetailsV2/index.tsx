@@ -8,13 +8,16 @@ import type { IButtonProps } from '@onekeyhq/components';
 import {
   Badge,
   Button,
+  Dialog,
   Divider,
   Image,
+  Input,
   Page,
   Toast,
   XStack,
   YStack,
   useMedia,
+  useShare,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -26,9 +29,14 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { PeriodSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/PeriodSectionV2';
 import { ProtectionSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/ProtectionSectionV2';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useDevSettingsPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { WEB_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalReceiveRoutes,
   EModalRoutes,
@@ -61,7 +69,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { showRiskNoticeDialogBeforeDepositOrWithdraw } from '../../../Earn/components/RiskNoticeDialog';
-import { EarnNetworkUtils } from '../../../Earn/earnUtils';
+import { EarnNavigation, EarnNetworkUtils } from '../../../Earn/earnUtils';
 import {
   PageFrame,
   isErrorState,
@@ -866,6 +874,46 @@ const ProtocolDetailsPage = () => {
 
   const intl = useIntl();
   const media = useMedia();
+  const { shareText } = useShare();
+  const [devSettings] = useDevSettingsPersistAtom();
+
+  // Generate share URL
+  const shareUrl = useMemo(() => {
+    if (!symbol || !provider || !networkId) return undefined;
+    const shareLink = EarnNavigation.generateShareLink({
+      networkId,
+      symbol,
+      provider,
+      vault,
+      isDevMode: devSettings.enabled,
+    });
+    return shareLink;
+  }, [symbol, provider, networkId, vault, devSettings.enabled]);
+
+  const handleShare = useCallback(() => {
+    if (!shareUrl) return;
+
+    Dialog.show({
+      icon: 'ShareOutline',
+      title: intl.formatMessage({ id: ETranslations.explore_share }),
+      showFooter: true,
+      showConfirmButton: true,
+      showCancelButton: false,
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.browser_copy_link,
+      }),
+      confirmButtonProps: {
+        variant: 'primary',
+        icon: 'Copy1Outline',
+      },
+      onConfirm: async () => {
+        void shareText(shareUrl);
+      },
+      renderContent: (
+        <Input value={shareUrl} disabled editable={false} color="$text" />
+      ),
+    });
+  }, [shareUrl, shareText, intl]);
 
   const depositActionProps = useMemo(() => {
     const item = detailInfo?.actions?.find((i) => i.type === 'deposit');
@@ -1180,6 +1228,8 @@ const ProtocolDetailsPage = () => {
                   historyAction={historyAction}
                   onRefresh={run}
                   onPress={onHistory}
+                  shareUrl={shareUrl}
+                  onShare={handleShare}
                 />
               ) : null}
             </PageFrame>

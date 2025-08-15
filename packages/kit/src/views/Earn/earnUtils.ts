@@ -1,4 +1,9 @@
+import {
+  WEB_APP_URL,
+  WEB_APP_URL_DEV,
+} from '@onekeyhq/shared/src/config/appConfig';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -107,14 +112,24 @@ export const EarnNavigation = {
     symbol,
     provider,
     vault,
+    isDevMode = false,
   }: {
     networkId: string;
     symbol: string;
     provider: string;
     vault?: string;
+    isDevMode?: boolean;
   }): string {
+    let origin = WEB_APP_URL;
+    if (platformEnv.isWeb) {
+      origin = globalThis.location.origin;
+    }
+    if (!platformEnv.isWeb && isDevMode) {
+      origin = WEB_APP_URL_DEV;
+    }
+
     const networkName = EarnNetworkUtils.getShareNetworkParam(networkId);
-    const baseUrl = `/earn/${networkName}/${symbol}/${provider}`;
+    const baseUrl = `/defi/${networkName}/${symbol}/${provider}`;
     const queryParams = new URLSearchParams();
 
     if (vault) {
@@ -122,6 +137,8 @@ export const EarnNavigation = {
     }
 
     const queryString = queryParams.toString();
-    return queryString ? `${baseUrl}?${queryString}` : baseUrl;
+    return queryString
+      ? `${origin}${baseUrl}?${queryString}`
+      : `${origin}${baseUrl}`;
   },
 };
