@@ -52,7 +52,7 @@ const ComposedEventsDemo = () => {
 
 const TriggerGallery = () => (
   <Layout
-    filePath={globalThis.__CURRENT_FILE_PATH__}
+    filePath={__CURRENT_FILE_PATH__}
     componentName="Trigger"
     description="Trigger is a component that allows you to trigger events when a button is pressed."
     elements={[

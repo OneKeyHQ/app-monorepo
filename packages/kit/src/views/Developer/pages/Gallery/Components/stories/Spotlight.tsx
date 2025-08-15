@@ -32,7 +32,7 @@ function DefaultPage() {
 export default function SpotlightGallery() {
   return (
     <Layout
-      filePath={globalThis.__CURRENT_FILE_PATH__}
+      filePath={__CURRENT_FILE_PATH__}
       componentName="Spotlight"
       description="Spotlight 组件"
       suggestions={[

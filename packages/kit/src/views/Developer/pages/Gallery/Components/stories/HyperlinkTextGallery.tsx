@@ -6,7 +6,7 @@ import { Layout } from './utils/Layout';
 
 const HyperlinkTextGallery = () => (
   <Layout
-    filePath={globalThis.__CURRENT_FILE_PATH__}
+    filePath={__CURRENT_FILE_PATH__}
     componentName="HyperlinkText"
     description="FormattedMessage component for i18n text display"
     suggestions={['Use for displaying translated text']}

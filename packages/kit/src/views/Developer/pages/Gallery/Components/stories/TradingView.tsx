@@ -4,7 +4,7 @@ import { Layout } from './utils/Layout';
 
 const TradingViewGallery = () => (
   <Layout
-    filePath={globalThis.__CURRENT_FILE_PATH__}
+    filePath={__CURRENT_FILE_PATH__}
     componentName="TradingView"
     elements={[
       {
