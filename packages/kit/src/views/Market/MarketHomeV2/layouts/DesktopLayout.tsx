@@ -34,6 +34,7 @@ export function DesktopLayout({
     focusedTab,
     carouselRef,
     handleTabChange,
+    defaultIndex,
   } = useMarketTabsLogic(onTabChange);
 
   const height = useMemo(() => {
@@ -68,7 +69,7 @@ export function DesktopLayout({
         focusedTab={focusedTab}
       />
       <Carousel
-        defaultIndex={1}
+        defaultIndex={defaultIndex}
         disableAnimation
         containerStyle={{ height }}
         ref={carouselRef as any}

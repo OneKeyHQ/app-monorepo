@@ -42,6 +42,7 @@ export function MobileLayout({
     focusedTab,
     carouselRef,
     handleTabChange,
+    defaultIndex,
   } = useMarketTabsLogic(onTabChange);
 
   // Type assertion to help ESLint understand the type
@@ -56,9 +57,11 @@ export function MobileLayout({
 
   const onPageChanged = useCallback(
     (index: number) => {
-      typedFocusedTab.value = tabNames[index];
+      // Update the atom state, which will sync to SharedValue automatically
+      const tabName = tabNames[index];
+      handleTabChange(tabName);
     },
-    [typedFocusedTab, tabNames],
+    [handleTabChange, tabNames],
   );
 
   const renderItem = useCallback(
@@ -92,7 +95,7 @@ export function MobileLayout({
         pagerProps={{
           scrollSensitivity: 5,
         }}
-        defaultIndex={1}
+        defaultIndex={defaultIndex}
         containerStyle={{ height }}
         ref={carouselRef as any}
         onPageChanged={onPageChanged}
