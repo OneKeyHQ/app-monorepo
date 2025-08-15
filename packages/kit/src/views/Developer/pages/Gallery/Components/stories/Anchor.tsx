@@ -4,7 +4,7 @@ import { Layout } from './utils/Layout';
 
 const AnchorGallery = () => (
   <Layout
-    filePath={globalThis.__CURRENT_FILE_PATH__}
+    filePath={__CURRENT_FILE_PATH__}
     componentName="Anchor"
     description="Anchor component provides a way to link to external websites. It extends SizableText, adding the href, target, and rel attributes."
     elements={[

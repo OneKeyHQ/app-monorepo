@@ -323,7 +323,7 @@ const TabsWithInitialTabDemo = () => {
 
 const NewTabsGallery = () => (
   <Layout
-    filePath={globalThis.__CURRENT_FILE_PATH__}
+    filePath={__CURRENT_FILE_PATH__}
     componentName="NewTabs"
     suggestions={[
       '使用 Tabs.Container 作为容器组件',

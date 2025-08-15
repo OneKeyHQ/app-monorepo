@@ -18,7 +18,6 @@ import { useMarketTabsLogic } from './hooks';
 
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
 import type { IMarketHomeTabValue } from '../types';
-import type { SharedValue } from 'react-native-reanimated';
 
 interface IMobileLayoutProps {
   filterBarProps: {
@@ -42,10 +41,11 @@ export function MobileLayout({
     focusedTab,
     carouselRef,
     handleTabChange,
+    defaultIndex,
   } = useMarketTabsLogic(onTabChange);
 
   // Type assertion to help ESLint understand the type
-  const typedFocusedTab = focusedTab as SharedValue<string>;
+  const typedFocusedTab = focusedTab;
 
   const { top, bottom } = useSafeAreaInsets();
   const height = useMemo(() => {
@@ -56,9 +56,11 @@ export function MobileLayout({
 
   const onPageChanged = useCallback(
     (index: number) => {
-      typedFocusedTab.value = tabNames[index];
+      // Update the atom state, which will sync to SharedValue automatically
+      const tabName = tabNames[index];
+      handleTabChange(tabName);
     },
-    [typedFocusedTab, tabNames],
+    [handleTabChange, tabNames],
   );
 
   const renderItem = useCallback(
@@ -92,6 +94,7 @@ export function MobileLayout({
         pagerProps={{
           scrollSensitivity: 5,
         }}
+        defaultIndex={defaultIndex}
         containerStyle={{ height }}
         ref={carouselRef as any}
         onPageChanged={onPageChanged}

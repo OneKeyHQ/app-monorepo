@@ -80,11 +80,7 @@ const MarketNetworkFilterMobile = forwardRef<
   );
 
   return (
-    <XStack
-      position="relative"
-      maxWidth="100%"
-      overflow="hidden"
-    >
+    <XStack position="relative" maxWidth="100%" overflow="hidden">
       <XStack flex={1} position="relative">
         <ScrollView
           ref={scrollViewRef}
