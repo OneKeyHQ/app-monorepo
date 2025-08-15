@@ -19,6 +19,7 @@ module.exports = [
   'PerpTrade',
   'perpTradeRouters',
   'thirdparty',
+  'perps',
   'cors',
   '110xxxxx',
   '1110xxxx',

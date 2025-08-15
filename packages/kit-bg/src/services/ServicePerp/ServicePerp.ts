@@ -13,6 +13,7 @@ import {
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import thirdpartyLocaleConverter from '@onekeyhq/shared/src/locale/thirdpartyLocaleConverter';
+import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
@@ -544,6 +545,8 @@ class ServicePerp extends ServiceBase {
     });
   }
 
+  isLocaleUpdatedByDapp = false;
+
   @backgroundMethod()
   async getBuilderFeeConfig() {
     const shouldModifyPlaceOrderPayload = true;
@@ -556,11 +559,30 @@ class ServicePerp extends ServiceBase {
     if (expectMaxBuilderFee < 0) {
       expectMaxBuilderFee = 0;
     }
-    const { locale: storedLocale } = await settingsPersistAtom.get();
-    const locale = await this.backgroundApi.serviceSetting.getCurrentLocale();
+    let locale: ILocaleSymbol | undefined;
+    let storedLocale: ILocaleSymbol | undefined;
+    let localeStr = '';
+    if (!this.isLocaleUpdatedByDapp) {
+      ({ locale: storedLocale } = await settingsPersistAtom.get());
+      locale = await this.backgroundApi.serviceSetting.getCurrentLocale();
+      if (locale) {
+        localeStr =
+          thirdpartyLocaleConverter.toHyperLiquidWebDappLocale(locale);
+      }
+      this.isLocaleUpdatedByDapp = true;
+    }
+    const customLocalStorage: Record<string, any> = {
+      'hyperliquid.coin_selector.tab': `"perps"`, // "perps", "all", "spot"
+      'activeCoin': 'BTC', // do not use `"BTC"`
+    };
+    if (localeStr) {
+      // hyperliquid.locale-setting: "zh-CN"
+      customLocalStorage['hyperliquid.locale-setting'] = `"${localeStr}"`;
+    }
     return {
-      locale: thirdpartyLocaleConverter.toHyperLiquidWebDappLocale(locale),
+      locale: localeStr,
       storedLocale,
+      customLocalStorage,
       expectBuilderAddress,
       expectMaxBuilderFee,
       shouldModifyPlaceOrderPayload,

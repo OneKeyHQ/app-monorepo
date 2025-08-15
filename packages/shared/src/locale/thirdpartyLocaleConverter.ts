@@ -17,7 +17,8 @@ function toHyperLiquidWebDappLocale(locale: ILocaleSymbol): string {
   if (locale.startsWith('ko-')) {
     return 'ko-KR';
   }
-  return locale;
+  return 'en-US';
+  // return locale;
 }
 
 export default {
