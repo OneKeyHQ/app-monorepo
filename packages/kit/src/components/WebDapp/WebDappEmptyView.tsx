@@ -117,8 +117,8 @@ function WebDappEmptyView() {
         pb: 32,
       }}
       $md={{
-        mx: '$5',
-        width: 'auto',
+        px: '$5',
+        width: '100%',
         alignSelf: 'center',
         pt: 20,
         pb: 40,
@@ -210,7 +210,7 @@ function WebDappEmptyView() {
         <Divider flex={1} borderColor="$borderDisabled" />
       </XStack>
 
-      <YStack gap="$3">
+      <YStack gap="$3" w="100%">
         {isMobileLayout ? <TrackAddressHeader /> : null}
         <YStack
           py="$4"
