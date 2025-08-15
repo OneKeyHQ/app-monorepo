@@ -96,19 +96,23 @@ export function MobileLayout() {
 
   const tagGesture = useMemo(() => {
     return Gesture.Tap().onStart((event) => {
-      const { minY, maxY } = tradingViewPositionSharedValue.value;
-      const isInTradingView =
-        event.absoluteY >= minY && event.absoluteY <= maxY;
-      const currentPointerEvents = isInTradingView ? 'auto' : 'none';
-      if (currentPointerEvents !== pointerEventsSharedValue.value) {
-        runOnJS(setPointerEvents)(currentPointerEvents);
+      if (platformEnv.isNative) {
+        const { minY, maxY } = tradingViewPositionSharedValue.value;
+        const isInTradingView =
+          event.absoluteY >= minY && event.absoluteY <= maxY;
+        const currentPointerEvents = isInTradingView ? 'auto' : 'none';
+        if (currentPointerEvents !== pointerEventsSharedValue.value) {
+          runOnJS(setPointerEvents)(currentPointerEvents);
+        }
       }
     });
   }, [pointerEventsSharedValue, tradingViewPositionSharedValue]);
 
   const setPointerEventsToNone = useCallback(() => {
-    if (pointerEventsSharedValue.value !== 'none') {
-      setPointerEvents('none');
+    if (platformEnv.isNative) {
+      if (pointerEventsSharedValue.value !== 'none') {
+        setPointerEvents('none');
+      }
     }
   }, [pointerEventsSharedValue]);
 
