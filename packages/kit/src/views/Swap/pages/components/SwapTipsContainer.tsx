@@ -56,6 +56,16 @@ const SwapTipsContainer = () => {
         pressStyle={{
           bg: '$bgActive',
         }}
+        $platform-native={{
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 0.5 },
+          shadowOpacity: 0.2,
+          shadowRadius: 0.5,
+        }}
+        $platform-android={{ elevation: 0.5 }}
+        $platform-web={{
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+        }}
         focusable
         focusVisibleStyle={{
           outlineColor: '$focusRing',
