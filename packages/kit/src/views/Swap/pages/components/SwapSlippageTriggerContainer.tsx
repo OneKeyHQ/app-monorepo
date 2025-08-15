@@ -98,7 +98,7 @@ const SwapSlippageTriggerContainer = ({
       onPress={debounceOnPress}
       questionMarkContent={
         <SizableText
-          p="$5"
+          p="$4"
           $gtMd={{
             size: '$bodyMd',
           }}
