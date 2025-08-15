@@ -56,8 +56,8 @@ export function Carousel<T>({
   defaultIndex = 0,
 }: ICarouselProps<T>) {
   const pagerRef = useRef<NativePagerView>(undefined);
-  const [pageIndex, setPageIndex] = useState<number>(0);
-  const currentPage = useRef<number>(0);
+  const [pageIndex, setPageIndex] = useState<number>(defaultIndex);
+  const currentPage = useRef<number>(defaultIndex);
   currentPage.current = pageIndex;
 
   const debouncedSetPageIndex = useDebouncedCallback(setPageIndex, 50);

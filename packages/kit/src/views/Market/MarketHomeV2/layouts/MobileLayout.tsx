@@ -92,6 +92,7 @@ export function MobileLayout({
         pagerProps={{
           scrollSensitivity: 5,
         }}
+        defaultIndex={1}
         containerStyle={{ height }}
         ref={carouselRef as any}
         onPageChanged={onPageChanged}

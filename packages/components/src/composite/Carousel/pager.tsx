@@ -23,13 +23,14 @@ export function PagerView({
   keyboardDismissMode,
   pageWidth,
   disableAnimation = false,
+  initialPage = 0,
 }: Omit<PagerViewProps, 'ref'> & {
   ref: React.RefObject<PagerViewType>;
   pageWidth: number;
   disableAnimation?: boolean;
 }) {
   const scrollViewRef = useRef<ScrollView>(null);
-  const pageIndex = useRef<number>(0);
+  const pageIndex = useRef<number>(initialPage);
   const pageSize = useMemo(() => {
     return Children.count(children);
   }, [children]);
@@ -54,6 +55,24 @@ export function PagerView({
     },
     [pageSize],
   );
+
+  // Set initial page position when component mounts or when pageWidth changes
+  useEffect(() => {
+    if (pageWidth > 0 && initialPage > 0 && scrollViewRef.current) {
+      const safeInitialPage = getSafePageIndex(initialPage);
+      scrollViewRef.current.scrollTo({
+        x: safeInitialPage * pageWidth,
+        y: 0,
+        animated: false,
+      });
+      pageIndex.current = safeInitialPage;
+      void onPageSelected?.({
+        nativeEvent: {
+          position: safeInitialPage,
+        },
+      } as any);
+    }
+  }, [pageWidth, initialPage, getSafePageIndex, onPageSelected]);
 
   useEffect(() => {
     const debouncedSetPage = debounce(() => {
