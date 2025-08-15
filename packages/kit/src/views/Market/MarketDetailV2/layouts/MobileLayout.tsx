@@ -1,10 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Dimensions } from 'react-native';
-import { useSharedValue } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS, useSharedValue } from 'react-native-reanimated';
 
-import type { ICarouselInstance, IScrollViewRef } from '@onekeyhq/components';
+import type {
+  ICarouselInstance,
+  IScrollViewRef,
+  IStackProps,
+} from '@onekeyhq/components';
 import {
   Carousel,
   ScrollView,
@@ -25,6 +30,8 @@ import {
 } from '../components';
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
 import { useTokenDetail } from '../hooks/useTokenDetail';
+
+import type { View } from 'react-native';
 
 export function MobileLayout() {
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
@@ -64,36 +71,72 @@ export function MobileLayout() {
     [focusedTab, tabNames, width],
   );
 
-  const onPageChanged = useCallback(
-    (index: number) => {
-      focusedTab.value = tabNames[index];
-    },
-    [focusedTab, tabNames],
-  );
+  const [pointerEvents, setPointerEvents] =
+    useState<IStackProps['pointerEvents']>('none');
+
+  const pointerEventsSharedValue = useSharedValue(pointerEvents);
+  pointerEventsSharedValue.value = pointerEvents;
+
+  const tradingViewContainerRef = useRef<View>(null);
+  const tradingViewPositionSharedValue = useSharedValue({
+    minY: 255,
+    maxY: 605,
+  });
+
+  const handleTradingViewContainerLayout = useCallback(() => {
+    tradingViewContainerRef.current?.measure(
+      (x, y, innerWidth, innerHeight, pageX, pageY) => {
+        tradingViewPositionSharedValue.value = {
+          minY: pageY,
+          maxY: pageY + innerHeight,
+        };
+      },
+    );
+  }, [tradingViewPositionSharedValue]);
+
+  const tagGesture = useMemo(() => {
+    return Gesture.Tap().onStart((event) => {
+      const { minY, maxY } = tradingViewPositionSharedValue.value;
+      const isInTradingView =
+        event.absoluteY >= minY && event.absoluteY <= maxY;
+      const currentPointerEvents = isInTradingView ? 'auto' : 'none';
+      if (currentPointerEvents !== pointerEventsSharedValue.value) {
+        runOnJS(setPointerEvents)(currentPointerEvents);
+      }
+    });
+  }, [pointerEventsSharedValue, tradingViewPositionSharedValue]);
 
   const renderItem = useCallback(
     ({ index }: { index: number }) => {
       if (index === 0) {
         return (
-          <YStack flex={1} height={height}>
-            <MobileInformationTabs
-              renderHeader={() => (
-                <YStack bg="$bgApp" pointerEvents="box-none">
-                  <InformationPanel />
-                  <Stack h={350}>
-                    <MarketTradingView
-                      tokenAddress={tokenAddress}
-                      networkId={networkId}
-                      tokenSymbol={tokenDetail?.symbol}
-                      // onPanesCountChange={(count: number) => {
-                      //   setPanesCount(count);
-                      // }}
-                    />
-                  </Stack>
-                </YStack>
-              )}
-            />
-          </YStack>
+          <GestureDetector gesture={tagGesture}>
+            <YStack flex={1} height={height}>
+              <MobileInformationTabs
+                renderHeader={() => (
+                  <YStack bg="$bgApp" pointerEvents="box-none">
+                    <InformationPanel />
+                    <Stack
+                      h={350}
+                      ref={tradingViewContainerRef}
+                      position="relative"
+                      pointerEvents={pointerEvents}
+                      onLayout={handleTradingViewContainerLayout}
+                    >
+                      <MarketTradingView
+                        tokenAddress={tokenAddress}
+                        networkId={networkId}
+                        tokenSymbol={tokenDetail?.symbol}
+                        // onPanesCountChange={(count: number) => {
+                        //   setPanesCount(count);
+                        // }}
+                      />
+                    </Stack>
+                  </YStack>
+                )}
+              />
+            </YStack>
+          </GestureDetector>
         );
       }
       return (
@@ -106,7 +149,15 @@ export function MobileLayout() {
         </YStack>
       );
     },
-    [height, networkId, tokenAddress, tokenDetail?.symbol],
+    [
+      handleTradingViewContainerLayout,
+      height,
+      networkId,
+      pointerEvents,
+      tagGesture,
+      tokenAddress,
+      tokenDetail?.symbol,
+    ],
   );
 
   return (
