@@ -26,9 +26,10 @@ import type { FlatListProps } from 'react-native';
 interface IHoldersProps {
   tokenAddress: string;
   networkId: string;
+  onScrollEnd: () => void;
 }
 
-function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
+function HoldersBase({ tokenAddress, networkId, onScrollEnd }: IHoldersProps) {
   const intl = useIntl();
   const { gtLg } = useMedia();
   const [leftColumnWidth] = useLeftColumnWidthAtom();
@@ -58,6 +59,7 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
       keyExtractor={(item: IMarketTokenHolder) =>
         item.accountAddress + item.fiatValue + item.amount
       }
+      onMomentumScrollEnd={onScrollEnd}
       showsVerticalScrollIndicator
       ListEmptyComponent={
         isRefreshing ? (

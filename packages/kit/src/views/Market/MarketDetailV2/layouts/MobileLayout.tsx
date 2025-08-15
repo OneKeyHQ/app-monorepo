@@ -106,12 +106,18 @@ export function MobileLayout() {
     });
   }, [pointerEventsSharedValue, tradingViewPositionSharedValue]);
 
+  const onScrollEnd = useCallback(() => {
+      runOnJS(setPointerEvents)('none');
+    }
+  }, [pointerEventsSharedValue]);
+
   const renderItem = useCallback(
     ({ index }: { index: number }) => {
       if (index === 0) {
         return (
           <YStack flex={1} height={height}>
             <MobileInformationTabs
+              onScrollEnd={onScrollEnd}
               renderHeader={() => (
                 <YStack bg="$bgApp" pointerEvents="box-none">
                   <InformationPanel />

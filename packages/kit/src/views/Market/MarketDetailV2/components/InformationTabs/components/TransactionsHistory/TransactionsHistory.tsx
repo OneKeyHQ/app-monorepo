@@ -25,11 +25,13 @@ import type { FlatListProps } from 'react-native';
 interface ITransactionsHistoryProps {
   tokenAddress: string;
   networkId: string;
+  onScrollEnd: () => void;
 }
 
 export function TransactionsHistory({
   tokenAddress,
   networkId,
+  onScrollEnd,
 }: ITransactionsHistoryProps) {
   const intl = useIntl();
   const { gtLg } = useMedia();
@@ -79,6 +81,7 @@ export function TransactionsHistory({
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       showsVerticalScrollIndicator
+      onMomentumScrollEnd={onScrollEnd}
       ListEmptyComponent={
         isRefreshing ? (
           <TransactionsSkeleton />
