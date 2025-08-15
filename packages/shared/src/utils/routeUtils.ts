@@ -89,7 +89,7 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
   // }
   function pagePath(_: TemplateStringsArray, ...screenNames: string[]): string {
     let screenConfig = screens;
-    const pathArray = screenNames.reduce((prev, screenName) => {
+    const path = screenNames.reduce((prev, screenName) => {
       const screen = screenConfig[screenName];
       if (platformEnv.isDev) {
         if (!screen) {
