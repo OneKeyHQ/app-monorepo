@@ -172,7 +172,7 @@ export function QRWalletGalleryDemo() {
 
 const QRWalletGallery = () => (
   <Layout
-    filePath={globalThis.__CURRENT_FILE_PATH__}
+    filePath={__CURRENT_FILE_PATH__}
     description="--"
     suggestions={['--']}
     boundaryConditions={['--']}

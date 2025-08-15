@@ -45,7 +45,7 @@ export function MobileLayout({
   } = useMarketTabsLogic(onTabChange);
 
   // Type assertion to help ESLint understand the type
-  const typedFocusedTab = focusedTab as SharedValue<string>;
+  const typedFocusedTab = focusedTab;
 
   const { top, bottom } = useSafeAreaInsets();
   const height = useMemo(() => {

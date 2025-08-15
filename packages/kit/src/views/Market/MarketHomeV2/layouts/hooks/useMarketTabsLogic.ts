@@ -2,7 +2,6 @@ import { useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useSharedValue } from 'react-native-reanimated';
-import type { SharedValue } from 'react-native-reanimated';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type { ICarouselInstance } from '@onekeyhq/components';
@@ -10,6 +9,7 @@ import { useSelectedMarketTabAtom } from '@onekeyhq/kit/src/states/jotai/context
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IMarketHomeTabValue } from '../../types';
+import type { SharedValue } from 'react-native-reanimated';
 
 export interface IMarketTabsLogicReturn {
   // Tab related data

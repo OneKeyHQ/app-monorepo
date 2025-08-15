@@ -53,6 +53,7 @@ export function Carousel<T>({
   renderPaginationItem = defaultRenderPaginationItem,
   disableAnimation = false,
   pagerProps,
+  defaultIndex = 0,
 }: ICarouselProps<T>) {
   const pagerRef = useRef<NativePagerView>(undefined);
   const [pageIndex, setPageIndex] = useState<number>(0);
@@ -195,7 +196,7 @@ export function Carousel<T>({
             <PagerView
               ref={pagerRef as RefObject<NativePagerView>}
               style={{ width: layout.width, height: layout.height }}
-              initialPage={0}
+              initialPage={defaultIndex}
               pageWidth={pageWidth}
               onPageSelected={onPageSelected}
               keyboardDismissMode="on-drag"
