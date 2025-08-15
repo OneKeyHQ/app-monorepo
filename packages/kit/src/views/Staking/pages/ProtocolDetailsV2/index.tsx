@@ -33,10 +33,8 @@ import {
   useDevSettingsPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { WEB_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalReceiveRoutes,
   EModalRoutes,
@@ -45,10 +43,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type {
-  EEarnProviderEnum,
-  ISupportedSymbol,
-} from '@onekeyhq/shared/types/earn';
+import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import {
   normalizeToEarnProvider,
   normalizeToEarnSymbol,
