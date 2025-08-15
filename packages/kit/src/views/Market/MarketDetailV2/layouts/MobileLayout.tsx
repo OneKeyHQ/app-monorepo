@@ -110,33 +110,31 @@ export function MobileLayout() {
     ({ index }: { index: number }) => {
       if (index === 0) {
         return (
-          <GestureDetector gesture={tagGesture}>
-            <YStack flex={1} height={height}>
-              <MobileInformationTabs
-                renderHeader={() => (
-                  <YStack bg="$bgApp" pointerEvents="box-none">
-                    <InformationPanel />
-                    <Stack
-                      h={350}
-                      ref={tradingViewContainerRef}
-                      position="relative"
-                      pointerEvents={pointerEvents}
-                      onLayout={handleTradingViewContainerLayout}
-                    >
-                      <MarketTradingView
-                        tokenAddress={tokenAddress}
-                        networkId={networkId}
-                        tokenSymbol={tokenDetail?.symbol}
-                        // onPanesCountChange={(count: number) => {
-                        //   setPanesCount(count);
-                        // }}
-                      />
-                    </Stack>
-                  </YStack>
-                )}
-              />
-            </YStack>
-          </GestureDetector>
+          <YStack flex={1} height={height}>
+            <MobileInformationTabs
+              renderHeader={() => (
+                <YStack bg="$bgApp" pointerEvents="box-none">
+                  <InformationPanel />
+                  <Stack
+                    h={350}
+                    ref={tradingViewContainerRef}
+                    position="relative"
+                    pointerEvents={pointerEvents}
+                    onLayout={handleTradingViewContainerLayout}
+                  >
+                    <MarketTradingView
+                      tokenAddress={tokenAddress}
+                      networkId={networkId}
+                      tokenSymbol={tokenDetail?.symbol}
+                      // onPanesCountChange={(count: number) => {
+                      //   setPanesCount(count);
+                      // }}
+                    />
+                  </Stack>
+                </YStack>
+              )}
+            />
+          </YStack>
         );
       }
       return (
@@ -154,28 +152,34 @@ export function MobileLayout() {
       height,
       networkId,
       pointerEvents,
-      tagGesture,
       tokenAddress,
       tokenDetail?.symbol,
     ],
   );
 
   return (
-    <YStack flex={1}>
-      <Tabs.TabBar
-        divider={false}
-        onTabPress={handleTabChange}
-        tabNames={tabNames}
-        focusedTab={focusedTab}
-      />
-      <ScrollView horizontal ref={scrollViewRef} flex={1} scrollEnabled={false}>
-        {tabNames.map((item, index) => (
-          <YStack key={index} h={height} w={width}>
-            {renderItem({ index })}
-          </YStack>
-        ))}
-      </ScrollView>
-      <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />
-    </YStack>
+    <GestureDetector gesture={tagGesture}>
+      <YStack flex={1}>
+        <Tabs.TabBar
+          divider={false}
+          onTabPress={handleTabChange}
+          tabNames={tabNames}
+          focusedTab={focusedTab}
+        />
+        <ScrollView
+          horizontal
+          ref={scrollViewRef}
+          flex={1}
+          scrollEnabled={false}
+        >
+          {tabNames.map((item, index) => (
+            <YStack key={index} h={height} w={width}>
+              {renderItem({ index })}
+            </YStack>
+          ))}
+        </ScrollView>
+        <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />
+      </YStack>
+    </GestureDetector>
   );
 }
