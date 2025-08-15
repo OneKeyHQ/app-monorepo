@@ -68,16 +68,9 @@ export const useCopyAccountAddress = () => {
         ) {
           copyText(account.address, undefined, false);
           Toast.success({
-            // title: `${network?.shortname ?? ''} ${
-            //   deriveInfo.labelKey
-            //     ? intl.formatMessage({
-            //         id: deriveInfo.labelKey,
-            //       })
-            //     : deriveInfo.label ?? ''
-            // } address copied`,
             title: intl.formatMessage(
               {
-                id: ETranslations.address_copied_toast_title,
+                id: ETranslations.address_copied_with_type_toast_title,
               },
               {
                 network: network?.shortname ?? '',
@@ -93,7 +86,14 @@ export const useCopyAccountAddress = () => {
         } else {
           copyText(account.address, undefined, false);
           Toast.success({
-            title: `${network?.shortname ?? ''} address copied`,
+            title: intl.formatMessage(
+              {
+                id: ETranslations.address_copied_toast_title,
+              },
+              {
+                network: network?.shortname ?? '',
+              },
+            ),
             message: account.address,
           });
         }
@@ -120,18 +120,31 @@ export const useCopyAddressWithDeriveType = () => {
 
       if (deriveInfo) {
         Toast.success({
-          title: `${networkName ?? ''} ${
-            deriveInfo.labelKey
-              ? intl.formatMessage({
-                  id: deriveInfo.labelKey,
-                })
-              : deriveInfo.label ?? ''
-          } address copied`,
+          title: intl.formatMessage(
+            {
+              id: ETranslations.address_copied_with_type_toast_title,
+            },
+            {
+              network: networkName ?? '',
+              addressType: deriveInfo.labelKey
+                ? intl.formatMessage({
+                    id: deriveInfo.labelKey,
+                  })
+                : deriveInfo.label ?? '',
+            },
+          ),
           message: address,
         });
       } else {
         Toast.success({
-          title: `${networkName ?? ''} address copied`,
+          title: intl.formatMessage(
+            {
+              id: ETranslations.address_copied_toast_title,
+            },
+            {
+              network: networkName ?? '',
+            },
+          ),
           message: address,
         });
       }

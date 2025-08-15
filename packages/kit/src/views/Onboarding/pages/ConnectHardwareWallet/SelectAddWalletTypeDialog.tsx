@@ -42,7 +42,7 @@ export function SelectAddWalletTypeDialogContent({
           })}
           onPress={onAddStandardWalletPress}
         >
-          <ListItem.DrillIn color="$textInverseSubdued" />
+          <ListItem.DrillIn />
         </ListItem>
 
         <ListItem
