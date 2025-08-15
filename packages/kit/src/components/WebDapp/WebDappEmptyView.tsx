@@ -31,6 +31,21 @@ import { urlAccountNavigation } from '../../views/Home/pages/urlAccount/urlAccou
 
 const ETH_DEV_ADDRESS = '0xde0b295669a9fd93d5f28d9ec85e40f4cb697bae';
 
+function TrackAddressHeader() {
+  const intl = useIntl();
+
+  return (
+    <XStack alignItems="center" gap="$2">
+      <Icon name="EyeOutline" size="$5" color="$icon" />
+      <SizableText size="$headingMd" color="$text">
+        {intl.formatMessage({
+          id: ETranslations.global_track_any_address,
+        })}
+      </SizableText>
+    </XStack>
+  );
+}
+
 function WebDappEmptyView() {
   const intl = useIntl();
   const media = useMedia();
@@ -104,6 +119,7 @@ function WebDappEmptyView() {
       $md={{
         mx: '$5',
         width: 'auto',
+        alignSelf: 'center',
         pt: 20,
         pb: 40,
       }}
@@ -111,21 +127,21 @@ function WebDappEmptyView() {
       <YStack
         bg="$bgSubdued"
         borderRadius="$4"
-        borderWidth={StyleSheet.hairlineWidth}
+        borderWidth={isMobileLayout ? 0 : StyleSheet.hairlineWidth}
         borderColor="$neutral3"
         width="100%"
       >
         <YStack
-          p="$5"
-          pt="$4"
+          p={isMobileLayout ? '0' : '$5'}
+          pt={isMobileLayout ? '0' : '$4'}
           bg="$bgApp"
           borderRadius="$4"
-          shadowRadius="$1"
+          shadowRadius={isMobileLayout ? 0 : '$1'}
           shadowColor="$shadowColor"
           shadowOpacity={0.1}
           borderBottomWidth={isMobileLayout ? 0 : StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
-          gap="$4"
+          gap={isMobileLayout ? '$3' : '$4'}
           w="$full"
         >
           <XStack alignItems="center" gap="$1.5">
@@ -135,7 +151,7 @@ function WebDappEmptyView() {
             </SizableText>
           </XStack>
 
-          <YStack gap="$4">
+          <YStack gap={isMobileLayout ? '$3' : '$4'}>
             <OneKeyWalletConnectionOptions />
           </YStack>
           <TermsAndPrivacy
@@ -175,8 +191,13 @@ function WebDappEmptyView() {
         )}
       </YStack>
 
-      <XStack gap="$2" py="$8" alignItems="center" w="100%">
-        <Divider width="100%" borderColor="$borderDisabled" />
+      <XStack
+        gap="$2"
+        py={isMobileLayout ? '$6' : '$8'}
+        alignItems="center"
+        w="100%"
+      >
+        <Divider flex={1} borderColor="$borderDisabled" />
         <SizableText
           size="$bodySmMedium"
           color="$textDisabled"
@@ -186,87 +207,89 @@ function WebDappEmptyView() {
             id: ETranslations.global_or,
           })}
         </SizableText>
-        <Divider width="100%" borderColor="$borderDisabled" />
+        <Divider flex={1} borderColor="$borderDisabled" />
       </XStack>
 
-      <YStack py="$4" bg="$bgSubdued" borderRadius="$4" width="100%">
-        <YStack px="$5" pb="$4">
-          <XStack alignItems="center" gap="$2">
-            <Icon name="EyeOutline" size="$5" color="$icon" />
-            <SizableText size="$headingMd" color="$text">
+      <YStack gap="$3">
+        {isMobileLayout ? <TrackAddressHeader /> : null}
+        <YStack
+          py="$4"
+          pt={isMobileLayout ? '$3' : null}
+          bg="$bgSubdued"
+          borderRadius="$4"
+          width="100%"
+        >
+          <YStack px="$5" pb="$4">
+            {isMobileLayout ? null : <TrackAddressHeader />}
+            <SizableText size="$bodyMd" color="$textSubdued" pt="$1">
               {intl.formatMessage({
-                id: ETranslations.global_track_any_address,
+                id: ETranslations.global_track_any_address_description,
               })}
             </SizableText>
-          </XStack>
-          <SizableText size="$bodyMd" color="$textSubdued" pt="$1">
-            {intl.formatMessage({
-              id: ETranslations.global_track_any_address_description,
-            })}
-          </SizableText>
-        </YStack>
+          </YStack>
 
-        <Stack px="$5">
-          <Stack flex={1}>
-            <UniversalSearchInput
-              searchType="address"
-              placeholder={intl.formatMessage({
-                id: ETranslations.wallet_track_any_address_placeholder,
-              })}
-              renderResultItem={renderResultItem}
-              popoverContainerProps={{
-                mx: '$0',
-              }}
-              minSearchLength={3}
-              debounceMs={300}
-              maxResultHeight={240}
-              background="$bgApp"
-            />
+          <Stack px="$5">
+            <Stack flex={1}>
+              <UniversalSearchInput
+                searchType="address"
+                placeholder={intl.formatMessage({
+                  id: ETranslations.wallet_track_any_address_placeholder,
+                })}
+                renderResultItem={renderResultItem}
+                popoverContainerProps={{
+                  mx: '$0',
+                }}
+                minSearchLength={3}
+                debounceMs={300}
+                maxResultHeight={240}
+                background="$bgApp"
+              />
+            </Stack>
           </Stack>
-        </Stack>
 
-        <XStack gap="$1.5" px="$5" pb="$0" pt="$3" alignItems="center">
-          <SizableText size="$bodyMd" color="$textDisabled">
-            {intl.formatMessage({
-              id: ETranslations.global_eg,
-            })}
-          </SizableText>
-          <Badge
-            gap="$1"
-            py="$0.5"
-            px="$2"
-            bg="$bgStrong"
-            borderRadius="$1"
-            alignItems="center"
-            cursor="pointer"
-            hoverStyle={{
-              bg: '$bgStrong',
-            }}
-            pressStyle={{
-              bg: '$bgActive',
-            }}
-            onPress={() => {
-              void urlAccountNavigation.pushOrReplaceUrlAccountPage(
-                appNavigation,
-                {
-                  address: ETH_DEV_ADDRESS,
-                  networkId: getNetworkIdsMap().eth,
-                },
-              );
-            }}
-          >
-            <SizableText size="$bodyMdMedium" color="$text">
-              EthDev
-            </SizableText>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {accountUtils.shortenAddress({
-                address: ETH_DEV_ADDRESS,
-                trailingLength: 6,
-                leadingLength: 4,
+          <XStack gap="$1.5" px="$5" pb="$0" pt="$3" alignItems="center">
+            <SizableText size="$bodyMd" color="$textDisabled">
+              {intl.formatMessage({
+                id: ETranslations.global_eg,
               })}
             </SizableText>
-          </Badge>
-        </XStack>
+            <Badge
+              gap="$1"
+              py="$0.5"
+              px="$2"
+              bg="$bgStrong"
+              borderRadius="$1"
+              alignItems="center"
+              cursor="pointer"
+              hoverStyle={{
+                bg: '$bgStrong',
+              }}
+              pressStyle={{
+                bg: '$bgActive',
+              }}
+              onPress={() => {
+                void urlAccountNavigation.pushOrReplaceUrlAccountPage(
+                  appNavigation,
+                  {
+                    address: ETH_DEV_ADDRESS,
+                    networkId: getNetworkIdsMap().eth,
+                  },
+                );
+              }}
+            >
+              <SizableText size="$bodyMdMedium" color="$text">
+                EthDev
+              </SizableText>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {accountUtils.shortenAddress({
+                  address: ETH_DEV_ADDRESS,
+                  trailingLength: 6,
+                  leadingLength: 4,
+                })}
+              </SizableText>
+            </Badge>
+          </XStack>
+        </YStack>
       </YStack>
     </YStack>
   );
