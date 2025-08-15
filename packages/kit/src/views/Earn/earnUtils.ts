@@ -129,7 +129,7 @@ export const EarnNavigation = {
     }
 
     const networkName = EarnNetworkUtils.getShareNetworkParam(networkId);
-    const baseUrl = `/defi/${networkName}/${symbol}/${provider}`;
+    const baseUrl = `/defi/${networkName}/${symbol.toLowerCase()}/${provider.toLowerCase()}`;
     const queryParams = new URLSearchParams();
 
     if (vault) {

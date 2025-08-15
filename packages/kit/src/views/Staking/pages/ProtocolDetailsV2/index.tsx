@@ -887,28 +887,8 @@ const ProtocolDetailsPage = () => {
 
   const handleShare = useCallback(() => {
     if (!shareUrl) return;
-
-    Dialog.show({
-      icon: 'ShareOutline',
-      title: intl.formatMessage({ id: ETranslations.explore_share }),
-      showFooter: true,
-      showConfirmButton: true,
-      showCancelButton: false,
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.browser_copy_link,
-      }),
-      confirmButtonProps: {
-        variant: 'primary',
-        icon: 'Copy1Outline',
-      },
-      onConfirm: async () => {
-        void shareText(shareUrl);
-      },
-      renderContent: (
-        <Input value={shareUrl} disabled editable={false} color="$text" />
-      ),
-    });
-  }, [shareUrl, shareText, intl]);
+    void shareText(shareUrl);
+  }, [shareUrl, shareText]);
 
   const depositActionProps = useMemo(() => {
     const item = detailInfo?.actions?.find((i) => i.type === 'deposit');
