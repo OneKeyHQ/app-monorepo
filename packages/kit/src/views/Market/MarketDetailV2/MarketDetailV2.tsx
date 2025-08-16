@@ -13,9 +13,9 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type {
   ETabMarketRoutes,
-  ETabRoutes,
   type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
