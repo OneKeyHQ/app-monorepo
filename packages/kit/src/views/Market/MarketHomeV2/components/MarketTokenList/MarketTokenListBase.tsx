@@ -138,6 +138,14 @@ function MarketTokenListBase({
     ) : null;
   }, [isLoadingMore]);
 
+  if (showSkeleton && platformEnv.isNativeAndroid) {
+    return (
+      <Stack flex={1} alignItems="center" justifyContent="center" py="$4">
+        <Spinner size="small" />
+      </Stack>
+    );
+  }
+
   return (
     <Stack flex={1} width="100%">
       {/* render custom toolbar if provided */}
