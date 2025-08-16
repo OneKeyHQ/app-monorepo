@@ -1,5 +1,3 @@
-import { StyleSheet } from 'react-native';
-
 import {
   Icon,
   IconButton,
@@ -10,14 +8,12 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useSwapTipsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 const SwapTipsContainer = () => {
   const [swapTips, setSwapTips] = useSwapTipsAtom();
   const { gtSm } = useMedia();
-  const themeVariant = useThemeVariant();
 
   if (!swapTips) {
     return null;
