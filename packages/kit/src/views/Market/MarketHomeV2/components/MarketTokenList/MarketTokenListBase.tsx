@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import { Spinner, Stack, Table, useMedia } from '@onekeyhq/components';
@@ -128,6 +128,14 @@ function MarketTokenListBase({
   const showSkeleton =
     (Boolean(isLoading) && data.length === 0) || Boolean(isNetworkSwitching);
 
+  const TableFooterComponent = useMemo(() => {
+    return isLoadingMore ? (
+      <Stack alignItems="center" justifyContent="center" py="$4">
+        <Spinner size="small" />
+      </Stack>
+    ) : null;
+  }, [isLoadingMore]);
+
   return (
     <Stack flex={1} width="100%">
       {/* render custom toolbar if provided */}
@@ -166,6 +174,7 @@ function MarketTokenListBase({
               dataSource={data}
               keyExtractor={(item) => item.address + item.symbol + item.name}
               onHeaderRow={handleHeaderRow}
+              TableFooterComponent={TableFooterComponent}
               estimatedItemSize="$14"
               onRow={
                 onItemPress
@@ -184,13 +193,6 @@ function MarketTokenListBase({
             />
           )}
         </Stack>
-
-        {/* Loading more indicator */}
-        {isLoadingMore ? (
-          <Stack alignItems="center" justifyContent="center" py="$4">
-            <Spinner size="small" />
-          </Stack>
-        ) : null}
       </Stack>
     </Stack>
   );
