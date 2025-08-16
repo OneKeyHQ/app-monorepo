@@ -1566,6 +1566,7 @@
   "global.warning": "警告",
   "global.watch_only": "ウォッチのみ",
   "global.watch_only_address": "ウォッチ専用アドレス",
+  "global.watch_only_wallet": "閲覧専用ウォレット",
   "global.watched": "視聴済み",
   "global.watchlist": "ウォッチリスト",
   "global.website": "ウェブサイト",

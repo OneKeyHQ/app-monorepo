@@ -1571,6 +1571,7 @@
   global_warning = 'global.warning',
   global_watch_only = 'global.watch_only',
   global_watch_only_address = 'global.watch_only_address',
+  global_watch_only_wallet = 'global.watch_only_wallet',
   global_watched = 'global.watched',
   global_watchlist = 'global.watchlist',
   global_website = 'global.website',
