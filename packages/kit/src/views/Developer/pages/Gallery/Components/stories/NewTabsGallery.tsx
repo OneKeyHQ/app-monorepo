@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import {
   ListView,
@@ -321,6 +321,50 @@ const TabsWithInitialTabDemo = () => {
   );
 };
 
+const TabsWithOnIndexChangeDemo = () => {
+  const [activeTabIndex, setActiveTabIndex] = useState(0);
+  return (
+    <YStack>
+      <Tabs.Container
+        initialTabName="Favorites"
+        onIndexChange={(index) => {
+          console.log('===>index: ', index);
+          setActiveTabIndex(index);
+        }}
+      >
+        <Tabs.Tab name="Recent">
+          <YStack p="$4" gap="$2">
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
+              Recent items (默认不会显示，因为设置了 initialTabName="Favorites")
+            </SizableText>
+          </YStack>
+        </Tabs.Tab>
+        <Tabs.Tab name="Favorites">
+          <YStack p="$4" gap="$2">
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
+              Favorites items
+            </SizableText>
+          </YStack>
+        </Tabs.Tab>
+        <Tabs.Tab name="Archive">
+          <YStack p="$4" gap="$2">
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
+              Archive items
+            </SizableText>
+          </YStack>
+        </Tabs.Tab>
+      </Tabs.Container>
+      {activeTabIndex === 1 ? (
+        <YStack p="$4" gap="$2">
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            Active tab index: {activeTabIndex}
+          </SizableText>
+        </YStack>
+      ) : null}
+    </YStack>
+  );
+};
+
 const NewTabsGallery = () => (
   <Layout
     filePath={__CURRENT_FILE_PATH__}
@@ -364,6 +408,14 @@ const NewTabsGallery = () => (
         element: (
           <Stack h={400}>
             <TabsWithInitialTabDemo />
+          </Stack>
+        ),
+      },
+      {
+        title: 'Tabs with OnIndexChange',
+        element: (
+          <Stack h={400}>
+            <TabsWithOnIndexChangeDemo />
           </Stack>
         ),
       },
