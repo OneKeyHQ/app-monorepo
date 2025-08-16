@@ -40,7 +40,7 @@ export function useMarketWatchlistTokenList({
   const [hasMore] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  const { pageIndex } = useCarouselIndex();
+  const pageIndex = useCarouselIndex();
 
   const {
     result: apiResult,
@@ -68,7 +68,7 @@ export function useMarketWatchlistTokenList({
     },
     [watchlist, isInitialLoad],
     {
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
       watchLoading: true,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
