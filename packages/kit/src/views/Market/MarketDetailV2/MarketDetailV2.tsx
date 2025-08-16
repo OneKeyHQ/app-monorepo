@@ -61,7 +61,7 @@ function MarketDetail({
   });
 
   const handleBackPress = useCallback(() => {
-    navigation.navigate(ETabMarketRoutes.TabMarket);
+    navigation.pop();
   }, [navigation]);
 
   const customHeaderLeft = useMemo(
