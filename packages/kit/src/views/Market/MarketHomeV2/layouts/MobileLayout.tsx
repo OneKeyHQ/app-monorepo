@@ -57,11 +57,9 @@ export function MobileLayout({
 
   const onPageChanged = useCallback(
     (index: number) => {
-      // Update the atom state, which will sync to SharedValue automatically
-      const tabName = tabNames[index];
-      handlePageChanged(tabName);
+      handlePageChanged(index);
     },
-    [handlePageChanged, tabNames],
+    [handlePageChanged],
   );
 
   const renderItem = useCallback(
