@@ -16,7 +16,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   ETabMarketRoutes,
-  type ITabMarketParamList,
+  ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
