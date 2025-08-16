@@ -1,35 +1,57 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
+import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
-  ScrollView,
   SizableText,
   Stack,
   Tabs,
+  useCurrentTabScrollY,
   useMedia,
 } from '@onekeyhq/components';
 import { useLeftColumnWidthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketTransactions } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketTransactions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import { TransactionsSkeleton } from './components/TransactionsSkeleton';
 import { TransactionItemNormal } from './layout/TransactionItemNormal/TransactionItemNormal';
-import { TransactionsHeaderNormal } from './layout/TransactionItemNormal/TransactionsHeaderNormal';
 import { TransactionItemSmall } from './layout/TransactionItemSmall/TransactionItemSmall';
-import { TransactionsHeaderSmall } from './layout/TransactionItemSmall/TransactionsHeaderSmall';
 
 import type { FlatListProps } from 'react-native';
 
 interface ITransactionsHistoryProps {
   tokenAddress: string;
   networkId: string;
+  onScrollEnd?: () => void;
 }
+
+const useScrollEnd = platformEnv.isNative
+  ? (onScrollEnd: () => void) => {
+      const scrollY = useCurrentTabScrollY();
+
+      const debouncedOnScrollEnd = useDebouncedCallback(onScrollEnd, 150);
+
+      useAnimatedReaction(
+        () => scrollY.value,
+        (current, prev) => {
+          if (current !== prev) {
+            runOnJS(debouncedOnScrollEnd)();
+          }
+        },
+        [onScrollEnd],
+      );
+    }
+  : () => {};
 
 export function TransactionsHistory({
   tokenAddress,
   networkId,
+  onScrollEnd,
 }: ITransactionsHistoryProps) {
   const intl = useIntl();
   const { gtLg } = useMedia();
@@ -70,6 +92,8 @@ export function TransactionsHistory({
   const handleEndReached = useCallback(() => {
     console.log('handleEndReached');
   }, []);
+
+  useScrollEnd(onScrollEnd ?? noop);
 
   return (
     <Tabs.FlatList<IMarketTokenTransaction>

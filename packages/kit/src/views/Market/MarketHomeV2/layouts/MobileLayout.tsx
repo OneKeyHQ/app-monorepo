@@ -41,6 +41,7 @@ export function MobileLayout({
     focusedTab,
     carouselRef,
     handleTabChange,
+    handlePageChanged,
     defaultIndex,
   } = useMarketTabsLogic(onTabChange);
 
@@ -56,11 +57,9 @@ export function MobileLayout({
 
   const onPageChanged = useCallback(
     (index: number) => {
-      // Update the atom state, which will sync to SharedValue automatically
-      const tabName = tabNames[index];
-      handleTabChange(tabName);
+      handlePageChanged(index);
     },
-    [handleTabChange, tabNames],
+    [handlePageChanged],
   );
 
   const renderItem = useCallback(

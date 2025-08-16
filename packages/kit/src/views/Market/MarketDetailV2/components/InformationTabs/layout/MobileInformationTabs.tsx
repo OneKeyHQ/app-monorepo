@@ -32,8 +32,10 @@ function MobileInformationTabsHeader(props: TabBarProps<string>) {
 
 export function MobileInformationTabs({
   renderHeader,
+  onScrollEnd,
 }: {
   renderHeader: CollapsibleProps['renderHeader'];
+  onScrollEnd: () => void;
 }) {
   const intl = useIntl();
   const { tokenAddress, networkId } = useTokenDetail();
@@ -53,6 +55,7 @@ export function MobileInformationTabs({
         <TransactionsHistory
           tokenAddress={tokenAddress}
           networkId={networkId}
+          onScrollEnd={onScrollEnd}
         />
       </Tabs.Tab>,
     ];
@@ -69,7 +72,7 @@ export function MobileInformationTabs({
       );
     }
     return items;
-  }, [intl, tokenAddress, networkId, shouldShowHolders]);
+  }, [intl, tokenAddress, networkId, onScrollEnd, shouldShowHolders]);
 
   const renderTabBar = useCallback(({ ...props }: any) => {
     return <MobileInformationTabsHeader {...props} />;
