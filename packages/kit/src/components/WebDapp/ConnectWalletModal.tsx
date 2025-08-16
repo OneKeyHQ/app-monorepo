@@ -71,7 +71,7 @@ function ConnectWalletContent() {
       >
         <Tabs.Tab name={onekeyTitle}>
           <Stack p="$5" gap="$4">
-            <OneKeyWalletConnectionOptions />
+            <OneKeyWalletConnectionOptions showInModal={false} />
           </Stack>
         </Tabs.Tab>
         <Tabs.Tab name={othersTitle}>
@@ -103,7 +103,7 @@ function ConnectWalletContent() {
           {isMobile ? (
             // Mobile: show simplified view without tabs
             <Stack p="$5" gap="$4" flex={1}>
-              <OneKeyWalletConnectionOptions />
+              <OneKeyWalletConnectionOptions showInModal />
             </Stack>
           ) : (
             // Desktop: show full tabs
