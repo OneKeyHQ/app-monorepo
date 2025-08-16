@@ -7,11 +7,13 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useToDetailPage } from './hooks/useToDetailPage';
 import { type IMarketToken } from './MarketTokenData';
 
+const SPINNER_HEIGHT = 52;
 const SORTABLE_COLUMNS = {
   liquidity: 'liquidity',
   marketCap: 'mc',
@@ -155,7 +157,11 @@ function MarketTokenListBase({
           ...(md ? { marginLeft: 8, marginRight: 8 } : {}),
         }}
       >
-        <Stack minWidth={md ? '100%' : 1466} flex={1} minHeight={400}>
+        <Stack
+          minWidth={md ? '100%' : 1466}
+          flex={1}
+          minHeight={platformEnv.isNative ? undefined : 400}
+        >
           {showSkeleton ? (
             <Table.Skeleton
               columns={marketTokenColumns}
@@ -166,6 +172,15 @@ function MarketTokenListBase({
             />
           ) : (
             <Table<IMarketToken>
+              // Add padding bottom to content container to provide space for loading spinner
+              // Fix Android loading spinner visibility issue by ensuring proper content height
+              contentContainerStyle={
+                platformEnv.isNativeAndroid
+                  ? {
+                      paddingBottom: SPINNER_HEIGHT,
+                    }
+                  : undefined
+              }
               key={networkId}
               stickyHeader
               scrollEnabled
