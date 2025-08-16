@@ -325,6 +325,11 @@ const TabsWithOnIndexChangeDemo = () => {
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   return (
     <YStack>
+      <YStack p="$4" gap="$2">
+        <SizableText size="$bodyMdMedium" color="$textSubdued">
+          Active tab index: {activeTabIndex}
+        </SizableText>
+      </YStack>
       <Tabs.Container
         initialTabName="Favorites"
         onIndexChange={(index) => {
@@ -354,13 +359,6 @@ const TabsWithOnIndexChangeDemo = () => {
           </YStack>
         </Tabs.Tab>
       </Tabs.Container>
-      {activeTabIndex === 1 ? (
-        <YStack p="$4" gap="$2">
-          <SizableText size="$bodyMdMedium" color="$textSubdued">
-            Active tab index: {activeTabIndex}
-          </SizableText>
-        </YStack>
-      ) : null}
     </YStack>
   );
 };
