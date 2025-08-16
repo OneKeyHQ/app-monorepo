@@ -12,6 +12,7 @@ export enum EModalStakingRoutes {
   Claim = 'Claim',
   ProtocolDetails = 'ProtocolDetails',
   ProtocolDetailsV2 = 'ProtocolDetailsV2',
+  ProtocolDetailsV2Share = 'ProtocolDetailsV2Share',
   AssetProtocolList = 'AssetProtocolList',
   ClaimOptions = 'ClaimOptions',
   WithdrawOptions = 'WithdrawOptions',
@@ -42,6 +43,14 @@ export type IModalStakingParamList = {
     provider: string;
     details?: IStakeProtocolDetails;
     vault?: string;
+  };
+  [EModalStakingRoutes.ProtocolDetailsV2Share]: {
+    network: string; // network name, like 'ethereum', 'bitcoin'
+    symbol: string;
+    provider: string;
+    vault?: string;
+    details?: IStakeProtocolDetails;
+    // note: does not contain accountId, etc. account information
   };
   [EModalStakingRoutes.Stake]: IDetailPageInfoParams & {
     currentAllowance: string;

@@ -8,13 +8,16 @@ import type { IButtonProps } from '@onekeyhq/components';
 import {
   Badge,
   Button,
+  Dialog,
   Divider,
   Image,
+  Input,
   Page,
   Toast,
   XStack,
   YStack,
   useMedia,
+  useShare,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -23,9 +26,13 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { PeriodSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/PeriodSectionV2';
 import { ProtectionSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/ProtectionSectionV2';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useDevSettingsPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -34,9 +41,13 @@ import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
+import {
+  normalizeToEarnProvider,
+  normalizeToEarnSymbol,
+} from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 import type {
   IEarnActivateActionIcon,
@@ -53,6 +64,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { showRiskNoticeDialogBeforeDepositOrWithdraw } from '../../../Earn/components/RiskNoticeDialog';
+import { EarnNavigation, EarnNetworkUtils } from '../../../Earn/earnUtils';
 import {
   PageFrame,
   isErrorState,
@@ -447,10 +459,83 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
 const ProtocolDetailsPage = () => {
   const route = useAppRoute<
     IModalStakingParamList,
-    EModalStakingRoutes.ProtocolDetailsV2
+    | EModalStakingRoutes.ProtocolDetailsV2
+    | EModalStakingRoutes.ProtocolDetailsV2Share
   >();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+
+  // parse route params, support two types of routes
+  const resolvedParams = useMemo<{
+    accountId: string;
+    indexedAccountId: string | undefined;
+    networkId: string;
+    symbol: ISupportedSymbol;
+    provider: string;
+    vault: string | undefined;
+    isFromShareLink: boolean;
+  }>(() => {
+    const routeParams = route.params as any;
+
+    // check if it is the new share link format
+    if ('network' in routeParams) {
+      // new format: /earn/:network/:symbol/:provider
+      const {
+        network,
+        symbol: symbolParam,
+        provider: providerParam,
+        vault,
+      } = routeParams;
+      const networkId = EarnNetworkUtils.getNetworkIdByName(network);
+      const symbol = normalizeToEarnSymbol(symbolParam);
+      const provider = normalizeToEarnProvider(providerParam);
+
+      if (!networkId) {
+        throw new OneKeyLocalError(`Unknown network: ${String(network)}`);
+      }
+      if (!symbol) {
+        throw new OneKeyLocalError(`Unknown symbol: ${String(symbolParam)}`);
+      }
+      if (!provider) {
+        throw new OneKeyLocalError(
+          `Unknown provider: ${String(providerParam)}`,
+        );
+      }
+
+      return {
+        accountId: activeAccount.account?.id || '',
+        indexedAccountId: activeAccount.indexedAccount?.id,
+        networkId,
+        symbol,
+        provider,
+        vault,
+        isFromShareLink: true,
+      };
+    }
+
+    // old format: /earn/staking/v2/:symbol/:provider
+    const {
+      accountId: routeAccountId,
+      indexedAccountId: routeIndexedAccountId,
+      networkId,
+      symbol,
+      provider,
+      vault,
+    } = routeParams;
+
+    return {
+      accountId: routeAccountId || activeAccount.account?.id || '',
+      indexedAccountId:
+        routeIndexedAccountId || activeAccount.indexedAccount?.id,
+      networkId,
+      symbol,
+      provider,
+      vault,
+      isFromShareLink: false,
+    };
+  }, [route.params, activeAccount]);
+
   const { accountId, networkId, indexedAccountId, symbol, provider, vault } =
-    route.params;
+    resolvedParams;
   const appNavigation = useAppNavigation();
   const [stakeLoading, setStakeLoading] = useState(false);
   const [keepSkeletonVisible, setKeepSkeletonVisible] = useState(false);
@@ -784,6 +869,26 @@ const ProtocolDetailsPage = () => {
 
   const intl = useIntl();
   const media = useMedia();
+  const { shareText } = useShare();
+  const [devSettings] = useDevSettingsPersistAtom();
+
+  // Generate share URL
+  const shareUrl = useMemo(() => {
+    if (!symbol || !provider || !networkId) return undefined;
+    const shareLink = EarnNavigation.generateShareLink({
+      networkId,
+      symbol,
+      provider,
+      vault,
+      isDevMode: devSettings.enabled,
+    });
+    return shareLink;
+  }, [symbol, provider, networkId, vault, devSettings.enabled]);
+
+  const handleShare = useCallback(() => {
+    if (!shareUrl) return;
+    void shareText(shareUrl);
+  }, [shareUrl, shareText]);
 
   const depositActionProps = useMemo(() => {
     const item = detailInfo?.actions?.find((i) => i.type === 'deposit');
@@ -1098,6 +1203,8 @@ const ProtocolDetailsPage = () => {
                   historyAction={historyAction}
                   onRefresh={run}
                   onPress={onHistory}
+                  shareUrl={shareUrl}
+                  onShare={handleShare}
                 />
               ) : null}
             </PageFrame>

@@ -11,6 +11,7 @@ import {
   EthereumWBTC,
   EthereumWETH,
 } from '../../src/consts/addresses';
+import { EEarnProviderEnum } from '../earn';
 import { ESwapTabSwitchType } from '../swap/types';
 
 import type { ISupportedSymbol } from '../earn';
@@ -104,8 +105,22 @@ export function normalizeToEarnSymbol(
     'usdf': 'USDf',
     'usde': 'USDe',
   };
-
   return symbolMap[symbol.toLowerCase()];
+}
+
+export function normalizeToEarnProvider(
+  provider: string,
+): EEarnProviderEnum | undefined {
+  const providerMap: Record<string, EEarnProviderEnum> = {
+    'lido': EEarnProviderEnum.Lido,
+    'everstake': EEarnProviderEnum.Everstake,
+    'babylon': EEarnProviderEnum.Babylon,
+    'morpho': EEarnProviderEnum.Morpho,
+    'falcon': EEarnProviderEnum.Falcon,
+    'ethena': EEarnProviderEnum.Ethena,
+    'momentum': EEarnProviderEnum.Momentum,
+  };
+  return providerMap[provider.toLowerCase()];
 }
 
 export function getImportFromToken({

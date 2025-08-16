@@ -21,7 +21,10 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import ServiceBase from '../ServiceBase';
 
 import type { IDBAccount } from '../../dbs/local/types';
-import type { IAccountDeriveTypes } from '../../vaults/types';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '../../vaults/types';
 
 export type IAllNetworkAccountInfo = {
   networkId: string;
@@ -33,6 +36,7 @@ export type IAllNetworkAccountInfo = {
   isNftEnabled: boolean;
   isBackendIndexed: boolean | undefined;
   deriveType: IAccountDeriveTypes | undefined;
+  deriveInfo: IAccountDeriveInfo | undefined;
   isTestnet: boolean;
 };
 export type IAllNetworkAccountsInfoResult = {
@@ -48,6 +52,7 @@ export type IAllNetworkAccountsParams = {
   nftEnabledOnly?: boolean;
   includingNonExistingAccount?: boolean;
   includingNotEqualGlobalDeriveTypeAccount?: boolean;
+  includingDeriveTypeMismatchInDefaultVisibleNetworks?: boolean;
   fetchAllNetworkAccounts?: boolean;
   networksEnabledOnly?: boolean;
   excludeTestNetwork?: boolean;
@@ -170,6 +175,7 @@ class ServiceAllNetwork extends ServiceBase {
       deriveType: singleNetworkDeriveType,
       includingNonExistingAccount,
       includingNotEqualGlobalDeriveTypeAccount,
+      includingDeriveTypeMismatchInDefaultVisibleNetworks = true,
       fetchAllNetworkAccounts,
       networksEnabledOnly,
       excludeTestNetwork = true,
@@ -283,7 +289,7 @@ class ServiceAllNetwork extends ServiceBase {
               ? isCompatible
               : networkId === realNetworkId;
 
-            const { deriveType } =
+            const { deriveType, deriveInfo } =
               await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate({
                 accountId: a.id,
                 networkId: realNetworkId,
@@ -295,9 +301,12 @@ class ServiceAllNetwork extends ServiceBase {
               isAllNetwork &&
               isMatched &&
               a.template &&
-              !networkUtils
-                .getDefaultDeriveTypeVisibleNetworks()
-                .includes(realNetworkId)
+              !(
+                networkUtils
+                  .getDefaultDeriveTypeVisibleNetworks()
+                  .includes(realNetworkId) &&
+                includingDeriveTypeMismatchInDefaultVisibleNetworks
+              )
             ) {
               const globalDeriveType =
                 await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork(
@@ -349,6 +358,7 @@ class ServiceAllNetwork extends ServiceBase {
                 isTestnet: n.isTestnet,
                 dbAccount: a,
                 deriveType,
+                deriveInfo,
               };
 
               appendAccountInfo(accountInfo);
@@ -376,6 +386,7 @@ class ServiceAllNetwork extends ServiceBase {
             isBackendIndexed,
             dbAccount: undefined,
             deriveType: undefined,
+            deriveInfo: undefined,
             isTestnet: n.isTestnet,
           });
         }

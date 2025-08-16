@@ -149,7 +149,11 @@ function ActionEarn(props: IActionItemsProps) {
   );
 }
 
-function ActionMore({ sections }: { sections: IActionListProps['sections'] }) {
+function ActionMore({
+  renderItemsAsync,
+}: {
+  renderItemsAsync: IActionListProps['renderItemsAsync'];
+}) {
   const intl = useIntl();
   return (
     <ActionList
@@ -167,7 +171,7 @@ function ActionMore({ sections }: { sections: IActionListProps['sections'] }) {
           })}
         />
       }
-      sections={sections}
+      renderItemsAsync={renderItemsAsync}
     />
   );
 }

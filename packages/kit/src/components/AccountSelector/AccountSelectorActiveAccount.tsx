@@ -21,16 +21,12 @@ import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '@onekeyhq/shared/src/consts/ad
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
-import {
-  EModalReceiveRoutes,
-  EModalRoutes,
-  EModalWalletAddressRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useCopyAddressWithDeriveType } from '../../hooks/useCopyAccountAddress';
 import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
 import {
   useActiveAccount,
@@ -168,13 +164,14 @@ export function AccountSelectorActiveAccountHome({
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   const { copyText } = useClipboard();
+  const copyAddressWithDeriveType = useCopyAddressWithDeriveType();
   const {
     account,
     wallet,
     network,
-    deriveInfo,
-    deriveInfoItems,
+    indexedAccount,
     vaultSettings,
+    deriveInfoItems,
   } = activeAccount;
 
   const { selectedAccount } = useSelectedAccount({ num });
@@ -196,7 +193,7 @@ export function AccountSelectorActiveAccountHome({
   }, [activeAccount, selectedAccount]);
 
   const handleAddressOnPress = useCallback(async () => {
-    if (!account?.address || !network || !deriveInfo || !wallet) {
+    if (!account?.address || !network || !wallet) {
       return;
     }
 
@@ -225,42 +222,48 @@ export function AccountSelectorActiveAccountHome({
           walletId: wallet.id,
         },
       });
+    } else if (
+      vaultSettings?.mergeDeriveAssetsEnabled &&
+      accountUtils.isHdWallet({ walletId: wallet?.id ?? '' })
+    ) {
+      const defaultDeriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: network?.id ?? '',
+        });
+
+      const { accounts } =
+        await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
+          indexedAccountIds: [indexedAccount?.id ?? ''],
+          networkId: network?.id ?? '',
+          deriveType: defaultDeriveType,
+        });
+
+      copyAddressWithDeriveType({
+        address: accounts?.[0]?.address || '',
+        deriveInfo: deriveInfoItems.find(
+          (item) => item.value === defaultDeriveType,
+        )?.item,
+        networkName: network?.shortname,
+      });
     } else {
-      copyText(account.address);
+      copyAddressWithDeriveType({
+        address: account.address,
+        networkName: network?.shortname,
+      });
     }
     logActiveAccount();
   }, [
-    account,
-    copyText,
-    deriveInfo,
+    account?.address,
+    account?.id,
+    copyAddressWithDeriveType,
+    deriveInfoItems,
+    indexedAccount?.id,
     logActiveAccount,
     navigation,
     network,
+    vaultSettings?.mergeDeriveAssetsEnabled,
     wallet,
   ]);
-
-  const handleMultiDeriveAddressOnPress = useCallback(async () => {
-    if (!network || !activeAccount.indexedAccount) {
-      return;
-    }
-
-    if (
-      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
-        walletId: wallet?.id ?? '',
-      })
-    ) {
-      return;
-    }
-
-    navigation.pushModal(EModalRoutes.WalletAddress, {
-      screen: EModalWalletAddressRoutes.DeriveTypesAddress,
-      params: {
-        networkId: network.id,
-        indexedAccountId: activeAccount.indexedAccount.id,
-        actionType: EDeriveAddressActionType.Copy,
-      },
-    });
-  }, [activeAccount.indexedAccount, navigation, network, wallet?.id]);
 
   useShortcutsOnRouteFocused(
     EShortcutEvents.CopyAddressOrUrl,
@@ -277,20 +280,6 @@ export function AccountSelectorActiveAccountHome({
 
   if (accountUtils.isAllNetworkMockAddress({ address: account?.address })) {
     return null;
-  }
-
-  // show copy address icon button if account has multiple derive types
-  if (
-    vaultSettings?.mergeDeriveAssetsEnabled &&
-    !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
-    deriveInfoItems.length > 1
-  ) {
-    return (
-      <CopyButton
-        onPress={handleMultiDeriveAddressOnPress}
-        visible={showCopyButton}
-      />
-    );
   }
 
   // show address if account has an address
