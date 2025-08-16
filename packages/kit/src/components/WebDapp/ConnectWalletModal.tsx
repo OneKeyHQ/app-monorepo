@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { Page, Stack, Tabs, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { TermsAndPrivacy } from '@onekeyhq/kit/src/views/Onboarding/pages/GetStarted/components/TermsAndPrivacy';
+import { useImportAddressForm } from '@onekeyhq/kit/src/views/Onboarding/pages/ImportWallet/hooks/useImportAddressForm';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EOnboardingPages,
@@ -21,7 +22,7 @@ import { WatchOnlyWalletContent } from './WatchOnlyWalletContent';
 
 import type { RouteProp } from '@react-navigation/core';
 
-function ConnectWalletModal() {
+function ConnectWalletContent() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const route =
@@ -55,6 +56,11 @@ function ConnectWalletModal() {
     navigation.popStack();
   }, [navigation]);
 
+  // Watch-only wallet form state
+  const watchOnlyFormState = useImportAddressForm({
+    onWalletAdded: handleWalletAdded,
+  });
+
   const renderTabs = useMemo(
     () => (
       <Tabs.Container
@@ -72,7 +78,7 @@ function ConnectWalletModal() {
           <ExternalWalletList impl="evm" />
         </Tabs.Tab>
         <Tabs.Tab name={watchOnlyTitle}>
-          <WatchOnlyWalletContent onWalletAdded={handleWalletAdded} />
+          <WatchOnlyWalletContent {...watchOnlyFormState} />
         </Tabs.Tab>
       </Tabs.Container>
     ),
@@ -80,11 +86,45 @@ function ConnectWalletModal() {
       onekeyTitle,
       othersTitle,
       watchOnlyTitle,
-      handleWalletAdded,
+      watchOnlyFormState,
       initialTabName,
     ],
   );
 
+  return (
+    <Page>
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.global_connect_wallet,
+        })}
+      />
+      <Page.Body>
+        <Stack flex={1}>
+          {isMobile ? (
+            // Mobile: show simplified view without tabs
+            <Stack p="$5" gap="$4" flex={1}>
+              <OneKeyWalletConnectionOptions />
+            </Stack>
+          ) : (
+            // Desktop: show full tabs
+            renderTabs
+          )}
+          {activeTabIndex === 2 ? null : <TermsAndPrivacy />}
+        </Stack>
+      </Page.Body>
+      {activeTabIndex === 2 ? (
+        <Page.Footer
+          confirmButtonProps={{
+            disabled: !watchOnlyFormState.isEnable,
+          }}
+          onConfirm={watchOnlyFormState.form.submit}
+        />
+      ) : null}
+    </Page>
+  );
+}
+
+function ConnectWalletModal() {
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -92,27 +132,7 @@ function ConnectWalletModal() {
       }}
       enabledNum={[0]}
     >
-      <Page>
-        <Page.Header
-          title={intl.formatMessage({
-            id: ETranslations.global_connect_wallet,
-          })}
-        />
-        <Page.Body>
-          <Stack flex={1}>
-            {isMobile ? (
-              // Mobile: show simplified view without tabs
-              <Stack p="$5" gap="$4" flex={1}>
-                <OneKeyWalletConnectionOptions />
-              </Stack>
-            ) : (
-              // Desktop: show full tabs
-              renderTabs
-            )}
-            {activeTabIndex === 2 ? null : <TermsAndPrivacy />}
-          </Stack>
-        </Page.Body>
-      </Page>
+      <ConnectWalletContent />
     </AccountSelectorProviderMirror>
   );
 }

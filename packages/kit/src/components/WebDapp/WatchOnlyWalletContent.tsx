@@ -1,35 +1,47 @@
-import { useIntl } from 'react-intl';
-
-import { Button, Stack } from '@onekeyhq/components';
-import { useImportAddressForm } from '@onekeyhq/kit/src/views/Onboarding/pages/ImportWallet/hooks/useImportAddressForm';
+import type { UseFormReturn } from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components';
+import type {
+  EImportMethod,
+  IFormValues,
+} from '@onekeyhq/kit/src/views/Onboarding/pages/ImportWallet/hooks/useImportAddressForm';
 import { ImportAddressCore } from '@onekeyhq/kit/src/views/Onboarding/pages/ImportWallet/ImportAddressCore';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-
-import { AccountSelectorProviderMirror } from '../AccountSelector';
+import type { IAccountDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
 interface IWatchOnlyWalletContentProps {
-  onWalletAdded?: () => void;
+  form: UseFormReturn<IFormValues>;
+  isEnable: boolean;
+  method: EImportMethod;
+  setMethod: (method: EImportMethod) => void;
+  networksResp: {
+    networkIds: string[];
+    publicKeyExportEnabled: Set<string>;
+    watchingAccountEnabled: Set<string>;
+  };
+  isKeyExportEnabled: boolean;
+  isPublicKeyImport: boolean;
+  validateResult?: {
+    isValid: boolean;
+    deriveInfoItems?: IAccountDeriveInfo[];
+  };
+  inputTextDebounced: string;
+  networkIdText?: string;
+  deriveTypeValue?: any;
 }
 
-function WatchOnlyWallet({ onWalletAdded }: IWatchOnlyWalletContentProps) {
-  const intl = useIntl();
-  const {
-    form,
-    isEnable,
-    method,
-    setMethod,
-    networksResp,
-    isKeyExportEnabled,
-    isPublicKeyImport,
-    validateResult,
-    inputTextDebounced,
-    networkIdText,
-    deriveTypeValue,
-  } = useImportAddressForm({ onWalletAdded });
-
+function WatchOnlyWalletContent({
+  form,
+  method,
+  setMethod,
+  networksResp,
+  isKeyExportEnabled,
+  isPublicKeyImport,
+  validateResult,
+  inputTextDebounced,
+  networkIdText,
+  deriveTypeValue,
+}: IWatchOnlyWalletContentProps) {
   return (
-    <Stack flex={1} p="$5" gap="$4">
+    <Stack flex={1} p="$5">
       <ImportAddressCore
         form={form}
         method={method}
@@ -42,25 +54,7 @@ function WatchOnlyWallet({ onWalletAdded }: IWatchOnlyWalletContentProps) {
         networkIdText={networkIdText}
         deriveTypeValue={deriveTypeValue}
       />
-      <Button variant="primary" disabled={!isEnable} onPress={form.submit}>
-        {intl.formatMessage({ id: ETranslations.global_import })}
-      </Button>
     </Stack>
-  );
-}
-
-function WatchOnlyWalletContent({
-  onWalletAdded,
-}: IWatchOnlyWalletContentProps) {
-  return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-      }}
-      enabledNum={[0]}
-    >
-      <WatchOnlyWallet onWalletAdded={onWalletAdded} />
-    </AccountSelectorProviderMirror>
   );
 }
 
