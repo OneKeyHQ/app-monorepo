@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useIsFocusedTab } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
@@ -38,6 +39,7 @@ export function useMarketWatchlistTokenList({
   const [isLoadingMore] = useState(false);
   const [hasMore] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const isFocusedTab = useIsFocusedTab();
 
   const {
     result: apiResult,
@@ -69,6 +71,7 @@ export function useMarketWatchlistTokenList({
       watchLoading: true,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
+      overrideIsFocused: (isFocused) => isFocused && isFocusedTab,
       checkIsFocused: true,
     },
   );
