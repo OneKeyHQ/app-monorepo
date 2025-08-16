@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
 
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 import { useDebouncedCallback } from 'use-debounce';
@@ -26,7 +27,7 @@ import type { FlatListProps } from 'react-native';
 interface ITransactionsHistoryProps {
   tokenAddress: string;
   networkId: string;
-  onScrollEnd: () => void;
+  onScrollEnd?: () => void;
 }
 
 const useScrollEnd = platformEnv.isNative
@@ -92,7 +93,7 @@ export function TransactionsHistory({
     console.log('handleEndReached');
   }, []);
 
-  useScrollEnd(onScrollEnd);
+  useScrollEnd(onScrollEnd ?? noop);
 
   return (
     <Tabs.FlatList<IMarketTokenTransaction>
