@@ -114,7 +114,9 @@ function OneKeyWalletConnectionOptions({
             px="$5"
             mx="$0"
             bg="$bgSubdued"
-            title="Watch-only wallet"
+            title={intl.formatMessage({
+              id: ETranslations.global_watch_only_wallet,
+            })}
             renderAvatar={
               <Stack
                 h="$10"

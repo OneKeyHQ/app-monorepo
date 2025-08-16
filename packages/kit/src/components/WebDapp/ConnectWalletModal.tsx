@@ -41,7 +41,7 @@ function ConnectWalletContent() {
     id: ETranslations.global_others,
   });
   const watchOnlyTitle = intl.formatMessage({
-    id: ETranslations.global_watch_only,
+    id: ETranslations.global_watch_only_wallet,
   });
 
   const initialTabName = useMemo(() => {
