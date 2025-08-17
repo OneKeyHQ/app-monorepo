@@ -13,10 +13,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { TokenIdentityItem } from '../../components/TokenIdentityItem';
 import { type IMarketToken } from '../../MarketTokenData';
 
-export const useColumnsMobile = (
-  networkId?: string,
-  _watchlistActive = false,
-): ITableColumn<IMarketToken>[] => {
+export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
   const intl = useIntl();
