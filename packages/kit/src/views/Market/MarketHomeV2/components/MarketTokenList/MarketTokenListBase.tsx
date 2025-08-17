@@ -49,7 +49,7 @@ function MarketTokenListBase({
   const toDetailPage = useToDetailPage();
   const { md } = useMedia();
 
-  const marketTokenColumns = useMarketTokenColumns(networkId, isWatchlistMode);
+  const marketTokenColumns = useMarketTokenColumns();
 
   const {
     data,
