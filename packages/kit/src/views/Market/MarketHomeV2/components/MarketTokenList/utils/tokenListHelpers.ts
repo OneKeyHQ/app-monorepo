@@ -55,7 +55,7 @@ export function transformApiItemToToken(
 ): IMarketToken {
   // Normalize address: treat short addresses (< 15 chars) as empty strings for native tokens
   const normalizedAddress = item.address.length < 15 ? '' : item.address;
-  
+
   return {
     id: normalizedAddress || `${index ?? 0}`,
     name: item.name,
