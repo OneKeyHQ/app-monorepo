@@ -34,6 +34,7 @@ export function AccountSelectorTriggerHome({
       keepAllOtherAccounts
       allowSelectEmptyAccount
       spotlightProps={spotlightProps}
+      showConnectWalletModalInDappMode
     />
   );
 }
