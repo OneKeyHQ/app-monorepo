@@ -1566,6 +1566,7 @@
   "global.warning": "Avertissement",
   "global.watch_only": "Lecture seule",
   "global.watch_only_address": "Adresse en lecture seule",
+  "global.watch_only_wallet": "Portefeuille en lecture seule",
   "global.watched": "Regardé",
   "global.watchlist": "Liste de surveillance",
   "global.website": "Site web",

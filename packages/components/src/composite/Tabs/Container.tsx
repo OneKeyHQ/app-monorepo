@@ -288,7 +288,8 @@ export function Container({
         onTabPress(initialTabName, false);
       }, 100);
     }
-  }, [initialTabName, onTabPress]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <YStack

@@ -1,6 +1,8 @@
 import type { RefObject } from 'react';
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -34,6 +36,22 @@ const defaultRenderPaginationItem = <T,>(
       onPress={onPress}
     />
   );
+};
+
+const CarouselContext = createContext<{
+  pageIndex: number;
+}>({
+  pageIndex: 0,
+});
+
+const useCarouselContext = () => {
+  const context = useContext(CarouselContext);
+  return context;
+};
+
+export const useCarouselIndex = () => {
+  const { pageIndex } = useCarouselContext();
+  return pageIndex;
 };
 
 export function Carousel<T>({
@@ -178,72 +196,76 @@ export function Carousel<T>({
     startAutoPlay();
   }, [startAutoPlay]);
 
+  const value = useMemo(() => ({ pageIndex }), [pageIndex]);
+
   return (
-    <YStack userSelect="none">
-      <XStack
-        {...(containerStyle as any)}
-        onLayout={handleLayout}
-        onHoverIn={handleHoverIn}
-        onHoverOut={handleHoverOut}
-        onPressIn={platformEnv.isNative ? handleHoverIn : undefined}
-        onPressOut={platformEnv.isNative ? handleHoverOut : undefined}
-      >
-        {layout.width > 0 && layout.height > 0 ? (
-          <Stack
-            style={{ width: layout.width, height: layout.height }}
-            key={`${layout.width}-${layout.height}`}
-          >
-            <PagerView
-              ref={pagerRef as RefObject<NativePagerView>}
-              style={{ width: layout.width, height: layout.height }}
-              initialPage={defaultIndex}
-              pageWidth={pageWidth}
-              onPageSelected={onPageSelected}
-              keyboardDismissMode="on-drag"
-              disableAnimation={disableAnimation}
-              {...pagerProps}
-            >
-              {data.map((item, index) => (
-                <Stack
-                  key={index}
-                  style={{
-                    width: pageWidth,
-                    height: '100%',
-                  }}
-                >
-                  {renderItem({ item, index })}
-                </Stack>
-              ))}
-            </PagerView>
-          </Stack>
-        ) : null}
-      </XStack>
-      {showPagination && data.length > 1 ? (
+    <CarouselContext.Provider value={value}>
+      <YStack userSelect="none">
         <XStack
-          gap="$0.5"
-          ai="center"
-          jc="center"
-          {...(paginationContainerStyle as any)}
+          {...(containerStyle as any)}
+          onLayout={handleLayout}
+          onHoverIn={handleHoverIn}
+          onHoverOut={handleHoverOut}
+          onPressIn={platformEnv.isNative ? handleHoverIn : undefined}
+          onPressOut={platformEnv.isNative ? handleHoverOut : undefined}
         >
-          {data.map((item, index) => {
-            return renderPaginationItem?.(
-              {
-                data: item,
-                dotStyle,
-                activeDotStyle:
-                  index === pageIndex
-                    ? activeDotStyle || { bg: '$bgPrimary' }
-                    : undefined,
-                onPress: () => onPressPagination(index),
-              },
-              index,
-            );
-          })}
+          {layout.width > 0 && layout.height > 0 ? (
+            <Stack
+              style={{ width: layout.width, height: layout.height }}
+              key={`${layout.width}-${layout.height}`}
+            >
+              <PagerView
+                ref={pagerRef as RefObject<NativePagerView>}
+                style={{ width: layout.width, height: layout.height }}
+                initialPage={defaultIndex}
+                pageWidth={pageWidth}
+                onPageSelected={onPageSelected}
+                keyboardDismissMode="on-drag"
+                disableAnimation={disableAnimation}
+                {...pagerProps}
+              >
+                {data.map((item, index) => (
+                  <Stack
+                    key={index}
+                    style={{
+                      width: pageWidth,
+                      height: '100%',
+                    }}
+                  >
+                    {renderItem({ item, index })}
+                  </Stack>
+                ))}
+              </PagerView>
+            </Stack>
+          ) : null}
         </XStack>
-      ) : (
-        <XStack />
-      )}
-    </YStack>
+        {showPagination && data.length > 1 ? (
+          <XStack
+            gap="$0.5"
+            ai="center"
+            jc="center"
+            {...(paginationContainerStyle as any)}
+          >
+            {data.map((item, index) => {
+              return renderPaginationItem?.(
+                {
+                  data: item,
+                  dotStyle,
+                  activeDotStyle:
+                    index === pageIndex
+                      ? activeDotStyle || { bg: '$bgPrimary' }
+                      : undefined,
+                  onPress: () => onPressPagination(index),
+                },
+                index,
+              );
+            })}
+          </XStack>
+        ) : (
+          <XStack />
+        )}
+      </YStack>
+    </CarouselContext.Provider>
   );
 }
 
