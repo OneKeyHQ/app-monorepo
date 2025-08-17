@@ -756,6 +756,8 @@ export interface ISwapTips {
   title: string;
   detailLink?: string;
   userCanClose?: boolean;
+  iconImage?: string;
+  description?: string;
 }
 
 export interface ISwapInfoSide {
