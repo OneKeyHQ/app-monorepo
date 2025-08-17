@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -12,6 +12,7 @@ import {
   useCurrentTabScrollY,
   useMedia,
 } from '@onekeyhq/components';
+import { useTabsScrollContext } from '@onekeyhq/components/src/composite/Tabs/context';
 import { useLeftColumnWidthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketTransactions } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketTransactions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -48,6 +49,8 @@ const useScrollEnd = platformEnv.isNative
     }
   : () => {};
 
+const SCROLL_THRESHOLD = 50;
+
 export function TransactionsHistory({
   tokenAddress,
   networkId,
@@ -55,22 +58,26 @@ export function TransactionsHistory({
 }: ITransactionsHistoryProps) {
   const intl = useIntl();
   const { gtLg } = useMedia();
-  const [leftColumnWidth] = useLeftColumnWidthAtom();
+  const [_leftColumnWidth] = useLeftColumnWidthAtom();
   const { transactions, isRefreshing } = useMarketTransactions({
     tokenAddress,
     networkId,
   });
-  // const listRef = useRef<FlashListRef<IMarketTokenTransaction>>(null);
-  // const [hasUserScrolled, setHasUserScrolled] = useState(false);
+  const { scrollTop } = useTabsScrollContext() as {
+    scrollTop: number;
+  };
 
-  const shouldEnableScroll = leftColumnWidth < 930;
+  const [listKey, setListKey] = useState(0);
 
-  // Scroll to top when transactions update, only if user hasn't scrolled
-  // useEffect(() => {
-  //   if (transactions.length > 0 && listRef.current && !hasUserScrolled) {
-  //     listRef.current?.scrollToOffset({ animated: false, offset: 0 });
-  //   }
-  // }, [transactions, hasUserScrolled]);
+  useEffect(() => {
+    if (transactions.length > 0) {
+      const shouldResetList = scrollTop < SCROLL_THRESHOLD;
+
+      if (shouldResetList) {
+        setListKey((prev) => prev + 1);
+      }
+    }
+  }, [transactions.length, scrollTop]);
 
   const renderItem: FlatListProps<IMarketTokenTransaction>['renderItem'] =
     useCallback(
@@ -90,14 +97,14 @@ export function TransactionsHistory({
   );
 
   const handleEndReached = useCallback(() => {
-    console.log('handleEndReached');
+    // TODO: Implement pagination logic here
   }, []);
 
   useScrollEnd(onScrollEnd ?? noop);
 
   return (
     <Tabs.FlatList<IMarketTokenTransaction>
-      // ref={listRef}
+      key={listKey}
       onEndReached={handleEndReached}
       data={transactions}
       renderItem={renderItem}

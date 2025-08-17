@@ -1,4 +1,4 @@
-import { LinearGradient, Stack } from '@onekeyhq/components';
+import { LinearGradient, Stack, useTheme } from '@onekeyhq/components';
 
 interface IGradientMaskProps {
   position: 'left' | 'right';
@@ -6,6 +6,12 @@ interface IGradientMaskProps {
 }
 
 export const GradientMask = ({ position, opacity = 1 }: IGradientMaskProps) => {
+  const { isDarkMode } = useTheme();
+
+  if (isDarkMode) {
+    return <Stack />;
+  }
+
   const positionProps = position === 'left' ? { left: 0 } : { right: 0 };
 
   return (
