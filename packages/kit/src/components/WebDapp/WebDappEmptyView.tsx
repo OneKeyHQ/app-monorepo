@@ -152,7 +152,7 @@ function WebDappEmptyView() {
           </XStack>
 
           <YStack gap={isMobileLayout ? '$3' : '$4'}>
-            <OneKeyWalletConnectionOptions />
+            <OneKeyWalletConnectionOptions showInModal={false} />
           </YStack>
           <TermsAndPrivacy
             contentContainerProps={{
