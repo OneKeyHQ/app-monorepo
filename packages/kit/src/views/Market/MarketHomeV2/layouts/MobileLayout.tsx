@@ -66,13 +66,13 @@ export function MobileLayout({
     ({ item }: { item: string }) => {
       if (item === watchlistTabName) {
         return (
-          <YStack flex={1} height={height}>
+          <YStack flex={1} height={platformEnv.isNative ? undefined : height}>
             <MarketWatchlistTokenList />
           </YStack>
         );
       }
       return (
-        <YStack flex={1} height={height}>
+        <YStack flex={1} height={platformEnv.isNative ? undefined : height}>
           <MarketFilterBarSmall {...filterBarProps} />
           <MarketNormalTokenList networkId={selectedNetworkId} />
         </YStack>
