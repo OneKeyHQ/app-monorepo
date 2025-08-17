@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useCarouselIndex } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
@@ -39,6 +40,8 @@ export function useMarketWatchlistTokenList({
   const [hasMore] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
+  const pageIndex = useCarouselIndex();
+
   const {
     result: apiResult,
     isLoading: apiLoading,
@@ -65,10 +68,11 @@ export function useMarketWatchlistTokenList({
     },
     [watchlist, isInitialLoad],
     {
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
       watchLoading: true,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
+      overrideIsFocused: (isFocused) => isFocused && pageIndex === 0,
       checkIsFocused: true,
     },
   );
