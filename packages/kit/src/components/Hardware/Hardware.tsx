@@ -1240,7 +1240,7 @@ export function BluetoothDevicePairingContent({
           id: ETranslations.communication_not_detected_bluetooth_not_paired,
         })}
       </SizableText>
-      <YStack gap="$2" pr="$5">
+      <YStack gap="$2">
         <XStack gap="$2" alignItems="flex-start">
           <YStack w="$5" alignItems="center" justifyContent="center">
             <SizableText color="$textDisabled">1.</SizableText>
@@ -1258,6 +1258,16 @@ export function BluetoothDevicePairingContent({
           <SizableText>
             {intl.formatMessage({
               id: ETranslations.bluetooth_paring_guides_pair,
+            })}
+          </SizableText>
+        </XStack>
+        <XStack gap="$2" alignItems="flex-start">
+          <YStack w="$5" alignItems="center" justifyContent="center">
+            <SizableText color="$textDisabled">3.</SizableText>
+          </YStack>
+          <SizableText>
+            {intl.formatMessage({
+              id: ETranslations.bluetooth_paring_guides_wait_for_confirmation,
             })}
           </SizableText>
         </XStack>
