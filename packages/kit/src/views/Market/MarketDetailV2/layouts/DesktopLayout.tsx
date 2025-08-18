@@ -53,9 +53,11 @@ export function DesktopLayout() {
           </Stack>
 
           {/* Info tabs */}
-          <Stack h="30vh">
-            <DesktopInformationTabs />
-          </Stack>
+          {tokenDetail?.address ? (
+            <Stack h="30vh">
+              <DesktopInformationTabs />
+            </Stack>
+          ) : null}
         </YStack>
 
         {/* Right column */}
