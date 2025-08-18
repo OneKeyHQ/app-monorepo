@@ -82,6 +82,9 @@ export function DiscoveryItemCard({
         px="$2"
         size="$bodyMdMedium"
         textAlign="center"
+        style={{
+          hyphens: 'auto',
+        }}
         numberOfLines={2}
       >
         {title}
