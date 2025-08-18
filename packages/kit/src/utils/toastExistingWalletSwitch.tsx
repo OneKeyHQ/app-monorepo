@@ -43,6 +43,7 @@ export const toastExistingWalletSwitch = (createResult: {
   wallet: IDBWallet;
   indexedAccount: IDBIndexedAccount | undefined;
   isOverrideWallet: boolean | undefined;
+  isAttachPinMode?: boolean;
 }) => {
   if (createResult.wallet && createResult.isOverrideWallet) {
     setTimeout(() => {
@@ -51,7 +52,9 @@ export const toastExistingWalletSwitch = (createResult: {
           id: ETranslations.feedback_wallet_exists_title,
         }),
         message: appLocale.intl.formatMessage({
-          id: ETranslations.feedback_wallet_exists_desc,
+          id: createResult.isAttachPinMode
+            ? ETranslations.feedback_wallet_exsited_due_to_same_pin_desc
+            : ETranslations.feedback_wallet_exists_desc,
         }),
       });
     }, 1000);

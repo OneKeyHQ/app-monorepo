@@ -76,6 +76,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const isEditableRouteParams = route.params?.editable;
   const keepAllOtherAccounts = route.params?.keepAllOtherAccounts;
   const allowSelectEmptyAccount = route.params?.allowSelectEmptyAccount;
+  const hideAddress = route.params?.hideAddress;
   const linkedNetworkId = useMemo(() => {
     if (linkNetworkId) {
       return linkNetworkId;
@@ -534,6 +535,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               mergeDeriveAssetsEnabled={
                 listDataResult?.mergeDeriveAssetsEnabled
               }
+              hideAddress={hideAddress}
             />
           )}
           renderSectionFooter={({
@@ -590,6 +592,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     handleLayoutForContainer,
     handleLayoutForHeader,
     handleLayoutForSectionList,
+    hideAddress,
     initialScrollIndex,
     intl,
     isDeprecatedWallet,
