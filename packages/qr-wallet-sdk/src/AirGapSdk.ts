@@ -1,6 +1,11 @@
 import AirGapSdkBase from '@keystonehq/keystone-sdk';
 
-import { AirGapBtcSDK, AirGapEthSDK, AirGapSolSDK } from './chains';
+import {
+  AirGapBtcSDK,
+  AirGapEthSDK,
+  AirGapSolSDK,
+  AirGapTronSDK,
+} from './chains';
 
 export class AirGapSdk extends AirGapSdkBase {
   private _ethAirGap: AirGapEthSDK | undefined;
@@ -28,6 +33,15 @@ export class AirGapSdk extends AirGapSdkBase {
       this._solAirGap = new AirGapSolSDK();
     }
     return this._solAirGap;
+  }
+
+  private _tronAirGap: AirGapTronSDK | undefined;
+
+  override get tron() {
+    if (!this._tronAirGap) {
+      this._tronAirGap = new AirGapTronSDK();
+    }
+    return this._tronAirGap;
   }
 }
 

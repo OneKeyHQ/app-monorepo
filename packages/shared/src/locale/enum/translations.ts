@@ -238,6 +238,7 @@
   bluetooth_keep_near = 'bluetooth.keep_near',
   bluetooth_paring_guides_pair = 'bluetooth.paring_guides_pair',
   bluetooth_paring_guides_unlock = 'bluetooth.paring_guides_unlock',
+  bluetooth_paring_guides_wait_for_confirmation = 'bluetooth.paring_guides_wait_for_confirmation',
   bluetooth_permission_prompt = 'bluetooth.permission_prompt',
   bluetooth_paring_dialog_title = 'bluetooth_paring_dialog_title',
   browser_bookmark = 'browser.bookmark',

@@ -59,6 +59,7 @@ export function AccountSelectorAccountListItem({
   accountsCount,
   focusedWalletInfo,
   mergeDeriveAssetsEnabled,
+  hideAddress,
 }: {
   num: number;
   linkedNetworkId: string | undefined;
@@ -83,6 +84,7 @@ export function AccountSelectorAccountListItem({
       }
     | undefined;
   mergeDeriveAssetsEnabled: boolean | undefined;
+  hideAddress?: boolean;
 }) {
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
@@ -121,6 +123,7 @@ export function AccountSelectorAccountListItem({
     linkedNetworkId: string | undefined;
     address: string;
     isEmptyAddress: boolean;
+    hideAddress?: boolean;
   } => {
     let address: string | undefined;
     let allowEmptyAddress = false;
@@ -158,12 +161,14 @@ export function AccountSelectorAccountListItem({
           })
         : '',
       isEmptyAddress: false,
+      hideAddress: isOthersUniversal ? false : hideAddress,
     };
   }, [
     account?.address,
     indexedAccount?.associateAccount,
     isOthersUniversal,
     linkedNetworkId,
+    hideAddress,
   ]);
 
   const subTitleInfo = useMemo(() => buildSubTitleInfo(), [buildSubTitleInfo]);
@@ -200,6 +205,7 @@ export function AccountSelectorAccountListItem({
               : undefined
           }
           wallet={focusedWalletInfo?.wallet}
+          networkId={linkedNetworkId ?? network?.id}
         />
       );
     }
@@ -229,8 +235,9 @@ export function AccountSelectorAccountListItem({
     section?.firstAccount,
     account,
     focusedWalletInfo?.wallet,
-    num,
     linkedNetworkId,
+    network?.id,
+    num,
     selectedAccount.deriveType,
   ]);
 
@@ -288,7 +295,7 @@ export function AccountSelectorAccountListItem({
           linkedNetworkId={avatarNetworkId ?? network?.id}
           mergeDeriveAssetsEnabled={mergeDeriveAssetsEnabled}
         />
-        {subTitleInfo.address ? (
+        {subTitleInfo.address && !subTitleInfo.hideAddress ? (
           <Stack
             mx="$1.5"
             w="$1"
@@ -302,6 +309,7 @@ export function AccountSelectorAccountListItem({
   }, [
     linkNetwork,
     subTitleInfo.address,
+    subTitleInfo.hideAddress,
     isOthersUniversal,
     index,
     accountValue,
@@ -354,6 +362,7 @@ export function AccountSelectorAccountListItem({
                     trailingLength: 4,
                   })}
                   isEmptyAddress={subTitleInfo.isEmptyAddress}
+                  hideAddress={subTitleInfo.hideAddress}
                 />
               </XStack>
             }
