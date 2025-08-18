@@ -49,7 +49,7 @@ export function PagerView({
         },
       } as any);
     },
-    300,
+    50,
   );
 
   const getSafePageIndex = useCallback(
