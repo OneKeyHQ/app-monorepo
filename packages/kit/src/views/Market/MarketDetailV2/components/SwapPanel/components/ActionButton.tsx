@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button } from '@onekeyhq/components';
+import { Button, useMedia } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
@@ -47,6 +47,7 @@ export function ActionButton({
   ...otherProps
 }: IActionButtonProps) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const { tokenDetail } = useTokenDetail();
   const [settingsValue] = useSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -241,7 +242,7 @@ export function ActionButton({
 
   return (
     <Button
-      size="medium"
+      size={gtMd ? 'medium' : 'large'}
       disabled={Boolean(
         (shouldDisable || disabled || !hasAmount) &&
           !shouldCreateAddress?.result &&
