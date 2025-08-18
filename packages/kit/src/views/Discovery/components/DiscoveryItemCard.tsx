@@ -37,7 +37,7 @@ export function DiscoveryItemCard({
     if (platformEnv.isNative) {
       return 9;
     }
-    return md ? 9 : 14;
+    return md ? 9 : 16;
   }, [md]);
   const displayTitle = useMemo(() => {
     const words = title.split(' ');
