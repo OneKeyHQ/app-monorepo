@@ -77,36 +77,36 @@ export function MobileLayout() {
   const pointerEventsSharedValue = useSharedValue(pointerEvents);
   pointerEventsSharedValue.value = pointerEvents;
 
-  const tradingViewContainerRef = useRef<View>(null);
-  const tradingViewPositionSharedValue = useSharedValue({
-    minY: 255,
-    maxY: 605,
-  });
+  // const tradingViewContainerRef = useRef<View>(null);
+  // const tradingViewPositionSharedValue = useSharedValue({
+  //   minY: 255,
+  //   maxY: 605,
+  // });
 
-  const handleTradingViewContainerLayout = useCallback(() => {
-    tradingViewContainerRef.current?.measure(
-      (x, y, innerWidth, innerHeight, pageX, pageY) => {
-        tradingViewPositionSharedValue.value = {
-          minY: pageY,
-          maxY: pageY + innerHeight,
-        };
-      },
-    );
-  }, [tradingViewPositionSharedValue]);
+  // const handleTradingViewContainerLayout = useCallback(() => {
+  //   tradingViewContainerRef.current?.measure(
+  //     (x, y, innerWidth, innerHeight, pageX, pageY) => {
+  //       tradingViewPositionSharedValue.value = {
+  //         minY: pageY,
+  //         maxY: pageY + innerHeight,
+  //       };
+  //     },
+  //   );
+  // }, [tradingViewPositionSharedValue]);
 
-  const tagGesture = useMemo(() => {
-    return Gesture.Tap().onStart((event) => {
-      if (platformEnv.isNative) {
-        const { minY, maxY } = tradingViewPositionSharedValue.value;
-        const isInTradingView =
-          event.absoluteY >= minY && event.absoluteY <= maxY;
-        const currentPointerEvents = isInTradingView ? 'auto' : 'none';
-        if (currentPointerEvents !== pointerEventsSharedValue.value) {
-          runOnJS(setPointerEvents)(currentPointerEvents);
-        }
-      }
-    });
-  }, [pointerEventsSharedValue, tradingViewPositionSharedValue]);
+  // const tagGesture = useMemo(() => {
+  //   return Gesture.Tap().onStart((event) => {
+  //     if (platformEnv.isNative) {
+  //       const { minY, maxY } = tradingViewPositionSharedValue.value;
+  //       const isInTradingView =
+  //         event.absoluteY >= minY && event.absoluteY <= maxY;
+  //       const currentPointerEvents = isInTradingView ? 'auto' : 'none';
+  //       if (currentPointerEvents !== pointerEventsSharedValue.value) {
+  //         runOnJS(setPointerEvents)(currentPointerEvents);
+  //       }
+  //     }
+  //   });
+  // }, [pointerEventsSharedValue, tradingViewPositionSharedValue]);
 
   const setPointerEventsToNone = useCallback(() => {
     if (platformEnv.isNative) {
@@ -133,7 +133,7 @@ export function MobileLayout() {
                     pointerEvents={
                       platformEnv.isNative ? pointerEvents : undefined
                     }
-                    onLayout={handleTradingViewContainerLayout}
+                    // onLayout={handleTradingViewContainerLayout}
                   >
                     <MarketTradingView
                       tokenAddress={tokenAddress}
@@ -161,7 +161,6 @@ export function MobileLayout() {
       );
     },
     [
-      handleTradingViewContainerLayout,
       height,
       networkId,
       pointerEvents,
@@ -172,28 +171,23 @@ export function MobileLayout() {
   );
 
   return (
-    <GestureDetector gesture={tagGesture}>
-      <YStack flex={1}>
-        <Tabs.TabBar
-          divider={false}
-          onTabPress={handleTabChange}
-          tabNames={tabNames}
-          focusedTab={focusedTab}
-        />
-        <ScrollView
-          horizontal
-          ref={scrollViewRef}
-          flex={1}
-          scrollEnabled={false}
-        >
-          {tabNames.map((item, index) => (
-            <YStack key={index} h={height} w={width}>
-              {renderItem({ index })}
-            </YStack>
-          ))}
-        </ScrollView>
-        <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />
-      </YStack>
-    </GestureDetector>
+    // <GestureDetector gesture={tagGesture}>
+    <YStack flex={1}>
+      <Tabs.TabBar
+        divider={false}
+        onTabPress={handleTabChange}
+        tabNames={tabNames}
+        focusedTab={focusedTab}
+      />
+      <ScrollView horizontal ref={scrollViewRef} flex={1} scrollEnabled={false}>
+        {tabNames.map((item, index) => (
+          <YStack key={index} h={height} w={width}>
+            {renderItem({ index })}
+          </YStack>
+        ))}
+      </ScrollView>
+      <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />
+    </YStack>
+    // </GestureDetector>
   );
 }
