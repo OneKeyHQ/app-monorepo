@@ -47,7 +47,11 @@ function OneKeyHardwareWalletLogo() {
   );
 }
 
-function OneKeyWalletConnectionOptions() {
+function OneKeyWalletConnectionOptions({
+  showInModal,
+}: {
+  showInModal: boolean;
+}) {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
 
@@ -75,6 +79,12 @@ function OneKeyWalletConnectionOptions() {
     });
   }, [appNavigation]);
 
+  const handleConnectWatchOnlyPress = useCallback(() => {
+    appNavigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.ImportAddress,
+    });
+  }, [appNavigation]);
+
   // Mobile: show only hardware wallet + WalletConnect
   if (isMobile) {
     return (
@@ -98,6 +108,31 @@ function OneKeyWalletConnectionOptions() {
           mx="$0"
           bg="$bgSubdued"
         />
+        {showInModal ? (
+          <ListItem
+            py="$4"
+            px="$5"
+            mx="$0"
+            bg="$bgSubdued"
+            title={intl.formatMessage({
+              id: ETranslations.global_watch_only_wallet,
+            })}
+            renderAvatar={
+              <Stack
+                h="$10"
+                w="$10"
+                bg="$bgStrong"
+                borderRadius="$2"
+                ai="center"
+                jc="center"
+              >
+                <Icon name="EyeOutline" size="$6" color="$icon" />
+              </Stack>
+            }
+            drillIn
+            onPress={handleConnectWatchOnlyPress}
+          />
+        ) : null}
       </>
     );
   }

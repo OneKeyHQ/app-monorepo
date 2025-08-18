@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useSharedValue } from 'react-native-reanimated';
@@ -21,6 +21,7 @@ export interface IMarketTabsLogicReturn {
   focusedTab: SharedValue<string>;
   carouselRef: React.RefObject<ICarouselInstance | null>;
   handleTabChange: (tabName: string) => void;
+  handlePageChanged: (index: number) => void;
   defaultIndex: number;
 
   // State
@@ -63,17 +64,24 @@ export function useMarketTabsLogic(
     return selectedTab === 'watchlist' ? 0 : 1;
   }, [selectedTab]);
 
+  const handlePageChanged = useCallback(
+    (index: number) => {
+      // Convert display name to enum value
+      const tabValue = index === 0 ? 'watchlist' : 'trending';
+
+      // Primary state update - this is the source of truth
+      setSelectedTab(tabValue);
+      onTabChange(tabValue);
+
+      // Secondary update - sync SharedValue for TabBar component
+      // Note: This will be automatically updated by useEffect above, but we do it immediately for responsive UI
+      focusedTab.value = tabNames[index];
+    },
+    [focusedTab, onTabChange, setSelectedTab, tabNames],
+  );
+
   const handleTabChange = useDebouncedCallback((tabName: string) => {
-    // Convert display name to enum value
-    const tabValue = tabName === watchlistTabName ? 'watchlist' : 'trending';
-
-    // Primary state update - this is the source of truth
-    setSelectedTab(tabValue);
-    onTabChange(tabValue);
-
-    // Secondary update - sync SharedValue for TabBar component
-    // Note: This will be automatically updated by useEffect above, but we do it immediately for responsive UI
-    focusedTab.value = tabName;
+    handlePageChanged(tabNames.indexOf(tabName));
     carouselRef.current?.scrollTo({ index: tabNames.indexOf(tabName) });
   }, 50);
 
@@ -83,6 +91,7 @@ export function useMarketTabsLogic(
     trendingTabName,
     focusedTab,
     carouselRef,
+    handlePageChanged,
     handleTabChange,
     defaultIndex,
     selectedTab,

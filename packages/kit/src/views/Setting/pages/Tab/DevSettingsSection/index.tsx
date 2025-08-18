@@ -445,24 +445,6 @@ export const DevSettingsSection = () => {
       </SectionFieldItem>
 
       <SectionPressItem
-        icon="RefreshCcwOutline"
-        title="重置 App 为初次更新状态"
-        testID="reset-app-to-fresh-state"
-        onPress={() => {
-          Dialog.show({
-            title: '重置 App 为初次更新状态',
-            description: '重置后 App 将恢复到初次更新状态',
-            onConfirm: async () => {
-              await appUpdatePersistAtom.set((prev) => ({
-                ...prev,
-                latestVersion: APP_VERSION,
-                status: EAppUpdateStatus.ready,
-              }));
-            },
-          });
-        }}
-      />
-      <SectionPressItem
         icon="UploadOutline"
         title="Export Accounts Data"
         onPress={() => {

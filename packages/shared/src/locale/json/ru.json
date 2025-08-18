@@ -1566,6 +1566,7 @@
   "global.warning": "Предупреждение",
   "global.watch_only": "Только смотреть",
   "global.watch_only_address": "Адрес только для просмотра",
+  "global.watch_only_wallet": "Кошелек только для просмотра",
   "global.watched": "Просмотрено",
   "global.watchlist": "Список наблюдения",
   "global.website": "Веб-сайт",

@@ -1,10 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Dimensions } from 'react-native';
-import { useSharedValue } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS, useSharedValue } from 'react-native-reanimated';
 
-import type { ICarouselInstance, IScrollViewRef } from '@onekeyhq/components';
+import type {
+  ICarouselInstance,
+  IScrollViewRef,
+  IStackProps,
+} from '@onekeyhq/components';
 import {
   Carousel,
   ScrollView,
@@ -25,6 +31,8 @@ import {
 } from '../components';
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
 import { useTokenDetail } from '../hooks/useTokenDetail';
+
+import type { View } from 'react-native';
 
 export function MobileLayout() {
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
@@ -64,12 +72,50 @@ export function MobileLayout() {
     [focusedTab, tabNames, width],
   );
 
-  const onPageChanged = useCallback(
-    (index: number) => {
-      focusedTab.value = tabNames[index];
-    },
-    [focusedTab, tabNames],
-  );
+  // const [pointerEvents, setPointerEvents] =
+  //   useState<IStackProps['pointerEvents']>('none');
+
+  // const pointerEventsSharedValue = useSharedValue(pointerEvents);
+  // pointerEventsSharedValue.value = pointerEvents;
+
+  // const tradingViewContainerRef = useRef<View>(null);
+  // const tradingViewPositionSharedValue = useSharedValue({
+  //   minY: 255,
+  //   maxY: 605,
+  // });
+
+  // const handleTradingViewContainerLayout = useCallback(() => {
+  //   tradingViewContainerRef.current?.measure(
+  //     (x, y, innerWidth, innerHeight, pageX, pageY) => {
+  //       tradingViewPositionSharedValue.value = {
+  //         minY: pageY,
+  //         maxY: pageY + innerHeight,
+  //       };
+  //     },
+  //   );
+  // }, [tradingViewPositionSharedValue]);
+
+  // const tagGesture = useMemo(() => {
+  //   return Gesture.Tap().onStart((event) => {
+  //     if (platformEnv.isNative) {
+  //       const { minY, maxY } = tradingViewPositionSharedValue.value;
+  //       const isInTradingView =
+  //         event.absoluteY >= minY && event.absoluteY <= maxY;
+  //       const currentPointerEvents = isInTradingView ? 'auto' : 'none';
+  //       if (currentPointerEvents !== pointerEventsSharedValue.value) {
+  //         runOnJS(setPointerEvents)(currentPointerEvents);
+  //       }
+  //     }
+  //   });
+  // }, [pointerEventsSharedValue, tradingViewPositionSharedValue]);
+
+  // const setPointerEventsToNone = useCallback(() => {
+  //   if (platformEnv.isNative) {
+  //     if (pointerEventsSharedValue.value !== 'none') {
+  //       setPointerEvents('none');
+  //     }
+  //   }
+  // }, [pointerEventsSharedValue]);
 
   const renderItem = useCallback(
     ({ index }: { index: number }) => {
@@ -77,10 +123,20 @@ export function MobileLayout() {
         return (
           <YStack flex={1} height={height}>
             <MobileInformationTabs
+              // onScrollEnd={setPointerEventsToNone}
+              onScrollEnd={noop}
               renderHeader={() => (
                 <YStack bg="$bgApp" pointerEvents="box-none">
                   <InformationPanel />
-                  <Stack h={350}>
+                  <Stack
+                    h={350}
+                    // ref={tradingViewContainerRef}
+                    position="relative"
+                    // pointerEvents={
+                    //   platformEnv.isNative ? pointerEvents : undefined
+                    // }
+                    // onLayout={handleTradingViewContainerLayout}
+                  >
                     <MarketTradingView
                       tokenAddress={tokenAddress}
                       networkId={networkId}
@@ -110,6 +166,7 @@ export function MobileLayout() {
   );
 
   return (
+    // <GestureDetector gesture={tagGesture}>
     <YStack flex={1}>
       <Tabs.TabBar
         divider={false}
@@ -126,5 +183,6 @@ export function MobileLayout() {
       </ScrollView>
       <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />
     </YStack>
+    // </GestureDetector>
   );
 }

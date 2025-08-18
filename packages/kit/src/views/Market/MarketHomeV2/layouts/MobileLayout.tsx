@@ -41,6 +41,7 @@ export function MobileLayout({
     focusedTab,
     carouselRef,
     handleTabChange,
+    handlePageChanged,
     defaultIndex,
   } = useMarketTabsLogic(onTabChange);
 
@@ -56,24 +57,22 @@ export function MobileLayout({
 
   const onPageChanged = useCallback(
     (index: number) => {
-      // Update the atom state, which will sync to SharedValue automatically
-      const tabName = tabNames[index];
-      handleTabChange(tabName);
+      handlePageChanged(index);
     },
-    [handleTabChange, tabNames],
+    [handlePageChanged],
   );
 
   const renderItem = useCallback(
     ({ item }: { item: string }) => {
       if (item === watchlistTabName) {
         return (
-          <YStack flex={1} height={height}>
+          <YStack flex={1} height={platformEnv.isNative ? undefined : height}>
             <MarketWatchlistTokenList />
           </YStack>
         );
       }
       return (
-        <YStack flex={1} height={height}>
+        <YStack flex={1} height={platformEnv.isNative ? undefined : height}>
           <MarketFilterBarSmall {...filterBarProps} />
           <MarketNormalTokenList networkId={selectedNetworkId} />
         </YStack>

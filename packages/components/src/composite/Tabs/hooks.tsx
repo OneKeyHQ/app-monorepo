@@ -1,13 +1,4 @@
-import {
-  createContext,
-  forwardRef,
-  useCallback,
-  useContext,
-  useImperativeHandle,
-  useMemo,
-  useState,
-} from 'react';
-import type { ForwardedRef, PropsWithChildren } from 'react';
+import { createContext, useCallback, useContext, useState } from 'react';
 
 import { useTabNameContext as useNativeTabNameContext } from './TabNameContext';
 import { useFocusedTab } from './useFocusedTab';
@@ -62,3 +53,5 @@ export function useTabIsRefreshingFocused() {
     setIsFooterRefreshing,
   };
 }
+
+export * from './useCurrentTabScrollY';
