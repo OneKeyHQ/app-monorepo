@@ -21,6 +21,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 
 import { isWebEmbedApiAllowedOrigin } from '../apis/backgroundApiPermissions';
 
@@ -308,10 +309,16 @@ class ProviderApiPrivate extends ProviderApiBase {
         await this.backgroundApi.serviceSetting.shouldDisplayFloatingButtonInUrl(
           { url: request.origin },
         );
+      const securityInfo =
+        await this.backgroundApi.serviceDiscovery.checkUrlSecurity({
+          url: request.origin,
+          from: 'script',
+        });
       const settings =
         await this.backgroundApi.simpleDb.floatingIconSettings.getSettings();
       return {
-        isShow,
+        isShow:
+          securityInfo.level === EHostSecurityLevel.Unknown ? false : isShow,
         settings,
         i18n: {
           title: appLocale.intl.formatMessage({
