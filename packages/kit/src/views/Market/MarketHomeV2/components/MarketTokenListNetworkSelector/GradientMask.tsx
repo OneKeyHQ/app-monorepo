@@ -1,4 +1,4 @@
-import { LinearGradient, Stack } from '@onekeyhq/components';
+import { LinearGradient, Stack, useTheme } from '@onekeyhq/components';
 
 interface IGradientMaskProps {
   position: 'left' | 'right';
@@ -6,6 +6,7 @@ interface IGradientMaskProps {
 }
 
 export const GradientMask = ({ position, opacity = 1 }: IGradientMaskProps) => {
+  const theme = useTheme();
   const positionProps = position === 'left' ? { left: 0 } : { right: 0 };
 
   return (
@@ -25,7 +26,7 @@ export const GradientMask = ({ position, opacity = 1 }: IGradientMaskProps) => {
       <LinearGradient
         width="100%"
         height="100%"
-        colors={['$bgApp', 'rgba(255, 255, 255, 0)']}
+        colors={[theme.bgApp.val, `${theme.bgApp.val}00`]}
         start={position === 'left' ? [0, 0] : [1, 0]}
         end={position === 'left' ? [1, 0] : [0, 0]}
       />

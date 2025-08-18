@@ -17,6 +17,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
@@ -65,6 +66,7 @@ function TokenInputSectionComponent(
   ref: Ref<ITokenInputSectionRef>,
 ) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [internalValue, setInternalValue] = useState('');
   const inputRef = useRef<IInputRef>(null);
@@ -165,7 +167,7 @@ function TokenInputSectionComponent(
     <YStack gap="$1">
       <Input
         ref={inputRef}
-        size="medium"
+        size={gtMd ? 'medium' : 'large'}
         keyboardType="decimal-pad"
         value={internalValue}
         placeholder={intl.formatMessage({

@@ -15,11 +15,10 @@ function TransactionsHeaderSmallBase() {
 
   return (
     <XStack
-      px="$4"
-      py="$1"
+      px="$5"
+      pt="$3"
+      pb="$1"
       alignItems="center"
-      borderBottomWidth="$px"
-      borderBottomColor="$borderSubdued"
       backgroundColor="$bgApp"
     >
       <YStack>
