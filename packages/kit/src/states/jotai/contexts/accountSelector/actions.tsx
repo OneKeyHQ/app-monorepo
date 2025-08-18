@@ -532,9 +532,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         num,
         sceneName,
         sceneUrl,
+        showConnectWalletModalInDappMode,
         ...others
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
+        showConnectWalletModalInDappMode?: boolean;
       } & IAccountSelectorRouteParams &
         IAccountSelectorRouteParamsExtraConfig,
     ) => {
@@ -546,13 +548,18 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
       const activeAccountInfo = this.getActiveAccount.call(set, { num });
 
-      // In dapp mode, if no wallet exists, directly show connect wallet options
+      // In dapp mode, if no wallet exists, conditionally show connect wallet options
       const isWebDappMode = platformEnv.isWebDappMode;
       const hasWallet = activeAccountInfo?.wallet?.id;
       const hasAccount =
         activeAccountInfo?.account || activeAccountInfo?.indexedAccount;
 
-      if (isWebDappMode && !hasWallet && !hasAccount) {
+      if (
+        isWebDappMode &&
+        !hasWallet &&
+        !hasAccount &&
+        showConnectWalletModalInDappMode
+      ) {
         navigation.pushModal(EModalRoutes.OnboardingModal, {
           screen: EOnboardingPages.ConnectWalletOptions,
         });
