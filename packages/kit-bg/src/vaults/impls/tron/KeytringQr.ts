@@ -14,6 +14,7 @@ import type {
   IAirGapSignatureTron,
 } from '@onekeyhq/qr-wallet-sdk';
 import { EAirGapDataTypeTron, getAirGapSdk } from '@onekeyhq/qr-wallet-sdk';
+import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import {
   NotImplemented,
   OneKeyErrorAirGapAccountNotFound,
@@ -22,7 +23,6 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import appCrypto from '@onekeyhq/shared/src/appCrypto';
 
 import localDb from '../../../dbs/local/localDb';
 import { UR_DEFAULT_ORIGIN } from '../../../services/ServiceQrWallet/qrWalletConsts';
@@ -144,7 +144,7 @@ export class KeyringQr extends KeyringQrBase {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
-    throw new NotImplemented();
+    throw new NotImplemented('Signing tron message is not supported yet.');
   }
 
   override async prepareAccounts(
