@@ -209,7 +209,7 @@ function MarketTokenListBase({
                         toDetailPage({
                           symbol: item.symbol,
                           tokenAddress: item.address,
-                          networkId,
+                          networkId: item.networkId,
                         }),
                     })
               }
