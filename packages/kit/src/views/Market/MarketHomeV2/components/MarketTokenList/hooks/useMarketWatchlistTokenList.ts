@@ -108,6 +108,11 @@ export function useMarketWatchlistTokenList({
       });
     });
 
+    console.log('🔍 Debug transformed data:', {
+      transformed,
+      watchlist,
+    });
+
     // Filter transformed data based on current watchlist to ensure immediate UI updates
     const filteredTransformed = transformed.filter((token) => {
       const key = token.address.toLowerCase();
