@@ -143,28 +143,31 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           children: swapRouters,
           trackId: 'global-trade',
         },
-        {
-          name: ETabRoutes.PerpTrade,
-          tabBarIcon: (focused?: boolean) =>
-            focused ? 'ChartTrendingSolid' : 'ChartTrendingOutline',
-          translationId: 'Perp',
-          freezeOnBlur: Boolean(params?.freezeOnBlur),
-          rewrite: '/perp',
-          exact: true,
-          tabbarOnPress: platformEnv.isExtension
-            ? async () => {
-                if (platformEnv.isExtension) {
-                  await backgroundApiProxy.servicePerp.openExtPerpTab();
-                }
-              }
-            : undefined,
-          children: platformEnv.isExtension
-            ? // small screen error: Cannot read properties of null (reading 'filter')
-              // null
-              perpTradeRouters
-            : perpTradeRouters,
-          trackId: 'global-perp',
-        },
+        // platformEnv.isDesktop || platformEnv.isNative
+        platformEnv.isDesktop
+          ? {
+              name: ETabRoutes.PerpTrade,
+              tabBarIcon: (focused?: boolean) =>
+                focused ? 'ChartTrendingSolid' : 'ChartTrendingOutline',
+              translationId: 'Perp',
+              freezeOnBlur: Boolean(params?.freezeOnBlur),
+              rewrite: '/perp',
+              exact: true,
+              tabbarOnPress: platformEnv.isExtension
+                ? async () => {
+                    if (platformEnv.isExtension) {
+                      await backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
+                    }
+                  }
+                : undefined,
+              children: platformEnv.isExtension
+                ? // small screen error: Cannot read properties of null (reading 'filter')
+                  // null
+                  perpTradeRouters
+                : perpTradeRouters,
+              trackId: 'global-perp',
+            }
+          : null,
         {
           name: ETabRoutes.Earn,
           tabBarIcon: (focused?: boolean) =>
