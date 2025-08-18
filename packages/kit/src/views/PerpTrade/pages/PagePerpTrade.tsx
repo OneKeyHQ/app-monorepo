@@ -1,6 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { HeaderIconButton, Page } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import {
+  Button,
+  HeaderIconButton,
+  IconButton,
+  Page,
+  Tooltip,
+  useShortcuts,
+} from '@onekeyhq/components';
+import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import {
   HYPER_LIQUID_ORIGIN,
@@ -10,26 +20,65 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { useShortcutsRouteStatus } from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { SingleAccountAndNetworkSelectorTrigger } from '../../Discovery/components/HeaderRightToolBar';
 
-import type { IWebViewRef } from '../../../components/WebView/types';
+import type {
+  IElectronWebView,
+  IWebViewRef,
+} from '../../../components/WebView/types';
+import type { WebView as ReactNativeWebView } from 'react-native-webview';
 
 const origin = HYPER_LIQUID_ORIGIN;
 const url = HYPER_LIQUID_TRADE_URL;
 
+function usePerpPageShortcuts({
+  webviewRef,
+}: {
+  webviewRef: React.RefObject<IWebViewRef | null>;
+}) {
+  const { isAtPerpTab, shouldReloadAppByCmdR } = useShortcutsRouteStatus();
+
+  const refresh = useCallback(() => {
+    if (isAtPerpTab.current) {
+      try {
+        console.log('refresh webview@@@@');
+        webviewRef.current?.reload?.();
+      } catch {
+        // empty
+      }
+    } else if (shouldReloadAppByCmdR.current) {
+      void globalThis.desktopApiProxy?.system?.reload?.();
+    }
+  }, [webviewRef, isAtPerpTab, shouldReloadAppByCmdR]);
+
+  const handleShortcuts = useCallback(
+    (data: EShortcutEvents) => {
+      if (data === EShortcutEvents.Refresh) {
+        refresh();
+      }
+    },
+    [refresh],
+  );
+
+  useShortcuts(undefined, handleShortcuts);
+}
+
 function PerpTradeViewExt() {
   useEffect(() => {
     if (platformEnv.isExtension) {
-      void backgroundApiProxy.servicePerp.openExtPerpTab();
+      void backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
       setTimeout(() => {
         window.close();
       }, 300);
@@ -39,9 +88,23 @@ function PerpTradeViewExt() {
 }
 
 function PerpTradeView() {
+  const intl = useIntl();
+
   useDebugComponentRemountLog({ name: 'PerpTradePageContainer' });
 
   const webviewRef = useRef<IWebViewRef | null>(null);
+  usePerpPageShortcuts({ webviewRef });
+
+  const [isWebViewLoading, setIsWebViewLoading] = useState(false);
+  const onDidStartLoading = useCallback(() => {
+    setIsWebViewLoading(true);
+  }, []);
+  const onDidFinishLoad = useCallback(() => {
+    setIsWebViewLoading(false);
+  }, []);
+  const onDidStartNavigation = useCallback(() => {
+    setIsWebViewLoading(true);
+  }, []);
 
   const webview = useMemo(
     () => (
@@ -54,9 +117,14 @@ function PerpTradeView() {
           webviewRef.current = ref;
         }}
         allowpopups
+        onDidStartLoading={onDidStartLoading}
+        onDidStartNavigation={onDidStartNavigation}
+        onDidFinishLoad={onDidFinishLoad}
+        onDidStopLoading={onDidFinishLoad}
+        onDidFailLoad={onDidFinishLoad}
       />
     ),
-    [],
+    [onDidFinishLoad, onDidStartLoading, onDidStartNavigation],
   );
 
   const {
@@ -94,10 +162,33 @@ function PerpTradeView() {
     };
   }, [afterChangeAccount]);
 
+  const isConnectingRef = useRef(false);
   const leftHeaderItems = useMemo(() => {
     const accountInfo = connectedAccountsInfo?.[0];
     if (!accountInfo) {
-      return null;
+      if (isLoading) {
+        return null;
+      }
+      return (
+        <DelayedRender delay={600}>
+          <Button
+            isLoading={isConnectingRef.current}
+            onPress={async () => {
+              try {
+                if (isConnectingRef.current) {
+                  return;
+                }
+                isConnectingRef.current = true;
+                await backgroundApiProxy.serviceWebviewPerp.connectToDapp();
+              } finally {
+                isConnectingRef.current = false;
+              }
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.global_connect })}
+          </Button>
+        </DelayedRender>
+      );
     }
     return (
       <>
@@ -119,10 +210,24 @@ function PerpTradeView() {
             account={accountInfo}
             afterChangeAccount={afterChangeAccount}
           />
+
+          <Tooltip
+            renderTrigger={
+              <IconButton
+                icon="BrokenLinkOutline"
+                onPress={() => {
+                  void backgroundApiProxy.serviceWebviewPerp.disconnectFromDapp();
+                }}
+              />
+            }
+            renderContent={intl.formatMessage({
+              id: ETranslations.explore_disconnect,
+            })}
+          />
         </AccountSelectorProviderMirror>
       </>
     );
-  }, [afterChangeAccount, connectedAccountsInfo]);
+  }, [afterChangeAccount, connectedAccountsInfo, intl, isLoading]);
 
   return (
     <Page fullPage>
@@ -134,11 +239,32 @@ function PerpTradeView() {
           <>
             <HeaderIconButton
               key="perp-trade-refresh"
-              title="Refresh"
-              icon="RefreshCwOutline"
+              title={
+                <Tooltip.Text shortcutKey={EShortcutEvents.Refresh}>
+                  {intl.formatMessage({ id: ETranslations.global_refresh })}
+                </Tooltip.Text>
+              }
+              icon={
+                isWebViewLoading
+                  ? 'CrossedLargeOutline'
+                  : 'RotateClockwiseOutline'
+              }
               onPress={() => {
-                // refresh webview
-                webviewRef.current?.reload?.();
+                if (isWebViewLoading) {
+                  if (platformEnv.isDesktop) {
+                    const innerRef = webviewRef.current
+                      ?.innerRef as IElectronWebView;
+                    innerRef?.stop?.();
+                  }
+                  if (platformEnv.isNative) {
+                    (
+                      webviewRef.current?.innerRef as ReactNativeWebView
+                    )?.stopLoading?.();
+                  }
+                } else {
+                  // refresh webview
+                  webviewRef.current?.reload?.();
+                }
               }}
               testID="header-right-perp-trade-refresh"
             />
