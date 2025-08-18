@@ -62,12 +62,14 @@ export function DesktopLayout() {
         <Stack w={320}>
           <ScrollView>
             <Stack w={320}>
-              <Stack p="$4">
-                <SwapPanel
-                  networkId={networkId}
-                  tokenAddress={tokenDetail?.address}
-                />
-              </Stack>
+              {tokenDetail?.address ? (
+                <Stack p="$4">
+                  <SwapPanel
+                    networkId={networkId}
+                    tokenAddress={tokenDetail?.address}
+                  />
+                </Stack>
+              ) : null}
 
               <Divider mx="$4" my="$2" />
 
