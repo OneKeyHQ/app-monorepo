@@ -974,6 +974,7 @@
   "feedback.user_rejected": "Пользователь отклонен",
   "feedback.wallet_exists_desc": "Переключено на существующий кошелек",
   "feedback.wallet_exists_title": "Кошелек существует",
+  "feedback.wallet_exsited_due_to_same_pin_desc": "Скрытый кошелёк уже связан с текущим PIN-кодом и был открыт для вас. Чтобы создать новый скрытый кошелёк, пожалуйста, разблокируйте устройство с помощью нового PIN-кода.",
   "feedback.walletconnect_session_disconnected": "Сессия WalletConnect отключена",
   "feedback.you_are_offline": "Вы не в сети. Пожалуйста, проверьте ваше подключение к сети.",
   "firmware_update.changelog_introduction": "Доступно новое обновление прошивки с следующими улучшениями:",

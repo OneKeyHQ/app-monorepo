@@ -974,6 +974,7 @@
   "feedback.user_rejected": "User rejected",
   "feedback.wallet_exists_desc": "Switched to existing wallet",
   "feedback.wallet_exists_title": "Wallet exists",
+  "feedback.wallet_exsited_due_to_same_pin_desc": "A hidden wallet is already associated with the current PIN and has been selected for you. To create a new hidden wallet, please unlock the device with a new PIN.",
   "feedback.walletconnect_session_disconnected": "WalletConnect session disconnected",
   "feedback.you_are_offline": "You are offline. Please check your network.",
   "firmware_update.changelog_introduction": "New firmware update available with the following improvements:",

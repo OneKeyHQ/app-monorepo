@@ -974,6 +974,7 @@
   "feedback.user_rejected": "उपयोगकर्ता ने अस्वीकार किया",
   "feedback.wallet_exists_desc": "मौजूदा वॉलेट पर स्विच किया गया",
   "feedback.wallet_exists_title": "वॉलेट मौजूद है",
+  "feedback.wallet_exsited_due_to_same_pin_desc": "एक छुपा हुआ वॉलेट पहले से ही वर्तमान पिन के साथ जुड़ा हुआ है और आपके लिए खोल दिया गया है। नया छुपा हुआ वॉलेट बनाने के लिए, कृपया डिवाइस को एक नए पिन से अनलॉक करें।",
   "feedback.walletconnect_session_disconnected": "WalletConnect सत्र डिस्कनेक्ट हो गया",
   "feedback.you_are_offline": "आप ऑफ़लाइन हैं। कृपया अपना नेटवर्क जांचें।",
   "firmware_update.changelog_introduction": "नए फर्मवेयर अपडेट में निम्नलिखित सुधार उपलब्ध हैं:",

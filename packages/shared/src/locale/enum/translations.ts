@@ -979,6 +979,7 @@
   feedback_user_rejected = 'feedback.user_rejected',
   feedback_wallet_exists_desc = 'feedback.wallet_exists_desc',
   feedback_wallet_exists_title = 'feedback.wallet_exists_title',
+  feedback_wallet_exsited_due_to_same_pin_desc = 'feedback.wallet_exsited_due_to_same_pin_desc',
   feedback_walletconnect_session_disconnected = 'feedback.walletconnect_session_disconnected',
   feedback_you_are_offline = 'feedback.you_are_offline',
   firmware_update_changelog_introduction = 'firmware_update.changelog_introduction',

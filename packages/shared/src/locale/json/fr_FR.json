@@ -974,6 +974,7 @@
   "feedback.user_rejected": "Utilisateur rejeté",
   "feedback.wallet_exists_desc": "Passé au portefeuille existant",
   "feedback.wallet_exists_title": "Le portefeuille existe",
+  "feedback.wallet_exsited_due_to_same_pin_desc": "Un portefeuille caché est déjà associé au code PIN actuel et a été ouvert pour vous. Pour créer un nouveau portefeuille caché, veuillez déverrouiller l'appareil avec un nouveau code PIN.",
   "feedback.walletconnect_session_disconnected": "Session WalletConnect déconnectée",
   "feedback.you_are_offline": "Vous êtes hors ligne. Veuillez vérifier votre réseau.",
   "firmware_update.changelog_introduction": "Nouvelle mise à jour du firmware disponible avec les améliorations suivantes :",

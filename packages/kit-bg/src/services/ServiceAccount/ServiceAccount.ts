@@ -2449,6 +2449,7 @@ class ServiceAccount extends ServiceBase {
     walletId: string;
     skipDeviceCancel?: boolean;
     hideCheckingDeviceLoading?: boolean;
+    isAttachPinMode?: boolean;
   }) {
     const dbDevice = await this.getWalletDevice({ walletId });
     const { connectId } = dbDevice;
@@ -2479,10 +2480,12 @@ class ServiceAccount extends ServiceBase {
         }
 
         // TODO save remember states
-
+        const features = await this.backgroundApi.serviceHardware.getFeatures({
+          connectId: compatibleConnectId,
+        });
         const dbWallet = await this.createHWWalletBase({
           device: deviceUtils.dbDeviceToSearchDevice(dbDevice),
-          features: dbDevice.featuresInfo || ({} as any),
+          features: features || dbDevice.featuresInfo || ({} as any),
           passphraseState,
           fillingXfpByCallingSdk: true,
         });
@@ -2511,7 +2514,10 @@ class ServiceAccount extends ServiceBase {
             await this.backgroundApi.serviceAccountProfile.isSoftwareWalletOnlyUser(),
         });
 
-        return dbWallet;
+        return {
+          ...dbWallet,
+          isAttachPinMode: features.unlocked_attach_pin,
+        };
       },
       {
         deviceParams: {

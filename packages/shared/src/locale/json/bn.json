@@ -974,6 +974,7 @@
   "feedback.user_rejected": "ব্যবহারকারী প্রত্যাখ্যান করেছেন",
   "feedback.wallet_exists_desc": "বিদ্যমান ওয়ালেটে পরিবর্তিত হয়েছে",
   "feedback.wallet_exists_title": "ওয়ালেট বিদ্যমান",
+  "feedback.wallet_exsited_due_to_same_pin_desc": "একটি গোপন ওয়ালেট ইতিমধ্যে বর্তমান পিনের সাথে সংযুক্ত রয়েছে এবং এটি আপনার জন্য খোলা হয়েছে। নতুন গোপন ওয়ালেট তৈরি করতে, দয়া করে নতুন পিন দিয়ে ডিভাইসটি আনলক করুন।",
   "feedback.walletconnect_session_disconnected": "WalletConnect সেশন সংযোগ বিচ্ছিন্ন হয়েছে",
   "feedback.you_are_offline": "আপনি অফলাইনে আছেন। অনুগ্রহ করে আপনার নেটওয়ার্ক পরীক্ষা করুন।",
   "firmware_update.changelog_introduction": "নতুন ফার্মওয়্যার আপডেট নিম্নলিখিত উন্নতিসহ উপলব্ধ:",

@@ -974,6 +974,7 @@
   "feedback.user_rejected": "Người dùng từ chối",
   "feedback.wallet_exists_desc": "Đã chuyển sang ví hiện có",
   "feedback.wallet_exists_title": "Ví tồn tại",
+  "feedback.wallet_exsited_due_to_same_pin_desc": "Một ví ẩn đã được liên kết với mã PIN hiện tại và đã được mở cho bạn. Để tạo một ví ẩn mới, vui lòng mở khóa thiết bị bằng mã PIN mới.",
   "feedback.walletconnect_session_disconnected": "Phiên làm việc WalletConnect đã bị ngắt kết nối",
   "feedback.you_are_offline": "Bạn đang ngoại tuyến. Vui lòng kiểm tra mạng của bạn.",
   "firmware_update.changelog_introduction": "Bản cập nhật firmware mới có sẵn với các cải tiến sau:",

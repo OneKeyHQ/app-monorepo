@@ -974,6 +974,7 @@
   "feedback.user_rejected": "Usuário rejeitado",
   "feedback.wallet_exists_desc": "Alternado para carteira existente",
   "feedback.wallet_exists_title": "Carteira existe",
+  "feedback.wallet_exsited_due_to_same_pin_desc": "Uma carteira oculta já está associada ao PIN atual e foi aberta para você. Para criar uma nova carteira oculta, desbloqueie o dispositivo com um novo PIN.",
   "feedback.walletconnect_session_disconnected": "Sessão WalletConnect desconectada",
   "feedback.you_are_offline": "Você está offline. Por favor, verifique sua rede.",
   "firmware_update.changelog_introduction": "Nova atualização de firmware disponível com as seguintes melhorias:",

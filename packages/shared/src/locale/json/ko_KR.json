@@ -974,6 +974,7 @@
   "feedback.user_rejected": "사용자가 거부함",
   "feedback.wallet_exists_desc": "기존 지갑으로 전환되었습니다",
   "feedback.wallet_exists_title": "지갑이 존재합니다",
+  "feedback.wallet_exsited_due_to_same_pin_desc": "현재 PIN에 이미 연결된 숨겨진 지갑이 있으며, 해당 지갑이 열렸습니다. 새로운 숨겨진 지갑을 만들려면 새로운 PIN으로 기기를 잠금 해제해 주세요.",
   "feedback.walletconnect_session_disconnected": "WalletConnect 세션 연결이 끊어졌습니다",
   "feedback.you_are_offline": "오프라인 상태입니다. 네트워크를 확인하세요.",
   "firmware_update.changelog_introduction": "다음과 같은 개선 사항이 포함된 새로운 펌웨어 업데이트가 가능합니다:",

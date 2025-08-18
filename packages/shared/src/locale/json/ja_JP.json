@@ -974,6 +974,7 @@
   "feedback.user_rejected": "ユーザーにより拒否されました",
   "feedback.wallet_exists_desc": "既存のウォレットに切り替えました",
   "feedback.wallet_exists_title": "ウォレットが存在します",
+  "feedback.wallet_exsited_due_to_same_pin_desc": "現在のPINにはすでに隠しウォレットが関連付けられており、開かれています。新しい隠しウォレットを作成するには、新しいPINでデバイスのロックを解除してください。",
   "feedback.walletconnect_session_disconnected": "WalletConnectセッションが切断されました",
   "feedback.you_are_offline": "オフラインです。ネットワークを確認してください。",
   "firmware_update.changelog_introduction": "次の改善を含む新しいファームウェアのアップデートが利用可能です。",

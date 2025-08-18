@@ -974,6 +974,7 @@
   "feedback.user_rejected": "Usuario rechazado",
   "feedback.wallet_exists_desc": "Cambiado a la billetera existente",
   "feedback.wallet_exists_title": "La billetera existe",
+  "feedback.wallet_exsited_due_to_same_pin_desc": "Ya hay una billetera oculta asociada con el PIN actual y se ha abierto para ti. Para crear una nueva billetera oculta, por favor desbloquea el dispositivo con un PIN nuevo.",
   "feedback.walletconnect_session_disconnected": "Sesión de WalletConnect desconectada",
   "feedback.you_are_offline": "Estás desconectado. Por favor, verifica tu red.",
   "firmware_update.changelog_introduction": "Nueva actualización de firmware disponible con las siguientes mejoras:",

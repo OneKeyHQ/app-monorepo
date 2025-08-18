@@ -974,6 +974,7 @@
   "feedback.user_rejected": "Benutzer abgelehnt",
   "feedback.wallet_exists_desc": "Zu bestehendem Wallet gewechselt",
   "feedback.wallet_exists_title": "Wallet existiert",
+  "feedback.wallet_exsited_due_to_same_pin_desc": "Eine versteckte Wallet ist bereits mit der aktuellen PIN verknüpft und wurde für Sie geöffnet. Um eine neue versteckte Wallet zu erstellen, entsperren Sie das Gerät bitte mit einer neuen PIN.",
   "feedback.walletconnect_session_disconnected": "WalletConnect-Sitzung getrennt",
   "feedback.you_are_offline": "Sie sind offline. Bitte überprüfen Sie Ihr Netzwerk.",
   "firmware_update.changelog_introduction": "Neue Firmware-Aktualisierung verfügbar mit den folgenden Verbesserungen:",

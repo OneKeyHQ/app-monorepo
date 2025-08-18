@@ -974,6 +974,7 @@
   "feedback.user_rejected": "用户已拒绝",
   "feedback.wallet_exists_desc": "已切换到现有钱包",
   "feedback.wallet_exists_title": "钱包已存在",
+  "feedback.wallet_exsited_due_to_same_pin_desc": "当前 PIN 码已绑定的隐藏钱包已存在，已为您切换至该钱包。如需创建新的隐藏钱包，请先使用新的 PIN 码解锁设备。",
   "feedback.walletconnect_session_disconnected": "WalletConnect 会话已断开",
   "feedback.you_are_offline": "您已离线。请检查您的网络。",
   "firmware_update.changelog_introduction": "新固件更新可用，包含以下改进：",

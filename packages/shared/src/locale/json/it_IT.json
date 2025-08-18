@@ -974,6 +974,7 @@
   "feedback.user_rejected": "Utente rifiutato",
   "feedback.wallet_exists_desc": "Passato al portafoglio esistente",
   "feedback.wallet_exists_title": "Il portafoglio esiste",
+  "feedback.wallet_exsited_due_to_same_pin_desc": "Un portafoglio nascosto è già associato al PIN attuale ed è stato aperto per te. Per creare un nuovo portafoglio nascosto, sblocca il dispositivo con un nuovo PIN.",
   "feedback.walletconnect_session_disconnected": "Sessione WalletConnect disconnessa",
   "feedback.you_are_offline": "Sei offline. Controlla la tua rete.",
   "firmware_update.changelog_introduction": "Nuovo aggiornamento firmware disponibile con i seguenti miglioramenti:",

@@ -1421,6 +1421,7 @@ export function ConnectYourDevicePage() {
       strategy: IWalletCreationStrategy,
       features: IOneKeyDeviceFeatures,
       isFirmwareVerified?: boolean,
+      deviceState?: ReturnType<typeof extractDeviceState>,
     ) => {
       try {
         navigation.push(EOnboardingPages.FinalizeWalletSetup);
@@ -1431,6 +1432,7 @@ export function ConnectYourDevicePage() {
           features,
           isFirmwareVerified,
           defaultIsTemp: true,
+          isAttachPinMode: deviceState?.unlockedAttachPin,
         };
         if (strategy.createStandardWalletOnly) {
           await actions.current.createHWWalletWithoutHidden(params);
@@ -1513,7 +1515,13 @@ export function ConnectYourDevicePage() {
         return;
       }
 
-      await createHwWallet(device, strategy, features, isFirmwareVerified);
+      await createHwWallet(
+        device,
+        strategy,
+        features,
+        isFirmwareVerified,
+        deviceState,
+      );
     },
     [
       extractDeviceState,

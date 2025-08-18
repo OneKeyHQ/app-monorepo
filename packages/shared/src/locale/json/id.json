@@ -974,6 +974,7 @@
   "feedback.user_rejected": "Pengguna menolak",
   "feedback.wallet_exists_desc": "Beralih ke dompet yang ada",
   "feedback.wallet_exists_title": "Dompet ada",
+  "feedback.wallet_exsited_due_to_same_pin_desc": "Dompet tersembunyi sudah terhubung dengan PIN saat ini dan telah dibuka untuk Anda. Untuk membuat dompet tersembunyi baru, silakan buka perangkat dengan PIN yang baru.",
   "feedback.walletconnect_session_disconnected": "Sesi WalletConnect terputus",
   "feedback.you_are_offline": "Anda sedang offline. Silakan periksa jaringan Anda.",
   "firmware_update.changelog_introduction": "Pembaruan firmware baru tersedia dengan peningkatan berikut:",
