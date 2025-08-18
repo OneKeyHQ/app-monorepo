@@ -43,7 +43,7 @@ export function DesktopLayout() {
         <YStack flex={1} onLayout={handleLayout}>
           {/* Trading view */}
           <Stack flex={1} minHeight={300}>
-            {tokenAddress && networkId && tokenDetail?.symbol ? (
+            {networkId && tokenDetail?.symbol ? (
               <MarketTradingView
                 tokenAddress={tokenAddress}
                 networkId={networkId}

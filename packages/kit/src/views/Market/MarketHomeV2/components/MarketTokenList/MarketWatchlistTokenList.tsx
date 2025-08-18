@@ -17,14 +17,12 @@ import { type IMarketToken } from './MarketTokenData';
 import { MarketTokenListBase } from './MarketTokenListBase';
 
 type IMarketWatchlistTokenListProps = {
-  networkId?: string;
   onItemPress?: (item: IMarketToken) => void;
   watchlist?: IMarketWatchListItemV2[];
   toolbar?: ReactNode;
 };
 
 function MarketWatchlistTokenList({
-  networkId = 'sol--101',
   onItemPress,
   watchlist: externalWatchlist,
   toolbar,
