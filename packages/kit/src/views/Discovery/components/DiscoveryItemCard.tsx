@@ -80,9 +80,9 @@ export function DiscoveryItemCard({
       />
       <SizableText
         px="$2"
-        size="$bodyLgMedium"
+        size="$bodyMdMedium"
         textAlign="center"
-        numberOfLines={1}
+        numberOfLines={2}
       >
         {title}
       </SizableText>
