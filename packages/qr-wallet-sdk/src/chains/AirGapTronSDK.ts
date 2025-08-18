@@ -1,11 +1,12 @@
 /* eslint-disable no-restricted-syntax */
-import { URType } from '@keystonehq/keystone-sdk';
 import {
   toBuffer,
   toHex,
   uuidParse,
   uuidStringify,
 } from '@keystonehq/keystone-sdk/dist/utils';
+
+import { EURType } from '../misc';
 
 import { SignType, TronSignRequest, TronSignature } from './tronSDK';
 
@@ -15,7 +16,7 @@ import type { UR } from '@keystonehq/keystone-sdk';
 type IAirGapTronSignRequestProps = {
   requestId: string;
   signData: string;
-  dataType: SignType;
+  signType: SignType;
   path: string;
   xfp: string;
   address?: string;
@@ -34,11 +35,12 @@ export class AirGapTronSDK implements IAirGapSDK {
     signature: string;
     raw: string;
   } {
-    if (ur.type !== URType.TronSignature) {
+    if (ur.type !== EURType.TronSignature) {
       throw new Error('type not match');
     }
     const sig = TronSignature.fromCBOR(ur.cbor);
     const requestId = sig.getRequestId();
+
     return {
       requestId: requestId === undefined ? undefined : uuidStringify(requestId),
       signature: toHex(sig.getSignature()),
@@ -49,7 +51,7 @@ export class AirGapTronSDK implements IAirGapSDK {
   generateSignRequest({
     requestId,
     signData,
-    dataType,
+    signType,
     path,
     xfp,
     address,
@@ -58,9 +60,11 @@ export class AirGapTronSDK implements IAirGapSDK {
     return new TronSignRequest({
       requestId: uuidParse(requestId),
       signData: toBuffer(signData),
-      signType: dataType,
+      signType,
       derivationPath: TronSignRequest.parsePath(path, xfp),
-      address: address !== undefined ? toBuffer(address) : undefined,
+      address: address
+        ? Buffer.from(address.replace('0x', ''), 'hex')
+        : undefined,
       origin,
     }).toUR();
   }

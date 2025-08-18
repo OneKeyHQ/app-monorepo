@@ -25,10 +25,10 @@ export enum SignType {
 enum Keys {
   requestId = 1,
   signData,
-  signType,
   derivationPath,
   address,
   origin,
+  signType,
 }
 
 type SignRequestProps = {
@@ -45,7 +45,7 @@ export class TronSignRequest extends RegistryItem {
 
   private signData: Buffer;
 
-  private dataType: SignType;
+  private signType: SignType;
 
   private derivationPath: CryptoKeypath;
 
@@ -57,12 +57,13 @@ export class TronSignRequest extends RegistryItem {
 
   constructor(args: SignRequestProps) {
     super();
+
     this.requestId = args.requestId;
     this.signData = args.signData;
-    this.dataType = args.signType;
     this.derivationPath = args.derivationPath;
     this.address = args.address;
     this.origin = args.origin;
+    this.signType = args.signType;
   }
 
   public getRequestId = () => this.requestId;
@@ -71,26 +72,20 @@ export class TronSignRequest extends RegistryItem {
 
   public getDerivationPath = () => this.derivationPath.getPath();
 
-  public getAddress = () => this.address;
+  public getSignRequestAddress = () => this.address;
 
   public getOrigin = () => this.origin;
 
+  public getSignType = () => this.signType;
+
   public toDataItem = () => {
     const map: DataItemMap = {};
-    map[Keys.signData] = this.signData;
-    map[Keys.signType] = this.dataType;
-
-    const derivationPath = this.derivationPath.toDataItem();
-    derivationPath.setTag(this.derivationPath.getRegistryType().getTag());
-    map[Keys.derivationPath] = derivationPath;
-
     if (this.requestId) {
       map[Keys.requestId] = new DataItem(
         this.requestId,
         RegistryTypes.UUID.getTag(),
       );
     }
-
     if (this.address) {
       map[Keys.address] = this.address;
     }
@@ -99,23 +94,34 @@ export class TronSignRequest extends RegistryItem {
       map[Keys.origin] = this.origin;
     }
 
+    map[Keys.signData] = this.signData;
+    map[Keys.signType] = this.signType;
+
+    const keyPath = this.derivationPath.toDataItem();
+    keyPath.setTag(this.derivationPath.getRegistryType().getTag());
+    map[Keys.derivationPath] = keyPath;
+
     return new DataItem(map);
   };
 
   public static fromDataItem = (dataItem: DataItem) => {
     const map = dataItem.getData();
-
+    const signData = map[Keys.signData];
+    const derivationPath = CryptoKeypath.fromDataItem(map[Keys.derivationPath]);
+    const address = map[Keys.address] ? map[Keys.address] : undefined;
     const requestId = map[Keys.requestId]
       ? (map[Keys.requestId] as DataItem).getData()
       : undefined;
+    const origin = map[Keys.origin] ? map[Keys.origin] : undefined;
+    const signType = map[Keys.signType];
 
     return new TronSignRequest({
       requestId,
-      signData: map[Keys.signData],
-      derivationPath: CryptoKeypath.fromDataItem(map[Keys.derivationPath]),
-      address: map[Keys.address],
-      origin: map[Keys.origin],
-      signType: map[Keys.signType],
+      signData,
+      derivationPath,
+      address,
+      origin,
+      signType,
     });
   };
 

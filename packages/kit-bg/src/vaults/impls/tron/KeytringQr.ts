@@ -1,21 +1,31 @@
 import HDKey from 'hdkey';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
+import type { IEncodedTxTron } from '@onekeyhq/core/src/chains/tron/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { getAirGapSdk } from '@onekeyhq/qr-wallet-sdk';
+import type {
+  AirGapUR,
+  IAirGapGenerateSignRequestParamsTron,
+  IAirGapSignatureTron,
+} from '@onekeyhq/qr-wallet-sdk';
+import { EAirGapDataTypeTron, getAirGapSdk } from '@onekeyhq/qr-wallet-sdk';
 import {
   NotImplemented,
   OneKeyErrorAirGapAccountNotFound,
+  OneKeyErrorAirGapInvalidQrCode,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import appCrypto from '@onekeyhq/shared/src/appCrypto';
 
 import localDb from '../../../dbs/local/localDb';
+import { UR_DEFAULT_ORIGIN } from '../../../services/ServiceQrWallet/qrWalletConsts';
 import { KeyringQrBase } from '../../base/KeyringQrBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
@@ -30,18 +40,106 @@ import type {
   ISignTransactionParams,
 } from '../../types';
 
+const { sha256: sha256Hash } = appCrypto.hash;
+
 export class KeyringQr extends KeyringQrBase {
   override coreApi: CoreChainApiBase = coreChainApi.tron.hd;
 
-  override verifySignedTxMatched(..._args: any[]): Promise<void> {
-    throw new NotImplemented();
+  override async verifySignedTxMatched({
+    signedTx,
+    requestId,
+    requestIdOfSig,
+  }: {
+    signedTx: ISignedTxPro;
+    requestId: string | undefined;
+    requestIdOfSig: string | undefined;
+  }): Promise<void> {
+    if (requestId && requestId !== requestIdOfSig) {
+      console.error('Tron tx requestId not match');
+      throw new OneKeyErrorAirGapInvalidQrCode();
+    }
+    const txidFromRawTx = (
+      await sha256Hash(
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        Buffer.from(JSON.parse(signedTx.rawTx).raw_data_hex, 'hex'),
+      )
+    ).toString('hex');
+
+    if (txidFromRawTx !== signedTx.txid) {
+      throw new OneKeyLocalError('tron txid not match');
+    }
   }
 
   override signTransaction(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    throw new NotImplemented();
+    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxTron;
+
+    const signData = encodedTx.raw_data_hex;
+
+    return this.baseSignByQrcode(params, {
+      signRequestUrBuilder: async ({ path, account, requestId, xfp }) => {
+        const signRequestUr = await this.generateSignRequest({
+          requestId,
+          path,
+          signData,
+          signType: EAirGapDataTypeTron.Transaction,
+          xfp,
+          address: account.address,
+        });
+        return signRequestUr;
+      },
+      signedResultBuilder: async ({ signatureUr, requestId }) => {
+        const signature = await this.parseSignature(
+          checkIsDefined(signatureUr),
+        );
+
+        const signatureHex = signature.signature;
+
+        const signedTx: ISignedTxPro = {
+          encodedTx,
+          txid: encodedTx.txID,
+          rawTx: JSON.stringify({
+            ...encodedTx,
+            signature: [signatureHex],
+          }),
+        };
+
+        await this.verifySignedTxMatched({
+          signedTx,
+          requestId,
+          requestIdOfSig: signature.requestId,
+        });
+
+        return signedTx;
+      },
+    });
+  }
+
+  parseSignature(ur: AirGapUR): Promise<IAirGapSignatureTron> {
+    const sdk = getAirGapSdk();
+    try {
+      const sig = sdk.tron.parseSignature(ur);
+      return Promise.resolve(sig);
+    } catch (error) {
+      throw new OneKeyErrorAirGapInvalidQrCode();
+    }
+  }
+
+  generateSignRequest(
+    params: IAirGapGenerateSignRequestParamsTron,
+  ): Promise<AirGapUR> {
+    if (!params.xfp) {
+      throw new OneKeyLocalError('xfp not found');
+    }
+    const sdk = getAirGapSdk();
+    const signRequestUr = sdk.tron.generateSignRequest({
+      ...params,
+      origin: params.origin ?? UR_DEFAULT_ORIGIN,
+      // @ts-ignore
+      signType: params.signType,
+    });
+    return Promise.resolve(signRequestUr);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
