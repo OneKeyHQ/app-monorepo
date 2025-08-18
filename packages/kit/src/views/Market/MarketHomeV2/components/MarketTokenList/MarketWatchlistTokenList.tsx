@@ -57,7 +57,7 @@ function MarketWatchlistTokenList({
 
   return (
     <MarketTokenListBase
-      networkId={networkId}
+      key={JSON.stringify(watchlist)}
       onItemPress={onItemPress}
       toolbar={toolbar}
       result={watchlistResult}

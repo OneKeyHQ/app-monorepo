@@ -195,7 +195,11 @@ function MarketTokenListBase({
               columns={marketTokenColumns}
               onEndReached={handleEndReached}
               dataSource={data}
-              keyExtractor={(item) => item.address + item.symbol + item.name}
+              keyExtractor={(item) =>
+                `${item.address}${item.chainId ?? ''}${item.name ?? ''}${
+                  item.networkId ?? ''
+                }${item.symbol ?? ''}${item.tokenImageUri ?? ''}`
+              }
               onHeaderRow={handleHeaderRow}
               TableFooterComponent={TableFooterComponent}
               estimatedItemSize="$14"
