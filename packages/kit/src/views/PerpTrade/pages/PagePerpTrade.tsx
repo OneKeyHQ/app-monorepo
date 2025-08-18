@@ -78,7 +78,7 @@ function usePerpPageShortcuts({
 function PerpTradeViewExt() {
   useEffect(() => {
     if (platformEnv.isExtension) {
-      void backgroundApiProxy.servicePerp.openExtPerpTab();
+      void backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
       setTimeout(() => {
         window.close();
       }, 300);
@@ -179,7 +179,7 @@ function PerpTradeView() {
                   return;
                 }
                 isConnectingRef.current = true;
-                await backgroundApiProxy.servicePerp.connectToDapp();
+                await backgroundApiProxy.serviceWebviewPerp.connectToDapp();
               } finally {
                 isConnectingRef.current = false;
               }
@@ -216,7 +216,7 @@ function PerpTradeView() {
               <IconButton
                 icon="BrokenLinkOutline"
                 onPress={() => {
-                  void backgroundApiProxy.servicePerp.disconnectFromDapp();
+                  void backgroundApiProxy.serviceWebviewPerp.disconnectFromDapp();
                 }}
               />
             }

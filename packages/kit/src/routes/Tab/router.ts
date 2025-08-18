@@ -143,7 +143,8 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           children: swapRouters,
           trackId: 'global-trade',
         },
-        platformEnv.isDesktop || platformEnv.isNative
+        // platformEnv.isDesktop || platformEnv.isNative
+        platformEnv.isDesktop
           ? {
               name: ETabRoutes.PerpTrade,
               tabBarIcon: (focused?: boolean) =>
@@ -155,7 +156,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
               tabbarOnPress: platformEnv.isExtension
                 ? async () => {
                     if (platformEnv.isExtension) {
-                      await backgroundApiProxy.servicePerp.openExtPerpTab();
+                      await backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
                     }
                   }
                 : undefined,

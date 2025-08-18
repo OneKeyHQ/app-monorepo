@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -758,13 +759,13 @@ class ProviderApiEthereum extends ProviderApiBase {
   @providerApiMethod()
   async hl_clearUserBuilderFeeCache(request: IJsBridgeMessagePayload) {
     this.ensureHyperLiquidOrigin(request);
-    this.backgroundApi.servicePerp.clearUserApprovedMaxBuilderCache();
+    this.backgroundApi.serviceWebviewPerp.clearUserApprovedMaxBuilderCache();
   }
 
   @providerApiMethod()
   async hl_getBuilderFeeConfig(request: IJsBridgeMessagePayload) {
     this.ensureHyperLiquidOrigin(request);
-    return this.backgroundApi.servicePerp.getBuilderFeeConfig();
+    return this.backgroundApi.serviceWebviewPerp.getBuilderFeeConfig();
   }
 
   @providerApiMethod()
@@ -782,14 +783,24 @@ class ProviderApiEthereum extends ProviderApiBase {
   ) {
     this.ensureHyperLiquidOrigin(request);
 
-    const status =
-      await this.backgroundApi.servicePerp.approveBuilderFeeIfRequired({
-        request,
-        userAddress,
-        chainId,
-        skipApproveAction: !shouldApproveBuilderFee,
+    try {
+      const status =
+        await this.backgroundApi.serviceWebviewPerp.approveBuilderFeeIfRequired(
+          {
+            request,
+            userAddress,
+            chainId,
+            skipApproveAction: !shouldApproveBuilderFee,
+          },
+        );
+      return status;
+    } catch (e) {
+      void this.backgroundApi.serviceApp.showToast({
+        method: 'error',
+        title: (e as OneKeyError)?.message || 'Unknown error (1937542)',
       });
-    return status;
+      throw e;
+    }
   }
 
   @providerApiMethod()
@@ -797,11 +808,17 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     {
       apiPayload,
+      userAddress,
+      chainId,
+      errorMessage,
     }: {
       apiPayload: {
         action: { type: string };
         nonce: number;
       };
+      userAddress: string;
+      chainId: string;
+      errorMessage?: string;
     },
   ) {
     this.ensureHyperLiquidOrigin(request);
@@ -817,11 +834,14 @@ class ProviderApiEthereum extends ProviderApiBase {
         orders?: object[];
       };
       defaultLogger.perp.common.placeOrder({
+        userAddress,
+        chainId,
         builderAddress: orderAction?.builder?.b ?? '',
         builderFee: orderAction?.builder?.f ?? 0,
         grouping: orderAction?.grouping ?? '',
         orders: orderAction?.orders ?? [],
         nonce: apiPayload?.nonce,
+        errorMessage: errorMessage ?? '',
       });
     }
   }

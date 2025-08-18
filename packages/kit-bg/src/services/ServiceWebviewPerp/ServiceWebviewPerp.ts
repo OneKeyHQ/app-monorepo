@@ -1,10 +1,12 @@
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
-import { isEqual, isNil, isString } from 'lodash';
+import { isEqual, isNil, isNumber, isString } from 'lodash';
+import pTimeout from 'p-timeout';
 
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   HYPER_LIQUID_ORIGIN,
@@ -28,11 +30,11 @@ import type {
 import { settingsPersistAtom } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
-import type { ISimpleDbPerpConfig } from '../../dbs/simple/entity/SimpleDbEntityPerp';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+import type { ISimpleDbPerpConfig } from '../../dbs/simple/entity/SimpleDbEntityPerp';
 
 export interface IHyperliquidClearinghouseState {
   marginSummary: {
@@ -135,7 +137,7 @@ export interface IHyperliquidExchangeResponse {
 }
 
 @backgroundClass()
-class ServicePerp extends ServiceBase {
+class ServiceWebviewPerp extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -187,6 +189,19 @@ class ServicePerp extends ServiceBase {
           },
         },
       );
+      const responseDataWithError = response.data as {
+        response: string | object;
+        status: 'err' | 'ok';
+      };
+      // response: "Must deposit before performing actions. User: 0x00"
+      // status: "err"
+      if (responseDataWithError?.status === 'err') {
+        const errorMessage: string =
+          typeof responseDataWithError.response === 'string'
+            ? responseDataWithError.response
+            : stringUtils.stableStringify(responseDataWithError.response);
+        throw new OneKeyError(errorMessage);
+      }
       return response.data;
     } catch (error) {
       if (error && axios.isAxiosError(error)) {
@@ -204,6 +219,9 @@ class ServicePerp extends ServiceBase {
         throw new OneKeyError(errorMessage);
       }
       const e = error as IOneKeyError | undefined;
+      if (e instanceof OneKeyError) {
+        throw e;
+      }
       throw new OneKeyError(
         `Hyperliquid API error 6632: ${[
           e?.name,
@@ -480,6 +498,8 @@ class ServicePerp extends ServiceBase {
     return resp;
   }
 
+  @backgroundMethod()
+  @toastIfError()
   async approveBuilderFeeIfRequired({
     request,
     userAddress,
@@ -498,7 +518,9 @@ class ServicePerp extends ServiceBase {
     if (
       !skipApproveAction &&
       status.expectBuilderAddress &&
-      !status.isDone &&
+      isNumber(status.expectMaxBuilderFee) &&
+      status.expectMaxBuilderFee >= 0 &&
+      !status.isApprovedDone &&
       status.canSetBuilderFee
     ) {
       const { apiPayload, typedData } =
@@ -517,12 +539,19 @@ class ServicePerp extends ServiceBase {
       const signature = resp.result;
       const rsv = this.parseSignatureToRSV(signature);
       apiPayload.signature = rsv;
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const response =
-        await this.hyperliquidExchangeRequest<IHyperliquidExchangeResponse>(
-          apiPayload,
-        );
-      return status;
+      try {
+        const p =
+          this.hyperliquidExchangeRequest<IHyperliquidExchangeResponse>(
+            apiPayload,
+          );
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const response = await pTimeout(p, {
+          milliseconds: 5000,
+        });
+        return status;
+      } catch (e) {
+        return { ...status, expectBuilderAddress: '', expectMaxBuilderFee: 0 };
+      }
     }
     return status;
   }
@@ -545,7 +574,7 @@ class ServicePerp extends ServiceBase {
     });
   }
 
-  isLocaleUpdatedByDapp = false;
+  isLocaleUpdatedByDappDone = false;
 
   @backgroundMethod()
   async getBuilderFeeConfig() {
@@ -562,14 +591,14 @@ class ServicePerp extends ServiceBase {
     let locale: ILocaleSymbol | undefined;
     let storedLocale: ILocaleSymbol | undefined;
     let localeStr = '';
-    if (!this.isLocaleUpdatedByDapp) {
+    if (!this.isLocaleUpdatedByDappDone) {
       ({ locale: storedLocale } = await settingsPersistAtom.get());
       locale = await this.backgroundApi.serviceSetting.getCurrentLocale();
       if (locale) {
         localeStr =
           thirdpartyLocaleConverter.toHyperLiquidWebDappLocale(locale);
       }
-      this.isLocaleUpdatedByDapp = true;
+      this.isLocaleUpdatedByDappDone = true;
     }
     const customLocalStorage: Record<string, any> = {
       'hyperliquid.coin_selector.tab': `"perps"`, // "perps", "all", "spot"
@@ -600,35 +629,53 @@ class ServicePerp extends ServiceBase {
       shouldModifyPlaceOrderPayload,
     } = await this.getBuilderFeeConfig();
     let currentMaxBuilderFee = 0;
+    let isApprovedDone = false;
+    let canSetBuilderFee = false;
+    let accountValue: string | null = null;
 
     if (expectBuilderAddress) {
-      // const shouldModifyPlaceOrderPayload = false;
-      currentMaxBuilderFee = await this.getUserApprovedMaxBuilderFeeWithCache({
-        userAddress,
-        builderAddress: expectBuilderAddress,
-      });
-      if (currentMaxBuilderFee === expectMaxBuilderFee) {
-        return {
-          isDone: true,
-          canSetBuilderFee: true,
-          currentMaxBuilderFee,
-          expectMaxBuilderFee,
-          expectBuilderAddress,
-          accountValue: null,
-          shouldModifyPlaceOrderPayload,
-        };
+      try {
+        const p = this.getUserApprovedMaxBuilderFeeWithCache({
+          userAddress,
+          builderAddress: expectBuilderAddress,
+        });
+        currentMaxBuilderFee = await pTimeout(p, {
+          milliseconds: 5000,
+        });
+        // const shouldModifyPlaceOrderPayload = false;
+        if (currentMaxBuilderFee === expectMaxBuilderFee) {
+          isApprovedDone = true;
+          canSetBuilderFee = true;
+          accountValue = null;
+        }
+      } catch (error) {
+        console.error(error);
       }
     }
 
-    const { accountValue } = await this.getAccountBalance({
-      userAddress,
-    });
+    if (!isApprovedDone) {
+      try {
+        const p = this.getAccountBalance({
+          userAddress,
+        });
+
+        ({ accountValue } = await pTimeout(p, {
+          milliseconds: 5000,
+        }));
+
+        // TODO new address value check
+        canSetBuilderFee = Number(accountValue) >= 0;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
     return {
-      isDone: false,
-      canSetBuilderFee: Number(accountValue) >= 0,
+      isApprovedDone,
+      canSetBuilderFee,
       currentMaxBuilderFee,
-      expectMaxBuilderFee,
-      expectBuilderAddress,
+      expectMaxBuilderFee: canSetBuilderFee ? expectMaxBuilderFee : 0,
+      expectBuilderAddress: canSetBuilderFee ? expectBuilderAddress : '',
       accountValue,
       shouldModifyPlaceOrderPayload,
     };
@@ -649,4 +696,4 @@ class ServicePerp extends ServiceBase {
   }
 }
 
-export default ServicePerp;
+export default ServiceWebviewPerp;
