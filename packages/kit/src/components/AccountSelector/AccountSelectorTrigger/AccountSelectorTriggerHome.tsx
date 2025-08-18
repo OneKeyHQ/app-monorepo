@@ -27,9 +27,8 @@ export function AccountSelectorTriggerHome({
       showWalletAvatar
       showWalletName={false}
       num={num}
-      linkNetwork={
-        !(network?.isAllNetworks || vaultSettings?.mergeDeriveAssetsEnabled)
-      }
+      linkNetwork={!network?.isAllNetworks}
+      hideAddress={vaultSettings?.mergeDeriveAssetsEnabled}
       linkNetworkId={linkNetworkId}
       keepAllOtherAccounts
       allowSelectEmptyAccount

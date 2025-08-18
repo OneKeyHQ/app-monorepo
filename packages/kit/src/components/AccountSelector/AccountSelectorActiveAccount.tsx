@@ -13,7 +13,6 @@ import {
   SizableText,
   Tooltip,
   XStack,
-  useClipboard,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAllNetworkCopyAddressHandler } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useAllNetworkCopyAddressHandler';
@@ -163,7 +162,6 @@ export function AccountSelectorActiveAccountHome({
 }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
-  const { copyText } = useClipboard();
   const copyAddressWithDeriveType = useCopyAddressWithDeriveType();
   const {
     account,
