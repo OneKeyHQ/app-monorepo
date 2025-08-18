@@ -151,6 +151,12 @@ export function ActionButton({
     })`;
   }
 
+  if (isWrapped) {
+    buttonText = intl.formatMessage({
+      id: ETranslations.swap_page_button_wrap,
+    });
+  }
+
   if (shouldDisable) {
     buttonText = intl.formatMessage({
       id: ETranslations.swap_page_button_insufficient_balance,
@@ -160,12 +166,6 @@ export function ActionButton({
   if (!hasAmount) {
     buttonText = intl.formatMessage({
       id: ETranslations.swap_page_button_enter_amount,
-    });
-  }
-
-  if (isWrapped) {
-    buttonText = intl.formatMessage({
-      id: ETranslations.swap_page_button_wrap,
     });
   }
 

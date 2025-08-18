@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
+import {
+  Web3RpcError,
+  web3Errors,
+} from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import BigNumber from 'bignumber.js';
 import { isNaN } from 'lodash';
 import TonWeb from 'tonweb';
 
@@ -33,6 +37,10 @@ enum ETonNetwork {
   Mainnet = '-239',
   Testnet = '-3',
 }
+
+const TonResponseError = {
+  BadRequest: 1,
+} as const;
 
 @backgroundClass()
 class ProviderApiTon extends ProviderApiBase {
@@ -169,27 +177,96 @@ class ProviderApiTon extends ProviderApiBase {
       validUntil !== undefined &&
       (isNaN(validUntil) ||
         validUntil === null ||
+        typeof validUntil !== 'number' ||
         validUntil < Date.now() / 1000)
     ) {
-      throw new OneKeyLocalError('Bad request: Invalid validUntil');
+      throw new Web3RpcError(
+        TonResponseError.BadRequest,
+        'Incorrect validUntil',
+      );
+    }
+    if (validUntil != null && validUntil < Date.now() / 1000) {
+      throw new Web3RpcError(
+        TonResponseError.BadRequest,
+        'Transaction has expired',
+      );
+    }
+
+    if (encodedTx.network != null && typeof encodedTx.network !== 'string') {
+      throw new Web3RpcError(
+        TonResponseError.BadRequest,
+        'Wrong network format',
+      );
+    }
+    if (
+      encodedTx.network != null &&
+      // @ts-expect-error
+      encodedTx.network === ETonNetwork.Testnet
+    ) {
+      throw new Web3RpcError(
+        TonResponseError.BadRequest,
+        'Testnet not supported',
+      );
+    }
+
+    if (
+      encodedTx.network != null &&
+      // @ts-expect-error
+      encodedTx.network !== ETonNetwork.Mainnet
+    ) {
+      throw new Web3RpcError(TonResponseError.BadRequest, 'network is error');
     }
 
     // check messages
     if (encodedTx.messages.length === 0) {
-      throw new OneKeyLocalError('Bad request: Empty messages');
+      throw new Web3RpcError(TonResponseError.BadRequest, 'Empty messages');
     }
 
     // check address and amount
     for (const message of encodedTx.messages) {
-      if (!('address' in message && 'amount' in message)) {
-        throw new OneKeyLocalError('Bad request: Invalid message');
+      if (!message.address) {
+        throw new Web3RpcError(
+          TonResponseError.BadRequest,
+          'Address is required',
+        );
+      }
+      if (message.amount == null) {
+        throw new Web3RpcError(
+          TonResponseError.BadRequest,
+          'Amount is required',
+        );
+      }
+      if (BigNumber.isBigNumber(message.amount)) {
+        if (message.amount.isNegative()) {
+          throw new Web3RpcError(
+            TonResponseError.BadRequest,
+            'Wrong amount format',
+          );
+        }
       }
       if (typeof message.amount !== 'string') {
-        throw new OneKeyLocalError('Bad request: Invalid amount');
+        throw new Web3RpcError(
+          TonResponseError.BadRequest,
+          'Wrong amount format',
+        );
       }
       // raw address type throw error
       if (message.address.startsWith('0:')) {
-        throw new OneKeyLocalError('Bad request: Invalid address');
+        throw new Web3RpcError(
+          TonResponseError.BadRequest,
+          'Wrong address format',
+        );
+      }
+      if (!message.address) {
+        throw new Web3RpcError(
+          TonResponseError.BadRequest,
+          'Address is required',
+        );
+      }
+      try {
+        void new TonWeb.Address(message.address);
+      } catch {
+        throw new Web3RpcError(TonResponseError.BadRequest, 'Invalid address');
       }
     }
 
@@ -201,7 +278,10 @@ class ProviderApiTon extends ProviderApiBase {
         fromAddr.toString(false, false, false) !==
         account.account.addressDetail.baseAddress
       ) {
-        throw new OneKeyLocalError('Invalid from address');
+        throw new Web3RpcError(
+          TonResponseError.BadRequest,
+          'Wrong from address',
+        );
       }
     } else {
       encodedTx.from = account.account.addressDetail.baseAddress;

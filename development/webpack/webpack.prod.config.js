@@ -2,6 +2,7 @@ const TerserPlugin = require('terser-webpack-plugin');
 const { RetryChunkLoadPlugin } = require('webpack-retry-chunk-load-plugin');
 const path = require('path');
 const { sentryWebpackPlugin } = require('@sentry/webpack-plugin');
+const webpack = require('webpack');
 const babelTools = require('../babelTools');
 const utils = require('./utils');
 
@@ -28,6 +29,12 @@ module.exports = ({ platform, basePath }) => {
       clean: true,
     },
     plugins: [
+      new webpack.DefinePlugin({
+        // Inject the current file's resource path into a global variable
+        __CURRENT_FILE_PATH__: JSON.stringify(
+          '__CURRENT_FILE_PATH__--not-available-in-production',
+        ),
+      }),
       isWeb &&
         new RetryChunkLoadPlugin({
           // optional value to set the amount of time in milliseconds before trying to load the chunk again. Default is 0
