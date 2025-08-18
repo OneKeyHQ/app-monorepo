@@ -35,9 +35,9 @@ export function DiscoveryItemCard({
   const { md } = useMedia();
   const maxWordLength = useMemo(() => {
     if (platformEnv.isNative) {
-      return 8;
+      return 9;
     }
-    return md ? 10 : 14;
+    return md ? 9 : 14;
   }, [md]);
   const displayTitle = useMemo(() => {
     const words = title.split(' ');
@@ -102,7 +102,7 @@ export function DiscoveryItemCard({
       <SizableText
         px="$2"
         w="100%"
-        size="$bodyMdMedium"
+        size="$bodySmMedium"
         textAlign="center"
         numberOfLines={2}
       >
