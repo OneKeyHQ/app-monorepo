@@ -154,7 +154,6 @@ export function MobileLayout() {
       }
       return (
         <YStack flex={1} height={height}>
-          <YStack h={30} />
           <ScrollView>
             <TokenOverview />
             <TokenActivityOverview />
