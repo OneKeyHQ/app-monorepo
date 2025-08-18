@@ -128,7 +128,7 @@ export function MobileLayout() {
                   <InformationPanel />
                   <Stack
                     h={350}
-                    ref={tradingViewContainerRef}
+                    // ref={tradingViewContainerRef}
                     position="relative"
                     pointerEvents={
                       platformEnv.isNative ? pointerEvents : undefined
