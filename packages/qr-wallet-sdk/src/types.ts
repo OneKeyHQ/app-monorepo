@@ -24,6 +24,13 @@ export enum EAirGapDataTypeSol {
   Off_Chain_Message_Standard = 4,
 }
 
+export enum EAirGapDataTypeTron {
+  Unknown = 0,
+  Transaction = 1,
+  Message = 2,
+  MessageV2 = 3,
+}
+
 export { AccountNote as EAirGapAccountNoteEvm } from '@keystonehq/keystone-sdk';
 
 export type IAirGapAccount = Account;
@@ -32,10 +39,15 @@ export type IAirGapMultiAccounts = MultiAccounts;
 export type IAirGapSignatureEvm = EthSignature;
 export type IAirGapSignatureBtc = BtcSignature;
 export type IAirGapSignatureSol = SolSignature;
+export type IAirGapSignatureTron = {
+  signature: string;
+  requestId?: string;
+};
 export type IAirGapSignature =
   | IAirGapSignatureEvm
   | IAirGapSignatureBtc
-  | IAirGapSignatureSol;
+  | IAirGapSignatureSol
+  | IAirGapSignatureTron;
 
 export type IAirGapGenerateSignRequestParamsEvm = EthSignRequestProps;
 export type IAirGapGenerateSignRequestParamsBtc = BtcSignRequestProps;
@@ -48,10 +60,20 @@ export type IAirGapGenerateSignRequestParamsSol = {
   address?: string;
   origin?: string;
 };
+export type IAirGapGenerateSignRequestParamsTron = {
+  requestId: string;
+  signData: string;
+  signType: EAirGapDataTypeTron;
+  path: string;
+  xfp: string;
+  address?: string;
+  origin?: string;
+};
 export type IAirGapGenerateSignRequestParams =
   | IAirGapGenerateSignRequestParamsEvm
   | IAirGapGenerateSignRequestParamsBtc
-  | IAirGapGenerateSignRequestParamsSol;
+  | IAirGapGenerateSignRequestParamsSol
+  | IAirGapGenerateSignRequestParamsTron;
 
 export interface IAirGapSDK {
   normalizeGetMultiAccountsPath(path: string): string;
