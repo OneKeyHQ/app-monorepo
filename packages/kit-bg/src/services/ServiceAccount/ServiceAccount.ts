@@ -23,6 +23,7 @@ import {
 import type {
   EAddressEncodings,
   ICoreCredentialsInfo,
+  ICoreHyperLiquidAgentCredential,
   IExportKeyType,
 } from '@onekeyhq/core/src/types';
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
@@ -40,6 +41,7 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import type { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   COINTYPE_ALLNETWORKS,
@@ -97,11 +99,11 @@ import type {
   IQrWalletAirGapAccount,
 } from '@onekeyhq/shared/types/account';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import {
   EConfirmOnDeviceType,
   EHardwareCallContext,
 } from '@onekeyhq/shared/types/device';
-import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type { IExternalConnectWalletResult } from '@onekeyhq/shared/types/externalWallet.types';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
@@ -1224,6 +1226,97 @@ class ServiceAccount extends ServiceBase {
       deriveType,
       name,
       shouldCheckDuplicateName,
+    });
+  }
+
+  async prepareHyperLiquidAgentCredential({
+    userAddress,
+    agentName,
+    privateKey,
+  }: ICoreHyperLiquidAgentCredential) {
+    ensureSensitiveTextEncoded(privateKey);
+    const credential: ICoreHyperLiquidAgentCredential = {
+      userAddress,
+      agentName,
+      privateKey: await decodeSensitiveTextAsync({
+        encodedText: privateKey,
+      }),
+    };
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerify({
+        reason: EReasonForNeedPassword.Default,
+      });
+    return {
+      credential,
+      password,
+    };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async addHyperLiquidAgentCredential({
+    userAddress,
+    agentName,
+    privateKey,
+  }: ICoreHyperLiquidAgentCredential): Promise<{
+    credentialId: string;
+  }> {
+    const { credential, password } =
+      await this.prepareHyperLiquidAgentCredential({
+        userAddress,
+        agentName,
+        privateKey,
+      });
+    const { credentialId } = await localDb.addHyperLiquidAgentCredential({
+      credential,
+      password,
+    });
+    return {
+      credentialId,
+    };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async updateHyperLiquidAgentCredential({
+    userAddress,
+    agentName,
+    privateKey,
+  }: ICoreHyperLiquidAgentCredential): Promise<{
+    credentialId: string;
+  }> {
+    const { credential, password } =
+      await this.prepareHyperLiquidAgentCredential({
+        userAddress,
+        agentName,
+        privateKey,
+      });
+    const { credentialId } = await localDb.updateHyperLiquidAgentCredential({
+      credential,
+      password,
+    });
+    return {
+      credentialId,
+    };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async getHyperLiquidAgentCredential({
+    userAddress,
+    agentName,
+  }: {
+    userAddress: string;
+    agentName: EHyperLiquidAgentName;
+  }): Promise<ICoreHyperLiquidAgentCredential | undefined> {
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerify({
+        reason: EReasonForNeedPassword.Default,
+      });
+    return localDb.getHyperLiquidAgentCredential({
+      userAddress,
+      agentName,
+      password,
     });
   }
 

@@ -18,6 +18,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '../consts/addresses';
 import {
+  type EHyperLiquidAgentName,
+  HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
+} from '../consts/perp';
+import {
   COINTYPE_ALLNETWORKS,
   COINTYPE_BTC,
   COINTYPE_ETH,
@@ -769,6 +773,21 @@ function isTonMnemonicCredentialId(credentialId: string): boolean {
   return credentialId.endsWith('--ton_credential');
 }
 
+function buildHyperLiquidAgentCredentialId({
+  userAddress,
+  agentName,
+}: {
+  userAddress: string;
+  agentName: EHyperLiquidAgentName;
+}) {
+  if (!userAddress) {
+    throw new OneKeyLocalError(
+      'buildHyperLiquidAgentCredentialId ERROR: userAddress is required',
+    );
+  }
+  return `${HYPERLIQUID_AGENT_CREDENTIAL_PREFIX}--${userAddress}-${agentName}`;
+}
+
 function buildCustomEvmNetworkId({ chainId }: { chainId: string }) {
   return `evm--${chainId}`;
 }
@@ -885,6 +904,8 @@ export default {
   buildAccountLocalAssetsKey,
   buildTonMnemonicCredentialId,
   isTonMnemonicCredentialId,
+  buildHyperLiquidAgentCredentialId,
+  HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
   buildCustomEvmNetworkId,
   isValidWalletXfp,
   buildFullXfp,
