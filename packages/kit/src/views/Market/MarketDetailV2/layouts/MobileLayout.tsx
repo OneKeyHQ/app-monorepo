@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Dimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -71,11 +72,11 @@ export function MobileLayout() {
     [focusedTab, tabNames, width],
   );
 
-  const [pointerEvents, setPointerEvents] =
-    useState<IStackProps['pointerEvents']>('none');
+  // const [pointerEvents, setPointerEvents] =
+  //   useState<IStackProps['pointerEvents']>('none');
 
-  const pointerEventsSharedValue = useSharedValue(pointerEvents);
-  pointerEventsSharedValue.value = pointerEvents;
+  // const pointerEventsSharedValue = useSharedValue(pointerEvents);
+  // pointerEventsSharedValue.value = pointerEvents;
 
   // const tradingViewContainerRef = useRef<View>(null);
   // const tradingViewPositionSharedValue = useSharedValue({
@@ -108,13 +109,13 @@ export function MobileLayout() {
   //   });
   // }, [pointerEventsSharedValue, tradingViewPositionSharedValue]);
 
-  const setPointerEventsToNone = useCallback(() => {
-    if (platformEnv.isNative) {
-      if (pointerEventsSharedValue.value !== 'none') {
-        setPointerEvents('none');
-      }
-    }
-  }, [pointerEventsSharedValue]);
+  // const setPointerEventsToNone = useCallback(() => {
+  //   if (platformEnv.isNative) {
+  //     if (pointerEventsSharedValue.value !== 'none') {
+  //       setPointerEvents('none');
+  //     }
+  //   }
+  // }, [pointerEventsSharedValue]);
 
   const renderItem = useCallback(
     ({ index }: { index: number }) => {
@@ -122,7 +123,8 @@ export function MobileLayout() {
         return (
           <YStack flex={1} height={height}>
             <MobileInformationTabs
-              onScrollEnd={setPointerEventsToNone}
+              // onScrollEnd={setPointerEventsToNone}
+              onScrollEnd={noop}
               renderHeader={() => (
                 <YStack bg="$bgApp" pointerEvents="box-none">
                   <InformationPanel />
@@ -130,9 +132,9 @@ export function MobileLayout() {
                     h={350}
                     // ref={tradingViewContainerRef}
                     position="relative"
-                    pointerEvents={
-                      platformEnv.isNative ? pointerEvents : undefined
-                    }
+                    // pointerEvents={
+                    //   platformEnv.isNative ? pointerEvents : undefined
+                    // }
                     // onLayout={handleTradingViewContainerLayout}
                   >
                     <MarketTradingView
@@ -160,14 +162,7 @@ export function MobileLayout() {
         </YStack>
       );
     },
-    [
-      height,
-      networkId,
-      pointerEvents,
-      setPointerEventsToNone,
-      tokenAddress,
-      tokenDetail?.symbol,
-    ],
+    [height, networkId, tokenAddress, tokenDetail?.symbol],
   );
 
   return (
