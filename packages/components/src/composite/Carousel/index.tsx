@@ -216,7 +216,7 @@ export function Carousel<T>({
           onPressIn={platformEnv.isNative ? handleHoverIn : undefined}
           onPressOut={platformEnv.isNative ? handleHoverOut : undefined}
         >
-          {layout.width > 0 && layout.height > 0 ? (
+          {pageWidthProp || (layout.width > 0 && layout.height > 0) ? (
             <Stack
               style={{
                 width: pageWidthProp || layout.width,
