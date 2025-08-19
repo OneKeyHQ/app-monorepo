@@ -119,7 +119,7 @@ export function UniversalSearchV2MarketTokenItem({
       renderAvatar={
         <MarketTokenIcon uri={logoUrl} size="lg" networkId={network} />
       }
-      title={symbol.toUpperCase()}
+      title={symbol}
       subtitle={<ContractAddress address={address} />}
       subtitleProps={{
         numberOfLines: 1,
