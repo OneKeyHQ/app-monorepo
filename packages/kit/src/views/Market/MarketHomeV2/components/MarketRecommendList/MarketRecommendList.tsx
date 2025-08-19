@@ -6,6 +6,7 @@ import {
   Button,
   ScrollView,
   SizableText,
+  Stack,
   XStack,
   YStack,
   useMedia,
@@ -117,12 +118,18 @@ export function MarketRecommendList({
     ],
   );
 
+  const stackPaddingBottom = useMemo(() => {
+    if (platformEnv.isNativeAndroid) return 100;
+    if (platformEnv.isExtension) return 50;
+    return 0;
+  }, []);
+
   if (!recommendedTokens?.length) {
     return null;
   }
 
   return (
-    <>
+    <Stack flex={1} paddingBottom={stackPaddingBottom}>
       <ScrollView
         contentContainerStyle={{ ai: 'center' }}
         px="$5"
@@ -190,6 +197,6 @@ export function MarketRecommendList({
         </YStack>
       </ScrollView>
       {!gtMd && confirmButton ? <YStack p="$5">{confirmButton}</YStack> : null}
-    </>
+    </Stack>
   );
 }
