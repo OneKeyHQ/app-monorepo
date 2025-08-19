@@ -167,9 +167,18 @@ export function MarketRecommendList({
           flexWrap="wrap"
           width="100%"
           $gtMd={{ maxWidth: 480 }}
+          $sm={{
+            gap: '$2',
+          }}
         >
           {new Array(Math.ceil(maxSize / 2)).fill(0).map((_, i) => (
-            <XStack gap="$2.5" key={i}>
+            <XStack
+              gap="$2.5"
+              key={i}
+              $sm={{
+                gap: '$2',
+              }}
+            >
               {new Array(2).fill(0).map((__, j) => {
                 const item = recommendedTokens?.[i * 2 + j];
                 return item ? (
