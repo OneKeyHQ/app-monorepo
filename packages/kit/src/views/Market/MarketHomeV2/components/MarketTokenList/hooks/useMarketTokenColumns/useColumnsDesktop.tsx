@@ -9,6 +9,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { MarketStarV2 } from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -23,6 +24,7 @@ import type { IMarketToken } from '../../MarketTokenData';
 export const useColumnsDesktop = (
   networkId?: string,
 ): ITableColumn<IMarketToken>[] => {
+  const { gtLg, gtXl } = useMedia();
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
   const intl = useIntl();
@@ -176,27 +178,31 @@ export const useColumnsDesktop = (
         </YStack>
       ),
     },
-    {
-      title: intl.formatMessage({ id: ETranslations.dexmarket_traders }),
-      dataIndex: 'uniqueTraders',
-      columnProps: { flex: 1 },
-      render: (text: number) => (
-        <NumberSizeableText size="$bodyMd" formatter="marketCap">
-          {text}
-        </NumberSizeableText>
-      ),
-      renderSkeleton: () => <Skeleton width={60} height={16} />,
-    },
-    {
-      title: intl.formatMessage({ id: ETranslations.dexmarket_holders }),
-      dataIndex: 'holders',
-      columnProps: { flex: 1 },
-      render: (text: number) => (
-        <NumberSizeableText size="$bodyMd" formatter="marketCap">
-          {text}
-        </NumberSizeableText>
-      ),
-      renderSkeleton: () => <Skeleton width={60} height={16} />,
-    },
-  ];
+    gtLg
+      ? {
+          title: intl.formatMessage({ id: ETranslations.dexmarket_traders }),
+          dataIndex: 'uniqueTraders',
+          columnProps: { flex: 1 },
+          render: (text: number) => (
+            <NumberSizeableText size="$bodyMd" formatter="marketCap">
+              {text}
+            </NumberSizeableText>
+          ),
+          renderSkeleton: () => <Skeleton width={60} height={16} />,
+        }
+      : undefined,
+    gtXl
+      ? {
+          title: intl.formatMessage({ id: ETranslations.dexmarket_holders }),
+          dataIndex: 'holders',
+          columnProps: { flex: 1 },
+          render: (text: number) => (
+            <NumberSizeableText size="$bodyMd" formatter="marketCap">
+              {text}
+            </NumberSizeableText>
+          ),
+          renderSkeleton: () => <Skeleton width={60} height={16} />,
+        }
+      : undefined,
+  ].filter(Boolean);
 };
