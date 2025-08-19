@@ -1,10 +1,13 @@
 import {
   Divider,
-  IconButton,
+  Icon,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
+import { NATIVE_HIT_SLOP } from '@onekeyhq/components/src/utils';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
@@ -12,6 +15,34 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
 
 import { useTokenDetailHeaderLeftActions } from './hooks/useTokenDetailHeaderLeftActions';
+
+function InteractiveIcon({
+  icon,
+  onPress,
+  size = '$4',
+}: {
+  icon: IKeyOfIcons;
+  onPress: () => void;
+  size?: IIconProps['size'];
+}) {
+  return (
+    <Stack
+      w={size}
+      h={size}
+      cursor="pointer"
+      onPress={onPress}
+      hitSlop={NATIVE_HIT_SLOP}
+      group
+    >
+      <Icon
+        name={icon}
+        size={size}
+        color="$iconSubdued"
+        $group-hover={{ color: '$iconHover' }}
+      />
+    </Stack>
+  );
+}
 
 interface ITokenDetailHeaderLeftProps {
   tokenDetail?: IMarketTokenDetail;
@@ -78,12 +109,10 @@ export function TokenDetailHeaderLeft({
                 })}
               </SizableText>
 
-              <IconButton
-                onPress={handleCopyAddress}
-                variant="tertiary"
-                iconProps={{ width: 16, height: 16 }}
+              <InteractiveIcon
                 icon="Copy3Outline"
-                color="$iconSubdued"
+                onPress={handleCopyAddress}
+                size="$4"
               />
             </XStack>
           ) : null}
@@ -105,29 +134,26 @@ export function TokenDetailHeaderLeft({
 
                   <XStack gap="$1" ai="center">
                     {website ? (
-                      <IconButton
+                      <InteractiveIcon
                         icon="GlobusOutline"
                         onPress={handleOpenWebsite}
-                        variant="tertiary"
-                        iconProps={{ width: 16, height: 16 }}
+                        size="$4"
                       />
                     ) : null}
 
                     {twitter ? (
-                      <IconButton
+                      <InteractiveIcon
                         icon="Xbrand"
                         onPress={handleOpenTwitter}
-                        variant="tertiary"
-                        iconProps={{ width: 16, height: 16 }}
+                        size="$4"
                       />
                     ) : null}
 
                     {address ? (
-                      <IconButton
+                      <InteractiveIcon
                         icon="SearchOutline"
                         onPress={handleOpenXSearch}
-                        variant="tertiary"
-                        iconProps={{ width: 16, height: 16 }}
+                        size="$4"
                       />
                     ) : null}
                   </XStack>
