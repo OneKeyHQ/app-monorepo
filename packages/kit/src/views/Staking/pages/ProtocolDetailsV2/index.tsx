@@ -512,7 +512,7 @@ const ProtocolDetailsPage = () => {
       };
     }
 
-    // old format: /earn/staking/v2/:symbol/:provider
+    // old format: /defi/staking/v2/:symbol/:provider
     const {
       accountId: routeAccountId,
       indexedAccountId: routeIndexedAccountId,

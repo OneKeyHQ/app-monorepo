@@ -146,7 +146,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         // platformEnv.isDesktop || platformEnv.isNative
         platformEnv.isDesktop
           ? {
-              name: ETabRoutes.PerpTrade,
+              name: ETabRoutes.WebviewPerpTrade,
               tabBarIcon: (focused?: boolean) =>
                 focused
                   ? 'TradingViewCandlesSolid'
@@ -176,7 +176,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             focused ? 'CoinsSolid' : 'CoinsOutline',
           translationId: ETranslations.global_earn,
           freezeOnBlur: Boolean(params?.freezeOnBlur),
-          rewrite: '/earn',
+          rewrite: '/defi',
           exact: true,
           children: earnRouters,
           trackId: 'global-earn',
