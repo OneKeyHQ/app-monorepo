@@ -21,6 +21,7 @@ import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IHyperLiquidSignatureRSV,
@@ -152,7 +153,17 @@ class ServiceWebviewPerp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updatePerpConfig({ address, fee }: { address?: string; fee?: number }) {
+  async updatePerpConfig({
+    address,
+    fee,
+    customSettings,
+    customLocalStorage,
+  }: {
+    address?: string;
+    fee?: number;
+    customSettings?: IHyperliquidCustomSettings;
+    customLocalStorage?: Record<string, any>;
+  }) {
     let shouldNotifyToDapp = false;
     await this.backgroundApi.simpleDb.perp.setPerpConfig(
       (prev): ISimpleDbPerpConfig => {
@@ -162,6 +173,10 @@ class ServiceWebviewPerp extends ServiceBase {
           hyperliquidMaxBuilderFee: isNil(fee)
             ? prev?.hyperliquidMaxBuilderFee
             : fee,
+          hyperliquidCustomSettings:
+            customSettings || prev?.hyperliquidCustomSettings,
+          hyperliquidCustomLocalStorage:
+            customLocalStorage || prev?.hyperliquidCustomLocalStorage,
         };
         if (isEqual(newConfig, prev)) {
           return prev || {};
@@ -582,26 +597,33 @@ class ServiceWebviewPerp extends ServiceBase {
   @backgroundMethod()
   async updateBuilderFeeConfigByServer() {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const resp = await client.get<{
-      referrerAddress: string;
-      referrerRate: number;
-      customSettings: IHyperliquidCustomSettings;
-    }>('/utility/v1/perp-config');
+    const resp = await client.get<
+      IApiClientResponse<{
+        referrerAddress: string;
+        referrerRate: number;
+        customSettings: IHyperliquidCustomSettings;
+        customLocalStorage: Record<string, any>;
+      }>
+    >('/utility/v1/perp-config');
     const resData = resp.data;
-    await this.backgroundApi.simpleDb.perp.setPerpConfig(
-      (prev): ISimpleDbPerpConfig => {
-        return {
-          ...prev,
-          hyperliquidBuilderAddress: resData.referrerAddress,
-          hyperliquidMaxBuilderFee: resData.referrerRate,
-          hyperliquidCustomSettings: resData.customSettings || {
-            hideNavBar: true,
-            hideNavBarConnectButton: false,
-            hideNotOneKeyWalletConnectButton: true,
-          },
-        };
-      },
-    );
+    // TODO remove
+    // if (resData.data) {
+    //   resData.data.customSettings = {
+    //     hideNavBar: false,
+    //     hideNavBarConnectButton: false,
+    //     hideNotOneKeyWalletConnectButton: false,
+    //   };
+    //   resData.data.customLocalStorage = {
+    //     'hyperliquid.coin_selector.tab': `"spot"`, // "perps", "all", "spot"
+    //     'activeCoin': 'AAA', // do not use `"BTC"`
+    //   };
+    // }
+    await this.updatePerpConfig({
+      address: resData?.data?.referrerAddress,
+      fee: resData?.data?.referrerRate,
+      customSettings: resData?.data?.customSettings,
+      customLocalStorage: resData?.data?.customLocalStorage,
+    });
     return resData;
   }
 
@@ -636,7 +658,7 @@ class ServiceWebviewPerp extends ServiceBase {
     // Need to check this formula returns an integer in the browser: 1e5 * (num/1e5)
     let expectMaxBuilderFee =
       (await this.backgroundApi.simpleDb.perp.getExpectMaxBuilderFee()) || 0; // 1e5 * (num/1e5)
-    const { hyperliquidCustomSettings } =
+    const { hyperliquidCustomSettings, hyperliquidCustomLocalStorage } =
       await this.backgroundApi.simpleDb.perp.getPerpConfig();
     if (expectMaxBuilderFee < 0) {
       expectMaxBuilderFee = 0;
@@ -656,6 +678,7 @@ class ServiceWebviewPerp extends ServiceBase {
     const customLocalStorage: Record<string, any> = {
       'hyperliquid.coin_selector.tab': `"perps"`, // "perps", "all", "spot"
       'activeCoin': 'BTC', // do not use `"BTC"`
+      ...hyperliquidCustomLocalStorage,
     };
     if (localeStr) {
       // hyperliquid.locale-setting: "zh-CN"
