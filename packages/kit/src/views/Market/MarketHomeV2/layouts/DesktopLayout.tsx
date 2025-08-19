@@ -1,6 +1,11 @@
 import { useCallback, useMemo } from 'react';
 
-import { Carousel, Tabs, useTabContainerWidth, YStack } from '@onekeyhq/components';
+import {
+  Carousel,
+  Tabs,
+  YStack,
+  useTabContainerWidth,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketFilterBar } from '../components/MarketFilterBar';
