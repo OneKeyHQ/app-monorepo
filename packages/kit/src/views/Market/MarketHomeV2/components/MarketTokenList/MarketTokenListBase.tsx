@@ -189,7 +189,6 @@ function MarketTokenListBase({
                     }
                   : undefined
               }
-              key={networkId}
               stickyHeader
               scrollEnabled
               columns={marketTokenColumns}
