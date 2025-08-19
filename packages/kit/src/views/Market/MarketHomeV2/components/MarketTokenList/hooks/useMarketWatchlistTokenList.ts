@@ -58,7 +58,7 @@ export function useMarketWatchlistTokenList({
       const tokenAddressList = watchlist.map((item) => ({
         chainId: item.chainId,
         contractAddress: item.contractAddress,
-        isNative: false,
+        isNative: !item.contractAddress,
       }));
       const response =
         await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
@@ -93,10 +93,14 @@ export function useMarketWatchlistTokenList({
     });
 
     const transformed: IMarketToken[] = apiResult.list.map((item) => {
-      const key = item.address.toLowerCase();
-      const chainId = chainIdMap[key] || '';
+      // Short addresses are automatically normalized to empty strings in transformApiItemToToken
+      const originalKey = item.address.toLowerCase();
+      const key = originalKey.length < 15 ? '' : originalKey;
+
+      const chainId = chainIdMap[key] || item.networkId || '';
       const networkLogoUri = getNetworkLogoUri(chainId);
       const sortIndex = sortIndexMap[key];
+
       return transformApiItemToToken(item, {
         chainId,
         networkLogoUri,
@@ -104,14 +108,23 @@ export function useMarketWatchlistTokenList({
       });
     });
 
+    console.log('🔍 Debug transformed data:', {
+      transformed,
+      watchlist,
+    });
+
     // Filter transformed data based on current watchlist to ensure immediate UI updates
     const filteredTransformed = transformed.filter((token) => {
       const key = token.address.toLowerCase();
-      return watchlist.some(
-        (w) =>
-          w.contractAddress.toLowerCase() === key &&
-          w.chainId === token.chainId,
-      );
+
+      const matchingWatchlistItem = watchlist.find((w) => {
+        const watchlistKey = w.contractAddress.toLowerCase();
+        const chainMatches = w.chainId === token.chainId;
+
+        return watchlistKey === key && chainMatches;
+      });
+
+      return !!matchingWatchlistItem;
     });
 
     setTransformedData(filteredTransformed);

@@ -49,7 +49,7 @@ function MarketTokenListBase({
   const toDetailPage = useToDetailPage();
   const { md } = useMedia();
 
-  const marketTokenColumns = useMarketTokenColumns(networkId, isWatchlistMode);
+  const marketTokenColumns = useMarketTokenColumns();
 
   const {
     data,
@@ -119,7 +119,7 @@ function MarketTokenListBase({
   );
 
   const handleEndReached = useCallback(() => {
-    if (canLoadMore && loadMore && !isLoadingMore) {
+    if (canLoadMore && loadMore && !isLoadingMore && !platformEnv.isNative) {
       void loadMore();
     }
   }, [canLoadMore, loadMore, isLoadingMore]);
@@ -195,7 +195,11 @@ function MarketTokenListBase({
               columns={marketTokenColumns}
               onEndReached={handleEndReached}
               dataSource={data}
-              keyExtractor={(item) => item.address + item.symbol + item.name}
+              keyExtractor={(item) =>
+                `${item.address}${item.chainId ?? ''}${item.name ?? ''}${
+                  item.networkId ?? ''
+                }${item.symbol ?? ''}${item.tokenImageUri ?? ''}`
+              }
               onHeaderRow={handleHeaderRow}
               TableFooterComponent={TableFooterComponent}
               estimatedItemSize="$14"
@@ -209,7 +213,7 @@ function MarketTokenListBase({
                         toDetailPage({
                           symbol: item.symbol,
                           tokenAddress: item.address,
-                          networkId,
+                          networkId: item.networkId,
                         }),
                     })
               }

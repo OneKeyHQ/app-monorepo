@@ -6,13 +6,8 @@ import { Dimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS, useSharedValue } from 'react-native-reanimated';
 
-import type {
-  ICarouselInstance,
-  IScrollViewRef,
-  IStackProps,
-} from '@onekeyhq/components';
+import type { IScrollViewRef, IStackProps } from '@onekeyhq/components';
 import {
-  Carousel,
   ScrollView,
   Stack,
   Tabs,
@@ -37,7 +32,7 @@ import type { View } from 'react-native';
 export function MobileLayout() {
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
   const intl = useIntl();
-  // const [panesCount, setPanesCount] = useState(1);
+  const [panesCount, setPanesCount] = useState(1);
   const tabNames = useMemo(
     () => [
       intl.formatMessage({ id: ETranslations.market_chart }),
@@ -120,6 +115,8 @@ export function MobileLayout() {
   const renderItem = useCallback(
     ({ index }: { index: number }) => {
       if (index === 0) {
+        const tradingViewHeight = Number(height) * 0.6 + 50 * panesCount;
+
         return (
           <YStack flex={1} height={height}>
             <MobileInformationTabs
@@ -129,7 +126,7 @@ export function MobileLayout() {
                 <YStack bg="$bgApp" pointerEvents="box-none">
                   <InformationPanel />
                   <Stack
-                    h={350}
+                    h={tradingViewHeight}
                     // ref={tradingViewContainerRef}
                     position="relative"
                     // pointerEvents={
@@ -141,9 +138,9 @@ export function MobileLayout() {
                       tokenAddress={tokenAddress}
                       networkId={networkId}
                       tokenSymbol={tokenDetail?.symbol}
-                      // onPanesCountChange={(count: number) => {
-                      //   setPanesCount(count);
-                      // }}
+                      onPanesCountChange={(count: number) => {
+                        setPanesCount(count);
+                      }}
                     />
                   </Stack>
                 </YStack>
@@ -157,11 +154,12 @@ export function MobileLayout() {
           <ScrollView>
             <TokenOverview />
             <TokenActivityOverview />
+            <Stack h={100} w="100%" />
           </ScrollView>
         </YStack>
       );
     },
-    [height, networkId, tokenAddress, tokenDetail?.symbol],
+    [height, networkId, panesCount, tokenAddress, tokenDetail?.symbol],
   );
 
   return (

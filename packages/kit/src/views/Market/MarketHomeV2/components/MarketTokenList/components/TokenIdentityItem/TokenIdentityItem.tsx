@@ -86,6 +86,11 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     [address],
   );
 
+  const shouldShowVolume = showVolume && volume !== undefined;
+  const shouldShowAddress = !showVolume && Boolean(address);
+  const shouldShowCopyButton = showCopyButton && Boolean(address);
+  const shouldShowSecondRow = shouldShowVolume || shouldShowAddress;
+
   const handleCopy = (e: GestureResponderEvent) => {
     e.stopPropagation();
     copyText(address);
@@ -108,7 +113,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     <XStack alignItems="center" gap="$3" userSelect="none">
       <Token
         tokenImageUri={getTokenImageUri()}
-        networkImageUri={networkLogoURI}
+        networkImageUri={address ? networkLogoURI : undefined}
         fallbackIcon="CryptoCoinOutline"
         size="md"
       />
@@ -122,36 +127,43 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
         >
           {symbol}
         </SizableText>
-        <XStack alignItems="center" gap="$1" height="$4">
-          {showVolume && volume !== undefined ? (
-            <NumberSizeableText
-              size={gtMd ? '$bodySm' : '$bodyMd'}
-              color="$textSubdued"
-              numberOfLines={1}
-              formatter="marketCap"
-              formatterOptions={{ currency }}
-            >
-              {volume}
-            </NumberSizeableText>
-          ) : (
-            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-              {shortened}
-            </SizableText>
-          )}
-          {showCopyButton ? (
-            <Stack
-              cursor="pointer"
-              p="$1"
-              borderRadius="$full"
-              hoverStyle={{ bg: '$bgHover' }}
-              pressStyle={{ bg: '$bgActive' }}
-              hitSlop={NATIVE_HIT_SLOP}
-              onPress={handleCopy}
-            >
-              <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
-            </Stack>
-          ) : null}
-        </XStack>
+        {shouldShowSecondRow ? (
+          <XStack alignItems="center" gap="$1" height="$4">
+            {shouldShowVolume ? (
+              <NumberSizeableText
+                size={gtMd ? '$bodySm' : '$bodyMd'}
+                color="$textSubdued"
+                numberOfLines={1}
+                formatter="marketCap"
+                formatterOptions={{ currency }}
+              >
+                {volume}
+              </NumberSizeableText>
+            ) : null}
+            {shouldShowAddress ? (
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {shortened}
+              </SizableText>
+            ) : null}
+            {shouldShowCopyButton ? (
+              <Stack
+                cursor="pointer"
+                p="$1"
+                borderRadius="$full"
+                hoverStyle={{ bg: '$bgHover' }}
+                pressStyle={{ bg: '$bgActive' }}
+                hitSlop={NATIVE_HIT_SLOP}
+                onPress={handleCopy}
+              >
+                <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
+              </Stack>
+            ) : null}
+          </XStack>
+        ) : null}
       </Stack>
     </XStack>
   );

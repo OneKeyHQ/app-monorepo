@@ -43,7 +43,7 @@ export function DesktopLayout() {
         <YStack flex={1} onLayout={handleLayout}>
           {/* Trading view */}
           <Stack flex={1} minHeight={300}>
-            {tokenAddress && networkId && tokenDetail?.symbol ? (
+            {networkId && tokenDetail?.symbol ? (
               <MarketTradingView
                 tokenAddress={tokenAddress}
                 networkId={networkId}
@@ -53,28 +53,32 @@ export function DesktopLayout() {
           </Stack>
 
           {/* Info tabs */}
-          <Stack h="30vh">
-            <DesktopInformationTabs />
-          </Stack>
+          {tokenDetail?.address ? (
+            <Stack h="30vh">
+              <DesktopInformationTabs />
+            </Stack>
+          ) : null}
         </YStack>
 
         {/* Right column */}
-        <Stack w={320}>
-          <ScrollView>
-            <Stack w={320}>
-              <Stack p="$4">
-                <SwapPanel
-                  networkId={networkId}
-                  tokenAddress={tokenDetail?.address}
-                />
+        {tokenDetail?.address ? (
+          <Stack w={320}>
+            <ScrollView>
+              <Stack w={320}>
+                <Stack p="$4">
+                  <SwapPanel
+                    networkId={networkId}
+                    tokenAddress={tokenDetail?.address}
+                  />
+                </Stack>
+
+                <Divider mx="$4" my="$2" />
+
+                <TokenActivityOverview />
               </Stack>
-
-              <Divider mx="$4" my="$2" />
-
-              <TokenActivityOverview />
-            </Stack>
-          </ScrollView>
-        </Stack>
+            </ScrollView>
+          </Stack>
+        ) : null}
       </XStack>
     </>
   );

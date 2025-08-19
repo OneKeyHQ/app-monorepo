@@ -14,7 +14,6 @@ import { MarketStarV2 } from '@onekeyhq/kit/src/views/Market/components/MarketSt
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
-import { clampPercentage } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { TokenIdentityItem } from '../../components/TokenIdentityItem';
 import { Txns } from '../../components/Txns';
