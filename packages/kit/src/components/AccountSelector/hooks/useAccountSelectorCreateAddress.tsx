@@ -245,6 +245,7 @@ export function useAccountSelectorCreateAddress() {
                       </SizableText>
                       <Button
                         variant="tertiary"
+                        size="small"
                         onPress={() => Linking.openURL(requestsUrl)}
                       >
                         {intl.formatMessage({
