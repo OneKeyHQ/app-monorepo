@@ -119,7 +119,7 @@ function MarketTokenListBase({
   );
 
   const handleEndReached = useCallback(() => {
-    if (canLoadMore && loadMore && !isLoadingMore && !platformEnv.isNative) {
+    if (canLoadMore && loadMore && !isLoadingMore) {
       void loadMore();
     }
   }, [canLoadMore, loadMore, isLoadingMore]);

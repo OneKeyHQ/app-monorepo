@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import {
@@ -23,7 +24,7 @@ export function useMarketTokenList({
   networkId,
   initialSortBy,
   initialSortType,
-  pageSize = 50,
+  pageSize = 20,
 }: IUseMarketTokenListParams) {
   // Get minLiquidity from market config
   const { minLiquidity } = useMarketBasicConfig();
@@ -39,7 +40,7 @@ export function useMarketTokenList({
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isNetworkSwitching, setIsNetworkSwitching] = useState(false);
-  const maxPages = 5;
+  const maxPages = platformEnv.isNative ? 2 : 5;
 
   // Optimize network logo URI calculation
   const networkLogoUri = useMemo(
