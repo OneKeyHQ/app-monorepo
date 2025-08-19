@@ -10,10 +10,10 @@ import {
   Stack,
   useMedia,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import type { IMatchDAppItemType } from '../types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export interface IDiscoveryItemCardProps {
   logo?: string;
