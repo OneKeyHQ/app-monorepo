@@ -115,7 +115,7 @@ export function MobileLayout() {
   const renderItem = useCallback(
     ({ index }: { index: number }) => {
       if (index === 0) {
-        const tradingViewHeight = Number(height) * 0.6 + 50 * panesCount;
+        const tradingViewHeight = Number(height) * 0.58;
 
         return (
           <YStack flex={1} height={height}>
