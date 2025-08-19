@@ -18,12 +18,14 @@ export function RecommendItem({
   tokenName,
   symbol,
   address,
+  networkId,
 }: {
   icon: string;
   tokenName: string;
   checked: boolean;
   symbol: string;
   address: string;
+  networkId?: string;
   onChange: (checked: boolean, address: string) => void;
 }) {
   const { sharedFrameStyles } = useMemo(
@@ -52,7 +54,7 @@ export function RecommendItem({
       ai="center"
     >
       <XStack gap="$3" ai="center" flexShrink={1}>
-        <MarketTokenIcon uri={icon} size="md" />
+        <MarketTokenIcon uri={icon} size="md" networkId={networkId} />
         <YStack flexShrink={1}>
           <SizableText size="$bodyLgMedium" numberOfLines={1}>
             {symbol.toUpperCase()}

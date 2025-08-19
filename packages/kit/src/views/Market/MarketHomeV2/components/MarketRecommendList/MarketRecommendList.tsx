@@ -177,6 +177,7 @@ export function MarketRecommendList({
                     icon={item.logoUrl || ''}
                     symbol={item.symbol}
                     tokenName={item.name}
+                    networkId={item.networkId || item.chainId}
                     onChange={handleRecommendItemChange}
                   />
                 ) : null;
