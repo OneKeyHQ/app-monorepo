@@ -36,6 +36,7 @@ export function TabBarItem({
       jc="center"
       ml={20}
       key={name}
+      cursor="pointer"
       onPress={handlePress}
       position="relative"
       {...tabItemStyle}
@@ -215,7 +216,6 @@ export function TabBar({
       ref={listViewRef}
       horizontal
       userSelect="none"
-      cursor="pointer"
       bg="$bgApp"
       pr="$4"
       contentContainerStyle={{
@@ -230,7 +230,6 @@ export function TabBar({
   ) : (
     <YStack
       userSelect="none"
-      cursor="pointer"
       bg="$bgApp"
       className="onekey-tabs-header"
       position={'sticky' as any}
