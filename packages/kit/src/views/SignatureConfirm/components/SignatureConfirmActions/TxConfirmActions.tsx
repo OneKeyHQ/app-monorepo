@@ -184,12 +184,19 @@ function TxConfirmActions(props: IProps) {
     }
 
     try {
-      await backgroundApiProxy.serviceSignatureConfirm.preActionsBeforeSending({
-        accountId,
-        networkId,
-        unsignedTxs,
-        tronResourceRentalInfo,
-      });
+      const resp =
+        await backgroundApiProxy.serviceSignatureConfirm.preActionsBeforeSending(
+          {
+            accountId,
+            networkId,
+            unsignedTxs,
+            tronResourceRentalInfo,
+          },
+        );
+
+      if (resp?.preSendTx && accountUtils.isQrAccount({ accountId })) {
+        navigation.popStack();
+      }
     } catch (e: any) {
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
