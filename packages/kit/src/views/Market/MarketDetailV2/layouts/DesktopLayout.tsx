@@ -61,24 +61,24 @@ export function DesktopLayout() {
         </YStack>
 
         {/* Right column */}
-        {tokenDetail?.address ? (
-          <Stack w={320}>
-            <ScrollView>
-              <Stack w={320}>
+        <Stack w={320}>
+          <ScrollView>
+            <Stack w={320}>
+              {tokenDetail?.address ? (
                 <Stack p="$4">
                   <SwapPanel
                     networkId={networkId}
                     tokenAddress={tokenDetail?.address}
                   />
                 </Stack>
+              ) : null}
 
-                <Divider mx="$4" my="$2" />
+              <Divider mx="$4" my="$2" />
 
-                <TokenActivityOverview />
-              </Stack>
-            </ScrollView>
-          </Stack>
-        ) : null}
+              <TokenActivityOverview />
+            </Stack>
+          </ScrollView>
+        </Stack>
       </XStack>
     </>
   );
