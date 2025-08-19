@@ -1406,6 +1406,7 @@
   global_pay = 'global.pay',
   global_pct_complete = 'global.pct_complete',
   global_pending = 'global.pending',
+  global_perp = 'global.perp',
   global_pin_to_top = 'global.pin_to_top',
   global_pools = 'global.pools',
   global_popular = 'global.popular',
