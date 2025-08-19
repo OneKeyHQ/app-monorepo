@@ -341,7 +341,7 @@ function FiatValue({ fiatValue }: { fiatValue?: string | number }) {
   return (
     <>
       <SizableText size="$bodyMd">(</SizableText>
-      <Currency formatter="value" size="$bodyMd" sourceCurrency="usd">
+      <Currency formatter="value" size="$bodyMd">
         {fiatValue}
       </Currency>
       <SizableText size="$bodyMd">)</SizableText>
@@ -727,7 +727,7 @@ function Dashboard({
                 </NumberSizeableText>
                 {hardwareSales.available?.[0]?.amount ? (
                   <FiatValue
-                    fiatValue={hardwareSales.available?.[0]?.usdValue}
+                    fiatValue={hardwareSales.available?.[0]?.fiatValue}
                   />
                 ) : null}
                 {showHardwarePendingFiat ? (
@@ -744,7 +744,7 @@ function Dashboard({
                     </NumberSizeableText>
                     {hardwareSales.pending?.[0]?.amount ? (
                       <FiatValue
-                        fiatValue={hardwareSales.pending?.[0]?.usdValue}
+                        fiatValue={hardwareSales.pending?.[0]?.fiatValue}
                       />
                     ) : null}
                   </>
