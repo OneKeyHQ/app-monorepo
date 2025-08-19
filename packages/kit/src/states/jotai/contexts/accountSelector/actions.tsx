@@ -532,9 +532,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         num,
         sceneName,
         sceneUrl,
+        showConnectWalletModalInDappMode,
         ...others
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
+        showConnectWalletModalInDappMode?: boolean;
       } & IAccountSelectorRouteParams &
         IAccountSelectorRouteParamsExtraConfig,
     ) => {
@@ -546,13 +548,18 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
       const activeAccountInfo = this.getActiveAccount.call(set, { num });
 
-      // In dapp mode, if no wallet exists, directly show connect wallet options
+      // In dapp mode, if no wallet exists, conditionally show connect wallet options
       const isWebDappMode = platformEnv.isWebDappMode;
       const hasWallet = activeAccountInfo?.wallet?.id;
       const hasAccount =
         activeAccountInfo?.account || activeAccountInfo?.indexedAccount;
 
-      if (isWebDappMode && !hasWallet && !hasAccount) {
+      if (
+        isWebDappMode &&
+        !hasWallet &&
+        !hasAccount &&
+        showConnectWalletModalInDappMode
+      ) {
         navigation.pushModal(EModalRoutes.OnboardingModal, {
           screen: EOnboardingPages.ConnectWalletOptions,
         });
@@ -825,6 +832,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           wallet,
           indexedAccount,
           isOverrideWallet,
+          isAttachPinMode: params.isAttachPinMode,
         });
       }
 
@@ -866,11 +874,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             : skipDeviceCancel,
           hideCheckingDeviceLoading,
         });
-        const { wallet, indexedAccount, isOverrideWallet } = res;
+        const { wallet, indexedAccount, isOverrideWallet, isAttachPinMode } =
+          res;
         await this.autoSelectToCreatedWallet.call(set, {
           wallet,
           indexedAccount,
           isOverrideWallet,
+          isAttachPinMode,
         });
         if (options?.addDefaultNetworkAccounts) {
           let dialog: IDialogInstance | undefined;
@@ -931,6 +941,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               wallet,
               indexedAccount,
               isOverrideWallet,
+              isAttachPinMode: params.isAttachPinMode,
             });
           }
           await serviceAccount.restoreTempCreatedWallet({
@@ -1011,6 +1022,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               wallet,
               indexedAccount,
               isOverrideWallet,
+              isAttachPinMode: params.isAttachPinMode,
             });
           }
 
@@ -1833,6 +1845,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         wallet: IDBWallet;
         indexedAccount: IDBIndexedAccount | undefined;
         isOverrideWallet: boolean | undefined;
+        isAttachPinMode?: boolean | undefined;
       },
     ) => {
       const { wallet, indexedAccount } = createResult;
