@@ -40,7 +40,7 @@ export function useMarketTokenList({
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isNetworkSwitching, setIsNetworkSwitching] = useState(false);
-  const maxPages = platformEnv.isNative ? 2 : 5;
+  const maxPages = 5;
 
   // Optimize network logo URI calculation
   const networkLogoUri = useMemo(
