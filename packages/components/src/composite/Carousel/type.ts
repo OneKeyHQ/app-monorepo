@@ -18,6 +18,7 @@ export interface IPaginationItemProps<T> {
 }
 
 export interface ICarouselProps<T> {
+  pageWidth?: number | string;
   data?: T[];
   autoPlayInterval?: number;
   loop?: boolean;

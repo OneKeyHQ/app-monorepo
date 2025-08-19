@@ -13,6 +13,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { EXT_RATE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -77,6 +78,7 @@ function OneKeyWalletConnectionOptions({
     appNavigation.pushModal(EModalRoutes.OnboardingModal, {
       screen: EOnboardingPages.ConnectYourDevice,
     });
+    defaultLogger.account.wallet.onboard({ onboardMethod: 'connectHWWallet' });
   }, [appNavigation]);
 
   const handleConnectWatchOnlyPress = useCallback(() => {
