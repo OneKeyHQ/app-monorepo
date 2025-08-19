@@ -38,7 +38,7 @@ export const useColumnsDesktop = (
       ) as any,
       dataIndex: 'star',
       columnWidth: 50,
-      render: (_, record) => (
+      render: (_, record: IMarketToken) =\u003e (
         <Stack pl="$2">
           <MarketStarV2
             chainId={record.chainId || networkId || ''}
@@ -56,7 +56,7 @@ export const useColumnsDesktop = (
       title: intl.formatMessage({ id: ETranslations.global_name }),
       dataIndex: 'name',
       columnWidth: 200,
-      render: (_, record) => (
+      render: (_, record: IMarketToken) =\u003e (
         <TokenIdentityItem
           tokenLogoURI={record.tokenImageUri}
           networkLogoURI={record.networkLogoUri}
@@ -165,7 +165,7 @@ export const useColumnsDesktop = (
       title: intl.formatMessage({ id: ETranslations.dexmarket_txns }),
       dataIndex: 'transactions',
       columnProps: { flex: 1 },
-      render: (text: number, record) => (
+      render: (text: number, record: IMarketToken) =\u003e (
         <Txns transactions={text} walletInfo={record.walletInfo} />
       ),
       renderSkeleton: () => (
