@@ -127,7 +127,7 @@ export function MobileLayout() {
                   <InformationPanel />
                   <Stack
                     h={tradingViewHeight}
-                    ref={tradingViewContainerRef}
+                    // ref={tradingViewContainerRef}
                     position="relative"
                     // pointerEvents={
                     //   platformEnv.isNative ? pointerEvents : undefined
@@ -154,20 +154,12 @@ export function MobileLayout() {
           <ScrollView>
             <TokenOverview />
             <TokenActivityOverview />
+            <Stack h={100} w="100%" />
           </ScrollView>
         </YStack>
       );
     },
-    [
-      handleTradingViewContainerLayout,
-      height,
-      networkId,
-      panesCount,
-      pointerEvents,
-      setPointerEventsToNone,
-      tokenAddress,
-      tokenDetail?.symbol,
-    ],
+    [height, networkId, panesCount, tokenAddress, tokenDetail?.symbol],
   );
 
   return (
