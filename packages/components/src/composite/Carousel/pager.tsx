@@ -5,18 +5,13 @@ import {
   useImperativeHandle,
   useMemo,
   useRef,
-  useState,
 } from 'react';
 
 import { debounce } from 'lodash';
 import { ScrollView } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
-import type {
-  LayoutChangeEvent,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-} from 'react-native';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import type PagerViewType from 'react-native-pager-view';
 import type { PagerViewProps } from 'react-native-pager-view';
 
@@ -40,17 +35,16 @@ export function PagerView({
     return Children.count(children);
   }, [children]);
 
-  const [layout, setLayout] = useState({
-    width: 0,
-    height: 0,
-  });
-  const pageWidth =
-    typeof pageWidthProp === 'number'
+  const getPageWidth = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return typeof pageWidthProp === 'number'
       ? pageWidthProp
-      : layout.width || undefined;
+      : (scrollViewRef.current as unknown as HTMLDivElement)?.clientWidth || 0;
+  }, [pageWidthProp]);
 
   const handleScroll = useDebouncedCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const pageWidth = getPageWidth();
       const { contentOffset } = event.nativeEvent;
       const page =
         typeof pageWidth === 'number'
@@ -73,18 +67,10 @@ export function PagerView({
     [pageSize],
   );
 
-  const handleLayout = useCallback((event: LayoutChangeEvent) => {
-    setLayout(event.nativeEvent.layout);
-  }, []);
-
   // Set initial page position when component mounts or when pageWidth changes
   useEffect(() => {
-    if (
-      typeof pageWidth === 'number' &&
-      pageWidth > 0 &&
-      initialPage > 0 &&
-      scrollViewRef.current
-    ) {
+    const pageWidth = getPageWidth();
+    if (pageWidth > 0 && initialPage > 0 && scrollViewRef.current) {
       const safeInitialPage = getSafePageIndex(initialPage);
       scrollViewRef.current.scrollTo({
         x: safeInitialPage * pageWidth,
@@ -98,7 +84,7 @@ export function PagerView({
         },
       } as any);
     }
-  }, [pageWidth, initialPage, getSafePageIndex, onPageSelected]);
+  }, [initialPage, getSafePageIndex, onPageSelected, getPageWidth]);
 
   useEffect(() => {
     const debouncedSetPage = debounce(() => {
@@ -120,29 +106,27 @@ export function PagerView({
     () =>
       ({
         setPage: (page: number) => {
-          if (typeof pageWidth === 'number') {
-            scrollViewRef.current?.scrollTo({
-              x: getSafePageIndex(page) * pageWidth,
-              y: 0,
-              animated: !disableAnimation,
-            });
-          }
+          const pageWidth = getPageWidth();
+          scrollViewRef.current?.scrollTo({
+            x: getSafePageIndex(page) * pageWidth,
+            y: 0,
+            animated: !disableAnimation,
+          });
         },
         setPageWithoutAnimation: (page: number) => {
-          if (typeof pageWidth === 'number') {
-            scrollViewRef.current?.scrollTo({
-              x: getSafePageIndex(page) * pageWidth,
-              y: 0,
-              animated: false,
-            });
-          }
+          const pageWidth = getPageWidth();
+
+          scrollViewRef.current?.scrollTo({
+            x: getSafePageIndex(page) * pageWidth,
+            y: 0,
+            animated: false,
+          });
         },
       } as PagerViewType),
-    [getSafePageIndex, pageWidth, disableAnimation],
+    [getSafePageIndex, getPageWidth, disableAnimation],
   );
   return (
     <ScrollView
-      onLayout={handleLayout}
       style={style}
       horizontal
       pagingEnabled
