@@ -146,7 +146,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         // platformEnv.isDesktop || platformEnv.isNative
         platformEnv.isDesktop
           ? {
-              name: ETabRoutes.PerpTrade,
+              name: ETabRoutes.WebviewPerpTrade,
               tabBarIcon: (focused?: boolean) =>
                 focused
                   ? 'TradingViewCandlesSolid'
