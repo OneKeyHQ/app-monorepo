@@ -449,11 +449,14 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async preActionsBeforeSending(params: {
     unsignedTxs: IUnsignedTxPro[];
     tronResourceRentalInfo?: ITronResourceRentalInfo;
-  }): Promise<{
-    preSendTx?: {
-      txid: string;
-    };
-  }> {
+  }): Promise<
+    | {
+        preSendTx?: {
+          txid: string;
+        };
+      }
+    | undefined
+  > {
     return Promise.resolve({});
   }
 

@@ -7,8 +7,8 @@ import {
   Page,
   SizableText,
   Switch,
-  useDialogInstance,
   YStack,
+  useDialogInstance,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
