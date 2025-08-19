@@ -189,7 +189,6 @@ function MarketTokenListBase({
                     }
                   : undefined
               }
-              key={networkId}
               stickyHeader
               scrollEnabled
               columns={marketTokenColumns}
@@ -200,6 +199,7 @@ function MarketTokenListBase({
                   item.networkId ?? ''
                 }${item.symbol ?? ''}${item.tokenImageUri ?? ''}`
               }
+              extraData={networkId}
               onHeaderRow={handleHeaderRow}
               TableFooterComponent={TableFooterComponent}
               estimatedItemSize="$14"
