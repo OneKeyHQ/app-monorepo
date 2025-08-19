@@ -1,6 +1,5 @@
 import { forwardRef, memo, useImperativeHandle, useRef } from 'react';
 
-import { Stack } from '@onekeyhq/components';
 import type { IPopoverProps } from '@onekeyhq/components';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -51,7 +50,7 @@ const MarketTokenListNetworkSelectorNormal = forwardRef<
       [],
     );
 
-    if (isLoading) {
+    if (isLoading || marketNetworks.length === 0) {
       return <MarketTokenListNetworkSelectorNormalSkeleton />;
     }
 
