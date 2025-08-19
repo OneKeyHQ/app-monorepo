@@ -362,6 +362,14 @@ export const DevSettingsSection = () => {
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
       <SectionFieldItem
+        icon="ChromeBrand"
+        name="showWebviewDevTools"
+        title="开启 Webview 调试工具"
+        subtitle=""
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+      <SectionFieldItem
         icon="PrimeOutline"
         name="showPrimeTest"
         title="开启 Prime"

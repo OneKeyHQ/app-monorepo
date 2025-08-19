@@ -146,10 +146,12 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         // platformEnv.isDesktop || platformEnv.isNative
         platformEnv.isDesktop
           ? {
-              name: ETabRoutes.PerpTrade,
+              name: ETabRoutes.WebviewPerpTrade,
               tabBarIcon: (focused?: boolean) =>
-                focused ? 'ChartTrendingSolid' : 'ChartTrendingOutline',
-              translationId: 'Perp',
+                focused
+                  ? 'TradingViewCandlesSolid'
+                  : 'TradingViewCandlesOutline',
+              translationId: ETranslations.global_perp,
               freezeOnBlur: Boolean(params?.freezeOnBlur),
               rewrite: '/perp',
               exact: true,
