@@ -7,6 +7,7 @@ import {
   Tabs,
   YStack,
   useSafeAreaInsets,
+  useTabContainerWidth,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -62,6 +63,8 @@ export function MobileLayout({
     [handlePageChanged],
   );
 
+  const pageWidth = useTabContainerWidth();
+
   const renderItem = useCallback(
     ({ item }: { item: string }) => {
       if (item === watchlistTabName) {
@@ -93,6 +96,7 @@ export function MobileLayout({
         pagerProps={{
           scrollSensitivity: 5,
         }}
+        pageWidth={pageWidth}
         defaultIndex={defaultIndex}
         containerStyle={{ height }}
         ref={carouselRef as any}

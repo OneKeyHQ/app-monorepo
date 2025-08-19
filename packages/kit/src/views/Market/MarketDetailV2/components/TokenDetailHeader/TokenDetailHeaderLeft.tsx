@@ -1,29 +1,22 @@
-import { useCallback } from 'react';
-
 import {
   Divider,
   IconButton,
   SizableText,
   XStack,
   YStack,
-  useClipboard,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
+
+import { useTokenDetailHeaderLeftActions } from './hooks/useTokenDetailHeaderLeftActions';
 
 interface ITokenDetailHeaderLeftProps {
   tokenDetail?: IMarketTokenDetail;
   networkId?: string;
   networkLogoUri?: string;
-  /**
-   * Controls whether to show social media links (website/twitter) and security alert.
-   * Defaults to true. Set to false on views (e.g. mobile) where we want a simplified header.
-   */
   showMediaAndSecurity?: boolean;
 }
 
@@ -33,7 +26,16 @@ export function TokenDetailHeaderLeft({
   networkLogoUri,
   showMediaAndSecurity = true,
 }: ITokenDetailHeaderLeftProps) {
-  const { copyText } = useClipboard();
+  const {
+    handleCopyAddress,
+    handleOpenContractAddress,
+    handleOpenWebsite,
+    handleOpenTwitter,
+    handleOpenXSearch,
+  } = useTokenDetailHeaderLeftActions({
+    tokenDetail,
+    networkId,
+  });
 
   const {
     symbol = '',
@@ -43,42 +45,6 @@ export function TokenDetailHeaderLeft({
   } = tokenDetail || {};
 
   const { website, twitter } = extraData || {};
-
-  const handleCopyAddress = useCallback(() => {
-    if (address) {
-      copyText(address);
-    }
-  }, [address, copyText]);
-
-  const handleOpenContractAddress = useCallback(() => {
-    if (address && networkId) {
-      void openTokenDetailsUrl({
-        networkId,
-        tokenAddress: address,
-        openInExternal: true,
-      });
-    }
-  }, [address, networkId]);
-
-  const handleOpenWebsite = useCallback(() => {
-    if (website) {
-      openUrlExternal(website);
-    }
-  }, [website]);
-
-  const handleOpenTwitter = useCallback(() => {
-    if (twitter) {
-      openUrlExternal(twitter);
-    }
-  }, [twitter]);
-
-  const handleOpenXSearch = useCallback(() => {
-    if (symbol && address) {
-      const q = encodeURIComponent(`($${symbol} OR ${address})`);
-      const searchUrl = `https://x.com/search?q=${q}&src=typed_query&f=live`;
-      openUrlExternal(searchUrl);
-    }
-  }, [symbol, address]);
 
   return (
     <XStack ai="center" gap="$2">
@@ -125,44 +91,48 @@ export function TokenDetailHeaderLeft({
           {/* Social Links & Security */}
           {showMediaAndSecurity ? (
             <>
-              <Divider vertical backgroundColor="$borderSubdued" h="$3" />
-
-              {tokenDetail?.address && networkId ? (
+              {address && networkId ? (
                 <>
+                  <Divider vertical backgroundColor="$borderSubdued" h="$3" />
+
                   <TokenSecurityAlert />
                 </>
               ) : null}
 
-              <Divider vertical backgroundColor="$borderSubdued" h="$3" />
+              {website || twitter || address ? (
+                <>
+                  <Divider vertical backgroundColor="$borderSubdued" h="$3" />
 
-              <XStack gap="$1" ai="center">
-                {website ? (
-                  <IconButton
-                    icon="GlobusOutline"
-                    onPress={handleOpenWebsite}
-                    variant="tertiary"
-                    iconProps={{ width: 16, height: 16 }}
-                  />
-                ) : null}
+                  <XStack gap="$1" ai="center">
+                    {website ? (
+                      <IconButton
+                        icon="GlobusOutline"
+                        onPress={handleOpenWebsite}
+                        variant="tertiary"
+                        iconProps={{ width: 16, height: 16 }}
+                      />
+                    ) : null}
 
-                {twitter ? (
-                  <IconButton
-                    icon="Xbrand"
-                    onPress={handleOpenTwitter}
-                    variant="tertiary"
-                    iconProps={{ width: 16, height: 16 }}
-                  />
-                ) : null}
+                    {twitter ? (
+                      <IconButton
+                        icon="Xbrand"
+                        onPress={handleOpenTwitter}
+                        variant="tertiary"
+                        iconProps={{ width: 16, height: 16 }}
+                      />
+                    ) : null}
 
-                {symbol && address ? (
-                  <IconButton
-                    icon="SearchOutline"
-                    onPress={handleOpenXSearch}
-                    variant="tertiary"
-                    iconProps={{ width: 16, height: 16 }}
-                  />
-                ) : null}
-              </XStack>
+                    {address ? (
+                      <IconButton
+                        icon="SearchOutline"
+                        onPress={handleOpenXSearch}
+                        variant="tertiary"
+                        iconProps={{ width: 16, height: 16 }}
+                      />
+                    ) : null}
+                  </XStack>
+                </>
+              ) : null}
             </>
           ) : null}
         </XStack>

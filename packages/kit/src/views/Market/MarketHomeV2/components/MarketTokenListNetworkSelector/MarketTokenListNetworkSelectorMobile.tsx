@@ -56,7 +56,7 @@ const MarketTokenListNetworkSelectorMobile = forwardRef<
 
     return (
       <Stack>
-        {isLoading ? (
+        {isLoading || marketNetworks.length === 0 ? (
           <MarketTokenListNetworkSelectorNormalSkeleton />
         ) : (
           <MarketNetworkFilterMobile
