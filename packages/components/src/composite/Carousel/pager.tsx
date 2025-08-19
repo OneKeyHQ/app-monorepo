@@ -5,13 +5,18 @@ import {
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 
 import { debounce } from 'lodash';
 import { ScrollView } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
-import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import type {
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+} from 'react-native';
 import type PagerViewType from 'react-native-pager-view';
 import type { PagerViewProps } from 'react-native-pager-view';
 
@@ -21,7 +26,7 @@ export function PagerView({
   style,
   onPageSelected,
   keyboardDismissMode,
-  pageWidth,
+  pageWidth: pageWidthProp,
   disableAnimation = false,
   initialPage = 0,
 }: Omit<PagerViewProps, 'ref'> & {
@@ -34,6 +39,15 @@ export function PagerView({
   const pageSize = useMemo(() => {
     return Children.count(children);
   }, [children]);
+
+  const [layout, setLayout] = useState({
+    width: 0,
+    height: 0,
+  });
+  const pageWidth =
+    typeof pageWidthProp === 'number'
+      ? pageWidthProp
+      : layout.width || undefined;
 
   const handleScroll = useDebouncedCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -58,6 +72,10 @@ export function PagerView({
     },
     [pageSize],
   );
+
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    setLayout(event.nativeEvent.layout);
+  }, []);
 
   // Set initial page position when component mounts or when pageWidth changes
   useEffect(() => {
@@ -124,6 +142,7 @@ export function PagerView({
   );
   return (
     <ScrollView
+      onLayout={handleLayout}
       style={style}
       horizontal
       pagingEnabled
