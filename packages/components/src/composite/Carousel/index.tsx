@@ -66,7 +66,6 @@ export function Carousel<T>({
   dotStyle,
   onPageChanged,
   marginRatio = 0,
-  pageWidth: pageWidthProp,
   maxPageWidth,
   showPagination = true,
   renderPaginationItem = defaultRenderPaginationItem,
@@ -171,9 +170,6 @@ export function Carousel<T>({
   });
 
   const pageWidth = useMemo(() => {
-    if (pageWidthProp) {
-      return pageWidthProp;
-    }
     if (platformEnv.isNative) {
       return layout.width;
     }
@@ -182,16 +178,13 @@ export function Carousel<T>({
       return Math.min(width, maxPageWidth);
     }
     return width;
-  }, [layout.width, marginRatio, maxPageWidth, pageWidthProp]);
+  }, [layout.width, marginRatio, maxPageWidth]);
 
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
-      if (pageWidthProp) {
-        return;
-      }
       setLayout(event.nativeEvent.layout);
     },
-    [setLayout, pageWidthProp],
+    [setLayout],
   );
 
   const handleHoverIn = useCallback(() => {
@@ -216,22 +209,14 @@ export function Carousel<T>({
           onPressIn={platformEnv.isNative ? handleHoverIn : undefined}
           onPressOut={platformEnv.isNative ? handleHoverOut : undefined}
         >
-          {pageWidthProp || (layout.width > 0 && layout.height > 0) ? (
+          {layout.width > 0 && layout.height > 0 ? (
             <Stack
-              style={{
-                width: pageWidthProp || layout.width,
-                height: pageWidthProp ? '100%' : layout.height,
-              }}
-              key={
-                pageWidthProp ? undefined : `${layout.width}-${layout.height}`
-              }
+              style={{ width: layout.width, height: layout.height }}
+              key={`${layout.width}-${layout.height}`}
             >
               <PagerView
                 ref={pagerRef as RefObject<NativePagerView>}
-                style={{
-                  width: (pageWidthProp || layout.width) as number,
-                  height: pageWidthProp ? '100%' : layout.height,
-                }}
+                style={{ width: layout.width, height: layout.height }}
                 initialPage={defaultIndex}
                 pageWidth={pageWidth}
                 onPageSelected={onPageSelected}

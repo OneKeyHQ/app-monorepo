@@ -26,7 +26,7 @@ export function PagerView({
   initialPage = 0,
 }: Omit<PagerViewProps, 'ref'> & {
   ref: React.RefObject<PagerViewType>;
-  pageWidth: number | string;
+  pageWidth: number;
   disableAnimation?: boolean;
 }) {
   const scrollViewRef = useRef<ScrollView>(null);
@@ -38,10 +38,7 @@ export function PagerView({
   const handleScroll = useDebouncedCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { contentOffset } = event.nativeEvent;
-      const page =
-        typeof pageWidth === 'number'
-          ? Math.round(contentOffset.x / pageWidth)
-          : 0;
+      const page = pageWidth ? Math.round(contentOffset.x / pageWidth) : 0;
       pageIndex.current = page;
       void onPageSelected?.({
         nativeEvent: {
@@ -49,7 +46,7 @@ export function PagerView({
         },
       } as any);
     },
-    50,
+    300,
   );
 
   const getSafePageIndex = useCallback(
@@ -61,12 +58,7 @@ export function PagerView({
 
   // Set initial page position when component mounts or when pageWidth changes
   useEffect(() => {
-    if (
-      typeof pageWidth === 'number' &&
-      pageWidth > 0 &&
-      initialPage > 0 &&
-      scrollViewRef.current
-    ) {
+    if (pageWidth > 0 && initialPage > 0 && scrollViewRef.current) {
       const safeInitialPage = getSafePageIndex(initialPage);
       scrollViewRef.current.scrollTo({
         x: safeInitialPage * pageWidth,
@@ -102,22 +94,18 @@ export function PagerView({
     () =>
       ({
         setPage: (page: number) => {
-          if (typeof pageWidth === 'number') {
-            scrollViewRef.current?.scrollTo({
-              x: getSafePageIndex(page) * pageWidth,
-              y: 0,
-              animated: !disableAnimation,
-            });
-          }
+          scrollViewRef.current?.scrollTo({
+            x: getSafePageIndex(page) * pageWidth,
+            y: 0,
+            animated: !disableAnimation,
+          });
         },
         setPageWithoutAnimation: (page: number) => {
-          if (typeof pageWidth === 'number') {
-            scrollViewRef.current?.scrollTo({
-              x: getSafePageIndex(page) * pageWidth,
-              y: 0,
-              animated: false,
-            });
-          }
+          scrollViewRef.current?.scrollTo({
+            x: getSafePageIndex(page) * pageWidth,
+            y: 0,
+            animated: false,
+          });
         },
       } as PagerViewType),
     [getSafePageIndex, pageWidth, disableAnimation],
