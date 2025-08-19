@@ -13,6 +13,7 @@ interface IReward {
     amount: string;
     usdValue: string;
     fiatValue: string;
+    usdValue: string;
   }[];
   pending?: {
     token: {
@@ -24,6 +25,7 @@ interface IReward {
     };
     amount: string;
     fiatValue: string;
+    usdValue: string;
   }[];
 }
 
