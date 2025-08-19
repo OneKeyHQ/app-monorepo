@@ -785,7 +785,7 @@ function buildHyperLiquidAgentCredentialId({
       'buildHyperLiquidAgentCredentialId ERROR: userAddress is required',
     );
   }
-  return `${HYPERLIQUID_AGENT_CREDENTIAL_PREFIX}--${userAddress}-${agentName}`;
+  return `${HYPERLIQUID_AGENT_CREDENTIAL_PREFIX}--${userAddress}--${agentName}`;
 }
 
 function buildCustomEvmNetworkId({ chainId }: { chainId: string }) {
