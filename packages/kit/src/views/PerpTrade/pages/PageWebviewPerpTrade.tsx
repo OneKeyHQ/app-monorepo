@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useFocusEffect } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -7,6 +8,7 @@ import {
   HeaderIconButton,
   IconButton,
   Page,
+  Stack,
   Tooltip,
   useShortcuts,
 } from '@onekeyhq/components';
@@ -29,6 +31,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useShortcutsRouteStatus } from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -75,7 +78,7 @@ function usePerpPageShortcuts({
   useShortcuts(undefined, handleShortcuts);
 }
 
-function PerpTradeViewExt() {
+function WebviewPerpTradeViewExt() {
   useEffect(() => {
     if (platformEnv.isExtension) {
       void backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
@@ -87,7 +90,7 @@ function PerpTradeViewExt() {
   return null;
 }
 
-function PerpTradeView() {
+function WebviewPerpTradeView() {
   const intl = useIntl();
 
   useDebugComponentRemountLog({ name: 'PerpTradePageContainer' });
@@ -162,6 +165,8 @@ function PerpTradeView() {
     };
   }, [afterChangeAccount]);
 
+  const [showConnectButton, setShowConnectButton] = useState(false);
+
   const isConnectingRef = useRef(false);
   const leftHeaderItems = useMemo(() => {
     const accountInfo = connectedAccountsInfo?.[0];
@@ -169,25 +174,37 @@ function PerpTradeView() {
       if (isLoading) {
         return null;
       }
-      return (
-        <DelayedRender delay={600}>
-          <Button
-            isLoading={isConnectingRef.current}
-            onPress={async () => {
-              try {
-                if (isConnectingRef.current) {
-                  return;
+      if (showConnectButton) {
+        return (
+          <DelayedRender delay={600}>
+            <Button
+              isLoading={isConnectingRef.current}
+              onPress={async () => {
+                try {
+                  if (isConnectingRef.current) {
+                    return;
+                  }
+                  isConnectingRef.current = true;
+                  await backgroundApiProxy.serviceWebviewPerp.connectToDapp();
+                } finally {
+                  isConnectingRef.current = false;
                 }
-                isConnectingRef.current = true;
-                await backgroundApiProxy.serviceWebviewPerp.connectToDapp();
-              } finally {
-                isConnectingRef.current = false;
-              }
-            }}
-          >
-            {intl.formatMessage({ id: ETranslations.global_connect })}
-          </Button>
-        </DelayedRender>
+              }}
+            >
+              {intl.formatMessage({ id: ETranslations.global_connect })}
+            </Button>
+          </DelayedRender>
+        );
+      }
+      return (
+        <MultipleClickStack
+          showDevBgColor
+          w="$10"
+          h="$10"
+          onPress={() => {
+            setShowConnectButton(true);
+          }}
+        />
       );
     }
     return (
@@ -227,13 +244,19 @@ function PerpTradeView() {
         </AccountSelectorProviderMirror>
       </>
     );
-  }, [afterChangeAccount, connectedAccountsInfo, intl, isLoading]);
+  }, [
+    afterChangeAccount,
+    connectedAccountsInfo,
+    intl,
+    isLoading,
+    showConnectButton,
+  ]);
 
   return (
     <Page fullPage>
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.PerpTrade}
+        tabRoute={ETabRoutes.WebviewPerpTrade}
         customHeaderLeftItems={leftHeaderItems}
         renderCustomHeaderRightItems={({ fixedItems }) => (
           <>
@@ -277,8 +300,11 @@ function PerpTradeView() {
   );
 }
 
-const PagePerpTrade = () => {
-  useDebugComponentRemountLog({ name: 'PerpTradePage' });
+const PageWebviewPerpTrade = () => {
+  useDebugComponentRemountLog({ name: 'PageWebviewPerpTrade' });
+  useFocusEffect(() => {
+    void backgroundApiProxy.serviceWebviewPerp.updateBuilderFeeConfigByServer();
+  });
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -287,9 +313,13 @@ const PagePerpTrade = () => {
       }}
       enabledNum={[0]}
     >
-      {platformEnv.isExtension ? <PerpTradeViewExt /> : <PerpTradeView />}
+      {platformEnv.isExtension ? (
+        <WebviewPerpTradeViewExt />
+      ) : (
+        <WebviewPerpTradeView />
+      )}
     </AccountSelectorProviderMirror>
   );
 };
 
-export default PagePerpTrade;
+export default PageWebviewPerpTrade;
