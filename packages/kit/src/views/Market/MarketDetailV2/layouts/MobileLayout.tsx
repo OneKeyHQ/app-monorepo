@@ -27,12 +27,9 @@ import {
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
-import type { View } from 'react-native';
-
 export function MobileLayout() {
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
   const intl = useIntl();
-  const [panesCount, setPanesCount] = useState(1);
   const tabNames = useMemo(
     () => [
       intl.formatMessage({ id: ETranslations.market_chart }),
@@ -115,7 +112,7 @@ export function MobileLayout() {
   const renderItem = useCallback(
     ({ index }: { index: number }) => {
       if (index === 0) {
-        const tradingViewHeight = Number(height) * 0.6 + 50 * panesCount;
+        const tradingViewHeight = Number(height) * 0.58;
 
         return (
           <YStack flex={1} height={height}>
@@ -138,9 +135,6 @@ export function MobileLayout() {
                       tokenAddress={tokenAddress}
                       networkId={networkId}
                       tokenSymbol={tokenDetail?.symbol}
-                      onPanesCountChange={(count: number) => {
-                        setPanesCount(count);
-                      }}
                     />
                   </Stack>
                 </YStack>
@@ -159,7 +153,7 @@ export function MobileLayout() {
         </YStack>
       );
     },
-    [height, networkId, panesCount, tokenAddress, tokenDetail?.symbol],
+    [height, networkId, tokenAddress, tokenDetail?.symbol],
   );
 
   return (

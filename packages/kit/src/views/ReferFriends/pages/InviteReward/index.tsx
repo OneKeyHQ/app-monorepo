@@ -340,7 +340,7 @@ function FiatValue({ fiatValue }: { fiatValue?: string | number }) {
   }
   return (
     <>
-      <SizableText size="$bodyMd">(</SizableText>
+      <SizableText size="$bodyMd"> (</SizableText>
       <Currency formatter="value" size="$bodyMd">
         {fiatValue}
       </Currency>
@@ -440,6 +440,14 @@ function Dashboard({
     return onChain.available
       ?.reduce((acc, curr) => {
         return acc.plus(BigNumber(curr.usdValue));
+      }, BigNumber(0))
+      .toFixed(2);
+  }, [onChain.available]);
+
+  const onChainSummaryFiat = useMemo(() => {
+    return onChain.available
+      ?.reduce((acc, curr) => {
+        return acc.plus(BigNumber(curr.fiatValue));
       }, BigNumber(0))
       .toFixed(2);
   }, [onChain.available]);
@@ -789,17 +797,20 @@ function Dashboard({
                   size="xs"
                   tokenImageUri={earnToken?.logoURI || DEFAULT_EARN_IMAGE_URL}
                 />
-                <XStack pl="$2" pr="$3" gap="$1">
-                  <SizableText size="$bodyMd">≈</SizableText>
-                  <NumberSizeableText
-                    formatter="value"
-                    size="$bodyMd"
-                    formatterOptions={{
-                      tokenSymbol: 'USDC',
-                    }}
-                  >
-                    {onChainSummary}
-                  </NumberSizeableText>
+                <XStack pl="$2" pr="$3">
+                  <XStack gap="$1">
+                    <SizableText size="$bodyMd">≈</SizableText>
+                    <NumberSizeableText
+                      formatter="value"
+                      size="$bodyMd"
+                      formatterOptions={{
+                        tokenSymbol: 'USDC',
+                      }}
+                    >
+                      {onChainSummary}
+                    </NumberSizeableText>
+                  </XStack>
+                  <FiatValue fiatValue={onChainSummaryFiat} />
                 </XStack>
                 <Popover.Tooltip
                   iconSize="$5"
