@@ -186,7 +186,7 @@ export function HeaderRight({
         );
       case ETabRoutes.Swap:
         return fixedItems;
-      case ETabRoutes.PerpTrade:
+      case ETabRoutes.WebviewPerpTrade:
         return fixedItems;
       case ETabRoutes.Market:
         return (

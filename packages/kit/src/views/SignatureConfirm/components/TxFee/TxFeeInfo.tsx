@@ -5,6 +5,7 @@ import { isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Dialog,
   NumberSizeableText,
   SizableText,
@@ -27,6 +28,7 @@ import {
   useDecodedTxsAtom,
   useExtraFeeInfoAtom,
   useIsSinglePresetAtom,
+  useMegafuelEligibleAtom,
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
   usePayWithTokenInfoAtom,
@@ -113,6 +115,7 @@ function TxFeeInfo(props: IProps) {
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
   const [payWithTokenInfo] = usePayWithTokenInfoAtom();
   const [tokenTransferAmount] = useTokenTransferAmountAtom();
+  const [megafuelEligible] = useMegafuelEligibleAtom();
   const {
     isResourceRentalNeeded,
     isResourceRentalEnabled,
@@ -130,6 +133,7 @@ function TxFeeInfo(props: IProps) {
     updateTxAdvancedSettings,
     updateTronResourceRentalInfo,
     updatePayWithTokenInfo,
+    updateMegafuelEligible,
   } = useSignatureConfirmActions().current;
 
   const isMultiTxs = unsignedTxs.length > 1;
@@ -287,6 +291,11 @@ function TxFeeInfo(props: IProps) {
           accountAddress,
           transfersInfo: unsignedTxs[0].transfersInfo,
         });
+
+        if (r.megafuelEligible) {
+          updateMegafuelEligible(r.megafuelEligible);
+        }
+
         // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
         // these five levels are also provided as predictions on the custom fee page for users to choose
         if (r.gasEIP1559 && r.gasEIP1559.length === 5) {
@@ -398,6 +407,7 @@ function TxFeeInfo(props: IProps) {
       network?.isTestnet,
       networkId,
       unsignedTxs,
+      updateMegafuelEligible,
       updatePayWithTokenInfo,
       updateSendFeeStatus,
       updateTronResourceRentalInfo,
@@ -1315,7 +1325,11 @@ function TxFeeInfo(props: IProps) {
   ]);
 
   const renderFeeEditor = useCallback(() => {
-    if (!vaultSettings?.editFeeEnabled || !feeInfoEditable) {
+    if (
+      !vaultSettings?.editFeeEnabled ||
+      !feeInfoEditable ||
+      megafuelEligible.sponsorable
+    ) {
       return null;
     }
 
@@ -1351,6 +1365,7 @@ function TxFeeInfo(props: IProps) {
     );
   }, [
     feeInfoEditable,
+    megafuelEligible.sponsorable,
     handlePress,
     intl,
     isSinglePreset,
@@ -1364,6 +1379,10 @@ function TxFeeInfo(props: IProps) {
   ]);
 
   const renderTotalNative = useCallback(() => {
+    if (megafuelEligible.sponsorable) {
+      return null;
+    }
+
     if (isResourceRentalNeeded && isResourceRentalEnabled && payTokenInfo) {
       let payTokenAmount = payTokenInfo.totalAmount;
 
@@ -1398,6 +1417,7 @@ function TxFeeInfo(props: IProps) {
       </NumberSizeableText>
     );
   }, [
+    megafuelEligible.sponsorable,
     isResourceRentalEnabled,
     isResourceRentalNeeded,
     isSwapTrxEnabled,
@@ -1408,6 +1428,10 @@ function TxFeeInfo(props: IProps) {
   ]);
 
   const renderTotalFiat = useCallback(() => {
+    if (megafuelEligible.sponsorable) {
+      return null;
+    }
+
     if (isResourceRentalNeeded && isResourceRentalEnabled && payTokenInfo) {
       let payTokenAmount = payTokenInfo.totalAmount;
 
@@ -1452,6 +1476,7 @@ function TxFeeInfo(props: IProps) {
       </SizableText>
     );
   }, [
+    megafuelEligible.sponsorable,
     isResourceRentalEnabled,
     isResourceRentalNeeded,
     isSwapTrxEnabled,
@@ -1462,49 +1487,67 @@ function TxFeeInfo(props: IProps) {
   ]);
 
   const renderOriginalFeeInfo = useCallback(() => {
-    if (!isResourceRentalNeeded || !isResourceRentalEnabled) {
+    if (
+      (!isResourceRentalNeeded || !isResourceRentalEnabled) &&
+      !megafuelEligible.sponsorable
+    ) {
       return null;
     }
 
+    const textColor = megafuelEligible.sponsorable ? '$text' : '$textSubdued';
+
     return (
-      <SizableText
-        size="$bodyMd"
-        color="$textSubdued"
-        textDecorationLine="line-through"
-        textDecorationColor="$textSubdued"
-        textDecorationStyle="solid"
-      >
-        <NumberSizeableText
+      <XStack alignItems="center">
+        <SizableText
           size="$bodyMd"
-          color="$textSubdued"
-          formatter="balance"
-          formatterOptions={{
-            tokenSymbol: txFeeCommon?.nativeSymbol,
-          }}
+          color={textColor}
+          textDecorationLine="line-through"
+          textDecorationColor={textColor}
+          textDecorationStyle="solid"
         >
-          {selectedFee?.totalNativeMinForDisplay ?? '-'}
-        </NumberSizeableText>
-        (
-        <NumberSizeableText
-          size="$bodyMd"
-          color="$textSubdued"
-          formatter="value"
-          formatterOptions={{
-            currency: settings.currencyInfo.symbol,
-          }}
-        >
-          {selectedFee?.totalFiatMinForDisplay ?? '-'}
-        </NumberSizeableText>
-        )
-      </SizableText>
+          <NumberSizeableText
+            size="$bodyMd"
+            color={textColor}
+            formatter="balance"
+            formatterOptions={{
+              tokenSymbol: txFeeCommon?.nativeSymbol,
+            }}
+          >
+            {selectedFee?.totalNativeMinForDisplay ?? '-'}
+          </NumberSizeableText>
+          (
+          <NumberSizeableText
+            size="$bodyMd"
+            color={textColor}
+            formatter="value"
+            formatterOptions={{
+              currency: settings.currencyInfo.symbol,
+            }}
+          >
+            {selectedFee?.totalFiatMinForDisplay ?? '-'}
+          </NumberSizeableText>
+          )
+        </SizableText>
+        {megafuelEligible.sponsorable ? (
+          <Badge badgeSize="sm" badgeType="success">
+            <Badge.Text>
+              {intl.formatMessage({
+                id: ETranslations.prime_status_free,
+              })}
+            </Badge.Text>
+          </Badge>
+        ) : null}
+      </XStack>
     );
   }, [
-    isResourceRentalEnabled,
     isResourceRentalNeeded,
-    selectedFee?.totalFiatMinForDisplay,
-    selectedFee?.totalNativeMinForDisplay,
-    settings.currencyInfo.symbol,
+    isResourceRentalEnabled,
+    megafuelEligible.sponsorable,
     txFeeCommon?.nativeSymbol,
+    selectedFee?.totalNativeMinForDisplay,
+    selectedFee?.totalFiatMinForDisplay,
+    settings.currencyInfo.symbol,
+    intl,
   ]);
 
   useEffect(() => {
@@ -1527,7 +1570,8 @@ function TxFeeInfo(props: IProps) {
         </SizableText>
         {vaultSettings?.editFeeEnabled &&
         feeInfoEditable &&
-        !sendFeeStatus.errMessage ? (
+        !sendFeeStatus.errMessage &&
+        !megafuelEligible.sponsorable ? (
           <SizableText size="$bodyMd" color="$textSubdued">
             •
           </SizableText>

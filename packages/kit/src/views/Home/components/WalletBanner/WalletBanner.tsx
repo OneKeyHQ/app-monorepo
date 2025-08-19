@@ -103,7 +103,7 @@ function WalletBanner() {
         bannerId: item.id,
         type: 'jump',
       });
-      if (item.hrefType === 'internal' && item.href.includes('/earn/staking')) {
+      if (item.hrefType === 'internal' && item.href.includes('/defi/staking')) {
         const [path, query] = item.href.split('?');
         const paths = path.split('/');
         const provider = paths.pop();

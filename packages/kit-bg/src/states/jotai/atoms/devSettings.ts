@@ -36,6 +36,7 @@ export interface IDevSettings {
 
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
+  showWebviewDevTools?: boolean;
   // strict signature alert display
   strictSignatureAlert?: boolean;
   // enable analytics requests in dev environment

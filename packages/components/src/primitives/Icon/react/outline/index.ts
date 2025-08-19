@@ -752,6 +752,7 @@ export { default as Toolbox } from './Toolbox';
 export { default as TouchId } from './TouchId';
 export { default as TouchId2 } from './TouchId2';
 export { default as Trade } from './Trade';
+export { default as TradingViewCandles } from './TradingViewCandles';
 export { default as Transcription } from './Transcription';
 export { default as Translate } from './Translate';
 export { default as Tree } from './Tree';

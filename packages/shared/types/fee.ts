@@ -253,6 +253,11 @@ export type IEstimateGasResp = {
   }[];
   feeBudget?: IFeeSui[];
   feeNeoN3?: IFeeNeoN3[];
+
+  megafuelEligible?: {
+    sponsorable: boolean;
+    sponsorName: string;
+  };
 };
 
 export type IServerBatchEstimateFeeResponse = {

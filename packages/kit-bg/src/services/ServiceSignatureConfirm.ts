@@ -351,7 +351,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       networkId,
       accountId,
     });
-    await vault.preActionsBeforeSending({
+    return vault.preActionsBeforeSending({
       unsignedTxs,
       tronResourceRentalInfo,
     });

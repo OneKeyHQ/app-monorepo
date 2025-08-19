@@ -126,7 +126,7 @@ export function HeaderLeft({
     }
 
     let linkNetworkId: string | undefined;
-    if (tabRoute === ETabRoutes.PerpTrade) {
+    if (tabRoute === ETabRoutes.WebviewPerpTrade) {
       linkNetworkId = presetNetworksMap.arbitrum.id;
     }
 
@@ -147,7 +147,7 @@ export function HeaderLeft({
       );
     }
 
-    if (tabRoute === ETabRoutes.PerpTrade) {
+    if (tabRoute === ETabRoutes.WebviewPerpTrade) {
       return (
         <SizableText size="$headingLg">
           {/* {intl.formatMessage({
