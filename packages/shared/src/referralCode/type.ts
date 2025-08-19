@@ -13,7 +13,6 @@ interface IReward {
     amount: string;
     usdValue: string;
     fiatValue: string;
-    usdValue: string;
   }[];
   pending?: {
     token: {
