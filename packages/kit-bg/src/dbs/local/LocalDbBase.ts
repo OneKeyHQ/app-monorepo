@@ -19,9 +19,11 @@ import type {
   IBip39RevealableSeedEncryptHex,
 } from '@onekeyhq/core/src/secret';
 import {
+  decryptHyperLiquidAgentCredential,
   decryptImportedCredential,
   decryptRevealableSeed,
   decryptVerifyString,
+  encryptHyperLiquidAgentCredential,
   encryptImportedCredential,
   encryptRevealableSeed,
   encryptVerifyString,
@@ -29,6 +31,7 @@ import {
   sha256,
 } from '@onekeyhq/core/src/secret';
 import type {
+  ICoreHyperLiquidAgentCredential,
   ICoreImportedCredential,
   ICoreImportedCredentialEncryptHex,
 } from '@onekeyhq/core/src/types';
@@ -42,6 +45,7 @@ import {
   WALLET_TYPE_QR,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import type { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   COINTYPE_DNX,
@@ -359,6 +363,84 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  async addHyperLiquidAgentCredential({
+    credential,
+    password,
+  }: {
+    credential: ICoreHyperLiquidAgentCredential;
+    password: string;
+  }) {
+    const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+      userAddress: credential.userAddress,
+      agentName: credential.agentName,
+    });
+    const credentialEncrypt = await encryptHyperLiquidAgentCredential({
+      credential,
+      password,
+    });
+    return this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txAddRecords({
+        tx,
+        name: ELocalDBStoreNames.Credential,
+        records: [{ id: credentialId, credential: credentialEncrypt }],
+      });
+      return { credentialId };
+    });
+  }
+
+  async updateHyperLiquidAgentCredential({
+    credential,
+    password,
+  }: {
+    credential: ICoreHyperLiquidAgentCredential;
+    password: string;
+  }) {
+    const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+      userAddress: credential.userAddress,
+      agentName: credential.agentName,
+    });
+    const credentialEncrypt = await encryptHyperLiquidAgentCredential({
+      credential,
+      password,
+    });
+    return this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Credential,
+        ids: [credentialId],
+        updater: (record) => {
+          record.credential = credentialEncrypt;
+          return record;
+        },
+      });
+      return { credentialId };
+    });
+  }
+
+  async getHyperLiquidAgentCredential({
+    userAddress,
+    agentName,
+    password,
+  }: {
+    userAddress: string;
+    agentName: EHyperLiquidAgentName;
+    password: string;
+  }): Promise<ICoreHyperLiquidAgentCredential | undefined> {
+    const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+      userAddress,
+      agentName,
+    });
+    const credential = await this.getCredentialSafe(credentialId);
+    if (!credential) {
+      return undefined;
+    }
+    const credentialDecrypt = await decryptHyperLiquidAgentCredential({
+      credential: credential.credential,
+      password,
+    });
+    return credentialDecrypt;
+  }
+
   async txUpdateAllCredentialsPassword({
     tx,
     oldPassword,
@@ -406,7 +488,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               password: newPassword,
             });
           }
-        } else {
+        }
+        if (credential.id.startsWith('hd')) {
           const revealableSeed: IBip39RevealableSeed =
             await decryptRevealableSeed({
               rs: credential.credential,
@@ -414,6 +497,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             });
           credential.credential = await encryptRevealableSeed({
             rs: revealableSeed,
+            password: newPassword,
+          });
+        }
+        if (
+          credential.id.startsWith(
+            accountUtils.HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
+          )
+        ) {
+          const hyperLiquidAgentCredential: ICoreHyperLiquidAgentCredential =
+            await decryptHyperLiquidAgentCredential({
+              credential: credential.credential,
+              password: oldPassword,
+            });
+          credential.credential = await encryptHyperLiquidAgentCredential({
+            credential: hyperLiquidAgentCredential,
             password: newPassword,
           });
         }
@@ -526,6 +624,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       id: credentialId,
     });
     return credential;
+  }
+
+  async getCredentialSafe(
+    credentialId: string,
+  ): Promise<IDBCredentialBase | undefined> {
+    try {
+      return await this.getCredential(credentialId);
+    } catch (error) {
+      return undefined;
+    }
   }
 
   // #endregion

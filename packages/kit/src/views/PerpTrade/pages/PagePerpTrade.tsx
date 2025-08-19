@@ -14,7 +14,7 @@ import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import {
   HYPER_LIQUID_ORIGIN,
-  HYPER_LIQUID_TRADE_URL,
+  HYPER_LIQUID_WEBVIEW_TRADE_URL,
 } from '@onekeyhq/shared/src/consts/perp';
 import {
   EAppEventBusNames,
@@ -41,7 +41,7 @@ import type {
 import type { WebView as ReactNativeWebView } from 'react-native-webview';
 
 const origin = HYPER_LIQUID_ORIGIN;
-const url = HYPER_LIQUID_TRADE_URL;
+const url = HYPER_LIQUID_WEBVIEW_TRADE_URL;
 
 function usePerpPageShortcuts({
   webviewRef,
