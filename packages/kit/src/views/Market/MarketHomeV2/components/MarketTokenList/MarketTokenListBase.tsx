@@ -119,7 +119,7 @@ function MarketTokenListBase({
   );
 
   const handleEndReached = useCallback(() => {
-    if (canLoadMore && loadMore && !isLoadingMore && !platformEnv.isNative) {
+    if (canLoadMore && loadMore && !isLoadingMore) {
       void loadMore();
     }
   }, [canLoadMore, loadMore, isLoadingMore]);
@@ -189,7 +189,6 @@ function MarketTokenListBase({
                     }
                   : undefined
               }
-              key={networkId}
               stickyHeader
               scrollEnabled
               columns={marketTokenColumns}
@@ -200,6 +199,7 @@ function MarketTokenListBase({
                   item.networkId ?? ''
                 }${item.symbol ?? ''}${item.tokenImageUri ?? ''}`
               }
+              extraData={networkId}
               onHeaderRow={handleHeaderRow}
               TableFooterComponent={TableFooterComponent}
               estimatedItemSize="$14"

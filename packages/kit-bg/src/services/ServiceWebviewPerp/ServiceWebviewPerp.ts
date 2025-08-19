@@ -10,7 +10,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   HYPER_LIQUID_ORIGIN,
-  HYPER_LIQUID_TRADE_URL,
+  HYPER_LIQUID_WEBVIEW_TRADE_URL,
 } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -687,7 +687,7 @@ class ServiceWebviewPerp extends ServiceBase {
   async openExtPerpTab() {
     if (platformEnv.isExtension) {
       this.lastExtPerpTab = await extUtils.openUrlInTab(
-        HYPER_LIQUID_TRADE_URL,
+        HYPER_LIQUID_WEBVIEW_TRADE_URL,
         {
           tabId: this.lastExtPerpTab?.id,
         },

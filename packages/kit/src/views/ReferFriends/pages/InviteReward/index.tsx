@@ -334,6 +334,21 @@ function CumulativeRewardsLineItem({
   );
 }
 
+function FiatValue({ fiatValue }: { fiatValue?: string | number }) {
+  if (!fiatValue) {
+    return null;
+  }
+  return (
+    <>
+      <SizableText size="$bodyMd">(</SizableText>
+      <Currency formatter="value" size="$bodyMd">
+        {fiatValue}
+      </Currency>
+      <SizableText size="$bodyMd">)</SizableText>
+    </>
+  );
+}
+
 function Dashboard({
   enabledNetworks,
   hardwareSales,
@@ -708,8 +723,13 @@ function Dashboard({
                     tokenSymbol: hardwareSales.available?.[0]?.token?.symbol,
                   }}
                 >
-                  {hardwareSales.available?.[0]?.fiatValue || 0}
+                  {hardwareSales.available?.[0]?.amount || 0}
                 </NumberSizeableText>
+                {hardwareSales.available?.[0]?.amount ? (
+                  <FiatValue
+                    fiatValue={hardwareSales.available?.[0]?.fiatValue}
+                  />
+                ) : null}
                 {showHardwarePendingFiat ? (
                   <>
                     <SizableText size="$bodyMd">{` + `}</SizableText>
@@ -722,6 +742,11 @@ function Dashboard({
                     >
                       {hardwareSales.pending?.[0]?.amount || 0}
                     </NumberSizeableText>
+                    {hardwareSales.pending?.[0]?.amount ? (
+                      <FiatValue
+                        fiatValue={hardwareSales.pending?.[0]?.fiatValue}
+                      />
+                    ) : null}
                   </>
                 ) : null}
               </SizableText>

@@ -24,6 +24,7 @@ interface IReward {
     };
     amount: string;
     fiatValue: string;
+    usdValue: string;
   }[];
 }
 

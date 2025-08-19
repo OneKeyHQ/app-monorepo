@@ -21,7 +21,7 @@ export function PagerView({
   style,
   onPageSelected,
   keyboardDismissMode,
-  pageWidth,
+  pageWidth: pageWidthProp,
   disableAnimation = false,
   initialPage = 0,
 }: Omit<PagerViewProps, 'ref'> & {
@@ -35,8 +35,16 @@ export function PagerView({
     return Children.count(children);
   }, [children]);
 
+  const getPageWidth = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return typeof pageWidthProp === 'number'
+      ? pageWidthProp
+      : (scrollViewRef.current as unknown as HTMLDivElement)?.clientWidth || 0;
+  }, [pageWidthProp]);
+
   const handleScroll = useDebouncedCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const pageWidth = getPageWidth();
       const { contentOffset } = event.nativeEvent;
       const page =
         typeof pageWidth === 'number'
@@ -61,12 +69,8 @@ export function PagerView({
 
   // Set initial page position when component mounts or when pageWidth changes
   useEffect(() => {
-    if (
-      typeof pageWidth === 'number' &&
-      pageWidth > 0 &&
-      initialPage > 0 &&
-      scrollViewRef.current
-    ) {
+    const pageWidth = getPageWidth();
+    if (pageWidth > 0 && initialPage > 0 && scrollViewRef.current) {
       const safeInitialPage = getSafePageIndex(initialPage);
       scrollViewRef.current.scrollTo({
         x: safeInitialPage * pageWidth,
@@ -80,7 +84,7 @@ export function PagerView({
         },
       } as any);
     }
-  }, [pageWidth, initialPage, getSafePageIndex, onPageSelected]);
+  }, [initialPage, getSafePageIndex, onPageSelected, getPageWidth]);
 
   useEffect(() => {
     const debouncedSetPage = debounce(() => {
@@ -102,25 +106,24 @@ export function PagerView({
     () =>
       ({
         setPage: (page: number) => {
-          if (typeof pageWidth === 'number') {
-            scrollViewRef.current?.scrollTo({
-              x: getSafePageIndex(page) * pageWidth,
-              y: 0,
-              animated: !disableAnimation,
-            });
-          }
+          const pageWidth = getPageWidth();
+          scrollViewRef.current?.scrollTo({
+            x: getSafePageIndex(page) * pageWidth,
+            y: 0,
+            animated: !disableAnimation,
+          });
         },
         setPageWithoutAnimation: (page: number) => {
-          if (typeof pageWidth === 'number') {
-            scrollViewRef.current?.scrollTo({
-              x: getSafePageIndex(page) * pageWidth,
-              y: 0,
-              animated: false,
-            });
-          }
+          const pageWidth = getPageWidth();
+
+          scrollViewRef.current?.scrollTo({
+            x: getSafePageIndex(page) * pageWidth,
+            y: 0,
+            animated: false,
+          });
         },
       } as PagerViewType),
-    [getSafePageIndex, pageWidth, disableAnimation],
+    [getSafePageIndex, getPageWidth, disableAnimation],
   );
   return (
     <ScrollView
