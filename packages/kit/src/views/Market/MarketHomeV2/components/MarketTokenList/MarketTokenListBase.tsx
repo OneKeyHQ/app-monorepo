@@ -185,7 +185,7 @@ function MarketTokenListBase({
               contentContainerStyle={
                 platformEnv.isNativeAndroid
                   ? {
-                      paddingBottom: SPINNER_HEIGHT,
+                      paddingBottom: SPINNER_HEIGHT * 2,
                     }
                   : undefined
               }
