@@ -29,9 +29,11 @@ import { NetworkAvatar } from '../NetworkAvatar';
 function AllNetworksManagerTrigger({
   num,
   containerProps,
+  showSkeleton,
 }: {
   num: number;
   containerProps?: ComponentProps<typeof Stack>;
+  showSkeleton?: boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -90,10 +92,11 @@ function AllNetworksManagerTrigger({
   }
 
   if (
+    showSkeleton ||
     !enabledNetworksCompatibleWithWalletId ||
     enabledNetworksCompatibleWithWalletId.length === 0
   ) {
-    return <Skeleton h={20} w={120} />;
+    return <Skeleton.BodyMd />;
   }
 
   return (
