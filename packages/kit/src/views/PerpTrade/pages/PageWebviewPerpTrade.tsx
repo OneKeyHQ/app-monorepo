@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useFocusEffect } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -75,7 +76,7 @@ function usePerpPageShortcuts({
   useShortcuts(undefined, handleShortcuts);
 }
 
-function PerpTradeViewExt() {
+function WebviewPerpTradeViewExt() {
   useEffect(() => {
     if (platformEnv.isExtension) {
       void backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
@@ -87,7 +88,7 @@ function PerpTradeViewExt() {
   return null;
 }
 
-function PerpTradeView() {
+function WebviewPerpTradeView() {
   const intl = useIntl();
 
   useDebugComponentRemountLog({ name: 'PerpTradePageContainer' });
@@ -233,7 +234,7 @@ function PerpTradeView() {
     <Page fullPage>
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.PerpTrade}
+        tabRoute={ETabRoutes.WebviewPerpTrade}
         customHeaderLeftItems={leftHeaderItems}
         renderCustomHeaderRightItems={({ fixedItems }) => (
           <>
@@ -277,8 +278,11 @@ function PerpTradeView() {
   );
 }
 
-const PagePerpTrade = () => {
-  useDebugComponentRemountLog({ name: 'PerpTradePage' });
+const PageWebviewPerpTrade = () => {
+  useDebugComponentRemountLog({ name: 'PageWebviewPerpTrade' });
+  useFocusEffect(() => {
+    void backgroundApiProxy.serviceWebviewPerp.updateBuilderFeeConfigByServer();
+  });
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -287,9 +291,13 @@ const PagePerpTrade = () => {
       }}
       enabledNum={[0]}
     >
-      {platformEnv.isExtension ? <PerpTradeViewExt /> : <PerpTradeView />}
+      {platformEnv.isExtension ? (
+        <WebviewPerpTradeViewExt />
+      ) : (
+        <WebviewPerpTradeView />
+      )}
     </AccountSelectorProviderMirror>
   );
 };
 
-export default PagePerpTrade;
+export default PageWebviewPerpTrade;

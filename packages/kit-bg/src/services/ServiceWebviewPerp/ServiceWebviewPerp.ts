@@ -21,6 +21,7 @@ import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IHyperLiquidSignatureRSV,
   IHyperLiquidTypedDataApproveBuilderFee,
@@ -30,7 +31,10 @@ import type {
 import { settingsPersistAtom } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
-import type { ISimpleDbPerpConfig } from '../../dbs/simple/entity/SimpleDbEntityPerp';
+import type {
+  IHyperliquidCustomSettings,
+  ISimpleDbPerpConfig,
+} from '../../dbs/simple/entity/SimpleDbEntityPerp';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
@@ -523,6 +527,7 @@ class ServiceWebviewPerp extends ServiceBase {
       !status.isApprovedDone &&
       status.canSetBuilderFee
     ) {
+      this.clearUserApprovedMaxBuilderCache();
       const { apiPayload, typedData } =
         await this.createApproveBuilderFeePayload({
           builderAddress: status.expectBuilderAddress,
@@ -574,10 +579,56 @@ class ServiceWebviewPerp extends ServiceBase {
     });
   }
 
+  @backgroundMethod()
+  async updateBuilderFeeConfigByServer() {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const resp = await client.get<{
+      referrerAddress: string;
+      referrerRate: number;
+      customSettings: IHyperliquidCustomSettings;
+    }>('/utility/v1/perp-config');
+    const resData = resp.data;
+    await this.backgroundApi.simpleDb.perp.setPerpConfig(
+      (prev): ISimpleDbPerpConfig => {
+        return {
+          ...prev,
+          hyperliquidBuilderAddress: resData.referrerAddress,
+          hyperliquidMaxBuilderFee: resData.referrerRate,
+          hyperliquidCustomSettings: resData.customSettings || {
+            hideNavBar: true,
+            hideNavBarConnectButton: false,
+            hideNotOneKeyWalletConnectButton: true,
+          },
+        };
+      },
+    );
+    return resData;
+  }
+
+  updateBuilderFeeConfigByServerWithCache = cacheUtils.memoizee(
+    async () => {
+      return this.updateBuilderFeeConfigByServer();
+    },
+    {
+      max: 20,
+      maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
+      promise: true,
+    },
+  );
+
   isLocaleUpdatedByDappDone = false;
 
   @backgroundMethod()
   async getBuilderFeeConfig() {
+    void this.updateBuilderFeeConfigByServerWithCache();
+    // try {
+    //   const p = this.updateBuilderFeeConfigByServer();
+    //   await pTimeout(p, {
+    //     milliseconds: 1000,
+    //   });
+    // } catch (error) {
+    //   console.error(error);
+    // }
     const shouldModifyPlaceOrderPayload = true;
     // Get builderAddress and builderFeeValue from simpleDB
     const expectBuilderAddress =
@@ -585,6 +636,8 @@ class ServiceWebviewPerp extends ServiceBase {
     // Need to check this formula returns an integer in the browser: 1e5 * (num/1e5)
     let expectMaxBuilderFee =
       (await this.backgroundApi.simpleDb.perp.getExpectMaxBuilderFee()) || 0; // 1e5 * (num/1e5)
+    const { hyperliquidCustomSettings } =
+      await this.backgroundApi.simpleDb.perp.getPerpConfig();
     if (expectMaxBuilderFee < 0) {
       expectMaxBuilderFee = 0;
     }
@@ -615,6 +668,7 @@ class ServiceWebviewPerp extends ServiceBase {
       expectBuilderAddress,
       expectMaxBuilderFee,
       shouldModifyPlaceOrderPayload,
+      customSettings: hyperliquidCustomSettings,
     };
   }
 

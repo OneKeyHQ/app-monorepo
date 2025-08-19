@@ -2,9 +2,15 @@ import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDeco
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
+export type IHyperliquidCustomSettings = {
+  hideNavBar?: boolean;
+  hideNavBarConnectButton?: boolean;
+  hideNotOneKeyWalletConnectButton?: boolean;
+};
 export interface ISimpleDbPerpConfig {
   hyperliquidBuilderAddress?: string;
   hyperliquidMaxBuilderFee?: number;
+  hyperliquidCustomSettings?: IHyperliquidCustomSettings;
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpConfig> {
