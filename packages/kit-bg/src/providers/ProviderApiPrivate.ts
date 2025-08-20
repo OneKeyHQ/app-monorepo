@@ -314,11 +314,15 @@ class ProviderApiPrivate extends ProviderApiBase {
           url: request.origin,
           from: 'script',
         });
+
+      const inDapps = (securityInfo.dapp?.origins?.length || 0) > 0;
       const settings =
         await this.backgroundApi.simpleDb.floatingIconSettings.getSettings();
       return {
         isShow:
-          securityInfo.level === EHostSecurityLevel.Unknown ? false : isShow,
+          securityInfo.level === EHostSecurityLevel.Unknown && !inDapps
+            ? false
+            : isShow,
         settings,
         i18n: {
           title: appLocale.intl.formatMessage({
