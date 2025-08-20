@@ -3181,6 +3181,7 @@
   "wallet.no_address_desc": "현재 네트워크에는 아직 주소가 없습니다",
   "wallet.no_tron_account": "TRON 계정이 없습니다. 계속하려면 생성하거나 가져오세요.",
   "wallet.onekey_wallet_without_description": "Chrome 웹 스토어로 이동",
+  "wallet.onekey_wallet_without_refresh": "플러그인이 설치되었나요? 페이지를 새로고침하고 다시 시도해 주세요",
   "wallet.pay_with_usdt": "USDT로 결제하기",
   "wallet.receive_token_instruction": "다른 지갑에서 입금",
   "wallet.redeem_label": "되찾다",

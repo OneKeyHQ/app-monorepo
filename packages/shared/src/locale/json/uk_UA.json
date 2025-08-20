@@ -3181,6 +3181,7 @@
   "wallet.no_address_desc": "Поточна мережа ще не має адреси",
   "wallet.no_tron_account": "Обліковий запис TRON не знайдено. Створіть або імпортуйте, щоб продовжити.",
   "wallet.onekey_wallet_without_description": "Перейти до Chrome Web Store",
+  "wallet.onekey_wallet_without_refresh": "Плагін інстальовано? Оновіть сторінку та спробуйте знову",
   "wallet.pay_with_usdt": "Оплатити за допомогою USDT",
   "wallet.receive_token_instruction": "Депозит з інших гаманців",
   "wallet.redeem_label": "Викупити",
