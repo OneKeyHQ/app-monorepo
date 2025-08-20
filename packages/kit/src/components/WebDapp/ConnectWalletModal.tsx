@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector/actions';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
 import { ExternalWalletList } from './ExternalWalletList';
@@ -22,6 +23,9 @@ import { OneKeyWalletConnectionOptions } from './OneKeyWalletConnectionOptions';
 import { WatchOnlyWalletContent } from './WatchOnlyWalletContent';
 
 import type { RouteProp } from '@react-navigation/core';
+
+const sceneName = EAccountSelectorSceneName.home;
+const num = 0;
 
 function ConnectWalletContent() {
   const intl = useIntl();
@@ -32,6 +36,14 @@ function ConnectWalletContent() {
     >();
   const { defaultTab } = route.params || {};
   const media = useMedia();
+  const actions = useAccountSelectorActions();
+
+  useEffect(() => {
+    void actions.current.autoSelectNextAccount({
+      sceneName,
+      num,
+    });
+  }, [actions]);
 
   const isMobile = media.md;
 
@@ -131,9 +143,9 @@ function ConnectWalletModal() {
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: EAccountSelectorSceneName.home,
+        sceneName,
       }}
-      enabledNum={[0]}
+      enabledNum={[num]}
     >
       <ConnectWalletContent />
     </AccountSelectorProviderMirror>
