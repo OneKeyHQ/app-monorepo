@@ -3181,6 +3181,7 @@
   "wallet.no_address_desc": "वर्तमान नेटवर्क का अभी तक कोई पता नहीं है",
   "wallet.no_tron_account": "कोई ट्रॉन खाता नहीं मिला। जारी रखने के लिए नया खाता बनाएं या आयात करें।",
   "wallet.onekey_wallet_without_description": "Chrome Web Store पर जाएं",
+  "wallet.onekey_wallet_without_refresh": "प्लगइन इंस्टॉल हो गया है? कृपया पेज को रीफ्रेश करें और फिर से प्रयास करें।",
   "wallet.pay_with_usdt": "USDT से भुगतान करें",
   "wallet.receive_token_instruction": "अन्य वॉलेट्स से जमा करें",
   "wallet.redeem_label": "भुनाना",
