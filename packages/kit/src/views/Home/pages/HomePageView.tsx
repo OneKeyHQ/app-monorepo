@@ -288,7 +288,10 @@ export function HomePageView({
     }
 
     let content = (
-      <ScrollView h="100%" contentContainerStyle={{ justifyContent: 'center' }}>
+      <ScrollView
+        h="100%"
+        contentContainerStyle={{ justifyContent: 'center', flexGrow: 1 }}
+      >
         {platformEnv.isWebDappMode ? <WebDappEmptyView /> : <EmptyWallet />}
       </ScrollView>
     );
