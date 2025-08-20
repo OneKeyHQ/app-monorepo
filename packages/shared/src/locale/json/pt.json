@@ -3181,6 +3181,7 @@
   "wallet.no_address_desc": "A rede atual ainda não tem um endereço",
   "wallet.no_tron_account": "Nenhuma conta TRON encontrada. Crie ou importe para continuar.",
   "wallet.onekey_wallet_without_description": "Ir para a Chrome Web Store",
+  "wallet.onekey_wallet_without_refresh": "O plugin está instalado? Atualize a página e tente novamente",
   "wallet.pay_with_usdt": "Pagar com USDT",
   "wallet.receive_token_instruction": "Depósito de outras carteiras",
   "wallet.redeem_label": "Resgatar",
