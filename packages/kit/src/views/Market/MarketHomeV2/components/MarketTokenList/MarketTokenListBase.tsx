@@ -165,11 +165,7 @@ function MarketTokenListBase({
           ...(md ? { marginLeft: 8, marginRight: 8 } : {}),
         }}
       >
-        <Stack
-          minWidth={md ? '100%' : 1466}
-          flex={1}
-          minHeight={platformEnv.isNative ? undefined : 400}
-        >
+        <Stack flex={1} minHeight={platformEnv.isNative ? undefined : 400}>
           {showSkeleton ? (
             <Table.Skeleton
               columns={marketTokenColumns}
@@ -185,7 +181,7 @@ function MarketTokenListBase({
               contentContainerStyle={
                 platformEnv.isNativeAndroid
                   ? {
-                      paddingBottom: SPINNER_HEIGHT,
+                      paddingBottom: SPINNER_HEIGHT * 2,
                     }
                   : undefined
               }
