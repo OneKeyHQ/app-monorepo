@@ -55,7 +55,7 @@ export function RecommendItem({
         <MarketTokenIcon uri={icon} size="md" />
         <YStack flexShrink={1}>
           <SizableText size="$bodyLgMedium" numberOfLines={1}>
-            {symbol.toUpperCase()}
+            {symbol}
           </SizableText>
           <SizableText
             size="$bodySm"
