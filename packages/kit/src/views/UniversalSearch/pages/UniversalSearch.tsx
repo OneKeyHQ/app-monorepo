@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/components';
 import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -111,6 +112,7 @@ export function UniversalSearch({
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [allTokenList] = useAllTokenListAtom();
   const [allTokenListMap] = useAllTokenListMapAtom();
+  const [devSettings] = useDevSettingsPersistAtom();
 
   const [sections, setSections] = useState<IUniversalSection[]>([]);
   const [searchStatus, setSearchStatus] = useState<ESearchStatus>(
@@ -193,6 +195,7 @@ export function UniversalSearch({
       title: string;
       data: IUniversalSearchResultItem[];
     }[] = [];
+
     const result =
       await backgroundApiProxy.serviceUniversalSearch.universalSearchRecommend({
         searchTypes: [EUniversalSearchType.MarketToken],
@@ -283,7 +286,13 @@ export function UniversalSearch({
         });
       }
 
-      if (result?.[EUniversalSearchType.V2MarketToken]?.items?.length) {
+      const enableMarketV2 = devSettings.settings?.enableMarketV2 ?? false;
+
+      // Show V2 market tokens only when V2 is enabled
+      if (
+        enableMarketV2 &&
+        result?.[EUniversalSearchType.V2MarketToken]?.items?.length
+      ) {
         const data = result?.[EUniversalSearchType.V2MarketToken]
           ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
@@ -295,7 +304,11 @@ export function UniversalSearch({
         });
       }
 
-      if (result?.[EUniversalSearchType.MarketToken]?.items?.length) {
+      // Show V1 market tokens only when V2 is disabled
+      if (
+        !enableMarketV2 &&
+        result?.[EUniversalSearchType.MarketToken]?.items?.length
+      ) {
         const data = result?.[EUniversalSearchType.MarketToken]
           ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
