@@ -61,6 +61,7 @@ export type IGasEIP1559 = {
 };
 
 export type IGasLegacy = {
+  originalGasPrice?: string;
   gasPrice: string;
   gasLimit: string;
   gasLimitForDisplay?: string;
