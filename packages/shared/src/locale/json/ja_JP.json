@@ -3181,6 +3181,7 @@
   "wallet.no_address_desc": "現在のネットワークにはまだアドレスがありません",
   "wallet.no_tron_account": "TRONアカウントが見つかりません。続行するには作成またはインポートしてください。",
   "wallet.onekey_wallet_without_description": "Chrome Web Store へ移動",
+  "wallet.onekey_wallet_without_refresh": "プラグインがインストールされましたか？ページを更新してもう一度お試しください",
   "wallet.pay_with_usdt": "USDTで支払う",
   "wallet.receive_token_instruction": "他のウォレットからのデポジット",
   "wallet.redeem_label": "贖回する",

@@ -3186,6 +3186,7 @@
   wallet_no_address_desc = 'wallet.no_address_desc',
   wallet_no_tron_account = 'wallet.no_tron_account',
   wallet_onekey_wallet_without_description = 'wallet.onekey_wallet_without_description',
+  wallet_onekey_wallet_without_refresh = 'wallet.onekey_wallet_without_refresh',
   wallet_pay_with_usdt = 'wallet.pay_with_usdt',
   wallet_receive_token_instruction = 'wallet.receive_token_instruction',
   wallet_redeem_label = 'wallet.redeem_label',
