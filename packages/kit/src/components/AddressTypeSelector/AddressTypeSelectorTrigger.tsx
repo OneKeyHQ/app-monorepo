@@ -22,7 +22,7 @@ function AddressTypeSelectorTrigger(props: IProps) {
     <Badge
       userSelect="none"
       role="button"
-      pr="$1"
+      pr={disableSelector ? undefined : '$1'}
       gap="$0.5"
       hoverStyle={{
         bg: '$bgStrongHover',

@@ -8,9 +8,10 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { TermsAndPrivacy } from '@onekeyhq/kit/src/views/Onboarding/pages/GetStarted/components/TermsAndPrivacy';
 import { useImportAddressForm } from '@onekeyhq/kit/src/views/Onboarding/pages/ImportWallet/hooks/useImportAddressForm';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  EOnboardingPages,
-  IOnboardingParamList,
+import {
+  type EOnboardingPages,
+  ERootRoutes,
+  type IOnboardingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -53,7 +54,9 @@ function ConnectWalletContent() {
   });
 
   const handleWalletAdded = useCallback(() => {
-    navigation.popStack();
+    navigation.navigate(ERootRoutes.Main, undefined, {
+      pop: true,
+    });
   }, [navigation]);
 
   // Watch-only wallet form state
