@@ -404,6 +404,23 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+      <SectionFieldItem
+        icon="Layers2Outline"
+        name="enableMarketV2"
+        title="启用市场模块 V2 版本"
+        subtitle={
+          devSettings.settings?.enableMarketV2
+            ? '使用新版本市场模块 (V2)'
+            : '使用旧版本市场模块 (V1)'
+        }
+        onValueChange={() => {
+          setTimeout(() => {
+            void backgroundApiProxy.serviceApp.restartApp();
+          }, 300);
+        }}
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
       <ListItem
         icon="LabOutline"
         title="Bg Api 可序列化检测"
