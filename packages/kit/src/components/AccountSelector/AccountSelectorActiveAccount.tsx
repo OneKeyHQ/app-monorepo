@@ -244,14 +244,28 @@ export function AccountSelectorActiveAccountHome({
         networkName: network?.shortname,
       });
     } else {
+      let networkName = network?.shortname;
+      if (
+        network?.isAllNetworks &&
+        accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
+        account?.createAtNetwork
+      ) {
+        const createAtNetwork =
+          await backgroundApiProxy.serviceNetwork.getNetworkSafe({
+            networkId: account.createAtNetwork,
+          });
+        networkName = createAtNetwork?.shortname ?? networkName;
+      }
+
       copyAddressWithDeriveType({
         address: account.address,
-        networkName: network?.shortname,
+        networkName,
       });
     }
     logActiveAccount();
   }, [
     account?.address,
+    account?.createAtNetwork,
     account?.id,
     copyAddressWithDeriveType,
     deriveInfoItems,
