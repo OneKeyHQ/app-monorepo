@@ -195,7 +195,6 @@ export function UniversalSearch({
       title: string;
       data: IUniversalSearchResultItem[];
     }[] = [];
-    const enableMarketV2 = devSettings.settings?.enableMarketV2 ?? false;
 
     const result =
       await backgroundApiProxy.serviceUniversalSearch.universalSearchRecommend({
@@ -209,7 +208,7 @@ export function UniversalSearch({
       });
     }
     setRecommendSections(searchResultSections as IUniversalSection[]);
-  }, [intl, devSettings.settings?.enableMarketV2]);
+  }, [intl]);
 
   useEffect(() => {
     void fetchRecommendList();
