@@ -175,6 +175,7 @@ export interface IMarketTokenListItem {
   volume24hChangePercent?: string;
   networkId?: string;
   liquidity?: string;
+  chainId?: string;
 }
 
 export interface IMarketTokenListResponse {

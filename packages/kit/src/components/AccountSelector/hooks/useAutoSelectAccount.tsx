@@ -4,6 +4,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorAutoSelectTriggerBy } from '@onekeyhq/shared/types';
 
 import {
@@ -32,9 +33,10 @@ export function useAutoSelectAccount({ num }: { num: number }) {
 
   // **** autoSelectAccount after WalletUpdate
   useEffect(() => {
-    const fn = () => {
+    const fn = async () => {
       if (!account) {
-        void actions.current.autoSelectNextAccount({
+        await timerUtils.wait(600);
+        await actions.current.autoSelectNextAccount({
           num,
           sceneName,
           sceneUrl,
