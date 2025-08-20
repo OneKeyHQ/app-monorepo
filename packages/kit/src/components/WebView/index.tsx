@@ -113,14 +113,16 @@ const WebView: FC<IWebViewProps> = ({
     [onWebViewRef],
   );
 
+  const getWebviewRef = useCallback(() => webviewRef.current, [webviewRef]);
+  const shouldSkipNotify = useCallback(() => {
+    return Boolean(!notifyChangedEventsToDappOnFocus);
+  }, [notifyChangedEventsToDappOnFocus]);
   const isFocused = useIsFocused();
   useDAppNotifyChangesBase({
-    getWebviewRef: () => webviewRef.current,
+    getWebviewRef,
     isFocused,
     url: src,
-    shouldSkipNotify: () => {
-      return Boolean(!notifyChangedEventsToDappOnFocus);
-    },
+    shouldSkipNotify,
   });
 
   if (

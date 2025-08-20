@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { noop, throttle } from 'lodash';
 
@@ -52,23 +52,29 @@ export function useDAppNotifyChangesBase({
 }) {
   const isMountedRef = useIsMounted();
 
+  const getWebviewRefFn = useRef(getWebviewRef);
+  getWebviewRefFn.current = getWebviewRef;
+
+  const shouldSkipNotifyFn = useRef(shouldSkipNotify);
+  shouldSkipNotifyFn.current = shouldSkipNotify;
+
   // reconnect jsBridge
   useEffect(() => {
     noop(isFocused);
     if (!platformEnv.isNative && !platformEnv.isDesktop) {
       return;
     }
-    const webviewRef = getWebviewRef();
+    const webviewRef = getWebviewRefFn.current();
     const jsBridge = webviewRef?.jsBridge;
     if (!jsBridge) {
       return;
     }
     backgroundApiProxy.connectBridge(jsBridge as unknown as JsBridgeBase);
-  }, [getWebviewRef, isFocused]);
+  }, [isFocused]);
 
   // sent accountChanged notification
   useEffect(() => {
-    if (shouldSkipNotify?.() === true) {
+    if (shouldSkipNotifyFn.current?.() === true) {
       return;
     }
 
@@ -87,7 +93,7 @@ export function useDAppNotifyChangesBase({
       return;
     }
 
-    const webviewRef = getWebviewRef();
+    const webviewRef = getWebviewRefFn.current();
     if (!webviewRef) {
       console.log('no webviewRef');
       return;
@@ -121,7 +127,7 @@ export function useDAppNotifyChangesBase({
     } else if (platformEnv.isNative) {
       notifyChanges(url, 'immediately');
     }
-  }, [isFocused, url, getWebviewRef, isMountedRef, shouldSkipNotify]);
+  }, [isFocused, url, isMountedRef]);
 }
 
 export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
@@ -153,8 +159,9 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
     return false;
   }, [tab?.url, isFocusedInDiscoveryTab, previousUrl]);
 
+  const getWebviewRef = useCallback(() => webviewRef, [webviewRef]);
   useDAppNotifyChangesBase({
-    getWebviewRef: () => webviewRef,
+    getWebviewRef,
     url: tab?.url,
     isFocused: isFocusedInDiscoveryTab,
     shouldSkipNotify,
