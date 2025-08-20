@@ -65,14 +65,14 @@ export function DesktopLayout() {
           <Stack w={320}>
             <ScrollView>
               <Stack w={320}>
-                <Stack p="$4">
+                <Stack px="$5" py="$4">
                   <SwapPanel
                     networkId={networkId}
                     tokenAddress={tokenDetail?.address}
                   />
                 </Stack>
 
-                <Divider mx="$4" my="$2" />
+                <Divider mx="$5" my="$2" />
 
                 <TokenActivityOverview />
               </Stack>
