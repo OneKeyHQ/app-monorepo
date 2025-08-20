@@ -322,17 +322,16 @@ class BackgroundApiBase implements IBackgroundApiBridge {
         }
         ensureSerializable(data);
 
+        if (scope === 'ethereum') {
+          // console.log('sendMessagesToInjectedBridge>>>>>>', scope, data, {
+          //   targetOrigin,
+          //   globalOnMessageEnabled: this.bridge.globalOnMessageEnabled,
+          // });
+        }
+
         // this.bridge.requestSync({ scope, data });
         if (this.bridge.globalOnMessageEnabled) {
           this.bridge.requestSync({ scope, data });
-          // if (scope === 'ethereum') {
-          //   console.log('sendMessagesToInjectedBridge', {
-          //     scope,
-          //     data,
-          //     targetOrigin,
-          //     globalOnMessageEnabled: this.bridge.globalOnMessageEnabled,
-          //   });
-          // }
         }
       }
       if (this.webEmbedBridge && this.webEmbedBridge.remoteInfo.origin) {
