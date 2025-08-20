@@ -31,6 +31,7 @@ export function PagerView({
 }) {
   const scrollViewRef = useRef<ScrollView>(null);
   const pageIndex = useRef<number>(initialPage);
+  const timerId = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pageSize = useMemo(() => {
     return Children.count(children);
   }, [children]);
@@ -42,22 +43,29 @@ export function PagerView({
       : (scrollViewRef.current as unknown as HTMLDivElement)?.clientWidth || 0;
   }, [pageWidthProp]);
 
-  const handleScroll = useDebouncedCallback(
+  const isLockPageIndex = useRef(false);
+
+  const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (isLockPageIndex.current) {
+        return;
+      }
       const pageWidth = getPageWidth();
       const { contentOffset } = event.nativeEvent;
       const page =
         typeof pageWidth === 'number'
           ? Math.round(contentOffset.x / pageWidth)
           : 0;
-      pageIndex.current = page;
-      void onPageSelected?.({
-        nativeEvent: {
-          position: page,
-        },
-      } as any);
+      if (pageIndex.current !== page) {
+        pageIndex.current = page;
+        void onPageSelected?.({
+          nativeEvent: {
+            position: page,
+          },
+        } as any);
+      }
     },
-    50,
+    [getPageWidth, onPageSelected],
   );
 
   const getSafePageIndex = useCallback(
@@ -101,11 +109,23 @@ export function PagerView({
     };
   }, [onPageSelected]);
 
+  const lockScrollEvent = useCallback((page: number) => {
+    if (timerId.current) {
+      clearTimeout(timerId.current);
+    }
+    isLockPageIndex.current = true;
+    timerId.current = setTimeout(() => {
+      isLockPageIndex.current = false;
+      pageIndex.current = page;
+    }, 500);
+  }, []);
+
   useImperativeHandle(
     ref,
     () =>
       ({
         setPage: (page: number) => {
+          lockScrollEvent(page);
           const pageWidth = getPageWidth();
           scrollViewRef.current?.scrollTo({
             x: getSafePageIndex(page) * pageWidth,
@@ -114,8 +134,8 @@ export function PagerView({
           });
         },
         setPageWithoutAnimation: (page: number) => {
+          lockScrollEvent(page);
           const pageWidth = getPageWidth();
-
           scrollViewRef.current?.scrollTo({
             x: getSafePageIndex(page) * pageWidth,
             y: 0,
@@ -123,7 +143,7 @@ export function PagerView({
           });
         },
       } as PagerViewType),
-    [getSafePageIndex, getPageWidth, disableAnimation],
+    [lockScrollEvent, getPageWidth, getSafePageIndex, disableAnimation],
   );
   return (
     <ScrollView
