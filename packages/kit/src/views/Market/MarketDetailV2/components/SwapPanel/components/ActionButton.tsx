@@ -191,6 +191,9 @@ export function ActionButton({
             ? '$buttonSuccess'
             : '$buttonCritical',
         color: '$textOnColor',
+        borderWidth: 0,
+        shadowOpacity: 0,
+        elevation: 0,
         hoverStyle: {
           opacity: 0.9,
         },

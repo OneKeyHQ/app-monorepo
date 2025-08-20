@@ -12,6 +12,7 @@ export const mockRecommendedTokens: IMarketTokenListItem[] = [
     tvl: '20499339477.98443',
     holders: 2_939_595,
     price: '180.1306731869755',
+    networkId: 'sol--101',
   },
   {
     address: '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN',
@@ -23,6 +24,7 @@ export const mockRecommendedTokens: IMarketTokenListItem[] = [
     tvl: '356147829.1335078',
     holders: 644_183,
     price: '10.30958768100338',
+    networkId: 'sol--101',
   },
   {
     address: 'pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn',
@@ -35,6 +37,7 @@ export const mockRecommendedTokens: IMarketTokenListItem[] = [
     tvl: '44432498.41233467',
     holders: 51_311,
     price: '0.004942007466874899',
+    networkId: 'sol--101',
   },
   {
     address: '9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump',
@@ -47,6 +50,7 @@ export const mockRecommendedTokens: IMarketTokenListItem[] = [
     tvl: '44580144.78474718',
     holders: 165_462,
     price: '1.5095804093268217',
+    networkId: 'sol--101',
   },
   {
     address: '9GtvcnDUvGsuibktxiMjLQ2yyBq5akUahuBs8yANbonk',
@@ -59,6 +63,7 @@ export const mockRecommendedTokens: IMarketTokenListItem[] = [
     tvl: '1565124.9002630264',
     holders: 13_019,
     price: '0.010720227213079135',
+    networkId: 'sol--101',
   },
   {
     address: '27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4',
@@ -70,6 +75,7 @@ export const mockRecommendedTokens: IMarketTokenListItem[] = [
     tvl: '23285253.989814512',
     holders: 77_596,
     price: '4.980971491558108',
+    networkId: 'sol--101',
   },
   {
     address: '9tqjeRS1swj36Ee5C1iGiwAxjQJNGAVCzaTLwFY8bonk',
@@ -82,6 +88,7 @@ export const mockRecommendedTokens: IMarketTokenListItem[] = [
     tvl: '5360461.968594629',
     holders: 18_354,
     price: '0.0645733064741949',
+    networkId: 'sol--101',
   },
   {
     address: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
@@ -93,6 +100,7 @@ export const mockRecommendedTokens: IMarketTokenListItem[] = [
     tvl: '22292670.67945305',
     holders: 959_737,
     price: '0.00003500743693518884',
+    networkId: 'sol--101',
   },
   {
     address: 'MEW1gQWJ3nEXg2qgERiKu7FAFj79PHvQVREQUzScPP5',
@@ -105,6 +113,7 @@ export const mockRecommendedTokens: IMarketTokenListItem[] = [
     tvl: '39714625.63626315',
     holders: 165_265,
     price: '0.003731079771483441',
+    networkId: 'sol--101',
   },
   {
     address: '2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv',
@@ -116,6 +125,7 @@ export const mockRecommendedTokens: IMarketTokenListItem[] = [
     tvl: '21685276.928721197',
     holders: 559_370,
     price: '0.0303630324743057',
+    networkId: 'sol--101',
   },
   {
     address: 'Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk',
@@ -128,6 +138,7 @@ export const mockRecommendedTokens: IMarketTokenListItem[] = [
     tvl: '12400462.7611628',
     holders: 24_394,
     price: '0.32153344444577125',
+    networkId: 'sol--101',
   },
   {
     address: 'Ey59PH7Z4BFU4HjyKnyMdWt5GGN76KazTAwQihoUXRnk',
@@ -140,6 +151,7 @@ export const mockRecommendedTokens: IMarketTokenListItem[] = [
     tvl: '7595747.906694646',
     holders: 22_994,
     price: '0.12529958555606008',
+    networkId: 'sol--101',
   },
   {
     address: 'Gs7yqXZpiPNMpQndq43dCJqRuBAaoarcY1uUbg36bonk',
@@ -152,5 +164,6 @@ export const mockRecommendedTokens: IMarketTokenListItem[] = [
     tvl: '289005.0401932992',
     holders: 6132,
     price: '0.002986028822011424',
+    networkId: 'sol--101',
   },
 ];
