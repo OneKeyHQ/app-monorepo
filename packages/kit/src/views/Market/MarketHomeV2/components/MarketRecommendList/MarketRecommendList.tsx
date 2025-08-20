@@ -6,6 +6,7 @@ import {
   Button,
   ScrollView,
   SizableText,
+  Stack,
   XStack,
   YStack,
   useMedia,
@@ -117,12 +118,18 @@ export function MarketRecommendList({
     ],
   );
 
+  const stackPaddingBottom = useMemo(() => {
+    if (platformEnv.isNativeAndroid) return 100;
+    if (platformEnv.isExtension) return 50;
+    return 0;
+  }, []);
+
   if (!recommendedTokens?.length) {
     return null;
   }
 
   return (
-    <>
+    <Stack flex={1} paddingBottom={stackPaddingBottom}>
       <ScrollView
         contentContainerStyle={{ ai: 'center' }}
         px="$5"
@@ -160,9 +167,18 @@ export function MarketRecommendList({
           flexWrap="wrap"
           width="100%"
           $gtMd={{ maxWidth: 480 }}
+          $sm={{
+            gap: '$2',
+          }}
         >
           {new Array(Math.ceil(maxSize / 2)).fill(0).map((_, i) => (
-            <XStack gap="$2.5" key={i}>
+            <XStack
+              gap="$2.5"
+              key={i}
+              $sm={{
+                gap: '$2',
+              }}
+            >
               {new Array(2).fill(0).map((__, j) => {
                 const item = recommendedTokens?.[i * 2 + j];
                 return item ? (
@@ -177,6 +193,7 @@ export function MarketRecommendList({
                     icon={item.logoUrl || ''}
                     symbol={item.symbol}
                     tokenName={item.name}
+                    networkId={item.networkId || item.chainId}
                     onChange={handleRecommendItemChange}
                   />
                 ) : null;
@@ -189,6 +206,6 @@ export function MarketRecommendList({
         </YStack>
       </ScrollView>
       {!gtMd && confirmButton ? <YStack p="$5">{confirmButton}</YStack> : null}
-    </>
+    </Stack>
   );
 }
