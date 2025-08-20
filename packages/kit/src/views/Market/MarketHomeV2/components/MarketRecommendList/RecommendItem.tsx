@@ -67,7 +67,7 @@ export function RecommendItem({
               size: '$bodyMdMedium',
             }}
           >
-            {symbol.toUpperCase()}
+            {symbol}
           </SizableText>
           <SizableText
             size="$bodySm"
