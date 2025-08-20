@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -61,8 +61,26 @@ function OneKeyWalletConnectionOptions({
     useOneKeyWalletDetection();
   const media = useMedia();
 
+  // Track if user clicked Add button
+  const [hasClickedAdd, setHasClickedAdd] = useState(false);
+
   // Check if mobile (small screen)
   const isMobile = media.md;
+
+  // Get subtitle text
+  const getSubtitleText = () => {
+    if (isOneKeyInstalled) {
+      return 'EVM';
+    }
+    if (hasClickedAdd) {
+      return intl.formatMessage({
+        id: ETranslations.wallet_onekey_wallet_without_refresh,
+      });
+    }
+    return intl.formatMessage({
+      id: ETranslations.wallet_onekey_wallet_without_description,
+    });
+  };
 
   const handleExtensionPress = useCallback(async () => {
     const connectionInfo = getOneKeyConnectionInfo();
@@ -154,13 +172,7 @@ function OneKeyWalletConnectionOptions({
         title={intl.formatMessage({
           id: ETranslations.global_onekey_wallet_extension,
         })}
-        subtitle={
-          isOneKeyInstalled
-            ? 'EVM'
-            : intl.formatMessage({
-                id: ETranslations.wallet_onekey_wallet_without_description,
-              })
-        }
+        subtitle={getSubtitleText()}
         renderAvatar={
           <Stack position="relative" width="$10" height="$10">
             <Icon
@@ -189,6 +201,7 @@ function OneKeyWalletConnectionOptions({
             variant="secondary"
             cursor="pointer"
             onPress={() => {
+              setHasClickedAdd(true);
               openUrlExternal(EXT_RATE_URL.chrome);
             }}
           >

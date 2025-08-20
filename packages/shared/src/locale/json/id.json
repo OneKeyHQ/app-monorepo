@@ -3181,6 +3181,7 @@
   "wallet.no_address_desc": "Jaringan saat ini belum memiliki alamat",
   "wallet.no_tron_account": "Tidak ditemukan akun TRON. Buat atau impor untuk melanjutkan.",
   "wallet.onekey_wallet_without_description": "Buka Chrome Web Store",
+  "wallet.onekey_wallet_without_refresh": "Plugin sudah terpasang? Silakan segarkan halaman untuk mencoba lagi",
   "wallet.pay_with_usdt": "Bayar dengan USDT",
   "wallet.receive_token_instruction": "Deposit dari dompet lain",
   "wallet.redeem_label": "Menebus",

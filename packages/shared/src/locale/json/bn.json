@@ -3181,6 +3181,7 @@
   "wallet.no_address_desc": "বর্তমান নেটওয়ার্কের এখনও কোনো ঠিকানা নেই",
   "wallet.no_tron_account": "কোনও TRON অ্যাকাউন্ট পাওয়া যায়নি। চালিয়ে যেতে একটি অ্যাকাউন্ট তৈরি করুন বা ইম্পোর্ট করুন।",
   "wallet.onekey_wallet_without_description": "Chrome Web Store এ যান",
+  "wallet.onekey_wallet_without_refresh": "প্লাগইন ইনস্টল করা হয়েছে? অনুগ্রহ করে পৃষ্ঠাটি রিফ্রেশ করে আবার চেষ্টা করুন।",
   "wallet.pay_with_usdt": "USDT দিয়ে পরিশোধ করুন",
   "wallet.receive_token_instruction": "অন্যান্য ওয়ালেট থেকে ডিপোজিট",
   "wallet.redeem_label": "মুক্ত",
