@@ -3181,6 +3181,7 @@
   "wallet.no_address_desc": "Mạng lưới hiện tại chưa có địa chỉ",
   "wallet.no_tron_account": "Không tìm thấy tài khoản TRON. Vui lòng tạo mới hoặc nhập vào để tiếp tục.",
   "wallet.onekey_wallet_without_description": "Đi đến Chrome Web Store",
+  "wallet.onekey_wallet_without_refresh": "Đã cài đặt plugin? Vui lòng làm mới trang và thử lại",
   "wallet.pay_with_usdt": "Thanh toán bằng USDT",
   "wallet.receive_token_instruction": "Nạp từ các ví khác",
   "wallet.redeem_label": "Chuộc lại",

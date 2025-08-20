@@ -1,12 +1,7 @@
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Dialog,
-  Icon,
-  SizableText,
-  XStack,
-} from '@onekeyhq/components';
+import { Dialog, Icon, SizableText, XStack } from '@onekeyhq/components';
+import { NATIVE_HIT_SLOP } from '@onekeyhq/components/src/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
@@ -44,22 +39,20 @@ function TokenSecurityAlert() {
   const color = securityStatus === 'warning' ? '$iconCaution' : '$iconSuccess';
 
   return (
-    <Button
-      variant="tertiary"
-      bg="$transparent"
-      borderWidth={0}
+    <XStack
+      cursor="pointer"
       onPress={handlePress}
+      ai="center"
+      gap="$0.5"
+      hitSlop={NATIVE_HIT_SLOP}
     >
-      <XStack gap="$0.5" ai="center">
-        <Icon name="BugOutline" size="$4" color={color} />
-
-        {warningCount > 0 ? (
-          <SizableText size="$bodySmMedium" color={color}>
-            {warningCount}
-          </SizableText>
-        ) : null}
-      </XStack>
-    </Button>
+      <Icon name="BugOutline" size="$4" color={color} />
+      {warningCount > 0 ? (
+        <SizableText size="$bodySmMedium" color={color}>
+          {warningCount}
+        </SizableText>
+      ) : null}
+    </XStack>
   );
 }
 
