@@ -199,24 +199,9 @@ export function UniversalSearch({
 
     const result =
       await backgroundApiProxy.serviceUniversalSearch.universalSearchRecommend({
-        searchTypes: [
-          enableMarketV2
-            ? EUniversalSearchType.V2MarketToken
-            : EUniversalSearchType.MarketToken,
-        ],
+        searchTypes: [EUniversalSearchType.MarketToken],
       });
-
-    // Use appropriate market token type based on dev settings
-    if (enableMarketV2 && result?.[EUniversalSearchType.V2MarketToken]?.items) {
-      searchResultSections.push({
-        title: intl.formatMessage({ id: ETranslations.market_trending }),
-        data: result?.[EUniversalSearchType.V2MarketToken]
-          ?.items as IUniversalSearchResultItem[],
-      });
-    } else if (
-      !enableMarketV2 &&
-      result?.[EUniversalSearchType.MarketToken]?.items
-    ) {
+    if (result?.[EUniversalSearchType.MarketToken]?.items) {
       searchResultSections.push({
         title: intl.formatMessage({ id: ETranslations.market_trending }),
         data: result?.[EUniversalSearchType.MarketToken]
