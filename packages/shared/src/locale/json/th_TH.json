@@ -3181,6 +3181,7 @@
   "wallet.no_address_desc": "เครือข่ายปัจจุบันยังไม่มีที่อยู่",
   "wallet.no_tron_account": "ไม่พบบัญชี TRON กรุณาสร้างหรือเพิ่มบัญชีเพื่อต่อไป",
   "wallet.onekey_wallet_without_description": "ไปที่ Chrome Web Store",
+  "wallet.onekey_wallet_without_refresh": "ติดตั้งปลั๊กอินแล้วใช่หรือไม่? กรุณารีเฟรชหน้าแล้วลองอีกครั้ง",
   "wallet.pay_with_usdt": "ชำระเงินด้วย USDT",
   "wallet.receive_token_instruction": "ฝากจากกระเป๋าเงินอื่นๆ",
   "wallet.redeem_label": "ไถ่ถอน",

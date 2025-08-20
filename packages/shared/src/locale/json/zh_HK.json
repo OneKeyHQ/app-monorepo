@@ -3181,6 +3181,7 @@
   "wallet.no_address_desc": "目前的網絡尚未有地址",
   "wallet.no_tron_account": "未找到 TRON 帳戶。請創建或導入以繼續。",
   "wallet.onekey_wallet_without_description": "前往 Chrome 網上應用商店",
+  "wallet.onekey_wallet_without_refresh": "插件已安裝？請刷新頁面重試",
   "wallet.pay_with_usdt": "使用 USDT 付款",
   "wallet.receive_token_instruction": "從其他錢包轉入資產",
   "wallet.redeem_label": "兌換",
