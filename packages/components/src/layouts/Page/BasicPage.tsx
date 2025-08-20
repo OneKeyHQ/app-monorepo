@@ -10,21 +10,42 @@ import { Stack } from '../../primitives';
 
 import type { IBasicPageProps } from './type';
 
-const useMaxPageHeight = platformEnv.isNative
+const useMaxHeight = () => {
+  const headerHeight = useHeaderHeight();
+  const windowHeight = useWindowDimensions().height;
+  return windowHeight - headerHeight;
+};
+
+const useHeightStyle = platformEnv.isNative
   ? () => {
       const { md } = useMedia();
-      const headerHeight = useHeaderHeight();
-      const windowHeight = useWindowDimensions().height;
+      const maxHeight = useMaxHeight();
       if (md) {
-        return windowHeight - headerHeight;
+        return {
+          maxHeight,
+        };
       }
-      return '100%';
+      return {
+        maxHeight: '100%',
+      };
     }
-  : () => '100%';
+  : () => {
+      const { md } = useMedia();
+      const maxHeight = useMaxHeight();
+      if (md) {
+        return {
+          height: maxHeight,
+          maxHeight: '100%',
+        };
+      }
+      return {
+        maxHeight: '100%',
+      };
+    };
 
 export function BasicPage({ children }: IBasicPageProps) {
   // fix scrolling issues on md Web
-  const maxHeight = useMaxPageHeight();
+  const heightStyle = useHeightStyle();
 
   // fix re-execute issues in Lazy Component via render phrase
   const [isLayoutMount, setIsLayoutMount] = useState(false);
@@ -32,7 +53,7 @@ export function BasicPage({ children }: IBasicPageProps) {
     setIsLayoutMount(true);
   }, []);
   return isLayoutMount ? (
-    <Stack bg="$bgApp" flex={1} maxHeight={maxHeight}>
+    <Stack bg="$bgApp" flex={1} {...heightStyle}>
       {children}
     </Stack>
   ) : null;
