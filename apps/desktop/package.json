@@ -23,6 +23,7 @@
     "build:electron:mac": "electron-builder build -m --config electron-builder.config.js",
     "build:electron:mas": "electron-builder build -m --config electron-builder-mas.config.js",
     "build:electron:snap": "electron-builder build -l --config electron-builder-snap.config.js",
+    "bundle:build": "yarn build:renderer",
     "build": "yarn keytar && NODE_ENV=production sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron --publish never\"",
     "build:snap": "NODE_ENV=production && sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:snap --publish never\"",
     "build:mac": "NODE_ENV=production sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:mac --publish never\"",
