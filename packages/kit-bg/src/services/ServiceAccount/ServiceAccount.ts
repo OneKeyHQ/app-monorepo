@@ -192,26 +192,27 @@ class ServiceAccount extends ServiceBase {
     super({ backgroundApi });
 
     appEventBus.on(EAppEventBusNames.WalletUpdate, () => {
-      this.clearAccountCache();
+      void this.clearAccountCache();
     });
     appEventBus.on(EAppEventBusNames.AccountRemove, () => {
-      this.clearAccountCache();
+      void this.clearAccountCache();
     });
     appEventBus.on(EAppEventBusNames.AccountUpdate, () => {
-      this.clearAccountCache();
+      void this.clearAccountCache();
     });
     appEventBus.on(EAppEventBusNames.RenameDBAccounts, () => {
-      this.clearAccountCache();
+      void this.clearAccountCache();
     });
     appEventBus.on(EAppEventBusNames.WalletRename, () => {
-      this.clearAccountCache();
+      void this.clearAccountCache();
     });
     appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, () => {
-      this.clearAccountCache();
+      void this.clearAccountCache();
     });
   }
 
-  clearAccountCache() {
+  @backgroundMethod()
+  async clearAccountCache() {
     this.getIndexedAccountWithMemo.clear();
     localDb.clearStoreCachedData();
   }

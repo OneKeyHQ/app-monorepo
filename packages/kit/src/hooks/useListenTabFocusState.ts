@@ -52,10 +52,13 @@ export function useShortcutsRouteStatus() {
     },
   );
 
-  useListenTabFocusState(ETabRoutes.WebviewPerpTrade, (isFocus, isHideByModal) => {
-    isAtPerpTab.current = !isHideByModal && isFocus;
-    updateShouldReloadAppByCmdR();
-  });
+  useListenTabFocusState(
+    ETabRoutes.WebviewPerpTrade,
+    (isFocus, isHideByModal) => {
+      isAtPerpTab.current = !isHideByModal && isFocus;
+      updateShouldReloadAppByCmdR();
+    },
+  );
 
   useListenTabFocusState(ETabRoutes.Discovery, (isFocus) => {
     isAtDiscoveryTab.current = isFocus;
