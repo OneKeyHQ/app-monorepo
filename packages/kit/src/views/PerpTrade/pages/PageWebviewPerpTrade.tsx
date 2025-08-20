@@ -120,6 +120,8 @@ function WebviewPerpTradeView() {
           webviewRef.current = ref;
         }}
         allowpopups
+        // important: if set to false, the webview will not notify the dapp about the account changes first time
+        notifyChangedEventsToDappOnFocus
         onDidStartLoading={onDidStartLoading}
         onDidStartNavigation={onDidStartNavigation}
         onDidFinishLoad={onDidFinishLoad}
