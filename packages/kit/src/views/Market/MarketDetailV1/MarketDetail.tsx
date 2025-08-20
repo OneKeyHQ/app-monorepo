@@ -4,7 +4,6 @@ import { CommonActions, StackActions } from '@react-navigation/native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
-  EPageType,
   HeaderIconButton,
   NavBackButton,
   Page,
@@ -17,7 +16,6 @@ import {
   useDeferredPromise,
   useIsModalPage,
   useMedia,
-  usePageType,
   useShare,
 } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
