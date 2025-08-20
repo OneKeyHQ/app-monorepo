@@ -7,9 +7,8 @@ import {
   LazyLoadRootTabPage,
 } from '../../../components/LazyLoadPage';
 
-// Dynamic Market Home component that selects version based on dev settings
-const DynamicMarketHome = LazyLoadRootTabPage(() => {
-  return import('../../../views/Market/DynamicMarketHome');
+const MarketHome = LazyLoadRootTabPage(() => {
+  return import('../../../views/Market/MarketHome');
 });
 
 const MarketDetail = LazyLoadPage(
@@ -25,7 +24,7 @@ export const marketRouters: ITabSubNavigatorConfig<any, any>[] = [
     rewrite: '/',
     name: ETabMarketRoutes.TabMarket,
     headerShown: !platformEnv.isNative,
-    component: DynamicMarketHome,
+    component: MarketHome,
   },
   {
     name: ETabMarketRoutes.MarketDetail,
