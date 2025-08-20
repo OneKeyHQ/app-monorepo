@@ -40,6 +40,7 @@ export function DesktopLayout({
     carouselRef,
     handleTabChange,
     defaultIndex,
+    handlePageChanged,
   } = useMarketTabsLogic(onTabChange);
 
   const height = useMemo(() => {
@@ -77,6 +78,7 @@ export function DesktopLayout({
       <Carousel
         pageWidth={pageWidth}
         defaultIndex={defaultIndex}
+        onPageChanged={handlePageChanged}
         disableAnimation
         containerStyle={{ height }}
         ref={carouselRef as any}
