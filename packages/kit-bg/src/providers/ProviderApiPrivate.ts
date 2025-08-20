@@ -315,7 +315,7 @@ class ProviderApiPrivate extends ProviderApiBase {
           from: 'script',
         });
 
-      const inDapps = securityInfo.dapp?.origins?.length > 0;
+      const inDapps = (securityInfo.dapp?.origins?.length || 0) > 0;
       const settings =
         await this.backgroundApi.simpleDb.floatingIconSettings.getSettings();
       return {
