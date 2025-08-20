@@ -944,6 +944,8 @@ function TxFeeInfo(props: IProps) {
       totalFiatForDisplay: string;
       totalNativeMinForDisplay: string;
       totalFiatMinForDisplay: string;
+      originalTotalNative?: string;
+      originalTotalFiat?: string;
     }[] = [];
 
     let baseGasLimit =
@@ -960,6 +962,8 @@ function TxFeeInfo(props: IProps) {
     let totalNativeMinForDisplay = new BigNumber(0);
     let totalFiatForDisplay = new BigNumber(0);
     let totalFiatMinForDisplay = new BigNumber(0);
+    let originalTotalNative = new BigNumber(0);
+    let originalTotalFiat = new BigNumber(0);
 
     for (let i = 0; i < unsignedTxs.length; i += 1) {
       const selectedFeeInfo = selectedFeeInfos[i];
@@ -1056,6 +1060,16 @@ function TxFeeInfo(props: IProps) {
         feeResult.totalFiatMinForDisplay,
       );
 
+      if (feeResult.originalTotalNative) {
+        originalTotalNative = originalTotalNative.plus(
+          feeResult.originalTotalNative,
+        );
+      }
+
+      if (feeResult.originalTotalFiat) {
+        originalTotalFiat = originalTotalFiat.plus(feeResult.originalTotalFiat);
+      }
+
       feeInfos.push({
         feeInfo: txFeeInfo,
         total: feeResult.total,
@@ -1068,6 +1082,8 @@ function TxFeeInfo(props: IProps) {
         totalFiatMinForDisplay: feeResult.totalFiatMinForDisplay,
         totalNativeForDisplay: feeResult.totalNativeForDisplay,
         totalFiatForDisplay: feeResult.totalFiatForDisplay,
+        originalTotalNative: feeResult.originalTotalNative,
+        originalTotalFiat: feeResult.originalTotalFiat,
       });
     }
 
@@ -1100,6 +1116,8 @@ function TxFeeInfo(props: IProps) {
         totalNativeMinForDisplay: totalNativeMinForDisplay.toFixed(),
         totalFiatForDisplay: totalFiatForDisplay.toFixed(),
         totalFiatMinForDisplay: totalFiatMinForDisplay.toFixed(),
+        originalTotalNative: originalTotalNative.toFixed(),
+        originalTotalFiat: originalTotalFiat.toFixed(),
       },
     };
   }, [
@@ -1496,6 +1514,14 @@ function TxFeeInfo(props: IProps) {
 
     const textColor = megafuelEligible.sponsorable ? '$text' : '$textSubdued';
 
+    const totalNative = megafuelEligible.sponsorable
+      ? selectedFee?.originalTotalNative
+      : selectedFee?.totalNativeMinForDisplay;
+
+    const totalFiat = megafuelEligible.sponsorable
+      ? selectedFee?.originalTotalFiat
+      : selectedFee?.totalFiatMinForDisplay;
+
     return (
       <XStack alignItems="center">
         <SizableText
@@ -1513,7 +1539,7 @@ function TxFeeInfo(props: IProps) {
               tokenSymbol: txFeeCommon?.nativeSymbol,
             }}
           >
-            {selectedFee?.totalNativeMinForDisplay ?? '-'}
+            {totalNative ?? '-'}
           </NumberSizeableText>
           (
           <NumberSizeableText
@@ -1524,7 +1550,7 @@ function TxFeeInfo(props: IProps) {
               currency: settings.currencyInfo.symbol,
             }}
           >
-            {selectedFee?.totalFiatMinForDisplay ?? '-'}
+            {totalFiat ?? '-'}
           </NumberSizeableText>
           )
         </SizableText>
@@ -1543,9 +1569,11 @@ function TxFeeInfo(props: IProps) {
     isResourceRentalNeeded,
     isResourceRentalEnabled,
     megafuelEligible.sponsorable,
-    txFeeCommon?.nativeSymbol,
+    selectedFee?.originalTotalNative,
     selectedFee?.totalNativeMinForDisplay,
+    selectedFee?.originalTotalFiat,
     selectedFee?.totalFiatMinForDisplay,
+    txFeeCommon?.nativeSymbol,
     settings.currencyInfo.symbol,
     intl,
   ]);
