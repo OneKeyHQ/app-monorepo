@@ -31,7 +31,7 @@ function TokenSecurityAlert() {
     });
   };
 
-  // Don't render if no security data or if should be hidden due to trust_list being false
+  // Always execute the status check, but don't render UI if no security data
   if (!securityData) {
     return null;
   }
