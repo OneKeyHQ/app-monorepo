@@ -856,6 +856,7 @@ module.exports = [
   'viewability',
   'Viewable',
   'vitalik',
+  'Virtualized',
   'vout',
   'Vrku',
   'vsize',

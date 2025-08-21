@@ -82,6 +82,9 @@ export function List<Item>({
   keyExtractor,
   contentContainerStyle,
   horizontalPadding = 0,
+  onEndReached,
+  onEndReachedThreshold = 0.1,
+  ...restProps
 }: Omit<IListProps<Item>, 'ListEmptyComponent'> &
   Omit<ISectionListProps<Item>, 'ListEmptyComponent'> & {
     ListEmptyComponent?: ReactNode | ComponentType<any>;
@@ -219,6 +222,36 @@ export function List<Item>({
   }, [focusedTabValue, currentTabName, registerChild, scrollTabElementsRef]);
 
   const listRef = useRef<typeof VirtualizedList>(null);
+  const lastTriggerTime = useRef<number>(0);
+
+  // onEndReached implementation for react-virtualized
+  const handleScroll = useCallback(
+    (params: {
+      scrollTop: number;
+      scrollHeight: number;
+      clientHeight: number;
+    }) => {
+      if (!onEndReached || !isVisible) return;
+
+      const {
+        scrollTop: currentScrollTop,
+        scrollHeight,
+        clientHeight,
+      } = params;
+      const threshold = (onEndReachedThreshold || 0.1) * clientHeight;
+      const distanceFromEnd = scrollHeight - currentScrollTop - clientHeight;
+
+      if (distanceFromEnd <= threshold) {
+        // Debounce to prevent multiple triggers
+        const now = Date.now();
+        if (now - lastTriggerTime.current > 200) {
+          lastTriggerTime.current = now;
+          onEndReached();
+        }
+      }
+    },
+    [onEndReached, onEndReachedThreshold, isVisible],
+  );
 
   const HeaderElement = useMemo(() => {
     if (ListHeaderComponent) {
@@ -399,6 +432,17 @@ export function List<Item>({
     );
   }, [HeaderElement, ListEmptyComponent, FooterElement]);
 
+  // Combined scroll handler
+  const combinedScrollHandler = useCallback(
+    (params: any) => {
+      if (isVisible) {
+        onChildScroll?.(params);
+        handleScroll(params);
+      }
+    },
+    [isVisible, onChildScroll, handleScroll],
+  );
+
   const listProps = useMemo(() => {
     return {
       ref: listRef as any,
@@ -407,7 +451,7 @@ export function List<Item>({
       data: listData,
       rowCount: listData.length,
       isScrolling: isVisible ? isScrolling : false,
-      onScroll: isVisible ? onChildScroll : undefined,
+      onScroll: isVisible ? combinedScrollHandler : undefined,
       scrollTop: isVisible && listData.length > 0 ? scrollTop : 0,
       overscanRowCount: 10,
       deferredMeasurementCache: cache,
@@ -417,7 +461,7 @@ export function List<Item>({
     listData,
     isVisible,
     isScrolling,
-    onChildScroll,
+    combinedScrollHandler,
     scrollTop,
     cache,
   ]);
