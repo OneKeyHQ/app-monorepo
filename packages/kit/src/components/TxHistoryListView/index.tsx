@@ -5,11 +5,13 @@ import { useIntl } from 'react-intl';
 
 import type { IListViewProps } from '@onekeyhq/components';
 import {
+  Button,
   SectionList,
   SizableText,
   Stack,
   Tabs,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import { useStyle } from '@onekeyhq/components/src/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -25,7 +27,10 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
-import { useSearchKeyAtom } from '../../states/jotai/contexts/historyList';
+import {
+  useHasMoreOnChainHistoryAtom,
+  useSearchKeyAtom,
+} from '../../states/jotai/contexts/historyList';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { withBrowserProvider } from '../../views/Discovery/pages/Browser/WithBrowserProvider';
 import { PullToRefresh } from '../../views/Home/components/PullToRefresh';
@@ -34,6 +39,7 @@ import { EmptyHistory } from '../Empty/EmptyHistory';
 import { HistoryLoadingView } from '../Loading';
 
 import { TxHistoryListItem } from './TxHistoryListItem';
+import { useAccountData } from '../../hooks/useAccountData';
 
 type IProps = {
   data: IAccountHistoryTx[];
@@ -41,6 +47,7 @@ type IProps = {
   tableLayout?: boolean;
   ListHeaderComponent?: ReactElement;
   showHeader?: boolean;
+  showFooter?: boolean;
   showIcon?: boolean;
   onPressHistory?: (history: IAccountHistoryTx) => void;
   initialized?: boolean;
@@ -54,14 +61,52 @@ type IProps = {
     | 'ListFooterComponentStyle'
     | 'contentContainerStyle'
   >;
+  accountId?: string;
+  networkId?: string;
 };
 
-const ListFooterComponent = () => {
+const ListFooterComponent = ({
+  accountId,
+  networkId,
+  showFooter,
+  hasMoreOnChainHistory,
+}: {
+  accountId?: string;
+  networkId?: string;
+  showFooter?: boolean;
+  hasMoreOnChainHistory?: boolean;
+}) => {
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
+  const intl = useIntl();
   const addPaddingOnListFooter = useMemo(
     () => !!extensionActiveTabDAppInfo?.showFloatingPanel,
     [extensionActiveTabDAppInfo?.showFloatingPanel],
   );
+
+  const { account, network, vaultSettings } = useAccountData({
+    accountId,
+    networkId,
+  });
+
+  if (showFooter && hasMoreOnChainHistory) {
+    return (
+      <YStack alignItems="center" justifyContent="center">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.global_pending })}
+        </SizableText>
+        <Button
+          size="small"
+          variant="secondary"
+          onPress={() => {
+            console.log('onPress');
+          }}
+        >
+          {intl.formatMessage({ id: ETranslations.global_pending })}
+        </Button>
+      </YStack>
+    );
+  }
+
   return (
     <>
       <Stack h="$5" />
@@ -102,15 +147,19 @@ function BaseTxHistoryListView(props: IProps) {
     showIcon,
     onPressHistory,
     tableLayout,
+    showFooter,
     initialized,
     contentContainerStyle,
     inTabList = false,
     hideValue,
     listViewStyleProps,
     onRefresh,
+    accountId,
+    networkId,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
+  const [hasMoreOnChainHistory] = useHasMoreOnChainHistoryAtom();
 
   const filteredHistory = useMemo(
     () =>
@@ -218,7 +267,14 @@ function BaseTxHistoryListView(props: IProps) {
       ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader as any}
-      ListFooterComponent={ListFooterComponent}
+      ListFooterComponent={
+        <ListFooterComponent
+          showFooter={showFooter}
+          hasMoreOnChainHistory={hasMoreOnChainHistory}
+          accountId={accountId}
+          networkId={networkId}
+        />
+      }
       ListHeaderComponent={ListHeaderComponent}
       keyExtractor={(tx, index) => tx.id || index.toString(10)}
     />
