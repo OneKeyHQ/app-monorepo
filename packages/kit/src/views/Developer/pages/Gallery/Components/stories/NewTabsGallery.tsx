@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   ListView,
@@ -363,6 +363,90 @@ const TabsWithOnIndexChangeDemo = () => {
   );
 };
 
+const TabsWithFlatListOnEndReachedDemo = () => {
+  const [items, setItems] = useState(() =>
+    Array.from({ length: 10 }, (_, i) => ({
+      id: `item-${i}`,
+      title: `Gallery Item ${i + 1}`,
+    })),
+  );
+  const [loading, setLoading] = useState(false);
+
+  const handleEndReached = useCallback(async () => {
+    if (loading) return;
+
+    setLoading(true);
+    console.log('Tabs.FlatList onEndReached triggered');
+
+    // Simulate network delay
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    const currentLength = items.length;
+    const newItems = Array.from({ length: 5 }, (_, i) => ({
+      id: `item-${currentLength + i}`,
+      title: `Gallery Item ${currentLength + i + 1}`,
+    }));
+
+    setItems((prev) => [...prev, ...newItems]);
+    setLoading(false);
+  }, [loading, items.length]);
+
+  const historyItems = useMemo(
+    () =>
+      Array.from({ length: 8 }, (_, i) => ({
+        id: `history-${i}`,
+        title: `Transaction ${i + 1}`,
+      })),
+    [],
+  );
+
+  return (
+    <Tabs.Container>
+      <Tabs.Tab name="Gallery">
+        <Tabs.FlatList
+          data={items}
+          renderItem={({ item }) => (
+            <Stack
+              p="$3"
+              borderBottomWidth="$px"
+              borderBottomColor="$borderSubdued"
+            >
+              <SizableText>{item.title}</SizableText>
+            </Stack>
+          )}
+          keyExtractor={(item) => item.id}
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.1}
+          ListFooterComponent={
+            loading ? (
+              <Stack p="$4" alignItems="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  Loading more items...
+                </SizableText>
+              </Stack>
+            ) : null
+          }
+        />
+      </Tabs.Tab>
+      <Tabs.Tab name="History">
+        <Tabs.FlatList
+          data={historyItems}
+          renderItem={({ item }) => (
+            <Stack
+              p="$3"
+              borderBottomWidth="$px"
+              borderBottomColor="$borderSubdued"
+            >
+              <SizableText>📝 {item.title}</SizableText>
+            </Stack>
+          )}
+          keyExtractor={(item) => item.id}
+        />
+      </Tabs.Tab>
+    </Tabs.Container>
+  );
+};
+
 const NewTabsGallery = () => (
   <Layout
     filePath={__CURRENT_FILE_PATH__}
@@ -374,6 +458,7 @@ const NewTabsGallery = () => (
       'renderHeader 可以添加粘性头部内容',
       'initialTabName 设置默认显示的标签页',
       'ref 可以用来程序化控制标签切换',
+      'Tabs.FlatList 支持 onEndReached 实现无限滚动',
       '适用于需要分类展示大量数据的场景',
     ]}
     elements={[
@@ -414,6 +499,14 @@ const NewTabsGallery = () => (
         element: (
           <Stack h={400}>
             <TabsWithOnIndexChangeDemo />
+          </Stack>
+        ),
+      },
+      {
+        title: 'Tabs.FlatList with onEndReached',
+        element: (
+          <Stack h={400}>
+            <TabsWithFlatListOnEndReachedDemo />
           </Stack>
         ),
       },
