@@ -15,7 +15,8 @@ export function WebViewWithFeatures(
   },
 ) {
   const webviewRef = useRef<IWebViewRef | null>(null);
-  const { onWebViewRef } = props;
+  const { features, ...webviewProps } = props;
+  const { onWebViewRef, src } = webviewProps;
   const handleWebViewRef = useCallback(
     (ref: IWebViewRef | null) => {
       webviewRef.current = ref;
@@ -25,7 +26,7 @@ export function WebViewWithFeatures(
   );
 
   const notifyChangedEventsToDappOnFocus =
-    props?.features?.notifyChangedEventsToDappOnFocus;
+    features?.notifyChangedEventsToDappOnFocus;
   const shouldSkipNotify = useCallback(() => {
     return Boolean(!notifyChangedEventsToDappOnFocus);
   }, [notifyChangedEventsToDappOnFocus]);
@@ -35,9 +36,9 @@ export function WebViewWithFeatures(
   useDAppNotifyChangesBase({
     getWebviewRef,
     isFocused,
-    url: props?.src,
+    url: src,
     shouldSkipNotify,
   });
 
-  return <WebView {...props} onWebViewRef={handleWebViewRef} />;
+  return <WebView {...webviewProps} onWebViewRef={handleWebViewRef} />;
 }
