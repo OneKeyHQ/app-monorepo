@@ -468,8 +468,14 @@ class ServiceAccount extends ServiceBase {
         }
       }
       if (accountUtils.isImportedAccount({ accountId: credential.id })) {
+        let accountId = credential.id;
+        if (accountUtils.isTonMnemonicCredentialId(credential.id)) {
+          accountId = accountUtils.getAccountIdFromTonMnemonicCredentialId({
+            credentialId: credential.id,
+          });
+        }
         const account = await this.getDBAccountSafe({
-          accountId: credential.id,
+          accountId,
         });
         if (!account) {
           isRemoved = true;
@@ -780,10 +786,14 @@ class ServiceAccount extends ServiceBase {
     walletId,
     networkId,
     account,
+    indexedAccountNames,
   }: {
     walletId: string;
     networkId: string;
     account: IBatchCreateAccount;
+    indexedAccountNames?: {
+      [index: number]: string;
+    };
   }) {
     const {
       addressDetail: _addressDetail,
@@ -800,6 +810,7 @@ class ServiceAccount extends ServiceBase {
       walletId,
       indexes: [dbAccount.pathIndex],
       skipIfExists: true,
+      names: indexedAccountNames,
     });
     await localDb.addAccountsToWallet({
       allAccountsBelongToNetworkId: networkId,
