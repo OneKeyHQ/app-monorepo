@@ -170,10 +170,17 @@ class ServiceMarketV2 extends ServiceBase {
   async fetchMarketTokenTransactions({
     tokenAddress,
     networkId,
+    limit = 50,
+    offset = 0,
   }: {
     tokenAddress: string;
     networkId: string;
+    limit?: number;
+    offset?: number;
   }) {
+    const validatedLimit = Math.min(Math.max(limit, 1), 100);
+    const validatedOffset = Math.min(Math.max(offset, 0), 10_000);
+
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
       code: number;
@@ -183,6 +190,8 @@ class ServiceMarketV2 extends ServiceBase {
       params: {
         tokenAddress,
         networkId,
+        limit: validatedLimit,
+        offset: validatedOffset,
       },
     });
     const { data } = response.data;
