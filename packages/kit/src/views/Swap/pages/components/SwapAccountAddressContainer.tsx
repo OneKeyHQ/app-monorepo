@@ -33,7 +33,6 @@ const SwapAccountAddressContainer = ({
 }: ISwapAccountAddressContainerProps) => {
   const intl = useIntl();
   const [fromToken] = useSwapSelectFromTokenAtom();
-  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapSupportAllNetwork] = useSwapNetworksIncludeAllNetworkAtom();
   const [toToken] = useSwapSelectToTokenAtom();
 
@@ -50,7 +49,7 @@ const SwapAccountAddressContainer = ({
 
     return (
       <AnimatePresence>
-        {swapTypeSwitch === ESwapTabSwitchType.BRIDGE && networkInfo ? (
+        {networkInfo ? (
           <XStack
             key="network-component"
             animation="quick"
@@ -79,7 +78,6 @@ const SwapAccountAddressContainer = ({
     );
   }, [
     swapSupportAllNetwork,
-    swapTypeSwitch,
     onClickNetwork,
     type,
     fromToken?.networkId,
