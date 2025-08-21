@@ -2892,7 +2892,7 @@
   "transfer.pair_code_enter_over_limit": "Fehlergrenze für Pairing-Code überschritten. Bitte von vorne beginnen.",
   "transfer.pair_code_own_error": "Ihr eigener Pairing-Code kann nicht verbunden werden",
   "transfer.qr_code": "QR-Code",
-  "transfer.qr_step1": "Öffnen Sie die Transfer-Funktion auf beiden Geräten",
+  "transfer.qr_step1": "Öffnen Sie die Übertragen-Funktion auf beiden Geräten",
   "transfer.qr_step2": "Verwenden Sie ein Gerät, um den QR-Code des anderen zu scannen oder dessen Kopplungscode einzugeben, um eine Verbindung herzustellen",
   "transfer.qr_step3": "Folge nach der Verbindung den Anweisungen, um fortzufahren",
   "transfer.qr_stepall_desc": "Diese Funktion dient der Übertragung von recovery phrases und privaten Schlüsseln zwischen Geräten. Die Unterstützung für Hardware-Wallets wird in Kürze verfügbar sein. Bitte stelle bis dahin sicher, dass die recovery phrase deiner Hardware-Wallet sicher notiert ist.",

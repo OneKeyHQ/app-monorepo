@@ -2892,7 +2892,7 @@
   "transfer.pair_code_enter_over_limit": "Límite de errores del código de emparejamiento excedido. Reinicie el proceso.",
   "transfer.pair_code_own_error": "No se puede conectar su propio código de emparejamiento",
   "transfer.qr_code": "Código QR",
-  "transfer.qr_step1": "Abra la función Transfer en ambos dispositivos",
+  "transfer.qr_step1": "Abra la función Transferir en ambos os dispositivos",
   "transfer.qr_step2": "Use un dispositivo para escanear el código QR del otro o ingrese su código de emparejamiento para conectarse",
   "transfer.qr_step3": "Una vez conectado, sigue las instrucciones para continuar",
   "transfer.qr_stepall_desc": "Esta función sirve para transferir recovery phrases y claves privadas entre dispositivos. Próximamente ofreceremos compatibilidad con las hardware wallets; por ahora, asegúrate de que la recovery phrase de tu hardware wallet esté guardada en un lugar seguro.",

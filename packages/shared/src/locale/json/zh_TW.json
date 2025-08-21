@@ -2892,7 +2892,7 @@
   "transfer.pair_code_enter_over_limit": "配對碼錯誤次數超限，請重新開始",
   "transfer.pair_code_own_error": "無法連接您自己的配對碼",
   "transfer.qr_code": "二維碼",
-  "transfer.qr_step1": "在兩台設備上打開 Transfer 功能",
+  "transfer.qr_step1": "在兩台設備上打開「傳輸」功能",
   "transfer.qr_step2": "使用一台設備掃描另一台的二維碼，或輸入配對碼建立連接",
   "transfer.qr_step3": "連線成功後，請依照提示繼續操作",
   "transfer.qr_stepall_desc": "本功能用於在設備間轉移助記詞和私鑰。對硬體錢包的支援即將推出；在此之前，請確保您的硬體錢包助記詞已被安全記錄。",
