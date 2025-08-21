@@ -251,9 +251,8 @@ export const DevSettingsSection = () => {
             switchWebDappMode();
             globalThis.location.reload();
           }}
-          title={`Switch web mode: ${
-            isWebInDappMode() ? 'dapp' : 'wallet'
-          } mode`}
+          title="Switch web mode"
+          subtitle={`Current: ${isWebInDappMode() ? 'dapp' : 'wallet'} mode`}
           titleProps={{ color: '$textCritical' }}
         />
       ) : null}
