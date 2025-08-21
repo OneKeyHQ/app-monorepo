@@ -2892,7 +2892,7 @@
   "transfer.pair_code_enter_over_limit": "ペアリング コードのエラー制限を超えました。最初からやり直してください。",
   "transfer.pair_code_own_error": "自分のペアリング コードに接続できません",
   "transfer.qr_code": "QRコード",
-  "transfer.qr_step1": "両方のデバイスでTransfer機能を開きます",
+  "transfer.qr_step1": "両方のデバイスで転送機能を開きます",
   "transfer.qr_step2": "一方のデバイスを使用してもう一方のQRコードをスキャンするか、ペアリングコードを入力して接続します",
   "transfer.qr_step3": "接続が完了したら、画面の指示に従って操作を続けてください",
   "transfer.qr_stepall_desc": "この機能は、デバイス間で recovery phrase や秘密鍵を移行するためのものです。ハードウェアウォレットへの対応は近日公開予定です。それまでの間、お使いのハードウェアウォレットの recovery phrase は、必ず安全な場所に記録・保管してください。",

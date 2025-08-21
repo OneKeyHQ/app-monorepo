@@ -2892,7 +2892,7 @@
   "transfer.pair_code_enter_over_limit": "Limite de erros do código de pareamento excedido. Reinicie o processo.",
   "transfer.pair_code_own_error": "Não é possível conectar seu próprio código de pareamento",
   "transfer.qr_code": "Código QR",
-  "transfer.qr_step1": "Abra o recurso Transfer em ambos os dispositivos",
+  "transfer.qr_step1": "Abra o recurso Transferir em ambos os dispositivos",
   "transfer.qr_step2": "Use um dispositivo para escanear o QR code do outro ou insira seu código de pareamento para conectar",
   "transfer.qr_step3": "Após a conexão, siga as instruções para continuar",
   "transfer.qr_stepall_desc": "Este recurso serve para transferir recovery phrases e chaves privadas entre dispositivos. O suporte a hardware wallets será lançado em breve; por enquanto, certifique-se de que a recovery phrase da sua hardware wallet esteja anotada em um local seguro.",
