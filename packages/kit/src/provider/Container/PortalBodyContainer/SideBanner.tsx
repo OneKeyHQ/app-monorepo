@@ -200,7 +200,6 @@ function BottomMenu() {
         testID="setting"
       />
       <DownloadButton />
-      <BasicSidebarBanner />
     </YStack>
   );
 }

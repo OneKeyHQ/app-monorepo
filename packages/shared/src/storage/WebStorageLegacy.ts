@@ -92,7 +92,7 @@ class WebStorageLegacy implements AsyncStorageStatic {
   }
 
   async multiMerge(
-    keyValuePairs: [string, string][],
+    keyValuePairs: readonly (readonly [string, string])[],
     callback: MultiCallback | undefined,
   ): Promise<void> {
     const list = keyValuePairs.map((pair) =>
@@ -112,7 +112,7 @@ class WebStorageLegacy implements AsyncStorageStatic {
   }
 
   async multiSet(
-    keyValuePairs: [string, string][],
+    keyValuePairs: readonly (readonly [string, string])[],
     callback: MultiCallback | undefined,
   ): Promise<void> {
     const list = keyValuePairs.map((pair) =>

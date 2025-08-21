@@ -232,6 +232,11 @@ class ServicePrime extends ServiceBase {
         serverUserInfo,
       },
     );
+    void this.backgroundApi.servicePrimeCloudSync.showAlertDialogIfServerPasswordChanged(
+      {
+        serverUserInfo,
+      },
+    );
     if (serverUserInfo.isPrime) {
       primeSubscription = {
         isActive: true,

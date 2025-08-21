@@ -33,9 +33,6 @@ function LiquidityFilterControl({
   const buttonText = formatLiquidityFilterDisplay(valueProp, liquidityText);
   const popoverTitle = `${liquidityText} ($)`;
 
-  // Check if there are any filter values applied
-  const hasFilterValue = Boolean(valueProp && (valueProp.min || valueProp.max));
-
   return (
     <Popover
       title={popoverTitle}
@@ -47,12 +44,15 @@ function LiquidityFilterControl({
           size="small"
           color="$text"
           iconColor="$icon"
-          iconAfter={!hasFilterValue ? 'ChevronDownSmallOutline' : undefined}
+          iconAfter="ChevronDownSmallOutline"
           {...rest}
         >
           {buttonText}
         </Button>
       }
+      floatingPanelProps={{
+        maxWidth: 288,
+      }}
       renderContent={
         <LiquidityFilterContent
           value={valueProp}

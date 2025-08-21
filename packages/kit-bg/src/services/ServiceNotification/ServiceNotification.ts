@@ -1,5 +1,4 @@
 import { cloneDeep, debounce, isNumber, merge, uniq, uniqBy } from 'lodash';
-import { InteractionManager } from 'react-native';
 
 import {
   backgroundMethod,
@@ -138,9 +137,7 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   init() {
-    return InteractionManager.runAfterInteractions(() =>
-      this.getNotificationProvider(),
-    );
+    return timerUtils.setTimeoutPromised(() => this.getNotificationProvider());
   }
 
   pushClient: INotificationPushClient = {};
@@ -233,6 +230,10 @@ export default class ServiceNotification extends ServiceBase {
     webEvent,
     eventSource,
   }: INotificationClickParams) => {
+    // Huawei Mate30  HarmonyOS will automatically trigger notificationClick event when App is launched, and notificationId is empty, so it needs to be ignored
+    if (!notificationId) {
+      return;
+    }
     this.addShowedNotificationId(notificationId);
 
     defaultLogger.notification.common.notificationClicked({
@@ -658,7 +659,7 @@ export default class ServiceNotification extends ServiceBase {
 
   private async _registerClientWithOverrideAllAccountsCore() {
     console.log('registerClientWithOverrideAllAccountsCore');
-    await InteractionManager.runAfterInteractions(async () => {
+    await timerUtils.setTimeoutPromised(async () => {
       await this.registerClientWithSyncAccounts({
         syncMethod: ENotificationPushSyncMethod.override,
       });
@@ -954,7 +955,7 @@ export default class ServiceNotification extends ServiceBase {
       isWebSocketAckSuccess = await webSocketProvider?.ackMessage(params);
     }
 
-    if (!isWebSocketAckSuccess) {
+    if (!isWebSocketAckSuccess && params.msgId) {
       const client = await this.getClient(EServiceEndpointEnum.Notification);
       const res = await client.post('/notification/v1/message/ack', {
         msgId: params.msgId,

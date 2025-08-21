@@ -382,16 +382,12 @@ class ServiceAccountProfile extends ServiceBase {
             });
           result.addressBookId = addressBookItem?.id;
           result.isAllowListed = addressBookItem?.isAllowListed;
+          result.addressNote = addressBookItem?.note;
+          result.addressMemo = addressBookItem?.memo;
           if (addressBookItem?.name) {
-            if (addressBookItem?.isAllowListed) {
-              result.addressBookName = `${appLocale.intl.formatMessage({
-                id: ETranslations.address_label_allowlist,
-              })} / ${addressBookItem?.name}`;
-            } else {
-              result.addressBookName = `${appLocale.intl.formatMessage({
-                id: ETranslations.global_contact,
-              })} / ${addressBookItem?.name}`;
-            }
+            result.addressBookName = `${appLocale.intl.formatMessage({
+              id: ETranslations.global_contact,
+            })} / ${addressBookItem?.name}`;
           }
         }
       } catch (e) {
@@ -508,6 +504,11 @@ class ServiceAccountProfile extends ServiceBase {
         if (isOwnAccount) {
           return result;
         }
+      }
+
+      // Skip allowlist check if it's in address book
+      if (result.addressBookId) {
+        return result;
       }
 
       // Check if address is in allowlist when allowlist feature is enabled

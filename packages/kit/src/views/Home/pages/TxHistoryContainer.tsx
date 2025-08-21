@@ -3,7 +3,6 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { isEmpty, uniqBy } from 'lodash';
 
 import { useMedia, useTabIsRefreshingFocused } from '@onekeyhq/components';
-import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
@@ -38,8 +37,9 @@ import {
   useHistoryListActions,
   withHistoryListProvider,
 } from '../../../states/jotai/contexts/historyList';
+import { onHomePageRefresh } from '../components/PullToRefresh';
 
-function TxHistoryListContainer(_props: ITabPageProps) {
+function TxHistoryListContainer() {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
 
@@ -399,6 +399,7 @@ function TxHistoryListContainer(_props: ITabPageProps) {
       showIcon
       inTabList
       hideValue
+      onRefresh={onHomePageRefresh}
       data={historyData ?? []}
       onPressHistory={handleHistoryItemPress}
       showHeader
@@ -409,7 +410,7 @@ function TxHistoryListContainer(_props: ITabPageProps) {
       })}
       listViewStyleProps={{
         contentContainerStyle: {
-          pt: '$3',
+          mt: '$3',
         },
       }}
     />

@@ -121,6 +121,7 @@ export function HyperlinkText({
                           handlers: [
                             EQRCodeHandlerNames.marketDetail,
                             EQRCodeHandlerNames.sendProtection,
+                            EQRCodeHandlerNames.rewardCenter,
                           ],
                           qrWalletScene: false,
                           autoHandleResult,

@@ -1,5 +1,6 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
+import { Platform } from 'react-native';
 import { WebView as NativeWebView } from 'react-native-webview';
 
 import { Stack } from '@onekeyhq/components';
@@ -21,11 +22,39 @@ export function WebView({
   style: ViewStyle;
   onLoadEnd: () => void;
 }) {
+  const webViewRef = useRef<NativeWebView>(null);
+
   const handleLoadedEnd = useCallback(() => {
-    setTimeout(() => {
-      onLoadEnd();
-    }, 500);
-  }, [onLoadEnd]);
+    const isIOS16 =
+      platformEnv.isNativeIOS &&
+      typeof Platform.Version === 'number' &&
+      Platform.Version < 17;
+
+    if (isIOS16) {
+      const dynamicScript = `
+        (function() {
+          try {
+            if (window.location.href !== '${uri}') {
+              window.location.href = '${uri}';
+            }
+
+            return true;
+          } catch (error) {
+            console.error('OneKey injection error:', error);
+          }
+        })();
+      `;
+
+      setTimeout(() => {
+        webViewRef.current?.injectJavaScript(dynamicScript);
+        webViewRef.current?.injectJavaScript(injectedJavaScript);
+      }, 500);
+    } else {
+      setTimeout(() => {
+        onLoadEnd();
+      }, 500);
+    }
+  }, [injectedJavaScript, onLoadEnd, uri]);
 
   // onMessage handler is required for injectedJavaScript to execute properly
   // Without onMessage, the injected JavaScript code will not run
@@ -40,6 +69,7 @@ export function WebView({
   return uri ? (
     <Stack style={style as any}>
       <NativeWebView
+        ref={webViewRef}
         originWhitelist={['*']}
         javaScriptEnabled
         domStorageEnabled

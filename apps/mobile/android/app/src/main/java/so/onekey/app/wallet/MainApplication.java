@@ -3,23 +3,28 @@ package so.onekey.app.wallet;
 import android.app.Application;
 import android.content.res.Configuration;
 import android.database.CursorWindow;
-import androidx.annotation.NonNull;
+import android.os.Build;
+
 import androidx.annotation.Keep;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.facebook.react.PackageList;
 import com.facebook.react.ReactApplication;
+import com.facebook.react.ReactHost;
 import com.facebook.react.ReactNativeHost;
 import com.facebook.react.ReactPackage;
-import com.facebook.react.config.ReactFeatureFlags;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
 import com.facebook.react.defaults.DefaultReactNativeHost;
-import com.facebook.react.flipper.ReactNativeFlipper;
+import com.facebook.react.soloader.OpenSourceMergedSoMapping;
 import com.facebook.soloader.SoLoader;
 
 import cn.jiguang.plugins.push.JPushModule;
 import expo.modules.ApplicationLifecycleDispatcher;
 import expo.modules.ReactNativeHostWrapper;
+import so.onekey.app.wallet.splashscreen.SplashScreenPackage;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.List;
 
@@ -42,6 +47,9 @@ public class MainApplication extends Application implements ReactApplication {
         // packages.add(new GeckoViewPackage());
         packages.add(new ExitPackage());
         packages.add(new WebViewCheckerPackage());
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+          packages.add(new SplashScreenPackage());
+        }
         return packages;
       }
 
@@ -66,7 +74,13 @@ public class MainApplication extends Application implements ReactApplication {
     return mReactNativeHost;
   }
 
-  /**
+    @Nullable
+    @Override
+    public ReactHost getReactHost() {
+        return ReactNativeHostWrapper.createReactHost(this.getApplicationContext(), this.getReactNativeHost());
+    }
+
+    /**
    * Get rid of Meizu system's night mode "automatic color reversal" system feature.
    * <p>
    * 1. Indicates processing by the system (default)
@@ -90,17 +104,22 @@ public class MainApplication extends Application implements ReactApplication {
       e.printStackTrace();
     }
 
-    SoLoader.init(this, /* native exopackage */ false);
-    if (!BuildConfig.REACT_NATIVE_UNSTABLE_USE_RUNTIME_SCHEDULER_ALWAYS) {
-      ReactFeatureFlags.unstable_useRuntimeSchedulerAlways = false;
-    }
-    if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
+    // SoLoader.init(this, /* native exopackage */ false);
+    // if (!BuildConfig.REACT_NATIVE_UNSTABLE_USE_RUNTIME_SCHEDULER_ALWAYS) {
+    //   ReactFeatureFlags.unstable_useRuntimeSchedulerAlways = false;
+    // }
+      try {
+          SoLoader.init(this, OpenSourceMergedSoMapping.INSTANCE);
+      } catch (IOException e) {
+          throw new RuntimeException(e);
+      }
+      if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       // If you opted-in for the New Architecture, we load the native entry point for this app.
       DefaultNewArchitectureEntryPoint.load();
     }
-    if (!BuildConfig.NO_FLIPPER) {
-      ReactNativeFlipper.initializeFlipper(this, getReactNativeHost().getReactInstanceManager());
-    }
+    // if (!BuildConfig.NO_FLIPPER) {
+    //   ReactNativeFlipper.initializeFlipper(this, getReactNativeHost().getReactInstanceManager());
+    // }
     ApplicationLifecycleDispatcher.onApplicationCreate(this);
     JPushModule.registerActivityLifecycle(this);
   }

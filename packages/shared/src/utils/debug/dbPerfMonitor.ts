@@ -21,7 +21,7 @@ const maxRecentCallsSize = 2000;
 const resetThreshold = 3000;
 
 const defaultSettings: IOneKeyDBPerfMonitorSettings = {
-  toastWarningEnabled: true,
+  toastWarningEnabled: false, // Default to false, controlled by dev settings
   toastWarningSize: 70,
   consoleLogEnabled: false,
   debuggerEnabled: false,
@@ -32,6 +32,7 @@ const shouldDbTxCreatedDebuggerRule: Record<string, boolean> = {
   'OneKeyStorage_readwrite': false,
   'OneKeyV5_readonly': false,
   'OneKeyV5_readwrite': false,
+  'OneKeyV5-account_readonly': false,
 };
 
 const shouldLocalDbDebuggerRule: Record<string, number> = {

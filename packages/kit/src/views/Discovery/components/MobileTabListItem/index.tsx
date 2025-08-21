@@ -73,15 +73,16 @@ function MobileTabListItem({
               bg="$bgSubdued"
               borderCurve="continuous"
             >
-              <Image size="$4" borderRadius="$1">
-                <Image.Source src={tab?.favicon} />
-                <Image.Fallback>
-                  <Icon name="GlobusOutline" size="$4" />
-                </Image.Fallback>
-                <Image.Loading>
-                  <Skeleton width="100%" height="100%" />
-                </Image.Loading>
-              </Image>
+              <Image
+                size="$4"
+                borderRadius="$1"
+                source={{ uri: tab?.favicon }}
+                fallback={
+                  <Image.Fallback>
+                    <Icon name="GlobusOutline" size="$4" />
+                  </Image.Fallback>
+                }
+              />
               <SizableText
                 flex={1}
                 size="$bodySm"
@@ -110,9 +111,8 @@ function MobileTabListItem({
                   h="100%"
                   borderBottomLeftRadius={10}
                   borderBottomRightRadius={10}
-                >
-                  <Image.Source source={{ uri: tab?.thumbnail }} />
-                </Image>
+                  source={{ uri: tab?.thumbnail }}
+                />
               </Stack>
             </Stack>
           </Group.Item>

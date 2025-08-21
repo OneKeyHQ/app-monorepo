@@ -110,7 +110,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     const serializedTx = transaction.serialize(false);
 
     const magicNumber = 860_833_102;
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId,
+    });
     const response = await sdk.neoSignTransaction(connectId, deviceId, {
       path: dbAccount.path,
       rawTx: serializedTx,
@@ -145,7 +147,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: params.deviceParams?.dbDevice?.connectId || '',
+    });
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
     const dbAccount = await this.vault.getAccount();

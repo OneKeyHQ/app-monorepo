@@ -93,7 +93,7 @@ export const homeTab: IWebTab = {
 };
 
 class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
-  closeTimeId: NodeJS.Timeout | null = null;
+  closeTimeId: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * Browser web tab action

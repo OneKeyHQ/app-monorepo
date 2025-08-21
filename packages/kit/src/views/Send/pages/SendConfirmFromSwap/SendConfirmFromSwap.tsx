@@ -25,7 +25,7 @@ import type { RouteProp } from '@react-navigation/core';
 import type { StackActionType } from '@react-navigation/native';
 
 function SendConfirmFromSwap() {
-  const pendingAction = useRef<StackActionType>();
+  const pendingAction = useRef<StackActionType>(undefined);
   const navigation = useNavigation();
   const appNavigation = useAppNavigation();
 

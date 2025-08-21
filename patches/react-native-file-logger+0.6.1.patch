@@ -1,0 +1,13 @@
+diff --git a/node_modules/react-native-file-logger/RNFileLogger.podspec b/node_modules/react-native-file-logger/RNFileLogger.podspec
+index e181595..4477356 100644
+--- a/node_modules/react-native-file-logger/RNFileLogger.podspec
++++ b/node_modules/react-native-file-logger/RNFileLogger.podspec
+@@ -17,7 +17,7 @@ Pod::Spec.new do |s|
+   s.framework    = "MessageUI"
+   
+   s.dependency "CocoaLumberjack", "~> 3.8.5"
+-  s.dependency "SSZipArchive", "~> 2.4.3"
++  s.dependency "SSZipArchive", "~> 2.5.5"
+ 
+   # Use install_modules_dependencies helper to install the dependencies if React Native version >=0.71.0.
+   # See https://github.com/facebook/react-native/blob/febf6b7f33fdb4904669f99d795eba4c0f95d7bf/scripts/cocoapods/new_architecture.rb#L79.

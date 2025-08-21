@@ -146,6 +146,13 @@ type IAddressInputProps = Omit<
   enableAllowListValidation?: boolean; // Check address if it is on the allow list.
 
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
+  onExtraDataChange?: ({
+    memo,
+    note,
+  }: {
+    memo?: string;
+    note?: string;
+  }) => void;
 
   hideNonBackedUpWallet?: boolean;
   onScanResult?: IScanPluginProps['onScanResult'];
@@ -171,6 +178,8 @@ export type IAddressQueryResult = {
   addressBadges?: IAddressBadge[];
   addressDeriveInfo?: IAccountDeriveInfo;
   addressDeriveType?: IAccountDeriveTypes;
+  addressNote?: string;
+  addressMemo?: string;
 };
 
 type IAddressInputBadgeGroupProps = {
@@ -218,7 +227,7 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
             />
           </Stack>
         ) : null}
-        <XStack mx="$0.5" gap="$1">
+        <XStack mx="$0.5" gap="$1" flexWrap="wrap" flexShrink={1}>
           {result.addressBadges?.map((badge) => (
             <AddressBadge
               key={badge.label}
@@ -319,6 +328,7 @@ export function AddressInput(props: IAddressInputProps) {
     enableVerifySendFundToSelf,
     enableAllowListValidation,
     onInputTypeChange,
+    onExtraDataChange,
     disabled: disabledFromProps,
     onScanResult,
     ...rest
@@ -409,7 +419,7 @@ export function AddressInput(props: IAddressInputProps) {
 
   // When focus state changes, re-query address validation
   // Store previous focus state for comparison
-  const prevIsFocused = useRef<boolean | undefined>();
+  const prevIsFocused = useRef<boolean | undefined>(undefined);
   const isFocused = useIsFocused();
   useEffect(() => {
     if (
@@ -547,6 +557,7 @@ export function AddressInput(props: IAddressInputProps) {
               onBeforeAccountSelectorOpen={
                 accountSelector?.onBeforeAccountSelectorOpen
               }
+              onExtraDataChange={onExtraDataChange}
               testID={rest.testID ? `${rest.testID}-selector` : undefined}
             />
           ) : null}
@@ -570,6 +581,7 @@ export function AddressInput(props: IAddressInputProps) {
       accountSelector,
       accountId,
       inputText,
+      onExtraDataChange,
     ],
   );
 

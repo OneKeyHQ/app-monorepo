@@ -197,6 +197,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           resource = 'BANDWIDTH',
           balance,
           lock,
+          lock_period: lockPeriod,
         } = encodedTx.raw_data.contract[0].parameter
           .value as Types.DelegateResourceContract;
         contractCall = {
@@ -205,6 +206,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             receiverAddress: utils.address.fromHex(receiverAddress),
             ...(lock ? { lock } : null),
             ...(resource === 'BANDWIDTH' ? null : { resource: 1 }),
+            lockPeriod: lockPeriod != null ? lockPeriod : undefined,
           },
         };
 
@@ -270,7 +272,9 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw new NotImplemented();
     }
 
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: params.deviceParams?.dbDevice?.connectId || '',
+    });
     const path = await this.vault.getAccountPath();
     const { deviceCommonParams, dbDevice } = checkIsDefined(deviceParams);
     const { connectId, deviceId } = dbDevice;

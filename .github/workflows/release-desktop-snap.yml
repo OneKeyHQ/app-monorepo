@@ -18,11 +18,18 @@ jobs:
 
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
+      - name: Show executed time
+        run: |
+          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
+
       - name: Checkout Source Code
         uses: actions/checkout@v3
         with:
           lfs: true
-      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev 
       - name: Run Shared Env Setup  
         uses: ./.github/actions/shared-env
         with:
@@ -104,6 +111,7 @@ jobs:
 
       - name: Upload Artifacts to Snap Linux
         if: ${{ github.event.workflow_run }}
+        continue-on-error: true
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
         run: |

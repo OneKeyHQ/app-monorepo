@@ -3,6 +3,8 @@
   A component for render token (and NFT) images. It has a fallback icon when the image is not available. Typically used in list, card, or any other components that display small token images.
 */
 
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import type {
@@ -23,6 +25,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAccountData } from '../../hooks/useAccountData';
 import { NetworkAvatar, NetworkAvatarBase } from '../NetworkAvatar';
@@ -76,36 +79,38 @@ export function Token({
   if (fallbackIcon) {
     fallbackIconName = fallbackIcon;
   }
-
+  const borderRadius = useMemo(() => {
+    if (isNFT) {
+      return '$2';
+    }
+    return '$full';
+  }, [isNFT]);
   const tokenImage = (
     <Image
-      width={tokenImageSize}
-      height={tokenImageSize}
-      borderRadius={isNFT ? '$2' : '$full'}
+      size={tokenImageSize}
+      borderRadius={borderRadius}
+      source={tokenImageUri ? { uri: tokenImageUri } : undefined}
+      fallback={
+        <Stack
+          bg="$gray5"
+          ai="center"
+          jc="center"
+          borderRadius={borderRadius}
+          w={tokenImageSize}
+          h={tokenImageSize}
+        >
+          <Icon
+            size={fallbackIconSize}
+            name={fallbackIconName}
+            color="$iconSubdued"
+          />
+        </Stack>
+      }
+      skeleton={
+        <Skeleton w={tokenImageSize} h={tokenImageSize} radius="round" />
+      }
       {...rest}
-    >
-      <Image.Source
-        bg="$gray5"
-        source={{
-          uri: tokenImageUri,
-        }}
-      />
-      <Image.Fallback
-        alignItems="center"
-        justifyContent="center"
-        bg="$gray5"
-        delayMs={1000}
-      >
-        <Icon
-          size={fallbackIconSize}
-          name={fallbackIconName}
-          color="$iconSubdued"
-        />
-      </Image.Fallback>
-      <Image.Loading>
-        <Skeleton width="100%" height="100%" radius="round" />
-      </Image.Loading>
-    </Image>
+    />
   );
 
   if (networkImageUri) {

@@ -9,16 +9,18 @@ const PrimeHeaderIconButton = lazy(() =>
 export function PrimeHeaderIconButtonLazy({
   visible,
   onPress,
+  networkId,
 }: {
   visible: boolean;
   onPress?: () => void;
+  networkId?: string;
 }) {
   if (!visible) {
     return null;
   }
   return (
     <Suspense fallback={null}>
-      <PrimeHeaderIconButton onPress={onPress} />
+      <PrimeHeaderIconButton onPress={onPress} networkId={networkId} />
     </Suspense>
   );
 }

@@ -40,7 +40,6 @@ export function FirmwareUpdatePageHeader({
   return (
     <Page.Header
       dismissOnOverlayPress={false}
-      // disableClose
       title={
         headerTitle
           ? undefined

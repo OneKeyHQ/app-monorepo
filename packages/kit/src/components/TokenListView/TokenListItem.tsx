@@ -94,7 +94,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             networkId={token.networkId}
             withNetwork={withNetwork}
             textProps={{
-              size: '$bodyMdMedium',
+              size: '$bodyLgMedium',
               flexShrink: 0,
             }}
           />
@@ -113,12 +113,71 @@ function BasicTokenListItem(props: ITokenListItemProps) {
   }, [token, isAllNetworks, withNetwork, tableLayout, isTokenSelector]);
 
   const renderSecondColumn = useCallback(() => {
+    if (isTokenSelector) {
+      return (
+        <YStack
+          alignItems="flex-end"
+          {...(tableLayout && {
+            flexGrow: 1,
+            flexBasis: 0,
+          })}
+          maxWidth="$36"
+        >
+          <TokenBalanceView
+            hideValue={hideValue}
+            numberOfLines={1}
+            textAlign="right"
+            size="$bodyLgMedium"
+            $key={token.$key ?? ''}
+            symbol=""
+          />
+          <TokenValueView
+            hideValue={hideValue}
+            numberOfLines={1}
+            size="$bodyMd"
+            color="$textSubdued"
+            $key={token.$key ?? ''}
+          />
+        </YStack>
+      );
+    }
+
+    return (
+      <YStack
+        alignItems="flex-end"
+        {...(tableLayout
+          ? {
+              flexGrow: 1,
+              flexBasis: 0,
+              maxWidth: '$36',
+            }
+          : { flex: 1 })}
+      >
+        <TokenBalanceView
+          hideValue={hideValue}
+          numberOfLines={1}
+          size={tableLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
+          $key={token.$key ?? ''}
+          symbol=""
+        />
+        <TokenValueView
+          hideValue={hideValue}
+          numberOfLines={1}
+          size="$bodyMd"
+          color="$textSubdued"
+          $key={token.$key ?? ''}
+        />
+      </YStack>
+    );
+  }, [hideValue, tableLayout, token.$key, isTokenSelector]);
+
+  const renderThirdColumn = useCallback(() => {
     if (isTokenSelector || !tableLayout) {
       return null;
     }
 
     return (
-      <YStack alignItems="flex-end" flexGrow={1} flexBasis={0} maxWidth="$36">
+      <YStack alignItems="flex-end" flexGrow={1} flexBasis={0}>
         <TokenPriceView
           $key={token.$key ?? ''}
           size="$bodyMdMedium"
@@ -132,63 +191,6 @@ function BasicTokenListItem(props: ITokenListItemProps) {
       </YStack>
     );
   }, [isTokenSelector, tableLayout, token.$key]);
-
-  const renderThirdColumn = useCallback(() => {
-    if (isTokenSelector) {
-      return (
-        <YStack
-          alignItems="flex-end"
-          {...(tableLayout && {
-            flexGrow: 1,
-            flexBasis: 0,
-          })}
-        >
-          <TokenValueView
-            hideValue={hideValue}
-            numberOfLines={1}
-            size="$bodyLgMedium"
-            $key={token.$key ?? ''}
-          />
-          <TokenBalanceView
-            hideValue={hideValue}
-            numberOfLines={1}
-            textAlign="right"
-            size="$bodyMd"
-            color="$textSubdued"
-            $key={token.$key ?? ''}
-            symbol=""
-          />
-        </YStack>
-      );
-    }
-
-    return (
-      <YStack
-        alignItems="flex-end"
-        {...(tableLayout
-          ? {
-              flexGrow: 1,
-              flexBasis: 0,
-            }
-          : { flex: 1 })}
-      >
-        <TokenValueView
-          hideValue={hideValue}
-          numberOfLines={1}
-          size={tableLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
-          $key={token.$key ?? ''}
-        />
-        <TokenBalanceView
-          hideValue={hideValue}
-          numberOfLines={1}
-          size="$bodyMd"
-          color="$textSubdued"
-          $key={token.$key ?? ''}
-          symbol={token.symbol}
-        />
-      </YStack>
-    );
-  }, [hideValue, tableLayout, token.$key, token.symbol, isTokenSelector]);
 
   const renderFourthColumn = useCallback(() => {
     if (withSwapAction && tableLayout) {

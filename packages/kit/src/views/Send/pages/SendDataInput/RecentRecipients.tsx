@@ -14,7 +14,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 interface IRecentRecipientsProps {
   accountId?: string;
   networkId: string;
-  onSelect?: (params: { address: string }) => void;
+  onSelect?: (params: {
+    address: string;
+    memo?: string;
+    note?: string;
+  }) => void;
   searchKey?: string;
   isSearchMode?: boolean;
 }
@@ -95,6 +99,8 @@ function RecentRecipients(props: IRecentRecipientsProps) {
         filteredRecentRecipients.map((recipient) => (
           <AddressListItem
             key={recipient.input}
+            memo={recipient.addressMemo}
+            note={recipient.addressNote}
             accountName={
               recipient.addressBookName ?? recipient.walletAccountName
             }
@@ -109,7 +115,11 @@ function RecentRecipients(props: IRecentRecipientsProps) {
               recipient.addressDeriveType !== 'default'
             }
             onPress={() => {
-              onSelect?.({ address: recipient.input ?? '' });
+              onSelect?.({
+                address: recipient.input ?? '',
+                memo: recipient.addressMemo,
+                note: recipient.addressNote,
+              });
             }}
           />
         ))

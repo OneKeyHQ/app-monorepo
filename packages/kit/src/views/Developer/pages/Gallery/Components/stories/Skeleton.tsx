@@ -17,9 +17,11 @@ const Spacer = ({ height = 16 }: { height?: number }) => (
 );
 const SkeletonDemo = () => (
   <MotiView
-    transition={{
-      type: 'timing',
-    }}
+    transition={
+      {
+        type: 'timing',
+      } as any
+    }
     style={{
       flex: 1,
       justifyContent: 'center',

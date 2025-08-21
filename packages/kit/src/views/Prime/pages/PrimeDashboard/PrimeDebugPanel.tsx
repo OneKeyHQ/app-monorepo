@@ -18,10 +18,20 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
+import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
+
 function CloudSyncDebugTest() {
+  const navigation = useAppNavigation();
   return (
     <XStack flexWrap="wrap">
       <SizableText>CloudSyncTest:</SizableText>
+      <Button
+        onPress={async () => {
+          navigation.navigate(EPrimePages.PrimeCloudSync);
+        }}
+      >
+        CloudSyncPage
+      </Button>
 
       <Button
         onPress={async () => {
@@ -184,6 +194,7 @@ export function PrimeDebugPanel({
   const [isHidden, setIsHidden] = useState(false);
   const { loginOneKeyId } = useLoginOneKeyId();
   const [primePersistAtomData] = usePrimePersistAtom();
+  const { purchaseByWebview } = usePrimePurchaseCallback();
 
   if (isHidden) {
     return null;
@@ -191,6 +202,15 @@ export function PrimeDebugPanel({
 
   return (
     <Stack>
+      <Button
+        onPress={() => {
+          void purchaseByWebview({
+            selectedSubscriptionPeriod: 'P1Y',
+          });
+        }}
+      >
+        Purchase by Webview(P1Y)
+      </Button>
       <Button
         onPress={() => {
           setIsHidden(true);

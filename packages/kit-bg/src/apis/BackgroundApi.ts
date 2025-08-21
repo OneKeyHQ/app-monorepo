@@ -88,6 +88,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceWebviewPerp() {
+    const Service =
+      require('../services/ServiceWebviewPerp') as typeof import('../services/ServiceWebviewPerp');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceWebviewPerp', { value });
+    return value;
+  }
+
   get serviceNetwork() {
     const Service =
       require('../services/ServiceNetwork') as typeof import('../services/ServiceNetwork');
@@ -645,6 +655,26 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceDBBackup', { value });
+    return value;
+  }
+
+  get servicePrimeTransfer() {
+    const ServicePrimeTransfer =
+      require('../services/ServicePrimeTransfer') as typeof import('../services/ServicePrimeTransfer');
+    const value = new ServicePrimeTransfer.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'servicePrimeTransfer', { value });
+    return value;
+  }
+
+  get serviceWalletBanner() {
+    const ServiceWalletBanner =
+      require('../services/ServiceWalletBanner') as typeof import('../services/ServiceWalletBanner');
+    const value = new ServiceWalletBanner.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceWalletBanner', { value });
     return value;
   }
 }

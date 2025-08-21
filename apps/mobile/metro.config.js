@@ -36,6 +36,10 @@ config.resolver.extraNodeModules = {
   zlib: require.resolve('browserify-zlib'),
 };
 
+// https://github.com/facebook/metro/issues/1222
+// Unable to resolve self-referring "subpath exports" from within a haste module
+config.resolver.unstable_enablePackageExports = false;
+
 // 1. Watch all files within the monorepo
 // config.watchFolders = [workspaceRoot];
 // 2. Let Metro know where to resolve packages and in what order

@@ -13,7 +13,11 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  OneKeyLocalError,
+  OneKeyWeb3RpcError,
+} from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IAddressValidation,
@@ -407,6 +411,34 @@ export default class Vault extends VaultBase {
       backgroundApi: this.backgroundApi,
       networkId: this.networkId,
     }) as unknown as IWallet;
+    const validUntil = encodedTx.validUntil;
+    if (
+      validUntil !== undefined &&
+      (Number.isNaN(validUntil) ||
+        validUntil === null ||
+        validUntil < Date.now() / 1000)
+    ) {
+      throw new OneKeyLocalError('Bad request: Invalid validUntil');
+    }
+
+    // check messages
+    if (encodedTx.messages.length === 0) {
+      throw new OneKeyLocalError('Bad request: Empty messages');
+    }
+
+    // check address and amount
+    for (const message of encodedTx.messages) {
+      if (!('address' in message && 'amount' in message)) {
+        throw new OneKeyLocalError('Bad request: Invalid message');
+      }
+      if (typeof message.amount !== 'string') {
+        throw new OneKeyLocalError('Bad request: Invalid amount');
+      }
+      // raw address type throw error
+      if (message.address.startsWith('0:')) {
+        throw new OneKeyWeb3RpcError(1, 'Wrong address format');
+      }
+    }
 
     const serializeUnsignedTx = await serializeUnsignedTransaction({
       contract: wallet,

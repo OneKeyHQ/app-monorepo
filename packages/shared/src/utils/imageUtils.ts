@@ -122,6 +122,14 @@ function convertToBlackAndWhiteImageBase64(
   });
 }
 
+export type IResizeImageResult = {
+  hex: string;
+  uri: string;
+  width: number;
+  height: number;
+  base64?: string;
+};
+
 async function resizeImage(params: {
   uri: string;
   width: number;
@@ -129,9 +137,9 @@ async function resizeImage(params: {
   originW: number;
   originH: number;
   isMonochrome?: boolean;
-}) {
+}): Promise<IResizeImageResult> {
   const { uri, width, height, isMonochrome } = params;
-  if (!uri) return;
+  if (!uri) return { hex: '', uri: '', width: 0, height: 0 };
   const actions: ExpoImageManipulatorAction[] = [
     // resize first
     {
@@ -154,7 +162,7 @@ async function resizeImage(params: {
     });
   }
   const imageResult: ImageResult = await manipulateAsync(uri, actions, {
-    compress: 0.9,
+    compress: 0.8,
     format: SaveFormat.JPEG,
     base64: true,
   });
@@ -540,6 +548,7 @@ async function getBase64ImageFromUrl(imageUrl: string) {
 export default {
   resizeImage,
   prefixBase64Uri,
+  stripBase64UriPrefix,
   convertToBlackAndWhiteImageBase64,
   getUriFromRequiredImageSource,
   getBase64FromRequiredImageSource,

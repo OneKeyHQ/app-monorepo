@@ -44,3 +44,6 @@ export function TutorialsList({
     </Stack>
   );
 }
+
+// Alias for TutorialsList
+export const OrderedList = TutorialsList;

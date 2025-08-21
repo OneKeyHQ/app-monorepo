@@ -47,7 +47,7 @@ function ContainerBox(props: IProps) {
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         borderRadius={12}
-        {...contentProps}
+        {...(contentProps as any)}
       >
         {children
           ? (children instanceof Array ? children : [children]).map(

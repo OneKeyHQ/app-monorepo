@@ -18,7 +18,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
+import type {
+  IDeviceSharedCallParams,
+  IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types/device';
 
 import {
   EHardwareUiStateAction,
@@ -28,6 +32,7 @@ import ServiceBase from '../ServiceBase';
 
 import { HardwareProcessingManager } from './HardwareProcessingManager';
 
+import type { IDBDevice } from '../../dbs/local/types';
 import type { IHardwareUiPayload } from '../../states/jotai/atoms';
 import type { UiResponseEvent } from '@onekeyfe/hd-core';
 
@@ -66,13 +71,14 @@ class ServiceHardwareUI extends ServiceBase {
   @backgroundMethod()
   async sendUiResponse(response: UiResponseEvent) {
     return (
-      await this.backgroundApi.serviceHardware.getSDKInstance()
+      await this.backgroundApi.serviceHardware.getSDKInstance({
+        connectId: undefined,
+      })
     ).uiResponse(response);
   }
 
   @backgroundMethod()
   async showConfirmOnDeviceToastDemo({ connectId }: { connectId: string }) {
-    const { EOneKeyDeviceMode } = await CoreSDKLoader();
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.REQUEST_BUTTON,
       connectId,
@@ -109,6 +115,36 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
+  async showBluetoothDevicePairingDialog({
+    device,
+    features,
+    deviceId,
+    usbConnectId,
+    promiseId,
+  }: {
+    device: IDBDevice;
+    features: IOneKeyDeviceFeatures | undefined;
+    deviceId: string;
+    usbConnectId: string;
+    promiseId?: number;
+  }) {
+    await hardwareUiStateAtom.set({
+      action: EHardwareUiStateAction.DeviceChecking,
+      connectId: usbConnectId,
+      payload: {
+        uiRequestType: EHardwareUiStateAction.DeviceChecking,
+        eventType: EHardwareUiStateAction.BLUETOOTH_DEVICE_PAIRING,
+        deviceType: device.deviceType,
+        deviceId,
+        connectId: usbConnectId,
+        deviceMode: EOneKeyDeviceMode.normal,
+        promiseId: promiseId?.toString(),
+        rawPayload: { deviceId, usbConnectId, features },
+      },
+    });
+  }
+
+  @backgroundMethod()
   async showEnterPassphraseOnDeviceDialog() {
     const { UI_RESPONSE } = await CoreSDKLoader();
     await this.sendUiResponse({
@@ -116,6 +152,21 @@ class ServiceHardwareUI extends ServiceBase {
       payload: {
         value: '',
         passphraseOnDevice: true,
+        attachPinOnDevice: false,
+        save: false,
+      },
+    });
+  }
+
+  @backgroundMethod()
+  async showEnterAttachPinOnDeviceDialog() {
+    const { UI_RESPONSE } = await CoreSDKLoader();
+    await this.sendUiResponse({
+      type: UI_RESPONSE.RECEIVE_PASSPHRASE,
+      payload: {
+        value: '',
+        passphraseOnDevice: false,
+        attachPinOnDevice: true,
         save: false,
       },
     });
@@ -466,6 +517,7 @@ class ServiceHardwareUI extends ServiceBase {
             wallet: deviceParams?.dbWallet,
             connectId,
             deviceId: device?.deviceId,
+            withUserInteraction: false,
           });
         }
         void this.backgroundApi.serviceFirmwareUpdate.delayShouldDetectTimeCheck(

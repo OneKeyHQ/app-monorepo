@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Toast } from '../actions/Toast';
 
@@ -17,16 +18,24 @@ const getClipboard = async () => {
 
 export function useClipboard() {
   const intl = useIntl();
+  const supportPaste = useMemo(() => {
+    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+      return false;
+    }
+    return true;
+  }, []);
 
   const copyText = useCallback(
-    (text: string, successMessageId?: ETranslations) => {
+    (text: string, successMessageId?: ETranslations, showToast = true) => {
       if (!text) return;
       setTimeout(() => setStringAsync(text), 200);
-      Toast.success({
-        title: intl.formatMessage({
-          id: successMessageId || ETranslations.global_copied,
-        }),
-      });
+      if (showToast) {
+        Toast.success({
+          title: intl.formatMessage({
+            id: successMessageId || ETranslations.global_copied,
+          }),
+        });
+      }
     },
     [intl],
   );
@@ -66,7 +75,13 @@ export function useClipboard() {
   );
 
   return useMemo(
-    () => ({ copyText, clearText, onPasteClearText, getClipboard }),
-    [clearText, onPasteClearText, copyText],
+    () => ({
+      copyText,
+      clearText,
+      onPasteClearText,
+      getClipboard,
+      supportPaste,
+    }),
+    [clearText, onPasteClearText, copyText, supportPaste],
   );
 }

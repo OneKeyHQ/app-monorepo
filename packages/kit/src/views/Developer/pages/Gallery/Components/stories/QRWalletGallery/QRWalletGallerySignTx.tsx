@@ -1,8 +1,8 @@
-import Common, { Chain, Hardfork } from '@ethereumjs/common';
-import {
-  FeeMarketEIP1559Transaction,
-  TransactionFactory,
-} from '@ethereumjs/tx';
+// import Common, { Chain, Hardfork } from '@ethereumjs/common';
+// import {
+//   FeeMarketEIP1559Transaction,
+//   TransactionFactory,
+// } from '@ethereumjs/tx';
 import { URDecoder, UREncoder } from '@ngraveio/bc-ur';
 import { networks as BitcoinJsNetworks, Psbt } from 'bitcoinjs-lib';
 import { isEqual } from 'lodash';
@@ -23,10 +23,9 @@ import {
   getAirGapSdk,
 } from '@onekeyhq/qr-wallet-sdk';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
-import type { FeeMarketEIP1559TxData } from '@ethereumjs/tx';
+// import type { FeeMarketEIP1559TxData } from '@ethereumjs/tx';
 
 const txShared = {
   to: '0x02bA7fd1b0aCdd0E4F8c6DA7C4bA8Fd7F963bA50',
@@ -44,9 +43,9 @@ const encodedTx: IEncodedTxEvm = {
   from: '0x02bA7fd1b0aCdd0E4F8c6DA7C4bA8Fd7F963bA50',
   ...txShared,
 };
-const txParams: FeeMarketEIP1559TxData = {
-  ...txShared,
-};
+// const txParams: FeeMarketEIP1559TxData = {
+//   ...txShared,
+// };
 
 export function QRWalletGallerySignTx() {
   // const { start: startScan } = useScanQrCode();
@@ -60,22 +59,22 @@ export function QRWalletGallerySignTx() {
               encodedTx,
             });
 
-          const common = new Common({
-            chain: Chain.Mainnet,
-            hardfork: Hardfork.London,
-          });
-          // const legacyTx = Transaction.fromTxData(txParams, { common });
-          const eip1559Tx = FeeMarketEIP1559Transaction.fromTxData(txParams, {
-            common,
-          });
-          const unsignedMessage = Buffer.from(
-            eip1559Tx.getMessageToSign(false),
-          ).toString('hex');
+          // const common = new Common({
+          //   chain: Chain.Mainnet,
+          //   hardfork: Hardfork.London,
+          // });
+          // // const legacyTx = Transaction.fromTxData(txParams, { common });
+          // const eip1559Tx = FeeMarketEIP1559Transaction.fromTxData(txParams, {
+          //   common,
+          // });
+          // const unsignedMessage = Buffer.from(
+          //   eip1559Tx.getMessageToSign(false),
+          // ).toString('hex');
 
-          const eip1559Tx2 = FeeMarketEIP1559Transaction.fromTxData(txParams);
-          const unsignedMessage2 = Buffer.from(
-            eip1559Tx2.getMessageToSign(false),
-          ).toString('hex');
+          // const eip1559Tx2 = FeeMarketEIP1559Transaction.fromTxData(txParams);
+          // const unsignedMessage2 = Buffer.from(
+          //   eip1559Tx2.getMessageToSign(false),
+          // ).toString('hex');
 
           // EthSignRequest.constructETHRequest({
           const ethSignRequest = {
@@ -107,8 +106,8 @@ export function QRWalletGallerySignTx() {
               cbor: urData.cbor.toString('hex'),
               uri: qrUri,
             },
-            unsignedMessage,
-            unsignedMessage2,
+            // unsignedMessage,
+            // unsignedMessage2,
             serializedTx,
             serializedTxWithout0x,
             digest,
@@ -269,18 +268,18 @@ export function QRWalletGallerySignTx() {
           const s = signature.slice(64, 64 + 64);
           const v = signature.slice(64 + 64);
 
-          const typedTx = TransactionFactory.fromTxData({
-            ...txShared,
-            type: txShared.type,
-            r: hexUtils.addHexPrefix(r),
-            s: hexUtils.addHexPrefix(s),
-            v: hexUtils.addHexPrefix(v),
-          });
-          const txid = hexUtils.addHexPrefix(typedTx.hash().toString('hex'));
-          const rawTx = hexUtils.addHexPrefix(
-            typedTx.serialize().toString('hex'),
-          );
-          console.log({ sig, ur, txid, rawTx });
+          // const typedTx = TransactionFactory.fromTxData({
+          //   ...txShared,
+          //   type: txShared.type,
+          //   r: hexUtils.addHexPrefix(r),
+          //   s: hexUtils.addHexPrefix(s),
+          //   v: hexUtils.addHexPrefix(v),
+          // });
+          // const txid = hexUtils.addHexPrefix(typedTx.hash().toString('hex'));
+          // const rawTx = hexUtils.addHexPrefix(
+          //   typedTx.serialize().toString('hex'),
+          // );
+          // console.log({ sig, ur, txid, rawTx });
         }}
       >
         eth-signature (EVM scan sign result)

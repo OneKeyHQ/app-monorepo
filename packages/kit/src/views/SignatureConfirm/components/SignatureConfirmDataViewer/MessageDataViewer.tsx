@@ -62,6 +62,10 @@ function MessageDataViewer(props: IProps) {
         return payload?.message ?? message;
       }
 
+      case EMessageTypesAptos.SIGN_IN: {
+        return payload?.message ?? message;
+      }
+
       case EMessageTypesEth.TYPED_DATA_V1: {
         let messageObject = JSON.parse(message) ?? {};
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

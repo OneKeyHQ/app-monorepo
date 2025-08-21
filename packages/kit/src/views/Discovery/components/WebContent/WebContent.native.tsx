@@ -178,7 +178,7 @@ function WebContent({
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, siteMode, gotoSite, showHome, androidLayerType],
+    [id, siteMode, gotoSite, showHome, androidLayerType, url],
   );
 
   const progressBar = useMemo(() => {

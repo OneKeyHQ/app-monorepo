@@ -168,7 +168,6 @@ const ProtocolDetailsPage = () => {
   const handleClaim = useHandleClaim({
     accountId: earnAccount?.accountId,
     networkId,
-    updateFrequency: result?.updateFrequency,
   });
   const onClaim = useCallback(
     async (params?: {
@@ -240,7 +239,7 @@ const ProtocolDetailsPage = () => {
           providerName: result.provider.name,
           tokenSymbol: result.token.info.symbol,
         }),
-        morphoVault: vault,
+        protocolVault: vault,
         filterType,
       });
     };

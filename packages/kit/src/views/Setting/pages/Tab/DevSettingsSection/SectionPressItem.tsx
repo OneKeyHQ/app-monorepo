@@ -6,6 +6,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 interface ISectionPressItem {
   title: string;
+  icon?: IListItemProps['icon'];
   subtitle?: IListItemProps['subtitle'];
   onPress?: () => void;
   copyable?: boolean;
@@ -14,6 +15,7 @@ interface ISectionPressItem {
 
 export function SectionPressItem({
   title,
+  icon,
   onPress,
   copyable,
   ...restProps
@@ -28,6 +30,7 @@ export function SectionPressItem({
       onPress={copyable ? handleCopy : onPress}
       title={title}
       titleProps={{ color: '$textCritical' }}
+      icon={icon}
       {...restProps}
     />
   );

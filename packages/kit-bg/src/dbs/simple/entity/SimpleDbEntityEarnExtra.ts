@@ -4,6 +4,7 @@ import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface IEarnExtraData {
   ethenaKycAddresses?: string[];
+  firstOperationFlags?: Record<string, boolean>;
 }
 
 export class SimpleDbEntityEarnExtra extends SimpleDbEntityBase<IEarnExtraData> {
@@ -28,6 +29,35 @@ export class SimpleDbEntityEarnExtra extends SimpleDbEntityBase<IEarnExtraData> 
     await this.setRawData((v) => ({
       ...v,
       ethenaKycAddresses: addresses,
+    }));
+  }
+
+  @backgroundMethod()
+  async isFirstOperation(
+    networkId: string,
+    providerName: string,
+    address: string,
+    operationType: 'deposit' | 'withdraw',
+  ) {
+    const data = await this.getRawData();
+    const key = `${networkId}--${providerName}--${address}--${operationType}`;
+    return !data?.firstOperationFlags?.[key];
+  }
+
+  @backgroundMethod()
+  async markFirstOperation(
+    networkId: string,
+    providerName: string,
+    address: string,
+    operationType: 'deposit' | 'withdraw',
+  ) {
+    const key = `${networkId}--${providerName}--${address}--${operationType}`;
+    await this.setRawData((v) => ({
+      ...v,
+      firstOperationFlags: {
+        ...v?.firstOperationFlags,
+        [key]: true,
+      },
     }));
   }
 }

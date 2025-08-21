@@ -59,17 +59,13 @@ function WebContent({ id, url }: IWebContentProps) {
     onNavigation({ id, loading: true });
   }, [id, onNavigation]);
   const onDidStartNavigation = useCallback(
-    ({
-      url: willNavigationUrl,
-      isInPlace,
-      isMainFrame,
-    }: DidStartNavigationEvent) => {
+    ({ url: willNavigationUrl, isMainFrame }: DidStartNavigationEvent) => {
       if (isMainFrame) {
         onNavigation({
           id,
           url: willNavigationUrl,
           loading: true,
-          isInPlace,
+          isInPlace: true,
           ...getNavStatusInfo(),
           handlePhishingUrl: (illegalUrl) => {
             console.log('=====>>>>: handlePhishingUrl', illegalUrl);

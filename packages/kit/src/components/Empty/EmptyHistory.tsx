@@ -2,12 +2,14 @@ import { useIntl } from 'react-intl';
 
 import { Empty } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function EmptyHistory() {
   const intl = useIntl();
 
   return (
     <Empty
+      h={platformEnv.isNativeAndroid ? 300 : undefined}
       testID="Wallet-No-History-Empty"
       icon="ClockTimeHistoryOutline"
       title={intl.formatMessage({ id: ETranslations.no_transaction_title })}

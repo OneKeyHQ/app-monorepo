@@ -18,8 +18,24 @@ export function buildMarketFullUrl({ coinGeckoId }: { coinGeckoId: string }) {
   return `${origin}${path}`;
 }
 
+export function buildMarketFullUrlV2({
+  networkId,
+  address,
+}: {
+  networkId: string;
+  address: string;
+}) {
+  const origin =
+    platformEnv.isWeb && !platformEnv.isDev
+      ? globalThis.location.origin
+      : WEB_APP_URL;
+  const path = `/market/tokens/v2/${networkId}/${address}`;
+  return `${origin}${path}`;
+}
+
 export const marketNavigation = {
-  async pushDetailPageFromDeeplink(
+  // V1 version - for legacy MarketDetail page
+  async pushDetailPageFromDeeplinkV1(
     navigation: IAppNavigation,
     {
       coinGeckoId,
@@ -31,7 +47,7 @@ export const marketNavigation = {
     navigation.switchTab(ETabRoutes.Market);
     await timerUtils.wait(100);
 
-    // Then navigate to the detail page
+    // Navigate to V1 MarketDetail page
     navigation.navigate(ERootRoutes.Main, {
       screen: ETabRoutes.Market,
       params: {
@@ -40,6 +56,21 @@ export const marketNavigation = {
           token: coinGeckoId,
         },
       },
+    });
+  },
+
+  // Default version - for backward compatibility, points to V1
+  async pushDetailPageFromDeeplink(
+    navigation: IAppNavigation,
+    {
+      coinGeckoId,
+    }: {
+      coinGeckoId: string;
+    },
+  ) {
+    // Keep backward compatibility by using V1 version
+    return this.pushDetailPageFromDeeplinkV1(navigation, {
+      coinGeckoId,
     });
   },
 };

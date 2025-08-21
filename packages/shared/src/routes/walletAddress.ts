@@ -37,5 +37,7 @@ export type IModalWalletAddressParamList = {
     walletId?: string;
     indexedAccountId: string;
     excludeTestNetwork?: boolean;
+    includingNotEqualGlobalDeriveTypeAccount?: boolean;
+    includingDeriveTypeMismatchInDefaultVisibleNetworks?: boolean;
   };
 };

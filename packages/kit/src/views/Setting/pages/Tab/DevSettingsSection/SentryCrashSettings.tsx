@@ -12,6 +12,7 @@ export function SentryCrashSettings() {
   const [state, setState] = useState({ text: 'Error Boundary' });
   const sections = [
     <SectionPressItem
+      icon="SendOutline"
       key="SentryCrashTest1"
       title="Sentry Crash Test"
       onPress={() => {
@@ -19,6 +20,7 @@ export function SentryCrashSettings() {
       }}
     />,
     <SectionPressItem
+      icon="SendOutline"
       key="SentryCrashTest2"
       title={`Sentry Crash Test With  ${state.text}`}
       onPress={() => {
@@ -29,6 +31,7 @@ export function SentryCrashSettings() {
   if (platformEnv.isNative) {
     sections.push(
       <SectionPressItem
+        icon="SendOutline"
         key="SentryCrashTest3"
         title="Sentry Native Crash"
         onPress={() => {
@@ -39,6 +42,7 @@ export function SentryCrashSettings() {
   } else if (platformEnv.isDesktop) {
     sections.push(
       <SectionPressItem
+        icon="SendOutline"
         key="SentryCrashTest4"
         title="Sentry Native Crash"
         onPress={() => {

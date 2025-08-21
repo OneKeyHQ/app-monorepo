@@ -6,11 +6,15 @@ import { Toast } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
-import { useWatchListV2Actions } from '../../../states/jotai/contexts/marketV2';
+import {
+  useMarketWatchListV2Atom,
+  useWatchListV2Actions,
+} from '../../../states/jotai/contexts/marketV2';
 
 export const useWatchListV2Action = () => {
   const intl = useIntl();
   const actions = useWatchListV2Actions();
+  const [{ data: watchListData, isMounted }] = useMarketWatchListV2Atom();
 
   const removeFromWatchListV2 = useCallback(
     (chainId: string, contractAddress: string) => {
@@ -20,14 +24,24 @@ export const useWatchListV2Action = () => {
   );
 
   const addIntoWatchListV2 = useCallback(
-    async (items: Array<{ chainId: string; contractAddress: string }>) => {
-      const watchListItems: IMarketWatchListItemV2[] = items.map((item) => ({
-        chainId: item.chainId,
-        contractAddress: item.contractAddress,
-        sortIndex: undefined,
-      }));
+    (items: Array<{ chainId: string; contractAddress: string }>) => {
+      // Calculate sortIndex to make new items appear at the top
+      const firstSortIndex =
+        isMounted && watchListData.length > 0
+          ? watchListData[0].sortIndex ?? 1000
+          : 1000;
+
+      const watchListItems: IMarketWatchListItemV2[] = items.map(
+        (item, index) => ({
+          chainId: item.chainId,
+          contractAddress: item.contractAddress,
+          sortIndex: firstSortIndex - (index + 1) - Math.random(),
+        }),
+      );
+
       try {
-        await actions.current.addIntoWatchListV2(watchListItems);
+        actions.current.addIntoWatchListV2(watchListItems);
+
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.market_added_to_watchlist,
@@ -41,7 +55,7 @@ export const useWatchListV2Action = () => {
         });
       }
     },
-    [actions, intl],
+    [actions, intl, isMounted, watchListData],
   );
 
   const isInWatchListV2 = useCallback(

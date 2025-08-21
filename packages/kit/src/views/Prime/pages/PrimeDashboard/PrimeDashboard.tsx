@@ -18,17 +18,23 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IPrimeServerUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
 import { PrimeSubscriptionPlans } from '../../components/PrimePurchaseDialog/PrimeSubscriptionPlans';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
+import { usePrimePaymentMethodsWeb } from '../../hooks/usePrimePaymentMethodsWeb';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 
 import { PrimeBenefitsList } from './PrimeBenefitsList';
@@ -38,6 +44,7 @@ import { PrimeTermsAndPrivacy } from './PrimeTermsAndPrivacy';
 import { PrimeUserInfo } from './PrimeUserInfo';
 
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
+import type { RouteProp } from '@react-navigation/core';
 
 function PrimeBanner() {
   const intl = useIntl();
@@ -62,7 +69,11 @@ function PrimeBanner() {
   );
 }
 
-export default function PrimeDashboard() {
+export default function PrimeDashboard({
+  route,
+}: {
+  route: RouteProp<IPrimeParamList, EPrimePages.PrimeDashboard>;
+}) {
   const intl = useIntl();
   // const isReady = false;
   const {
@@ -79,6 +90,9 @@ export default function PrimeDashboard() {
 
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
     useState<ISubscriptionPeriod>('P1Y');
+  const [serverUserInfo, setServerUserInfo] = useState<
+    IPrimeServerUserInfo | undefined
+  >(undefined);
 
   const { top } = useSafeAreaInsets();
   const { isNative, isWebMobile } = platformEnv;
@@ -87,8 +101,6 @@ export default function PrimeDashboard() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { ensureOneKeyIDLoggedIn, ensurePrimeSubscriptionActive } =
     usePrimeRequirements();
-
-  const { purchase } = usePrimePurchaseCallback();
 
   const isFocused = useIsFocused();
   const isFocusedRef = useRef(isFocused);
@@ -105,7 +117,9 @@ export default function PrimeDashboard() {
           // may be blurred when auto navigate to Device Limit Page
           return;
         }
-        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        const result =
+          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        setServerUserInfo(result.serverUserInfo);
       }
     };
     void fn();
@@ -131,35 +145,103 @@ export default function PrimeDashboard() {
     return true;
   }, [isPrimeSubscriptionActive, shouldShowConfirmButton, user?.privyUserId]);
 
-  const { result: packages, isLoading: isPackagesLoading } = usePromiseResult(
-    async () => {
-      if (!shouldShowSubscriptionPlans || !isReady) {
-        return [];
-      }
+  const { getPackagesWeb: getPackagesWeb2 } = usePrimePaymentMethodsWeb();
+  // const getPackagesWeb2 = useCallback(async () => {
+  //   console.log('getPackagesWeb2');
+  //   return [];
+  // }, []);
 
-      if (!user?.privyUserId) {
-        return [];
+  const { result: webPackages } = usePromiseResult(async () => {
+    if (isReady) {
+      console.log('getPackagesWeb2__isReady', isReady);
+      const shouldPolyfillRandomUUIDTemporarily =
+        !globalThis?.crypto?.randomUUID && platformEnv.isNativeAndroid;
+      if (shouldPolyfillRandomUUIDTemporarily) {
+        // getPackagesWeb2() require randomUUID, so polyfill it temporarily
+        globalThis.crypto.randomUUID = () => {
+          return stringUtils.generateUUID() as `${string}-${string}-${string}-${string}-${string}`;
+        };
       }
+      try {
+        if (platformEnv.isNativeAndroid) {
+          const pkgList2 = await getPackagesWeb2?.();
+          console.log('getPackagesWeb2__pkgList22222222', pkgList2);
+          return pkgList2;
+        }
+      } finally {
+        if (shouldPolyfillRandomUUIDTemporarily) {
+          // randomUUID may cause RevenueCat native SDK not ready, so reset it to undefined
+          globalThis.crypto.randomUUID = undefined as any;
+        }
+      }
+    }
+  }, [getPackagesWeb2, isReady]);
 
-      // TODO There was a problem with the store.
-      return errorToastUtils.withErrorAutoToast(async () => {
-        const pkgList = await (platformEnv.isNative
-          ? getPackagesNative?.()
-          : getPackagesWeb?.());
-        return pkgList;
-      });
-    },
-    [
-      getPackagesNative,
-      getPackagesWeb,
-      isReady,
-      shouldShowSubscriptionPlans,
-      user?.privyUserId,
-    ],
-    {
-      watchLoading: true,
-    },
-  );
+  const { result: sdkPackages, isLoading: isPackagesLoading } =
+    usePromiseResult(
+      async () => {
+        if (!shouldShowSubscriptionPlans || !isReady) {
+          return [];
+        }
+
+        if (!user?.privyUserId) {
+          return [];
+        }
+
+        // TODO There was a problem with the store.
+        return errorToastUtils.withErrorAutoToast(async () => {
+          try {
+            const pkgList = await (platformEnv.isNative
+              ? getPackagesNative?.()
+              : getPackagesWeb?.());
+            console.log('pkgList1111111', pkgList);
+            return pkgList;
+          } catch (error) {
+            const e = error as IOneKeyError | undefined;
+
+            console.log(
+              'revenueCatSDK.getPackages() ERROR >>>>>>> ',
+              e,
+              errorUtils.toPlainErrorObject(e),
+            );
+            let shouldThrow = true;
+            if (
+              platformEnv.isNativeAndroid &&
+              e &&
+              e?.code === ('3' as unknown as number) &&
+              e?.message ===
+                'The device or user is not allowed to make the purchase.'
+            ) {
+              // SDK errors:
+              // - There was a problem with the store. (maybe network issue, or not login GooglePlayStore\AppStore)
+              // - The device or user is not allowed to make the purchase.
+              //    (GooglePlay Service not available on this device, so we should not throw error)
+              shouldThrow = false;
+            }
+            if (shouldThrow) {
+              throw error;
+            }
+          }
+        });
+      },
+      [
+        getPackagesNative,
+        getPackagesWeb,
+        isReady,
+        shouldShowSubscriptionPlans,
+        user?.privyUserId,
+      ],
+      {
+        watchLoading: true,
+      },
+    );
+
+  const packages = useMemo(() => {
+    if (sdkPackages?.length) {
+      return sdkPackages;
+    }
+    return webPackages || [];
+  }, [sdkPackages, webPackages]);
 
   const selectedPackage = useMemo(() => {
     return packages?.find(
@@ -170,8 +252,19 @@ export default function PrimeDashboard() {
   const [isSubscribeLazyLoading, setIsSubscribeLazyLoading] = useState(false);
   const isSubscribeLazyLoadingRef = useRef(isSubscribeLazyLoading);
   isSubscribeLazyLoadingRef.current = isSubscribeLazyLoading;
+
+  const subscribeButtonEnabled = useMemo(() => {
+    if (!isLoggedIn) {
+      return true;
+    }
+    if (packages?.length) {
+      return true;
+    }
+    return false;
+  }, [isLoggedIn, packages?.length]);
+
   const subscribe = useCallback(async () => {
-    if (isPackagesLoading) {
+    if (!subscribeButtonEnabled) {
       return;
     }
     if (isSubscribeLazyLoadingRef.current) {
@@ -191,8 +284,8 @@ export default function PrimeDashboard() {
     });
   }, [
     ensurePrimeSubscriptionActive,
-    isPackagesLoading,
     selectedSubscriptionPeriod,
+    subscribeButtonEnabled,
   ]);
 
   const isLoggedInMaybe =
@@ -222,6 +315,7 @@ export default function PrimeDashboard() {
                 showAllFeatures: true,
                 selectedFeature: EPrimeFeatures.OneKeyCloud,
                 selectedSubscriptionPeriod,
+                serverUserInfo,
               });
             }}
             icon="QuestionmarkOutline"
@@ -242,15 +336,7 @@ export default function PrimeDashboard() {
             >
               <PrimeLottieAnimation />
               <PrimeBanner />
-              {isLoggedInMaybe ? (
-                <PrimeUserInfo
-                  doPurchase={async () => {
-                    await purchase({
-                      selectedSubscriptionPeriod,
-                    });
-                  }}
-                />
-              ) : null}
+              {isLoggedInMaybe ? <PrimeUserInfo /> : null}
             </Stack>
 
             {shouldShowSubscriptionPlans ? (
@@ -267,6 +353,8 @@ export default function PrimeDashboard() {
               <>
                 <PrimeBenefitsList
                   selectedSubscriptionPeriod={selectedSubscriptionPeriod}
+                  networkId={route.params?.networkId}
+                  serverUserInfo={serverUserInfo}
                 />
               </>
             ) : (
@@ -334,7 +422,7 @@ export default function PrimeDashboard() {
                     shouldShowConfirmButton
                       ? {
                           loading: isSubscribeLazyLoading,
-                          disabled: isPackagesLoading,
+                          disabled: !subscribeButtonEnabled,
                         }
                       : undefined
                   }

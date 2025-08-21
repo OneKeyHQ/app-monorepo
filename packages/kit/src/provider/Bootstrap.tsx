@@ -26,6 +26,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import performance from '@onekeyhq/shared/src/performance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
@@ -34,6 +35,7 @@ import {
   EMultiTabBrowserRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
@@ -519,6 +521,35 @@ export const useClearStorageOnExtension = platformEnv.isExtension
     }
   : noop;
 
+export const useRemindDevelopmentBuildExtension =
+  platformEnv.isExtensionDevelopmentBuild
+    ? () => {
+        useEffect(() => {
+          void (async () => {
+            const visited = await backgroundApiProxy.serviceSpotlight.isVisited(
+              ESpotlightTour.showFloatingIconDialog,
+            );
+            if (visited) {
+              return;
+            }
+            Dialog.confirm({
+              title: 'RISK WARNING',
+              dismissOnOverlayPress: false,
+              disableDrag: true,
+              tone: 'warning',
+              description:
+                'This is a development build for testing purposes. While we strive for stability, some features may not work as expected. Please use with caution and consider backing up important data.',
+              onConfirm: async () => {
+                await backgroundApiProxy.serviceSpotlight.firstVisitTour(
+                  ESpotlightTour.showDevelopmentBuildWarningDialog,
+                );
+              },
+            });
+          })();
+        }, []);
+      }
+    : noop;
+
 export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -533,12 +564,24 @@ export function Bootstrap() {
     ) {
       const timer = setTimeout(() => {
         navigation.switchTab(autoNavigation.selectedTab as ETabRoutes);
+        navigation.pushModal(EModalRoutes.PrimeModal, {
+          screen: EPrimePages.PrimeTransfer,
+        });
       }, 1000);
 
       return () => clearTimeout(timer);
     }
     return undefined;
   }, [navigation, autoNavigation?.enabled, autoNavigation?.selectedTab]);
+
+  useEffect(() => {
+    if (devSettings.enabled) {
+      performance.start(true, !!devSettings.settings?.showPerformanceMonitor);
+    }
+    return () => {
+      performance.stop();
+    };
+  }, [devSettings.enabled, devSettings.settings?.showPerformanceMonitor]);
 
   useFetchCurrencyList();
   useAboutVersion();
@@ -547,5 +590,6 @@ export function Bootstrap() {
   useCheckUpdateOnDesktop();
   useIntercomInit();
   useClearStorageOnExtension();
+  useRemindDevelopmentBuildExtension();
   return null;
 }

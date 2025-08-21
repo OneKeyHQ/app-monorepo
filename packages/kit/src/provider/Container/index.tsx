@@ -20,18 +20,18 @@ import { CreateAddressContainer } from './CreateAddressContainer';
 import { DialogLoadingContainer } from './DialogLoadingContainer';
 import { DiskFullWarningDialogContainer } from './DiskFullWarningDialogContainer';
 import { ErrorToastContainer } from './ErrorToastContainer';
-import { FlipperPluginsContainer } from './FlipperPluginsContainer';
 import { ForceFirmwareUpdateContainer } from './ForceFirmwareUpdateContainer';
 import { FullWindowOverlayContainer } from './FullWindowOverlayContainer';
 import { GlobalErrorHandlerContainer } from './GlobalErrorHandlerContainer';
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import InAppNotification from './InAppNotification';
-import { KeyboardContainer } from './KeyboardContainer';
 import { NavigationContainer } from './NavigationContainer';
+import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
+import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
 
 const PageTrackerContainer = LazyLoad(
   () => import('./PageTrackerContainer'),
@@ -97,7 +97,6 @@ export function Container() {
   return (
     <RootSiblingParent>
       <AppStateLockContainer>
-        <KeyboardContainer />
         <NavigationContainer>
           <InAppNotification />
           <GlobalRootAppNavigationUpdate />
@@ -118,13 +117,10 @@ export function Container() {
           <ErrorToastContainer />
           <GlobalErrorHandlerContainer />
           <ForceFirmwareUpdateContainer />
-          {process.env.NODE_ENV !== 'production' ? (
-            <>
-              <FlipperPluginsContainer />
-            </>
-          ) : null}
           <ColdStartByNotification />
           <PrimeGlobalEffect />
+          <WebPerformanceMonitorContainer />
+          <PasswordVerifyPortalContainer />
         </NavigationContainer>
         <GlobalWalletConnectModalContainer />
       </AppStateLockContainer>

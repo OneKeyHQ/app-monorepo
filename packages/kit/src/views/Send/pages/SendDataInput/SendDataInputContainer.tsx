@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { utils } from 'ethers';
-import { isNaN, isNil } from 'lodash';
+import { isEmpty, isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
@@ -33,6 +33,7 @@ import {
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
+import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
@@ -52,7 +53,6 @@ import {
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import type {
   IChainValue,
-  IEthereumValue,
   IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -75,13 +75,8 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import {
-  EDeriveAddressActionType,
-  EInputAddressChangeType,
-} from '@onekeyhq/shared/types/address';
+import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
@@ -194,7 +189,7 @@ function SendDataInputContainer() {
   const [txMessageLinkedString, setTxMessageLinkedString] = useState('');
   const [lnUnit, setLnUnit] = useState<ELightningUnit>(ELightningUnit.SATS);
 
-  const { account, network } = useAccountData({
+  const { account, network, vaultSettings } = useAccountData({
     accountId: currentAccount.accountId,
     networkId: currentAccount.networkId,
   });
@@ -215,24 +210,38 @@ function SendDataInputContainer() {
     return new BigNumber(1).shiftedBy(-tokenInfo.decimals).toFixed();
   }, [tokenInfo]);
 
+  const walletId = useMemo(() => {
+    return accountUtils.getWalletIdFromAccountId({
+      accountId: currentAccount.accountId,
+    });
+  }, [currentAccount.accountId]);
+
+  const [
+    displayMemoForm,
+    displayPaymentIdForm,
+    memoMaxLength,
+    numericOnlyMemo,
+    displayNoteForm,
+    noteMaxLength,
+    displayTxMessageForm,
+  ] = useMemo(() => {
+    return [
+      vaultSettings?.withMemo,
+      vaultSettings?.withPaymentId,
+      vaultSettings?.memoMaxLength,
+      vaultSettings?.numericOnlyMemo,
+      vaultSettings?.withNote,
+      vaultSettings?.noteMaxLength,
+      vaultSettings?.withTxMessage,
+    ];
+  }, [vaultSettings]);
+
   const {
-    result: [
-      tokenDetails,
-      nftDetails,
-      vaultSettings,
-      hasFrozenBalance,
-      displayMemoForm,
-      displayPaymentIdForm,
-      memoMaxLength,
-      numericOnlyMemo,
-      displayNoteForm,
-      noteMaxLength,
-      displayTxMessageForm,
-    ] = [],
+    result: [tokenDetails, nftDetails, hasFrozenBalance] = [],
     isLoading: isLoadingAssets,
   } = usePromiseResult(
     async () => {
-      if (!account || !network) return;
+      if (!account?.id || !network?.id) return;
       if (!token && !nft) {
         throw new OneKeyInternalError('token and nft info are both missing.');
       }
@@ -274,29 +283,13 @@ function SendDataInputContainer() {
         });
       }
 
-      const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
-        networkId: network.id,
-      });
-
       const frozenBalanceSettings =
         await backgroundApiProxy.serviceSend.getFrozenBalanceSetting({
           networkId: network.id,
           tokenDetails: tokenResp?.[0],
         });
 
-      return [
-        tokenResp?.[0],
-        nftResp?.[0],
-        vs,
-        frozenBalanceSettings,
-        vs.withMemo,
-        vs.withPaymentId,
-        vs.memoMaxLength,
-        vs.numericOnlyMemo,
-        vs.withNote,
-        vs.noteMaxLength,
-        vs.withTxMessage,
-      ];
+      return [tokenResp?.[0], nftResp?.[0], frozenBalanceSettings];
     },
     [
       account,
@@ -465,67 +458,52 @@ function SendDataInputContainer() {
         },
         closeAfterSelect: false,
         onSelect: async (data: IToken) => {
-          const tokenVaultSettings =
-            await backgroundApiProxy.serviceNetwork.getVaultSettings({
-              networkId: data.networkId ?? '',
-            });
+          defaultLogger.transaction.send.sendSelect({
+            network: data.networkId ?? networkId,
+            tokenAddress: data.address,
+            tokenSymbol: data.symbol,
+            tokenType: 'Token',
+          });
+          if (data.accountId && data.networkId) {
+            if (data.networkId && data.networkId !== networkId) {
+              setEnsureAddressValid(false);
+            }
 
-          if (
-            tokenVaultSettings.mergeDeriveAssetsEnabled &&
-            isAllNetworks &&
-            !accountUtils.isOthersAccount({
-              accountId: currentAccount.accountId,
-            })
-          ) {
-            const walletId = accountUtils.getWalletIdFromAccountId({
-              accountId: data.accountId ?? '',
-            });
-            navigation.push(EAssetSelectorRoutes.DeriveTypesAddressSelector, {
-              networkId: data.networkId ?? '',
-              indexedAccountId: account?.indexedAccountId ?? '',
-              walletId,
-              accountId: data.accountId ?? '',
-              actionType: EDeriveAddressActionType.Select,
-              token: data,
-              tokenMap: map,
-              onUnmounted: () => {},
-              onSelected: ({ account: a }: { account: INetworkAccount }) => {
-                data.accountId = a.id;
-                defaultLogger.transaction.send.sendSelect({
-                  network: data.networkId ?? networkId,
-                  tokenAddress: data.address,
-                  tokenSymbol: data.symbol,
-                  tokenType: 'Token',
-                });
-                if (data.accountId && data.networkId) {
-                  setCurrentAccount({
-                    accountId: data.accountId,
-                    networkId: data.networkId,
-                  });
-                }
-                setTokenInfo(data);
-                navigation.popStack();
-              },
-            });
-          } else {
-            defaultLogger.transaction.send.sendSelect({
-              network: data.networkId ?? networkId,
-              tokenAddress: data.address,
-              tokenSymbol: data.symbol,
-              tokenType: 'Token',
-            });
-            if (data.accountId && data.networkId) {
-              setCurrentAccount({
-                accountId: data.accountId,
+            let selectedAccountId = data.accountId;
+
+            const currentVaultSettings =
+              await backgroundApiProxy.serviceNetwork.getVaultSettings({
                 networkId: data.networkId,
               });
-              // TODO: need remove
-              form.setValue('accountId', data.accountId);
-              form.setValue('networkId', data.networkId);
+            if (currentVaultSettings?.mergeDeriveAssetsEnabled) {
+              const defaultDeriveType =
+                await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                  {
+                    networkId: data.networkId,
+                  },
+                );
+
+              const { accounts } =
+                await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts(
+                  {
+                    indexedAccountIds: [account?.indexedAccountId ?? ''],
+                    networkId: data.networkId,
+                    deriveType: defaultDeriveType,
+                  },
+                );
+              selectedAccountId = accounts?.[0]?.id ?? data.accountId;
             }
-            setTokenInfo(data);
-            navigation.popStack();
+
+            setCurrentAccount({
+              accountId: selectedAccountId,
+              networkId: data.networkId,
+            });
+
+            form.setValue('accountId', selectedAccountId);
+            form.setValue('networkId', data.networkId);
           }
+          setTokenInfo(data);
+          navigation.popStack();
         },
         isAllNetworks,
       },
@@ -537,7 +515,6 @@ function SendDataInputContainer() {
     activeNetworkId,
     allTokens.keys,
     allTokens.tokens,
-    currentAccount.accountId,
     form,
     isAllNetworks,
     isSelectTokenDisabled,
@@ -702,6 +679,13 @@ function SendDataInputContainer() {
               paymentId: paymentIdValue,
               note: noteValue,
               tokenInfo: tokenDetails?.info,
+              isCustomHexData: !!(
+                isToContract &&
+                settings.isCustomTxMessageEnabled &&
+                displayTxMessageForm &&
+                tokenInfo?.isNative &&
+                !isEmpty(hexData)
+              ),
             },
             isInternalTransfer: true,
           });
@@ -727,6 +711,7 @@ function SendDataInputContainer() {
     [
       account,
       amount,
+      displayTxMessageForm,
       form,
       intl,
       isHexTxMessage,
@@ -744,9 +729,11 @@ function SendDataInputContainer() {
       onCancel,
       onFail,
       onSuccess,
+      settings.isCustomTxMessageEnabled,
       signatureConfirm,
       tokenDetails,
       tokenInfo?.address,
+      tokenInfo?.isNative,
       txMessageLinkedString,
     ],
   );
@@ -927,6 +914,62 @@ function SendDataInputContainer() {
     tokenInfo?.symbol,
   ]);
 
+  const renderAmountInputAddOn = useCallback(() => {
+    if (isLightningNetwork && !isUseFiat) {
+      return (
+        <LightningUnitSwitch
+          value={lnUnit}
+          onChange={(v) => {
+            setLnUnit(v as ELightningUnit);
+            if (!isUseFiat) {
+              form.setValue(
+                'amount',
+                v === ELightningUnit.BTC
+                  ? chainValueUtils.convertSatsToBtc(form.getValues('amount'))
+                  : chainValueUtils.convertBtcToSats(form.getValues('amount')),
+              );
+              if (form.formState.isDirty) {
+                setTimeout(() => {
+                  void form.trigger('amount');
+                }, 100);
+              }
+            }
+          }}
+        />
+      );
+    }
+
+    if (vaultSettings?.mergeDeriveAssetsEnabled) {
+      return (
+        <AddressTypeSelector
+          placement="top-end"
+          walletId={walletId}
+          networkId={currentAccount.networkId}
+          indexedAccountId={account?.indexedAccountId ?? ''}
+          tokenMap={map}
+          onSelect={async ({ account: a }) => {
+            if (a) {
+              setCurrentAccount((prev) => ({
+                ...prev,
+                accountId: a?.id,
+              }));
+            }
+          }}
+        />
+      );
+    }
+  }, [
+    isLightningNetwork,
+    isUseFiat,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    lnUnit,
+    form,
+    walletId,
+    currentAccount.networkId,
+    account?.indexedAccountId,
+    map,
+  ]);
+
   const renderTokenDataInputForm = useCallback(
     () => (
       <>
@@ -974,33 +1017,7 @@ function SendDataInputContainer() {
               }
             },
           }}
-          labelAddon={
-            isLightningNetwork && !isUseFiat ? (
-              <LightningUnitSwitch
-                value={lnUnit}
-                onChange={(v) => {
-                  setLnUnit(v as ELightningUnit);
-                  if (!isUseFiat) {
-                    form.setValue(
-                      'amount',
-                      v === ELightningUnit.BTC
-                        ? chainValueUtils.convertSatsToBtc(
-                            form.getValues('amount'),
-                          )
-                        : chainValueUtils.convertBtcToSats(
-                            form.getValues('amount'),
-                          ),
-                    );
-                    if (form.formState.isDirty) {
-                      setTimeout(() => {
-                        void form.trigger('amount');
-                      }, 100);
-                    }
-                  }
-                }}
-              />
-            ) : null
-          }
+          labelAddon={renderAmountInputAddOn()}
         >
           <AmountInput
             reversible
@@ -1094,6 +1111,7 @@ function SendDataInputContainer() {
       network?.logoURI,
       network?.name,
       nft?.metadata?.image,
+      renderAmountInputAddOn,
       selectedTokenSymbol,
       showPercentToolbar,
       tokenDetails?.info.decimals,
@@ -1467,6 +1485,24 @@ function SendDataInputContainer() {
     [],
   );
 
+  const handleAddressInputExtraDataChange = useCallback(
+    ({
+      memo: memoFromAddressBook,
+      note: noteFromAddressBook,
+    }: {
+      memo?: string;
+      note?: string;
+    }) => {
+      if (memoFromAddressBook) {
+        form.setValue('memo', memoFromAddressBook);
+      }
+      if (noteFromAddressBook) {
+        form.setValue('note', noteFromAddressBook);
+      }
+    },
+    [form],
+  );
+
   const enableAllowListValidation = useMemo(
     () => !networkUtils.isLightningNetworkByNetworkId(networkId),
     [networkId],
@@ -1597,6 +1633,7 @@ function SendDataInputContainer() {
               )}
               accountSelector={addressInputAccountSelectorArgs}
               onInputTypeChange={handleAddressInputChangeType}
+              onExtraDataChange={handleAddressInputExtraDataChange}
               hideNonBackedUpWallet
             />
             {shouldShowRecentRecipients ? (
@@ -1605,8 +1642,18 @@ function SendDataInputContainer() {
                 networkId={currentAccount.networkId}
                 searchKey={toAddressRaw}
                 isSearchMode={!form.formState.isValid}
-                onSelect={({ address: selectedAddress }) => {
+                onSelect={({
+                  address: selectedAddress,
+                  memo: selectedMemo,
+                  note: selectedNote,
+                }) => {
                   setEnsureAddressValid(true);
+                  if (selectedMemo) {
+                    form.setValue('memo', selectedMemo);
+                  }
+                  if (selectedNote) {
+                    form.setValue('note', selectedNote);
+                  }
                   form.setValue('to', {
                     raw: selectedAddress,
                   });

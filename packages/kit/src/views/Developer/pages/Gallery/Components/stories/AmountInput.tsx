@@ -301,13 +301,13 @@ const AmountInputGallery = () => (
                   Network:
                 </SizableText>
                 <XStack>
-                  <Image height="$5" width="$5" borderRadius="$full">
-                    <Image.Source
-                      source={{
-                        uri: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
-                      }}
-                    />
-                  </Image>
+                  <Image
+                    size="$5"
+                    borderRadius="$full"
+                    source={{
+                      uri: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
+                    }}
+                  />
                   <SizableText size="$bodyMd" pl="$2">
                     Ethereum
                   </SizableText>

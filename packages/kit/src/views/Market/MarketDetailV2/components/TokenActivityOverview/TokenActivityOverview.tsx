@@ -38,7 +38,8 @@ const defaultTimeRangeConfigs: Array<{
 export function TokenActivityOverview() {
   const intl = useIntl();
   const [selectedTimeRange, setSelectedTimeRange] = useState('1h');
-  const { tokenDetail } = useTokenDetail();
+  const { tokenDetail, isLoading } = useTokenDetail();
+  const needShowLoading = isLoading && !tokenDetail?.buy1mCount;
 
   const timeRangeOptions = useMemo(() => {
     const availableOptions = [
@@ -76,11 +77,12 @@ export function TokenActivityOverview() {
   const totalTransactions = buys + sells;
 
   return (
-    <Stack gap="$5" p="$4">
+    <Stack gap="$5" px="$5" py="$4">
       <TimeRangeSelector
         options={timeRangeOptions}
         value={selectedTimeRange}
         onChange={(value) => setSelectedTimeRange(value)}
+        isLoading={needShowLoading}
       />
       {tokenDetail ? (
         <>
@@ -91,16 +93,19 @@ export function TokenActivityOverview() {
             buyCount={buys}
             sellCount={sells}
             totalCount={totalTransactions}
+            isLoading={needShowLoading}
           />
           <VolumeRow
             label={intl
               .formatMessage({
                 id: ETranslations.market_volume_percentage,
               })
-              .replace(' %', '')}
+              .replace('%', '')
+              .trim()}
             buyVolume={buyVolume}
             sellVolume={sellVolume}
             totalVolume={totalVolume}
+            isLoading={needShowLoading}
           />
         </>
       ) : null}

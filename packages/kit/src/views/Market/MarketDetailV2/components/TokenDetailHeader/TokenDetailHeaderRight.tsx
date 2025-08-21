@@ -1,18 +1,26 @@
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { clampPercentage } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketStarV2 } from '../../../components/MarketStarV2';
 
+import { ShareButton } from './ShareButton';
+
 interface IStatItemProps {
   label: string;
-  value: string;
+  value: React.ReactNode;
 }
 
 function StatItem({ label, value }: IStatItemProps) {
@@ -40,12 +48,12 @@ export function TokenDetailHeaderRight({
   showStats,
 }: ITokenDetailHeaderRightProps) {
   const intl = useIntl();
-
+  const [settingsPersistAtom] = useSettingsPersistAtom();
   const {
     name = '',
     symbol = '',
-    price: currentPrice = '0',
-    priceChange24hPercent = '0',
+    price: currentPrice = '--',
+    priceChange24hPercent = '--',
     marketCap = '0',
     tvl = '0',
     holders = 0,
@@ -62,8 +70,18 @@ export function TokenDetailHeaderRight({
       />
     ) : null;
 
+  const shareButton =
+    networkId && address ? (
+      <ShareButton networkId={networkId} address={address} />
+    ) : null;
+
   if (!showStats) {
-    return marketStar;
+    return (
+      <XStack gap="$3" ai="center">
+        {marketStar}
+        {shareButton}
+      </XStack>
+    );
   }
 
   return (
@@ -77,30 +95,58 @@ export function TokenDetailHeaderRight({
           tokenSymbol={symbol}
         />
         <PriceChangePercentage size="$bodySm">
-          {priceChange24hPercent}
+          {clampPercentage(priceChange24hPercent)}
         </PriceChangePercentage>
       </YStack>
 
       <StatItem
         label={intl.formatMessage({ id: ETranslations.dexmarket_market_cap })}
-        value={`$${String(
-          numberFormat(marketCap, { formatter: 'marketCap' }),
-        )}`}
+        value={
+          <NumberSizeableText
+            size="$bodySmMedium"
+            color="$text"
+            formatter="marketCap"
+            formatterOptions={{
+              capAtMaxT: true,
+              currency: settingsPersistAtom.currencyInfo.symbol,
+            }}
+          >
+            {marketCap === '0' ? '--' : marketCap}
+          </NumberSizeableText>
+        }
       />
 
       <StatItem
         label={intl.formatMessage({ id: ETranslations.dexmarket_liquidity })}
-        value={`$${String(numberFormat(tvl, { formatter: 'marketCap' }))}`}
+        value={
+          <NumberSizeableText
+            size="$bodySmMedium"
+            color="$text"
+            formatter="marketCap"
+            formatterOptions={{
+              currency: settingsPersistAtom.currencyInfo.symbol,
+            }}
+          >
+            {tvl === '0' ? '--' : tvl}
+          </NumberSizeableText>
+        }
       />
 
       <StatItem
         label={intl.formatMessage({ id: ETranslations.dexmarket_holders })}
-        value={String(
-          numberFormat(String(holders), { formatter: 'marketCap' }),
-        )}
+        value={
+          <NumberSizeableText
+            size="$bodySmMedium"
+            color="$text"
+            formatter="marketCap"
+          >
+            {holders === 0 ? '--' : holders}
+          </NumberSizeableText>
+        }
       />
 
       {marketStar}
+      {shareButton}
     </XStack>
   );
 }

@@ -26,6 +26,7 @@ interface IBaseTradingViewProps {
   interval?: string;
   timeFrom?: number;
   timeTo?: number;
+  decimal?: number;
 }
 
 export type ITradingViewProps = IBaseTradingViewProps & IStackStyle;
@@ -43,6 +44,7 @@ export function TradingViewV1(props: ITradingViewProps & WebViewProps) {
     interval: _interval,
     timeFrom: _timeFrom,
     timeTo: _timeTo,
+    decimal: _decimal,
     ...otherProps
   } = restProps as IBaseTradingViewProps;
   const tradingViewProps = useTradingViewProps({
@@ -54,7 +56,15 @@ export function TradingViewV1(props: ITradingViewProps & WebViewProps) {
   const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
 
   return (
-    <Stack position="relative" style={style as ViewStyle}>
+    <Stack
+      position="relative"
+      paddingBottom={
+        (platformEnv.isNative && !platformEnv.isNativeIOSPad) || isIPadPortrait
+          ? 60
+          : 0
+      }
+      style={style as ViewStyle}
+    >
       <WebView
         tradingViewProps={tradingViewProps}
         style={{ flex: 1 }}

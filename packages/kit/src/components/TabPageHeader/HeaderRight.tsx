@@ -60,6 +60,7 @@ function NotificationsButton() {
         title={intl.formatMessage({
           id: ETranslations.global_notifications,
         })}
+        trackID="header-right-notifications"
         icon="BellOutline"
         onPress={openNotificationsModal}
       />
@@ -145,10 +146,16 @@ export function SearchInput() {
 export function HeaderRight({
   tabRoute,
   customHeaderRightItems,
+  renderCustomHeaderRightItems,
 }: {
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
   customHeaderRightItems?: ReactNode;
+  renderCustomHeaderRightItems?: ({
+    fixedItems,
+  }: {
+    fixedItems: ReactNode;
+  }) => ReactNode;
 }) {
   const isHorizontal = useIsHorizontalLayout();
   const items = useMemo(() => {
@@ -163,6 +170,11 @@ export function HeaderRight({
         {isHorizontal ? <PeopleAction /> : null}
       </>
     );
+
+    if (renderCustomHeaderRightItems) {
+      return renderCustomHeaderRightItems({ fixedItems });
+    }
+
     switch (tabRoute) {
       case ETabRoutes.Home:
         return (
@@ -173,6 +185,8 @@ export function HeaderRight({
           </>
         );
       case ETabRoutes.Swap:
+        return fixedItems;
+      case ETabRoutes.WebviewPerpTrade:
         return fixedItems;
       case ETabRoutes.Market:
         return (
@@ -201,7 +215,12 @@ export function HeaderRight({
       default:
         break;
     }
-  }, [isHorizontal, tabRoute, customHeaderRightItems]);
+  }, [
+    isHorizontal,
+    tabRoute,
+    customHeaderRightItems,
+    renderCustomHeaderRightItems,
+  ]);
   const width = useMemo(() => {
     if (platformEnv.isNative) {
       return undefined;

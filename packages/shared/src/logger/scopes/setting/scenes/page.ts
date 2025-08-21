@@ -157,4 +157,10 @@ export class PageScene extends BaseScene {
   public turnOffCustomRPC({ network }: { network: string }) {
     return { network };
   }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public settingsEnableBluetooth({ enabled }: { enabled: boolean }) {
+    return { enabled };
+  }
 }

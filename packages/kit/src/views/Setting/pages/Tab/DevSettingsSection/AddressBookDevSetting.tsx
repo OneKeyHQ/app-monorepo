@@ -21,6 +21,7 @@ export const AddressBookDevSetting = () => {
   }, []);
   return (
     <SectionPressItem
+      icon="Notebook1Outline"
       title="Hack Address Book"
       testID="temper-address-book"
       onPress={onPress}

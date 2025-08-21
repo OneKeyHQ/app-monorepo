@@ -16,12 +16,12 @@ import {
 
 import { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/src/enum';
 import noop from 'lodash/noop';
-import { InteractionManager } from 'react-native';
 import { Group, getFontSize, useProps, useThemeName } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { useSelectionColor } from '../../hooks';
+import { useClipboard, useSelectionColor } from '../../hooks';
 import { useScrollToLocation } from '../../layouts/ScrollView';
 import { Icon } from '../../primitives';
 
@@ -71,6 +71,7 @@ export type IInputProps = {
   leftAddOnProps?: IInputAddOnProps;
   addOns?: IInputAddOnProps[];
   allowClear?: boolean; // add clear button when controlled value is not empty
+  allowPaste?: boolean; // add paste button
   autoFocusDelayMs?: number;
   /**
    * Auto scroll to top delay in milliseconds.
@@ -112,7 +113,7 @@ const SIZE_MAPPINGS = {
 };
 
 export const useAutoScrollToTop = platformEnv.isNativeAndroid
-  ? (ref: RefObject<TextInput>, waitMs = 250) => {
+  ? (ref: RefObject<TextInput | null>, waitMs = 250) => {
       useEffect(() => {
         setTimeout(() => {
           ref.current?.setSelection(0, 0);
@@ -134,7 +135,7 @@ const useReadOnlyStyle = (readOnly = false) =>
   );
 
 export const useAutoFocus = (
-  inputRef: RefObject<TextInput>,
+  inputRef: RefObject<TextInput | null>,
   autoFocus?: boolean,
   autoFocusDelayMs?: number,
 ) => {
@@ -159,6 +160,20 @@ export const useAutoFocus = (
   }, [autoFocusDelayMs, inputRef, shouldReloadAutoFocus]);
   return shouldReloadAutoFocus ? false : autoFocus;
 };
+
+// Fix for Android input not rendering value correctly on first render in React Native 0.79.x
+// This hook ensures proper value display by controlling the rendering timing
+export const useFixAndroidInputValueDisplay = platformEnv.isNativeAndroid
+  ? (value: string | undefined) => {
+      const [isRendered, setIsRendered] = useState(false);
+      useEffect(() => {
+        setTimeout(() => {
+          setIsRendered(true);
+        }, 0);
+      }, []);
+      return isRendered ? value : '';
+    }
+  : (value: string | undefined) => value;
 
 export const useOnWebPaste = platformEnv.isNative
   ? noop
@@ -223,6 +238,7 @@ function BaseInput(
     leftIconName,
     addOns: addOnsInProps,
     allowClear,
+    allowPaste,
     disabled,
     editable,
     error,
@@ -253,9 +269,14 @@ function BaseInput(
     size,
   });
   const themeName = useThemeName();
-  const inputRef: RefObject<TextInput> | null = useRef(null);
+  const inputRef: RefObject<TextInput | null> | null = useRef(null);
   const reloadAutoFocus = useAutoFocus(inputRef, autoFocus, autoFocusDelayMs);
   const readOnlyStyle = useReadOnlyStyle(readonly);
+  const {
+    //  onPasteClearText, clearText,
+    getClipboard,
+    supportPaste,
+  } = useClipboard();
 
   const [secureEntryState, setSecureEntryState] = useState(true);
 
@@ -277,6 +298,18 @@ function BaseInput(
         },
       });
     }
+    if (allowPaste && supportPaste) {
+      allAddOns.push({
+        iconName: 'ClipboardOutline' as IKeyOfIcons,
+        onPress: async () => {
+          const text = await getClipboard();
+          if (text) {
+            onChangeText?.(text || '');
+            // clearText();
+          }
+        },
+      });
+    }
     if (allowSecureTextEye) {
       allAddOns.push({
         iconName: secureEntryState ? 'EyeOutline' : 'EyeOffOutline',
@@ -290,8 +323,11 @@ function BaseInput(
     addOnsInProps,
     allowClear,
     inputProps?.value,
+    allowPaste,
+    supportPaste,
     allowSecureTextEye,
     onChangeText,
+    getClipboard,
     secureEntryState,
   ]);
 
@@ -330,6 +366,8 @@ function BaseInput(
     valueRef.current = value;
   }
 
+  const shownValue = useFixAndroidInputValueDisplay(value);
+
   const { scrollToView } = useScrollToLocation(inputRef);
   // workaround for selectTextOnFocus={true} not working on Native App
   const handleFocus = useCallback(
@@ -337,7 +375,7 @@ function BaseInput(
       onFocus?.(e);
       if (platformEnv.isNative && selectTextOnFocus) {
         const { currentTarget } = e;
-        await InteractionManager.runAfterInteractions(() => {
+        await timerUtils.setTimeoutPromised(() => {
           currentTarget.setNativeProps({
             selection: { start: 0, end: valueRef.current?.length || 0 },
           });
@@ -375,7 +413,7 @@ function BaseInput(
       {leftAddOnProps ? (
         <Group.Item>
           <InputAddOnItem
-            {...leftAddOnProps}
+            {...(leftAddOnProps as any)}
             size={size}
             error={error}
             loading={leftAddOnProps.loading}
@@ -415,8 +453,8 @@ function BaseInput(
           keyboardAppearance={/dark/.test(themeName) ? 'dark' : 'light'}
           borderCurve="continuous"
           autoFocus={reloadAutoFocus}
-          value={value}
-          onFocus={handleFocus}
+          value={shownValue}
+          onFocus={handleFocus as any}
           selectTextOnFocus={selectTextOnFocus}
           editable={editable}
           secureTextEntry={usedSecureTextEntry}
@@ -452,7 +490,7 @@ function BaseInput(
             orientation="horizontal"
             disabled={disabled}
             disablePassBorderRadius="start"
-            {...addOnsContainerProps}
+            {...(addOnsContainerProps as any)}
           >
             {addOns.map(
               (
@@ -492,7 +530,7 @@ function BaseInput(
                         error={error}
                         onPress={onPress}
                         tooltipProps={tooltipProps}
-                        {...addOnsItemProps}
+                        {...(addOnsItemProps as any)}
                       />
                     )}
                   </Group.Item>
@@ -514,7 +552,7 @@ function BaseInputUnControlled(
   inputProps: IInputProps,
   ref: ForwardedRef<IInputRef>,
 ) {
-  const inputRef: RefObject<IInputRef> = useRef(null);
+  const inputRef: RefObject<IInputRef | null> = useRef(null);
 
   const [internalValue, setInternalValue] = useState(
     inputProps?.defaultValue || '',
@@ -538,6 +576,7 @@ function BaseInputUnControlled(
   return (
     <Input
       ref={inputRef}
+      allowFontScaling={false}
       {...(inputProps as any)}
       value={internalValue}
       onChangeText={handleChange}

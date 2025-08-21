@@ -3,6 +3,7 @@ import { type ComponentProps, useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 import { isUndefined } from 'lodash';
 
+import type { IYStackProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -208,11 +209,11 @@ function BalanceDetailsContent({
   );
 
   const whatIsFrozenBalanceUrl = useHelpLink({
-    path: 'articles/9810415108111',
+    path: 'articles/11461179',
   });
 
   const howToTransferOrdinalsAssetsUrl = useHelpLink({
-    path: 'articles/10072721909903',
+    path: 'articles/11461175',
   });
 
   const renderFrozenBalance = useCallback(() => {
@@ -227,7 +228,7 @@ function BalanceDetailsContent({
       }
     }
     return (
-      <YStack {...detailsBlockStyles}>
+      <YStack {...(detailsBlockStyles as IYStackProps)}>
         <XStack justifyContent="space-between" alignItems="center">
           <XStack>
             <Button
@@ -367,7 +368,7 @@ function BalanceDetailsContent({
         </Dialog.Description>
       </Dialog.Header>
       <YStack gap="$3">
-        <YStack {...detailsBlockStyles}>
+        <YStack {...(detailsBlockStyles as IYStackProps)}>
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyLgMedium" color="$textSubdued">
               {appLocale.intl.formatMessage({

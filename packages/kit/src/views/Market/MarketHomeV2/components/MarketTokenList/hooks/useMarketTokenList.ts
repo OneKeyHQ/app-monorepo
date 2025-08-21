@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import {
@@ -13,23 +14,38 @@ import type { IMarketToken } from '../MarketTokenData';
 
 interface IUseMarketTokenListParams {
   networkId: string;
-  sortBy?: string;
-  sortType?: 'asc' | 'desc';
+  initialSortBy?: string;
+  initialSortType?: 'asc' | 'desc';
   pageSize?: number;
-  minLiquidity?: number;
-  maxLiquidity?: number;
 }
 
 export function useMarketTokenList({
   networkId,
-  sortBy,
-  sortType,
+  initialSortBy,
+  initialSortType,
   pageSize = 20,
-  minLiquidity,
-  maxLiquidity,
 }: IUseMarketTokenListParams) {
-  const [currentPage, setCurrentPage] = useState(1);
+  // Get minLiquidity from market config
+  const { minLiquidity } = useMarketBasicConfig();
   const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
+  const [sortBy, setSortBy] = useState<string | undefined>(
+    initialSortBy || 'v24hUSD',
+  );
+  const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
+    initialSortType || 'desc',
+  );
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isNetworkSwitching, setIsNetworkSwitching] = useState(false);
+  const maxPages = 5;
+
+  // Optimize network logo URI calculation
+  const networkLogoUri = useMemo(
+    () => getNetworkLogoUri(networkId),
+    [networkId],
+  );
 
   const {
     result: apiResult,
@@ -37,39 +53,46 @@ export function useMarketTokenList({
     run: fetchMarketTokenList,
   } = usePromiseResult(
     async () => {
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
+      // For polling updates, request all loaded pages to keep data fresh
+      // For initial load, only request the first page
+      const pageNumbers = Array.from({ length: currentPage }, (_, i) => i + 1);
+
+      const promises = pageNumbers.map((page) =>
+        backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
           networkId,
           sortBy,
           sortType,
-          page: currentPage,
+          page,
           limit: pageSize,
           minLiquidity,
-          maxLiquidity,
-        });
-      return response;
+        }),
+      );
+
+      const responses = await Promise.all(promises);
+
+      // Combine all pages into a single response
+      const combinedList = responses.flatMap((response) => response.list);
+      const totalCount = responses[0]?.total || 0;
+
+      return {
+        list: combinedList,
+        total: totalCount,
+      };
     },
-    [
-      networkId,
-      sortBy,
-      sortType,
-      currentPage,
-      pageSize,
-      minLiquidity,
-      maxLiquidity,
-    ],
+    [networkId, sortBy, sortType, pageSize, minLiquidity, currentPage],
     {
       watchLoading: true,
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 60 }),
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
     },
   );
 
   useEffect(() => {
-    if (!apiResult || !apiResult.list || apiResult.list.length <= 0) {
+    if (!apiResult || !apiResult.list) {
       return;
     }
 
-    const networkLogoUri = getNetworkLogoUri(networkId);
     const transformed = apiResult.list.map((item, idx) =>
       transformApiItemToToken(item, {
         chainId: networkId,
@@ -77,8 +100,26 @@ export function useMarketTokenList({
         index: idx,
       }),
     );
+
+    // Update data only after successful fetch (preserve existing data during loading)
     setTransformedData(transformed);
-  }, [apiResult, networkId]);
+
+    // Reset network switching state when new data arrives
+    setIsNetworkSwitching(false);
+  }, [apiResult, networkId, networkLogoUri]);
+
+  // Reset pagination when networkId, sortBy, or sortType changes
+  useEffect(() => {
+    setCurrentPage(1);
+    setIsLoadingMore(false);
+    // Don't clear data immediately to avoid UI flicker
+    // The data will be replaced when new API result arrives
+  }, [networkId, sortBy, sortType]);
+
+  // Handle network switching - separate effect to track networkId changes specifically
+  useEffect(() => {
+    setIsNetworkSwitching(true);
+  }, [networkId]);
 
   const totalCount = apiResult?.total || 0;
 
@@ -86,13 +127,91 @@ export function useMarketTokenList({
     return totalCount > 0 ? Math.ceil(totalCount / pageSize) : 1;
   }, [totalCount, pageSize]);
 
+  const refresh = useCallback(() => {
+    // Don't clear data immediately - let new data load first
+    void fetchMarketTokenList();
+  }, [fetchMarketTokenList]);
+
+  const loadMore = useCallback(async () => {
+    // Check if we can load more pages
+    if (isLoadingMore || currentPage >= maxPages || isLoading) {
+      return;
+    }
+
+    const nextPage = currentPage + 1;
+    const maxPossiblePages = Math.ceil(totalCount / pageSize);
+
+    // Check if there are more pages available from server
+    if (maxPossiblePages > 0 && nextPage > maxPossiblePages) {
+      return;
+    }
+
+    setIsLoadingMore(true);
+
+    try {
+      // Load the next page
+      const response =
+        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
+          networkId,
+          sortBy,
+          sortType,
+          page: nextPage,
+          limit: pageSize,
+          minLiquidity,
+        });
+
+      if (response?.list?.length > 0) {
+        // Transform new data
+        const newTransformed = response.list.map((item, idx) =>
+          transformApiItemToToken(item, {
+            chainId: networkId,
+            networkLogoUri,
+            index: transformedData.length + idx,
+          }),
+        );
+
+        // Append new data to existing data
+        setTransformedData((prev) => [...prev, ...newTransformed]);
+        setCurrentPage(nextPage);
+      }
+    } catch (error) {
+      console.error('Failed to load more market tokens:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [
+    isLoadingMore,
+    currentPage,
+    maxPages,
+    isLoading,
+    totalCount,
+    pageSize,
+    networkId,
+    sortBy,
+    sortType,
+    minLiquidity,
+    networkLogoUri,
+    transformedData.length,
+  ]);
+
+  const canLoadMore = currentPage < maxPages && !isLoading && !isLoadingMore;
+
   return {
     data: transformedData,
     isLoading,
-    currentPage,
+    isLoadingMore,
+    isNetworkSwitching,
     totalPages,
     totalCount,
-    setCurrentPage,
+    currentPage,
+    maxPages,
+    canLoadMore,
+    loadMore,
+    refresh,
     refetch: fetchMarketTokenList,
-  };
+    sortBy,
+    sortType,
+    setSortBy,
+    setSortType,
+  } as const;
 }

@@ -32,10 +32,13 @@ import { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWat
 import { SimpleDbEntityMarketWatchListV2 } from '../entity/SimpleDbEntityMarketWatchListV2';
 import { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
+import { SimpleDbEntityPerp } from '../entity/SimpleDbEntityPerp';
 import { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
+import { SimpleDbEntityPrimeTransfer } from '../entity/SimpleDbEntityPrimeTransfer';
 import { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
 import { SimpleDbEntityRecentRecipients } from '../entity/SimpleDbEntityRecentRecipients';
 import { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
+import { SimpleDbEntityRiskTokenManagement } from '../entity/SimpleDbEntityRiskTokenManagement';
 import { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
 import { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
@@ -43,9 +46,12 @@ import { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 import { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 import { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
+import { SimpleDbEntityWalletBanner } from '../entity/SimpleDbEntityWalletBanner';
 
 export class SimpleDb {
   prime = new SimpleDbEntityPrime();
+
+  primeTransfer = new SimpleDbEntityPrimeTransfer();
 
   referralCode = new SimpleDbEntityReferralCode();
 
@@ -134,4 +140,10 @@ export class SimpleDb {
   addressInfo = new SimpleDbEntityAddressInfo();
 
   recentRecipients = new SimpleDbEntityRecentRecipients();
+
+  riskTokenManagement = new SimpleDbEntityRiskTokenManagement();
+
+  walletBanner = new SimpleDbEntityWalletBanner();
+
+  perp = new SimpleDbEntityPerp();
 }

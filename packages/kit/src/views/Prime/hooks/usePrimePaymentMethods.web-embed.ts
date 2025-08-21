@@ -8,6 +8,9 @@ import { BigNumber } from 'bignumber.js';
 import { useSearchParams } from 'react-router-dom';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
+
+import purchaseSdkUtils from '../purchasesSdk/purchaseSdkUtils';
 
 import primePaymentUtils from './primePaymentUtils';
 
@@ -19,6 +22,7 @@ import type {
 import type { CustomerInfo, PurchaseParams } from '@revenuecat/purchases-js';
 
 if (process.env.NODE_ENV !== 'production') {
+  console.log('Purchases.setLogLevel Verbose');
   Purchases.setLogLevel(LogLevel.Verbose);
 }
 
@@ -64,7 +68,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     // TODO how to configure another userId when user login with another account
     // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
 
+    console.log('Purchases.configure', apiKey, primeUserId);
     Purchases.configure(apiKey, primeUserId);
+    console.log('Purchases.configure done');
   }, [isReady, params.apiKey, params.primeUserId]);
 
   const getCustomerInfo = useCallback(async () => {
@@ -103,40 +109,33 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       offerings?.current?.availablePackages?.map((p) => {
         const { normalPeriodDuration, currentPrice } = p.rcBillingProduct;
 
-        let unit = '';
-        unit = primePaymentUtils.extractCurrencySymbol(
+        let currency = '';
+        currency = primePaymentUtils.extractCurrencySymbol(
           currentPrice.formattedPrice,
           {
             useShortUSSymbol: true,
           },
         );
 
-        const pricePerYear = new BigNumber(currentPrice.amountMicros)
-          .div(1_000_000)
-          .toFixed(2);
-
-        const pricePerMonth =
+        const pricePerMonthBN =
           normalPeriodDuration === 'P1M'
-            ? new BigNumber(currentPrice.amountMicros).div(1_000_000).toFixed(2)
-            : new BigNumber(currentPrice.amountMicros)
-                .div(12)
-                .div(1_000_000)
-                .toFixed(2);
+            ? new BigNumber(currentPrice.amountMicros).div(1_000_000)
+            : new BigNumber(currentPrice.amountMicros).div(12).div(1_000_000);
+
+        const pricePerMonth = pricePerMonthBN.toFixed(2);
+        const pricePerYear = pricePerMonthBN.times(12).toFixed(2);
 
         return {
           subscriptionPeriod: normalPeriodDuration as ISubscriptionPeriod,
           pricePerYear: Number(pricePerYear),
-          pricePerYearString: `${unit}${pricePerYear}`,
+          pricePerYearString: `${currency}${pricePerYear}`,
           pricePerMonth: Number(pricePerMonth),
-          pricePerMonthString: `${unit}${pricePerMonth}`,
-          priceTotalPerYearString:
-            normalPeriodDuration === 'P1M'
-              ? `${unit}${new BigNumber(pricePerMonth).times(12).toFixed(2)}`
-              : `${unit}${pricePerYear}`,
+          pricePerMonthString: `${currency}${pricePerMonth}`,
+          priceTotalPerYearString: `${currency}${pricePerYear}`,
         };
       }) || [];
 
-    console.log('userPrimePaymentMethods >>>>>> packages', {
+    console.log('userPrimePaymentMethods >>>>>> webEmbedPackages', {
       packages,
       offerings,
     });
@@ -154,7 +153,16 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       email: string;
       locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
     }) => {
+      console.log('purchasePackageWeb77632723>>>>>>', {
+        subscriptionPeriod,
+        email,
+        locale,
+      });
+
       await initSdk();
+
+      console.log('purchasePackageWeb77632723>>>>>> initSdk done');
+
       try {
         if (!isReady) {
           throw new OneKeyLocalError('PrimeAuth Not ready');
@@ -167,8 +175,15 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         //   }),
         // });
 
+        console.log(
+          'purchasePackageWeb77632723>>>>>> getOfferings',
+          typeof Purchases.getSharedInstance().getOfferings,
+        );
         const offerings = await Purchases.getSharedInstance().getOfferings({
           currency: 'USD',
+        });
+        console.log('purchasePackageWeb77632723>>>>>> offerings', {
+          offerings,
         });
 
         if (!offerings.current) {
@@ -187,10 +202,16 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           );
         }
 
+        console.log('purchasePackageWeb77632723>>>>>> paywallPackage', {
+          paywallPackage,
+        });
+
         const purchaseParams: PurchaseParams = {
           rcPackage: paywallPackage,
           customerEmail: email,
-          selectedLocale: locale,
+          selectedLocale: purchaseSdkUtils.convertToRevenuecatLocale({
+            locale: locale as ILocaleJSONSymbol,
+          }),
         };
         // TODO check package user is Matched to id
         // TODO check if user has already purchased

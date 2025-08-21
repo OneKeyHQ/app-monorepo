@@ -2,12 +2,14 @@ import { useMemo } from 'react';
 
 import { isNil } from 'lodash';
 
-import { Stack, XStack, YStack } from '@onekeyhq/components';
-import { DeriveTypeSelectorTriggerForDapp } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
+import type { IYStackProps } from '@onekeyhq/components';
+import { IconButton, Stack, XStack, YStack } from '@onekeyhq/components';
+import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import {
+  useAccountSelectorActions,
   useAccountSelectorContextDataAtom,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -38,6 +40,7 @@ export function WalletDetailsHeader({
 }: IWalletDetailsHeaderProps) {
   const [accountSelectorContextData] = useAccountSelectorContextDataAtom();
   const { selectedAccount } = useSelectedAccount({ num: num ?? 0 });
+  const actions = useAccountSelectorActions();
 
   const showAboutDevice =
     accountUtils.isHwWallet({ walletId: wallet?.id }) &&
@@ -57,7 +60,11 @@ export function WalletDetailsHeader({
   );
 
   return (
-    <YStack testID="account-selector-header" py="$1" {...rest}>
+    <YStack
+      testID="account-selector-header"
+      py="$1"
+      {...(rest as IYStackProps)}
+    >
       <ListItem gap="$1.5">
         <XStack gap="$1.5" alignItems="center" flex={1}>
           <Stack
@@ -108,11 +115,30 @@ export function WalletDetailsHeader({
           EAccountSelectorSceneName.discover,
           EAccountSelectorSceneName.addressInput,
         ].includes(accountSelectorContextData?.sceneName as any) ? (
-          <DeriveTypeSelectorTriggerForDapp
-            num={num}
-            focusedWalletId={
-              !isNil(num) ? selectedAccount.focusedWallet : undefined
+          <AddressTypeSelector
+            placement="bottom-end"
+            walletId={wallet?.id ?? ''}
+            networkId={linkedNetworkId}
+            indexedAccountId={
+              selectedAccount.indexedAccountId ??
+              accountUtils.buildIndexedAccountId({
+                walletId: wallet?.id ?? '',
+                index: 0,
+              })
             }
+            renderSelectorTrigger={
+              <IconButton
+                onPress={() => {}}
+                icon="BranchesOutline"
+                variant="tertiary"
+              />
+            }
+            onSelect={async ({ deriveType }) => {
+              await actions.current.updateSelectedAccountDeriveType({
+                num,
+                deriveType,
+              });
+            }}
           />
         ) : null}
       </ListItem>

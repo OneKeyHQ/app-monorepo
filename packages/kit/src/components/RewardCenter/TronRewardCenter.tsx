@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { md5 } from 'js-md5';
@@ -34,9 +34,17 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 function RewardCenterContent({
   accountId,
   networkId,
+  onDialogClose,
 }: {
   accountId: string;
   networkId: string;
+  onDialogClose?: ({
+    isResourceClaimed,
+    isResourceRedeemed,
+  }: {
+    isResourceClaimed: boolean;
+    isResourceRedeemed: boolean;
+  }) => void;
 }) {
   const intl = useIntl();
 
@@ -52,6 +60,9 @@ function RewardCenterContent({
     accountId,
     networkId,
   });
+
+  const [isResourceClaimed, setIsResourceClaimed] = useState(false);
+  const [isResourceRedeemed, setIsResourceRedeemed] = useState(false);
 
   const [isClaiming, setIsClaiming] = useState(false);
   const [isRedeeming, setIsRedeeming] = useState(false);
@@ -169,6 +180,7 @@ function RewardCenterContent({
 
       setIsClaimed(true);
       setRemaining((v) => new BigNumber(v).minus(1).toNumber());
+      setIsResourceClaimed(true);
 
       Toast.success({
         title: intl.formatMessage({
@@ -230,11 +242,17 @@ function RewardCenterContent({
       });
 
       setIsRedeeming(false);
+      setIsResourceRedeemed(true);
       return resp;
     } catch (error) {
       setIsRedeeming(false);
     }
   }, [account, claimSource, form, intl, network, networkId]);
+
+  useEffect(
+    () => () => void onDialogClose?.({ isResourceClaimed, isResourceRedeemed }),
+    [onDialogClose, isResourceClaimed, isResourceRedeemed],
+  );
 
   return (
     <Form form={form}>
@@ -285,9 +303,9 @@ function RewardCenterContent({
               id: ETranslations.wallet_redeem_label,
             })}
           </SizableText>
-          <Form.Field name="code" rules={{ required: true }}>
-            <XStack alignItems="center" justifyContent="space-between" gap="$9">
-              <Stack flex={1}>
+          <XStack alignItems="center" justifyContent="space-between" gap="$9">
+            <Stack flex={1}>
+              <Form.Field name="code" rules={{ required: true }}>
                 <Input
                   w="100%"
                   backgroundColor="$bgStrong"
@@ -295,23 +313,24 @@ function RewardCenterContent({
                     id: ETranslations.wallet_enter_redemption_code,
                   })}
                 />
-              </Stack>
-              <Button
-                size="medium"
-                variant="primary"
-                onPress={handleRedeemCode}
-                disabled={
-                  form.formState.isSubmitting ||
-                  !form.formState.isValid ||
-                  isRedeeming
-                }
-              >
-                {intl.formatMessage({
-                  id: ETranslations.global_ok,
-                })}
-              </Button>
-            </XStack>
-          </Form.Field>
+              </Form.Field>
+            </Stack>
+            <Button
+              size="medium"
+              variant="primary"
+              onPress={handleRedeemCode}
+              loading={isRedeeming}
+              disabled={
+                form.formState.isSubmitting ||
+                !form.formState.isValid ||
+                isRedeeming
+              }
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_ok,
+              })}
+            </Button>
+          </XStack>
         </YStack>
       </YStack>
     </Form>
@@ -321,10 +340,18 @@ function RewardCenterContent({
 export const showTronRewardCenter = ({
   accountId,
   networkId,
+  onDialogClose,
   ...dialogProps
 }: IDialogShowProps & {
   accountId: string;
   networkId: string;
+  onDialogClose?: ({
+    isResourceClaimed,
+    isResourceRedeemed,
+  }: {
+    isResourceClaimed: boolean;
+    isResourceRedeemed: boolean;
+  }) => void;
 }) =>
   Dialog.show({
     title: appLocale.intl.formatMessage({
@@ -340,7 +367,11 @@ export const showTronRewardCenter = ({
     ),
     icon: 'GiftSolid',
     renderContent: (
-      <RewardCenterContent accountId={accountId} networkId={networkId} />
+      <RewardCenterContent
+        accountId={accountId}
+        networkId={networkId}
+        onDialogClose={onDialogClose}
+      />
     ),
     showCancelButton: false,
     showConfirmButton: false,

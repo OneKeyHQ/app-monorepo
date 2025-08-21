@@ -95,7 +95,7 @@ function HeaderLeftToolBarInput({
     setIsPopoverOpen,
   } = useSearchPopover({
     refreshLocalData,
-    scrollViewRef,
+    scrollViewRef: scrollViewRef as any,
     totalItems,
     searchValue,
     displaySearchList,
@@ -207,7 +207,7 @@ function HeaderLeftToolBarInput({
       <Stack ml={24}>
         <Popover
           placement="bottom-start"
-          title="dApp info"
+          title={intl.formatMessage({ id: ETranslations.global_info })}
           open={dappInfoIsOpen}
           onOpenChange={setDappInfoIsOpen}
           renderTrigger={<Stack />}
@@ -239,7 +239,7 @@ function HeaderLeftToolBarInput({
               displayHistoryList={displayHistoryList}
               SEARCH_ITEM_ID={SEARCH_ITEM_ID}
               selectedIndex={selectedIndex}
-              innerRef={searchResultRef}
+              innerRef={searchResultRef as any}
               onItemClick={() => {
                 setIsPopoverOpen(false);
               }}

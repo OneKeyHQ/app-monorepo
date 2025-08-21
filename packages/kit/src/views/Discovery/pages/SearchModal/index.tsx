@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -42,73 +42,91 @@ function SearchModal() {
     SEARCH_ITEM_ID,
   } = useSearchModalData(searchValue);
 
-  useFocusEffect(() => {
-    setTimeout(() => {
-      void refreshLocalData();
-    }, 300);
-  });
+  useFocusEffect(
+    useCallback(() => {
+      setTimeout(() => {
+        void refreshLocalData();
+      }, 300);
+    }, [refreshLocalData]),
+  );
 
-  return (
-    <Page safeAreaEnabled>
-      <Page.Header
-        headerTitle={intl.formatMessage({
-          id: ETranslations.explore_search_placeholder,
-        })}
-      />
-      <Page.Body>
-        <Stack mx="$4">
-          <SearchBar
-            autoFocus
-            zIndex={20}
-            selectTextOnFocus
-            value={searchValue}
-            onSearchTextChange={setSearchValue}
-            placeholder={intl.formatMessage({
-              id: ETranslations.browser_search_dapp_or_enter_url,
-            })}
-            onSubmitEditing={() => {
-              if (!searchValue) {
+  return useMemo(
+    () => (
+      <Page safeAreaEnabled>
+        <Page.Header
+          headerTitle={intl.formatMessage({
+            id: ETranslations.explore_search_placeholder,
+          })}
+        />
+        <Page.Body>
+          <Stack mx="$4">
+            <SearchBar
+              autoFocus
+              zIndex={20}
+              selectTextOnFocus
+              value={searchValue}
+              onSearchTextChange={setSearchValue}
+              placeholder={intl.formatMessage({
+                id: ETranslations.browser_search_dapp_or_enter_url,
+              })}
+              onSubmitEditing={() => {
+                if (!searchValue) {
+                  navigation.pop();
+                } else {
+                  handleWebSite({
+                    webSite: {
+                      url: searchValue,
+                      title: searchValue,
+                      logo: undefined,
+                      sortIndex: undefined,
+                    },
+                    useCurrentWindow,
+                    tabId,
+                    enterMethod: EEnterMethod.addressBar,
+                  });
+                }
+              }}
+            />
+          </Stack>
+          <ScrollView
+            pt="$2"
+            pb="$5"
+            keyboardDismissMode="none"
+            keyboardShouldPersistTaps="handled"
+            onScrollBeginDrag={Keyboard.dismiss}
+          >
+            <SearchResultContent
+              searchValue={searchValue}
+              localData={localData}
+              searchList={searchList}
+              displaySearchList={displaySearchList}
+              displayBookmarkList={displayBookmarkList}
+              displayHistoryList={displayHistoryList}
+              SEARCH_ITEM_ID={SEARCH_ITEM_ID}
+              useCurrentWindow={useCurrentWindow}
+              tabId={tabId}
+              onItemClick={() => {
                 navigation.pop();
-              } else {
-                handleWebSite({
-                  webSite: {
-                    url: searchValue,
-                    title: searchValue,
-                    logo: undefined,
-                    sortIndex: undefined,
-                  },
-                  useCurrentWindow,
-                  tabId,
-                  enterMethod: EEnterMethod.addressBar,
-                });
-              }
-            }}
-          />
-        </Stack>
-        <ScrollView
-          pt="$2"
-          pb="$5"
-          keyboardDismissMode="none"
-          keyboardShouldPersistTaps="handled"
-          onScrollBeginDrag={Keyboard.dismiss}
-        >
-          <SearchResultContent
-            searchValue={searchValue}
-            localData={localData}
-            searchList={searchList}
-            displaySearchList={displaySearchList}
-            displayBookmarkList={displayBookmarkList}
-            displayHistoryList={displayHistoryList}
-            SEARCH_ITEM_ID={SEARCH_ITEM_ID}
-            useCurrentWindow={useCurrentWindow}
-            tabId={tabId}
-            onItemClick={() => {
-              navigation.pop();
-            }}
-          />
-        </ScrollView>
-      </Page.Body>
-    </Page>
+              }}
+            />
+          </ScrollView>
+        </Page.Body>
+      </Page>
+    ),
+    [
+      SEARCH_ITEM_ID,
+      displayBookmarkList,
+      displayHistoryList,
+      displaySearchList,
+      handleWebSite,
+      intl,
+      localData,
+      navigation,
+      searchList,
+      searchValue,
+      tabId,
+      useCurrentWindow,
+    ],
   );
 }
 

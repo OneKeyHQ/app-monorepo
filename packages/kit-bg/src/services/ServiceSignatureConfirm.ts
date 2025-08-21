@@ -2,6 +2,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
@@ -191,6 +192,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
     if (parsedTx) {
       decodedTx.isConfirmationRequired = parsedTx.isConfirmationRequired;
+      decodedTx.txParseType = parsedTx.type;
     }
 
     if (parsedTx && parsedTx.parsedTx?.data) {
@@ -219,6 +221,10 @@ class ServiceSignatureConfirm extends ServiceBase {
         alerts: [],
       };
       decodedTx.isLocalParsed = true;
+    }
+
+    if (transferPayload?.isCustomHexData) {
+      decodedTx.isCustomHexData = true;
     }
 
     return decodedTx;
@@ -331,6 +337,7 @@ class ServiceSignatureConfirm extends ServiceBase {
     }
   }
 
+  @toastIfError()
   @backgroundMethod()
   async preActionsBeforeSending(params: {
     accountId: string;
@@ -344,7 +351,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       networkId,
       accountId,
     });
-    await vault.preActionsBeforeSending({
+    return vault.preActionsBeforeSending({
       unsignedTxs,
       tronResourceRentalInfo,
     });

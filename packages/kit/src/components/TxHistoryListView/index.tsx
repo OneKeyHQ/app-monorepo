@@ -2,17 +2,16 @@ import type { ComponentProps, ReactElement } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
 import type { IListViewProps } from '@onekeyhq/components';
 import {
   SectionList,
   SizableText,
   Stack,
+  Tabs,
   XStack,
-  renderNestedScrollView,
 } from '@onekeyhq/components';
-import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
+import { useStyle } from '@onekeyhq/components/src/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -26,10 +25,10 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
-import { useTabListScroll } from '../../hooks/useTabListScroll';
 import { useSearchKeyAtom } from '../../states/jotai/contexts/historyList';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { withBrowserProvider } from '../../views/Discovery/pages/Browser/WithBrowserProvider';
+import { PullToRefresh } from '../../views/Home/components/PullToRefresh';
 import { EmptySearch } from '../Empty';
 import { EmptyHistory } from '../Empty/EmptyHistory';
 import { HistoryLoadingView } from '../Loading';
@@ -48,6 +47,7 @@ type IProps = {
   inTabList?: boolean;
   contentContainerStyle?: IListViewProps<IAccountHistoryTx>['contentContainerStyle'];
   hideValue?: boolean;
+  onRefresh?: () => void;
   listViewStyleProps?: Pick<
     ComponentProps<typeof SectionList>,
     | 'ListHeaderComponentStyle'
@@ -107,6 +107,7 @@ function BaseTxHistoryListView(props: IProps) {
     inTabList = false,
     hideValue,
     listViewStyleProps,
+    onRefresh,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
@@ -119,9 +120,6 @@ function BaseTxHistoryListView(props: IProps) {
       }),
     [data, searchKey],
   );
-
-  const { bottom, top } = useSafeAreaInsets();
-  const { height: screenHeight } = useWindowDimensions();
 
   const sections = useMemo(
     () =>
@@ -163,43 +161,66 @@ function BaseTxHistoryListView(props: IProps) {
     [],
   );
 
-  const { listViewProps, listViewRef, onLayout } =
-    useTabListScroll<IAccountHistoryTx>({
-      inTabList,
-    });
+  const resolvedContentContainerStyle = useStyle(
+    contentContainerStyle || listViewStyleProps?.contentContainerStyle || {},
+    {
+      resolveValues: 'auto',
+    },
+  );
 
-  if (!initialized && isLoading) {
-    return (
-      <Stack {...contentContainerStyle}>
-        {ListHeaderComponent}
-        <HistoryLoadingView tableLayout={tableLayout} />
-      </Stack>
-    );
-  }
+  const { ListHeaderComponentStyle, ListFooterComponentStyle } =
+    listViewStyleProps || {};
+  const resolvedListHeaderComponentStyle = useStyle(
+    ListHeaderComponentStyle || {},
+    {
+      resolveValues: 'auto',
+    },
+  );
+  const resolvedListFooterComponentStyle = useStyle(
+    ListFooterComponentStyle || {},
+    {
+      resolveValues: 'auto',
+    },
+  );
+
+  const ListComponent = useMemo(() => {
+    return inTabList ? Tabs.SectionList : SectionList;
+  }, [inTabList]);
+
+  const itemCounts = useMemo(() => {
+    return sections.reduce((acc, section) => acc + section.data.length, 0);
+  }, [sections]);
+
+  const EmptyComponentElement = useMemo(() => {
+    if (!initialized && isLoading) {
+      return <HistoryLoadingView tableLayout={tableLayout} />;
+    }
+    if (searchKey && data.length > 0) {
+      return <EmptySearch />;
+    }
+    return <EmptyHistory />;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchKey, data.length]);
 
   return (
-    <SectionList
-      {...(listViewProps as any)}
-      renderScrollComponent={renderNestedScrollView}
-      ref={listViewRef}
-      contentContainerStyle={{
-        ...contentContainerStyle,
-      }}
-      h={platformEnv.isNative ? screenHeight - top - bottom - 90 : '100%'}
-      onLayout={onLayout}
-      sections={sections}
-      ListEmptyComponent={
-        searchKey && data.length > 0 ? EmptySearch : EmptyHistory
+    <ListComponent
+      refreshControl={
+        onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }
+      // @ts-ignore
       estimatedItemSize={platformEnv.isNative ? 60 : 56}
+      contentContainerStyle={resolvedContentContainerStyle as any}
+      stickySectionHeadersEnabled={false}
+      sections={sections}
+      extraData={itemCounts}
+      ListEmptyComponent={EmptyComponentElement}
+      ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
+      ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       renderItem={renderItem}
-      renderSectionHeader={renderSectionHeader}
+      renderSectionHeader={renderSectionHeader as any}
       ListFooterComponent={ListFooterComponent}
       ListHeaderComponent={ListHeaderComponent}
-      keyExtractor={(tx, index) =>
-        (tx as IAccountHistoryTx).id || index.toString(10)
-      }
-      {...listViewStyleProps}
+      keyExtractor={(tx, index) => tx.id || index.toString(10)}
     />
   );
 }

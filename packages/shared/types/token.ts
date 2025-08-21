@@ -1,4 +1,5 @@
 import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
+import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 
 export enum ETokenListSortType {
@@ -65,6 +66,8 @@ export type IFetchAccountTokensParams = {
   hideRiskTokens?: boolean;
   contractList?: string[];
   hiddenTokens?: string[];
+  unblockedTokens?: string[];
+  blockedTokens?: string[];
   flag?: string;
   isAllNetworks?: boolean;
   isManualRefresh?: boolean;
@@ -73,6 +76,8 @@ export type IFetchAccountTokensParams = {
   allNetworksNetworkId?: string;
   saveToLocal?: boolean;
   customTokensRawData?: ICustomTokenDBStruct;
+  blockedTokensRawData?: IRiskTokenManagementDBStruct['blockedTokens'];
+  unblockedTokensRawData?: IRiskTokenManagementDBStruct['unblockedTokens'];
 };
 
 export type ITokenData = {

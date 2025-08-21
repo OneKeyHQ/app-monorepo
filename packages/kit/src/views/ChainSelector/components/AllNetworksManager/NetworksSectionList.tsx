@@ -88,7 +88,7 @@ function NetworksSectionList() {
       <Stack flex={1}>
         {sections.length > 0 ? (
           <SectionList
-            ref={listRef}
+            ref={listRef as any}
             contentContainerStyle={
               platformEnv.isNative
                 ? undefined
@@ -100,7 +100,7 @@ function NetworksSectionList() {
             sections={sections}
             keyExtractor={(item) => (item as IServerNetworkMatch).id}
             renderSectionHeader={renderSectionHeader}
-            ListHeaderComponent={NetworkListHeader}
+            ListHeaderComponent={<NetworkListHeader />}
             renderItem={({ item }: { item: IServerNetworkMatch }) => (
               <NetworkListItem network={item} />
             )}

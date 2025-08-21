@@ -60,7 +60,7 @@ export function Layout({
   elements = [],
   scrollEnabled = true,
   contentInsetAdjustmentBehavior = 'never',
-  skipLoading = false,
+  lazyLoad = false,
   wideScreen: initialWideScreen = false,
   children,
   filePath,
@@ -76,7 +76,7 @@ export function Layout({
     | 'automatic'
     | 'scrollableAxes'
     | undefined;
-  skipLoading?: boolean;
+  lazyLoad?: boolean;
   wideScreen?: boolean;
   filePath?: string;
   elements?: {
@@ -97,7 +97,7 @@ export function Layout({
   };
 
   return (
-    <Page skipLoading={skipLoading}>
+    <Page lazyLoad={lazyLoad}>
       <ScrollView
         maxWidth="100%"
         scrollEnabled={scrollEnabled}

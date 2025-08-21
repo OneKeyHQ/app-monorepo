@@ -8,8 +8,11 @@ import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
  */
 const PassCodeProtectionSwitch = ({
   onChange,
+  onTransition = () => {},
   ...switchProps
-}: ISwitchProps) => {
+}: ISwitchProps & {
+  onTransition?: (fn: () => Promise<void>) => void;
+}) => {
   const [{ enablePasswordErrorProtection }, setPasswordPersist] =
     usePasswordPersistAtom();
 
@@ -17,11 +20,13 @@ const PassCodeProtectionSwitch = ({
     <Switch
       value={enablePasswordErrorProtection}
       onChange={(value: boolean) => {
-        setPasswordPersist((v) => ({
-          ...v,
-          enablePasswordErrorProtection: value,
-        }));
-        onChange?.(value);
+        onTransition?.(async () => {
+          setPasswordPersist((v) => ({
+            ...v,
+            enablePasswordErrorProtection: value,
+          }));
+          onChange?.(value);
+        });
       }}
       {...switchProps}
     />

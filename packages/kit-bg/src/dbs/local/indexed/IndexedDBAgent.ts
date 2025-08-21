@@ -34,6 +34,8 @@ import type {
   ILocalDBGetAllRecordsResult,
   ILocalDBGetRecordByIdParams,
   ILocalDBGetRecordByIdResult,
+  ILocalDBGetRecordIdsParams,
+  ILocalDBGetRecordIdsResult,
   ILocalDBGetRecordsByIdsParams,
   ILocalDBGetRecordsByIdsResult,
   ILocalDBGetRecordsCountParams,
@@ -49,6 +51,8 @@ import type {
   ILocalDBTxGetAllRecordsResult,
   ILocalDBTxGetRecordByIdParams,
   ILocalDBTxGetRecordByIdResult,
+  ILocalDBTxGetRecordIdsParams,
+  ILocalDBTxGetRecordIdsResult,
   ILocalDBTxGetRecordsByIdsParams,
   ILocalDBTxGetRecordsByIdsResult,
   ILocalDBTxGetRecordsCountParams,
@@ -163,6 +167,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       let signMessageStore: any;
       let signedTransactionStore: any;
       let connectedSiteStore: any;
+      let hardwareHomeScreenStore: any;
 
       switch (bucketName) {
         // case EIndexedDBBucketNames.cloudSync: {
@@ -267,6 +272,13 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
             mode,
             indexed,
           );
+
+          hardwareHomeScreenStore = this._getOrCreateObjectStore(
+            dbTx,
+            ELocalDBStoreNames.HardwareHomeScreen,
+            mode,
+            indexed,
+          );
           break;
         }
 
@@ -294,6 +306,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
           [ELocalDBStoreNames.SignedTransaction]: signedTransactionStore,
           [ELocalDBStoreNames.ConnectedSite]: connectedSiteStore,
           [ELocalDBStoreNames.CloudSyncItem]: cloudSyncItemStore,
+          [ELocalDBStoreNames.HardwareHomeScreen]: hardwareHomeScreenStore,
         },
       };
 
@@ -457,6 +470,22 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
           tx,
         });
         return record;
+      },
+      {
+        readOnly: true,
+      },
+    );
+  }
+
+  async getRecordIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBGetRecordIdsParams<T>,
+  ): Promise<ILocalDBGetRecordIdsResult> {
+    const bucketName = indexedUtils.getBucketNameByStoreName(params.name);
+    return this.withTransaction(
+      bucketName,
+      async (tx) => {
+        const ids = await this.txGetRecordIds({ ...params, tx });
+        return ids;
       },
       {
         readOnly: true,
@@ -643,6 +672,18 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       }
     }
     return result;
+  }
+
+  async txGetRecordIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBTxGetRecordIdsParams<T>,
+  ): Promise<ILocalDBTxGetRecordIdsResult> {
+    const { tx: paramsTx, name } = params;
+    const fn = async (tx: ILocalDBTransaction) => {
+      const store = this._getObjectStoreFromTx(tx, name);
+      const ids = await store.getAllKeys();
+      return ids;
+    };
+    return fn(paramsTx);
   }
 
   async txRemoveRecords<T extends ELocalDBStoreNames>(

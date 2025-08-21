@@ -6,9 +6,10 @@ import {
   Button,
   Divider,
   SizableText,
-  Stack,
+  Skeleton,
   XStack,
 } from '@onekeyhq/components';
+import type { ISwapNativeTokenReserveGas } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
 
@@ -17,6 +18,10 @@ export interface IQuickAmountSelectorProps {
   tradeType: ITradeType;
   buyAmounts: { label: string; value: number }[];
   balance?: BigNumber;
+  selectedTokenDecimals?: number;
+  selectedTokenNetworkId?: string;
+  selectedTokenIsNative?: boolean;
+  swapNativeTokenReserveGas: ISwapNativeTokenReserveGas[];
 }
 
 const sellPercentages = [
@@ -31,6 +36,10 @@ export function QuickAmountSelector({
   buyAmounts,
   tradeType,
   balance,
+  selectedTokenDecimals,
+  swapNativeTokenReserveGas,
+  selectedTokenNetworkId,
+  selectedTokenIsNative,
 }: IQuickAmountSelectorProps) {
   const amounts =
     tradeType === ESwapDirection.BUY ? buyAmounts : sellPercentages;
@@ -43,19 +52,46 @@ export function QuickAmountSelector({
           onSelect('0');
           return;
         }
-
         const percentageBN = new BigNumber(amount.value.toString());
-        const calculatedAmount = balance.multipliedBy(percentageBN).toFixed();
-        onSelect(calculatedAmount);
+        const reserveGas = swapNativeTokenReserveGas.find(
+          (item) => item.networkId === selectedTokenNetworkId,
+        )?.reserveGas;
+        let calculatedAmountBN = balance.multipliedBy(percentageBN);
+        if (selectedTokenIsNative && reserveGas) {
+          calculatedAmountBN = BigNumber.max(
+            0,
+            calculatedAmountBN.minus(new BigNumber(reserveGas)),
+          );
+        }
+        if (selectedTokenDecimals) {
+          const calculatedAmount = calculatedAmountBN
+            .decimalPlaces(selectedTokenDecimals, BigNumber.ROUND_DOWN)
+            .toFixed();
+          onSelect(calculatedAmount);
+        } else {
+          onSelect(calculatedAmountBN.toFixed());
+        }
       } else {
         onSelect(amount.value.toString());
       }
     },
-    [tradeType, balance, onSelect],
+    [
+      tradeType,
+      balance,
+      swapNativeTokenReserveGas,
+      selectedTokenIsNative,
+      selectedTokenDecimals,
+      onSelect,
+      selectedTokenNetworkId,
+    ],
   );
 
+  if (amounts.length === 0) {
+    return <Skeleton h="$8" w="100%" />;
+  }
+
   return (
-    <XStack gap="$0">
+    <XStack gap="$0" h="$8">
       {amounts.map((amount, index) => (
         <Fragment key={`item-${amount.value}`}>
           <Button
@@ -63,18 +99,16 @@ export function QuickAmountSelector({
             flex={1}
             size="medium"
             variant="secondary"
-            py="$1"
+            h="$8"
             borderTopRightRadius={index !== amountsLength - 1 ? 0 : '$2'}
             borderBottomRightRadius={index !== amountsLength - 1 ? 0 : '$2'}
             borderTopLeftRadius={index !== 0 ? 0 : '$2'}
             borderBottomLeftRadius={index !== 0 ? 0 : '$2'}
             onPress={() => handleAmountSelect(amount)}
           >
-            <Stack w="$14">
-              <SizableText size="$bodyMdMedium" color="$textSubdued">
-                {amount.label}
-              </SizableText>
-            </Stack>
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
+              {amount.label}
+            </SizableText>
           </Button>
           {index !== amountsLength - 1 ? (
             <Divider key={`divider-${index}`} vertical />

@@ -65,7 +65,12 @@ function AllNetworksManager() {
   const [enabledNetworks, setEnabledNetworks] = useState<IServerNetworkMatch[]>(
     [],
   );
-  const [isLoading, setIsLoading] = useState(false);
+
+  const [isCreatingMissingAddresses, setIsCreatingMissingAddresses] =
+    useState(false);
+
+  const [isCreatingEnabledAddresses, setIsCreatingEnabledAddresses] =
+    useState(false);
 
   const [searchKey, setSearchKey] = useState('');
 
@@ -79,14 +84,34 @@ function AllNetworksManager() {
 
   const contextValue = useMemo(
     () => ({
+      walletId,
+      indexedAccountId,
+      accountId,
       networks,
       networksState,
       setNetworksState,
       enabledNetworks,
       searchKey,
       setSearchKey,
+      isCreatingEnabledAddresses,
+      setIsCreatingEnabledAddresses,
+      isCreatingMissingAddresses,
+      setIsCreatingMissingAddresses,
     }),
-    [networks, networksState, setNetworksState, enabledNetworks, searchKey],
+    [
+      walletId,
+      indexedAccountId,
+      accountId,
+      networks,
+      networksState,
+      setNetworksState,
+      enabledNetworks,
+      searchKey,
+      isCreatingEnabledAddresses,
+      isCreatingMissingAddresses,
+      setIsCreatingEnabledAddresses,
+      setIsCreatingMissingAddresses,
+    ],
   );
 
   useEffect(() => {
@@ -162,7 +187,7 @@ function AllNetworksManager() {
   }, [intl]);
 
   const handleEnableAllNetworks = useCallback(async () => {
-    setIsLoading(true);
+    setIsCreatingEnabledAddresses(true);
 
     const { accountsInfo } =
       await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
@@ -219,7 +244,7 @@ function AllNetworksManager() {
           customNetworks: enabledNetworksWithoutAccountTemp,
         });
       } catch (error) {
-        setIsLoading(false);
+        setIsCreatingEnabledAddresses(false);
         throw error;
       }
     }
@@ -233,7 +258,7 @@ function AllNetworksManager() {
 
     void onNetworksChanged?.();
 
-    setIsLoading(false);
+    setIsCreatingEnabledAddresses(false);
   }, [
     accountId,
     createAddress,
@@ -247,7 +272,10 @@ function AllNetworksManager() {
   ]);
 
   const confirmButtonText = useMemo(() => {
-    if (isLoading && enabledNetworksWithoutAccount.length > 0) {
+    if (
+      isCreatingEnabledAddresses &&
+      enabledNetworksWithoutAccount.length > 0
+    ) {
       return intl.formatMessage({
         id: ETranslations.global_creating_address,
       });
@@ -263,7 +291,7 @@ function AllNetworksManager() {
       id: ETranslations.network_none_selected,
     });
   }, [
-    isLoading,
+    isCreatingEnabledAddresses,
     enabledNetworksWithoutAccount.length,
     enabledNetworks.length,
     intl,
@@ -281,12 +309,12 @@ function AllNetworksManager() {
           <Page.FooterActions
             onConfirmText={confirmButtonText}
             confirmButtonProps={{
-              loading: isLoading,
+              loading: isCreatingEnabledAddresses,
               disabled: (() => {
                 if (enabledNetworks.length <= 0) {
                   return true;
                 }
-                if (isLoading) {
+                if (isCreatingEnabledAddresses || isCreatingMissingAddresses) {
                   return true;
                 }
 

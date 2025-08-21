@@ -1,11 +1,9 @@
-import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import {
   EServiceEndpointEnum,
   type IEndpointEnv,
   type IServiceEndpoint,
 } from '@onekeyhq/shared/types/endpoint';
 
-import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import platformEnv from '../platformEnv';
 import requestHelper from '../request/requestHelper';
 
@@ -47,6 +45,10 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
       serviceName: EServiceEndpointEnum.Prime,
       env: 'test',
     }),
+    transfer: buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Transfer,
+      env: 'test',
+    }),
     rebate: buildServiceEndpoint({
       serviceName: EServiceEndpointEnum.Rebate,
       env: 'test',
@@ -86,6 +88,10 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
       serviceName: EServiceEndpointEnum.Prime,
       env: 'prod',
     }),
+    transfer: buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Transfer,
+      env: 'prod',
+    }),
     rebate: buildServiceEndpoint({
       serviceName: EServiceEndpointEnum.Rebate,
       env: 'prod',
@@ -93,56 +99,21 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
   },
 };
 
-export const getEndpointsMapByDevSettings = (
-  devSettings: {
-    enabled: boolean;
-    settings?: {
-      enableTestEndpoint?: boolean;
-    };
-  },
-  options?: {
-    prefix?: string;
-  },
-) => {
+export const getEndpointsMapByDevSettings = (devSettings: {
+  enabled: boolean;
+  settings?: {
+    enableTestEndpoint?: boolean;
+  };
+}) => {
   const env: IEndpointEnv =
     devSettings.enabled && devSettings.settings?.enableTestEndpoint
       ? 'test'
       : 'prod';
 
-  if (options?.prefix && env === 'prod') {
-    // Generate prefixed endpoints for production only
-    const prefixedEndpoints: IServiceEndpoint = {} as IServiceEndpoint;
-    Object.entries(EServiceEndpointEnum).forEach(([, serviceName]) => {
-      // Skip NotificationWebSocket as it's handled separately when processing Notification
-      if (serviceName === EServiceEndpointEnum.NotificationWebSocket) {
-        return;
-      }
-
-      prefixedEndpoints[serviceName] = buildServiceEndpoint({
-        serviceName,
-        env,
-        prefix: options.prefix,
-      });
-      // Handle WebSocket endpoint separately
-      if (serviceName === EServiceEndpointEnum.Notification) {
-        prefixedEndpoints[EServiceEndpointEnum.NotificationWebSocket] =
-          buildServiceEndpoint({
-            serviceName,
-            env,
-            prefix: options.prefix,
-            isWebSocket: true,
-          });
-      }
-    });
-    return prefixedEndpoints;
-  }
-
   return endpointsMap[env];
 };
 
-// Get endpoints with dynamic prefix checking
-export async function getEndpointsMapWithDynamicPrefix() {
-  // Get settings based on environment
+export async function getEndpointsMap() {
   let settings: {
     enabled: boolean;
     settings?: { enableTestEndpoint?: boolean };
@@ -159,46 +130,26 @@ export async function getEndpointsMapWithDynamicPrefix() {
     settings = await requestHelper.getDevSettingsPersistAtom();
   }
 
-  // For test environment, no prefix checking needed
-  const isTestEnv = settings.enabled && settings.settings?.enableTestEndpoint;
-  if (isTestEnv) {
-    return getEndpointsMapByDevSettings(settings);
-  }
-
-  // Trigger endpoint check via event bus (ServiceApp will handle with memoizee)
-  appEventBus.emit(EAppEventBusNames.CheckEndpointPrefix, {
-    cleanAppClientCache: false,
-  });
-
-  // Read the stored endpoint prefix result from background service
-  let currentPrefix: string | undefined;
-  try {
-    const shouldUsePrefix = await appStorage.getItem(
-      'ONEKEY_ENDPOINT_USE_PREFIX',
-    );
-
-    if (shouldUsePrefix === 'true') {
-      currentPrefix = 'by';
-    }
-  } catch (error) {
-    console.warn('Failed to read endpoint prefix from storage:', error);
-  }
-
-  return getEndpointsMapByDevSettings(settings, {
-    prefix: currentPrefix,
-  });
+  return getEndpointsMapByDevSettings(settings);
 }
 
 export async function getEndpointByServiceName(
   serviceName: EServiceEndpointEnum,
 ) {
-  const map = await getEndpointsMapWithDynamicPrefix();
-  return map[serviceName];
-}
+  if (!platformEnv.isWebEmbed && platformEnv.isDev) {
+    // First try to get custom API endpoint from dev settings
+    const devSettings = await requestHelper.getDevSettingsPersistAtom();
+    const customEndpoints = devSettings.settings?.customApiEndpoints || [];
+    const enabledCustomConfig = customEndpoints
+      .filter((config) => config.enabled)
+      .find((config) => config.serviceModule === serviceName);
 
-export function forceRefreshEndpointCheck() {
-  // Clear axios client cache and trigger new check via event
-  appEventBus.emit(EAppEventBusNames.CheckEndpointPrefix, {
-    cleanAppClientCache: true,
-  });
+    if (enabledCustomConfig && devSettings.enabled) {
+      return enabledCustomConfig.api;
+    }
+  }
+
+  // Fallback to default endpoint
+  const map = await getEndpointsMap();
+  return map[serviceName];
 }

@@ -1,11 +1,19 @@
 import { ButtonFrame, SizableText, Stack, YStack } from '@onekeyhq/components';
 
-import type { ITimeRangeSelectorProps } from '../types';
+import type { ITimeRangeOption, ITimeRangeSelectorProps } from '../types';
+
+function getPercentageColor(option: ITimeRangeOption) {
+  if (option.isZero) {
+    return '$textSubdued';
+  }
+  return option.isPositive ? '$textSuccess' : '$textCritical';
+}
 
 export function TimeRangeSelector({
   options,
   value,
   onChange,
+  isLoading,
 }: ITimeRangeSelectorProps) {
   return (
     <Stack
@@ -42,9 +50,9 @@ export function TimeRangeSelector({
             </SizableText>
             <SizableText
               size="$bodySm"
-              color={opt.isPositive ? '$textSuccess' : '$textCritical'}
+              color={isLoading ? '$textSubdued' : getPercentageColor(opt)}
             >
-              {opt.percentageChange}
+              {isLoading ? '--' : opt.percentageChange}
             </SizableText>
           </YStack>
         </ButtonFrame>

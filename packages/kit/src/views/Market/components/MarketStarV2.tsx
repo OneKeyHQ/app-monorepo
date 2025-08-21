@@ -2,7 +2,11 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IIconButtonProps, IStackProps } from '@onekeyhq/components';
+import type {
+  IIconButtonProps,
+  IStackProps,
+  IXStackProps,
+} from '@onekeyhq/components';
 import { IconButton } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -41,7 +45,7 @@ export const useStarV2Checked = ({
         removeWatchlistFrom: from,
       });
     } else {
-      await actions.addIntoWatchListV2([{ chainId, contractAddress }]);
+      actions.addIntoWatchListV2([{ chainId, contractAddress }]);
       defaultLogger.market.token.addToWatchList({
         tokenSymbol: `${chainId}:${contractAddress}`,
         addWatchlistFrom: from,
@@ -89,10 +93,10 @@ function BasicMarketStarV2({
       size={size}
       iconSize={size ? undefined : '$5'}
       iconProps={{
-        color: checked ? '$iconActive' : '$iconDisabled',
+        color: checked ? '$iconActive' : '$iconSubdued',
       }}
       onPress={onPress}
-      {...props}
+      {...(props as IXStackProps)}
     />
   );
 }

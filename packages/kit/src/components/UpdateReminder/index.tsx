@@ -3,7 +3,11 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IIconProps, IStackProps } from '@onekeyhq/components';
+import type {
+  IIconProps,
+  IStackProps,
+  IXStackProps,
+} from '@onekeyhq/components';
 import {
   Button,
   Icon,
@@ -304,7 +308,7 @@ function BasicUpdateReminder() {
       borderRadius="$2"
       borderWidth={StyleSheet.hairlineWidth}
       borderCurve="continuous"
-      {...style}
+      {...(style as IXStackProps)}
     >
       <UpdateStatusText updateInfo={data} />
       <UpdateAction onUpdateAction={handlePress} />

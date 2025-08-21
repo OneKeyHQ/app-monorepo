@@ -24,9 +24,22 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+function resetAddressCreationState() {
+  void indexedAccountAddressCreationStateAtom.set(undefined);
+}
+
+function addBeforeUnloadListener() {
+  // beforeunload not working in Extension popup, check apps/ext/src/background/extUI.ts for more details
+  if (platformEnv.isRuntimeBrowser) {
+    window.removeEventListener('beforeunload', resetAddressCreationState);
+    window.addEventListener('beforeunload', resetAddressCreationState);
+  }
+}
 
 export function useAddAccount({
   num,
@@ -44,7 +57,7 @@ export function useAddAccount({
 }) {
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
-  const { createQrWalletByAccount } = useCreateQrWallet();
+  const { createQrWalletAccount } = useCreateQrWallet();
   const { activeAccount } = useActiveAccount({ num });
   const { serviceAccount } = backgroundApiProxy;
 
@@ -62,7 +75,7 @@ export function useAddAccount({
           });
         } else if (walletId === WALLET_TYPE_EXTERNAL) {
           navigation.pushModal(EModalRoutes.OnboardingModal, {
-            screen: EOnboardingPages.ConnectWalletSelectNetworks,
+            screen: EOnboardingPages.ConnectWalletOptions,
           });
         }
         return;
@@ -103,6 +116,7 @@ export function useAddAccount({
             accountId: indexedAccount?.id,
           });
           if (walletIdFromIndexedId === focusedWalletId) {
+            addBeforeUnloadListener();
             await indexedAccountAddressCreationStateAtom.set({
               walletId: focusedWalletId,
               indexedAccountId: indexedAccount?.id,
@@ -128,7 +142,7 @@ export function useAddAccount({
                   )
                 : result?.failedAccounts?.length)
             ) {
-              await createQrWalletByAccount({
+              await createQrWalletAccount({
                 walletId: focusedWalletId,
                 networkId:
                   activeAccount?.network?.id || getNetworkIdsMap().onekeyall,
@@ -139,7 +153,7 @@ export function useAddAccount({
           }
         }
       } finally {
-        await indexedAccountAddressCreationStateAtom.set(undefined);
+        resetAddressCreationState();
         if (focusedWalletInfo.device?.connectId) {
           await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
             {

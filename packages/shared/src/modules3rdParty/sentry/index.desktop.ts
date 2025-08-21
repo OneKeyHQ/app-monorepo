@@ -16,8 +16,8 @@ export const initSentry = () => {
     return;
   }
   Sentry.init({
-    tracesSampleRate: 1.0,
-    profilesSampleRate: 1.0,
+    tracesSampleRate: 0.1,
+    profilesSampleRate: 0.1,
     integrations: buildIntegrations(Sentry as any),
   });
 };

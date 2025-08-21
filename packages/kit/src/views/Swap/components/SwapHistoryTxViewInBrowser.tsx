@@ -83,21 +83,23 @@ const ExplorersList = ({
         <SizableText size="$headingSm">{parserLabel(item.type)}</SizableText>
         <XStack justifyContent="space-between">
           <XStack gap="$2">
-            <Image height="$6" width="$6" borderRadius="$full">
-              <Image.Source
-                source={{
-                  uri: item.logo,
-                }}
-              />
-              <Image.Fallback
-                alignItems="center"
-                justifyContent="center"
-                bg="$bgStrong"
-                delayMs={1000}
-              >
-                <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
-              </Image.Fallback>
-            </Image>
+            <Image
+              size="$6"
+              borderRadius="$full"
+              source={{ uri: item.logo }}
+              fallback={
+                <Image.Fallback
+                  w="$6"
+                  h="$6"
+                  alignItems="center"
+                  justifyContent="center"
+                  bg="$bgStrong"
+                >
+                  <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
+                </Image.Fallback>
+              }
+            />
+
             <SizableText size="$bodyLg">{item.name}</SizableText>
           </XStack>
           {(item.status === ESwapTxHistoryStatus.PENDING ||

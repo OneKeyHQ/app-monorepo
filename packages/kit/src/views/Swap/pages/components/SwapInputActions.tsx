@@ -22,11 +22,13 @@ const SwapInputActions = ({
   showPercentageInput,
   showActionBuy,
   onSelectStage,
+  stagePopoverContent,
   fromToken,
   accountInfo,
 }: {
   showPercentageInput: boolean;
   showActionBuy: boolean;
+  stagePopoverContent?: React.ReactNode;
   onSelectStage?: (stage: number) => void;
   fromToken?: ISwapToken;
   accountInfo?: IAccountSelectorActiveAccountInfo;
@@ -59,9 +61,14 @@ const SwapInputActions = ({
               pt={platformEnv.isNativeIOS ? '$1' : '$0'}
               bg="$bgSubdued"
               size="small"
+              childrenAsText={false}
               label={
-                <XStack alignItems="center" gap="$1">
-                  <Icon name="CreditCardCvvOutline" size="$4" />
+                <XStack ai="center" jc="center" gap="$1">
+                  <Icon
+                    name="CreditCardCvvOutline"
+                    size="$4"
+                    mt={platformEnv.isNative ? 2 : undefined}
+                  />
                   <SizableText size="$bodySmMedium" color="$textSubdued">
                     {intl.formatMessage({ id: ETranslations.global_buy })}
                   </SizableText>
@@ -98,6 +105,9 @@ const SwapInputActions = ({
                   key={`swap-percentage-input-stage-${stage}`}
                   stage={stage}
                   onSelectStage={onSelectStage}
+                  popoverContent={
+                    stage === 100 ? stagePopoverContent : undefined
+                  }
                 />
               ))}
             </>

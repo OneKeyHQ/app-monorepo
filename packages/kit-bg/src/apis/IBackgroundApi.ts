@@ -56,6 +56,7 @@ import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
+import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
 import type ServiceReferralCode from '../services/ServiceReferralCode';
@@ -71,7 +72,9 @@ import type ServiceToken from '../services/ServiceToken';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
+import type ServiceWalletBanner from '../services/ServiceWalletBanner';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
+import type ServiceWebviewPerp from '../services/ServiceWebviewPerp';
 import type { EAtomNames } from '../states/jotai/atomNames';
 import type { IWebembedApiKeys } from '../webembeds/instance/IWebembedApi';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
@@ -135,6 +138,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   // **** services
   servicePromise: ServicePromise;
   servicePassword: ServicePassword;
+  serviceWebviewPerp: ServiceWebviewPerp;
   serviceDevSetting: ServiceDevSetting;
   serviceSetting: ServiceSetting;
   serviceApp: ServiceApp;
@@ -185,6 +189,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceCustomRpc: ServiceCustomRpc;
   serviceReferralCode: ServiceReferralCode;
   serviceDBBackup: ServiceDBBackup;
+  serviceWalletBanner: ServiceWalletBanner;
 
   serviceE2E: ServiceE2E;
   serviceLogger: ServiceLogger;
@@ -195,4 +200,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceStaking: ServiceStaking;
   serviceSignatureConfirm: ServiceSignatureConfirm;
   serviceMasterPassword: ServiceMasterPassword;
+  servicePrimeTransfer: ServicePrimeTransfer;
 }

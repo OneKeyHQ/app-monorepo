@@ -119,6 +119,7 @@ export type IPlatformEnv = {
   isExtensionUiExpandTab?: boolean;
   isExtensionUiSidePanel?: boolean;
   isExtensionUiStandaloneWindow?: boolean;
+  isExtensionDevelopmentBuild?: boolean;
 
   isRuntimeBrowser?: boolean;
   isRuntimeMacOSBrowser?: boolean;
@@ -131,6 +132,7 @@ export type IPlatformEnv = {
 
   isAppleStoreEnv?: boolean;
   isSupportWebUSB?: boolean;
+  isSupportDesktopBle?: boolean;
 };
 
 const {
@@ -383,8 +385,9 @@ const isRuntimeChrome = checkIsRuntimeChrome();
 const isRuntimeEdge = checkIsRuntimeEdge();
 const isRuntimeBrave = checkIsRuntimeBrave();
 const isRuntimeMacOSBrowser = isDesktopMac || checkIsRuntimeMacOSBrowser();
-const isSupportWebUSB =
-  (isWeb || isExtension) && (isRuntimeChrome || isRuntimeEdge);
+const isSupportWebUSB = isExtension || isWeb;
+
+const isSupportDesktopBle = isDesktopMac;
 
 // Ext manifest v2 background
 export const isExtensionBackgroundHtml: boolean =
@@ -431,6 +434,13 @@ export const isExtensionUiSidePanel: boolean =
 export const isExtensionUiStandaloneWindow: boolean =
   isExtensionUi &&
   globalThis.location.pathname.startsWith('/ui-standalone-window.html');
+
+export const isExtensionDevelopmentBuild: boolean =
+  isExtension &&
+  (globalThis.chrome?.runtime
+    ?.getManifest?.()
+    ?.name?.includes('DEVELOPMENT BUILD') ||
+    false);
 
 export const isManifestV3: boolean =
   // TODO firefox check v3
@@ -508,6 +518,7 @@ const platformEnv: IPlatformEnv = {
   isExtensionUiSidePanel,
   isExtensionUiStandaloneWindow,
   isExtFirefoxUiPopup: isExtFirefox && isExtensionUiPopup,
+  isExtensionDevelopmentBuild,
 
   isRuntimeBrowser,
   isRuntimeMacOSBrowser,
@@ -519,6 +530,7 @@ const platformEnv: IPlatformEnv = {
   supportAutoUpdate,
   isAppleStoreEnv,
   isSupportWebUSB,
+  isSupportDesktopBle,
 };
 
 if (isDev) {

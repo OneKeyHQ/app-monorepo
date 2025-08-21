@@ -25,6 +25,7 @@ import type { IApproveConfirmFnParams } from '@onekeyhq/shared/types/staking';
 import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { UniversalStake } from '../../components/UniversalStake';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
@@ -85,10 +86,10 @@ function BasicStakePage() {
         // TODO: remove term after babylon remove term
         term: undefined,
         feeRate: Number(btcFeeRate) > 0 ? Number(btcFeeRate) : undefined,
-        morphoVault: earnUtils.isMorphoProvider({
+        protocolVault: earnUtils.useVaultProvider({
           providerName,
         })
-          ? protocolInfo?.approve?.approveTarget
+          ? protocolInfo?.approve?.approveTarget || protocolInfo?.vault
           : undefined,
         onSuccess: async (txs) => {
           appNavigation.pop();
@@ -131,6 +132,7 @@ function BasicStakePage() {
       providerName,
       protocolInfo?.providerDetail.logoURI,
       protocolInfo?.approve?.approveTarget,
+      protocolInfo?.vault,
       token,
       actionTag,
       btcFeeRate,
@@ -226,7 +228,9 @@ export default function StakePage() {
       enabledNum={[0]}
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-        <BasicStakePage />
+        <DiscoveryBrowserProviderMirror>
+          <BasicStakePage />
+        </DiscoveryBrowserProviderMirror>
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );

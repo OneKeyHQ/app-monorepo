@@ -18,15 +18,16 @@ import {
   U32,
   U64,
   U8,
-  standardizeTypeTags,
 } from '@aptos-labs/ts-sdk';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type {
+  AccountAddressInput,
   EntryFunctionArgumentTypes,
   InputEntryFunctionData,
+  InputMultiSigData,
   InputScriptData,
   ScriptFunctionArgumentTypes,
   SimpleEntryFunctionArgumentTypes,
@@ -37,6 +38,7 @@ export enum ETransactionPayloadType {
   ENTRY_FUNCTION = 1,
   SCRIPT_LEGACY = 2, // V1 SDK Script Params Petra
   ENTRY_FUNCTION_LEGACY = 3, // V1 SDK Entry Function Params
+  MULTISIG = 4, // V2 SDK MultiSig Params
 }
 
 // OneKey Primitive Types
@@ -370,20 +372,6 @@ export function serializeArguments(
   return bytesToHex(serializer.toUint8Array());
 }
 
-function serializeTransactionPayloadScript(
-  args: InputScriptData,
-  serializer: Serializer,
-) {
-  const { bytecode, typeArguments, functionArguments } = args;
-  serializer.serializeU32AsUleb128(ETransactionPayloadType.SCRIPT);
-  const bytecodeBytes =
-    typeof bytecode === 'string' ? bytecode : bytesToHex(bytecode);
-  serializer.serializeOption(bytecodeBytes);
-  serializer.serializeVector<TypeTag>(standardizeTypeTags(typeArguments));
-  const hex = serializeArguments(functionArguments);
-  serializer.serializeOption(hex ?? '');
-}
-
 function deserializeTransactionPayloadScript(
   deserializer: Deserializer,
 ): InputScriptData {
@@ -397,18 +385,6 @@ function deserializeTransactionPayloadScript(
     typeArguments,
     functionArguments: args,
   };
-}
-
-function serializeTransactionPayloadEntryFunction(
-  args: InputEntryFunctionData,
-  serializer: Serializer,
-) {
-  const { function: functionName, typeArguments, functionArguments } = args;
-  serializer.serializeU32AsUleb128(ETransactionPayloadType.ENTRY_FUNCTION);
-  serializer.serializeOption(functionName);
-  serializer.serializeVector<TypeTag>(standardizeTypeTags(typeArguments));
-  const hex = serializeArguments(functionArguments);
-  serializer.serializeOption(hex ?? '');
 }
 
 function deserializeTransactionPayloadEntryFunction(
@@ -475,16 +451,6 @@ type ITransactionPayload =
   | ITransactionPayloadEntryFunctionPayload
   | ITransactionPayloadScriptPayload;
 
-function serializableTransactionPayloadV1ScriptLegacy(
-  args: IScriptV1SDK,
-  serializer: Serializer,
-) {
-  serializer.serializeU32AsUleb128(ETransactionPayloadType.SCRIPT_LEGACY);
-  serializer.serializeBytes(args.code);
-  serializer.serializeVector<TypeTag>(args.ty_args);
-  serializer.serializeOption(serializeArguments(args.args));
-}
-
 function deserializableTransactionPayloadV1ScriptLegacy(
   deserializer: Deserializer,
 ): InputScriptData {
@@ -535,35 +501,34 @@ function deserializableTransactionPayloadV1ScriptLegacy(
   };
 }
 
-// V1 SDK Legacy Params
-function serializableTransactionPayloadV1Legacy(
-  args: ITransactionPayload,
-  serializer: Serializer,
-) {
-  if (args.type === 'entry_function_payload') {
-    serializer.serializeU32AsUleb128(
-      ETransactionPayloadType.ENTRY_FUNCTION_LEGACY,
-    );
-
-    const {
-      function: functionName,
-      type_arguments: typeArguments,
-      arguments: functionArguments,
-    } = args as ITransactionPayloadEntryFunctionPayload;
-
-    serializer.serializeOption(functionName);
-    const length = typeArguments.length;
-    serializer.serializeU32(length);
-    for (let i = 0; i < length; i++) {
-      serializer.serializeOption(typeArguments[i]);
-    }
-    serializer.serializeOption(
-      serializeArguments(
-        functionArguments as Array<ScriptFunctionArgumentTypes>,
-      ),
-    );
+function deserializeTransactionPayloadMultiSig(
+  deserializer: Deserializer,
+): InputMultiSigData {
+  const multisigAddressType = deserializer.deserializeU8();
+  let multisigAddress: AccountAddressInput;
+  if (multisigAddressType === 0) {
+    multisigAddress = deserializer.deserializeOption('string') ?? '';
+  } else if (multisigAddressType === 1) {
+    const bytes = deserializer.deserializeBytes();
+    multisigAddress = AccountAddress.deserialize(new Deserializer(bytes));
+  } else if (multisigAddressType === 2) {
+    multisigAddress =
+      deserializer.deserializeOption('bytes') ?? new Uint8Array();
+  } else {
+    throw new OneKeyLocalError('Invalid multisig address type');
   }
-  // not exist type script_payload
+
+  const functionName = deserializer.deserializeOption('string');
+  const typeArguments = deserializer.deserializeVector(TypeTag);
+  const functionArguments = deserializeArguments(
+    deserializer.deserializeOption('string') ?? '',
+  );
+  return {
+    multisigAddress,
+    function: functionName as `${string}::${string}::${string}`,
+    typeArguments,
+    functionArguments,
+  };
 }
 
 function deserializableTransactionPayloadV1EntryFunctionLegacy(
@@ -586,32 +551,11 @@ function deserializableTransactionPayloadV1EntryFunctionLegacy(
   };
 }
 
-export function serializeTransactionPayload(
-  args: ITransactionPayloadV1SDK | ITransactionPayloadV2SDK,
-) {
-  const serializer = new Serializer();
-  if (!('type' in args) && 'function' in args && !('multisigAddress' in args)) {
-    // V2 SDK Entry Function Params
-    serializeTransactionPayloadEntryFunction(args, serializer);
-  } else if (!('type' in args) && 'bytecode' in args) {
-    // V2 SDK Script Params
-    serializeTransactionPayloadScript(args, serializer);
-  } else if (!('type' in args) && 'value' in args) {
-    // fix wormhole v1 sdk
-    // not support complex type
-    const value = args.value;
-    if ('code' in value) {
-      serializableTransactionPayloadV1ScriptLegacy(value, serializer);
-    } else {
-      throw new OneKeyLocalError('Invalid transaction payload type');
-    }
-  } else if ('type' in args) {
-    // V1 SDK Legacy Params
-    serializableTransactionPayloadV1Legacy(args, serializer);
-  } else {
-    throw new OneKeyLocalError('Invalid transaction payload type');
-  }
-  return bytesToHex(serializer.toUint8Array());
+export function deserializeTransactionType(
+  hex: string,
+): ETransactionPayloadType {
+  const deserializer = new Deserializer(hexToBytes(hex));
+  return deserializer.deserializeUleb128AsU32();
 }
 
 export function deserializeTransactionPayload(
@@ -630,6 +574,9 @@ export function deserializeTransactionPayload(
   }
   if (type === ETransactionPayloadType.SCRIPT_LEGACY) {
     return deserializableTransactionPayloadV1ScriptLegacy(deserializer);
+  }
+  if (type === ETransactionPayloadType.MULTISIG) {
+    return deserializeTransactionPayloadMultiSig(deserializer);
   }
   throw new OneKeyLocalError('Invalid transaction payload type');
 }

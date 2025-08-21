@@ -28,12 +28,14 @@ export default function YourReferredWalletAddresses() {
 
   const { items, networks } = params;
 
-  const [networkId, setNetworkId] = useState(networks?.[0]?.networkId);
-
   const networkIds = useMemo(
-    () => (networks ? networks.map((i) => i.networkId) : []),
-    [networks],
+    () => (items ? items.map((i) => i.networkId) : []),
+    [items],
   );
+  const [networkId, setNetworkId] = useState(
+    networkIds[0] || networks?.[0]?.networkId,
+  );
+
   const renderHeaderRight = useCallback(() => {
     return (
       <ControlledNetworkSelectorIconTrigger

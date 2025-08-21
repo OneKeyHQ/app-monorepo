@@ -51,6 +51,7 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
+import { showCustomHexDataAlert } from '../CustomHexDataAlert';
 import TxFeeInfo from '../TxFee';
 
 type IProps = {
@@ -125,7 +126,7 @@ function TxConfirmActions(props: IProps) {
       networkId,
     });
 
-  const handleOnConfirm = useCallback(async () => {
+  const submitTxs = useCallback(async () => {
     const { serviceSend, serviceAccount } = backgroundApiProxy;
 
     if (sourceInfo) {
@@ -151,7 +152,7 @@ function TxConfirmActions(props: IProps) {
       });
     try {
       if (
-        unsignedTx.isInternalTransfer &&
+        unsignedTx?.isInternalTransfer &&
         networkId &&
         accountAddress &&
         toAddress
@@ -183,12 +184,19 @@ function TxConfirmActions(props: IProps) {
     }
 
     try {
-      await backgroundApiProxy.serviceSignatureConfirm.preActionsBeforeSending({
-        accountId,
-        networkId,
-        unsignedTxs,
-        tronResourceRentalInfo,
-      });
+      const resp =
+        await backgroundApiProxy.serviceSignatureConfirm.preActionsBeforeSending(
+          {
+            accountId,
+            networkId,
+            unsignedTxs,
+            tronResourceRentalInfo,
+          },
+        );
+
+      if (resp?.preSendTx && accountUtils.isQrAccount({ accountId })) {
+        navigation.popStack();
+      }
     } catch (e: any) {
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
@@ -321,6 +329,12 @@ function TxConfirmActions(props: IProps) {
         tronPayCoinCode: isTronNetwork
           ? tronResourceRentalInfo?.payTokenInfo?.symbol
           : undefined,
+        tronUseCredit: isTronNetwork
+          ? tronResourceRentalInfo?.isResourceClaimed
+          : undefined,
+        tronUseRedemptionCode: isTronNetwork
+          ? tronResourceRentalInfo?.isResourceRedeemed
+          : undefined,
       });
 
       Toast.success({
@@ -335,11 +349,16 @@ function TxConfirmActions(props: IProps) {
 
       void dappApprove.resolve({ result: signedTx });
 
+      if (accountUtils.isQrAccount({ accountId })) {
+        navigation.popStack();
+      }
+
       if (popStack) {
         navigation.popStack();
       } else {
         navigation.pop();
       }
+
       updateSendTxStatus({ isSubmitting: false });
       onSuccess?.(result);
 
@@ -368,6 +387,9 @@ function TxConfirmActions(props: IProps) {
         }
       }
     } catch (e: any) {
+      if (accountUtils.isQrAccount({ accountId })) {
+        navigation.popStack();
+      }
       updateSendTxStatus({ isSubmitting: false });
       // show toast by @toastIfError() in background method
       // Toast.error({
@@ -386,7 +408,7 @@ function TxConfirmActions(props: IProps) {
     accountId,
     networkId,
     sendSelectedFeeInfo,
-    unsignedTx.isInternalTransfer,
+    unsignedTx?.isInternalTransfer,
     toAddress,
     unsignedTxs,
     nativeTokenTransferAmountToUpdate.isMaxSend,
@@ -408,6 +430,20 @@ function TxConfirmActions(props: IProps) {
     navigation,
     shouldRejectDappAction,
   ]);
+
+  const handleOnConfirm = useCallback(async () => {
+    if (decodedTxs[0]?.isCustomHexData) {
+      showCustomHexDataAlert({
+        decodedTx: decodedTxs[0],
+        toAddress: transferPayload?.originalRecipient ?? decodedTxs[0].to ?? '',
+        onConfirm: async () => {
+          await submitTxs();
+        },
+      });
+    } else {
+      await submitTxs();
+    }
+  }, [decodedTxs, submitTxs, transferPayload?.originalRecipient]);
 
   const cancelCalledRef = useRef(false);
   const onCancelOnce = useCallback(() => {

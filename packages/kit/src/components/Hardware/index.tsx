@@ -147,6 +147,7 @@ export const confirmPhrase = async () => {
           await dialog.close();
           await confirmPhraseOnDevice();
         }}
+        switchOnDeviceAttachPin={async () => {}}
       />
     ),
     onClose: () => {

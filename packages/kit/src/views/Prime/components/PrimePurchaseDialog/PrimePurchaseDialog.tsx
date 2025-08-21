@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -36,9 +37,9 @@ export function usePrimePurchaseCallback({
   const { user } = usePrimeAuthV2();
   const intl = useIntl();
 
-  const purchasePackageWebview = usePurchasePackageWebview();
+  const purchaseByWebview = usePurchasePackageWebview();
 
-  const handleNativePurchase = useCallback(
+  const purchaseByNative = useCallback(
     async ({
       selectedSubscriptionPeriod,
     }: {
@@ -67,41 +68,49 @@ export function usePrimePurchaseCallback({
         onPurchase?.();
 
         if (platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay) {
-          void handleNativePurchase({
+          void purchaseByNative({
             selectedSubscriptionPeriod,
           });
           return;
         }
 
         if (platformEnv.isNativeAndroid) {
-          ActionList.show({
-            title: intl.formatMessage({
-              id: ETranslations.prime_subscribe,
-            }),
-            onClose: () => {},
-            sections: [
-              {
-                items: [
-                  {
-                    label: 'Purchase by AppStore/GooglePlay',
-                    onPress: () => {
-                      void handleNativePurchase({
-                        selectedSubscriptionPeriod,
-                      });
+          const isGooglePlayServiceAvailable =
+            await googlePlayService.isAvailable();
+          if (isGooglePlayServiceAvailable) {
+            ActionList.show({
+              title: intl.formatMessage({
+                id: ETranslations.prime_subscribe,
+              }),
+              onClose: () => {},
+              sections: [
+                {
+                  items: [
+                    {
+                      label: 'Purchase by GooglePlay',
+                      onPress: () => {
+                        void purchaseByNative({
+                          selectedSubscriptionPeriod,
+                        });
+                      },
                     },
-                  },
-                  {
-                    label: 'Purchase by Webview',
-                    onPress: () => {
-                      void purchasePackageWebview({
-                        selectedSubscriptionPeriod,
-                      });
+                    {
+                      label: 'Purchase by Webview',
+                      onPress: () => {
+                        void purchaseByWebview({
+                          selectedSubscriptionPeriod,
+                        });
+                      },
                     },
-                  },
-                ],
-              },
-            ],
-          });
+                  ],
+                },
+              ],
+            });
+          } else {
+            void purchaseByWebview({
+              selectedSubscriptionPeriod,
+            });
+          }
           return;
         }
 
@@ -124,17 +133,19 @@ export function usePrimePurchaseCallback({
       }
     },
     [
-      handleNativePurchase,
+      purchaseByNative,
       intl,
       onPurchase,
       purchasePackageWeb,
-      purchasePackageWebview,
+      purchaseByWebview,
       user?.email,
     ],
   );
 
   return {
     purchase,
+    purchaseByNative,
+    purchaseByWebview,
   };
 }
 

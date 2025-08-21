@@ -19,11 +19,11 @@ yarn
 
 Sviluppare codice commerciale diverso eseguendo i seguenti comandi nella directory principale
 
-- `yarn web`: sviluppa la modalità web, che avvierà localmente un server statico sulla porta 3000
-- `yarn ios`: debug dello sviluppo su dispositivi iphone tramite connessione USB
-- `yarn android`: debug di Android
-- `yarn desktop`: sviluppo in modalità desktop
-- `yarn ext`: sviluppa plugin per browser
+- `yarn app:web`: sviluppa la modalità web, che avvierà localmente un server statico sulla porta 3000
+- `yarn app:ios`: debug dello sviluppo su dispositivi iphone tramite connessione USB
+- `yarn app:android`: debug di Android
+- `yarn app:desktop`: sviluppo in modalità desktop
+- `yarn app:ext`: sviluppa plugin per browser
 
 ### Configurazione del progetto Android
 

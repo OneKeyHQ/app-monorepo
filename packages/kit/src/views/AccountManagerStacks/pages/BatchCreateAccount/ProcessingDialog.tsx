@@ -10,6 +10,7 @@ import {
   Spinner,
   Stack,
   XStack,
+  useDialogInstance,
 } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -30,11 +31,23 @@ export type IBatchCreateAccountAllNetworkInfo = {
 function ProcessingDialogContent({
   navigation,
   allNetworkInfo,
+  closeAfterDone,
+  closeAfterCancel,
+  closeAfterError,
+  renderProgressContent,
 }: {
   navigation?: IAppNavigation;
   allNetworkInfo?: IBatchCreateAccountAllNetworkInfo;
+  closeAfterDone?: boolean;
+  closeAfterCancel?: boolean;
+  closeAfterError?: boolean;
+  renderProgressContent?: (props: {
+    progressCurrent: number;
+    progressTotal: number;
+  }) => React.ReactNode;
 }) {
   const intl = useIntl();
+  const dialogInstance = useDialogInstance();
 
   const [
     sdkGetAllNetworkAddressProcessing,
@@ -51,6 +64,26 @@ function ProcessingDialogContent({
   );
   const isError = useMemo(() => Boolean(state && !!state?.error), [state]);
   const [isCancelled, setIsCancelled] = useState(false);
+
+  useEffect(() => {
+    if (closeAfterDone && isDone) {
+      void dialogInstance.close();
+    }
+    if (closeAfterCancel && isCancelled) {
+      void dialogInstance.close();
+    }
+    if (closeAfterError && isError) {
+      void dialogInstance.close();
+    }
+  }, [
+    closeAfterDone,
+    isDone,
+    dialogInstance,
+    closeAfterCancel,
+    isCancelled,
+    closeAfterError,
+    isError,
+  ]);
 
   useEffect(() => {
     const cb = (
@@ -109,7 +142,7 @@ function ProcessingDialogContent({
           w="100%"
           maxWidth="$80"
         >
-          {isDone ? (
+          {isDone && !isError && !isCancelled ? (
             <Icon name="CheckRadioSolid" size="$12" color="$iconSuccess" />
           ) : null}
 
@@ -135,7 +168,13 @@ function ProcessingDialogContent({
               {(() => {
                 if (shouldShowCheckingDeviceLoading) {
                   return intl.formatMessage({
-                    id: ETranslations.global_checking_device,
+                    id: ETranslations.global_bulk_copy_addresses_checking_device_status,
+                  });
+                }
+                if (renderProgressContent) {
+                  return renderProgressContent({
+                    progressCurrent: state?.progressCurrent ?? 0,
+                    progressTotal: state?.progressTotal ?? 0,
                   });
                 }
                 return intl.formatMessage(
@@ -211,10 +250,23 @@ function ProcessingDialogContent({
 export function showBatchCreateAccountProcessingDialog({
   navigation,
   allNetworkInfo,
+  closeAfterDone,
+  closeAfterCancel,
+  closeAfterError,
+  renderProgressContent,
+  onDialogClose,
   ...dialogProps
 }: IDialogShowProps & {
   navigation?: IAppNavigation;
   allNetworkInfo?: IBatchCreateAccountAllNetworkInfo;
+  closeAfterDone?: boolean;
+  closeAfterCancel?: boolean;
+  closeAfterError?: boolean;
+  renderProgressContent?: (props: {
+    progressCurrent: number;
+    progressTotal: number;
+  }) => React.ReactNode;
+  onDialogClose?: () => void;
 }) {
   setGlobalShowDeviceProgressDialogEnabled(false);
   Dialog.show({
@@ -225,6 +277,7 @@ export function showBatchCreateAccountProcessingDialog({
       void backgroundApiProxy.serviceBatchCreateAccount.cancelBatchCreateAccountsFlow();
     },
     onClose() {
+      onDialogClose?.();
       setGlobalShowDeviceProgressDialogEnabled(true);
       void backgroundApiProxy.serviceBatchCreateAccount.cancelBatchCreateAccountsFlow();
     },
@@ -233,6 +286,10 @@ export function showBatchCreateAccountProcessingDialog({
       <ProcessingDialogContent
         allNetworkInfo={allNetworkInfo}
         navigation={navigation}
+        closeAfterDone={closeAfterDone}
+        closeAfterCancel={closeAfterCancel}
+        closeAfterError={closeAfterError}
+        renderProgressContent={renderProgressContent}
       />
     ),
     ...dialogProps,

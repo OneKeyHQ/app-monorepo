@@ -53,6 +53,7 @@ import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
+import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
@@ -69,7 +70,9 @@ import type ServiceToken from '../services/ServiceToken';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
+import type ServiceWalletBanner from '../services/ServiceWalletBanner';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
+import type ServiceWebviewPerp from '../services/ServiceWebviewPerp';
 
 class BackgroundApiProxy
   extends BackgroundApiProxyBase
@@ -104,6 +107,10 @@ class BackgroundApiProxy
   servicePassword = this._createProxyService(
     'servicePassword',
   ) as ServicePassword;
+
+  serviceWebviewPerp = this._createProxyService(
+    'serviceWebviewPerp',
+  ) as ServiceWebviewPerp;
 
   serviceDevSetting = this._createProxyService(
     'serviceDevSetting',
@@ -304,6 +311,14 @@ class BackgroundApiProxy
   serviceDBBackup = this._createProxyService(
     'serviceDBBackup',
   ) as ServiceDBBackup;
+
+  servicePrimeTransfer = this._createProxyService(
+    'servicePrimeTransfer',
+  ) as ServicePrimeTransfer;
+
+  serviceWalletBanner = this._createProxyService(
+    'serviceWalletBanner',
+  ) as ServiceWalletBanner;
 }
 
 export default BackgroundApiProxy;

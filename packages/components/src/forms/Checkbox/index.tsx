@@ -9,14 +9,10 @@ import { ListView } from '../../layouts';
 import { Icon, Label, SizableText, XStack, YStack } from '../../primitives';
 import { NATIVE_HIT_SLOP } from '../../utils';
 
-import type { ILabelProps } from '../../primitives';
+import type { ILabelProps, IXStackProps, IYStackProps } from '../../primitives';
 import type { IFormFieldProps } from '../types';
-import type { ViewStyle } from 'react-native';
-import type {
-  CheckedState,
-  StackProps,
-  CheckboxProps as TMCheckboxProps,
-} from 'tamagui';
+import type { GestureResponderEvent, ViewStyle } from 'react-native';
+import type { CheckedState, CheckboxProps as TMCheckboxProps } from 'tamagui';
 
 export type ICheckedState = CheckedState;
 
@@ -26,11 +22,12 @@ export type ICheckboxProps = IFormFieldProps<
     label?: string;
     description?: string;
     labelProps?: ILabelProps;
-    containerProps?: StackProps;
-    labelContainerProps?: StackProps;
+    containerProps?: IXStackProps;
+    labelContainerProps?: IYStackProps;
   }
 > & {
   isUncontrolled?: boolean;
+  shouldStopPropagation?: boolean;
 };
 
 function RawCheckbox({
@@ -38,21 +35,41 @@ function RawCheckbox({
   description,
   labelProps,
   onChange,
+  onChangeForDisabled,
   value,
   containerProps,
   labelContainerProps,
   defaultChecked,
   isUncontrolled,
+  shouldStopPropagation,
   ...checkboxProps
 }: ICheckboxProps) {
   const [innerValue, setInnerValue] = useState(defaultChecked);
   const usedValue = isUncontrolled ? innerValue : value;
-  const onPress = useCallback(() => {
-    if (isUncontrolled) {
-      setInnerValue(!usedValue);
-    }
-    onChange?.(!usedValue);
-  }, [isUncontrolled, onChange, usedValue]);
+  const onPress = useCallback(
+    (event: GestureResponderEvent) => {
+      if (shouldStopPropagation) {
+        event.stopPropagation();
+        event.preventDefault();
+      }
+      if (checkboxProps.disabled) {
+        onChangeForDisabled?.(!usedValue);
+        return;
+      }
+      if (isUncontrolled) {
+        setInnerValue(!usedValue);
+      }
+      onChange?.(!usedValue);
+    },
+    [
+      shouldStopPropagation,
+      checkboxProps.disabled,
+      isUncontrolled,
+      onChange,
+      usedValue,
+      onChangeForDisabled,
+    ],
+  );
   return (
     <XStack
       py="$2"
@@ -65,6 +82,7 @@ function RawCheckbox({
     >
       <YStack
         // Warning: Received `true` for a non-boolean attribute `unstyled`.
+        // @ts-ignore
         unstyled="true"
         p="$0"
         my="$0.5"
@@ -74,13 +92,15 @@ function RawCheckbox({
         borderRadius="$1"
         alignItems="center"
         justifyContent="center"
-        focusVisibleStyle={{
-          outlineOffset: 2,
-          outlineColor: '$focusRing',
-        }}
+        focusVisibleStyle={
+          {
+            outlineOffset: 2,
+            outlineColor: '$focusRing',
+          } as any
+        }
         hitSlop={NATIVE_HIT_SLOP}
         maxHeight="$5"
-        {...checkboxProps}
+        {...(checkboxProps as IYStackProps)}
       >
         <Icon
           name={

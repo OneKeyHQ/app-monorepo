@@ -26,7 +26,7 @@ function useTxTrack({
   const [txDetails, setTxDetails] = useState<IFetchHistoryTxDetailsResp | null>(
     null,
   );
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
     if (!trackTxId) {
       return;

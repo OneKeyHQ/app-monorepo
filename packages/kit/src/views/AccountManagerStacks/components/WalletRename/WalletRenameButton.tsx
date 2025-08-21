@@ -53,7 +53,7 @@ export function WalletRenameButton({
                 wallet,
               })
             ) {
-              showHardwareLabelSetDialog(
+              void showHardwareLabelSetDialog(
                 {
                   wallet,
                 },

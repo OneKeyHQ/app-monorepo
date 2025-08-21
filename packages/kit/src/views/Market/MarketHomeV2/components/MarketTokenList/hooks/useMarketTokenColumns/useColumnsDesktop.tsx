@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { ITableColumn } from '@onekeyhq/components';
@@ -8,6 +9,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { MarketStarV2 } from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -22,6 +24,7 @@ import type { IMarketToken } from '../../MarketTokenData';
 export const useColumnsDesktop = (
   networkId?: string,
 ): ITableColumn<IMarketToken>[] => {
+  const { gtLg, gtXl } = useMedia();
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
   const intl = useIntl();
@@ -35,7 +38,7 @@ export const useColumnsDesktop = (
       ) as any,
       dataIndex: 'star',
       columnWidth: 50,
-      render: (_, record) => (
+      render: (_: unknown, record: IMarketToken) => (
         <Stack pl="$2">
           <MarketStarV2
             chainId={record.chainId || networkId || ''}
@@ -52,8 +55,8 @@ export const useColumnsDesktop = (
     {
       title: intl.formatMessage({ id: ETranslations.global_name }),
       dataIndex: 'name',
-      columnWidth: 230,
-      render: (_, record) => (
+      columnWidth: 200,
+      render: (_: unknown, record: IMarketToken) => (
         <TokenIdentityItem
           tokenLogoURI={record.tokenImageUri}
           networkLogoURI={record.networkLogoUri}
@@ -63,7 +66,7 @@ export const useColumnsDesktop = (
         />
       ),
       renderSkeleton: () => (
-        <XStack alignItems="center" space="$3">
+        <XStack alignItems="center" gap="$3">
           <XStack position="relative">
             <Skeleton width={32} height={32} borderRadius="$full" />
           </XStack>
@@ -78,31 +81,39 @@ export const useColumnsDesktop = (
       title: intl.formatMessage({ id: ETranslations.global_price }),
       dataIndex: 'price',
       columnProps: { flex: 1 },
-      render: (text: number) => (
-        <NumberSizeableText
-          size="$bodyMd"
-          formatter="price"
-          formatterOptions={{ currency }}
-        >
-          {text}
-        </NumberSizeableText>
-      ),
+      render: (text: string) => {
+        return (
+          <NumberSizeableText
+            size="$bodyMd"
+            formatter={BigNumber(text).gt(1_000_000) ? 'marketCap' : 'price'}
+            formatterOptions={{ currency, capAtMaxT: true }}
+          >
+            {text}
+          </NumberSizeableText>
+        );
+      },
       renderSkeleton: () => <Skeleton width={70} height={16} />,
     },
     {
-      title: intl.formatMessage({ id: ETranslations.dexmarket_token_change }),
+      title: `${intl.formatMessage({
+        id: ETranslations.dexmarket_token_change,
+      })}(%)`,
       dataIndex: 'change24h',
       columnProps: { flex: 1 },
-      render: (text: number) => (
-        <NumberSizeableText
-          size="$bodyMd"
-          formatter="priceChange"
-          color={text >= 0 ? '$textSuccess' : '$textCritical'}
-          formatterOptions={{ showPlusMinusSigns: true }}
-        >
-          {text}
-        </NumberSizeableText>
-      ),
+      render: (text: number) => {
+        return (
+          <NumberSizeableText
+            size="$bodyMd"
+            formatter="priceChange"
+            color={text >= 0 ? '$textSuccess' : '$textCritical'}
+            formatterOptions={{
+              showPlusMinusSigns: true,
+            }}
+          >
+            {text}
+          </NumberSizeableText>
+        );
+      },
       renderSkeleton: () => <Skeleton width={60} height={16} />,
     },
     {
@@ -113,7 +124,7 @@ export const useColumnsDesktop = (
         <NumberSizeableText
           size="$bodyMd"
           formatter="marketCap"
-          formatterOptions={{ currency }}
+          formatterOptions={{ currency, capAtMaxT: true }}
         >
           {text}
         </NumberSizeableText>
@@ -136,10 +147,25 @@ export const useColumnsDesktop = (
       renderSkeleton: () => <Skeleton width={100} height={16} />,
     },
     {
+      title: intl.formatMessage({ id: ETranslations.dexmarket_turnover }),
+      dataIndex: 'turnover',
+      columnProps: { flex: 1.1 },
+      render: (text: number) => (
+        <NumberSizeableText
+          size="$bodyMd"
+          formatter="marketCap"
+          formatterOptions={{ currency }}
+        >
+          {text}
+        </NumberSizeableText>
+      ),
+      renderSkeleton: () => <Skeleton width={100} height={16} />,
+    },
+    {
       title: intl.formatMessage({ id: ETranslations.dexmarket_txns }),
       dataIndex: 'transactions',
       columnProps: { flex: 1 },
-      render: (text: number, record) => (
+      render: (text: number, record: IMarketToken) => (
         <Txns transactions={text} walletInfo={record.walletInfo} />
       ),
       renderSkeleton: () => (
@@ -152,42 +178,31 @@ export const useColumnsDesktop = (
         </YStack>
       ),
     },
-    {
-      title: intl.formatMessage({ id: ETranslations.dexmarket_traders }),
-      dataIndex: 'uniqueTraders',
-      columnProps: { flex: 1 },
-      render: (text: number) => (
-        <NumberSizeableText size="$bodyMd" formatter="balance">
-          {text}
-        </NumberSizeableText>
-      ),
-      renderSkeleton: () => <Skeleton width={60} height={16} />,
-    },
-    {
-      title: intl.formatMessage({ id: ETranslations.dexmarket_holders }),
-      dataIndex: 'holders',
-      columnProps: { flex: 1 },
-      render: (text: number) => (
-        <NumberSizeableText size="$bodyMd" formatter="balance">
-          {text}
-        </NumberSizeableText>
-      ),
-      renderSkeleton: () => <Skeleton width={60} height={16} />,
-    },
-    {
-      title: intl.formatMessage({ id: ETranslations.dexmarket_turnover }),
-      dataIndex: 'turnover',
-      columnProps: { flex: 1.1 },
-      render: (text: number) => (
-        <NumberSizeableText
-          size="$bodyMd"
-          formatter="value"
-          formatterOptions={{ currency }}
-        >
-          {text}
-        </NumberSizeableText>
-      ),
-      renderSkeleton: () => <Skeleton width={100} height={16} />,
-    },
-  ];
+    gtLg
+      ? {
+          title: intl.formatMessage({ id: ETranslations.dexmarket_traders }),
+          dataIndex: 'uniqueTraders',
+          columnProps: { flex: 1 },
+          render: (text: number) => (
+            <NumberSizeableText size="$bodyMd" formatter="marketCap">
+              {text}
+            </NumberSizeableText>
+          ),
+          renderSkeleton: () => <Skeleton width={60} height={16} />,
+        }
+      : undefined,
+    gtXl
+      ? {
+          title: intl.formatMessage({ id: ETranslations.dexmarket_holders }),
+          dataIndex: 'holders',
+          columnProps: { flex: 1 },
+          render: (text: number) => (
+            <NumberSizeableText size="$bodyMd" formatter="marketCap">
+              {text}
+            </NumberSizeableText>
+          ),
+          renderSkeleton: () => <Skeleton width={60} height={16} />,
+        }
+      : undefined,
+  ].filter(Boolean);
 };

@@ -1,0 +1,97 @@
+diff --git a/node_modules/react-native-pager-view/android/src/fabric/java/com/reactnativepagerview/PagerViewViewManager.kt b/node_modules/react-native-pager-view/android/src/fabric/java/com/reactnativepagerview/PagerViewViewManager.kt
+index 8ec286a..0df90be 100644
+--- a/node_modules/react-native-pager-view/android/src/fabric/java/com/reactnativepagerview/PagerViewViewManager.kt
++++ b/node_modules/react-native-pager-view/android/src/fabric/java/com/reactnativepagerview/PagerViewViewManager.kt
+@@ -14,6 +14,7 @@ import com.facebook.react.uimanager.annotations.ReactProp
+ import com.facebook.react.viewmanagers.RNCViewPagerManagerDelegate
+ import com.facebook.react.viewmanagers.RNCViewPagerManagerInterface
+ import com.facebook.soloader.SoLoader
++import com.reactnativepagerview.PagerViewViewManagerImpl.reduceDragSensitivity
+ import com.reactnativepagerview.event.PageScrollEvent
+ import com.reactnativepagerview.event.PageScrollStateChangedEvent
+ import com.reactnativepagerview.event.PageSelectedEvent
+@@ -200,6 +201,12 @@ class PagerViewViewManager : ViewGroupManager<NestedScrollableHost>(), RNCViewPa
+         }
+     }
+ 
++    @ReactProp(name = "scrollSensitivity", defaultInt = 2)
++    override fun setScrollSensitivity(host: NestedScrollableHost, value: Int) {
++        val view = PagerViewViewManagerImpl.getViewPager(host)
++        view.reduceDragSensitivity(value)
++    }
++
+     override fun getExportedCustomDirectEventTypeConstants(): MutableMap<String, Map<String, String>> {
+         return MapBuilder.of(
+                 PageScrollEvent.EVENT_NAME, MapBuilder.of("registrationName", "onPageScroll"),
+diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
+index d5b82ff..8f5df69 100644
+--- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
++++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
+@@ -7,6 +7,7 @@ import com.facebook.react.uimanager.PixelUtil
+ import android.os.Handler
+ import android.os.Looper
+ import android.view.Choreographer
++import androidx.recyclerview.widget.RecyclerView
+ 
+ object PagerViewViewManagerImpl {
+     const val NAME = "RNCViewPager"
+@@ -26,6 +27,16 @@ object PagerViewViewManagerImpl {
+         view.setCurrentItem(selectedTab, scrollSmooth)
+     }
+ 
++    fun ViewPager2.reduceDragSensitivity(value: Int) {
++        val recyclerViewField = ViewPager2::class.java.getDeclaredField("mRecyclerView")
++        recyclerViewField.isAccessible = true
++       val recyclerView = recyclerViewField.get(this) as RecyclerView
++       val touchSlopField = RecyclerView::class.java.getDeclaredField("mTouchSlop")
++       touchSlopField.isAccessible = true
++       val touchSlop = touchSlopField.get(recyclerView) as Int
++       touchSlopField.set(recyclerView, touchSlop*value)
++    }
++
+     fun addView(host: NestedScrollableHost, child: View?, index: Int) {
+         if (child == null) {
+             return
+diff --git a/node_modules/react-native-pager-view/android/src/paper/java/com/reactnativepagerview/PagerViewViewManager.kt b/node_modules/react-native-pager-view/android/src/paper/java/com/reactnativepagerview/PagerViewViewManager.kt
+index 66ad7b6..800d437 100644
+--- a/node_modules/react-native-pager-view/android/src/paper/java/com/reactnativepagerview/PagerViewViewManager.kt
++++ b/node_modules/react-native-pager-view/android/src/paper/java/com/reactnativepagerview/PagerViewViewManager.kt
+@@ -13,6 +13,7 @@ import com.facebook.react.uimanager.UIManagerModule
+ import com.facebook.react.uimanager.ViewGroupManager
+ import com.facebook.react.uimanager.annotations.ReactProp
+ import com.facebook.react.uimanager.events.EventDispatcher
++import com.reactnativepagerview.PagerViewViewManagerImpl.reduceDragSensitivity
+ import com.reactnativepagerview.event.PageScrollEvent
+ import com.reactnativepagerview.event.PageScrollStateChangedEvent
+ import com.reactnativepagerview.event.PageSelectedEvent
+@@ -125,6 +126,12 @@ class PagerViewViewManager : ViewGroupManager<NestedScrollableHost>() {
+         PagerViewViewManagerImpl.setLayoutDirection(host, value)
+     }
+ 
++    @ReactProp(name = "scrollSensitivity", defaultInt = 2)
++    fun setScrollSensitivity(host: NestedScrollableHost, value: Int) {
++        val view = PagerViewViewManagerImpl.getViewPager(host)
++        view.reduceDragSensitivity(value)
++    }
++
+     override fun getExportedCustomDirectEventTypeConstants(): MutableMap<String, Map<String, String>> {
+         return MapBuilder.of(
+                 PageScrollEvent.EVENT_NAME, MapBuilder.of("registrationName", "onPageScroll"),
+diff --git a/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts b/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts
+index 19d935e..5858730 100644
+--- a/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts
++++ b/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts
+@@ -36,6 +36,13 @@ export interface NativeProps extends ViewProps {
+   onPageScroll?: DirectEventHandler<OnPageScrollEventData>;
+   onPageSelected?: DirectEventHandler<OnPageSelectedEventData>;
+   onPageScrollStateChanged?: DirectEventHandler<OnPageScrollStateChangedEventData>;
++  /**
++   * Controls the sensitivity of scroll gestures on Android.
++   * Higher values make scrolling less sensitive.
++   * Valid range: 2 - 8
++   * @platform android
++   */
++  scrollSensitivity?: Int32;
+ }
+ 
+ type PagerViewViewType = HostComponent<NativeProps>;

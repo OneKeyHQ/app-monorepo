@@ -19,7 +19,6 @@ export type IOnekeyStackHeaderProps = {
   isModelScreen?: boolean;
   isRootScreen?: boolean;
   isFlowModelScreen?: boolean;
-  disableClose?: boolean;
 };
 
 export function makeHeaderScreenOptions({
@@ -67,13 +66,7 @@ export function makeHeaderScreenOptions({
 
   return {
     headerTitleAlign: 'left',
-    // @ts-expect-error
-    header: ({
-      back: headerBack,
-      options,
-      route,
-      navigation,
-    }: IStackHeaderProps) => (
+    header: ({ back: headerBack, options, route, navigation }: any) => (
       <HeaderView
         back={headerBack}
         options={options}

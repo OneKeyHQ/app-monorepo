@@ -1,89 +1,92 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { useDebouncedCallback } from 'use-debounce';
-
-import { Stack } from '@onekeyhq/components';
+import {
+  Carousel,
+  Tabs,
+  YStack,
+  useTabContainerWidth,
+} from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketFilterBar } from '../components/MarketFilterBar';
-import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
-import { MarketTokenList } from '../components/MarketTokenList';
-import { EMarketHomeTab } from '../types';
+import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
+import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
+
+import { useMarketTabsLogic } from './hooks';
 
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
-import type { ILiquidityFilter, IMarketHomeTabValue } from '../types';
+import type { IMarketHomeTabValue } from '../types';
 
 interface IDesktopLayoutProps {
   filterBarProps: {
     selectedNetworkId: string;
     timeRange: ITimeRangeSelectorValue;
-    liquidityFilter: ILiquidityFilter;
-    showWatchlistOnly: boolean;
     onNetworkIdChange: (networkId: string) => void;
     onTimeRangeChange: (timeRange: ITimeRangeSelectorValue) => void;
-    onLiquidityFilterChange: (filter: ILiquidityFilter) => void;
-    onWatchlistToggle: () => void;
   };
   selectedNetworkId: string;
-  liquidityFilter: ILiquidityFilter;
-  activeTab: IMarketHomeTabValue;
+  onTabChange: (tabId: IMarketHomeTabValue) => void;
 }
 
 export function DesktopLayout({
   filterBarProps,
   selectedNetworkId,
-  liquidityFilter,
-  activeTab,
+  onTabChange,
 }: IDesktopLayoutProps) {
-  const [showSmallBar, setShowSmallBar] = useState(false);
+  const {
+    tabNames,
+    watchlistTabName,
+    focusedTab,
+    carouselRef,
+    handleTabChange,
+    defaultIndex,
+    handlePageChanged,
+  } = useMarketTabsLogic(onTabChange);
 
-  // Use a debounced callback to avoid excessive state updates during fast scroll events
-  const handleScrollOffsetChange = useDebouncedCallback((offsetY: number) => {
-    setShowSmallBar(offsetY > 20);
-  }, 50);
+  const height = useMemo(() => {
+    return platformEnv.isNative ? undefined : 'calc(100vh - 96px)';
+  }, []);
 
-  useEffect(() => {
-    setShowSmallBar(false);
-  }, [selectedNetworkId]);
+  const pageWidth = useTabContainerWidth();
+  const renderItem = useCallback(
+    ({ item }: { item: string }) => {
+      if (item === watchlistTabName) {
+        return (
+          <YStack px="$4" height={height} flex={1}>
+            <MarketWatchlistTokenList />
+          </YStack>
+        );
+      }
+      return (
+        <YStack px="$4" height={height} flex={1}>
+          <MarketFilterBar {...filterBarProps} />
+          <MarketNormalTokenList networkId={selectedNetworkId} />
+        </YStack>
+      );
+    },
+    [filterBarProps, height, selectedNetworkId, watchlistTabName],
+  );
 
   return (
-    <>
-      <Stack>
-        {/* Normal (large) filter bar shown when list is at top */}
-        <Stack
-          opacity={showSmallBar ? 0 : 1}
-          height={showSmallBar ? 50 : 120}
-          animation="quick"
-        >
-          <MarketFilterBar {...filterBarProps} />
-        </Stack>
-
-        <Stack
-          position="absolute"
-          top={showSmallBar ? 0 : -50}
-          left={0}
-          right={0}
-          zIndex={100}
-          opacity={showSmallBar ? 1 : 0}
-          pointerEvents={showSmallBar ? 'auto' : 'none'}
-          animation="quick"
-        >
-          <MarketFilterBarSmall {...filterBarProps} />
-        </Stack>
-      </Stack>
-
-      <Stack px="$5" flex={1}>
-        <MarketTokenList
-          networkId={selectedNetworkId}
-          liquidityFilter={liquidityFilter}
-          onScrollOffsetChange={handleScrollOffsetChange}
-          defaultShowWatchlistOnly={activeTab === EMarketHomeTab.Watchlist}
-          externalWatchlistControl={{
-            showWatchlistOnly: filterBarProps.showWatchlistOnly,
-            onToggle: filterBarProps.onWatchlistToggle,
-          }}
-          key={`${selectedNetworkId}-${activeTab}`} // Force re-render when tab changes
-        />
-      </Stack>
-    </>
+    <YStack>
+      <Tabs.TabBar
+        divider={false}
+        onTabPress={handleTabChange}
+        tabNames={tabNames}
+        focusedTab={focusedTab}
+      />
+      <Carousel
+        pageWidth={pageWidth}
+        defaultIndex={defaultIndex}
+        onPageChanged={handlePageChanged}
+        disableAnimation
+        containerStyle={{ height }}
+        ref={carouselRef as any}
+        loop={false}
+        showPagination={false}
+        data={tabNames}
+        renderItem={renderItem}
+      />
+    </YStack>
   );
 }
