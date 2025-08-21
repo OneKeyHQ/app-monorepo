@@ -47,11 +47,9 @@ function TokenSecurityAlert() {
       hitSlop={NATIVE_HIT_SLOP}
     >
       <Icon name="BugOutline" size="$4" color={color} />
-      {warningCount > 0 ? (
-        <SizableText size="$bodySmMedium" color={color}>
-          {warningCount}
-        </SizableText>
-      ) : null}
+      <SizableText size="$bodySmMedium" color={color}>
+        {warningCount}
+      </SizableText>
     </XStack>
   );
 }
