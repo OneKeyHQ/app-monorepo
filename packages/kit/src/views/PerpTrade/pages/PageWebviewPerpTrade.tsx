@@ -8,12 +8,10 @@ import {
   HeaderIconButton,
   IconButton,
   Page,
-  Stack,
   Tooltip,
   useShortcuts,
 } from '@onekeyhq/components';
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
-import WebView from '@onekeyhq/kit/src/components/WebView';
 import {
   HYPER_LIQUID_ORIGIN,
   HYPER_LIQUID_WEBVIEW_TRADE_URL,
@@ -33,6 +31,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { WebViewWithFeatures } from '../../../components/WebView/WebViewWithFeatures';
 import { useShortcutsRouteStatus } from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { SingleAccountAndNetworkSelectorTrigger } from '../../Discovery/components/HeaderRightToolBar';
@@ -111,7 +110,9 @@ function WebviewPerpTradeView() {
 
   const webview = useMemo(
     () => (
-      <WebView
+      <WebViewWithFeatures
+        // important: if set to false, the webview will not notify the dapp about the account changes first time
+        features={{ notifyChangedEventsToDappOnFocus: true }}
         id="perp-trade"
         src={url}
         onWebViewRef={(ref) => {
@@ -120,8 +121,6 @@ function WebviewPerpTradeView() {
           webviewRef.current = ref;
         }}
         allowpopups
-        // important: if set to false, the webview will not notify the dapp about the account changes first time
-        notifyChangedEventsToDappOnFocus
         onDidStartLoading={onDidStartLoading}
         onDidStartNavigation={onDidStartNavigation}
         onDidFinishLoad={onDidFinishLoad}

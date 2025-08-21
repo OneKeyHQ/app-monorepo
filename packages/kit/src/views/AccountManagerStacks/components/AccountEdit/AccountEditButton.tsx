@@ -212,13 +212,6 @@ function AccountEditButtonView({
             });
             return null;
           })()}
-          <AccountRenameButton
-            name={name}
-            wallet={wallet}
-            indexedAccount={indexedAccount}
-            account={account}
-            onClose={handleActionListClose}
-          />
           {showCopyButton ? (
             <AccountCopyButton
               wallet={wallet}
@@ -227,6 +220,14 @@ function AccountEditButtonView({
               onClose={handleActionListClose}
             />
           ) : null}
+          <AccountRenameButton
+            name={name}
+            wallet={wallet}
+            indexedAccount={indexedAccount}
+            account={account}
+            onClose={handleActionListClose}
+          />
+
           {exportKeysVisible?.showExportPrivateKey ? (
             <AccountExportPrivateKeyButton
               testID={`popover-export-private-key-${name}`}

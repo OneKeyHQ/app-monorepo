@@ -1,14 +1,10 @@
 import type { ComponentProps, FC } from 'react';
 import { useCallback, useRef } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
-
 import { Button, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
-
-import { useDAppNotifyChangesBase } from '../../views/Discovery/hooks/useDAppNotifyChanges';
 
 import InpageProviderWebView from './InpageProviderWebView';
 
@@ -28,13 +24,12 @@ import type {
   WebViewSource,
 } from 'react-native-webview/lib/WebViewTypes';
 
-interface IWebViewProps
+export interface IWebViewProps
   extends IElectronWebViewEvents,
     Partial<RNWebViewProps> {
   id?: string;
   src?: string;
   onSrcChange?: (src: string) => void;
-  notifyChangedEventsToDappOnFocus?: boolean;
   openUrlInExt?: boolean;
   onWebViewRef?: (ref: IWebViewRef | null) => void;
   onNavigationStateChange?: (event: WebViewNavigation) => void;
@@ -90,7 +85,6 @@ const WebView: FC<IWebViewProps> = ({
   containerProps,
   webviewDebuggingEnabled,
   pullToRefreshEnabled,
-  notifyChangedEventsToDappOnFocus,
   ...rest
 }) => {
   const receiveHandler = useCallback<IJsBridgeReceiveHandler>(
@@ -112,18 +106,6 @@ const WebView: FC<IWebViewProps> = ({
     },
     [onWebViewRef],
   );
-
-  const getWebviewRef = useCallback(() => webviewRef.current, [webviewRef]);
-  const shouldSkipNotify = useCallback(() => {
-    return Boolean(!notifyChangedEventsToDappOnFocus);
-  }, [notifyChangedEventsToDappOnFocus]);
-  const isFocused = useIsFocused();
-  useDAppNotifyChangesBase({
-    getWebviewRef,
-    isFocused,
-    url: src,
-    shouldSkipNotify,
-  });
 
   if (
     platformEnv.isExtension &&
