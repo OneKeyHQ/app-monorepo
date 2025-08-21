@@ -2892,7 +2892,7 @@
   "transfer.pair_code_enter_over_limit": "เกินขีดจำกัดข้อผิดพลาดของรหัสจับคู่ กรุณาเริ่มใหม่",
   "transfer.pair_code_own_error": "ไม่สามารถเชื่อมต่อรหัสจับคู่ของคุณเองได้",
   "transfer.qr_code": "คิวอาร์โค้ด",
-  "transfer.qr_step1": "เปิดฟีเจอร์ Transfer บนอุปกรณ์ทั้งสองเครื่อง",
+  "transfer.qr_step1": "เปิดฟีเจอร์ โอน บนอุปกรณ์ทั้งสองเครื่อง",
   "transfer.qr_step2": "ใช้อุปกรณ์เครื่องหนึ่งสแกน QR code ของอีกเครื่อง หรือป้อนรหัสจับคู่เพื่อเชื่อมต่อ",
   "transfer.qr_step3": "เมื่อเชื่อมต่อสำเร็จแล้ว โปรดทำตามคำแนะนำเพื่อดำเนินการต่อ",
   "transfer.qr_stepall_desc": "ฟีเจอร์นี้ใช้สำหรับโอน recovery phrase และ Private Key ระหว่างอุปกรณ์ เร็วๆ นี้จะรองรับ Hardware Wallet โปรดตรวจสอบให้แน่ใจว่าคุณได้บันทึก recovery phrase ของ Hardware Wallet ของคุณไว้อย่างปลอดภัยแล้ว",

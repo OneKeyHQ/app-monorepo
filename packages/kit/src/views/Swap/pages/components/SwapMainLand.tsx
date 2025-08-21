@@ -491,6 +491,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     setSwapSteps({
       steps: [...steps],
       preSwapData: {
+        swapType: swapTypeSwitch,
         fromToken: fromSelectToken,
         toToken: toSelectToken,
         shouldFallback: SwapBuildShouldFallBackNetworkIds.includes(
@@ -523,6 +524,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       quoteResult: { ...(currentQuoteRes as IFetchQuoteResult) },
     });
   }, [
+    swapTypeSwitch,
     currentQuoteRes,
     swapBatchTransferType,
     setSwapSteps,
