@@ -14,12 +14,12 @@ import {
 } from '@onekeyhq/components';
 import { useTabsScrollContext } from '@onekeyhq/components/src/composite/Tabs/context';
 import { useLeftColumnWidthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
-import { useMarketTransactions } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketTransactions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import { TransactionsSkeleton } from './components/TransactionsSkeleton';
+import { useMarketTransactions } from './hooks/useMarketTransactions';
 import { TransactionItemNormal } from './layout/TransactionItemNormal/TransactionItemNormal';
 import { TransactionItemSmall } from './layout/TransactionItemSmall/TransactionItemSmall';
 
