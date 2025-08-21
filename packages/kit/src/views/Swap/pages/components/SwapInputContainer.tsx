@@ -366,7 +366,6 @@ const SwapInputContainer = ({
         }}
         tokenSelectorTriggerProps={{
           loading: selectTokenLoading,
-          selectedNetworkImageUri: token?.networkLogoURI,
           selectedTokenImageUri: token?.logoURI,
           selectedTokenSymbol: token?.symbol,
           onPress: () => {
