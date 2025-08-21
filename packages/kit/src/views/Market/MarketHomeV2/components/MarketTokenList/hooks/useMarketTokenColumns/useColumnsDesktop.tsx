@@ -135,15 +135,24 @@ export const useColumnsDesktop = (
       title: intl.formatMessage({ id: ETranslations.global_liquidity }),
       dataIndex: 'liquidity',
       columnProps: { flex: 1.2 },
-      render: (text: number) => (
-        <NumberSizeableText
-          size="$bodyMd"
-          formatter="marketCap"
-          formatterOptions={{ currency }}
-        >
-          {text}
-        </NumberSizeableText>
-      ),
+      render: (text: number) => {
+        if (!text || text === 0) {
+          return (
+            <SizableText size="$bodyMd" color="$textSubdued">
+              --
+            </SizableText>
+          );
+        }
+        return (
+          <NumberSizeableText
+            size="$bodyMd"
+            formatter="marketCap"
+            formatterOptions={{ currency }}
+          >
+            {text}
+          </NumberSizeableText>
+        );
+      },
       renderSkeleton: () => <Skeleton width={100} height={16} />,
     },
     {
