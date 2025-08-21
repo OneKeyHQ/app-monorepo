@@ -414,6 +414,10 @@ function TxHistoryListContainer() {
       onPressHistory={handleHistoryItemPress}
       showHeader
       showFooter
+      walletId={wallet?.id}
+      accountId={account?.id}
+      networkId={network?.id}
+      indexedAccountId={indexedAccount?.id}
       isLoading={historyState.isRefreshing}
       initialized={historyState.initialized}
       {...(media.gtLg && {

@@ -16,6 +16,7 @@ import {
 import { useStyle } from '@onekeyhq/components/src/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   convertToSectionGroups,
@@ -27,19 +28,26 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
+import { useAccountData } from '../../hooks/useAccountData';
 import {
   useHasMoreOnChainHistoryAtom,
   useSearchKeyAtom,
 } from '../../states/jotai/contexts/historyList';
+import { openExplorerAddressUrl } from '../../utils/explorerUtils';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { withBrowserProvider } from '../../views/Discovery/pages/Browser/WithBrowserProvider';
 import { PullToRefresh } from '../../views/Home/components/PullToRefresh';
+import AddressTypeSelector from '../AddressTypeSelector/AddressTypeSelector';
 import { EmptySearch } from '../Empty';
 import { EmptyHistory } from '../Empty/EmptyHistory';
 import { HistoryLoadingView } from '../Loading';
 
 import { TxHistoryListItem } from './TxHistoryListItem';
-import { useAccountData } from '../../hooks/useAccountData';
+import {
+  EModalRoutes,
+  EModalWalletAddressRoutes,
+} from '@onekeyhq/shared/src/routes';
+import useAppNavigation from '../../hooks/useAppNavigation';
 
 type IProps = {
   data: IAccountHistoryTx[];
@@ -61,21 +69,28 @@ type IProps = {
     | 'ListFooterComponentStyle'
     | 'contentContainerStyle'
   >;
+  walletId?: string;
   accountId?: string;
   networkId?: string;
+  indexedAccountId?: string;
 };
 
 const ListFooterComponent = ({
   accountId,
   networkId,
+  walletId,
+  indexedAccountId,
   showFooter,
   hasMoreOnChainHistory,
 }: {
   accountId?: string;
   networkId?: string;
+  walletId?: string;
+  indexedAccountId?: string;
   showFooter?: boolean;
   hasMoreOnChainHistory?: boolean;
 }) => {
+  const appNavigation = useAppNavigation();
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
   const intl = useIntl();
   const addPaddingOnListFooter = useMemo(
@@ -88,22 +103,77 @@ const ListFooterComponent = ({
     networkId,
   });
 
+  const handleOnPress = useCallback(async () => {
+    if (
+      network?.isAllNetworks &&
+      !accountUtils.isOthersWallet({ walletId: walletId ?? '' })
+    ) {
+      appNavigation.pushModal(EModalRoutes.WalletAddress, {
+        screen: EModalWalletAddressRoutes.WalletAddress,
+        params: {
+          accountId,
+          indexedAccountId: indexedAccountId ?? '',
+          walletId: walletId ?? '',
+        },
+      });
+    } else {
+      await openExplorerAddressUrl({
+        networkId: account?.createAtNetwork ?? network?.id,
+        address: account?.address,
+      });
+    }
+  }, [
+    network?.isAllNetworks,
+    network?.id,
+    walletId,
+    appNavigation,
+    accountId,
+    indexedAccountId,
+    account?.createAtNetwork,
+    account?.address,
+  ]);
+
   if (showFooter && hasMoreOnChainHistory) {
     return (
-      <YStack alignItems="center" justifyContent="center">
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.global_pending })}
-        </SizableText>
-        <Button
-          size="small"
-          variant="secondary"
-          onPress={() => {
-            console.log('onPress');
-          }}
-        >
-          {intl.formatMessage({ id: ETranslations.global_pending })}
-        </Button>
-      </YStack>
+      <>
+        <YStack alignItems="center" justifyContent="center">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.wallet_history_footer_view_full_history_in_explorer,
+            })}
+          </SizableText>
+          {!accountUtils.isOthersWallet({ walletId: walletId ?? '' }) ||
+          vaultSettings?.mergeDeriveAssetsEnabled ? (
+            <AddressTypeSelector
+              walletId={walletId ?? ''}
+              networkId={networkId ?? ''}
+              indexedAccountId={
+                indexedAccountId ?? account?.indexedAccountId ?? ''
+              }
+              renderSelectorTrigger={
+                <Button size="small" variant="secondary" onPress={() => {}}>
+                  {intl.formatMessage({
+                    id: ETranslations.global_block_explorer,
+                  })}
+                </Button>
+              }
+              onSelect={async ({ account: a }) => {
+                await openExplorerAddressUrl({
+                  networkId: network?.id,
+                  address: a?.address,
+                });
+              }}
+              doubleConfirm
+            />
+          ) : (
+            <Button size="small" variant="secondary" onPress={handleOnPress}>
+              {intl.formatMessage({ id: ETranslations.global_block_explorer })}
+            </Button>
+          )}
+        </YStack>
+        <Stack h="$5" />
+        {addPaddingOnListFooter ? <Stack h="$16" /> : null}
+      </>
     );
   }
 
@@ -156,6 +226,8 @@ function BaseTxHistoryListView(props: IProps) {
     onRefresh,
     accountId,
     networkId,
+    walletId,
+    indexedAccountId,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
@@ -273,6 +345,8 @@ function BaseTxHistoryListView(props: IProps) {
           hasMoreOnChainHistory={hasMoreOnChainHistory}
           accountId={accountId}
           networkId={networkId}
+          walletId={walletId}
+          indexedAccountId={indexedAccountId}
         />
       }
       ListHeaderComponent={ListHeaderComponent}

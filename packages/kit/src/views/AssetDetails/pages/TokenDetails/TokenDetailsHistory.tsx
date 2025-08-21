@@ -30,6 +30,8 @@ function TokenDetailsHistory(props: IProps) {
   const {
     accountId,
     networkId,
+    walletId,
+    indexedAccountId,
     tokenInfo,
     ListHeaderComponent,
     isTabView,
@@ -134,6 +136,11 @@ function TokenDetailsHistory(props: IProps) {
   return (
     <TxHistoryListView
       hideValue
+      showFooter
+      walletId={walletId}
+      accountId={accountId}
+      networkId={networkId}
+      indexedAccountId={indexedAccountId}
       inTabList={inTabList}
       initialized={historyInit}
       isLoading={isLoadingTokenHistory}

@@ -39,5 +39,6 @@ export type IModalWalletAddressParamList = {
     excludeTestNetwork?: boolean;
     includingNotEqualGlobalDeriveTypeAccount?: boolean;
     includingDeriveTypeMismatchInDefaultVisibleNetworks?: boolean;
+    selectType?: 'view' | 'copy';
   };
 };
