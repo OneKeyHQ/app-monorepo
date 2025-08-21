@@ -2892,7 +2892,7 @@
   "transfer.pair_code_enter_over_limit": "Limite d'erreurs de code de jumelage dépassée. Veuillez recommencer.",
   "transfer.pair_code_own_error": "Impossible de connecter votre propre code de jumelage",
   "transfer.qr_code": "Code QR",
-  "transfer.qr_step1": "Ouvrez la fonctionnalité Transfer sur les deux appareils",
+  "transfer.qr_step1": "Ouvrez la fonctionnalité Transfert sur les deux appareils",
   "transfer.qr_step2": "Utilisez un appareil pour scanner le code QR de l'autre ou entrez son code de jumelage pour vous connecter",
   "transfer.qr_step3": "Une fois la connexion établie, suivez les instructions pour continuer",
   "transfer.qr_stepall_desc": "Cette fonctionnalité permet de transférer des recovery phrases et des clés privées entre appareils. La prise en charge des portefeuilles matériels sera bientôt disponible. En attendant, assurez-vous que la recovery phrase de votre portefeuille matériel est notée en lieu sûr.",

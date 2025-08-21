@@ -2892,7 +2892,7 @@
   "transfer.pair_code_enter_over_limit": "Đã vượt quá giới hạn lỗi mã ghép nối. Vui lòng bắt đầu lại.",
   "transfer.pair_code_own_error": "Không thể kết nối mã ghép nối của chính bạn",
   "transfer.qr_code": "Mã QR",
-  "transfer.qr_step1": "Mở tính năng Transfer trên cả hai thiết bị",
+  "transfer.qr_step1": "Mở tính năng Chuyển khoản trên cả hai thiết bị",
   "transfer.qr_step2": "Sử dụng một thiết bị để quét mã QR của thiết bị kia hoặc nhập mã ghép nối của nó để kết nối",
   "transfer.qr_step3": "Sau khi kết nối, làm theo hướng dẫn để tiếp tục",
   "transfer.qr_stepall_desc": "Tính năng này dùng để chuyển recovery phrase và khóa riêng tư giữa các thiết bị. Chúng tôi sẽ sớm hỗ trợ ví cứng; hiện tại, vui lòng đảm bảo recovery phrase của ví cứng đã được ghi lại an toàn.",

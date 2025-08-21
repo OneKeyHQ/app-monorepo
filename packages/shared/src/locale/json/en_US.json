@@ -2892,7 +2892,7 @@
   "transfer.pair_code_enter_over_limit": "Pairing code error limit exceeded. Please start over.",
   "transfer.pair_code_own_error": "Unable to connect your own pairing code",
   "transfer.qr_code": "QR code",
-  "transfer.qr_step1": "Open the Transfer feature on both devices",
+  "transfer.qr_step1": "Open the transfer feature on both devices",
   "transfer.qr_step2": "Use one device to scan the other's QR code or enter its pairing code to connect",
   "transfer.qr_step3": "Once connected, follow the prompts to continue",
   "transfer.qr_stepall_desc": "This feature is for transferring recovery phrases and private keys between devices. Support for hardware wallets is coming soon; for now, please ensure your hardware wallet's recovery phrase is securely recorded.",

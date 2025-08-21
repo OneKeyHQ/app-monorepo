@@ -2892,7 +2892,7 @@
   "transfer.pair_code_enter_over_limit": "Limite di errori del codice di abbinamento superato. Riprova dall'inizio.",
   "transfer.pair_code_own_error": "Impossibile collegare il proprio codice di abbinamento",
   "transfer.qr_code": "Codice QR",
-  "transfer.qr_step1": "Apri la funzione Transfer su entrambi i dispositivi",
+  "transfer.qr_step1": "Apri la funzione Trasferimento su entrambi i dispositivi",
   "transfer.qr_step2": "Usa un dispositivo per scansionare il codice QR dell'altro o inserisci il suo codice di abbinamento per connetterti",
   "transfer.qr_step3": "Una volta stabilita la connessione, segui le istruzioni per procedere",
   "transfer.qr_stepall_desc": "Questa funzione serve a trasferire recovery phrase e chiavi private tra dispositivi. Il supporto per i portafogli hardware sarà presto disponibile; per ora, assicurati che la recovery phrase del tuo portafoglio hardware sia annotata in un posto sicuro.",
