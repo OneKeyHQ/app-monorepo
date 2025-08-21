@@ -327,7 +327,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         navigation?: ReturnType<typeof useAppNavigation>;
       },
     ) => {
-      const { tabId, entry, navigation, isDesktop = false } = payload;
+      const { tabId, entry, navigation } = payload;
       delete webviewRefs[tabId];
       const { tabs } = get(webTabsAtom());
       const targetIndex = tabs.findIndex((t) => t.id === tabId);
@@ -363,7 +363,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           if (newActiveTab) {
             newActiveTab.isActive = true;
             this.setCurrentWebTab.call(set, newActiveTab.id);
-          } else if (isDesktop) {
+          } else if (platformEnv.isDesktop) {
             // if the new active tab is not in tabs, switch to Discovery (Desktop only)
             navigation?.switchTab(ETabRoutes.Discovery);
           }
