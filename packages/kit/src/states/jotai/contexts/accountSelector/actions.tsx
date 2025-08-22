@@ -360,14 +360,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           oldSelectedAccount.walletId === 'hd-2' &&
           newSelectedAccount.walletId === 'hd-4'
         ) {
-          debugger;
+          // debugger;
         }
 
         if (
           oldSelectedAccount.walletId === undefined &&
           newSelectedAccount.walletId === 'hd-2'
         ) {
-          debugger;
+          // debugger;
         }
 
         if (
