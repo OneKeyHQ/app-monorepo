@@ -38,13 +38,24 @@
           "blend-mode-specializations" : [
             {
               "appearance" : "tinted",
-              "value" : "normal"
+              "value" : "plus-lighter"
             }
           ],
           "fill-specializations" : [
             {
               "appearance" : "tinted",
-              "value" : "automatic"
+              "value" : {
+                "linear-gradient" : [
+                  "display-p3:0.13268,0.53880,1.00000,1.00000",
+                  "srgb:0.75106,0.00000,0.00000,1.00000"
+                ]
+              }
+            }
+          ],
+          "glass-specializations" : [
+            {
+              "appearance" : "tinted",
+              "value" : true
             }
           ],
           "hidden" : false,
@@ -57,7 +68,7 @@
             },
             {
               "appearance" : "tinted",
-              "value" : 0
+              "value" : 1
             }
           ],
           "position" : {
