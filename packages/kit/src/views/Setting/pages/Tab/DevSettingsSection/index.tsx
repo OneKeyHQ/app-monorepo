@@ -9,6 +9,7 @@ import {
   ESwitchSize,
   Input,
   Switch,
+  TextAreaInput,
   Toast,
   YStack,
   useClipboard,
@@ -57,6 +58,11 @@ import {
   switchWebDappMode,
 } from '@onekeyhq/shared/src/utils/devModeUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
+
+import { useSignatureConfirm } from '../../../../../hooks/useSignatureConfirm';
+import { useActiveAccount } from '../../../../../states/jotai/contexts/accountSelector';
 
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
@@ -70,6 +76,7 @@ import { NotificationDevSettings } from './NotificationDevSettings';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
+import { AccountSelectorProviderMirror } from '../../../../../components/AccountSelector';
 
 let correctDevOnlyPwd = '';
 
@@ -128,7 +135,7 @@ export function showDevOnlyPasswordDialog({
   });
 }
 
-export const DevSettingsSection = () => {
+const BaseDevSettingsSection = () => {
   const [settings] = useSettingsPersistAtom();
   const [devSettings] = useDevSettingsPersistAtom();
   const intl = useIntl();
@@ -160,6 +167,64 @@ export const DevSettingsSection = () => {
     I18nManager.forceRTL(!I18nManager.isRTL);
     void backgroundApiProxy.serviceApp.restartApp();
   }, []);
+
+  const { activeAccount } = useActiveAccount({ num: 0 });
+
+  const { navigationToMessageConfirmAsync } = useSignatureConfirm({
+    accountId: activeAccount.account?.id ?? '',
+    networkId: activeAccount.network?.id ?? '',
+  });
+  const handleSignMessage = useCallback(() => {
+    Dialog.show({
+      title: 'Sign Message',
+      description: 'Sign Message',
+      renderContent: (
+        <Dialog.Form formProps={{ values: { message: '123' } }}>
+          <Dialog.FormField
+            name="message"
+            rules={{
+              required: { value: true, message: 'message is required.' },
+            }}
+          >
+            <TextAreaInput placeholder="message" />
+          </Dialog.FormField>
+        </Dialog.Form>
+      ),
+      onConfirm: async ({ getForm, close }) => {
+        const form = getForm();
+        const unsignedMessage = form?.getValues()?.message;
+        await close();
+        const signedMessage = await navigationToMessageConfirmAsync({
+          accountId: activeAccount.account?.id ?? '',
+          networkId: activeAccount.network?.id ?? '',
+          unsignedMessage: {
+            type: EMessageTypesBtc.ECDSA,
+            message: unsignedMessage,
+            sigOptions: {
+              noScriptType: true,
+            },
+            payload: {
+              isFromDApp: false,
+            },
+          },
+          walletInternalSign: true,
+          sameModal: false,
+          skipBackupCheck: true,
+        });
+        copyText(signedMessage);
+        console.log(signedMessage);
+        Dialog.show({
+          title: 'Signed Message',
+          description: signedMessage,
+        });
+      },
+    });
+  }, [
+    activeAccount.account?.id,
+    activeAccount.network?.id,
+    copyText,
+    navigationToMessageConfirmAsync,
+  ]);
 
   if (!devSettings.enabled) {
     return null;
@@ -199,7 +264,12 @@ export const DevSettingsSection = () => {
           />
         </>
       ) : null}
-
+      <SectionPressItem
+        icon="SignatureOutline"
+        title="Sign Message"
+        subtitle="Sign Message"
+        onPress={handleSignMessage}
+      />
       <SectionPressItem
         icon="InfoCircleOutline"
         copyable
@@ -934,5 +1004,16 @@ export const DevSettingsSection = () => {
         />
       ) : null}
     </Section>
+  );
+};
+
+export const DevSettingsSection = () => {
+  return (
+    <AccountSelectorProviderMirror
+      config={{ sceneName: EAccountSelectorSceneName.home }}
+      enabledNum={[0]}
+    >
+      <BaseDevSettingsSection />
+    </AccountSelectorProviderMirror>
   );
 };
