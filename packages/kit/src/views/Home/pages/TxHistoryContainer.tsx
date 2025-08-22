@@ -182,7 +182,7 @@ function TxHistoryListContainer() {
             ...item.accountsWithChangedPendingTxs,
           ];
           r.addressMap = { ...r.addressMap, ...item.addressMap };
-          if (r.hasMoreOnChainHistory) {
+          if (item.hasMoreOnChainHistory) {
             hasMoreOnChainHistory = true;
           }
         });

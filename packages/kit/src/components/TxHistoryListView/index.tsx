@@ -26,6 +26,7 @@ import {
   convertToSectionGroups,
   getFilteredHistoryBySearchKey,
 } from '@onekeyhq/shared/src/utils/historyUtils';
+import { EWalletAddressActionType } from '@onekeyhq/shared/types/address';
 import type {
   IAccountHistoryTx,
   IHistoryListSectionGroup,
@@ -111,9 +112,13 @@ const ListFooterComponent = ({
       appNavigation.pushModal(EModalRoutes.WalletAddress, {
         screen: EModalWalletAddressRoutes.WalletAddress,
         params: {
+          title: intl.formatMessage({
+            id: ETranslations.global_select_network,
+          }),
           accountId,
-          indexedAccountId: indexedAccountId ?? '',
           walletId: walletId ?? '',
+          indexedAccountId: indexedAccountId ?? '',
+          actionType: EWalletAddressActionType.ViewInExplorer,
         },
       });
     } else {
@@ -127,6 +132,7 @@ const ListFooterComponent = ({
     network?.id,
     walletId,
     appNavigation,
+    intl,
     accountId,
     indexedAccountId,
     account?.createAtNetwork,
@@ -136,13 +142,19 @@ const ListFooterComponent = ({
   if (showFooter && hasMoreOnChainHistory) {
     return (
       <>
-        <YStack alignItems="center" justifyContent="center">
-          <SizableText size="$bodySm" color="$textSubdued">
+        <YStack
+          alignItems="center"
+          justifyContent="center"
+          gap="$2"
+          px="$5"
+          py="$6"
+        >
+          <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
             {intl.formatMessage({
               id: ETranslations.wallet_history_footer_view_full_history_in_explorer,
             })}
           </SizableText>
-          {!accountUtils.isOthersWallet({ walletId: walletId ?? '' }) ||
+          {!accountUtils.isOthersWallet({ walletId: walletId ?? '' }) &&
           vaultSettings?.mergeDeriveAssetsEnabled ? (
             <AddressTypeSelector
               walletId={walletId ?? ''}
