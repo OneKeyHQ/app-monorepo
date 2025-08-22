@@ -7972,7 +7972,7 @@ __metadata:
     react-native-webview-cleaner: "npm:@onekeyfe/react-native-webview-cleaner@1.0.0"
     react-native-zip-archive: "npm:7.0.2"
     readable-stream: "npm:^3.6.0"
-    realm: "npm:12.14.2"
+    realm: "npm:20.2.0"
     realm-flipper-plugin-device: "npm:^1.1.0"
     rimraf: "npm:^3"
     stream-http: "npm:^3.2.0"
@@ -36065,9 +36065,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"realm@npm:12.14.2":
-  version: 12.14.2
-  resolution: "realm@npm:12.14.2"
+"realm@npm:20.2.0":
+  version: 20.2.0
+  resolution: "realm@npm:20.2.0"
   dependencies:
     "@realm/fetch": "npm:^0.1.1"
     bson: "npm:^4.7.2"
@@ -36081,7 +36081,7 @@ __metadata:
   peerDependenciesMeta:
     react-native:
       optional: true
-  checksum: 10/87b0692d5aac7ab6ee5f3439b304d6c58bcc47d6ad4796bde31505d4a2db9dd0389814b6e25f5cbe0fe8f7951f84873d22970d9e4e24d3281503cdf7a3bbd356
+  checksum: 10/935715ba628ecc33c827aea6ce4e47fe5855e51458e92f9acf88f00ef1fd16aeef798c5c45f57661fd87386641515d9c9326e5c2533af6e44746b3549f011e2b
   languageName: node
   linkType: hard
 
