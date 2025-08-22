@@ -46,3 +46,8 @@ export enum EMessageTypesAlph {
   BLAKE2B = 'blake2b',
   IDENTITY = 'identity',
 }
+
+export enum EMessageTypesTron {
+  SIGN_MESSAGE = 'tronSignMessage',
+  SIGN_MESSAGE_V2 = 'tronSignMessageV2',
+}
