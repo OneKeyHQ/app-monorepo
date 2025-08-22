@@ -1564,6 +1564,7 @@
   "global.wallpaper": "ওয়ালপেপার",
   "global.wallpaper_classic": "ক্লাসিক",
   "global.wallpaper_cobranding": "সহ-ব্র্যান্ডিং",
+  "global.wallpaper_collection": "সংগ্রহ",
   "global.wallpaper_custom": "কাস্টম",
   "global.wallpaper_custom_max_limit": "{0}টি ওয়ালপেপারের সীমা পৌঁছেছে। নতুন যোগ করতে একটি মুছে ফেলুন।",
   "global.warning": "সতর্কতা",

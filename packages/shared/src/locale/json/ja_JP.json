@@ -1564,6 +1564,7 @@
   "global.wallpaper": "壁紙",
   "global.wallpaper_classic": "クラシック",
   "global.wallpaper_cobranding": "コーブランディング",
+  "global.wallpaper_collection": "コレクション",
   "global.wallpaper_custom": "カスタム",
   "global.wallpaper_custom_max_limit": "{0}枚の壁紙の上限に達しました。追加するには1枚削除してください。",
   "global.warning": "警告",
