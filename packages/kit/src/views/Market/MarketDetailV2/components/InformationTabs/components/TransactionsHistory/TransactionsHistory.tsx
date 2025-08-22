@@ -7,6 +7,7 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import {
   SizableText,
+  Spinner,
   Stack,
   Tabs,
   useCurrentTabScrollY,
@@ -59,10 +60,11 @@ export function TransactionsHistory({
   const intl = useIntl();
   const { gtLg } = useMedia();
   const [_leftColumnWidth] = useLeftColumnWidthAtom();
-  const { transactions, isRefreshing } = useMarketTransactions({
-    tokenAddress,
-    networkId,
-  });
+  const { transactions, isRefreshing, loadMore, isLoadingMore, hasMore } =
+    useMarketTransactions({
+      tokenAddress,
+      networkId,
+    });
   const { scrollTop } = useTabsScrollContext() as {
     scrollTop: number;
   };
@@ -97,8 +99,11 @@ export function TransactionsHistory({
   );
 
   const handleEndReached = useCallback(() => {
-    // TODO: Implement pagination logic here
-  }, []);
+    if (hasMore && !isLoadingMore) {
+      void loadMore();
+    }
+    console.log('handleEndReached', hasMore, isLoadingMore);
+  }, [hasMore, isLoadingMore, loadMore]);
 
   useScrollEnd(onScrollEnd ?? noop);
 
@@ -106,6 +111,7 @@ export function TransactionsHistory({
     <Tabs.FlatList<IMarketTokenTransaction>
       key={listKey}
       onEndReached={handleEndReached}
+      onEndReachedThreshold={0.5}
       data={transactions}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
@@ -123,9 +129,13 @@ export function TransactionsHistory({
           </Stack>
         )
       }
-      contentContainerStyle={{
-        paddingBottom: 16,
-      }}
+      ListFooterComponent={
+        isLoadingMore ? (
+          <Stack alignItems="center" py="$4">
+            <Spinner size="small" />
+          </Stack>
+        ) : null
+      }
     />
   );
 }
