@@ -7,6 +7,8 @@ import { useDebouncedCallback } from 'use-debounce';
 import type { ICarouselInstance } from '@onekeyhq/components';
 import { useSelectedMarketTabAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EDexListName } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 
 import type { IMarketHomeTabValue } from '../../types';
 import type { SharedValue } from 'react-native-reanimated';
@@ -68,6 +70,11 @@ export function useMarketTabsLogic(
     (index: number) => {
       // Convert display name to enum value
       const tabValue = index === 0 ? 'watchlist' : 'trending';
+
+      // Add DEX list tracking
+      const dexListName =
+        index === 0 ? EDexListName.Watchlist : EDexListName.Trending;
+      defaultLogger.dex.list.dexList({ dexListName });
 
       // Primary state update - this is the source of truth
       setSelectedTab(tabValue);

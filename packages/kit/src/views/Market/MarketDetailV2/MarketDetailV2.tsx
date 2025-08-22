@@ -12,6 +12,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
@@ -42,6 +44,19 @@ function MarketDetail({
   const media = useMedia();
   const tokenDetailActions = useTokenDetailActions();
   const navigation = useNavigation<IPageNavigationProp<ITabMarketParamList>>();
+
+  // Log DEX enter from external link for Web platform
+  useEffect(() => {
+    if (platformEnv.isWeb) {
+      const referrer = globalThis.document?.referrer || '';
+      const currentOrigin = globalThis.location?.origin || '';
+      
+      // If referrer is from external domain or empty (direct access), log as Link
+      if (!referrer || !referrer.startsWith(currentOrigin)) {
+        defaultLogger.dex.enter.dexEnter({ enterWay: EEnterWay.Link });
+      }
+    }
+  }, []);
 
   // Clear all token detail content when unmount
   useEffect(() => {

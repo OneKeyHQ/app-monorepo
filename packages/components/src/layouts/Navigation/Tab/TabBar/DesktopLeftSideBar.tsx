@@ -15,7 +15,9 @@ import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { Icon, XStack, YStack } from '@onekeyhq/components/src/primitives';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { type EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
@@ -123,6 +125,9 @@ export function DesktopLeftSideBar({
             defaultLogger.swap.enterSwap.enterSwap({
               enterFrom: ESwapSource.TAB,
             });
+          }
+          if (route.name === ETabRoutes.Market) {
+            defaultLogger.dex.enter.dexEnter({ enterWay: EEnterWay.HomeTab });
           }
           if (!focus && !event.defaultPrevented) {
             navigation.dispatch({

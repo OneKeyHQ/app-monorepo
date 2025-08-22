@@ -28,6 +28,8 @@ export enum EVisitTarget {
   OfficialWebsite = 'OfficialWebsite',
   X = 'X',
   SearchOnX = 'SearchOnX',
+  ShareLink = 'ShareLink',
+  Others = 'Others',
 }
 
 export enum ESwapType {

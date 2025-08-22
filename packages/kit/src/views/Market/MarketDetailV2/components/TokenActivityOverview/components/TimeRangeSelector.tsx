@@ -1,4 +1,6 @@
 import { ButtonFrame, SizableText, Stack, YStack } from '@onekeyhq/components';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EIntervalSelect } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 
 import type { ITimeRangeOption, ITimeRangeSelectorProps } from '../types';
 
@@ -15,6 +17,34 @@ export function TimeRangeSelector({
   onChange,
   isLoading,
 }: ITimeRangeSelectorProps) {
+  const handleIntervalChange = (intervalValue: string) => {
+    // Map interval values to EIntervalSelect enum values
+    let intervalSelect: EIntervalSelect = EIntervalSelect.OneHour; // default
+
+    switch (intervalValue) {
+      case '1h':
+        intervalSelect = EIntervalSelect.OneHour;
+        break;
+      case '4h':
+        intervalSelect = EIntervalSelect.FourHour;
+        break;
+      case '8h':
+        intervalSelect = EIntervalSelect.EightHour;
+        break;
+      case '24h':
+        intervalSelect = EIntervalSelect.TwentyFourHour;
+        break;
+      default:
+        intervalSelect = EIntervalSelect.OneHour;
+    }
+
+    // Add DEX interval tracking
+    defaultLogger.dex.chart.dexInterval({ intervalSelect });
+
+    // Call original onChange
+    onChange(intervalValue);
+  };
+
   return (
     <Stack
       flexDirection="row"
@@ -31,7 +61,7 @@ export function TimeRangeSelector({
           borderWidth={0}
           borderRadius="$2"
           py="$1.5"
-          onPress={() => onChange(opt.value)}
+          onPress={() => handleIntervalChange(opt.value)}
           bg={value === opt.value ? '$bgApp' : '$transparent'}
           hoverStyle={{
             bg: value === opt.value ? '$bgAppHover' : '$bgHover',

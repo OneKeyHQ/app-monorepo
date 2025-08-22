@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { IListViewProps, IPopoverProps } from '@onekeyhq/components';
 import { useMedia } from '@onekeyhq/components';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -65,6 +66,8 @@ function MarketTokenListNetworkSelector({
 
   const onSelectCurrentNetwork = useCallback(
     (network: IServerNetwork) => {
+      // Add network selection tracking
+      defaultLogger.dex.list.dexNetwork({ network: network.id });
       onSelectNetworkId?.(network.id);
     },
     [onSelectNetworkId],

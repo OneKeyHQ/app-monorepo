@@ -11,6 +11,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import {
   ERootRoutes,
@@ -86,6 +87,9 @@ export function UniversalSearchV2MarketTokenItem({
         from:
           searchStatus === ESearchStatus.init ? 'trendingList' : 'searchList',
       });
+
+      // Log DEX enter from search
+      defaultLogger.dex.enter.dexEnter({ enterWay: EEnterWay.Search });
 
       // Only add to recent search list when not in trending section and symbol is not empty
       if (searchStatus !== ESearchStatus.init && symbol?.trim()) {

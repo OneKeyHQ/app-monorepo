@@ -8,6 +8,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
@@ -24,6 +25,15 @@ function TokenSecurityAlert() {
   });
 
   const handlePress = () => {
+    // Add DEX check risk tracking
+    if (tokenAddress && networkId) {
+      defaultLogger.dex.actions.dexCheckRisk({
+        network: networkId,
+        tokenSymbol: tokenAddress, // Using address as symbol since we may not have the actual symbol
+        tokenContract: tokenAddress,
+      });
+    }
+
     Dialog.show({
       title: intl.formatMessage({ id: ETranslations.dexmarket_audit }),
       showFooter: false,

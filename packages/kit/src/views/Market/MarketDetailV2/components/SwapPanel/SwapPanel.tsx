@@ -19,6 +19,14 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EAmountEnterType,
+  ERouter,
+  ESlippageSetting,
+  ESwapType,
+  EWalletType,
+} from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProviderMirrorV2';
@@ -52,6 +60,18 @@ export function SwapPanel({
 
   const showSwapDialog = () => {
     if (networkId && tokenAddress) {
+      // Track swap dialog opening - using basic parameters since we don't have specific trade details yet
+      defaultLogger.dex.swap.dexSwap({
+        walletType: EWalletType.HD, // Default assumption
+        amountEnterType: EAmountEnterType.Manual, // Default assumption
+        slippageSetting: ESlippageSetting.Auto, // Default assumption
+        sourceTokenSymbol: 'Unknown', // Will be updated in actual swap
+        receivedTokenSymbol: 'Unknown', // Will be updated in actual swap
+        network: networkId,
+        swapType: ESwapType.Buy, // Assuming buy since we're on token detail page
+        router: ERouter.OKX, // Default router
+      });
+
       dialogRef.current = inModalDialog.show({
         onClose: () => {
           appEventBus.emit(

@@ -1,4 +1,6 @@
 import { WEB_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -46,6 +48,9 @@ export const marketNavigation = {
     await timerUtils.wait(80);
     navigation.switchTab(ETabRoutes.Market);
     await timerUtils.wait(100);
+
+    // Log DEX enter from external link
+    defaultLogger.dex.enter.dexEnter({ enterWay: EEnterWay.Link });
 
     // Navigate to V1 MarketDetail page
     navigation.navigate(ERootRoutes.Main, {
