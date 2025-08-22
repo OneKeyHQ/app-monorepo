@@ -7,12 +7,19 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
+import { useTokenSecurity } from '../TokenSecurityAlert/hooks';
 
 import { InformationPanelSkeleton } from './InformationPanelSkeleton';
 
 export function InformationPanel() {
   const intl = useIntl();
-  const { tokenDetail, networkId } = useTokenDetail();
+  const { tokenDetail, networkId, tokenAddress } = useTokenDetail();
+
+  // Directly use the security data hook to check if we have security data
+  const { securityData } = useTokenSecurity({
+    tokenAddress,
+    networkId,
+  });
 
   if (!tokenDetail) return <InformationPanelSkeleton />;
 
@@ -75,8 +82,8 @@ export function InformationPanel() {
             {numberFormat(String(holders), { formatter: 'marketCap' })}
           </SizableText>
         </XStack>
-        {/* Audit / Security */}
-        {networkId && address ? (
+        {/* Audit / Security - Only show when we have security data */}
+        {networkId && address && securityData ? (
           <XStack gap="$1" ai="center" width="100%" jc="space-between">
             <SizableText
               pointerEvents="none"
