@@ -468,8 +468,14 @@ class ServiceAccount extends ServiceBase {
         }
       }
       if (accountUtils.isImportedAccount({ accountId: credential.id })) {
+        let accountId = credential.id;
+        if (accountUtils.isTonMnemonicCredentialId(credential.id)) {
+          accountId = accountUtils.getAccountIdFromTonMnemonicCredentialId({
+            credentialId: credential.id,
+          });
+        }
         const account = await this.getDBAccountSafe({
-          accountId: credential.id,
+          accountId,
         });
         if (!account) {
           isRemoved = true;
@@ -780,10 +786,14 @@ class ServiceAccount extends ServiceBase {
     walletId,
     networkId,
     account,
+    indexedAccountNames,
   }: {
     walletId: string;
     networkId: string;
     account: IBatchCreateAccount;
+    indexedAccountNames?: {
+      [index: number]: string;
+    };
   }) {
     const {
       addressDetail: _addressDetail,
@@ -800,6 +810,7 @@ class ServiceAccount extends ServiceBase {
       walletId,
       indexes: [dbAccount.pathIndex],
       skipIfExists: true,
+      names: indexedAccountNames,
     });
     await localDb.addAccountsToWallet({
       allAccountsBelongToNetworkId: networkId,
@@ -1404,7 +1415,8 @@ class ServiceAccount extends ServiceBase {
       skipAddIfNotEqualToAddress &&
       accounts.length === 1 &&
       accounts?.[0]?.address &&
-      accounts?.[0]?.address !== skipAddIfNotEqualToAddress
+      accounts?.[0]?.address?.toLowerCase() !==
+        skipAddIfNotEqualToAddress?.toLowerCase()
     ) {
       return {
         networkId,
@@ -1666,7 +1678,8 @@ class ServiceAccount extends ServiceBase {
       skipAddIfNotEqualToAddress &&
       accounts.length === 1 &&
       accounts?.[0]?.address &&
-      accounts?.[0]?.address !== skipAddIfNotEqualToAddress
+      accounts?.[0]?.address?.toLowerCase() !==
+        skipAddIfNotEqualToAddress?.toLowerCase()
     ) {
       console.error('addWatchingAccount skipAddIfNotEqualToAddress', {
         skipAddIfNotEqualToAddress,
@@ -4782,18 +4795,28 @@ class ServiceAccount extends ServiceBase {
       }
 
       if (!deriveTypes?.length) {
-        deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
-          accountId: importedAccount.id,
-          networkId,
-          input: await servicePassword.encodeSensitiveText({
-            text: input,
-          }),
-          validatePrivateKey: true,
-          validateXprvt: true,
-          template: importedAccount.template,
-        });
+        try {
+          deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
+            accountId: importedAccount.id,
+            networkId,
+            input: await servicePassword.encodeSensitiveText({
+              text: input,
+            }),
+            validatePrivateKey: true,
+            validateXprvt: true,
+            template: importedAccount.template,
+          });
+        } catch (e) {
+          console.error('getAccountImportingDeriveTypes error', e);
+        }
       }
 
+      if (!deriveTypes?.length) {
+        deriveTypes = ['default'];
+      }
+
+      const skipAddIfNotEqualToAddress =
+        deriveTypes.length > 1 ? importedAccount.address : undefined;
       for (const deriveType of deriveTypes) {
         try {
           const { accounts } =
@@ -4805,7 +4828,7 @@ class ServiceAccount extends ServiceBase {
               networkId,
               name: importedAccount.name,
               deriveType,
-              skipAddIfNotEqualToAddress: importedAccount.address,
+              skipAddIfNotEqualToAddress,
             });
           addedAccounts = [...addedAccounts, ...(accounts || [])];
         } catch (e) {
@@ -4850,18 +4873,28 @@ class ServiceAccount extends ServiceBase {
       }
 
       if (!deriveTypes?.length) {
-        deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
-          accountId: watchingAccount.id,
-          networkId: networkId || '',
-          input: await servicePassword.encodeSensitiveText({
-            text: input,
-          }),
-          validateAddress: true,
-          validateXpub: true,
-          template: watchingAccount.template,
-        });
+        try {
+          deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
+            accountId: watchingAccount.id,
+            networkId: networkId || '',
+            input: await servicePassword.encodeSensitiveText({
+              text: input,
+            }),
+            validateAddress: true,
+            validateXpub: true,
+            template: watchingAccount.template,
+          });
+        } catch (e) {
+          console.error('getAccountImportingDeriveTypes error', e);
+        }
       }
 
+      if (!deriveTypes?.length) {
+        deriveTypes = ['default'];
+      }
+
+      const skipAddIfNotEqualToAddress =
+        deriveTypes.length > 1 ? watchingAccount.address : undefined;
       for (const deriveType of deriveTypes) {
         try {
           const { accounts } = await serviceAccount.addWatchingAccount({
@@ -4871,7 +4904,7 @@ class ServiceAccount extends ServiceBase {
             name: watchingAccount.name,
             deriveType,
             isUrlAccount: false,
-            skipAddIfNotEqualToAddress: watchingAccount.address,
+            skipAddIfNotEqualToAddress,
           });
           addedAccounts = [...addedAccounts, ...(accounts || [])];
         } catch (e) {

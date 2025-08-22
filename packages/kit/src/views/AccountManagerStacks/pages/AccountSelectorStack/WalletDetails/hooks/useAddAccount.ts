@@ -75,7 +75,9 @@ export function useAddAccount({
           });
         } else if (walletId === WALLET_TYPE_EXTERNAL) {
           navigation.pushModal(EModalRoutes.OnboardingModal, {
-            screen: EOnboardingPages.ConnectWalletOptions,
+            screen: platformEnv.isWebDappMode
+              ? EOnboardingPages.ConnectWalletOptions
+              : EOnboardingPages.ConnectWalletSelectNetworks,
           });
         }
         return;
