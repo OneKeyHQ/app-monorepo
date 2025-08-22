@@ -5,7 +5,8 @@ import { MarketHomeV2 } from './MarketHomeV2';
 
 export default function MarketHome(props: any) {
   const [devSettings] = useDevSettingsPersistAtom();
-  const enableMarketV2 = devSettings.settings?.enableMarketV2 ?? false;
+  const enableMarketV2 =
+    devSettings.enabled && (devSettings.settings?.enableMarketV2 ?? false);
 
   if (enableMarketV2) {
     return <MarketHomeV2 {...props} />;
