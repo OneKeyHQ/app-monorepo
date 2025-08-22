@@ -357,20 +357,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         }
 
         if (
-          oldSelectedAccount.walletId === 'hd-2' &&
-          newSelectedAccount.walletId === 'hd-4'
-        ) {
-          // debugger;
-        }
-
-        if (
-          oldSelectedAccount.walletId === undefined &&
-          newSelectedAccount.walletId === 'hd-2'
-        ) {
-          // debugger;
-        }
-
-        if (
           sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
           newSelectedAccount?.indexedAccountId === 'hd-1--0'
         ) {
