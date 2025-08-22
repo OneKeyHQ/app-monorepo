@@ -16,6 +16,10 @@ import {
 import { useStyle } from '@onekeyhq/components/src/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalRoutes,
+  EModalWalletAddressRoutes,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
@@ -29,6 +33,7 @@ import type {
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { useAccountData } from '../../hooks/useAccountData';
+import useAppNavigation from '../../hooks/useAppNavigation';
 import {
   useHasMoreOnChainHistoryAtom,
   useSearchKeyAtom,
@@ -43,11 +48,6 @@ import { EmptyHistory } from '../Empty/EmptyHistory';
 import { HistoryLoadingView } from '../Loading';
 
 import { TxHistoryListItem } from './TxHistoryListItem';
-import {
-  EModalRoutes,
-  EModalWalletAddressRoutes,
-} from '@onekeyhq/shared/src/routes';
-import useAppNavigation from '../../hooks/useAppNavigation';
 
 type IProps = {
   data: IAccountHistoryTx[];
