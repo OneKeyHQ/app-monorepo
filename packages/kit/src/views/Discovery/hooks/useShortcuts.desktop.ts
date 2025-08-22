@@ -41,7 +41,6 @@ export const useDiscoveryShortcuts = () => {
       closeWebTab({
         tabId: activeTabId,
         entry: 'ShortCut',
-        isDesktop: true,
         navigation,
       });
     }

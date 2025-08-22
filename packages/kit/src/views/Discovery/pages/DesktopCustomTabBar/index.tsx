@@ -105,7 +105,6 @@ function DesktopCustomTabBar() {
       void closeWebTab({
         tabId: id,
         entry: 'Menu',
-        isDesktop: true,
         navigation,
       });
     },

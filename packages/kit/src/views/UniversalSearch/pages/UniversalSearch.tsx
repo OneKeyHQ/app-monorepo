@@ -130,8 +130,9 @@ export function UniversalSearch({
   const [devSettings] = useDevSettingsPersistAtom();
 
   const enableMarketV2 = useMemo(
-    () => devSettings.settings?.enableMarketV2 ?? false,
-    [devSettings.settings?.enableMarketV2],
+    () =>
+      devSettings.enabled && (devSettings.settings?.enableMarketV2 ?? false),
+    [devSettings.enabled, devSettings.settings?.enableMarketV2],
   );
 
   const [sections, setSections] = useState<IUniversalSection[]>([]);
@@ -629,7 +630,8 @@ const UniversalSearchWithHomeTokenListProvider = ({
 >) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [devSettings] = useDevSettingsPersistAtom();
-  const enableMarketV2 = devSettings.settings?.enableMarketV2 ?? false;
+  const enableMarketV2 =
+    devSettings.enabled && (devSettings.settings?.enableMarketV2 ?? false);
 
   return (
     <HomeTokenListProviderMirrorWrapper
