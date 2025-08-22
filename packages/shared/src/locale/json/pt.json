@@ -1564,6 +1564,7 @@
   "global.wallpaper": "Papel de parede",
   "global.wallpaper_classic": "Clássico",
   "global.wallpaper_cobranding": "Co-branding",
+  "global.wallpaper_collection": "coleção",
   "global.wallpaper_custom": "Personalizado",
   "global.wallpaper_custom_max_limit": "Limite de {0} papéis de parede atingido. Exclua um para adicionar outro.",
   "global.warning": "Aviso",

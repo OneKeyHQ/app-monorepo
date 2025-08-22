@@ -1564,6 +1564,7 @@
   "global.wallpaper": "वॉलपेपर",
   "global.wallpaper_classic": "क्लासिक",
   "global.wallpaper_cobranding": "सह-ब्रांडिंग",
+  "global.wallpaper_collection": "संग्रह",
   "global.wallpaper_custom": "कस्टम",
   "global.wallpaper_custom_max_limit": "{0} वॉलपेपर की सीमा तक पहुँच गए हैं। नया जोड़ने के लिए कृपया एक हटाएँ।",
   "global.warning": "चेतावनी",

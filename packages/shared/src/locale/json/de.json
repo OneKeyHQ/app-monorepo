@@ -1564,6 +1564,7 @@
   "global.wallpaper": "Hintergrundbild",
   "global.wallpaper_classic": "Klassisch",
   "global.wallpaper_cobranding": "Co-Branding",
+  "global.wallpaper_collection": "Sammlung",
   "global.wallpaper_custom": "Benutzerdefiniert",
   "global.wallpaper_custom_max_limit": "Limit von {0} Hintergrundbildern erreicht. Bitte löschen Sie eines, um ein neues hinzuzufügen.",
   "global.warning": "Warnung",

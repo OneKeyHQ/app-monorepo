@@ -1564,6 +1564,7 @@
   "global.wallpaper": "Sfondo",
   "global.wallpaper_classic": "Classico",
   "global.wallpaper_cobranding": "Co-branding",
+  "global.wallpaper_collection": "collezione",
   "global.wallpaper_custom": "Personalizzato",
   "global.wallpaper_custom_max_limit": "Hai raggiunto il limite di {0} sfondi. Elimina uno sfondo per aggiungerne un altro.",
   "global.warning": "Avvertimento",

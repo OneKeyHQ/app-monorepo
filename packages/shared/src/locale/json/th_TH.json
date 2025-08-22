@@ -1564,6 +1564,7 @@
   "global.wallpaper": "วอลเปเปอร์",
   "global.wallpaper_classic": "คลาสสิก",
   "global.wallpaper_cobranding": "การร่วมสร้างแบรนด์",
+  "global.wallpaper_collection": "คอลเลกชัน",
   "global.wallpaper_custom": "กำหนดเอง",
   "global.wallpaper_custom_max_limit": "ถึงจำนวนวอลเปเปอร์สูงสุดที่ {0} แล้ว กรุณาลบวอลเปเปอร์หนึ่งรายการเพื่อเพิ่มใหม่",
   "global.warning": "คำเตือน",
