@@ -39,8 +39,9 @@ export function UniversalSearchMarketTokenItem({
   const [devSettings] = useDevSettingsPersistAtom();
 
   const enableMarketV2 = useMemo(
-    () => devSettings.settings?.enableMarketV2 ?? false,
-    [devSettings.settings?.enableMarketV2],
+    () =>
+      devSettings.enabled && (devSettings.settings?.enableMarketV2 ?? false),
+    [devSettings.enabled, devSettings.settings?.enableMarketV2],
   );
 
   const handlePress = useCallback(() => {

@@ -1564,6 +1564,7 @@
   "global.wallpaper": "Шпалери",
   "global.wallpaper_classic": "Класичний",
   "global.wallpaper_cobranding": "Спільний брендинг",
+  "global.wallpaper_collection": "колекція",
   "global.wallpaper_custom": "Користувацький",
   "global.wallpaper_custom_max_limit": "Досягнуто ліміту в {0} шпалер. Будь ласка, видаліть одну, щоб додати нову.",
   "global.warning": "УВАГА",

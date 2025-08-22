@@ -1564,6 +1564,7 @@
   "global.wallpaper": "Fond d'écran",
   "global.wallpaper_classic": "Classique",
   "global.wallpaper_cobranding": "Co-branding",
+  "global.wallpaper_collection": "collection",
   "global.wallpaper_custom": "Personnalisé",
   "global.wallpaper_custom_max_limit": "Limite de {0} wallpapers atteinte. Veuillez en supprimer un pour l'ajouter.",
   "global.warning": "Avertissement",

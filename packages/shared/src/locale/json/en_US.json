@@ -1564,6 +1564,7 @@
   "global.wallpaper": "Wallpaper",
   "global.wallpaper_classic": "Classic",
   "global.wallpaper_cobranding": "Co-branding",
+  "global.wallpaper_collection": "collection",
   "global.wallpaper_custom": "Custom",
   "global.wallpaper_custom_max_limit": "Reached limit of {0} wallpapers. Please delete one to add.",
   "global.warning": "Warning",

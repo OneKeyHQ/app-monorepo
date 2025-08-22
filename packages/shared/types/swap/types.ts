@@ -464,6 +464,7 @@ export interface ISwapPreSwapData {
   providerInfo?: IFetchQuoteInfo;
   isHWAndExBatchTransfer?: boolean;
   slippage?: number;
+  swapType?: ESwapTabSwitchType;
   unSupportSlippage?: boolean;
   swapBuildResultData?: {
     swapInfo?: ISwapTxInfo;

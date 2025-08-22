@@ -1564,6 +1564,7 @@
   "global.wallpaper": "배경화면",
   "global.wallpaper_classic": "클래식",
   "global.wallpaper_cobranding": "공동 브랜딩",
+  "global.wallpaper_collection": "컬렉션",
   "global.wallpaper_custom": "사용자 지정",
   "global.wallpaper_custom_max_limit": "{0}개의 배경화면 한도에 도달했습니다. 추가하려면 하나를 삭제하세요.",
   "global.warning": "경고",

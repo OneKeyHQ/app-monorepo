@@ -38,7 +38,11 @@ export const useDiscoveryShortcuts = () => {
     if (tabs[tabIndex].isPinned) {
       navigation.switchTab(ETabRoutes.Discovery);
     } else {
-      closeWebTab({ tabId: activeTabId, entry: 'ShortCut' });
+      closeWebTab({
+        tabId: activeTabId,
+        entry: 'ShortCut',
+        navigation,
+      });
     }
   }, [activeTabId, tabs, closeWebTab, navigation]);
 
