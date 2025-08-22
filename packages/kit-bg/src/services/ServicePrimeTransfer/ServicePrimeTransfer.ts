@@ -45,7 +45,6 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IE2EESocketUserInfo,
-  IPrimeTransferAccount,
   IPrimeTransferData,
   IPrimeTransferHDWallet,
   IPrimeTransferPrivateData,
@@ -1106,9 +1105,7 @@ class ServicePrimeTransfer extends ServiceBase {
     return { code, codeWithSeparator };
   }
 
-  private extractSelectedItems<
-    T extends IPrimeTransferAccount | IPrimeTransferHDWallet,
-  >({
+  private extractSelectedItems<T>({
     selectedItemMapInfo,
     dataSource,
     credentials,
@@ -1128,16 +1125,20 @@ class ServicePrimeTransfer extends ServiceBase {
       ) {
         const item = dataSource[itemId];
         let tonMnemonicCredential: string | undefined;
-        if (
-          item &&
-          accountUtils.isImportedAccount({ accountId: itemId }) &&
-          (item as unknown as { impl: string }).impl === IMPL_TON
-        ) {
-          const tonMnemonicCredentialId =
-            accountUtils.buildTonMnemonicCredentialId({
-              accountId: itemId,
-            });
-          tonMnemonicCredential = credentials?.[tonMnemonicCredentialId];
+        try {
+          if (
+            item &&
+            accountUtils.isImportedAccount({ accountId: itemId }) &&
+            (item as unknown as { impl: string } | undefined)?.impl === IMPL_TON
+          ) {
+            const tonMnemonicCredentialId =
+              accountUtils.buildTonMnemonicCredentialId({
+                accountId: itemId,
+              });
+            tonMnemonicCredential = credentials?.[tonMnemonicCredentialId];
+          }
+        } catch (e) {
+          console.error('tonMnemonicCredential error', e);
         }
         const credential = credentials?.[itemId];
         results.push({ item, credential, id: itemId, tonMnemonicCredential });
