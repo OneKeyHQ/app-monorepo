@@ -159,7 +159,7 @@
     "ua-parser-js": "^2.0.4",
     "use-suspender": "^2.0.0-beta.0",
     "validator": "^13.7.0",
-    "viem": "^2.9.2",
+    "viem": "^2.33.2",
     "zxcvbn": "^4.4.2"
   },
   "devDependencies": {
