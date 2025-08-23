@@ -88,7 +88,7 @@
     "@sentry/core": "8.42.0",
     "@sentry/react": "8.42.0",
     "@substrate/txwrapper-polkadot": "7.5.1",
-    "@tamagui/animations-moti": "1.108.0",
+    "@tamagui/animations-moti": "1.132.15",
     "@tamagui/config": "1.108.0",
     "@tamagui/static": "1.108.0",
     "@tamagui/themes": "1.108.0",
