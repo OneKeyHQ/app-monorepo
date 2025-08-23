@@ -90,7 +90,7 @@
     "@substrate/txwrapper-polkadot": "7.5.1",
     "@tamagui/animations-moti": "1.108.0",
     "@tamagui/config": "1.108.0",
-    "@tamagui/static": "1.108.0",
+    "@tamagui/static": "1.132.15",
     "@tamagui/themes": "1.108.0",
     "@tamagui/toast": "1.108.0",
     "@ungap/structured-clone": "^1.2.0",
