@@ -91,7 +91,7 @@
     "@tamagui/animations-moti": "1.108.0",
     "@tamagui/config": "1.108.0",
     "@tamagui/static": "1.108.0",
-    "@tamagui/themes": "1.108.0",
+    "@tamagui/themes": "1.132.15",
     "@tamagui/toast": "1.108.0",
     "@ungap/structured-clone": "^1.2.0",
     "@vespaiach/axios-fetch-adapter": "^0.3.1",
