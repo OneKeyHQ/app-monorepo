@@ -19,9 +19,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useMarketV2Enabled } from '@onekeyhq/kit/src/hooks/useMarketV2Enabled';
 import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -127,13 +127,7 @@ export function UniversalSearch({
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [allTokenList] = useAllTokenListAtom();
   const [allTokenListMap] = useAllTokenListMapAtom();
-  const [devSettings] = useDevSettingsPersistAtom();
-
-  const enableMarketV2 = useMemo(
-    () =>
-      devSettings.enabled && (devSettings.settings?.enableMarketV2 ?? false),
-    [devSettings.enabled, devSettings.settings?.enableMarketV2],
-  );
+  const enableMarketV2 = useMarketV2Enabled();
 
   const [sections, setSections] = useState<IUniversalSection[]>([]);
   const [searchStatus, setSearchStatus] = useState<ESearchStatus>(
@@ -629,9 +623,7 @@ const UniversalSearchWithHomeTokenListProvider = ({
   EUniversalSearchPages.UniversalSearch
 >) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const [devSettings] = useDevSettingsPersistAtom();
-  const enableMarketV2 =
-    devSettings.enabled && (devSettings.settings?.enableMarketV2 ?? false);
+  const enableMarketV2 = useMarketV2Enabled();
 
   return (
     <HomeTokenListProviderMirrorWrapper
