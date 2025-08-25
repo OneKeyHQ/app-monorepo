@@ -1564,6 +1564,7 @@
   "global.wallpaper": "Wallpaper",
   "global.wallpaper_classic": "Klasik",
   "global.wallpaper_cobranding": "Co-branding",
+  "global.wallpaper_collection": "koleksi",
   "global.wallpaper_custom": "Kustom",
   "global.wallpaper_custom_max_limit": "Telah mencapai batas {0} wallpaper. Silakan hapus satu untuk menambah.",
   "global.warning": "Peringatan",

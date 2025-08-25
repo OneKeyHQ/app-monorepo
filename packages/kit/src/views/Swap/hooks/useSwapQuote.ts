@@ -43,6 +43,7 @@ import {
   useSwapSelectToTokenAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSlippageDialogOpeningAtom,
+  useSwapToAnotherAccountAddressAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
@@ -63,6 +64,7 @@ export function useSwapQuote() {
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const [swapToAnotherAccountAddress] = useSwapToAnotherAccountAddressAtom();
   const [fromToken, setSwapSelectFromToken] = useSwapSelectFromTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [toToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
@@ -265,6 +267,13 @@ export function useSwapQuote() {
       return;
     }
     if (
+      !isFocusRef.current &&
+      !swapToAnotherAccountAddress?.address &&
+      settingsAtomRef.current.swapToAnotherAccountSwitchOn
+    ) {
+      return;
+    }
+    if (
       fromToken?.networkId !== activeAccountRef.current?.networkId ||
       equalTokenNoCaseSensitive({
         token1: {
@@ -322,6 +331,7 @@ export function useSwapQuote() {
       swapToAddressInfoRef.current.address,
     );
   }, [
+    swapToAnotherAccountAddress,
     cleanQuoteInterval,
     quoteAction,
     swapAddressInfo.address,
@@ -369,6 +379,13 @@ export function useSwapQuote() {
       !isFocusRef.current &&
       swapToAddressInfo.address ===
         swapQuoteActionLockRef.current?.receivingAddress
+    ) {
+      return;
+    }
+    if (
+      !isFocusRef.current &&
+      !swapToAnotherAccountAddress?.address &&
+      settingsAtomRef.current.swapToAnotherAccountSwitchOn
     ) {
       return;
     }
@@ -433,6 +450,7 @@ export function useSwapQuote() {
       swapToAddressInfoRef.current.address,
     );
   }, [
+    swapToAnotherAccountAddress,
     cleanQuoteInterval,
     quoteAction,
     swapAddressInfo.address,

@@ -1564,6 +1564,7 @@
   "global.wallpaper": "Обои",
   "global.wallpaper_classic": "Классика",
   "global.wallpaper_cobranding": "Кобрендинг",
+  "global.wallpaper_collection": "коллекция",
   "global.wallpaper_custom": "Пользовательский",
   "global.wallpaper_custom_max_limit": "Достигнут лимит в {0} обоев. Пожалуйста, удалите одну, чтобы добавить новую.",
   "global.warning": "Предупреждение",

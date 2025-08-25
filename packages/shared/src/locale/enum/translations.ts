@@ -1569,6 +1569,7 @@
   global_wallpaper = 'global.wallpaper',
   global_wallpaper_classic = 'global.wallpaper_classic',
   global_wallpaper_cobranding = 'global.wallpaper_cobranding',
+  global_wallpaper_collection = 'global.wallpaper_collection',
   global_wallpaper_custom = 'global.wallpaper_custom',
   global_wallpaper_custom_max_limit = 'global.wallpaper_custom_max_limit',
   global_warning = 'global.warning',
