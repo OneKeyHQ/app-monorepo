@@ -1,11 +1,11 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { XStack, rootNavigationRef } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useMarketV2Enabled } from '@onekeyhq/kit/src/hooks/useMarketV2Enabled';
 import { useMarketWatchListAtom } from '@onekeyhq/kit/src/states/jotai/contexts/market/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import {
@@ -36,13 +36,7 @@ export function UniversalSearchMarketTokenItem({
   const universalSearchActions = useUniversalSearchActions();
   const { image, coingeckoId, price, symbol, name, lastUpdated } = item.payload;
 
-  const [devSettings] = useDevSettingsPersistAtom();
-
-  const enableMarketV2 = useMemo(
-    () =>
-      devSettings.enabled && (devSettings.settings?.enableMarketV2 ?? false),
-    [devSettings.enabled, devSettings.settings?.enableMarketV2],
-  );
+  const enableMarketV2 = useMarketV2Enabled();
 
   const handlePress = useCallback(() => {
     if (!enableMarketV2) {
