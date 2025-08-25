@@ -125,7 +125,7 @@
     "react-native-webview-cleaner": "npm:@onekeyfe/react-native-webview-cleaner@1.0.0",
     "react-native-zip-archive": "7.0.2",
     "readable-stream": "^3.6.0",
-    "realm": "12.14.2",
+    "realm": "20.2.0",
     "realm-flipper-plugin-device": "^1.1.0",
     "stream-http": "^3.2.0",
     "uuid": "^3.0.0"
