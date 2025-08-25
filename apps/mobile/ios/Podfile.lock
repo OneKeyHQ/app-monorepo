@@ -1760,6 +1760,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - Yoga
   - react-native-performance-stats (0.2.3):
+    - CocoaLumberjack
     - DoubleConversion
     - glog
     - hermes-engine
@@ -3433,7 +3434,7 @@ SPEC CHECKSUMS:
   react-native-lite-card: da6e268aa346e8ab6b80e272364637f228fe09cd
   react-native-mmkv: c8da06f2c3ed40726ac6b51ed4e3653d099f0b6a
   react-native-pager-view: 38d37b9c7dcddfacf97ad4a0a1ee7a6db7b85b76
-  react-native-performance-stats: 17ff7f34eab3ba0431336456bcdf3526202ba291
+  react-native-performance-stats: 088634dc35ead1dfcd371be67bd94dd0f2f104ac
   react-native-safe-area-context: 8cf8caf5fc0f5a5d3581b650579af9c85c16be04
   react-native-slider: 0c0125010b5299e647eb5d955b58133fb4eb34e4
   react-native-tcp-socket: 120072c8020262032773f80f0daaf3964aaa08a1
