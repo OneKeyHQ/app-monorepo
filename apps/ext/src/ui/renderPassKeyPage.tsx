@@ -29,9 +29,14 @@ const type = params.get('type') as EPassKeyWindowType;
 
 const closeWindow = () => {
   console.log('closeWindow');
-  setTimeout(() => {
-    window.close();
-  }, 50);
+  if (
+    from === EPassKeyWindowFrom.popup ||
+    from === EPassKeyWindowFrom.sidebar
+  ) {
+    setTimeout(() => {
+      window.close();
+    }, 50);
+  }
 };
 
 const usePassKeyOperations = () => {
@@ -123,9 +128,7 @@ const usePassKeyOperations = () => {
       }));
     } finally {
       console.log('close from renderPassKeyPage', from);
-      if (from === EPassKeyWindowFrom.sidebar) {
-        closeWindow();
-      }
+      closeWindow();
     }
   }, [
     checkWebAuth,

@@ -36,12 +36,12 @@ import { getVaultSettings } from '../../vaults/settings';
 import { buildDefaultAddAccountNetworks } from '../ServiceAccount/defaultNetworkAccountsConfig';
 import ServiceBase from '../ServiceBase';
 
-import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 import type {
   IAccountDeriveTypes,
   IHwAllNetworkPrepareAccountsResponse,
 } from '../../vaults/types';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
+import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 export type IBatchCreateAccountProgressInfo = {
   totalCount: number;

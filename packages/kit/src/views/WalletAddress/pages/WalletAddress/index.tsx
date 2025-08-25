@@ -37,6 +37,7 @@ import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useFuseSearch } from '@onekeyhq/kit/src/views/ChainSelector/hooks/useFuseSearch';
 import type { IAllNetworksDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAllNetworks';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
@@ -66,6 +67,7 @@ import {
   EAccountSelectorSceneName,
   type IServerNetwork,
 } from '@onekeyhq/shared/types';
+import { EWalletAddressActionType } from '@onekeyhq/shared/types/address';
 
 import { WalletAddressContext } from './WalletAddressContext';
 
@@ -83,8 +85,14 @@ function WalletAddressListItemIcon({
 }: {
   account?: IAllNetworkAccountInfo;
 }) {
+  const { actionType } = useContext(WalletAddressContext);
+
   if (!account) {
     return <Icon name="PlusLargeOutline" color="$iconSubdued" />;
+  }
+
+  if (actionType === EWalletAddressActionType.ViewInExplorer) {
+    return <Icon name="OpenOutline" color="$iconSubdued" />;
   }
 
   return (
@@ -106,6 +114,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     isAllNetworksEnabled,
     setIsAllNetworksEnabled,
     setAccountsCreated,
+    actionType,
   } = useContext(WalletAddressContext);
 
   const isEnabledNetwork = isAllNetworksEnabled[network.id];
@@ -175,7 +184,17 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
       } finally {
         setLoading(false);
       }
-    } else if (networkUtils.isLightningNetworkByNetworkId(network.id)) {
+    }
+
+    if (actionType === EWalletAddressActionType.ViewInExplorer) {
+      await openExplorerAddressUrl({
+        networkId: network.id,
+        address: account.apiAddress,
+      });
+      return;
+    }
+
+    if (networkUtils.isLightningNetworkByNetworkId(network.id)) {
       appNavigation.pushModal(EModalRoutes.ReceiveModal, {
         screen: EModalReceiveRoutes.CreateInvoice,
         params: {
@@ -195,6 +214,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     }
   }, [
     account,
+    actionType,
     network.id,
     createAddress,
     walletId,
@@ -311,10 +331,12 @@ function WalletAddressContent({
   mainnetItems: m,
   testnetItems: t,
   frequentlyUsedNetworks: f,
+  actionType,
 }: {
   mainnetItems: IServerNetwork[];
   testnetItems: IServerNetwork[];
   frequentlyUsedNetworks: IServerNetwork[];
+  actionType?: EWalletAddressActionType;
 }) {
   log('WalletAddressContentRender');
 
@@ -334,6 +356,18 @@ function WalletAddressContent({
     testnetItems = testnetItems.filter((o) => isAllNetworksEnabled[o.id]);
     frequentlyUsedNetworks = frequentlyUsedNetworks.filter(
       (o) => isAllNetworksEnabled[o.id],
+    );
+  }
+
+  if (actionType === EWalletAddressActionType.ViewInExplorer) {
+    mainnetItems = mainnetItems.filter(
+      (o) => !networkUtils.isViewInExplorerDisabled({ networkId: o.id }),
+    );
+    testnetItems = testnetItems.filter(
+      (o) => !networkUtils.isViewInExplorerDisabled({ networkId: o.id }),
+    );
+    frequentlyUsedNetworks = frequentlyUsedNetworks.filter(
+      (o) => !networkUtils.isViewInExplorerDisabled({ networkId: o.id }),
     );
   }
 
@@ -466,13 +500,17 @@ function WalletAddressPageView({
   indexedAccountId?: string;
 }) {
   const intl = useIntl();
+  const { title } = useContext(WalletAddressContext);
   return (
     <Page safeAreaEnabled={false} onClose={onClose}>
       <Page.Header
         // title={accountId || ''}
-        title={intl.formatMessage({
-          id: ETranslations.copy_address_modal_title,
-        })}
+        title={
+          title ||
+          intl.formatMessage({
+            id: ETranslations.copy_address_modal_title,
+          })
+        }
       />
       <Page.Body>{children}</Page.Body>
     </Page>
@@ -487,6 +525,7 @@ function WalletAddress({
   mainnetItems,
   testnetItems,
   frequentlyUsedNetworks,
+  actionType,
 }: {
   accountId: string | undefined;
   walletId: string | undefined;
@@ -494,6 +533,7 @@ function WalletAddress({
   mainnetItems: IServerNetwork[];
   testnetItems: IServerNetwork[];
   frequentlyUsedNetworks: IServerNetwork[];
+  actionType?: EWalletAddressActionType;
 }) {
   const {
     originalAllNetworksState,
@@ -547,6 +587,7 @@ function WalletAddress({
         testnetItems={testnetItems}
         mainnetItems={mainnetItems}
         frequentlyUsedNetworks={frequentlyUsedNetworks}
+        actionType={actionType}
       />
     </WalletAddressPageView>
   );
@@ -564,6 +605,8 @@ function PageLoading() {
 }
 
 function WalletAddressPageMainView({
+  title,
+  actionType,
   accountId,
   walletId,
   indexedAccountId,
@@ -571,6 +614,8 @@ function WalletAddressPageMainView({
   includingNotEqualGlobalDeriveTypeAccount,
   includingDeriveTypeMismatchInDefaultVisibleNetworks,
 }: {
+  title?: string;
+  actionType?: EWalletAddressActionType;
   accountId?: string;
   walletId?: string;
   indexedAccountId: string;
@@ -770,6 +815,7 @@ function WalletAddressPageMainView({
       }
     }
     const contextData: IWalletAddressContext = {
+      title,
       networkAccountMap,
       originalAllNetworksState,
       accountId,
@@ -782,9 +828,12 @@ function WalletAddressPageMainView({
       setIsAllNetworksEnabled,
       allNetworksStateInit,
       originalAllNetworksStateInit,
+      actionType,
     };
     return contextData;
   }, [
+    title,
+    actionType,
     originalAllNetworksState,
     accountId,
     walletId,
@@ -814,6 +863,7 @@ function WalletAddressPageMainView({
             testnetItems={result.networks.testnetItems}
             mainnetItems={result.networks.mainnetItems}
             frequentlyUsedNetworks={result.networks.frequentlyUsedItems}
+            actionType={actionType}
           />
         )}
       </WalletAddressContext.Provider>
@@ -830,12 +880,14 @@ export default function WalletAddressPage({
   EModalWalletAddressRoutes.WalletAddress
 >) {
   const {
+    title,
     accountId,
     walletId,
     indexedAccountId,
     excludeTestNetwork,
     includingNotEqualGlobalDeriveTypeAccount,
     includingDeriveTypeMismatchInDefaultVisibleNetworks,
+    actionType,
   } = route.params;
 
   const { result: allNetworkMockedAccountId } = usePromiseResult(async () => {
@@ -855,6 +907,8 @@ export default function WalletAddressPage({
 
   return (
     <WalletAddressPageMainViewMemo
+      title={title}
+      actionType={actionType}
       accountId={allNetworkMockedAccountId}
       walletId={walletId}
       indexedAccountId={indexedAccountId}
