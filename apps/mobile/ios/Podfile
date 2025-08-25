@@ -112,16 +112,6 @@ target 'OneKeyWallet' do
     framework_paths.each do |framework_relative_path|
       strip_bitcode_from_framework(bitcode_strip_path, framework_relative_path)
     end
-
-    #https://github.com/facebook/react-native/issues/38067#issuecomment-2471023926
-    installer.target_installation_results.pod_target_installation_results.each do |pod_name, target_installation_result|
-      target_installation_result.native_target.build_configurations.each do |config|
-      # For third party modules who have React-bridging dependency to search correct headers
-        config.build_settings['HEADER_SEARCH_PATHS'] ||= '$(inherited) '
-        # 'react/nativemodule/core/ReactCommon/TurboModule.h' file not found
-        config.build_settings['HEADER_SEARCH_PATHS'] << '"${PODS_CONFIGURATION_BUILD_DIR}/ReactCommon/ReactCommon.framework/Headers/react/nativemodule/core/ReactCommon" '
-      end
-    end
   end
 
   post_integrate do |installer|

@@ -49,15 +49,7 @@
         }
       ],
       "expo-font",
-      "expo-secure-store",
-      [
-        "expo-build-properties",
-        {
-          "ios": {
-            "buildReactNativeFromSource": "static"
-          }
-        }
-      ]
+      "expo-secure-store"
     ]
   }
 }

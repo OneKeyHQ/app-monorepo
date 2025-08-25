@@ -7902,7 +7902,6 @@ __metadata:
     expo-apple-authentication: "npm:7.2.4"
     expo-application: "npm:6.1.4"
     expo-blur: "npm:14.1.5"
-    expo-build-properties: "npm:^0.14.8"
     expo-clipboard: "npm:7.1.4"
     expo-constants: "npm:17.1.6"
     expo-crypto: "npm:14.1.5"
@@ -17480,7 +17479,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ajv@npm:^8.0.1, ajv@npm:^8.11.0":
+"ajv@npm:^8.0.1":
   version: 8.17.1
   resolution: "ajv@npm:8.17.1"
   dependencies:
@@ -24806,18 +24805,6 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/2cfb444e7fa8425e4c12a10bee1c0ec58c9fd9137ad5638fb5f57f4308a3a6fb628f1fe5322864c1d32a2d7bfa04c65d08474f91a7ec162bc143ce60a5d4f17b
-  languageName: node
-  linkType: hard
-
-"expo-build-properties@npm:^0.14.8":
-  version: 0.14.8
-  resolution: "expo-build-properties@npm:0.14.8"
-  dependencies:
-    ajv: "npm:^8.11.0"
-    semver: "npm:^7.6.0"
-  peerDependencies:
-    expo: "*"
-  checksum: 10/6506f63542acd370eb2e4c850a39592229bc8ac236daa0915045890833052d7b2dfdc0c6cb1253e724241f91ec02716cdd94bb96df05ecfd8bc642a5101d4180
   languageName: node
   linkType: hard
 
