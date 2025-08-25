@@ -124,7 +124,7 @@ export type INotificationPushSettings = {
   pushEnabled?: boolean;
   accountActivityPushEnabled?: boolean;
   maxAccount?: number;
-  supportNetworks?: {
+  supportedNetworks?: {
     networkId: string;
     impl: string;
     chainId: string;

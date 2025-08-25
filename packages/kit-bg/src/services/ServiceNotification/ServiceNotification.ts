@@ -74,7 +74,7 @@ export default class ServiceNotification extends ServiceBase {
     appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, async (params) => {
       const { accounts } = params;
       // clear cache
-      await this.getSupportedNetworks.clear();
+      await this.clearServerSettingsCache();
       void this.registerClientWithAppendAccounts({
         dbAccounts: accounts, // append
       });
@@ -503,7 +503,7 @@ export default class ServiceNotification extends ServiceBase {
       notificationWallets = await this.getNotificationWalletsWithAccounts();
     }
 
-    const supportNetworksFiltered = await this.getSupportedNetworks();
+    const { supportNetworksFiltered } = await this.getServerSettingsWithCache();
 
     await this.fixAccountActivityNotificationSettings({ notificationWallets });
 
@@ -1123,8 +1123,8 @@ export default class ServiceNotification extends ServiceBase {
 
     const primeUserInfo = await primePersistAtom.get();
     if (primeUserInfo?.primeSubscription?.isActive) {
-      // TODO remove in future
-      maxAccountCount = Math.max(maxAccountCount, 100);
+      // debugger;
+      // maxAccountCount = Math.max(maxAccountCount, 100);
     }
 
     await notificationsAtom.set((v) =>
@@ -1144,8 +1144,13 @@ export default class ServiceNotification extends ServiceBase {
     });
   }
 
+  @backgroundMethod()
+  async clearServerSettingsCache() {
+    await this.getServerSettingsWithCache.clear();
+  }
+
   // TODO clear cache if prime expired, onekeyID logout
-  getSupportedNetworks = memoizee(
+  getServerSettingsWithCache = memoizee(
     async () => {
       const serverSettings = await this.fetchServerNotificationSettings();
 
@@ -1156,8 +1161,8 @@ export default class ServiceNotification extends ServiceBase {
             chainId: string;
           }[]
         | undefined;
-      if (serverSettings.supportNetworks) {
-        supportNetworks = serverSettings.supportNetworks;
+      if (serverSettings.supportedNetworks) {
+        supportNetworks = serverSettings.supportedNetworks;
       } else {
         // /notification/v1/config/supported-networks
         const client = await this.getClient(EServiceEndpointEnum.Notification);
@@ -1182,7 +1187,7 @@ export default class ServiceNotification extends ServiceBase {
         }
         return item.networkId;
       });
-      return supportNetworksFiltered;
+      return { supportNetworksFiltered, serverSettings };
     },
     {
       maxAge: timerUtils.getTimeDurationMs({
