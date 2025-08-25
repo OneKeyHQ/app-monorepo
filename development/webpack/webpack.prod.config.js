@@ -20,7 +20,9 @@ module.exports = ({ platform, basePath }) => {
   const filesToDeleteAfterUpload = FILES_TO_DELETE_AFTER_UPLOAD.map((file) =>
     path.join(rootPath, file),
   );
+  console.log('time start', new Date().toISOString());
   console.log('filesToDeleteAfterUpload', filesToDeleteAfterUpload);
+  console.log('time end', new Date().toISOString());
   return {
     mode: 'production',
     devtool: 'source-map',
