@@ -8,8 +8,8 @@ module.exports = async () => {
   const cacheDirectory = stdout.trim().replace('\n', '');
   return {
     // https://jestjs.io/docs/configuration#maxconcurrency-number
-    maxConcurrency: 1,
-    maxWorkers: 1,
+    maxConcurrency: 2,
+    // maxWorkers: 1,
     // ts-jest, react-native, jest-expo, jest-expo/web,
     preset: 'jest-expo/web', // require *.web.ts, do not require *.native.ts
     coverageProvider: 'v8',
