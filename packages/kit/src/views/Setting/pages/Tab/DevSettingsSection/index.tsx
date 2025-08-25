@@ -842,6 +842,13 @@ export const DevSettingsSection = () => {
           navigation.push(EModalSettingRoutes.SettingDevPerpGalleryModal);
         }}
       />
+      <SectionPressItem
+        icon="LockOutline"
+        title="CryptoGallery"
+        onPress={() => {
+          navigation.push(EModalSettingRoutes.SettingDevCryptoGalleryModal);
+        }}
+      />
       <AutoJumpSetting />
 
       <SectionPressItem
