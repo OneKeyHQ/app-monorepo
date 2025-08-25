@@ -9,6 +9,11 @@ import {
 } from '@solana/web3.js';
 import bs58 from 'bs58';
 
+import {
+  METAPLEX_PROGRAM_IDS,
+  SPL_PROGRAM_IDS,
+  SYSTEM_PROGRAM_IDS,
+} from '@onekeyhq/core/src/chains/sol/constants';
 import type { INativeTxSol } from '@onekeyhq/core/src/chains/sol/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
@@ -16,11 +21,6 @@ import { EParamsEncodings } from './sdkSol/ClientSol';
 
 import type ClientSol from './sdkSol/ClientSol';
 import type { TransactionInstruction } from '@solana/web3.js';
-import {
-  METAPLEX_PROGRAM_IDS,
-  SPL_PROGRAM_IDS,
-  SYSTEM_PROGRAM_IDS,
-} from '@onekeyhq/core/src/chains/sol/constants';
 
 export const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
   'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s',

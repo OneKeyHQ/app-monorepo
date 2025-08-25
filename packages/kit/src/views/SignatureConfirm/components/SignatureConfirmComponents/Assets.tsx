@@ -158,14 +158,16 @@ function SignatureAssetDetailItem({
     );
   }, [
     isLoading,
+    editable,
     transferDirection,
-    amount,
     type,
     NFTType,
-    symbol,
-    editable,
     isSendNativeTokenOnly,
-    nativeTokenTransferAmountToUpdate,
+    nativeTokenTransferAmountToUpdate?.isMaxSend,
+    nativeTokenTransferAmountToUpdate?.amountToUpdate,
+    amount,
+    symbol,
+    name,
   ]);
 
   return (
