@@ -18,6 +18,7 @@ import { WalletActionCopy } from './WalletActionCopy';
 import { WalletActionExport } from './WalletActionExport';
 import { WalletActionRewardCenter } from './WalletActionRewardCenter';
 import { WalletActionSell } from './WalletActionSell';
+import { WalletActionSignAndVerify } from './WalletActionSignAndVerify';
 import { WalletActionViewInExplorer } from './WalletActionViewInExplorer';
 
 export function WalletActionMore() {
@@ -72,6 +73,7 @@ export function WalletActionMore() {
             {!vaultSettings?.copyAddressDisabled ? (
               <WalletActionCopy onClose={handleActionListClose} />
             ) : null}
+            <WalletActionSignAndVerify />
             {rewardCenterConfig ? (
               <WalletActionRewardCenter
                 onClose={handleActionListClose}
