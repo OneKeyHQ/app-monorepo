@@ -26,6 +26,7 @@ import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceUseRateAtom,
+  useSwapQuoteActionLockAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteIntervalCountAtom,
   useSwapSelectFromTokenAtom,
@@ -122,6 +123,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [, setSwapQuoteIntervalCount] = useSwapQuoteIntervalCountAtom();
   const { selectFromToken, selectToToken, quoteAction, cleanQuoteInterval } =
     useSwapActions().current;
+  const [{ actionLock }] = useSwapQuoteActionLockAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
@@ -233,6 +235,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           toAddressInfo?.address,
         );
       } else {
+        if (actionLock) {
+          return;
+        }
         setSwapQuoteIntervalCount((v) => v + 1);
         void quoteAction(
           swapSlippageRef.current,
@@ -247,6 +252,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       }
     },
     [
+      actionLock,
       quoteAction,
       swapFromAddressInfo?.address,
       swapFromAddressInfo?.accountInfo?.account?.id,
