@@ -2394,7 +2394,7 @@ PODS:
   - ReactNativeSecureWindow (0.1.1):
     - ExpoModulesCore
     - ScreenshotPreventing
-  - RealmJS (12.14.2):
+  - RealmJS (20.2.0):
     - React
   - RestartNewArch (1.0.75):
     - DoubleConversion
@@ -3463,7 +3463,7 @@ SPEC CHECKSUMS:
   ReactNativeFs: 7beedb868bb83ad29623acc9effb517554b34bd3
   ReactNativePasskeys: 9e950e8cbf0e7d6aad9df4dcd21cee0efeb4e5cd
   ReactNativeSecureWindow: aca1652c05825f4a3c1706b942a5a12060c54742
-  RealmJS: ff8a7d6d6e339c1b3410a96ceb4151b151fe56f5
+  RealmJS: 1c37c6bdfe060f4caa0f9175aa0eedb962622ee1
   RestartNewArch: 448d52741003a4918f8abe3dfc89ed32fc0c7a9d
   RevenueCat: 7e1d0768fb287c9983173c9b28e39ccbeeb828a9
   RNCAsyncStorage: c1dca434eda758348a549efb46822b4091d76804
