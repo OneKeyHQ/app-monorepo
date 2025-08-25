@@ -64,6 +64,13 @@ export const useWebAuthActions = () => {
     [credId, intl, setPasswordPersist],
   );
 
+  const clearWebAuthCredentialId = useCallback(async () => {
+    setPasswordPersist((v) => ({
+      ...v,
+      webAuthCredentialId: '',
+    }));
+  }, [setPasswordPersist]);
+
   const verifiedPasswordWebAuth = useCallback(async () => {
     const checkCachePassword =
       await backgroundApiProxy.servicePassword.getCachedPassword();
@@ -84,5 +91,10 @@ export const useWebAuthActions = () => {
     return cred?.id === credId;
   }, [credId]);
 
-  return { setWebAuthEnable, verifiedPasswordWebAuth, checkWebAuth };
+  return {
+    setWebAuthEnable,
+    verifiedPasswordWebAuth,
+    checkWebAuth,
+    clearWebAuthCredentialId,
+  };
 };
