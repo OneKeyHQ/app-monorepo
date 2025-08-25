@@ -44,15 +44,15 @@ jobs:
         run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
 
       - name: Cache dependencies
-        uses: actions/cache/restore@v4
+        uses: actions/cache@v3
         id: yarn-cache
         with:
           path: |
             ${{ steps.yarn-cache-dir-path.outputs.dir }}
             **/node_modules
-          key: ci-${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
+          key: unittest-${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
           restore-keys: |
-            ci-${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
+            unittest-${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
 
       - name: Install Dependency
         if: steps.yarn-cache.outputs.cache-hit != 'true'
