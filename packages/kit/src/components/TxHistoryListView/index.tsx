@@ -74,6 +74,7 @@ type IProps = {
   accountId?: string;
   networkId?: string;
   indexedAccountId?: string;
+  isSingleAccount?: boolean;
 };
 
 const ListFooterComponent = ({
@@ -83,6 +84,7 @@ const ListFooterComponent = ({
   indexedAccountId,
   showFooter,
   hasMoreOnChainHistory,
+  isSingleAccount,
 }: {
   accountId?: string;
   networkId?: string;
@@ -90,6 +92,7 @@ const ListFooterComponent = ({
   indexedAccountId?: string;
   showFooter?: boolean;
   hasMoreOnChainHistory?: boolean;
+  isSingleAccount?: boolean;
 }) => {
   const appNavigation = useAppNavigation();
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
@@ -139,7 +142,11 @@ const ListFooterComponent = ({
     account?.address,
   ]);
 
-  if (showFooter && hasMoreOnChainHistory) {
+  if (
+    showFooter &&
+    hasMoreOnChainHistory &&
+    (network?.isAllNetworks || !vaultSettings?.hideBlockExplorer)
+  ) {
     return (
       <>
         <YStack
@@ -154,7 +161,8 @@ const ListFooterComponent = ({
               id: ETranslations.wallet_history_footer_view_full_history_in_explorer,
             })}
           </SizableText>
-          {!accountUtils.isOthersWallet({ walletId: walletId ?? '' }) &&
+          {!isSingleAccount &&
+          !accountUtils.isOthersWallet({ walletId: walletId ?? '' }) &&
           vaultSettings?.mergeDeriveAssetsEnabled ? (
             <AddressTypeSelector
               walletId={walletId ?? ''}
@@ -240,6 +248,7 @@ function BaseTxHistoryListView(props: IProps) {
     networkId,
     walletId,
     indexedAccountId,
+    isSingleAccount,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
@@ -331,7 +340,16 @@ function BaseTxHistoryListView(props: IProps) {
     if (searchKey && data.length > 0) {
       return <EmptySearch />;
     }
-    return <EmptyHistory />;
+    return (
+      <EmptyHistory
+        showViewInExplorer
+        walletId={walletId}
+        accountId={accountId}
+        networkId={networkId}
+        indexedAccountId={indexedAccountId}
+        isSingleAccount={isSingleAccount}
+      />
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchKey, data.length]);
 
@@ -359,6 +377,7 @@ function BaseTxHistoryListView(props: IProps) {
           networkId={networkId}
           walletId={walletId}
           indexedAccountId={indexedAccountId}
+          isSingleAccount={isSingleAccount}
         />
       }
       ListHeaderComponent={ListHeaderComponent}

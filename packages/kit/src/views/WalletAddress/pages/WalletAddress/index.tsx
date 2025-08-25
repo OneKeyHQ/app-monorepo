@@ -331,10 +331,12 @@ function WalletAddressContent({
   mainnetItems: m,
   testnetItems: t,
   frequentlyUsedNetworks: f,
+  actionType,
 }: {
   mainnetItems: IServerNetwork[];
   testnetItems: IServerNetwork[];
   frequentlyUsedNetworks: IServerNetwork[];
+  actionType?: EWalletAddressActionType;
 }) {
   log('WalletAddressContentRender');
 
@@ -354,6 +356,18 @@ function WalletAddressContent({
     testnetItems = testnetItems.filter((o) => isAllNetworksEnabled[o.id]);
     frequentlyUsedNetworks = frequentlyUsedNetworks.filter(
       (o) => isAllNetworksEnabled[o.id],
+    );
+  }
+
+  if (actionType === EWalletAddressActionType.ViewInExplorer) {
+    mainnetItems = mainnetItems.filter(
+      (o) => !networkUtils.isViewInExplorerDisabled({ networkId: o.id }),
+    );
+    testnetItems = testnetItems.filter(
+      (o) => !networkUtils.isViewInExplorerDisabled({ networkId: o.id }),
+    );
+    frequentlyUsedNetworks = frequentlyUsedNetworks.filter(
+      (o) => !networkUtils.isViewInExplorerDisabled({ networkId: o.id }),
     );
   }
 
@@ -511,6 +525,7 @@ function WalletAddress({
   mainnetItems,
   testnetItems,
   frequentlyUsedNetworks,
+  actionType,
 }: {
   accountId: string | undefined;
   walletId: string | undefined;
@@ -518,6 +533,7 @@ function WalletAddress({
   mainnetItems: IServerNetwork[];
   testnetItems: IServerNetwork[];
   frequentlyUsedNetworks: IServerNetwork[];
+  actionType?: EWalletAddressActionType;
 }) {
   const {
     originalAllNetworksState,
@@ -571,6 +587,7 @@ function WalletAddress({
         testnetItems={testnetItems}
         mainnetItems={mainnetItems}
         frequentlyUsedNetworks={frequentlyUsedNetworks}
+        actionType={actionType}
       />
     </WalletAddressPageView>
   );
@@ -846,6 +863,7 @@ function WalletAddressPageMainView({
             testnetItems={result.networks.testnetItems}
             mainnetItems={result.networks.mainnetItems}
             frequentlyUsedNetworks={result.networks.frequentlyUsedItems}
+            actionType={actionType}
           />
         )}
       </WalletAddressContext.Provider>
