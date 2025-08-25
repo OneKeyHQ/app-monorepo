@@ -1,3 +1,6 @@
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import { EMessageTypesTron } from '@onekeyhq/shared/types/message';
+import { ISignMessageParams } from './../../types';
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { isNil } from 'lodash';
 import { utils } from 'tronweb';
@@ -306,7 +309,41 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
   }
 
-  override signMessage(): Promise<ISignedMessagePro> {
-    throw new NotImplemented('Signing tron message is not supported yet.');
+  override async signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
+    const { messages, deviceParams } = params;
+    const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
+    const { connectId, deviceId } = checkIsDefined(dbDevice);
+    const sdk = await this.getHardwareSDKInstance({
+      connectId,
+    });
+    const account = await this.vault.getAccount();
+    return Promise.all(
+      messages.map(async (e) => {
+        if (e.type === EMessageTypesTron.SIGN_MESSAGE) {
+          const res = await convertDeviceResponse(() =>
+            sdk.tronSignMessage(connectId, deviceId, {
+              ...deviceCommonParams,
+              path: account.path,
+              messageHex: e.message,
+              messageType: "V1",
+            }),
+          );
+          return res.signature;
+        }
+
+        if (e.type === EMessageTypesTron.SIGN_MESSAGE_V2) {
+          const res = await convertDeviceResponse(() =>
+            sdk.tronSignMessage(connectId, deviceId, {
+              ...deviceCommonParams,
+              path: account.path,
+              messageHex: e.message,
+              messageType: "V2",
+            }),
+          );
+          return hexUtils.addHexPrefix(res.signature);
+        }
+        throw new OneKeyLocalError('Unsupported message type');
+      }),
+    );
   }
 }
