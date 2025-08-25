@@ -105,6 +105,7 @@ import {
   CREATE_TOKEN_ACCOUNT_RENT,
   MIN_PRIORITY_FEE,
   TOKEN_AUTH_RULES_ID,
+  isCustomProgram,
   isTxOverSize,
   masterEditionAddress,
   metadataAddress,
@@ -804,11 +805,17 @@ export default class Vault extends VaultBase {
     isNFT: boolean | undefined;
     amountToSend: string | undefined;
   }) {
-    const actions: Array<IDecodedTxAction> = [];
+    let actions: Array<IDecodedTxAction> = [];
 
     const createdAta: Record<string, IAssociatedTokenInfo> = {};
 
+    let hasCustomProgram = false;
+
     for (const instruction of instructions) {
+      if (isCustomProgram(instruction.programId.toString())) {
+        hasCustomProgram = true;
+      }
+
       // TODO: only support system transfer & token transfer now
       if (
         instruction.programId.toString() === SystemProgram.programId.toString()
@@ -985,6 +992,14 @@ export default class Vault extends VaultBase {
         }
       }
     }
+
+    // If the instruction contains custom instructions,
+    // the client will parse it as an unknown instruction,
+    // and the server will parse it specifically
+    if (hasCustomProgram) {
+      actions = [];
+    }
+
     if (actions.length === 0) {
       const accountAddress = await this.getAccountAddress();
       actions.push({
