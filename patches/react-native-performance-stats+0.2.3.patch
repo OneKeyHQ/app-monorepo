@@ -510,7 +510,7 @@ index c574f23..d8e11a8 100644
  
  // Thanks to this guard, we won't compile this code when we build for the old architecture.
 diff --git a/node_modules/react-native-performance-stats/react-native-performance-stats.podspec b/node_modules/react-native-performance-stats/react-native-performance-stats.podspec
-index 82dd7fe..7b1be3a 100644
+index 82dd7fe..516e13d 100644
 --- a/node_modules/react-native-performance-stats/react-native-performance-stats.podspec
 +++ b/node_modules/react-native-performance-stats/react-native-performance-stats.podspec
 @@ -2,8 +2,7 @@ require "json"
@@ -529,6 +529,7 @@ index 82dd7fe..7b1be3a 100644
  
 -  s.dependency "React-Core"
 +  install_modules_dependencies(s)
++  s.dependency "CocoaLumberjack"
 +#   s.dependency "React-Core"
  
 -  # This guard prevent to install the dependencies when we run `pod install` in the old architecture.
@@ -552,7 +553,6 @@ index 82dd7fe..7b1be3a 100644
 -        s.dependency "RCTTypeSafety"
 -        s.dependency "ReactCommon/turbomodule/core"
 -    end
-+#         s.dependency "CocoaLumberjack"
 +#         s.dependency "React-Codegen"
 +#         s.dependency "RCT-Folly"
 +#         s.dependency "RCTRequired"
