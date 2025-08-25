@@ -16,6 +16,11 @@ import { EParamsEncodings } from './sdkSol/ClientSol';
 
 import type ClientSol from './sdkSol/ClientSol';
 import type { TransactionInstruction } from '@solana/web3.js';
+import {
+  METAPLEX_PROGRAM_IDS,
+  SPL_PROGRAM_IDS,
+  SYSTEM_PROGRAM_IDS,
+} from '@onekeyhq/core/src/chains/sol/constants';
 
 export const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
   'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s',
@@ -23,10 +28,6 @@ export const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
 
 export const TOKEN_AUTH_RULES_ID = new PublicKey(
   'auth9SigNpDKz4sJJ1DfCTuZrZNSAgh9sFD3rboVmgg',
-);
-
-export const JUPITER_V6_PROGRAM_ID = new PublicKey(
-  'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4',
 );
 
 export const MIN_PRIORITY_FEE = 100_000;
@@ -175,4 +176,24 @@ export function parseComputeUnitLimit(instructions: TransactionInstruction[]) {
     }
   }
   return computeUnitLimit;
+}
+
+export function isSystemBuiltinProgram(pid: string) {
+  return SYSTEM_PROGRAM_IDS.has(pid);
+}
+
+export function isSplProgram(pid: string) {
+  return SPL_PROGRAM_IDS.has(pid);
+}
+
+export function isMetaplexProgram(pid: string) {
+  return METAPLEX_PROGRAM_IDS.has(pid);
+}
+
+export function isCustomProgram(pid: string) {
+  return !(
+    isSystemBuiltinProgram(pid) ||
+    isSplProgram(pid) ||
+    isMetaplexProgram(pid)
+  );
 }
