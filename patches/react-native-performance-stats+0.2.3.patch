@@ -510,28 +510,56 @@ index c574f23..d8e11a8 100644
  
  // Thanks to this guard, we won't compile this code when we build for the old architecture.
 diff --git a/node_modules/react-native-performance-stats/react-native-performance-stats.podspec b/node_modules/react-native-performance-stats/react-native-performance-stats.podspec
-index 82dd7fe..ca30e84 100644
+index 82dd7fe..516e13d 100644
 --- a/node_modules/react-native-performance-stats/react-native-performance-stats.podspec
 +++ b/node_modules/react-native-performance-stats/react-native-performance-stats.podspec
-@@ -2,7 +2,6 @@ require "json"
+@@ -2,8 +2,7 @@ require "json"
  
  package = JSON.parse(File.read(File.join(__dir__, "package.json")))
  
 -folly_version = '2021.06.28.00-v2'
- folly_compiler_flags = '-DFOLLY_NO_CONFIG -DFOLLY_MOBILE=1 -DFOLLY_USE_LIBCPP=1 -Wno-comma -Wno-shorten-64-to-32'
+-folly_compiler_flags = '-DFOLLY_NO_CONFIG -DFOLLY_MOBILE=1 -DFOLLY_USE_LIBCPP=1 -Wno-comma -Wno-shorten-64-to-32'
++# folly_compiler_flags = '-DFOLLY_NO_CONFIG -DFOLLY_MOBILE=1 -DFOLLY_USE_LIBCPP=1 -Wno-comma -Wno-shorten-64-to-32'
  
  Pod::Spec.new do |s|
-@@ -28,8 +27,9 @@ Pod::Spec.new do |s|
-             "CLANG_CXX_LANGUAGE_STANDARD" => "c++17"
-         }
+   s.name            = "react-native-performance-stats"
+@@ -18,20 +17,22 @@ Pod::Spec.new do |s|
  
-+        s.dependency "CocoaLumberjack"
-         s.dependency "React-Codegen"
+   s.source_files    = "ios/**/*.{h,m,mm,swift}"
+ 
+-  s.dependency "React-Core"
++  install_modules_dependencies(s)
++  s.dependency "CocoaLumberjack"
++#   s.dependency "React-Core"
+ 
+-  # This guard prevent to install the dependencies when we run `pod install` in the old architecture.
+-  if ENV['RCT_NEW_ARCH_ENABLED'] == '1' then
+-        s.compiler_flags = folly_compiler_flags + " -DRCT_NEW_ARCH_ENABLED=1"
+-        s.pod_target_xcconfig    = {
+-            "HEADER_SEARCH_PATHS" => "\"$(PODS_ROOT)/boost\"",
+-            "CLANG_CXX_LANGUAGE_STANDARD" => "c++17"
+-        }
++#   # This guard prevent to install the dependencies when we run `pod install` in the old architecture.
++#   if ENV['RCT_NEW_ARCH_ENABLED'] == '1' then
++#         s.compiler_flags = folly_compiler_flags + " -DRCT_NEW_ARCH_ENABLED=1"
++#         s.pod_target_xcconfig    = {
++#             "HEADER_SEARCH_PATHS" => "\"$(PODS_ROOT)/boost\"",
++#             "CLANG_CXX_LANGUAGE_STANDARD" => "c++17"
++#         }
+ 
+-        s.dependency "React-Codegen"
 -        s.dependency "RCT-Folly", folly_version
-+        s.dependency "RCT-Folly"
-         s.dependency "RCTRequired"
-         s.dependency "RCTTypeSafety"
-         s.dependency "ReactCommon/turbomodule/core"
+-        s.dependency "RCTRequired"
+-        s.dependency "RCTTypeSafety"
+-        s.dependency "ReactCommon/turbomodule/core"
+-    end
++#         s.dependency "React-Codegen"
++#         s.dependency "RCT-Folly"
++#         s.dependency "RCTRequired"
++#         s.dependency "RCTTypeSafety"
++#         s.dependency "ReactCommon/turbomodule/core"
++#     end
+ end
 diff --git a/node_modules/react-native-performance-stats/src/NativePerformanceStats.js b/node_modules/react-native-performance-stats/src/NativePerformanceStats.js
 index 01464e9..52bb6bf 100644
 --- a/node_modules/react-native-performance-stats/src/NativePerformanceStats.js
