@@ -13,7 +13,7 @@
         }
       },
       "ios": {
-        "image": "macos-sequoia-15.5-xcode-26.0",
+        "image": "macos-sequoia-15.6-xcode-16.4",
         "resourceClass": "medium",
         "env": { 
           "PLATFORM": "ios"
