@@ -601,10 +601,9 @@ export function PhaseInputArea({
             ) : null}
           </XStack>
         ) : null}
-
-        <Form form={form}>
-          <SecureView onScreenCapture={handleScreenCapture}>
-            <XStack px="$4" flexWrap="wrap">
+        <SecureView onScreenCapture={handleScreenCapture}>
+          <Form form={form}>
+            <XStack bg="red" px="$4" flexWrap="wrap">
               {Array.from({ length: phraseLengthNumber }).map((_, index) => (
                 <Stack
                   key={index}
@@ -636,8 +635,8 @@ export function PhaseInputArea({
                 </Stack>
               ))}
             </XStack>
-          </SecureView>
-        </Form>
+          </Form>
+        </SecureView>
 
         <HeightTransition>
           {invalidWordsLength > 0 ? (
