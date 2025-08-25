@@ -24,3 +24,8 @@ export const { atom: searchKeyAtom, use: useSearchKeyAtom } =
 
 export const { atom: addressesInfoAtom, use: useAddressesInfoAtom } =
   contextAtom<Record<string, IAddressBadge>>({});
+
+export const {
+  atom: hasMoreOnChainHistoryAtom,
+  use: useHasMoreOnChainHistoryAtom,
+} = contextAtom<boolean>(false);

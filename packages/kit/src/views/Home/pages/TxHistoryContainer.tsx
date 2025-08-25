@@ -47,6 +47,7 @@ function TxHistoryListContainer() {
     updateSearchKey,
     updateAddressesInfo,
     initAddressesInfoDataFromStorage,
+    setHasMoreOnChainHistory,
   } = useHistoryListActions().current;
   const { updateAllNetworksState } = useAccountOverviewActions().current;
 
@@ -140,14 +141,17 @@ function TxHistoryListContainer() {
           networkId: string;
         }[];
         addressMap?: Record<string, IAddressBadge>;
+        hasMoreOnChainHistory?: boolean;
       } = {
         allAccounts: [],
         txs: [],
         accountsWithChangedPendingTxs: [],
         addressMap: {},
+        hasMoreOnChainHistory: false,
       };
 
       if (mergeDeriveAddressData) {
+        let hasMoreOnChainHistory = false;
         const { networkAccounts } =
           await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
             {
@@ -178,6 +182,9 @@ function TxHistoryListContainer() {
             ...item.accountsWithChangedPendingTxs,
           ];
           r.addressMap = { ...r.addressMap, ...item.addressMap };
+          if (item.hasMoreOnChainHistory) {
+            hasMoreOnChainHistory = true;
+          }
         });
 
         r.txs = r.txs
@@ -187,6 +194,7 @@ function TxHistoryListContainer() {
               (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
           )
           .slice(0, HISTORY_PAGE_SIZE);
+        setHasMoreOnChainHistory(hasMoreOnChainHistory);
         updateAddressesInfo({
           data: r.addressMap ?? {},
         });
@@ -201,6 +209,7 @@ function TxHistoryListContainer() {
           sourceCurrency: settings.currencyInfo.id,
           currencyMap,
         });
+        setHasMoreOnChainHistory(!!r.hasMoreOnChainHistory);
         updateAddressesInfo({
           data: r.addressMap ?? {},
         });
@@ -242,6 +251,7 @@ function TxHistoryListContainer() {
       settings.isFilterLowValueHistoryEnabled,
       settings.currencyInfo.id,
       currencyMap,
+      setHasMoreOnChainHistory,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
@@ -403,6 +413,11 @@ function TxHistoryListContainer() {
       data={historyData ?? []}
       onPressHistory={handleHistoryItemPress}
       showHeader
+      showFooter
+      walletId={wallet?.id}
+      accountId={account?.id}
+      networkId={network?.id}
+      indexedAccountId={indexedAccount?.id}
       isLoading={historyState.isRefreshing}
       initialized={historyState.initialized}
       {...(media.gtLg && {

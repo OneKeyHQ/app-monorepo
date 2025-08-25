@@ -2,8 +2,10 @@ import { createContext } from 'react';
 
 import type { IAllNetworksDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAllNetworks';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
+import type { EWalletAddressActionType } from '@onekeyhq/shared/types/address';
 
 export type IWalletAddressContext = {
+  title?: string;
   networkAccountMap: Record<string, IAllNetworkAccountInfo[]>;
   accountId?: string;
   walletId?: string;
@@ -18,8 +20,10 @@ export type IWalletAddressContext = {
   >;
   allNetworksStateInit: React.MutableRefObject<boolean>;
   originalAllNetworksStateInit: React.MutableRefObject<boolean>;
+  actionType?: EWalletAddressActionType;
 };
 export const WalletAddressContext = createContext<IWalletAddressContext>({
+  title: '',
   networkAccountMap: {},
   accountId: '',
   walletId: '',
@@ -35,4 +39,5 @@ export const WalletAddressContext = createContext<IWalletAddressContext>({
   setIsAllNetworksEnabled: () => {},
   allNetworksStateInit: { current: false },
   originalAllNetworksStateInit: { current: false },
+  actionType: undefined,
 });
