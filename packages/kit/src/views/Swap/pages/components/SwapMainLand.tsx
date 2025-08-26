@@ -49,6 +49,7 @@ import {
   EModalSwapRoutes,
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   checkWrappedTokenPair,
@@ -389,6 +390,20 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     currentQuoteRes?.allowanceResult?.shouldResetApprove,
   ]);
 
+  const shouldSignEveryTime = useMemo(() => {
+    const isExternalAccount = accountUtils.isExternalAccount({
+      accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+    });
+    const isHDAccount = accountUtils.isHwOrQrAccount({
+      accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+    });
+    const isShouldApprove = Boolean(currentQuoteRes?.allowanceResult);
+    return (isExternalAccount || isHDAccount) && isShouldApprove;
+  }, [
+    currentQuoteRes?.allowanceResult,
+    swapFromAddressInfo.accountInfo?.account?.id,
+  ]);
+
   const createSendTxStep = useCallback(() => {
     return {
       type: ESwapStepType.SEND_TX,
@@ -401,6 +416,21 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       }),
     };
   }, [intl]);
+
+  const needFetchGas = useMemo(() => {
+    if (
+      currentQuoteRes?.allowanceResult &&
+      !(
+        swapBatchTransferType ===
+          ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP ||
+        swapBatchTransferType ===
+          ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP
+      )
+    ) {
+      return true;
+    }
+    return false;
+  }, [currentQuoteRes?.allowanceResult, swapBatchTransferType]);
 
   const parseQuoteResultToSteps = useCallback(() => {
     let steps: ISwapStep[] = [];
@@ -507,6 +537,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         toTokenAmount: swapToAmount.value,
         providerInfo: currentQuoteRes?.info,
         supportPreBuild,
+        needFetchGas,
         minToAmount: currentQuoteRes?.minToAmount,
         slippage:
           currentQuoteRes?.protocol === EProtocolOfExchange.LIMIT ||
@@ -514,9 +545,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             ? undefined
             : swapSlippageRef.current.value,
         unSupportSlippage: currentQuoteRes?.unSupportSlippage ?? false,
-        isHWAndExBatchTransfer:
-          swapBatchTransferType ===
-          ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP,
+        isHWAndExBatchTransfer: shouldSignEveryTime,
         fee: currentQuoteRes?.fee,
         ...(!(
           steps.length > 0 &&
@@ -530,21 +559,23 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       quoteResult: { ...(currentQuoteRes as IFetchQuoteResult) },
     });
   }, [
-    swapTypeSwitch,
+    shouldSignEveryTime,
     currentQuoteRes,
     swapBatchTransferType,
     setSwapSteps,
+    swapTypeSwitch,
     fromSelectToken,
     toSelectToken,
     fromAmount.value,
     swapToAmount.value,
+    supportPreBuild,
+    needFetchGas,
     createWrapStep,
     createSignStep,
     createApproveStep,
     intl,
     createBatchApproveSwapStep,
     createSendTxStep,
-    supportPreBuild,
   ]);
   const onActionHandler = useCallback(() => {
     if (

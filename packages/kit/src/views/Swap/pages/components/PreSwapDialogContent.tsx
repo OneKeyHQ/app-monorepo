@@ -97,7 +97,7 @@ const PreSwapDialogContent = ({
         ESwapApproveTransactionStatus.SUCCESS
           ? ESwapStepStatus.SUCCESS
           : ESwapStepStatus.FAILED;
-
+      let updatedSteps: ISwapStep[] = [...swapSteps.steps];
       setSwapSteps(
         (prevSteps: { steps: ISwapStep[]; preSwapData: ISwapPreSwapData }) => {
           const newSteps = [...prevSteps.steps];
@@ -110,6 +110,7 @@ const PreSwapDialogContent = ({
               ...newSteps[stepIndex],
               status: approveStepStatus,
             };
+            updatedSteps = [...newSteps];
           }
 
           return {
@@ -125,7 +126,7 @@ const PreSwapDialogContent = ({
         };
       });
       void preSwapStepsStart({
-        steps: [...swapSteps.steps],
+        steps: [...updatedSteps],
         preSwapData: swapSteps.preSwapData,
         quoteResult: swapSteps.quoteResult as IFetchQuoteResult,
       });

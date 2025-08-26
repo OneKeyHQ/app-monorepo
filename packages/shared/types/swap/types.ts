@@ -458,6 +458,7 @@ export interface ISwapPreSwapData {
   shouldFallback?: boolean;
   toTokenAmount?: string;
   minToAmount?: string;
+  needFetchGas?: boolean;
   swapBuildLoading?: boolean;
   estimateNetworkFeeLoading?: boolean;
   stepBeforeActionsLoading?: boolean;
