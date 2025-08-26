@@ -19,12 +19,46 @@ export function WalletActionSignAndVerify({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+
+  const {
+    network,
+    account,
+    wallet,
+    indexedAccount,
+    deriveInfoItems,
+    deriveType,
+    isOthersWallet,
+  } = activeAccount;
+
   const handleSignAndVerify = useCallback(async () => {
+    if (!network?.id || !wallet?.id) {
+      return;
+    }
     navigation.pushModal(EModalRoutes.SignAndVerifyModal, {
       screen: EModalSignAndVerifyRoutes.SignAndVerifyMessage,
+      params: {
+        networkId: network?.id,
+        accountId: account?.id,
+        walletId: wallet?.id,
+        indexedAccountId: indexedAccount?.id,
+        deriveInfoItems,
+        deriveType,
+        isOthersWallet,
+      },
     });
     onClose();
-  }, [navigation, onClose]);
+  }, [
+    navigation,
+    onClose,
+    account,
+    deriveInfoItems,
+    deriveType,
+    indexedAccount,
+    isOthersWallet,
+    network,
+    wallet,
+  ]);
 
   return (
     <ActionList.Item

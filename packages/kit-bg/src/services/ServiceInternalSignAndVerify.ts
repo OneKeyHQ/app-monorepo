@@ -16,6 +16,11 @@ class ServiceInternalSignAndVerify extends ServiceBase {
     console.log('sampleMethod');
     return 'sampleMethod';
   }
+
+  @backgroundMethod()
+  public async getSignAccounts() {
+
+  }
 }
 
 export default ServiceInternalSignAndVerify;

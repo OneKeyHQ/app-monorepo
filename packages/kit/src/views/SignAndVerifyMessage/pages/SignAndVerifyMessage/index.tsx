@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -22,7 +23,13 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  EModalSignAndVerifyRoutes,
+  IModalSignAndVerifyParamList,
+} from '@onekeyhq/shared/src/routes/signAndVerify';
 import { ESignAndVerifyAction } from '@onekeyhq/shared/types/signAndVerify';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type ISignFormData = {
   message: string;
@@ -140,6 +147,43 @@ const SignForm = ({ form }: { form: UseFormReturn<ISignFormData> }) => {
 
 function SignAndVerifyMessage() {
   const intl = useIntl();
+  const route =
+    useRoute<
+      RouteProp<
+        IModalSignAndVerifyParamList,
+        EModalSignAndVerifyRoutes.SignAndVerifyMessage
+      >
+    >();
+  const {
+    networkId,
+    accountId,
+    walletId,
+    indexedAccountId,
+    deriveInfoItems,
+    deriveType,
+    isOthersWallet,
+  } = route.params;
+
+  useEffect(() => {
+    console.log('route.params: ', {
+      networkId,
+      accountId,
+      walletId,
+      indexedAccountId,
+      deriveInfoItems,
+      deriveType,
+      isOthersWallet,
+    });
+  }, [
+    accountId,
+    deriveInfoItems,
+    deriveType,
+    indexedAccountId,
+    isOthersWallet,
+    networkId,
+    walletId,
+  ]);
+
   const [action, setAction] = useState(ESignAndVerifyAction.Sign);
 
   const signForm = useForm<ISignFormData>({
