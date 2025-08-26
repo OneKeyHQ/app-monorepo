@@ -21,7 +21,7 @@ function Placeholder(props: IStackProps) {
   return <Stack bg="$neutral6" borderRadius={2} h="$1.5" {...props} />;
 }
 
-const useRecoveryPhraseProtected = () => {
+export const useRecoveryPhraseProtected = () => {
   const intl = useIntl();
   useEffect(() => {
     void CaptureProtection.prevent();
@@ -130,5 +130,3 @@ const useRecoveryPhraseProtected = () => {
     };
   }, [intl]);
 };
-
-export default useRecoveryPhraseProtected;
