@@ -38,6 +38,7 @@ import ServiceBase from './ServiceBase';
 import type { IDBAccount } from '../dbs/local/types';
 import type { ISimpleDBLocalTokens } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '../dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 @backgroundClass()
 class ServiceToken extends ServiceBase {
@@ -515,6 +516,11 @@ class ServiceToken extends ServiceBase {
     tokenIdOnNetwork?: string;
   }) {
     let tokenAddress = tokenIdOnNetwork;
+
+    if (networkUtils.isAllNetwork({ networkId })) {
+      return null;
+    }
+
     if (isNil(tokenAddress)) {
       tokenAddress = await this.getNativeTokenAddress({ networkId });
     }
