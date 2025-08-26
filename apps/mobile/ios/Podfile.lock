@@ -1883,7 +1883,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-slider (4.5.7):
+  - react-native-slider (5.0.1):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1898,7 +1898,7 @@ PODS:
     - React-hermes
     - React-ImageManager
     - React-jsi
-    - react-native-slider/common (= 4.5.7)
+    - react-native-slider/common (= 5.0.1)
     - React-NativeModulesApple
     - React-RCTFabric
     - React-renderercss
@@ -1908,7 +1908,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-slider/common (4.5.7):
+  - react-native-slider/common (5.0.1):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -3454,7 +3454,7 @@ SPEC CHECKSUMS:
   react-native-pager-view: 38d37b9c7dcddfacf97ad4a0a1ee7a6db7b85b76
   react-native-performance-stats: 088634dc35ead1dfcd371be67bd94dd0f2f104ac
   react-native-safe-area-context: 8cf8caf5fc0f5a5d3581b650579af9c85c16be04
-  react-native-slider: 0c0125010b5299e647eb5d955b58133fb4eb34e4
+  react-native-slider: 12778ca3d8719cfc13035a8b56853e45b6cc9862
   react-native-tcp-socket: 120072c8020262032773f80f0daaf3964aaa08a1
   react-native-video: f906920a39ad30208bb789bdda7404f510ab422a
   react-native-view-shot: aacb5b315b442a2326b1212c9de49b78c0e91cf9
