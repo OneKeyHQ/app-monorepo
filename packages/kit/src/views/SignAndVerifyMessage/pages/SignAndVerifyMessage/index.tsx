@@ -18,6 +18,7 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import type { UseFormReturn } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -159,6 +160,7 @@ function SignAndVerifyMessage() {
 
   const handleSign = useCallback(() => {
     console.log('Sign form values:', signForm.getValues());
+    void backgroundApiProxy.serviceInternalSignAndVerify.sampleMethod();
   }, [signForm]);
 
   const renderContent = useCallback(() => {
