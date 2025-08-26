@@ -19,6 +19,26 @@ const RadioExample = () => {
   );
 };
 
+const HorizontalRadioExample = () => {
+  const [radioValue, setRadioValue] = useState<string>('medium');
+  const options = [
+    { label: 'Small', value: 'small' },
+    { label: 'Medium', value: 'medium' },
+    { label: 'Large', value: 'large' },
+    { label: 'Extra Large', value: 'xl' },
+  ];
+
+  return (
+    <Radio
+      value={radioValue}
+      onChange={setRadioValue}
+      orientation="horizontal"
+      gap="$6"
+      options={options}
+    />
+  );
+};
+
 const RadioGallery = () => (
   <Layout
     filePath={__CURRENT_FILE_PATH__}
@@ -27,6 +47,10 @@ const RadioGallery = () => (
       {
         title: 'Default',
         element: <RadioExample />,
+      },
+      {
+        title: 'Horizontal Layout',
+        element: <HorizontalRadioExample />,
       },
     ]}
   />

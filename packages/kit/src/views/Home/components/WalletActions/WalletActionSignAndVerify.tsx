@@ -12,14 +12,19 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSignAndVerifyRoutes } from '@onekeyhq/shared/src/routes/signAndVerify';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-export function WalletActionSignAndVerify() {
+export function WalletActionSignAndVerify({
+  onClose,
+}: {
+  onClose: () => void;
+}) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const handleSignAndVerify = useCallback(async () => {
     navigation.pushModal(EModalRoutes.SignAndVerifyModal, {
       screen: EModalSignAndVerifyRoutes.SignAndVerifyMessage,
     });
-  }, [navigation]);
+    onClose();
+  }, [navigation, onClose]);
 
   return (
     <ActionList.Item

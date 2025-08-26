@@ -3,13 +3,131 @@ import { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Divider,
+  Form,
+  Input,
   Page,
+  Radio,
   SegmentControl,
+  Select,
   SizableText,
+  Switch,
+  TextAreaInput,
+  XStack,
   YStack,
+  useForm,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESignAndVerifyAction } from '@onekeyhq/shared/types/signAndVerify';
+
+const SignForm = () => {
+  const intl = useIntl();
+  const form = useForm({
+    defaultValues: {
+      message: '',
+      address: '',
+      format: 'electrum',
+      signature: '',
+      hexFormat: false,
+    },
+  });
+
+  const handleSign = () => {
+    console.log(form.getValues());
+  };
+
+  return (
+    <Form form={form}>
+      <Form.Field
+        name="message"
+        label={intl.formatMessage({
+          id: ETranslations.global_hex_data,
+        })}
+        labelAddon={
+          <XStack alignItems="center" gap="$2">
+            <SizableText color="$text" size="$bodyMd">
+              {intl.formatMessage({
+                id: ETranslations.message_signing_address_hex_format,
+              })}
+            </SizableText>
+            <Form.Field name="hexFormat">
+              <Switch size="small" />
+            </Form.Field>
+          </XStack>
+        }
+      >
+        <TextAreaInput
+          size="large"
+          placeholder={intl.formatMessage({
+            id: ETranslations.message_signing_address_placeholder,
+          })}
+        />
+      </Form.Field>
+
+      <Form.Field
+        label={intl.formatMessage({
+          id: ETranslations.global_address,
+        })}
+        name="address"
+        description={intl.formatMessage({
+          id: ETranslations.message_signing_address_desc,
+        })}
+      >
+        <Select
+          title={intl.formatMessage({
+            id: ETranslations.global_address,
+          })}
+          placeholder={intl.formatMessage({
+            id: ETranslations.global_address,
+          })}
+          items={[
+            {
+              label: 'bc1p2y20...3fzymr',
+              value: 'bc1p2y20...3fzymr',
+            },
+          ]}
+        />
+      </Form.Field>
+
+      <Divider />
+
+      <Form.Field label="Format" name="format">
+        <Radio
+          orientation="horizontal"
+          gap="$5"
+          options={[
+            { label: 'Electrum', value: 'electrum' },
+            { label: 'BIP137', value: 'bip137' },
+            { label: 'BIP322', value: 'bip322' },
+          ]}
+        />
+      </Form.Field>
+
+      <Form.Field
+        label={intl.formatMessage({
+          id: ETranslations.message_signing_signature_label,
+        })}
+        name="signature"
+      >
+        <Input
+          placeholder={intl.formatMessage({
+            id: ETranslations.message_signing_signature_desc,
+          })}
+          editable={false}
+          addOns={[
+            {
+              iconName: 'Copy3Outline',
+              onPress: () => {
+                console.log('copy');
+              },
+              disabled: true,
+            },
+          ]}
+        />
+      </Form.Field>
+    </Form>
+  );
+};
 
 function SignAndVerifyMessage() {
   const intl = useIntl();
@@ -17,7 +135,7 @@ function SignAndVerifyMessage() {
 
   const renderContent = useCallback(() => {
     if (action === ESignAndVerifyAction.Sign) {
-      return <SizableText>Sign message</SizableText>;
+      return <SignForm />;
     }
     return <SizableText>Verify message</SizableText>;
   }, [action]);
@@ -55,6 +173,18 @@ function SignAndVerifyMessage() {
           {renderContent()}
         </YStack>
       </Page.Body>
+      <Page.Footer
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_sign,
+        })}
+        confirmButtonProps={{
+          disabled: true,
+          loading: false,
+        }}
+        onConfirm={() => {
+          console.log('sign');
+        }}
+      />
     </Page>
   );
 }

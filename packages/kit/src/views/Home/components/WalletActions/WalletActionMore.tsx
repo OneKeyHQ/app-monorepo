@@ -73,7 +73,7 @@ export function WalletActionMore() {
             {!vaultSettings?.copyAddressDisabled ? (
               <WalletActionCopy onClose={handleActionListClose} />
             ) : null}
-            <WalletActionSignAndVerify />
+            <WalletActionSignAndVerify onClose={handleActionListClose} />
             {rewardCenterConfig ? (
               <WalletActionRewardCenter
                 onClose={handleActionListClose}
