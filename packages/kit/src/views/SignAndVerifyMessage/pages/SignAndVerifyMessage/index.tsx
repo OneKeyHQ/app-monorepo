@@ -18,6 +18,8 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import type { UseFormReturn } from '@onekeyhq/components';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESignAndVerifyAction } from '@onekeyhq/shared/types/signAndVerify';
 
@@ -82,6 +84,16 @@ const SignForm = ({ form }: { form: UseFormReturn<ISignFormData> }) => {
               value: 'bc1p2y20...3fzymr',
             },
           ]}
+          defaultTriggerInputProps={{
+            leftAddOnProps: {
+              size: 'large',
+              renderContent: (
+                <XStack alignItems="center" px="$1" mr="$-3">
+                  <NetworkAvatar networkId={getNetworkIdsMap().btc} size="$6" />
+                </XStack>
+              ),
+            },
+          }}
         />
       </Form.Field>
 
