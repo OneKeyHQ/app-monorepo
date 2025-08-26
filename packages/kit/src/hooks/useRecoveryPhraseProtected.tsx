@@ -37,7 +37,7 @@ const useRecoveryPhraseProtected = () => {
             }),
             description: intl.formatMessage(
               {
-                id: ETranslationsMock.recovery_phrase_screenshot_protected_desc,
+                id: ETranslations.recovery_phrase_screenshot_protected_desc,
               },
               {
                 tag: (chunks) =>
