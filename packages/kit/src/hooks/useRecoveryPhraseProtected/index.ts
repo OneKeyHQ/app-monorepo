@@ -1,3 +1,3 @@
-import { useRecoveryPhraseProtected as useRecoveryPhraseProtectedHook } from './useRecoveryPhraseProtected';
+import { useRecoveryPhraseProtected } from './useRecoveryPhraseProtected';
 
-export const useRecoveryPhraseProtected = useRecoveryPhraseProtectedHook;
+export default useRecoveryPhraseProtected;
