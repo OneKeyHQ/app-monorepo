@@ -10,6 +10,8 @@ export type IContractApproval = {
   riskReason?: string;
   contractAddress: string;
   approvals: IApproval[];
+  isRiskContract?: boolean;
+  isInactiveApproval?: boolean;
 };
 
 export type IApproval = {

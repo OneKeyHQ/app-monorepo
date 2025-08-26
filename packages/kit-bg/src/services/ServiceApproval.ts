@@ -103,6 +103,10 @@ class ServiceApproval extends ServiceBase {
     const riskApprovals: IContractApproval[] = [];
     const normalApprovals: IContractApproval[] = [];
 
+    // 90 days
+    const inactiveApprovalTime = 90 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
     for (const item of contractApprovals) {
       const query = queries.find((q) => q.networkId === item.networkId) as {
         accountId: string;
@@ -115,12 +119,15 @@ class ServiceApproval extends ServiceBase {
           ...item,
           accountId: query.accountId,
           owner: query.accountAddress,
+          isRiskContract: true,
         });
       } else {
         normalApprovals.push({
           ...item,
           accountId: query.accountId,
           owner: query.accountAddress,
+          isInactiveApproval:
+            now - item.latestApprovalTime > inactiveApprovalTime,
         });
       }
     }
