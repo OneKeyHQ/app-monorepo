@@ -105,7 +105,10 @@ type IHardwareCommunicationType = 'Bluetooth' | 'WebUSB' | 'USB' | 'QRCode';
 function getHardwareCommunicationTypeString(
   hardwareTransportType: EHardwareTransportType | undefined | 'QRCode',
 ): IHardwareCommunicationType {
-  if (hardwareTransportType === EHardwareTransportType.BLE) {
+  if (
+    hardwareTransportType === EHardwareTransportType.BLE ||
+    hardwareTransportType === EHardwareTransportType.DesktopWebBle
+  ) {
     return 'Bluetooth';
   }
   if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
@@ -1418,6 +1421,7 @@ export function ConnectYourDevicePage() {
       strategy: IWalletCreationStrategy,
       features: IOneKeyDeviceFeatures,
       isFirmwareVerified?: boolean,
+      deviceState?: ReturnType<typeof extractDeviceState>,
     ) => {
       try {
         navigation.push(EOnboardingPages.FinalizeWalletSetup);
@@ -1428,6 +1432,7 @@ export function ConnectYourDevicePage() {
           features,
           isFirmwareVerified,
           defaultIsTemp: true,
+          isAttachPinMode: deviceState?.unlockedAttachPin,
         };
         if (strategy.createStandardWalletOnly) {
           await actions.current.createHWWalletWithoutHidden(params);
@@ -1510,7 +1515,13 @@ export function ConnectYourDevicePage() {
         return;
       }
 
-      await createHwWallet(device, strategy, features, isFirmwareVerified);
+      await createHwWallet(
+        device,
+        strategy,
+        features,
+        isFirmwareVerified,
+        deviceState,
+      );
     },
     [
       extractDeviceState,
@@ -1530,10 +1541,9 @@ export function ConnectYourDevicePage() {
         addMethod: 'ConnectHWWallet',
         details: {
           hardwareWalletType: 'Standard',
-          communication:
-            tabValue === EConnectDeviceChannel.bluetooth
-              ? 'Bluetooth'
-              : getHardwareCommunicationTypeString(hardwareTransportType),
+          communication: getHardwareCommunicationTypeString(
+            hardwareTransportType,
+          ),
         },
         isSoftwareWalletOnlyUser,
       });

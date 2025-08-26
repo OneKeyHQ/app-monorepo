@@ -15,37 +15,43 @@ import {
  * Provides default network, recommended tokens, and other market settings
  */
 export function useMarketBasicConfig() {
-  const { result, isLoading } = usePromiseResult(async () => {
-    const response =
-      await backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
-    const configData = response?.data;
+  const { result, isLoading } = usePromiseResult(
+    async () => {
+      const response =
+        await backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
+      const configData = response?.data;
 
-    if (!configData) {
-      return null;
-    }
+      if (!configData) {
+        return null;
+      }
 
-    // Process all data in one place
-    const defaultNetworkId = getDefaultNetworkId(configData);
-    const recommendedTokens = convertRecommendedTokens(
-      configData.recommendTokens,
-    );
-    const minLiquidity = getMinLiquidity(configData);
-    const refreshInterval = getRefreshInterval(configData);
-    const formattedMinLiquidity = formatLiquidityValue(minLiquidity);
-    const networkList = getNetworkList(configData);
+      // Process all data in one place
+      const defaultNetworkId = getDefaultNetworkId(configData);
+      const recommendedTokens = convertRecommendedTokens(
+        configData.recommendTokens,
+      );
+      const minLiquidity = getMinLiquidity(configData);
+      const refreshInterval = getRefreshInterval(configData);
+      const formattedMinLiquidity = formatLiquidityValue(minLiquidity);
+      const networkList = getNetworkList(configData);
 
-    return {
-      // Raw config data
-      basicConfig: configData,
-      // Processed data
-      defaultNetworkId,
-      recommendedTokens,
-      minLiquidity,
-      refreshInterval,
-      formattedMinLiquidity,
-      networkList,
-    };
-  }, []);
+      return {
+        // Raw config data
+        basicConfig: configData,
+        // Processed data
+        defaultNetworkId,
+        recommendedTokens,
+        minLiquidity,
+        refreshInterval,
+        formattedMinLiquidity,
+        networkList,
+      };
+    },
+    [],
+    {
+      watchLoading: true,
+    },
+  );
 
   return {
     // Loading states

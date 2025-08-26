@@ -59,7 +59,7 @@ function AddressDisplayBase({
   );
 
   return (
-    <XStack alignItems="center" gap="$1" mx="$-1" {...style}>
+    <XStack alignItems="center" gap="$1" ml="$-1" mr="$1" {...style}>
       <XStack
         {...addressContainerProps}
         borderRadius="$2"

@@ -1,6 +1,7 @@
 import type { ForwardedRef, MutableRefObject } from 'react';
 import { forwardRef, useMemo } from 'react';
 
+import { FlashList } from '@shopify/flash-list';
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import { FlatList } from 'react-native';
 import { getTokenValue } from 'tamagui';
@@ -32,6 +33,7 @@ export type IListViewProps<T> = Omit<
     ListHeaderComponentStyle?: StackStyle;
     ListFooterComponentStyle?: StackStyle;
   } & {
+    useFlashList?: boolean;
     data: ArrayLike<T> | null | undefined;
     renderItem: ListRenderItem<T> | null | undefined;
     ref?: MutableRefObject<IListViewRef<any> | null>;
@@ -68,6 +70,7 @@ function BaseListView<T>(
     ListHeaderComponentStyle = {},
     ListFooterComponentStyle = {},
     estimatedItemSize,
+    useFlashList,
     ...props
   }: IListViewProps<T>,
   ref: ForwardedRef<IListViewRef<T>>,
@@ -122,9 +125,10 @@ function BaseListView<T>(
     });
   }, [itemSize]);
 
+  const ListViewComponent = useFlashList ? FlashList<T> : FlatList<T>;
   return (
     <DebugRenderTracker>
-      <FlatList<T>
+      <ListViewComponent
         ref={ref}
         style={style as StyleProp<ViewStyle>}
         columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
@@ -135,7 +139,7 @@ function BaseListView<T>(
         renderItem={renderItem}
         getItemLayout={getItemLayout}
         windowSize={5}
-        {...restProps}
+        {...(restProps as any)}
         // we can't set it on web
         refreshControl={undefined}
       />

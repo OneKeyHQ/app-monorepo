@@ -20,6 +20,7 @@ import { OneKeyError } from './baseErrors';
 import type {
   IOneKeyError,
   IOneKeyErrorI18nInfo,
+  IOneKeyHardwareDeviceNotFoundPayload,
   IOneKeyHardwareErrorPayload,
   IOneKeyJsError,
 } from '../types/errorTypes';
@@ -28,6 +29,7 @@ export type IOneKeyErrorHardwareProps = Omit<IOneKeyError, 'payload'> & {
   payload: IOneKeyHardwareErrorPayload; // raw payload from hardware sdk error response
   silentMode?: boolean;
 };
+
 export class OneKeyHardwareError<
   I18nInfoT = IOneKeyErrorI18nInfo | any,
   DataT = IOneKeyJsError | any,
@@ -680,6 +682,20 @@ export class NewFirmwareForceUpdate extends OneKeyHardwareError {
   override code = HardwareErrorCode.NewFirmwareForceUpdate;
 }
 
+export class DefectiveFirmware extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DefectiveFirmware',
+        defaultKey: ETranslations.hardware_defective_firmware_error,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.DefectiveFirmware;
+}
+
 export class DeviceNotSame extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
@@ -694,8 +710,12 @@ export class DeviceNotSame extends OneKeyHardwareError {
   override code = HardwareErrorCode.DeviceCheckDeviceIdError;
 }
 
+export type IOneKeyErrorHardwareDeviceNotFoundProps =
+  IOneKeyErrorHardwareProps & {
+    payload: IOneKeyHardwareDeviceNotFoundPayload;
+  };
 export class DeviceNotFound extends OneKeyHardwareError {
-  constructor(props?: IOneKeyErrorHardwareProps) {
+  constructor(props?: IOneKeyErrorHardwareDeviceNotFoundProps) {
     // props?.message
     super(
       normalizeErrorProps(props, {

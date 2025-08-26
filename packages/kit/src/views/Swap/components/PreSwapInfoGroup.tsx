@@ -8,16 +8,21 @@ import {
   Badge,
   Icon,
   Image,
+  NumberSizeableText,
   Select,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ESwapNetworkFeeLevel,
   type ISwapPreSwapData,
 } from '@onekeyhq/shared/types/swap/types';
+
+import { useSwapStepNetFeeLevelAtom } from '../../../states/jotai/contexts/swap';
 
 import PreSwapInfoItem from './PreSwapInfoItem';
 
@@ -31,6 +36,8 @@ const PreSwapInfoGroup = ({
   onSelectNetworkFeeLevel,
 }: IPreSwapInfoGroupProps) => {
   const intl = useIntl();
+  const [settings] = useSettingsPersistAtom();
+  const [swapStepNetFeeLevel] = useSwapStepNetFeeLevelAtom();
   const networkFeeLevelArray = useMemo(() => {
     const feeArray = [
       ESwapNetworkFeeLevel.LOW,
@@ -89,49 +96,66 @@ const PreSwapInfoGroup = ({
   }, [intl, preSwapData?.fee?.percentageFee]);
 
   const networkFeeLevelLabel = useMemo(() => {
-    if (preSwapData.netWorkFee?.feeLevel === ESwapNetworkFeeLevel.LOW) {
+    if (swapStepNetFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.LOW) {
       return intl.formatMessage({
         id: ETranslations.transaction_slow,
       });
     }
-    if (preSwapData.netWorkFee?.feeLevel === ESwapNetworkFeeLevel.MEDIUM) {
+    if (swapStepNetFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.MEDIUM) {
       return intl.formatMessage({
         id: ETranslations.transaction_normal,
       });
     }
-    if (preSwapData.netWorkFee?.feeLevel === ESwapNetworkFeeLevel.HIGH) {
+    if (swapStepNetFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.HIGH) {
       return intl.formatMessage({
         id: ETranslations.transaction_fast,
       });
     }
     return '-';
-  }, [intl, preSwapData.netWorkFee?.feeLevel]);
+  }, [intl, swapStepNetFeeLevel.networkFeeLevel]);
 
   const networkFeeSelect = useMemo(() => {
     return (
-      <Select
-        onChange={onSelectNetworkFeeLevel}
-        renderTrigger={() => (
-          <XStack cursor="pointer" gap="$1" alignItems="center">
-            <Icon name="ChevronGrabberVerOutline" size="$4" />
-            <SizableText size="$bodyMd" color="$text">
-              {networkFeeLevelLabel}
-            </SizableText>
-          </XStack>
+      <XStack alignItems="center" gap="$2">
+        <Select
+          onChange={onSelectNetworkFeeLevel}
+          renderTrigger={() => (
+            <XStack cursor="pointer" gap="$1" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {networkFeeLevelLabel}
+              </SizableText>
+              <Icon name="ChevronGrabberVerOutline" size="$4" />
+            </XStack>
+          )}
+          value={swapStepNetFeeLevel.networkFeeLevel}
+          title={intl.formatMessage({
+            id: ETranslations.swap_review_transaction_speed,
+          })}
+          items={networkFeeLevelArray}
+        />
+        {preSwapData.stepBeforeActionsLoading ? (
+          <Skeleton width="$10" height="$4" />
+        ) : (
+          <NumberSizeableText
+            size="$bodyMd"
+            color="$text"
+            formatter="value"
+            formatterOptions={{ currency: settings.currencyInfo.symbol }}
+          >
+            {preSwapData.netWorkFee?.gasFeeFiatValue ?? ''}
+          </NumberSizeableText>
         )}
-        value={preSwapData.netWorkFee?.feeLevel}
-        title={intl.formatMessage({
-          id: ETranslations.swap_review_transaction_speed,
-        })}
-        items={networkFeeLevelArray}
-      />
+      </XStack>
     );
   }, [
     intl,
     networkFeeLevelArray,
     networkFeeLevelLabel,
     onSelectNetworkFeeLevel,
-    preSwapData.netWorkFee?.feeLevel,
+    preSwapData.netWorkFee?.gasFeeFiatValue,
+    settings.currencyInfo.symbol,
+    swapStepNetFeeLevel.networkFeeLevel,
+    preSwapData.stepBeforeActionsLoading,
   ]);
 
   return (
@@ -152,6 +176,9 @@ const PreSwapInfoGroup = ({
             </SizableText>
           </XStack>
         }
+        popoverContent={intl.formatMessage({
+          id: ETranslations.swap_review_provider_popover_content,
+        })}
       />
       {!isNil(slippage) ? (
         <PreSwapInfoItem
@@ -159,20 +186,54 @@ const PreSwapInfoGroup = ({
             id: ETranslations.swap_page_provider_slippage_tolerance,
           })}
           value={`${slippage}%`}
+          popoverContent={intl.formatMessage({
+            id: ETranslations.slippage_tolerance_warning_message_1,
+          })}
+        />
+      ) : null}
+      {!isNil(preSwapData?.minToAmount) &&
+      new BigNumber(preSwapData?.minToAmount).gt(0) ? (
+        <PreSwapInfoItem
+          title={intl.formatMessage({
+            id: ETranslations.swap_review_min_receive,
+          })}
+          popoverContent={intl.formatMessage({
+            id: ETranslations.swap_review_min_receive_popover,
+          })}
+          value={
+            <NumberSizeableText
+              size="$bodyMd"
+              formatter="balance"
+              formatterOptions={{
+                tokenSymbol: preSwapData?.toToken?.symbol ?? '-',
+              }}
+            >
+              {preSwapData?.minToAmount}
+            </NumberSizeableText>
+          }
         />
       ) : null}
       <PreSwapInfoItem
         title={intl.formatMessage({
-          id: ETranslations.fee_fee,
+          id: ETranslations.provider_ios_popover_onekey_fee,
         })}
         value={fee}
+        popoverContent={intl.formatMessage(
+          {
+            id: ETranslations.provider_ios_popover_onekey_fee_content,
+          },
+          { num: `${preSwapData?.fee?.percentageFee ?? '0'}%` },
+        )}
       />
-      {preSwapData.netWorkFee?.feeLevel ? (
+      {preSwapData.supportNetworkFeeLevel ? (
         <PreSwapInfoItem
           title={intl.formatMessage({
-            id: ETranslations.swap_review_transaction_speed,
+            id: ETranslations.provider_network_fee,
           })}
           value={networkFeeSelect}
+          popoverContent={intl.formatMessage({
+            id: ETranslations.swap_review_network_cost_popover_content,
+          })}
         />
       ) : null}
     </YStack>

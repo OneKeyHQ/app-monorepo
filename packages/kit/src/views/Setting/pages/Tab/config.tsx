@@ -56,6 +56,7 @@ import {
   AutoLockListItem,
   BiologyAuthListItem,
   CleanDataListItem,
+  ClearAppCacheListItem,
   CurrencyListItem,
   DesktopBluetoothListItem,
   HardwareTransportTypeListItem,
@@ -129,6 +130,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
   const { isPrimeAvailable } = usePrimeAvailable();
+  const { isLoggedIn } = usePrimeAuthV2();
   const [settings] = useSettingsPersistAtom();
   return useMemo(
     () => [
@@ -456,6 +458,28 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               : undefined,
           ],
           [
+            isLoggedIn
+              ? {
+                  icon: 'RemovePeopleOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.id_delete_onekey_id,
+                  }),
+                  onPress: (navigation) => {
+                    navigation?.pushModal(EModalRoutes.PrimeModal, {
+                      screen: EPrimePages.PrimeDeleteAccount,
+                    });
+                  },
+                }
+              : null,
+          ],
+          [
+            {
+              icon: 'BroomOutline',
+              title: intl.formatMessage({
+                id: ETranslations.settings_clear_cache_on_app,
+              }),
+              renderElement: <ClearAppCacheListItem />,
+            },
             {
               icon: 'FolderDeleteOutline',
               title: intl.formatMessage({
@@ -736,6 +760,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     [
       intl,
       isPrimeAvailable,
+      isLoggedIn,
       isPasswordSet,
       biologyAuthIsSupport,
       webAuthIsSupport,

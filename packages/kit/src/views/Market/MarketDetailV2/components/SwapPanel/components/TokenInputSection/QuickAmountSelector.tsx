@@ -9,6 +9,7 @@ import {
   Skeleton,
   XStack,
 } from '@onekeyhq/components';
+import type { ISwapNativeTokenReserveGas } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
 
@@ -18,6 +19,9 @@ export interface IQuickAmountSelectorProps {
   buyAmounts: { label: string; value: number }[];
   balance?: BigNumber;
   selectedTokenDecimals?: number;
+  selectedTokenNetworkId?: string;
+  selectedTokenIsNative?: boolean;
+  swapNativeTokenReserveGas: ISwapNativeTokenReserveGas[];
 }
 
 const sellPercentages = [
@@ -33,6 +37,9 @@ export function QuickAmountSelector({
   tradeType,
   balance,
   selectedTokenDecimals,
+  swapNativeTokenReserveGas,
+  selectedTokenNetworkId,
+  selectedTokenIsNative,
 }: IQuickAmountSelectorProps) {
   const amounts =
     tradeType === ESwapDirection.BUY ? buyAmounts : sellPercentages;
@@ -46,7 +53,16 @@ export function QuickAmountSelector({
           return;
         }
         const percentageBN = new BigNumber(amount.value.toString());
-        const calculatedAmountBN = balance.multipliedBy(percentageBN);
+        const reserveGas = swapNativeTokenReserveGas.find(
+          (item) => item.networkId === selectedTokenNetworkId,
+        )?.reserveGas;
+        let calculatedAmountBN = balance.multipliedBy(percentageBN);
+        if (selectedTokenIsNative && reserveGas) {
+          calculatedAmountBN = BigNumber.max(
+            0,
+            calculatedAmountBN.minus(new BigNumber(reserveGas)),
+          );
+        }
         if (selectedTokenDecimals) {
           const calculatedAmount = calculatedAmountBN
             .decimalPlaces(selectedTokenDecimals, BigNumber.ROUND_DOWN)
@@ -59,7 +75,15 @@ export function QuickAmountSelector({
         onSelect(amount.value.toString());
       }
     },
-    [tradeType, balance, selectedTokenDecimals, onSelect],
+    [
+      tradeType,
+      balance,
+      swapNativeTokenReserveGas,
+      selectedTokenIsNative,
+      selectedTokenDecimals,
+      onSelect,
+      selectedTokenNetworkId,
+    ],
   );
 
   if (amounts.length === 0) {

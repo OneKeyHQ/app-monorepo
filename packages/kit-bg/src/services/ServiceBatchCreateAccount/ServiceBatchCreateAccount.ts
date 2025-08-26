@@ -63,6 +63,9 @@ export type IBatchBuildAccountsParams = IBatchBuildAccountsBaseParams & {
   excludedIndexes?: {
     [index: number]: true;
   };
+  indexedAccountNames?: {
+    [index: number]: string;
+  };
   saveToDb?: boolean;
   saveToCache?: boolean;
   isVerifyAddressAction?: boolean;
@@ -83,6 +86,9 @@ type IAdvancedModeFlowParamsBase = {
   toIndex: number;
   excludedIndexes: {
     [index: number]: true;
+  };
+  indexedAccountNames?: {
+    [index: number]: string;
   };
   saveToDb: boolean;
   progressTotalCount?: number;
@@ -650,8 +656,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
             }
           }
           if (bundleParams.length && deviceParams?.dbDevice) {
-            const sdk =
-              await this.backgroundApi.serviceHardware.getSDKInstance();
+            const sdk = await this.backgroundApi.serviceHardware.getSDKInstance(
+              {
+                connectId: deviceParams.dbDevice?.connectId,
+              },
+            );
             hwAllNetworkPrepareAccountsResponse = (await convertDeviceResponse(
               async () => {
                 // throw new NewFirmwareForceUpdate({ payload: {} });
@@ -661,9 +670,18 @@ class ServiceBatchCreateAccount extends ServiceBase {
                   undefined,
                 );
                 try {
+                  const compatibleConnectId =
+                    await this.backgroundApi.serviceHardware.getCompatibleConnectId(
+                      {
+                        connectId: deviceParams.dbDevice?.connectId || '',
+                        featuresDeviceId: deviceParams.dbDevice?.deviceId || '',
+                        hardwareCallContext:
+                          EHardwareCallContext.USER_INTERACTION,
+                      },
+                    );
                   const sdkAllNetworkGetAddressResponse =
                     await sdk.allNetworkGetAddress(
-                      deviceParams.dbDevice?.connectId || '',
+                      compatibleConnectId,
                       deviceParams.dbDevice?.deviceId || '',
                       {
                         ...deviceParams.deviceCommonParams,
@@ -784,6 +802,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               excludedIndexes,
               saveToDb: true,
               hwAllNetworkPrepareAccountsResponse,
+              indexedAccountNames: params.indexedAccountNames,
             });
             addedAccounts.push({
               networkId: networkParams.networkId,
@@ -1019,6 +1038,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     hwAllNetworkPrepareAccountsResponse,
     isVerifyAddressAction,
     errorMessage,
+    indexedAccountNames,
   }: IBatchBuildAccountsParams): Promise<{
     accountsForCreate: IBatchCreateAccount[];
   }> {
@@ -1067,6 +1087,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             walletId,
             networkId,
             account: accountForCreate,
+            indexedAccountNames,
           });
           if (this.progressInfo) {
             this.progressInfo.createdCount += 1;

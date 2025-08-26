@@ -73,6 +73,7 @@ import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletBanner from '../services/ServiceWalletBanner';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
+import type ServiceWebviewPerp from '../services/ServiceWebviewPerp';
 
 class BackgroundApiProxy
   extends BackgroundApiProxyBase
@@ -107,6 +108,10 @@ class BackgroundApiProxy
   servicePassword = this._createProxyService(
     'servicePassword',
   ) as ServicePassword;
+
+  serviceWebviewPerp = this._createProxyService(
+    'serviceWebviewPerp',
+  ) as ServiceWebviewPerp;
 
   serviceDevSetting = this._createProxyService(
     'serviceDevSetting',

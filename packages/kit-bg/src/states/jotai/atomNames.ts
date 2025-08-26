@@ -37,6 +37,7 @@ export enum EAtomNames {
   galleryPersistAtom = 'galleryPersistAtom',
   activeAccountValueAtom = 'activeAccountValueAtom',
   settingsValuePersistAtom = 'settingsValuePersistAtom',
+  settingsTronRentalPersistAtom = 'settingsTronRentalPersistAtom',
   // notificationsAtom, notificationsPersistAtom is reserved for notificationsPersistAtom
   notificationsAtom = 'notificationsAtom', // persist
   notificationsReadedAtom = 'notificationsReadedAtom',

@@ -150,4 +150,19 @@ export const {
   },
 });
 
+export type ISettingsTronRentalPersistAtom = {
+  preventDisableTronRental: boolean;
+};
+
+export const {
+  target: settingsTronRentalPersistAtom,
+  use: useSettingsTronRentalPersistAtom,
+} = globalAtom<ISettingsTronRentalPersistAtom>({
+  persist: true,
+  name: EAtomNames.settingsTronRentalPersistAtom,
+  initialValue: {
+    preventDisableTronRental: false,
+  },
+});
+
 // extract high frequency refresh data to another atom

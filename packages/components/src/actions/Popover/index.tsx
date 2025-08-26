@@ -10,6 +10,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -20,6 +21,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FIX_SHEET_PROPS } from '../../composite/Dialog';
+import { Keyboard } from '../../content';
 import { Portal } from '../../hocs';
 import {
   ModalNavigatorContext,
@@ -98,6 +100,7 @@ const usePopoverValue = (
         trackId: trackID,
       });
     }
+    void Keyboard.dismissWithDelay(50);
   }, [isControlled, onOpenChange, trackID]);
 
   const closePopover = useCallback(() => {
@@ -113,6 +116,7 @@ const usePopoverValue = (
         trackId: trackID,
       });
     }
+    void Keyboard.dismissWithDelay(50);
   }, [isControlled, onOpenChange, trackID]);
 
   return {
@@ -169,6 +173,22 @@ function ModalPortalProvider({ children }: PropsWithChildren) {
 }
 
 const when: (state: { media: UseMediaState }) => boolean = () => true;
+
+const useDismissKeyboard = platformEnv.isNative
+  ? (isOpen?: boolean) => {
+      useMemo(() => {
+        void Keyboard.dismissWithDelay(50);
+      }, []);
+      const isOpenRef = useRef(isOpen);
+      useEffect(() => {
+        if (isOpenRef.current !== isOpen) {
+          isOpenRef.current = isOpen;
+          void Keyboard.dismissWithDelay(50);
+        }
+      }, [isOpen]);
+    }
+  : () => {};
+
 function RawPopover({
   title,
   open: isOpen,
@@ -235,6 +255,8 @@ function RawPopover({
     void handleClosePopover();
     return true;
   }, [handleClosePopover, isOpen]);
+
+  useDismissKeyboard(isOpen);
 
   useBackHandler(handleBackPress);
 
@@ -317,9 +339,6 @@ function RawPopover({
       {platformEnv.isNative ? null : (
         <TMPopover.Content
           unstyled
-          outlineColor="$neutral3"
-          outlineStyle="solid"
-          outlineWidth="$px"
           display={display}
           style={{
             transformOrigin,
@@ -332,7 +351,16 @@ function RawPopover({
           w="$96"
           bg="$bg"
           borderRadius="$3"
-          elevation={20}
+          $platform-web={{
+            outlineColor: '$neutral3',
+            outlineStyle: 'solid',
+            outlineWidth: '$px',
+            boxShadow:
+              '0 4px 6px -4px rgba(0, 0, 0, 0.10), 0 10px 15px -3px rgba(0, 0, 0, 0.10)',
+          }}
+          $platform-native={{
+            elevation: 20,
+          }}
           animation={[
             'quick',
             {

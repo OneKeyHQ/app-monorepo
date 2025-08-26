@@ -24,14 +24,16 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../hooks/useAllNetwork';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
-import { NetworkAvatar } from '../NetworkAvatar';
+import { NetworkAvatarBase } from '../NetworkAvatar';
 
 function AllNetworksManagerTrigger({
   num,
   containerProps,
+  showSkeleton,
 }: {
   num: number;
   containerProps?: ComponentProps<typeof Stack>;
+  showSkeleton?: boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -90,20 +92,25 @@ function AllNetworksManagerTrigger({
   }
 
   if (
+    showSkeleton ||
     !enabledNetworksCompatibleWithWalletId ||
     enabledNetworksCompatibleWithWalletId.length === 0
   ) {
-    return <Skeleton h={20} w={120} />;
+    return (
+      <Stack py="$1">
+        <Skeleton.BodyMd />
+      </Stack>
+    );
   }
 
   return (
-    <YStack m="$-1" alignSelf="flex-start">
+    <YStack alignSelf="flex-start" ml="$-1">
       <XStack
         borderRadius="$2"
-        p="$1"
         hoverStyle={{
           bg: '$bgHover',
         }}
+        p="$1"
         pressStyle={{
           bg: '$bgActive',
         }}
@@ -131,7 +138,7 @@ function AllNetworksManagerTrigger({
                   ml: '$-2',
                 })}
               >
-                <NetworkAvatar networkId={item?.id} size="$5" />
+                <NetworkAvatarBase logoURI={item?.logoURI} size="$5" />
               </Stack>
             ))}
           {enabledNetworksCompatibleWithWalletId.length > 3 ? (

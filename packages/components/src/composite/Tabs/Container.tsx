@@ -2,6 +2,7 @@ import {
   Children,
   isValidElement,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useLayoutEffect,
   useMemo,
@@ -82,6 +83,7 @@ export function Container({
   onTabChange,
   width: containerWidth,
   ref: containerRef,
+  initialTabName,
   ...props
 }: PropsWithChildren<CollapsibleProps> & IRefProps) {
   // Get tab names from children props
@@ -247,7 +249,7 @@ export function Container({
   );
 
   const onTabPress = useCallback(
-    (tabName: string) => {
+    (tabName: string, emitEvents = true) => {
       if (!isEffectValid.current) {
         return;
       }
@@ -260,10 +262,12 @@ export function Container({
         prevTabName,
         tabName,
       };
-      setTimeout(() => {
-        onIndexChange?.(index);
-        onTabChange?.(onTabChangeData);
-      }, 100);
+      if (emitEvents) {
+        setTimeout(() => {
+          onIndexChange?.(index);
+          onTabChange?.(onTabChangeData);
+        }, 100);
+      }
       focusedTab.set(tabName);
     },
     [focusedTab, onIndexChange, onTabChange, tabNames],
@@ -277,6 +281,15 @@ export function Container({
       onTabPress(tabNames[index]);
     },
   }));
+
+  useEffect(() => {
+    if (initialTabName) {
+      setTimeout(() => {
+        onTabPress(initialTabName, false);
+      }, 100);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <YStack

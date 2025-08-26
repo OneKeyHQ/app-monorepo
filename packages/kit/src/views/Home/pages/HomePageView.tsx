@@ -1,19 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { type LayoutChangeEvent, useWindowDimensions } from 'react-native';
+import { type LayoutChangeEvent } from 'react-native';
 
 import {
   Icon,
   Page,
+  ScrollView,
   Stack,
   Tabs,
   YStack,
-  getTokens,
-  useIsHorizontalLayout,
-  useMedia,
+  useTabContainerWidth,
 } from '@onekeyhq/components';
-import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderSideBarValue';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
@@ -31,6 +29,7 @@ import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WalletBackupAlert } from '../../../components/WalletBackup';
+import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
@@ -46,35 +45,6 @@ import WalletContentWithAuth from './WalletContentWithAuth';
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
 
-const useNativeTabContainerWidth = platformEnv.isNativeIOSPad
-  ? () => {
-      const isHorizontal = useIsHorizontalLayout();
-      const { width } = useWindowDimensions();
-      const sideBarWidth = useMemo(() => {
-        if (isHorizontal) {
-          return getTokens().size.sideBarWidth.val;
-        }
-        return 0;
-      }, [isHorizontal]);
-      return width - sideBarWidth;
-    }
-  : () => undefined;
-const useTabContainerWidth = platformEnv.isNative
-  ? useNativeTabContainerWidth
-  : () => {
-      const { leftSidebarCollapsed = false } = useProviderSideBarValue() || {};
-      const { md } = useMedia();
-      const sideBarWidth = useMemo(() => {
-        if (md) {
-          return 0;
-        }
-        if (!leftSidebarCollapsed) {
-          return getTokens().size.sideBarWidth.val;
-        }
-        return 0;
-      }, [md, leftSidebarCollapsed]);
-      return `calc(100vw - ${sideBarWidth}px)`;
-    };
 export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onPressHide,
@@ -212,15 +182,6 @@ export function HomePageView({
         key={key}
         allowHeaderOverscroll
         width={tabContainerWidth}
-        headerContainerStyle={{
-          shadowOpacity: 0,
-          elevation: 0,
-        }}
-        pagerProps={
-          {
-            scrollSensitivity: 4,
-          } as any
-        }
         renderHeader={renderHeader}
         renderTabBar={(props: any) => (
           <Tabs.TabBar
@@ -347,9 +308,12 @@ export function HomePageView({
     }
 
     let content = (
-      <Stack h="100%" justifyContent="center">
-        <EmptyWallet />
-      </Stack>
+      <ScrollView
+        h="100%"
+        contentContainerStyle={{ justifyContent: 'center', flexGrow: 1 }}
+      >
+        {platformEnv.isWebDappMode ? <WebDappEmptyView /> : <EmptyWallet />}
+      </ScrollView>
     );
 
     if (wallet) {

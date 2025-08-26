@@ -17,17 +17,13 @@ import type { IDialogInstance, IDialogShowProps } from '@onekeyhq/components';
 import {
   Dialog,
   DialogContainer,
-  Icon,
   Portal,
-  ScrollView,
   SizableText,
-  XStack,
-  YStack,
 } from '@onekeyhq/components';
 import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ConnectionTroubleShootingAccordion } from '@onekeyhq/kit/src/components/Hardware/ConnectionTroubleShootingAccordion';
+import { DeviceNotFoundDialogContent } from '@onekeyhq/kit/src/components/Hardware/ConnectionTroubleShootingAccordion';
 import {
   usePromptWebDeviceAccess,
   useToPromptWebDeviceAccessPage,
@@ -741,7 +737,7 @@ function HardwareUiStateContainerCmpControlled() {
     const callback = throttle(
       ({
         errorType,
-        payload: _payload,
+        payload,
         errorCode: _errorCode,
         errorMessage: _errorMessage,
       }: IHardwareErrorDialogPayload) => {
@@ -754,9 +750,7 @@ function HardwareUiStateContainerCmpControlled() {
           return;
         }
 
-        const showUsbTroubleshooting = !platformEnv.isNative;
-        const showBluetoothTroubleshooting =
-          platformEnv.isNative || platformEnv.isSupportDesktopBle;
+        void serviceHardwareUI.cleanHardwareUiState();
 
         hardwareErrorDialogInstanceRef.current = Dialog.show({
           title: intl.formatMessage({
@@ -764,46 +758,11 @@ function HardwareUiStateContainerCmpControlled() {
           }),
           showFooter: false,
           renderContent: (
-            <ScrollView maxHeight={480}>
-              {showUsbTroubleshooting ? (
-                <YStack>
-                  <XStack alignItems="center" gap={7} mb="$2">
-                    <Icon name="TypeCoutline" size="$3.5" />
-                    <SizableText size="$headingSm">
-                      {intl.formatMessage({
-                        id: ETranslations.troubleshooting_usb,
-                      })}
-                    </SizableText>
-                  </XStack>
-                  <YStack>
-                    <ConnectionTroubleShootingAccordion
-                      connectionType="usb"
-                      defaultValue={undefined}
-                      indent={false}
-                    />
-                  </YStack>
-                </YStack>
-              ) : null}
-              {showBluetoothTroubleshooting ? (
-                <YStack mt={showUsbTroubleshooting ? '$5' : undefined}>
-                  <XStack alignItems="center" gap={7} mb="$2">
-                    <Icon name="BluetoothOutline" size="$3.5" />
-                    <SizableText size="$headingSm">
-                      {intl.formatMessage({
-                        id: ETranslations.troubleshooting_bluetooth,
-                      })}
-                    </SizableText>
-                  </XStack>
-                  <YStack>
-                    <ConnectionTroubleShootingAccordion
-                      connectionType="bluetooth"
-                      defaultValue={undefined}
-                      indent={false}
-                    />
-                  </YStack>
-                </YStack>
-              ) : null}
-            </ScrollView>
+            <DeviceNotFoundDialogContent
+              connectId={payload?.connectId as string | undefined}
+              // @ts-expect-error
+              inBluetoothCommunication={payload?.inBluetoothCommunication}
+            />
           ),
         });
       },
@@ -815,7 +774,7 @@ function HardwareUiStateContainerCmpControlled() {
       appEventBus.off(EAppEventBusNames.ShowHardwareErrorDialog, callback);
       hardwareErrorDialogInstanceRef.current = null;
     };
-  }, [intl]);
+  }, [intl, serviceHardwareUI]);
 
   useEffect(() => {
     const instanceRef: {

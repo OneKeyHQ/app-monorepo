@@ -1,4 +1,9 @@
 import {
+  type AptosSignInBoundFields,
+  type AptosSignInInput,
+  createSignInMessage,
+} from '@aptos-labs/siwa';
+import {
   Deserializer,
   MultiAgentTransaction,
   Network,
@@ -7,17 +12,17 @@ import {
   SignedTransaction,
   SimpleTransaction,
 } from '@aptos-labs/ts-sdk';
-import { parseAddress } from '@ckb-lumos/helpers';
 import { hexToBytes } from '@noble/hashes/utils';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { get, isArray } from 'lodash';
 
 import { deserializeTransaction } from '@onekeyhq/core/src/chains/aptos/helper/transactionUtils';
-import {
-  type IEncodedTxAptos,
-  type ISignMessagePayload,
-  type ISignMessageResponse,
+import type {
+  IAptosSignInOutput,
+  IEncodedTxAptos,
+  ISignMessagePayload,
+  ISignMessageResponse,
 } from '@onekeyhq/core/src/chains/aptos/types';
 import {
   backgroundClass,
@@ -31,7 +36,11 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { EMessageTypesAptos } from '@onekeyhq/shared/types/message';
 
 import { vaultFactory } from '../vaults/factory';
-import { deserializeTransactionPayload } from '../vaults/impls/aptos/sdkAptos/serializer';
+import {
+  ETransactionPayloadType,
+  deserializeTransactionPayload,
+  deserializeTransactionType,
+} from '../vaults/impls/aptos/sdkAptos/serializer';
 import {
   APTOS_SIGN_MESSAGE_PREFIX,
   buildSimpleTransaction,
@@ -445,6 +454,11 @@ class ProviderApiAptos extends ProviderApiBase {
       gasUnitPrice: AptosSignAndSubmitTransactionInput['gasUnitPrice'];
     };
 
+    const type = deserializeTransactionType(input.payload);
+    if (type === ETransactionPayloadType.MULTISIG) {
+      throw new OneKeyLocalError('Multi-agent transactions are not supported');
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     const payload = deserializeTransactionPayload(input.payload);
     const vault = await this.getAptosVault(request);
@@ -542,6 +556,57 @@ class ProviderApiAptos extends ProviderApiBase {
       prefix: APTOS_SIGN_MESSAGE_PREFIX,
       signature: isPetra ? hexUtils.stripHexPrefix(result) : result,
     });
+  }
+
+  @providerApiMethod()
+  public async signIn(
+    request: IJsBridgeMessagePayload,
+    params: AptosSignInInput,
+  ): Promise<IAptosSignInOutput> {
+    const { account, accountInfo } = await this._getAccount(request);
+
+    const signInBoundFields: AptosSignInBoundFields = {
+      address: params.address ?? account.address,
+      domain: params.domain ?? request.origin ?? '',
+      uri: params.uri ?? request.origin ?? '',
+      version: params.version ?? '1.0.0',
+      chainId: params.chainId ?? accountInfo?.networkId ?? '',
+    };
+    const signInMessage = createSignInMessage({
+      ...params,
+      ...signInBoundFields,
+    });
+
+    const result = (await this.backgroundApi.serviceDApp.openSignMessageModal({
+      request,
+      unsignedMessage: {
+        type: EMessageTypesAptos.SIGN_IN,
+        message: signInMessage,
+      },
+      accountId: account.id ?? '',
+      networkId: accountInfo?.networkId ?? '',
+    })) as string;
+
+    return {
+      account: {
+        address: account.address,
+        publicKey: account.pub ?? '',
+      },
+      input: {
+        ...params,
+        ...signInBoundFields,
+      },
+      signature: hexUtils.stripHexPrefix(result),
+      type: 'ed25519',
+    };
+  }
+
+  @providerApiMethod()
+  public async openInMobileApp(
+    request: IJsBridgeMessagePayload,
+    params: ISignMessagePayload,
+  ): Promise<void> {
+    throw new OneKeyLocalError('Not implemented');
   }
 
   @providerApiMethod()

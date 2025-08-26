@@ -313,7 +313,7 @@ const darkColors: typeof lightColors = {
   bg: '#1b1b1b',
   bgActive: neutralDark.neutral4,
   bgApp: '#0f0f0f',
-  bgBackdrop: grayA.grayA8,
+  bgBackdrop: grayA.grayA11,
   bgCaution: cautionDark.caution3,
   bgCautionStrong: cautionDark.caution9,
   bgCautionSubdued: cautionDark.caution2,

@@ -19,6 +19,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useMarketV2Enabled } from '@onekeyhq/kit/src/hooks/useMarketV2Enabled';
 import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
@@ -46,11 +47,13 @@ import {
 } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
+import { MarketWatchListProviderMirrorV2 } from '../../Market/MarketWatchListProviderMirrorV2';
 import {
   UniversalSearchAccountAssetItem,
   UniversalSearchAddressItem,
   UniversalSearchDappItem,
   UniversalSearchMarketTokenItem,
+  UniversalSearchV2MarketTokenItem,
 } from '../components/SearchResultItems';
 
 import { RecentSearched } from './components/RecentSearched';
@@ -64,12 +67,28 @@ interface IUniversalSection {
   showMore?: boolean;
 }
 
-const AllTypes = [
+const getSearchTypes = (enableMarketV2: boolean) => [
   EUniversalSearchType.Address,
   EUniversalSearchType.MarketToken,
+  ...(enableMarketV2 ? [EUniversalSearchType.V2MarketToken] : []),
   EUniversalSearchType.AccountAssets,
   EUniversalSearchType.Dapp,
 ];
+
+const getTabIndexForSearchType = (
+  searchType: EUniversalSearchType,
+  enableMarketV2: boolean,
+): number => {
+  const baseTabMapping = {
+    [EUniversalSearchType.Address]: 1, // Wallets tab
+    [EUniversalSearchType.MarketToken]: enableMarketV2 ? 3 : 2, // Tokens tab (shifts when Market V2 exists)
+    [EUniversalSearchType.V2MarketToken]: 2, // Market tab (only when V2 enabled)
+    [EUniversalSearchType.AccountAssets]: enableMarketV2 ? 4 : 3, // My Assets tab
+    [EUniversalSearchType.Dapp]: enableMarketV2 ? 5 : 4, // DApps tab
+  };
+
+  return baseTabMapping[searchType];
+};
 
 const SkeletonItem = () => (
   <XStack py="$2" alignItems="center">
@@ -108,6 +127,7 @@ export function UniversalSearch({
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [allTokenList] = useAllTokenListAtom();
   const [allTokenListMap] = useAllTokenListMapAtom();
+  const enableMarketV2 = useMarketV2Enabled();
 
   const [sections, setSections] = useState<IUniversalSection[]>([]);
   const [searchStatus, setSearchStatus] = useState<ESearchStatus>(
@@ -131,6 +151,11 @@ export function UniversalSearch({
       intl.formatMessage({
         id: ETranslations.global_universal_search_tabs_wallets,
       }),
+      enableMarketV2
+        ? intl.formatMessage({
+            id: ETranslations.global_market,
+          })
+        : null,
       intl.formatMessage({
         id: ETranslations.global_universal_search_tabs_tokens,
       }),
@@ -140,8 +165,8 @@ export function UniversalSearch({
       intl.formatMessage({
         id: ETranslations.global_universal_search_tabs_dapps,
       }),
-    ];
-  }, [intl]);
+    ].filter(Boolean);
+  }, [intl, enableMarketV2]);
   const [filterType, setFilterType] = useState(tabTitles[0]);
   const focusedTab = useSharedValue(tabTitles[0]);
   const handleTabPress = useCallback(
@@ -187,6 +212,7 @@ export function UniversalSearch({
       title: string;
       data: IUniversalSearchResultItem[];
     }[] = [];
+
     const result =
       await backgroundApiProxy.serviceUniversalSearch.universalSearchRecommend({
         searchTypes: [EUniversalSearchType.MarketToken],
@@ -218,7 +244,7 @@ export function UniversalSearch({
           networkId: activeAccount?.network?.id,
           accountId: activeAccount?.account?.id,
           indexedAccountId: activeAccount?.indexedAccount?.id,
-          searchTypes: AllTypes,
+          searchTypes: getSearchTypes(enableMarketV2),
           tokenListCache: shouldUseTokensCacheData
             ? allTokenList?.tokens
             : undefined,
@@ -269,9 +295,31 @@ export function UniversalSearch({
         const data = result?.[EUniversalSearchType.Address]
           ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
-          tabIndex: 1,
+          tabIndex: getTabIndexForSearchType(
+            EUniversalSearchType.Address,
+            enableMarketV2,
+          ),
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_wallets,
+          }),
+          ...generateDataFn(data),
+        });
+      }
+
+      // Show V2 market tokens only when V2 is enabled
+      if (
+        enableMarketV2 &&
+        result?.[EUniversalSearchType.V2MarketToken]?.items?.length
+      ) {
+        const data = result?.[EUniversalSearchType.V2MarketToken]
+          ?.items as IUniversalSearchResultItem[];
+        searchResultSections.push({
+          tabIndex: getTabIndexForSearchType(
+            EUniversalSearchType.V2MarketToken,
+            enableMarketV2,
+          ),
+          title: intl.formatMessage({
+            id: ETranslations.global_market,
           }),
           ...generateDataFn(data),
         });
@@ -281,7 +329,10 @@ export function UniversalSearch({
         const data = result?.[EUniversalSearchType.MarketToken]
           ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
-          tabIndex: 2,
+          tabIndex: getTabIndexForSearchType(
+            EUniversalSearchType.MarketToken,
+            enableMarketV2,
+          ),
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_tokens,
           }),
@@ -293,7 +344,10 @@ export function UniversalSearch({
         const data = result?.[EUniversalSearchType.AccountAssets]
           ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
-          tabIndex: 3,
+          tabIndex: getTabIndexForSearchType(
+            EUniversalSearchType.AccountAssets,
+            enableMarketV2,
+          ),
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_my_assets,
           }),
@@ -305,7 +359,10 @@ export function UniversalSearch({
         const data = result?.[EUniversalSearchType.Dapp]
           ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
-          tabIndex: 4,
+          tabIndex: getTabIndexForSearchType(
+            EUniversalSearchType.Dapp,
+            enableMarketV2,
+          ),
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_dapps,
           }),
@@ -399,6 +456,13 @@ export function UniversalSearch({
               searchStatus={searchStatus}
             />
           );
+        case EUniversalSearchType.V2MarketToken:
+          return (
+            <UniversalSearchV2MarketTokenItem
+              item={item}
+              searchStatus={searchStatus}
+            />
+          );
         case EUniversalSearchType.AccountAssets:
           return <UniversalSearchAccountAssetItem item={item} />;
         case EUniversalSearchType.Dapp:
@@ -422,17 +486,20 @@ export function UniversalSearch({
         data: i.sliceData,
       }));
 
-      // When focused in Market tab, prioritize tokens section
+      // When focused in Market tab, prioritize market section
       if (isFocusInMarketTab) {
-        const tokensSection = sectionsWithSliceData.find(
-          (section) => section.tabIndex === 2, // tokens tab index
+        const marketSection = sectionsWithSliceData.find(
+          (section) => section.tabIndex === 2, // market tab index
+        );
+        const tokenSection = sectionsWithSliceData.find(
+          (section) => section.tabIndex === 3,
         );
         const otherSections = sectionsWithSliceData.filter(
-          (section) => section.tabIndex !== 2,
+          (section) => section.tabIndex !== 2 && section.tabIndex !== 3,
         );
 
-        return tokensSection
-          ? [tokensSection, ...otherSections]
+        return marketSection
+          ? [marketSection, tokenSection, ...otherSections].filter(Boolean)
           : sectionsWithSliceData;
       }
 
@@ -556,11 +623,17 @@ const UniversalSearchWithHomeTokenListProvider = ({
   EUniversalSearchPages.UniversalSearch
 >) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const enableMarketV2 = useMarketV2Enabled();
+
   return (
     <HomeTokenListProviderMirrorWrapper
       accountId={activeAccount?.account?.id ?? ''}
     >
-      <UniversalSearch filterTypes={route?.params?.filterTypes || AllTypes} />
+      <UniversalSearch
+        filterTypes={
+          route?.params?.filterTypes || getSearchTypes(enableMarketV2)
+        }
+      />
     </HomeTokenListProviderMirrorWrapper>
   );
 };
@@ -578,17 +651,21 @@ const UniversalSearchWithProvider = (
     }}
     enabledNum={[0]}
   >
-    <MarketWatchListProviderMirror
-      storeName={EJotaiContextStoreNames.marketWatchList}
+    <MarketWatchListProviderMirrorV2
+      storeName={EJotaiContextStoreNames.marketWatchListV2}
     >
-      <DiscoveryBrowserProviderMirror>
-        <UniversalSearchProviderMirror
-          storeName={EJotaiContextStoreNames.universalSearch}
-        >
-          <UniversalSearchWithHomeTokenListProvider {...params} />
-        </UniversalSearchProviderMirror>
-      </DiscoveryBrowserProviderMirror>
-    </MarketWatchListProviderMirror>
+      <MarketWatchListProviderMirror
+        storeName={EJotaiContextStoreNames.marketWatchList}
+      >
+        <DiscoveryBrowserProviderMirror>
+          <UniversalSearchProviderMirror
+            storeName={EJotaiContextStoreNames.universalSearch}
+          >
+            <UniversalSearchWithHomeTokenListProvider {...params} />
+          </UniversalSearchProviderMirror>
+        </DiscoveryBrowserProviderMirror>
+      </MarketWatchListProviderMirror>
+    </MarketWatchListProviderMirrorV2>
   </AccountSelectorProviderMirror>
 );
 

@@ -130,7 +130,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     encodedTx: IEncodedTxAlgo;
     deviceParams?: IDeviceSharedCallParams;
   }) {
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: deviceParams?.dbDevice?.connectId || '',
+    });
     const path = await this.vault.getAccountPath();
     const { deviceCommonParams, dbDevice } = checkIsDefined(deviceParams);
     const { connectId, deviceId } = dbDevice;

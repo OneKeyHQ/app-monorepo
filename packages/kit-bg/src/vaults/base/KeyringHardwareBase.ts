@@ -38,14 +38,18 @@ export abstract class KeyringHardwareBase extends KeyringBase {
 
   hwSdkNetwork: IHwSdkNetwork | undefined;
 
-  async getHardwareSDKInstance() {
+  async getHardwareSDKInstance({ connectId }: { connectId: string }) {
     defaultLogger.account.accountCreatePerf.getHardwareSDKInstance();
 
     // Since the sdk instance can not pass the serializable testing in backgroundApiProxy
     // The direct call to backgroundApi is used here
     // This is a special case and direct access to backgroundApi is not recommended elsewhere.
     const sdk =
-      await appGlobals?.$backgroundApiProxy?.backgroundApi?.serviceHardware?.getSDKInstance?.();
+      await appGlobals?.$backgroundApiProxy?.backgroundApi?.serviceHardware?.getSDKInstance?.(
+        {
+          connectId,
+        },
+      );
     const r = (sdk as typeof HardwareSDK) ?? HardwareSDK;
 
     defaultLogger.account.accountCreatePerf.getHardwareSDKInstanceDone();

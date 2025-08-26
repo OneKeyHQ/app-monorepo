@@ -8,8 +8,10 @@ export class ServiceHardwareManagerBase {
 
   backgroundApi: IBackgroundApi;
 
-  async getSDKInstance(): Promise<CoreApi> {
-    const hardwareSDK = await this.serviceHardware.getSDKInstance();
+  async getSDKInstance({ connectId }: { connectId: string }): Promise<CoreApi> {
+    const hardwareSDK = await this.serviceHardware.getSDKInstance({
+      connectId,
+    });
     return hardwareSDK;
   }
 

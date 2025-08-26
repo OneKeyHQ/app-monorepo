@@ -24,6 +24,9 @@ export class SwapSendTxScene extends BaseScene {
     networkId,
     accountId,
     encodedTx,
+    fromAddress,
+    toAddress,
+    quoteToTokenAmount,
   }: {
     status: ESwapEventAPIStatus;
     message?: string;
@@ -39,9 +42,12 @@ export class SwapSendTxScene extends BaseScene {
     toTokenSymbol: string;
     fromTokenAmount: string;
     toTokenAmount: string;
+    quoteToTokenAmount?: string;
     networkId: string;
     accountId: string;
     encodedTx: string;
+    fromAddress: string;
+    toAddress: string;
   }) {
     return {
       status,
@@ -61,6 +67,9 @@ export class SwapSendTxScene extends BaseScene {
       networkId,
       accountId,
       encodedTx,
+      fromAddress,
+      toAddress,
+      quoteToTokenAmount,
     };
   }
 }

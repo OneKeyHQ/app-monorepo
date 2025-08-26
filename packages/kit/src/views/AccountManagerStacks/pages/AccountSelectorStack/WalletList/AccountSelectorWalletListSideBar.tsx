@@ -325,9 +325,9 @@ export function AccountSelectorWalletListSideBar({
       ) : null}
       {/* Primary wallets */}
       <SortableListView
+        useFlashList
         ref={listViewRef}
-        px="$2"
-        contentContainerStyle={{ py: '$2' }}
+        contentContainerStyle={{ py: '$2', px: '$2' }}
         showsVerticalScrollIndicator={false}
         getItemLayout={(_, index) => layoutList[index]}
         renderPlaceholder={({ item }) => (
@@ -365,10 +365,11 @@ export function AccountSelectorWalletListSideBar({
         }}
         extraData={[selectedAccount.focusedWallet, reloadWalletsHook]}
         renderItem={({ item, drag, dragProps }) => {
-          let badge: number | string | undefined;
-          if (accountUtils.isQrWallet({ walletId: item.id })) {
-            badge = 'QR';
-          }
+          const badge = accountUtils.isQrWallet({
+            walletId: item.id,
+          })
+            ? 'QR'
+            : undefined;
 
           return (
             <Stack pb="$3" dataSet={dragProps}>

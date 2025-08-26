@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import pTimeout from 'p-timeout';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
@@ -8,6 +9,7 @@ import {
   Form,
   Input,
   Skeleton,
+  Toast,
   XStack,
   YStack,
   useClipboard,
@@ -19,6 +21,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
@@ -65,29 +68,56 @@ export function PrimeTransferHomeEnterLink({
   const isConnectingRef = useRef(isConnecting);
   isConnectingRef.current = isConnecting;
 
-  const connectRemoteDevice = useCallback(async (pairingCode: string) => {
-    if (isConnectingRef.current) {
-      return;
-    }
-    setIsConnecting(true);
-    try {
-      // Validation is now handled by Form validate rules
-      // Get room ID for connection
-      const remoteRoomId =
-        await backgroundApiProxy.servicePrimeTransfer.getRoomIdFromPairingCode(
-          pairingCode,
-        );
+  const connectRemoteDeviceFn = useCallback(async (pairingCode: string) => {
+    // Validation is now handled by Form validate rules
+    // Get room ID for connection
+    const remoteRoomId =
+      await backgroundApiProxy.servicePrimeTransfer.getRoomIdFromPairingCode(
+        pairingCode,
+      );
 
-      await backgroundApiProxy.servicePrimeTransfer.joinRoom({
-        roomId: remoteRoomId,
-      });
-      await backgroundApiProxy.servicePrimeTransfer.verifyPairingCode({
-        pairingCode: pairingCode.toUpperCase(),
-      });
-    } finally {
-      setIsConnecting(false);
-    }
+    await backgroundApiProxy.servicePrimeTransfer.joinRoom({
+      roomId: remoteRoomId,
+    });
+    await backgroundApiProxy.servicePrimeTransfer.verifyPairingCode({
+      pairingCode: pairingCode.toUpperCase(),
+    });
+    return undefined;
   }, []);
+
+  const connectRemoteDevice = useCallback(
+    async (pairingCode: string) => {
+      if (isConnectingRef.current) {
+        return;
+      }
+      setIsConnecting(true);
+      try {
+        const p = connectRemoteDeviceFn(pairingCode);
+        const timeoutMessage = 'TransferConnectRemoteDeviceTimeout';
+        const result = await pTimeout(p, {
+          // milliseconds: 1,
+          milliseconds: 30_000,
+          fallback: () => {
+            return new OneKeyError(timeoutMessage);
+          },
+        });
+        if (
+          result instanceof OneKeyError &&
+          result.message === timeoutMessage
+        ) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.communication_timeout,
+            }),
+          });
+          throw result;
+        }
+      } finally {
+        setIsConnecting(false);
+      }
+    },
+    [connectRemoteDeviceFn, intl],
+  );
 
   const cleanTextFn = useCallback((text: string) => {
     return text.replace(/[^a-zA-Z0-9-]/g, '').replace(/-/g, '');
@@ -275,7 +305,9 @@ export function PrimeTransferHomeEnterLink({
               maxLength={59}
               allowSecureTextEye
               onPaste={onPasteClearText}
-              autoCapitalize="characters"
+              // Fix for Android secureTextEntry not working properly with autoComplete
+              // See: https://stackoverflow.com/questions/54684814/react-native-securetextentry-not-working-on-android
+              autoCapitalize="none"
               textTransform="uppercase"
               onSubmitEditing={form.handleSubmit(onSubmit)}
               placeholder="224RU-EZ172-4B483-ZN695-RM9XC-CJ6Z9-MQ67J-ZM3B2-4LXBS-JZP7D"

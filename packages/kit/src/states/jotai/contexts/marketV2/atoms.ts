@@ -43,6 +43,12 @@ export const { atom: leftColumnWidthAtom, use: useLeftColumnWidthAtom } =
 export const { atom: showWatchlistOnlyAtom, use: useShowWatchlistOnlyAtom } =
   contextAtom<boolean>(false);
 
+export const { atom: selectedNetworkIdAtom, use: useSelectedNetworkIdAtom } =
+  contextAtom<string>('sol--101');
+
+export const { atom: selectedMarketTabAtom, use: useSelectedMarketTabAtom } =
+  contextAtom<string>('trending');
+
 const INIT = Symbol('INIT');
 export const marketWatchListV2Atom = memoizee(() =>
   atom(

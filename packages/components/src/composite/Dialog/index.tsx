@@ -24,13 +24,12 @@ import {
   useMedia,
 } from 'tamagui';
 
-import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Toast } from '../../actions/Toast';
-import { SheetGrabber } from '../../content';
+import { Keyboard, SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { EPortalContainerConstantName, Portal } from '../../hocs';
 import {
@@ -329,9 +328,15 @@ function DialogFrame({
               exitStyle={{ opacity: 0, scale: 0.85 }}
               borderRadius="$4"
               borderWidth="$0"
-              outlineColor="$borderSubdued"
-              outlineStyle="solid"
-              outlineWidth="$px"
+              $theme-dark={{
+                outlineColor: '$neutral5',
+              }}
+              outlineWidth={1}
+              outlineOffset={0}
+              outlineColor="$neutral3"
+              style={{
+                outlineStyle: 'solid',
+              }}
               bg="$bg"
               width={MAX_CONTENT_WIDTH}
               p="$0"
@@ -392,6 +397,7 @@ function BaseDialogContainer(
         });
       }
       changeIsOpen(false);
+      void Keyboard.dismissWithDelay(50);
       return onClose(extra);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
@@ -496,7 +502,7 @@ function dialogShow({
   isOverTopAllViews,
   ...props
 }: IDialogShowFunctionProps): IDialogInstance {
-  dismissKeyboard();
+  void Keyboard.dismissWithDelay(50);
   let instanceRef: React.RefObject<IDialogInstance | null> | undefined =
     createRef();
 
@@ -527,6 +533,7 @@ function dialogShow({
             removeDialogInstance(dialogInstance);
             dialogInstance = undefined;
           }
+          void Keyboard.dismissWithDelay(50);
           void options.onClose?.(extra);
           resolve();
         }, 300);

@@ -4,6 +4,7 @@ import type {
   ISecretPrivateKeyInfo,
   ISecretPublicKeyInfo,
 } from '@onekeyhq/core/src/secret';
+import type { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
 
 import type { EAddressEncodings } from './coreEnums';
 import type { ICurveName } from './coreTypesBase';
@@ -185,6 +186,13 @@ export type ICoreImportedCredential = {
   privateKey: string;
 };
 export type ICoreImportedCredentialEncryptHex = string;
+
+export type ICoreHyperLiquidAgentCredential = {
+  userAddress: string;
+  agentName: EHyperLiquidAgentName;
+  privateKey: string;
+};
+export type ICoreHyperLiquidAgentCredentialEncryptHex = string;
 
 export type ICoreHdCredential = {
   seed: string; // rawSeed

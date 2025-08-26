@@ -182,6 +182,7 @@ export type IDBCreateHwWalletParamsBase = {
   hideCheckingDeviceLoading?: boolean;
   defaultIsTemp?: boolean;
   isMockedStandardHwWallet?: boolean;
+  isAttachPinMode?: boolean;
 };
 export type IDBCreateHwWalletParams = IDBCreateHwWalletParamsBase & {
   passphraseState?: string;

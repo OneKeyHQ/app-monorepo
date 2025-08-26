@@ -26,7 +26,7 @@ function HolderItemNormalBase({
     useHolderItemData({ item, index });
 
   return (
-    <XStack h={40} px="$4" alignItems="center" gap="$3">
+    <XStack h={40} px="$4" alignItems="center">
       {/* Rank */}
       <SizableText size="$bodyMd" color="$textSubdued" {...styles.rank}>
         #{rank}

@@ -1,81 +1,92 @@
-import { useIntl } from 'react-intl';
+import { useCallback, useMemo } from 'react';
 
-import { Button, SizableText, Stack, Tabs } from '@onekeyhq/components';
-import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  Carousel,
+  Tabs,
+  YStack,
+  useTabContainerWidth,
+} from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketFilterBar } from '../components/MarketFilterBar';
-import { MarketTokenList } from '../components/MarketTokenList';
+import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
+import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
+
+import { useMarketTabsLogic } from './hooks';
 
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
-import type { ILiquidityFilter } from '../types';
+import type { IMarketHomeTabValue } from '../types';
 
 interface IDesktopLayoutProps {
   filterBarProps: {
     selectedNetworkId: string;
     timeRange: ITimeRangeSelectorValue;
-    liquidityFilter: ILiquidityFilter;
     onNetworkIdChange: (networkId: string) => void;
     onTimeRangeChange: (timeRange: ITimeRangeSelectorValue) => void;
-    onLiquidityFilterChange: (filter: ILiquidityFilter) => void;
   };
   selectedNetworkId: string;
-  liquidityFilter: ILiquidityFilter;
+  onTabChange: (tabId: IMarketHomeTabValue) => void;
 }
 
 export function DesktopLayout({
   filterBarProps,
   selectedNetworkId,
-  liquidityFilter,
+  onTabChange,
 }: IDesktopLayoutProps) {
-  const intl = useIntl();
-  const [watchlistState] = useMarketWatchListV2Atom();
-  const watchlist = watchlistState.data || [];
+  const {
+    tabNames,
+    watchlistTabName,
+    focusedTab,
+    carouselRef,
+    handleTabChange,
+    defaultIndex,
+    handlePageChanged,
+  } = useMarketTabsLogic(onTabChange);
 
-  const watchlistTabName = intl.formatMessage({
-    id: ETranslations.global_watchlist,
-  });
-  const trendingTabName = intl.formatMessage({
-    id: ETranslations.market_trending,
-  });
+  const height = useMemo(() => {
+    return platformEnv.isNative ? undefined : 'calc(100vh - 96px)';
+  }, []);
+
+  const pageWidth = useTabContainerWidth();
+  const renderItem = useCallback(
+    ({ item }: { item: string }) => {
+      if (item === watchlistTabName) {
+        return (
+          <YStack px="$4" height={height} flex={1}>
+            <MarketWatchlistTokenList />
+          </YStack>
+        );
+      }
+      return (
+        <YStack px="$4" height={height} flex={1}>
+          <MarketFilterBar {...filterBarProps} />
+          <MarketNormalTokenList networkId={selectedNetworkId} />
+        </YStack>
+      );
+    },
+    [filterBarProps, height, selectedNetworkId, watchlistTabName],
+  );
 
   return (
-    <Stack flex={1} height="100%">
-      <Tabs.Container
-        initialTabName={trendingTabName}
-        headerContainerStyle={{
-          borderBottomWidth: 0,
-          width: '100%',
-          shadowColor: 'transparent',
-        }}
-      >
-        <Tabs.Tab name={watchlistTabName}>
-          <Tabs.ScrollView>
-            <Stack px="$4" flex={1}>
-              <MarketTokenList
-                networkId={selectedNetworkId}
-                liquidityFilter={liquidityFilter}
-                showWatchlistOnly
-                watchlist={watchlist}
-              />
-            </Stack>
-          </Tabs.ScrollView>
-        </Tabs.Tab>
-
-        <Tabs.Tab name={trendingTabName}>
-          <Tabs.ScrollView>
-            <Stack px="$4">
-              <MarketFilterBar {...filterBarProps} />
-              <MarketTokenList
-                networkId={selectedNetworkId}
-                liquidityFilter={liquidityFilter}
-                showWatchlistOnly={false}
-                watchlist={watchlist}
-              />
-            </Stack>
-          </Tabs.ScrollView>
-        </Tabs.Tab>
-      </Tabs.Container>
-    </Stack>
+    <YStack>
+      <Tabs.TabBar
+        divider={false}
+        onTabPress={handleTabChange}
+        tabNames={tabNames}
+        focusedTab={focusedTab}
+      />
+      <Carousel
+        pageWidth={pageWidth}
+        defaultIndex={defaultIndex}
+        onPageChanged={handlePageChanged}
+        disableAnimation
+        containerStyle={{ height }}
+        ref={carouselRef as any}
+        loop={false}
+        showPagination={false}
+        data={tabNames}
+        renderItem={renderItem}
+      />
+    </YStack>
   );
 }

@@ -31,29 +31,40 @@ export function useMarketHolders({
           networkId,
         });
 
-      // Process holders data immediately with market cap calculation
+      // Process holders data with percentage calculation based on total supply from FDV
       const processedList = response.list.map((holder) => {
-        let marketCapPercentage = null;
+        let percentage: string | undefined;
 
-        if (holder.fiatValue && isReady && tokenDetail?.marketCap) {
+        if (
+          holder.amount &&
+          isReady &&
+          tokenDetail?.fdv &&
+          tokenDetail?.price
+        ) {
           try {
-            const holderValue = new BigNumber(holder.fiatValue);
-            const totalMarketCap = new BigNumber(tokenDetail.marketCap);
+            const holderAmount = new BigNumber(holder.amount);
+            const fdv = new BigNumber(tokenDetail.fdv);
+            const price = new BigNumber(tokenDetail.price);
 
-            if (totalMarketCap.isGreaterThan(0)) {
-              const percentage = holderValue
-                .dividedBy(totalMarketCap)
-                .multipliedBy(100);
-              marketCapPercentage = percentage.toFixed(2);
+            if (fdv.isGreaterThan(0) && price.isGreaterThan(0)) {
+              // Calculate total supply = fdv / price
+              const totalSupply = fdv.dividedBy(price);
+
+              if (totalSupply.isGreaterThan(0)) {
+                const percentageValue = holderAmount
+                  .dividedBy(totalSupply)
+                  .multipliedBy(100);
+                percentage = percentageValue.toFixed(2);
+              }
             }
           } catch (error) {
-            // Keep marketCapPercentage as null on error
+            // Keep percentage as undefined on error
           }
         }
 
         return {
           ...holder,
-          marketCapPercentage,
+          percentage,
         };
       });
 
@@ -62,7 +73,7 @@ export function useMarketHolders({
         list: processedList,
       };
     },
-    [tokenAddress, networkId, isReady, tokenDetail?.marketCap],
+    [tokenAddress, networkId, isReady, tokenDetail?.fdv, tokenDetail?.price],
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),

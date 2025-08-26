@@ -202,7 +202,7 @@ export function DeriveTypeSelectorTrigger({
   );
 }
 
-function DeriveTypeSelectorTriggerIconRenderer({
+export function DeriveTypeSelectorTriggerIconRenderer({
   label,
   autoShowLabel,
   onPress,

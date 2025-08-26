@@ -7,12 +7,19 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
+import { useTokenSecurity } from '../TokenSecurityAlert/hooks';
 
 import { InformationPanelSkeleton } from './InformationPanelSkeleton';
 
 export function InformationPanel() {
   const intl = useIntl();
-  const { tokenDetail, networkId } = useTokenDetail();
+  const { tokenDetail, networkId, tokenAddress } = useTokenDetail();
+
+  // Directly use the security data hook to check if we have security data
+  const { securityData } = useTokenSecurity({
+    tokenAddress,
+    networkId,
+  });
 
   if (!tokenDetail) return <InformationPanelSkeleton />;
 
@@ -32,7 +39,7 @@ export function InformationPanel() {
 
   return (
     <XStack px="$5" py="$4" gap="$4" jc="space-between" width="100%">
-      <YStack>
+      <YStack pointerEvents="none">
         <MarketTokenPrice
           size="$heading3xl"
           price={currentPrice}
@@ -51,7 +58,7 @@ export function InformationPanel() {
 
       {/* Stats Row */}
       <YStack gap="$1" width="$40">
-        <XStack gap="$1" width="100%" jc="space-between">
+        <XStack pointerEvents="none" gap="$1" width="100%" jc="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.global_market_cap })}
           </SizableText>
@@ -59,7 +66,7 @@ export function InformationPanel() {
             ${numberFormat(marketCap, { formatter: 'marketCap' })}
           </SizableText>
         </XStack>
-        <XStack gap="$1" width="100%" jc="space-between">
+        <XStack pointerEvents="none" gap="$1" width="100%" jc="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.global_liquidity })}
           </SizableText>
@@ -67,7 +74,7 @@ export function InformationPanel() {
             ${numberFormat(volume24h, { formatter: 'marketCap' })}
           </SizableText>
         </XStack>
-        <XStack gap="$1" width="100%" jc="space-between">
+        <XStack pointerEvents="none" gap="$1" width="100%" jc="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.dexmarket_holders })}
           </SizableText>
@@ -75,10 +82,14 @@ export function InformationPanel() {
             {numberFormat(String(holders), { formatter: 'marketCap' })}
           </SizableText>
         </XStack>
-        {/* Audit / Security */}
-        {networkId && address ? (
+        {/* Audit / Security - Only show when we have security data */}
+        {networkId && address && securityData ? (
           <XStack gap="$1" ai="center" width="100%" jc="space-between">
-            <SizableText size="$bodySm" color="$textSubdued">
+            <SizableText
+              pointerEvents="none"
+              size="$bodySm"
+              color="$textSubdued"
+            >
               {intl.formatMessage({ id: ETranslations.dexmarket_audit })}
             </SizableText>
             <TokenSecurityAlert />

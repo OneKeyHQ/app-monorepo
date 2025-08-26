@@ -7,12 +7,12 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { useSelectedNetworkIdAtom } from '../../../states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileLayout } from './layouts/MobileLayout';
-import { EMarketHomeTab } from './types';
 
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketHomeTabValue } from './types';
@@ -23,15 +23,14 @@ function MarketHome() {
   // Load market basic config using the new hook
   const { defaultNetworkId, formattedMinLiquidity } = useMarketBasicConfig();
 
-  const [selectedNetworkId, setSelectedNetworkId] =
-    useState<string>('sol--101');
+  const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
 
   // Update selectedNetworkId when config loads and it's still the default
   useEffect(() => {
     if (defaultNetworkId && selectedNetworkId === 'sol--101') {
       setSelectedNetworkId(defaultNetworkId);
     }
-  }, [defaultNetworkId, selectedNetworkId]);
+  }, [defaultNetworkId, selectedNetworkId, setSelectedNetworkId]);
 
   const [liquidityFilter, setLiquidityFilter] = useState<ILiquidityFilter>({
     min: '5K',
@@ -45,9 +44,9 @@ function MarketHome() {
   }, [formattedMinLiquidity, liquidityFilter.min]);
   const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('5m');
 
-  const [_activeTab, setActiveTab] = useState<IMarketHomeTabValue>(
-    EMarketHomeTab.Trending,
-  );
+  const handleTabChange = (_tabId: IMarketHomeTabValue) => {
+    // Tab change is now handled by the atomic state in layouts
+  };
 
   const mobileProps = useMemo(
     () => ({
@@ -61,9 +60,9 @@ function MarketHome() {
       },
       selectedNetworkId,
       liquidityFilter,
-      onTabChange: setActiveTab,
+      onTabChange: handleTabChange,
     }),
-    [selectedNetworkId, timeRange, liquidityFilter],
+    [selectedNetworkId, timeRange, liquidityFilter, setSelectedNetworkId],
   );
 
   const desktopProps = useMemo(
@@ -78,9 +77,9 @@ function MarketHome() {
       },
       selectedNetworkId,
       liquidityFilter,
-      onTabChange: setActiveTab,
+      onTabChange: handleTabChange,
     }),
-    [selectedNetworkId, timeRange, liquidityFilter],
+    [selectedNetworkId, timeRange, liquidityFilter, setSelectedNetworkId],
   );
 
   return (

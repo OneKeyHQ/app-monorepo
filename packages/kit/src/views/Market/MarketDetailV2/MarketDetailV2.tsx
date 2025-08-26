@@ -8,11 +8,15 @@ import type {
 } from '@onekeyhq/components';
 import { NavBackButton, Page, XStack, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type {
   ETabMarketRoutes,
-  ETabRoutes,
-  type ITabMarketParamList,
+  ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -21,6 +25,7 @@ import {
   AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { TabPageHeaderContainer } from '../../../components/TabPageHeader/components/TabPageHeaderContainer';
 import { HeaderLeftCloseButton } from '../../../components/TabPageHeader/HeaderLeft';
 import { useTokenDetailActions } from '../../../states/jotai/contexts/marketV2';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
@@ -56,7 +61,7 @@ function MarketDetail({
   });
 
   const handleBackPress = useCallback(() => {
-    navigation.navigate(ETabMarketRoutes.TabMarket);
+    navigation.pop();
   }, [navigation]);
 
   const customHeaderLeft = useMemo(
@@ -91,13 +96,19 @@ function MarketDetail({
 
   return (
     <Page>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.Market}
-        customHeaderLeftItems={customHeaderLeft}
-        customHeaderRightItems={platformEnv.isNative ? customHeaderRight : null}
-        hideSearch={!media.gtMd}
-      />
+      {platformEnv.isNative ? (
+        <TabPageHeaderContainer>{customHeaderLeft}</TabPageHeaderContainer>
+      ) : (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.Market}
+          customHeaderLeftItems={customHeaderLeft}
+          customHeaderRightItems={
+            platformEnv.isNative ? customHeaderRight : null
+          }
+          hideSearch={!media.gtMd}
+        />
+      )}
 
       <Page.Body>{media.gtLg ? <DesktopLayout /> : <MobileLayout />}</Page.Body>
     </Page>
@@ -107,6 +118,14 @@ function MarketDetail({
 function MarketDetailV2(
   props: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>,
 ) {
+  useEffect(() => {
+    appEventBus.emit(EAppEventBusNames.HideTabBar, true);
+
+    return () => {
+      appEventBus.emit(EAppEventBusNames.HideTabBar, false);
+    };
+  }, []);
+
   return (
     <AccountSelectorProviderMirror
       config={{

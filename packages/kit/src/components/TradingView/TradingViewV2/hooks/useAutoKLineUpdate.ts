@@ -58,14 +58,14 @@ export function useAutoKLineUpdate({
         });
 
         lastUpdateTime.current = now;
-        console.log('Auto K-line data pushed:', {
-          kLineData,
-          tokenAddress,
-          networkId,
-          timeFrom,
-          timeTo,
-          dataPoints: kLineData.points?.length || 0,
-        });
+        // console.log('Auto K-line data pushed:', {
+        //   kLineData,
+        //   tokenAddress,
+        //   networkId,
+        //   timeFrom,
+        //   timeTo,
+        //   dataPoints: kLineData.points?.length || 0,
+        // });
       }
     } catch (error) {
       console.error('Failed to push auto K-line data:', error);

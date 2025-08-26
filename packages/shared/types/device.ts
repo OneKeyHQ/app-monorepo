@@ -389,6 +389,7 @@ export type IFirmwareUpdateV3VersionParams = {
 
 export enum EHardwareCallContext {
   USER_INTERACTION = 'user_interaction',
+  USER_INTERACTION_NO_BLE_DIALOG = 'user_interaction_no_ble_dialog',
   BACKGROUND_TASK = 'background_task',
   SDK_INITIALIZATION = 'sdk_initialization',
   SILENT_CALL = 'silent_call',

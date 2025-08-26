@@ -9,11 +9,13 @@ export function AccountAddress({
   address,
   linkedNetworkId,
   isEmptyAddress,
+  hideAddress,
 }: {
   num: number;
   address: string;
   linkedNetworkId?: string;
   isEmptyAddress: boolean;
+  hideAddress?: boolean;
 }) {
   const { activeAccount } = useActiveAccount({ num });
   const intl = useIntl();
@@ -30,6 +32,10 @@ export function AccountAddress({
   const noAddressMessage = intl.formatMessage({
     id: ETranslations.wallet_no_address,
   });
+
+  if (hideAddress) {
+    return null;
+  }
 
   return address || isEmptyAddress ? (
     <SizableText

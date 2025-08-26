@@ -27,6 +27,7 @@ import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalCon
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import InAppNotification from './InAppNotification';
 import { NavigationContainer } from './NavigationContainer';
+import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
@@ -119,6 +120,7 @@ export function Container() {
           <ColdStartByNotification />
           <PrimeGlobalEffect />
           <WebPerformanceMonitorContainer />
+          <PasswordVerifyPortalContainer />
         </NavigationContainer>
         <GlobalWalletConnectModalContainer />
       </AppStateLockContainer>

@@ -78,9 +78,16 @@ function HardwareSales() {
           </SizableText>
           {items.map((item, key) => (
             <XStack key={key} py="$3" ai="center" jc="space-between">
-              <SizableText size="$bodyLgMedium" numberOfLines={1}>
-                {item.orderName}
-              </SizableText>
+              <YStack>
+                <SizableText size="$bodyLgMedium" numberOfLines={1}>
+                  {item.orderName}
+                </SizableText>
+                {item.source ? (
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {item.source}
+                  </SizableText>
+                ) : null}
+              </YStack>
               <SizableText size="$bodyMd" color="$textSubdued">
                 {item.createdAt
                   ? formatDate(item.createdAt, {
@@ -183,18 +190,7 @@ export default function YourReferred() {
         title={intl.formatMessage({ id: ETranslations.referral_your_referred })}
       />
       <Page.Body>
-        <Tabs.Container
-          headerContainerStyle={{
-            shadowOpacity: 0,
-            elevation: 0,
-          }}
-          pagerProps={
-            {
-              scrollSensitivity: 4,
-            } as any
-          }
-          renderTabBar={(props) => <Tabs.TabBar {...props} />}
-        >
+        <Tabs.Container>
           <Tabs.Tab
             name={intl.formatMessage({
               id: ETranslations.global_wallet,

@@ -96,6 +96,8 @@ const MarketNetworkFilter = forwardRef<
         position="relative"
         p="$1"
         gap="$1"
+        mt="$3"
+        mb="$2"
         maxWidth="100%"
         overflow="hidden"
         borderWidth={1}
@@ -113,7 +115,7 @@ const MarketNetworkFilter = forwardRef<
             }}
             scrollEventThrottle={16}
           >
-            <XStack gap="$0.5" pr="$4">
+            <XStack gap="$0.5" pr={showMoreButton ? '$4' : undefined}>
               {networks.map((network) => (
                 <NetworksFilterItem
                   key={network.id}

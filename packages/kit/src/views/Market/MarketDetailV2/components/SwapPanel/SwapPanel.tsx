@@ -1,5 +1,8 @@
+import { useRef } from 'react';
+
 import { useIntl } from 'react-intl';
 
+import type { IDialogInstance } from '@onekeyhq/components';
 import {
   Button,
   Spinner,
@@ -10,6 +13,11 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -26,7 +34,8 @@ export function SwapPanel({
 }) {
   const intl = useIntl();
   const media = useMedia();
-  const InModalDialog = useInModalDialog();
+  const inModalDialog = useInModalDialog();
+  const dialogRef = useRef<IDialogInstance>(null);
 
   if (!networkId || !tokenAddress) {
     return (
@@ -43,12 +52,19 @@ export function SwapPanel({
 
   const showSwapDialog = () => {
     if (networkId && tokenAddress) {
-      InModalDialog.show({
+      dialogRef.current = inModalDialog.show({
+        onClose: () => {
+          appEventBus.emit(
+            EAppEventBusNames.SwapPanelDismissKeyboard,
+            undefined,
+          );
+          void dismissKeyboardWithDelay(100);
+        },
         title: intl.formatMessage({ id: ETranslations.global_swap }),
         showFooter: false,
         showExitButton: true,
         renderContent: (
-          <View p="$4">
+          <View>
             <AccountSelectorProviderMirror
               config={{
                 sceneName: EAccountSelectorSceneName.home,
@@ -59,7 +75,9 @@ export function SwapPanel({
               <MarketWatchListProviderMirrorV2
                 storeName={EJotaiContextStoreNames.marketWatchListV2}
               >
-                <SwapPanelWrap />
+                <SwapPanelWrap
+                  onCloseDialog={() => dialogRef.current?.close()}
+                />
               </MarketWatchListProviderMirrorV2>
             </AccountSelectorProviderMirror>
           </View>

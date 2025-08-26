@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 
@@ -19,9 +19,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useToReferFriendsModalByRootNavigation } from '../../hooks/useReferFriends';
 import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';
+import { perpTradeRouters } from '../../views/PerpTrade/router';
 
 import { discoveryRouters } from './Discovery/router';
 import { earnRouters } from './Earn/router';
@@ -69,6 +71,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   const isShowMDDiscover = useMemo(
     () =>
       !isShowDesktopDiscover &&
+      !platformEnv.isWebDappMode &&
       !platformEnv.isExtensionUiPopup &&
       !(platformEnv.isExtensionUiSidePanel && md),
     [isShowDesktopDiscover, md],
@@ -140,13 +143,40 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           children: swapRouters,
           trackId: 'global-trade',
         },
+        // platformEnv.isDesktop || platformEnv.isNative
+        platformEnv.isDesktop
+          ? {
+              name: ETabRoutes.WebviewPerpTrade,
+              tabBarIcon: (focused?: boolean) =>
+                focused
+                  ? 'TradingViewCandlesSolid'
+                  : 'TradingViewCandlesOutline',
+              translationId: ETranslations.global_perp,
+              freezeOnBlur: Boolean(params?.freezeOnBlur),
+              rewrite: '/perp',
+              exact: true,
+              tabbarOnPress: platformEnv.isExtension
+                ? async () => {
+                    if (platformEnv.isExtension) {
+                      await backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
+                    }
+                  }
+                : undefined,
+              children: platformEnv.isExtension
+                ? // small screen error: Cannot read properties of null (reading 'filter')
+                  // null
+                  perpTradeRouters
+                : perpTradeRouters,
+              trackId: 'global-perp',
+            }
+          : null,
         {
           name: ETabRoutes.Earn,
           tabBarIcon: (focused?: boolean) =>
             focused ? 'CoinsSolid' : 'CoinsOutline',
           translationId: ETranslations.global_earn,
           freezeOnBlur: Boolean(params?.freezeOnBlur),
-          rewrite: '/earn',
+          rewrite: '/defi',
           exact: true,
           children: earnRouters,
           trackId: 'global-earn',

@@ -24,6 +24,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -268,13 +269,29 @@ const SwapInputContainer = ({
     const reserveGas = swapNativeTokenReserveGas.find(
       (item) => item.networkId === fromToken?.networkId,
     )?.reserveGas;
-    if (fromToken?.isNative && !reserveGas) {
+    if (fromToken?.isNative) {
+      let reserveGasFormatted: string | undefined | number = reserveGas;
+      if (reserveGas) {
+        reserveGasFormatted = numberFormat(reserveGas.toString(), {
+          formatter: 'balance',
+          formatterOptions: {
+            tokenSymbol: fromToken?.symbol,
+          },
+        }) as string;
+      }
       return (
         <XStack alignItems="center" p="$4">
           <SizableText size="$bodyMd">
-            {intl.formatMessage({
-              id: ETranslations.swap_native_token_max_tip,
-            })}
+            {intl.formatMessage(
+              {
+                id: reserveGasFormatted
+                  ? ETranslations.swap_native_token_max_tip_already
+                  : ETranslations.swap_native_token_max_tip,
+              },
+              {
+                num_token: reserveGasFormatted,
+              },
+            )}
           </SizableText>
         </XStack>
       );
@@ -284,6 +301,7 @@ const SwapInputContainer = ({
     swapNativeTokenReserveGas,
     fromToken?.isNative,
     fromToken?.networkId,
+    fromToken?.symbol,
     intl,
   ]);
   return (
@@ -348,7 +366,6 @@ const SwapInputContainer = ({
         }}
         tokenSelectorTriggerProps={{
           loading: selectTokenLoading,
-          selectedNetworkImageUri: token?.networkLogoURI,
           selectedTokenImageUri: token?.logoURI,
           selectedTokenSymbol: token?.symbol,
           onPress: () => {

@@ -225,6 +225,20 @@ export function calculateTotalFeeRange({
       .times(gasInfo.gasPrice)
       .toFixed();
 
+    if (gasInfo.originalGasPrice) {
+      const original = new BigNumber(limit)
+        .times(gasInfo.originalGasPrice)
+        .toFixed();
+
+      return {
+        min: nanToZeroString(max),
+        max: nanToZeroString(max),
+        minForDisplay: nanToZeroString(maxForDisplay),
+        maxForDisplay: nanToZeroString(maxForDisplay),
+        original: nanToZeroString(original),
+      };
+    }
+
     return {
       min: nanToZeroString(max),
       max: nanToZeroString(max),
@@ -372,6 +386,20 @@ export function calculateFeeForSend({
     .multipliedBy(nativeTokenPrice)
     .toFixed();
 
+  let originalTotalNative;
+  let originalTotalFiat;
+
+  if (feeRange.original) {
+    originalTotalNative = calculateTotalFeeNative({
+      amount: feeRange.original,
+      feeInfo,
+      withoutBaseFee: feeRange.withoutBaseFee,
+    });
+    originalTotalFiat = new BigNumber(originalTotalNative)
+      .multipliedBy(nativeTokenPrice)
+      .toFixed();
+  }
+
   return {
     total,
     totalMin,
@@ -384,6 +412,8 @@ export function calculateFeeForSend({
     totalFiatForDisplay,
     totalFiatMinForDisplay,
     feeRange,
+    originalTotalNative,
+    originalTotalFiat,
   };
 }
 

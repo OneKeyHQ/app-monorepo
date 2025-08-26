@@ -124,3 +124,8 @@ export type IOneKeyRpcError = {
     };
   };
 };
+
+export type IOneKeyHardwareDeviceNotFoundPayload =
+  IOneKeyHardwareErrorPayload & {
+    inBluetoothCommunication?: boolean;
+  };

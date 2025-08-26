@@ -7,9 +7,11 @@ import type { ISpotlightViewProps } from '../../Spotlight';
 export function AccountSelectorTriggerHome({
   num,
   spotlightProps,
+  linkNetworkId,
 }: {
   num: number;
   spotlightProps?: ISpotlightViewProps;
+  linkNetworkId?: string;
 }) {
   const {
     activeAccount: { network, vaultSettings },
@@ -25,12 +27,13 @@ export function AccountSelectorTriggerHome({
       showWalletAvatar
       showWalletName={false}
       num={num}
-      linkNetwork={
-        !(network?.isAllNetworks || vaultSettings?.mergeDeriveAssetsEnabled)
-      }
+      linkNetwork={!network?.isAllNetworks}
+      hideAddress={vaultSettings?.mergeDeriveAssetsEnabled}
+      linkNetworkId={linkNetworkId}
       keepAllOtherAccounts
       allowSelectEmptyAccount
       spotlightProps={spotlightProps}
+      showConnectWalletModalInDappMode
     />
   );
 }

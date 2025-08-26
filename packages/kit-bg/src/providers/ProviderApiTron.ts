@@ -1,3 +1,4 @@
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { isNil } from 'lodash';
@@ -11,6 +12,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import { EMessageTypesTron } from '@onekeyhq/shared/types/message';
 import type {
   IAccountToken,
   ITronWatchAssetParameter,
@@ -208,6 +210,43 @@ class ProviderApiTron extends ProviderApiBase {
     console.log('tron_signTransaction DONE', result, request, transaction);
 
     return JSON.parse(result.rawTx) as Types.SignedTransaction;
+  }
+
+  @permissionRequired()
+  @providerApiMethod()
+  async signMessageV1(
+    request: IJsBridgeMessagePayload,
+    message: string,
+  ): Promise<string> {
+    throw new NotImplemented();
+  }
+
+  @permissionRequired()
+  @providerApiMethod()
+  async signMessageV2(
+    request: IJsBridgeMessagePayload,
+    message: string,
+  ): Promise<string> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    console.log('signMessageV2', request, message);
+
+    const { accountInfo: { networkId, accountId } = {} } = (
+      await this.getAccountsInfo(request)
+    )[0];
+
+    const result = (await this.backgroundApi.serviceDApp.openSignMessageModal({
+      request,
+      unsignedMessage: {
+        type: EMessageTypesTron.SIGN_MESSAGE_V2,
+        message,
+      },
+      accountId: accountId ?? '',
+      networkId: networkId ?? '',
+    })) as string;
+
+    console.log('signMessageV2 DONE', result, request);
+
+    return result;
   }
 
   @providerApiMethod()

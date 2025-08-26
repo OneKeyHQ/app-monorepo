@@ -317,12 +317,6 @@ const SwitchGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Switch'
     ),
 );
-const TabViewGallery = LazyLoadPage(
-  () =>
-    import(
-      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TabView'
-    ),
-);
 const NewTabsGallery = LazyLoadPage(
   () =>
     import(
@@ -468,6 +462,13 @@ const PasswordKeyboardGallery = LazyLoadPage(
   () =>
     import(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PasswordKeyboard'
+    ),
+);
+
+const PerpGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PerpGallery'
     ),
 );
 
@@ -737,10 +738,6 @@ export const galleryScreenList: {
     component: FormGallery,
   },
   {
-    name: EGalleryRoutes.ComponentTabview,
-    component: TabViewGallery,
-  },
-  {
     name: EGalleryRoutes.ComponentNewTabs,
     component: NewTabsGallery,
   },
@@ -827,6 +824,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentPasswordKeyboardGallery,
     component: PasswordKeyboardGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentPerp,
+    component: PerpGallery,
   },
   {
     name: EGalleryRoutes.ComponentTradingViewGallery,
