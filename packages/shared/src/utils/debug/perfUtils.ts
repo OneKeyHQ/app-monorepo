@@ -1,5 +1,6 @@
 import { isEqual, isNil } from 'lodash';
 
+import { OneKeyLocalError } from '../../errors';
 import errorUtils from '../../errors/utils/errorUtils';
 import appStorage from '../../storage/appStorage';
 import { EAppSyncStorageKeys } from '../../storage/syncStorage';
@@ -212,6 +213,36 @@ function buildNewValueIfChanged<T>(oldValue: T, newValue: T) {
   }
   return newValue;
 }
+
+// function autoDetectInfiniteFunctionCallLoop() {
+//   // eslint-disable-next-line @typescript-eslint/unbound-method
+//   const originalCall = Function.prototype.call;
+//   const callStack = new Map<string, number>();
+
+//   // eslint-disable-next-line @typescript-eslint/unbound-method, no-extend-native
+//   Function.prototype.call = function (...args) {
+//     const fnName = this.name || 'anonymous';
+//     const stackCount = callStack.get(fnName) || 0;
+
+//     if (stackCount > 1000) {
+//       console.error(`Potential infinite loop detected in ${fnName}`);
+//       throw new OneKeyLocalError(`Infinite loop in ${fnName}`);
+//     }
+
+//     callStack.set(fnName, stackCount + 1);
+
+//     try {
+//       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+//       return originalCall.apply(this, args);
+//     } finally {
+//       callStack.set(fnName, Math.max(0, stackCount));
+//     }
+//   };
+// }
+
+// if (process.env.NODE_ENV !== 'production') {
+//   autoDetectInfiniteFunctionCallLoop();
+// }
 
 export default {
   createPerf,
