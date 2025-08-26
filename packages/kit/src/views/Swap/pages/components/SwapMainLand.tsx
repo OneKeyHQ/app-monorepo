@@ -49,6 +49,7 @@ import {
   EModalSwapRoutes,
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   checkWrappedTokenPair,
@@ -389,6 +390,20 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     currentQuoteRes?.allowanceResult?.shouldResetApprove,
   ]);
 
+  const shouldSignEveryTime = useMemo(() => {
+    const isExternalAccount = accountUtils.isExternalAccount({
+      accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+    });
+    const isHDAccount = accountUtils.isHwOrQrAccount({
+      accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+    });
+    const isShouldApprove = Boolean(currentQuoteRes?.allowanceResult);
+    return (isExternalAccount || isHDAccount) && isShouldApprove;
+  }, [
+    currentQuoteRes?.allowanceResult,
+    swapFromAddressInfo.accountInfo?.account?.id,
+  ]);
+
   const createSendTxStep = useCallback(() => {
     return {
       type: ESwapStepType.SEND_TX,
@@ -530,9 +545,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             ? undefined
             : swapSlippageRef.current.value,
         unSupportSlippage: currentQuoteRes?.unSupportSlippage ?? false,
-        isHWAndExBatchTransfer:
-          swapBatchTransferType ===
-          ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP,
+        isHWAndExBatchTransfer: shouldSignEveryTime,
         fee: currentQuoteRes?.fee,
         ...(!(
           steps.length > 0 &&
@@ -546,6 +559,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       quoteResult: { ...(currentQuoteRes as IFetchQuoteResult) },
     });
   }, [
+    shouldSignEveryTime,
     currentQuoteRes,
     swapBatchTransferType,
     setSwapSteps,
