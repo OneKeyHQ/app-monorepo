@@ -2701,18 +2701,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@bufgix/react-native-secure-window@npm:0.1.1":
-  version: 0.1.1
-  resolution: "@bufgix/react-native-secure-window@npm:0.1.1"
-  peerDependencies:
-    expo: "*"
-    expo-screen-capture: "*"
-    react: "*"
-    react-native: "*"
-  checksum: 10/5e75107879dc23bedb7c331cffae34dffb9cf3e19173cc9ffe381c53c582ade34b7439f2426070a07d7f84ff4364a84d6ef7ebfa4a4127068b71a7177114b37a
-  languageName: node
-  linkType: hard
-
 "@bundlr-network/client@npm:^0.7.14":
   version: 0.7.17
   resolution: "@bundlr-network/client@npm:0.7.17"
@@ -7878,7 +7866,6 @@ __metadata:
   dependencies:
     "@babel/core": "npm:^7.20.0"
     "@backpackapp-io/react-native-toast": "npm:0.14.0"
-    "@bufgix/react-native-secure-window": "npm:0.1.1"
     "@expo-google-fonts/inter": "npm:^0.2.3"
     "@formatjs/intl-getcanonicallocales": "npm:^1.9.2"
     "@formatjs/intl-locale": "npm:^2.4.47"
@@ -7943,6 +7930,7 @@ __metadata:
     react-native-bundle-visualizer: "npm:^3.1.3"
     react-native-camera-kit: "npm:15.1.0"
     react-native-canvas: "npm:^0.1.39"
+    react-native-capture-protection: "npm:2.3.0"
     react-native-check-biometric-auth-changed: "npm:0.1.1"
     react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@2.6.3"
     react-native-collapsible-tab-view: "npm:8.0.1"
@@ -35096,6 +35084,20 @@ __metadata:
   peerDependencies:
     react-native-webview: ">=5.10.0 || >=6.1.0"
   checksum: 10/9072230e840d4781c559c0e4faa0659bb0867fe3991609afe9270db8d9d5f877c458066efb46cd27271f0cc85a64cea9d1993ef6bcb9bc4ec3eacefae556e7ba
+  languageName: node
+  linkType: hard
+
+"react-native-capture-protection@npm:2.3.0":
+  version: 2.3.0
+  resolution: "react-native-capture-protection@npm:2.3.0"
+  peerDependencies:
+    expo: ">=47.0.0"
+    react: "*"
+    react-native: "*"
+  peerDependenciesMeta:
+    expo:
+      optional: true
+  checksum: 10/99d4d3045e3ed1786e0374149abe2b510ea3ac969fcb4f2cf9b14b462bc285f32e5836eebf156410c9ca4b3cb263436eb55821eb9f705e467fd3023c7d96fa8b
   languageName: node
   linkType: hard
 
