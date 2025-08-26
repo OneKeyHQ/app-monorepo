@@ -5034,37 +5034,45 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
         // Batch update existing records
         if (Object.keys(recordPairsToUpdate).length > 0) {
-          await this.txUpdateRecords({
-            tx,
-            name: ELocalDBStoreNames.Address,
-            recordPairs: Object.values(recordPairsToUpdate).map(
-              (r) => r.recordPair,
-            ),
-            updater: (r) => {
-              // Find corresponding cache item for this record
-              const cacheItem = recordPairsToUpdate?.[r?.id];
-              if (cacheItem) {
-                const { walletId, accountId } = cacheItem;
-                const newAccountId = accountId;
-                if (!r.wallets) {
-                  r.wallets = {};
+          try {
+            await this.txUpdateRecords({
+              tx,
+              name: ELocalDBStoreNames.Address,
+              recordPairs: Object.values(recordPairsToUpdate).map(
+                (r) => r.recordPair,
+              ),
+              updater: (r) => {
+                // Find corresponding cache item for this record
+                const cacheItem = recordPairsToUpdate?.[r?.id];
+                if (cacheItem) {
+                  const { walletId, accountId } = cacheItem;
+                  const newAccountId = accountId;
+                  if (!r.wallets) {
+                    r.wallets = {};
+                  }
+                  if (walletId && newAccountId) {
+                    r.wallets[walletId] = newAccountId;
+                  }
                 }
-                if (walletId && newAccountId) {
-                  r.wallets[walletId] = newAccountId;
-                }
-              }
-              return r;
-            },
-          });
+                return r;
+              },
+            });
+          } catch (error) {
+            console.error('Error updating records', error);
+          }
         }
 
         // Batch insert new records
         if (Object.keys(recordsToInsert).length > 0) {
-          await this.txAddRecords({
-            tx,
-            name: ELocalDBStoreNames.Address,
-            records: Object.values(recordsToInsert),
-          });
+          try {
+            await this.txAddRecords({
+              tx,
+              name: ELocalDBStoreNames.Address,
+              records: Object.values(recordsToInsert),
+            });
+          } catch (error) {
+            console.error('Error adding records', error);
+          }
         }
       });
     },
@@ -5095,7 +5103,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return;
     }
 
-    console.log('saveAccountAddresses', networkId, account?.address);
+    // console.log('saveAccountAddresses', networkId, account?.address);
 
     // Add to cache instead of direct DB operations
     this.accountAddressCache.push({ networkId, account });
