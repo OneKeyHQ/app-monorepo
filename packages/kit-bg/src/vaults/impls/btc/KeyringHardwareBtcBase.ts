@@ -404,6 +404,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
                 xpub: account.payload?.xpub || '',
                 xpubSegwit: account.payload?.xpubSegwit || '',
                 node: account.payload?.node || ({} as HDNodeType),
+                __hwExtraInfo__: undefined,
               }),
             });
             if (allNetworkAccounts) {
@@ -433,7 +434,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];
-          const { path, xpub, xpubSegwit } = item;
+          const { path, xpub, xpubSegwit, __hwExtraInfo__ } = item;
 
           const { addresses: addressFromXpub, publicKeys: publicKeysMap } =
             await checkIsDefined(this.coreApi).getAddressFromXpub({
@@ -455,6 +456,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
             addresses: {
               [addressRelPath]: address,
             },
+            __hwExtraInfo__,
           };
           ret.push(addressInfo);
         }

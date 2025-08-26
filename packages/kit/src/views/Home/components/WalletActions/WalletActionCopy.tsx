@@ -2,17 +2,19 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
-import { ActionList } from '@onekeyhq/components';
+import { ActionList, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCopyAddressWithDeriveType } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
+import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useAllTokenListAtom,
+  useAllTokenListMapAtom,
+  useTokenListStateAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
-import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useAllNetworkCopyAddressHandler } from '../../../WalletAddress/hooks/useAllNetworkCopyAddressHandler';
@@ -31,8 +33,7 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
 
   const intl = useIntl();
 
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalReceiveParamList>>();
+  const { copyText } = useClipboard();
   const copyAddressWithDeriveType = useCopyAddressWithDeriveType();
 
   const { isAllNetworkEnabled, handleAllNetworkCopyAddress } =
@@ -41,6 +42,24 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
     });
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
+
+  const [allTokens] = useAllTokenListAtom();
+  const [map] = useAllTokenListMapAtom();
+  const [tokenListState] = useTokenListStateAtom();
+
+  const { handleOnReceive } = useReceiveToken({
+    accountId: account?.id ?? '',
+    networkId: network?.id ?? '',
+    walletId: wallet?.id ?? '',
+    indexedAccountId: indexedAccount?.id ?? '',
+    tokens: {
+      data: allTokens.tokens,
+      keys: allTokens.keys,
+      map,
+    },
+    tokenListState,
+    isMultipleDerive: deriveInfoItems.length > 1,
+  });
 
   const handleCopyAddress = useCallback(async () => {
     if (
@@ -59,15 +78,8 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
     });
     if (isAllNetworkEnabled) {
       void handleAllNetworkCopyAddress();
-    } else if (accountUtils.isHwOrQrWallet({ walletId: wallet?.id ?? '' })) {
-      navigation.pushModal(EModalRoutes.ReceiveModal, {
-        screen: EModalReceiveRoutes.ReceiveToken,
-        params: {
-          networkId: network?.id ?? '',
-          accountId: account?.id ?? '',
-          walletId: wallet?.id ?? '',
-        },
-      });
+    } else if (accountUtils.isHwWallet({ walletId: wallet?.id ?? '' })) {
+      handleOnReceive();
     } else if (
       !network?.isAllNetworks &&
       !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
@@ -93,24 +105,7 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
         networkName: network?.shortname,
       });
     } else {
-      let networkName = network?.shortname;
-
-      if (
-        network?.isAllNetworks &&
-        accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
-        account?.createAtNetwork
-      ) {
-        const createAtNetwork =
-          await backgroundApiProxy.serviceNetwork.getNetworkSafe({
-            networkId: account.createAtNetwork,
-          });
-        networkName = createAtNetwork?.shortname ?? networkName;
-      }
-
-      copyAddressWithDeriveType({
-        address: account?.address || '',
-        networkName,
-      });
+      copyText(account?.address || '');
     }
     onClose();
   }, [
@@ -124,13 +119,12 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
     vaultSettings?.mergeDeriveAssetsEnabled,
     onClose,
     handleAllNetworkCopyAddress,
-    navigation,
-    account?.id,
-    account?.createAtNetwork,
-    account?.address,
+    handleOnReceive,
     indexedAccount?.id,
     copyAddressWithDeriveType,
     deriveInfoItems,
+    copyText,
+    account?.address,
   ]);
 
   return (

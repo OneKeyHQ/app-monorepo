@@ -11,7 +11,7 @@ export enum EURType {
   EvmSignature = 'evm-signature',
   AptosSignature = 'aptos-signature',
   CardanoSignature = 'cardano-signature',
-  TronSignature = 'tron-signature',
+  TronSignature = 'keystone-sign-result',
   KeystoneSignResult = 'keystone-sign-result',
   NearSignature = 'near-signature',
   ArweaveSignature = 'arweave-signature',

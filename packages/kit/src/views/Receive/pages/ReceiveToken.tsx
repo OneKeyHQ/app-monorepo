@@ -15,6 +15,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useClipboard,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -96,6 +97,8 @@ function ReceiveToken() {
   );
 
   const [hardwareUiState] = useHardwareUiStateAtom();
+
+  const { copyText } = useClipboard();
 
   const copyAddressWithDeriveType = useCopyAddressWithDeriveType();
 
@@ -275,7 +278,6 @@ function ReceiveToken() {
               accountId: accounts[0].id,
             });
           setCurrentDeriveInfo(deriveResp.deriveInfo);
-          setCurrentDeriveType(deriveResp.deriveType);
           setCurrentAccount(accounts[0]);
         }
       }

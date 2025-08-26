@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import { IconButton, SizableText, Stack, XStack } from '@onekeyhq/components';
@@ -59,7 +59,6 @@ export function AccountSelectorAccountListItem({
   accountsCount,
   focusedWalletInfo,
   mergeDeriveAssetsEnabled,
-  hideAddress,
 }: {
   num: number;
   linkedNetworkId: string | undefined;
@@ -84,8 +83,45 @@ export function AccountSelectorAccountListItem({
       }
     | undefined;
   mergeDeriveAssetsEnabled: boolean | undefined;
-  hideAddress?: boolean;
 }) {
+  // Render counter with 5-second reset
+  // const renderCountersRef = useRef<
+  //   Map<string, { count: number; timer: ReturnType<typeof setTimeout> }>
+  // >(new Map());
+
+  // const getRenderCount = (id: string): number => {
+  //   const counters = renderCountersRef.current;
+  //   const existing = counters.get(id);
+
+  //   if (existing) {
+  //     // Clear existing timer
+  //     clearTimeout(existing.timer);
+  //     // Increment count
+  //     existing.count += 1;
+  //   } else {
+  //     // Create new counter
+  //     counters.set(id, { count: 1, timer: setTimeout(() => {}, 0) });
+  //   }
+
+  //   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  //   const current = counters.get(id)!;
+
+  //   // Set new timer to reset after 5 seconds
+  //   current.timer = setTimeout(() => {
+  //     counters.delete(id);
+  //   }, 5000);
+
+  //   return current.count;
+  // };
+
+  // const renderCount = getRenderCount(item.id);
+
+  // console.log('AccountSelectorAccountListItem__render', {
+  //   id: item.id,
+  //   name: item.name,
+  //   renderCount,
+  // });
+
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
   const {
@@ -123,7 +159,6 @@ export function AccountSelectorAccountListItem({
     linkedNetworkId: string | undefined;
     address: string;
     isEmptyAddress: boolean;
-    hideAddress?: boolean;
   } => {
     let address: string | undefined;
     let allowEmptyAddress = false;
@@ -161,14 +196,12 @@ export function AccountSelectorAccountListItem({
           })
         : '',
       isEmptyAddress: false,
-      hideAddress: isOthersUniversal ? false : hideAddress,
     };
   }, [
     account?.address,
     indexedAccount?.associateAccount,
     isOthersUniversal,
     linkedNetworkId,
-    hideAddress,
   ]);
 
   const subTitleInfo = useMemo(() => buildSubTitleInfo(), [buildSubTitleInfo]);
@@ -205,7 +238,6 @@ export function AccountSelectorAccountListItem({
               : undefined
           }
           wallet={focusedWalletInfo?.wallet}
-          networkId={linkedNetworkId ?? network?.id}
         />
       );
     }
@@ -235,9 +267,8 @@ export function AccountSelectorAccountListItem({
     section?.firstAccount,
     account,
     focusedWalletInfo?.wallet,
-    linkedNetworkId,
-    network?.id,
     num,
+    linkedNetworkId,
     selectedAccount.deriveType,
   ]);
 
@@ -295,7 +326,7 @@ export function AccountSelectorAccountListItem({
           linkedNetworkId={avatarNetworkId ?? network?.id}
           mergeDeriveAssetsEnabled={mergeDeriveAssetsEnabled}
         />
-        {subTitleInfo.address && !subTitleInfo.hideAddress ? (
+        {subTitleInfo.address ? (
           <Stack
             mx="$1.5"
             w="$1"
@@ -309,7 +340,6 @@ export function AccountSelectorAccountListItem({
   }, [
     linkNetwork,
     subTitleInfo.address,
-    subTitleInfo.hideAddress,
     isOthersUniversal,
     index,
     accountValue,
@@ -362,7 +392,6 @@ export function AccountSelectorAccountListItem({
                     trailingLength: 4,
                   })}
                   isEmptyAddress={subTitleInfo.isEmptyAddress}
-                  hideAddress={subTitleInfo.hideAddress}
                 />
               </XStack>
             }

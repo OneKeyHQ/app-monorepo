@@ -12,11 +12,9 @@ import {
 
 export function useAccountSelectorTrigger({
   num,
-  showConnectWalletModalInDappMode,
   ...others
 }: {
   num: number;
-  showConnectWalletModalInDappMode?: boolean;
 } & IAccountSelectorRouteParamsExtraConfig) {
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num });
@@ -41,7 +39,6 @@ export function useAccountSelectorTrigger({
       navigation,
       sceneName,
       sceneUrl,
-      showConnectWalletModalInDappMode,
       ...others,
     });
   }, [
@@ -52,7 +49,6 @@ export function useAccountSelectorTrigger({
     num,
     sceneName,
     sceneUrl,
-    showConnectWalletModalInDappMode,
   ]);
 
   return {

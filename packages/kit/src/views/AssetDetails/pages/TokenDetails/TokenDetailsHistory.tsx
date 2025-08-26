@@ -30,8 +30,6 @@ function TokenDetailsHistory(props: IProps) {
   const {
     accountId,
     networkId,
-    walletId,
-    indexedAccountId,
     tokenInfo,
     ListHeaderComponent,
     isTabView,
@@ -42,8 +40,7 @@ function TokenDetailsHistory(props: IProps) {
   const { isFocused } = useTabIsRefreshingFocused();
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
-  const { updateAddressesInfo, setHasMoreOnChainHistory } =
-    useHistoryListActions().current;
+  const { updateAddressesInfo } = useHistoryListActions().current;
 
   /**
    * since some tokens are slow to load history,
@@ -69,7 +66,6 @@ function TokenDetailsHistory(props: IProps) {
       updateAddressesInfo({
         data: r.addressMap ?? {},
       });
-      setHasMoreOnChainHistory(!!r.hasMoreOnChainHistory);
       return r.txs;
     },
     [
@@ -81,7 +77,6 @@ function TokenDetailsHistory(props: IProps) {
       settings.currencyInfo.id,
       currencyMap,
       updateAddressesInfo,
-      setHasMoreOnChainHistory,
     ],
     {
       watchLoading: true,
@@ -139,18 +134,12 @@ function TokenDetailsHistory(props: IProps) {
   return (
     <TxHistoryListView
       hideValue
-      showFooter
-      walletId={walletId}
-      accountId={accountId}
-      networkId={networkId}
-      indexedAccountId={indexedAccountId}
       inTabList={inTabList}
       initialized={historyInit}
       isLoading={isLoadingTokenHistory}
       data={tokenHistory ?? []}
       onPressHistory={handleHistoryItemPress}
       ListHeaderComponent={ListHeaderComponent as React.ReactElement}
-      isSingleAccount
     />
   );
 }

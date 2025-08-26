@@ -14,7 +14,15 @@ function HoldersHeaderSmallBase() {
   const { styles } = useHoldersLayoutSmall();
 
   return (
-    <XStack px="$4" py="$3" alignItems="center" gap="$3">
+    <XStack
+      px="$4"
+      py="$3"
+      alignItems="center"
+      gap="$3"
+      borderBottomWidth="$px"
+      borderBottomColor="$borderSubdued"
+      backgroundColor="$bgApp"
+    >
       <SizableText {...commonTextProps} {...styles.rank}>
         {intl.formatMessage({
           id: ETranslations.dexmarket_details_holders_rank,

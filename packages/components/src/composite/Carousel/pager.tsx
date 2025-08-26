@@ -21,51 +21,32 @@ export function PagerView({
   style,
   onPageSelected,
   keyboardDismissMode,
-  pageWidth: pageWidthProp,
+  pageWidth,
   disableAnimation = false,
   initialPage = 0,
 }: Omit<PagerViewProps, 'ref'> & {
   ref: React.RefObject<PagerViewType>;
-  pageWidth: number | string;
+  pageWidth: number;
   disableAnimation?: boolean;
 }) {
   const scrollViewRef = useRef<ScrollView>(null);
   const pageIndex = useRef<number>(initialPage);
-  const timerId = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pageSize = useMemo(() => {
     return Children.count(children);
   }, [children]);
 
-  const getPageWidth = useCallback(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return typeof pageWidthProp === 'number'
-      ? pageWidthProp
-      : (scrollViewRef.current as unknown as HTMLDivElement)?.clientWidth || 0;
-  }, [pageWidthProp]);
-
-  const isLockPageIndex = useRef(false);
-
-  const handleScroll = useCallback(
+  const handleScroll = useDebouncedCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      if (isLockPageIndex.current) {
-        return;
-      }
-      const pageWidth = getPageWidth();
       const { contentOffset } = event.nativeEvent;
-      const page =
-        typeof pageWidth === 'number'
-          ? Math.round(contentOffset.x / pageWidth)
-          : 0;
-      if (pageIndex.current !== page) {
-        pageIndex.current = page;
-        void onPageSelected?.({
-          nativeEvent: {
-            position: page,
-          },
-        } as any);
-      }
+      const page = pageWidth ? Math.round(contentOffset.x / pageWidth) : 0;
+      pageIndex.current = page;
+      void onPageSelected?.({
+        nativeEvent: {
+          position: page,
+        },
+      } as any);
     },
-    [getPageWidth, onPageSelected],
+    300,
   );
 
   const getSafePageIndex = useCallback(
@@ -77,7 +58,6 @@ export function PagerView({
 
   // Set initial page position when component mounts or when pageWidth changes
   useEffect(() => {
-    const pageWidth = getPageWidth();
     if (pageWidth > 0 && initialPage > 0 && scrollViewRef.current) {
       const safeInitialPage = getSafePageIndex(initialPage);
       scrollViewRef.current.scrollTo({
@@ -92,7 +72,7 @@ export function PagerView({
         },
       } as any);
     }
-  }, [initialPage, getSafePageIndex, onPageSelected, getPageWidth]);
+  }, [pageWidth, initialPage, getSafePageIndex, onPageSelected]);
 
   useEffect(() => {
     const debouncedSetPage = debounce(() => {
@@ -109,24 +89,11 @@ export function PagerView({
     };
   }, [onPageSelected]);
 
-  const lockScrollEvent = useCallback((page: number) => {
-    if (timerId.current) {
-      clearTimeout(timerId.current);
-    }
-    isLockPageIndex.current = true;
-    timerId.current = setTimeout(() => {
-      isLockPageIndex.current = false;
-      pageIndex.current = page;
-    }, 500);
-  }, []);
-
   useImperativeHandle(
     ref,
     () =>
       ({
         setPage: (page: number) => {
-          lockScrollEvent(page);
-          const pageWidth = getPageWidth();
           scrollViewRef.current?.scrollTo({
             x: getSafePageIndex(page) * pageWidth,
             y: 0,
@@ -134,8 +101,6 @@ export function PagerView({
           });
         },
         setPageWithoutAnimation: (page: number) => {
-          lockScrollEvent(page);
-          const pageWidth = getPageWidth();
           scrollViewRef.current?.scrollTo({
             x: getSafePageIndex(page) * pageWidth,
             y: 0,
@@ -143,7 +108,7 @@ export function PagerView({
           });
         },
       } as PagerViewType),
-    [lockScrollEvent, getPageWidth, getSafePageIndex, disableAnimation],
+    [getSafePageIndex, pageWidth, disableAnimation],
   );
   return (
     <ScrollView

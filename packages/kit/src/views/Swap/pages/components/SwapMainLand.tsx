@@ -26,7 +26,6 @@ import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceUseRateAtom,
-  useSwapQuoteActionLockAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteIntervalCountAtom,
   useSwapSelectFromTokenAtom,
@@ -123,7 +122,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [, setSwapQuoteIntervalCount] = useSwapQuoteIntervalCountAtom();
   const { selectFromToken, selectToToken, quoteAction, cleanQuoteInterval } =
     useSwapActions().current;
-  const [{ actionLock }] = useSwapQuoteActionLockAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
@@ -235,9 +233,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           toAddressInfo?.address,
         );
       } else {
-        if (actionLock) {
-          return;
-        }
         setSwapQuoteIntervalCount((v) => v + 1);
         void quoteAction(
           swapSlippageRef.current,
@@ -252,7 +247,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       }
     },
     [
-      actionLock,
       quoteAction,
       swapFromAddressInfo?.address,
       swapFromAddressInfo?.accountInfo?.account?.id,
@@ -402,21 +396,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     };
   }, [intl]);
 
-  const needFetchGas = useMemo(() => {
-    if (
-      currentQuoteRes?.allowanceResult &&
-      !(
-        swapBatchTransferType ===
-          ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP ||
-        swapBatchTransferType ===
-          ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP
-      )
-    ) {
-      return true;
-    }
-    return false;
-  }, [currentQuoteRes?.allowanceResult, swapBatchTransferType]);
-
   const parseQuoteResultToSteps = useCallback(() => {
     let steps: ISwapStep[] = [];
     if (currentQuoteRes?.isWrapped) {
@@ -512,7 +491,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     setSwapSteps({
       steps: [...steps],
       preSwapData: {
-        swapType: swapTypeSwitch,
         fromToken: fromSelectToken,
         toToken: toSelectToken,
         shouldFallback: SwapBuildShouldFallBackNetworkIds.includes(
@@ -522,7 +500,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         toTokenAmount: swapToAmount.value,
         providerInfo: currentQuoteRes?.info,
         supportPreBuild,
-        needFetchGas,
         minToAmount: currentQuoteRes?.minToAmount,
         slippage:
           currentQuoteRes?.protocol === EProtocolOfExchange.LIMIT ||
@@ -549,19 +526,17 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     currentQuoteRes,
     swapBatchTransferType,
     setSwapSteps,
-    swapTypeSwitch,
     fromSelectToken,
     toSelectToken,
     fromAmount.value,
     swapToAmount.value,
-    supportPreBuild,
-    needFetchGas,
     createWrapStep,
     createSignStep,
     createApproveStep,
     intl,
     createBatchApproveSwapStep,
     createSendTxStep,
+    supportPreBuild,
   ]);
   const onActionHandler = useCallback(() => {
     if (

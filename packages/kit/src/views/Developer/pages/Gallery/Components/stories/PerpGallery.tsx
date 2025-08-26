@@ -78,12 +78,12 @@ export function PerpApiTests() {
   const updatePerpConfig = async () => {
     try {
       if (newBuilderAddress) {
-        await backgroundApiProxy.serviceWebviewPerp.updatePerpConfig({
+        await backgroundApiProxy.servicePerp.updatePerpConfig({
           address: newBuilderAddress,
         });
       }
       if (newMaxBuilderFee) {
-        await backgroundApiProxy.serviceWebviewPerp.updatePerpConfig({
+        await backgroundApiProxy.servicePerp.updatePerpConfig({
           fee: Number(newMaxBuilderFee),
         });
       }
@@ -209,7 +209,7 @@ export function PerpApiTests() {
             onPress={() =>
               handleApiCall(
                 () =>
-                  backgroundApiProxy.serviceWebviewPerp.getClearinghouseState({
+                  backgroundApiProxy.servicePerp.getClearinghouseState({
                     userAddress,
                   }),
                 'getClearinghouseState',
@@ -223,7 +223,7 @@ export function PerpApiTests() {
             onPress={() =>
               handleApiCall(
                 () =>
-                  backgroundApiProxy.serviceWebviewPerp.getSubAccounts({
+                  backgroundApiProxy.servicePerp.getSubAccounts({
                     userAddress,
                   }),
                 'getSubAccounts',
@@ -237,7 +237,7 @@ export function PerpApiTests() {
             onPress={() =>
               handleApiCall(
                 () =>
-                  backgroundApiProxy.serviceWebviewPerp.getAccountBalance({
+                  backgroundApiProxy.servicePerp.getAccountBalance({
                     userAddress,
                   }),
                 'getAccountBalance',
@@ -251,7 +251,7 @@ export function PerpApiTests() {
             onPress={() =>
               handleApiCall(
                 () =>
-                  backgroundApiProxy.serviceWebviewPerp.getOpenPositions({
+                  backgroundApiProxy.servicePerp.getOpenPositions({
                     userAddress,
                   }),
                 'getOpenPositions',
@@ -265,7 +265,7 @@ export function PerpApiTests() {
             onPress={() =>
               handleApiCall(
                 () =>
-                  backgroundApiProxy.serviceWebviewPerp.getAccountSummary({
+                  backgroundApiProxy.servicePerp.getAccountSummary({
                     userAddress,
                   }),
                 'getAccountSummary',
@@ -311,7 +311,7 @@ export function PerpApiTests() {
             onPress={() =>
               handleApiCall(
                 () =>
-                  backgroundApiProxy.serviceWebviewPerp.getUserFunding({
+                  backgroundApiProxy.servicePerp.getUserFunding({
                     userAddress,
                     startTime: Number(startTime),
                     endTime: Number(endTime),
@@ -327,7 +327,7 @@ export function PerpApiTests() {
             onPress={() =>
               handleApiCall(
                 () =>
-                  backgroundApiProxy.serviceWebviewPerp.getUserNonFundingLedgerUpdates(
+                  backgroundApiProxy.servicePerp.getUserNonFundingLedgerUpdates(
                     {
                       userAddress,
                       startTime: Number(startTime),
@@ -353,7 +353,7 @@ export function PerpApiTests() {
             onPress={() =>
               handleApiCall(
                 () =>
-                  backgroundApiProxy.serviceWebviewPerp.getUserVaultEquities({
+                  backgroundApiProxy.servicePerp.getUserVaultEquities({
                     userAddress,
                   }),
                 'getUserVaultEquities',
@@ -386,12 +386,10 @@ export function PerpApiTests() {
             onPress={() =>
               handleApiCall(
                 () =>
-                  backgroundApiProxy.serviceWebviewPerp.getUserApprovedMaxBuilderFee(
-                    {
-                      userAddress,
-                      builderAddress,
-                    },
-                  ),
+                  backgroundApiProxy.servicePerp.getMaxBuilderFee({
+                    userAddress,
+                    builderAddress,
+                  }),
                 'getMaxBuilderFee',
               )
             }
@@ -403,7 +401,7 @@ export function PerpApiTests() {
             onPress={() =>
               handleApiCall(
                 () =>
-                  backgroundApiProxy.serviceWebviewPerp.createApproveBuilderFeePayload(
+                  backgroundApiProxy.servicePerp.createApproveBuilderFeePayload(
                     {
                       builderAddress,
                       maxFeeRate: '0.025%',
@@ -421,11 +419,9 @@ export function PerpApiTests() {
             onPress={() =>
               handleApiCall(
                 () =>
-                  backgroundApiProxy.serviceWebviewPerp.getUserBuilderFeeStatus(
-                    {
-                      userAddress,
-                    },
-                  ),
+                  backgroundApiProxy.servicePerp.getUserBuilderFeeStatus({
+                    userAddress,
+                  }),
                 'getUserBuilderFeeStatus',
               )
             }
@@ -500,7 +496,7 @@ const PerpGallery = () => (
     componentName="PerpGallery"
     elements={[
       {
-        title: 'Hyperliquid API Test 2862',
+        title: 'Hyperliquid API Test',
         element: <PerpApiTests />,
       },
     ]}

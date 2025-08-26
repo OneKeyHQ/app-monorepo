@@ -23,17 +23,13 @@ import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atom
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
-  IFetchLimitOrderRes,
   IFetchQuoteResult,
   ISwapPreSwapData,
   ISwapStep,
-  ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapApproveTransactionStatus,
-  ESwapLimitOrderStatus,
   ESwapStepStatus,
-  ESwapTabSwitchType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -97,7 +93,7 @@ const PreSwapDialogContent = ({
         ESwapApproveTransactionStatus.SUCCESS
           ? ESwapStepStatus.SUCCESS
           : ESwapStepStatus.FAILED;
-      let updatedSteps: ISwapStep[] = [...swapSteps.steps];
+
       setSwapSteps(
         (prevSteps: { steps: ISwapStep[]; preSwapData: ISwapPreSwapData }) => {
           const newSteps = [...prevSteps.steps];
@@ -110,7 +106,6 @@ const PreSwapDialogContent = ({
               ...newSteps[stepIndex],
               status: approveStepStatus,
             };
-            updatedSteps = [...newSteps];
           }
 
           return {
@@ -126,7 +121,7 @@ const PreSwapDialogContent = ({
         };
       });
       void preSwapStepsStart({
-        steps: [...updatedSteps],
+        steps: [...swapSteps.steps],
         preSwapData: swapSteps.preSwapData,
         quoteResult: swapSteps.quoteResult as IFetchQuoteResult,
       });
@@ -159,22 +154,14 @@ const PreSwapDialogContent = ({
 
   useEffect(() => {
     if (lastStep?.txHash || lastStep?.orderId) {
-      let findStepItem: ISwapTxHistory | IFetchLimitOrderRes | undefined;
-      if (preSwapData?.swapType !== ESwapTabSwitchType.LIMIT) {
-        findStepItem = inAppNotificationAtom.swapHistoryPendingList.find(
-          (item) =>
-            item.txInfo.useOrderId
-              ? item.txInfo.orderId === lastStep?.orderId
-              : item.txInfo.txId === lastStep?.txHash,
-        );
-      } else {
-        findStepItem = inAppNotificationAtom.swapLimitOrders.find(
-          (item) => item.orderId === lastStep?.orderId,
-        );
-      }
+      const findStepItem = inAppNotificationAtom.swapHistoryPendingList.find(
+        (item) =>
+          item.txInfo.useOrderId
+            ? item.txInfo.orderId === lastStep?.orderId
+            : item.txInfo.txId === lastStep?.txHash,
+      );
       if (
         findStepItem &&
-        preSwapData?.swapType !== ESwapTabSwitchType.LIMIT &&
         findStepItem.status !== ESwapTxHistoryStatus.PENDING
       ) {
         let stepStatus = ESwapStepStatus.PENDING;
@@ -183,40 +170,7 @@ const PreSwapDialogContent = ({
         } else if (findStepItem.status === ESwapTxHistoryStatus.FAILED) {
           stepStatus = ESwapStepStatus.FAILED;
         }
-        setSwapSteps(
-          (prevSteps: {
-            steps: ISwapStep[];
-            preSwapData: ISwapPreSwapData;
-          }) => {
-            const newSteps = [...prevSteps.steps];
-            newSteps[newSteps.length - 1] = {
-              ...newSteps[newSteps.length - 1],
-              status: stepStatus,
-            };
-            return {
-              ...prevSteps,
-              steps: newSteps,
-            };
-          },
-        );
-      } else if (
-        findStepItem &&
-        preSwapData?.swapType === ESwapTabSwitchType.LIMIT &&
-        findStepItem.status !== ESwapLimitOrderStatus.OPEN &&
-        findStepItem.status !== ESwapLimitOrderStatus.PRESIGNATURE_PENDING
-      ) {
-        let stepStatus = ESwapStepStatus.PENDING;
-        if (
-          findStepItem.status === ESwapLimitOrderStatus.FULFILLED ||
-          findStepItem.status === ESwapLimitOrderStatus.PARTIALLY_FILLED
-        ) {
-          stepStatus = ESwapStepStatus.SUCCESS;
-        } else if (
-          findStepItem.status === ESwapLimitOrderStatus.CANCELLED ||
-          findStepItem.status === ESwapLimitOrderStatus.EXPIRED
-        ) {
-          stepStatus = ESwapStepStatus.FAILED;
-        }
+
         setSwapSteps(
           (prevSteps: {
             steps: ISwapStep[];
@@ -237,10 +191,8 @@ const PreSwapDialogContent = ({
     }
   }, [
     inAppNotificationAtom.swapHistoryPendingList,
-    inAppNotificationAtom.swapLimitOrders,
     lastStep?.orderId,
     lastStep?.txHash,
-    preSwapData?.swapType,
     setSwapSteps,
   ]);
 

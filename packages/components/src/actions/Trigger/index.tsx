@@ -1,5 +1,11 @@
 import type { ForwardedRef, PropsWithChildren } from 'react';
-import { Children, cloneElement, forwardRef, isValidElement } from 'react';
+import {
+  Children,
+  Fragment,
+  cloneElement,
+  forwardRef,
+  isValidElement,
+} from 'react';
 
 import { debounce } from 'lodash';
 
@@ -57,13 +63,19 @@ function BasicTrigger(
       );
       const handlePressWithStatus = disabled ? noop : debounceHandlePress;
 
+      // Check if child is Fragment to avoid adding onPress to it
+      const isFragment = child.type === Fragment;
+      const childProps = isFragment
+        ? {
+            // Invalid prop `disabled` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+            key: child.key,
+            children: props.children,
+          }
+        : { onPress: handlePressWithStatus, disabled, ...props };
+
       return (
         <Stack ref={ref} onLayout={onLayout} onPress={handlePressWithStatus}>
-          {cloneElement(child, {
-            onPress: handlePressWithStatus,
-            disabled,
-            ...props,
-          } as IButtonProps)}
+          {cloneElement(child, childProps as IButtonProps)}
         </Stack>
       );
     }

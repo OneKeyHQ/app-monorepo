@@ -4,14 +4,14 @@ import {
   Button,
   type IButtonProps,
   SegmentControl,
-  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 
 const commonButtonStyleProps: IButtonProps = {
-  flex: 1,
+  // flex: 1,
+  height: '$8',
   borderRadius: '$2',
   borderWidth: 0,
   hoverStyle: {
@@ -32,7 +32,6 @@ export function TradeTypeSelector({
   onChange,
 }: ITradeTypeSelectorProps) {
   const intl = useIntl();
-  const { gtMd } = useMedia();
   const isBuyActive = value === 'buy';
   const isSellActive = value === 'sell';
 
@@ -48,7 +47,7 @@ export function TradeTypeSelector({
           {...commonButtonStyleProps}
           bg={isBuyActive ? '$iconSuccess' : '$transparent'}
           color={isBuyActive ? '$textOnColor' : '$textSubdued'}
-          size={gtMd ? 'small' : 'medium'}
+          size="small"
         >
           {intl.formatMessage({ id: ETranslations.global_buy })}
         </Button>
@@ -64,7 +63,7 @@ export function TradeTypeSelector({
           }}
           bg={isSellActive ? '$iconCritical' : '$transparent'}
           color={isSellActive ? '$textOnColor' : '$textSubdued'}
-          size={gtMd ? 'small' : 'medium'}
+          size="small"
           {...commonButtonStyleProps}
         >
           {intl.formatMessage({ id: ETranslations.global_sell })}

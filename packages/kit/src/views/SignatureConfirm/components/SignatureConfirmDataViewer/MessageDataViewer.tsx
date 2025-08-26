@@ -11,7 +11,6 @@ import {
   EMessageTypesCommon,
   EMessageTypesEth,
   EMessageTypesSolana,
-  EMessageTypesTron,
 } from '@onekeyhq/shared/types/message';
 
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
@@ -45,8 +44,7 @@ function MessageDataViewer(props: IProps) {
 
       case EMessageTypesEth.PERSONAL_SIGN:
       case EMessageTypesCommon.SIGN_MESSAGE:
-      case EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE:
-      case EMessageTypesTron.SIGN_MESSAGE_V2: {
+      case EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE: {
         try {
           const buffer = ethUtils.toBuffer(message);
           return buffer.toString('utf8');
@@ -66,10 +64,6 @@ function MessageDataViewer(props: IProps) {
 
       case EMessageTypesAptos.SIGN_IN: {
         return payload?.message ?? message;
-      }
-
-      case EMessageTypesTron.SIGN_MESSAGE: {
-        return message;
       }
 
       case EMessageTypesEth.TYPED_DATA_V1: {

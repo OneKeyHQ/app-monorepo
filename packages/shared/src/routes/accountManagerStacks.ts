@@ -25,7 +25,6 @@ export type IAccountSelectorRouteParamsExtraConfig = {
   hideNonBackedUpWallet?: boolean;
   keepAllOtherAccounts?: boolean;
   allowSelectEmptyAccount?: boolean;
-  hideAddress?: boolean;
 };
 
 export type IExportAccountSecretKeysRouteParams = {

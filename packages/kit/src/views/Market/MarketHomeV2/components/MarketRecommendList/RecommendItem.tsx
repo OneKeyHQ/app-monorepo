@@ -18,14 +18,12 @@ export function RecommendItem({
   tokenName,
   symbol,
   address,
-  networkId,
 }: {
   icon: string;
   tokenName: string;
   checked: boolean;
   symbol: string;
   address: string;
-  networkId?: string;
   onChange: (checked: boolean, address: string) => void;
 }) {
   const { sharedFrameStyles } = useMemo(
@@ -52,22 +50,12 @@ export function RecommendItem({
         onChange(!checked, address);
       }}
       ai="center"
-      $sm={{
-        px: '$2.5',
-        py: '$1.5',
-      }}
     >
       <XStack gap="$3" ai="center" flexShrink={1}>
-        <MarketTokenIcon uri={icon} size="md" networkId={networkId} />
+        <MarketTokenIcon uri={icon} size="md" />
         <YStack flexShrink={1}>
-          <SizableText
-            size="$bodyLgMedium"
-            numberOfLines={1}
-            $sm={{
-              size: '$bodyMdMedium',
-            }}
-          >
-            {symbol}
+          <SizableText size="$bodyLgMedium" numberOfLines={1}>
+            {symbol.toUpperCase()}
           </SizableText>
           <SizableText
             size="$bodySm"
@@ -75,23 +63,15 @@ export function RecommendItem({
             flexShrink={1}
             numberOfLines={1}
             maxWidth={120}
-            $sm={{
-              maxWidth: 70,
-            }}
           >
             {tokenName}
           </SizableText>
         </YStack>
       </XStack>
       {checked ? (
-        <Icon
-          name="CheckRadioSolid"
-          size="$6"
-          color="$iconActive"
-          $sm={{ size: '$5' }}
-        />
+        <Icon name="CheckRadioSolid" size="$6" color="$iconActive" />
       ) : (
-        <Stack w="$6" h="$6" $sm={{ w: '$5', h: '$5' }} />
+        <Stack w="$6" h="$6" />
       )}
     </XStack>
   );

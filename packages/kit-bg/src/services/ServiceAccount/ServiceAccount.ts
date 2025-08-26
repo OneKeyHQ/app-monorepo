@@ -23,7 +23,6 @@ import {
 import type {
   EAddressEncodings,
   ICoreCredentialsInfo,
-  ICoreHyperLiquidAgentCredential,
   IExportKeyType,
 } from '@onekeyhq/core/src/types';
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
@@ -41,7 +40,6 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
-import type { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   COINTYPE_ALLNETWORKS,
@@ -99,11 +97,11 @@ import type {
   IQrWalletAirGapAccount,
 } from '@onekeyhq/shared/types/account';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
-import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import {
   EConfirmOnDeviceType,
   EHardwareCallContext,
 } from '@onekeyhq/shared/types/device';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type { IExternalConnectWalletResult } from '@onekeyhq/shared/types/externalWallet.types';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
@@ -192,27 +190,26 @@ class ServiceAccount extends ServiceBase {
     super({ backgroundApi });
 
     appEventBus.on(EAppEventBusNames.WalletUpdate, () => {
-      void this.clearAccountCache();
+      this.clearAccountCache();
     });
     appEventBus.on(EAppEventBusNames.AccountRemove, () => {
-      void this.clearAccountCache();
+      this.clearAccountCache();
     });
     appEventBus.on(EAppEventBusNames.AccountUpdate, () => {
-      void this.clearAccountCache();
+      this.clearAccountCache();
     });
     appEventBus.on(EAppEventBusNames.RenameDBAccounts, () => {
-      void this.clearAccountCache();
+      this.clearAccountCache();
     });
     appEventBus.on(EAppEventBusNames.WalletRename, () => {
-      void this.clearAccountCache();
+      this.clearAccountCache();
     });
     appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, () => {
-      void this.clearAccountCache();
+      this.clearAccountCache();
     });
   }
 
-  @backgroundMethod()
-  async clearAccountCache() {
+  clearAccountCache() {
     this.getIndexedAccountWithMemo.clear();
     localDb.clearStoreCachedData();
   }
@@ -468,14 +465,8 @@ class ServiceAccount extends ServiceBase {
         }
       }
       if (accountUtils.isImportedAccount({ accountId: credential.id })) {
-        let accountId = credential.id;
-        if (accountUtils.isTonMnemonicCredentialId(credential.id)) {
-          accountId = accountUtils.getAccountIdFromTonMnemonicCredentialId({
-            credentialId: credential.id,
-          });
-        }
         const account = await this.getDBAccountSafe({
-          accountId,
+          accountId: credential.id,
         });
         if (!account) {
           isRemoved = true;
@@ -786,14 +777,10 @@ class ServiceAccount extends ServiceBase {
     walletId,
     networkId,
     account,
-    indexedAccountNames,
   }: {
     walletId: string;
     networkId: string;
     account: IBatchCreateAccount;
-    indexedAccountNames?: {
-      [index: number]: string;
-    };
   }) {
     const {
       addressDetail: _addressDetail,
@@ -810,7 +797,6 @@ class ServiceAccount extends ServiceBase {
       walletId,
       indexes: [dbAccount.pathIndex],
       skipIfExists: true,
-      names: indexedAccountNames,
     });
     await localDb.addAccountsToWallet({
       allAccountsBelongToNetworkId: networkId,
@@ -1241,97 +1227,6 @@ class ServiceAccount extends ServiceBase {
     });
   }
 
-  async prepareHyperLiquidAgentCredential({
-    userAddress,
-    agentName,
-    privateKey,
-  }: ICoreHyperLiquidAgentCredential) {
-    ensureSensitiveTextEncoded(privateKey);
-    const credential: ICoreHyperLiquidAgentCredential = {
-      userAddress,
-      agentName,
-      privateKey: await decodeSensitiveTextAsync({
-        encodedText: privateKey,
-      }),
-    };
-    const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerify({
-        reason: EReasonForNeedPassword.Default,
-      });
-    return {
-      credential,
-      password,
-    };
-  }
-
-  @backgroundMethod()
-  @toastIfError()
-  async addHyperLiquidAgentCredential({
-    userAddress,
-    agentName,
-    privateKey,
-  }: ICoreHyperLiquidAgentCredential): Promise<{
-    credentialId: string;
-  }> {
-    const { credential, password } =
-      await this.prepareHyperLiquidAgentCredential({
-        userAddress,
-        agentName,
-        privateKey,
-      });
-    const { credentialId } = await localDb.addHyperLiquidAgentCredential({
-      credential,
-      password,
-    });
-    return {
-      credentialId,
-    };
-  }
-
-  @backgroundMethod()
-  @toastIfError()
-  async updateHyperLiquidAgentCredential({
-    userAddress,
-    agentName,
-    privateKey,
-  }: ICoreHyperLiquidAgentCredential): Promise<{
-    credentialId: string;
-  }> {
-    const { credential, password } =
-      await this.prepareHyperLiquidAgentCredential({
-        userAddress,
-        agentName,
-        privateKey,
-      });
-    const { credentialId } = await localDb.updateHyperLiquidAgentCredential({
-      credential,
-      password,
-    });
-    return {
-      credentialId,
-    };
-  }
-
-  @backgroundMethod()
-  @toastIfError()
-  async getHyperLiquidAgentCredential({
-    userAddress,
-    agentName,
-  }: {
-    userAddress: string;
-    agentName: EHyperLiquidAgentName;
-  }): Promise<ICoreHyperLiquidAgentCredential | undefined> {
-    const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerify({
-        reason: EReasonForNeedPassword.Default,
-      });
-    return localDb.getHyperLiquidAgentCredential({
-      userAddress,
-      agentName,
-      password,
-    });
-  }
-
   @backgroundMethod()
   @toastIfError()
   async addImportedAccountWithCredential({
@@ -1415,8 +1310,7 @@ class ServiceAccount extends ServiceBase {
       skipAddIfNotEqualToAddress &&
       accounts.length === 1 &&
       accounts?.[0]?.address &&
-      accounts?.[0]?.address?.toLowerCase() !==
-        skipAddIfNotEqualToAddress?.toLowerCase()
+      accounts?.[0]?.address !== skipAddIfNotEqualToAddress
     ) {
       return {
         networkId,
@@ -1678,8 +1572,7 @@ class ServiceAccount extends ServiceBase {
       skipAddIfNotEqualToAddress &&
       accounts.length === 1 &&
       accounts?.[0]?.address &&
-      accounts?.[0]?.address?.toLowerCase() !==
-        skipAddIfNotEqualToAddress?.toLowerCase()
+      accounts?.[0]?.address !== skipAddIfNotEqualToAddress
     ) {
       console.error('addWatchingAccount skipAddIfNotEqualToAddress', {
         skipAddIfNotEqualToAddress,
@@ -2556,7 +2449,6 @@ class ServiceAccount extends ServiceBase {
     walletId: string;
     skipDeviceCancel?: boolean;
     hideCheckingDeviceLoading?: boolean;
-    isAttachPinMode?: boolean;
   }) {
     const dbDevice = await this.getWalletDevice({ walletId });
     const { connectId } = dbDevice;
@@ -2587,12 +2479,10 @@ class ServiceAccount extends ServiceBase {
         }
 
         // TODO save remember states
-        const features = await this.backgroundApi.serviceHardware.getFeatures({
-          connectId: compatibleConnectId,
-        });
+
         const dbWallet = await this.createHWWalletBase({
           device: deviceUtils.dbDeviceToSearchDevice(dbDevice),
-          features: features || dbDevice.featuresInfo || ({} as any),
+          features: dbDevice.featuresInfo || ({} as any),
           passphraseState,
           fillingXfpByCallingSdk: true,
         });
@@ -2621,10 +2511,7 @@ class ServiceAccount extends ServiceBase {
             await this.backgroundApi.serviceAccountProfile.isSoftwareWalletOnlyUser(),
         });
 
-        return {
-          ...dbWallet,
-          isAttachPinMode: features.unlocked_attach_pin,
-        };
+        return dbWallet;
       },
       {
         deviceParams: {
@@ -4795,28 +4682,18 @@ class ServiceAccount extends ServiceBase {
       }
 
       if (!deriveTypes?.length) {
-        try {
-          deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
-            accountId: importedAccount.id,
-            networkId,
-            input: await servicePassword.encodeSensitiveText({
-              text: input,
-            }),
-            validatePrivateKey: true,
-            validateXprvt: true,
-            template: importedAccount.template,
-          });
-        } catch (e) {
-          console.error('getAccountImportingDeriveTypes error', e);
-        }
+        deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
+          accountId: importedAccount.id,
+          networkId,
+          input: await servicePassword.encodeSensitiveText({
+            text: input,
+          }),
+          validatePrivateKey: true,
+          validateXprvt: true,
+          template: importedAccount.template,
+        });
       }
 
-      if (!deriveTypes?.length) {
-        deriveTypes = ['default'];
-      }
-
-      const skipAddIfNotEqualToAddress =
-        deriveTypes.length > 1 ? importedAccount.address : undefined;
       for (const deriveType of deriveTypes) {
         try {
           const { accounts } =
@@ -4828,7 +4705,7 @@ class ServiceAccount extends ServiceBase {
               networkId,
               name: importedAccount.name,
               deriveType,
-              skipAddIfNotEqualToAddress,
+              skipAddIfNotEqualToAddress: importedAccount.address,
             });
           addedAccounts = [...addedAccounts, ...(accounts || [])];
         } catch (e) {
@@ -4873,28 +4750,18 @@ class ServiceAccount extends ServiceBase {
       }
 
       if (!deriveTypes?.length) {
-        try {
-          deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
-            accountId: watchingAccount.id,
-            networkId: networkId || '',
-            input: await servicePassword.encodeSensitiveText({
-              text: input,
-            }),
-            validateAddress: true,
-            validateXpub: true,
-            template: watchingAccount.template,
-          });
-        } catch (e) {
-          console.error('getAccountImportingDeriveTypes error', e);
-        }
+        deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
+          accountId: watchingAccount.id,
+          networkId: networkId || '',
+          input: await servicePassword.encodeSensitiveText({
+            text: input,
+          }),
+          validateAddress: true,
+          validateXpub: true,
+          template: watchingAccount.template,
+        });
       }
 
-      if (!deriveTypes?.length) {
-        deriveTypes = ['default'];
-      }
-
-      const skipAddIfNotEqualToAddress =
-        deriveTypes.length > 1 ? watchingAccount.address : undefined;
       for (const deriveType of deriveTypes) {
         try {
           const { accounts } = await serviceAccount.addWatchingAccount({
@@ -4904,7 +4771,7 @@ class ServiceAccount extends ServiceBase {
             name: watchingAccount.name,
             deriveType,
             isUrlAccount: false,
-            skipAddIfNotEqualToAddress,
+            skipAddIfNotEqualToAddress: watchingAccount.address,
           });
           addedAccounts = [...addedAccounts, ...(accounts || [])];
         } catch (e) {

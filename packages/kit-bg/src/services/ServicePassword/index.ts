@@ -332,9 +332,6 @@ export default class ServicePassword extends ServiceBase {
       }
     }
     await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(enable);
-    if (platformEnv.isExtension && !enable) {
-      await this.clearWebAuthCredentialId();
-    }
   }
 
   // validatePassword --------------------------------
@@ -437,13 +434,6 @@ export default class ServicePassword extends ServiceBase {
     const checkPasswordSet = await localDb.isPasswordSet();
     await this.setPasswordSetStatus(checkPasswordSet);
     return checkPasswordSet;
-  }
-
-  async clearWebAuthCredentialId(): Promise<void> {
-    await passwordPersistAtom.set((v) => ({
-      ...v,
-      webAuthCredentialId: '',
-    }));
   }
 
   async setPasswordSetStatus(

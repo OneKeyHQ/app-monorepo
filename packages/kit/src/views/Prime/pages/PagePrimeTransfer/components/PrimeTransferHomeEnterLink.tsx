@@ -9,7 +9,6 @@ import {
   Form,
   Input,
   Skeleton,
-  Toast,
   XStack,
   YStack,
   useClipboard,
@@ -21,7 +20,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
@@ -93,30 +91,15 @@ export function PrimeTransferHomeEnterLink({
       setIsConnecting(true);
       try {
         const p = connectRemoteDeviceFn(pairingCode);
-        const timeoutMessage = 'TransferConnectRemoteDeviceTimeout';
-        const result = await pTimeout(p, {
-          // milliseconds: 1,
+        await pTimeout(p, {
+          // milliseconds: 100,
           milliseconds: 30_000,
-          fallback: () => {
-            return new OneKeyError(timeoutMessage);
-          },
         });
-        if (
-          result instanceof OneKeyError &&
-          result.message === timeoutMessage
-        ) {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.communication_timeout,
-            }),
-          });
-          throw result;
-        }
       } finally {
         setIsConnecting(false);
       }
     },
-    [connectRemoteDeviceFn, intl],
+    [connectRemoteDeviceFn],
   );
 
   const cleanTextFn = useCallback((text: string) => {

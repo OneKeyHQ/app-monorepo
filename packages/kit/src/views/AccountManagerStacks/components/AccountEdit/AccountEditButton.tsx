@@ -6,7 +6,6 @@ import { ActionList, Divider } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type {
   IDBAccount,
@@ -18,7 +17,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { AccountCopyButton } from './AccountCopyButton';
 import { AccountExportPrivateKeyButton } from './AccountExportPrivateKeyButton';
 import { AccountMoveToTopButton } from './AccountMoveToTopButton';
 import { AccountRemoveButton } from './AccountRemoveButton';
@@ -31,7 +29,6 @@ function AccountEditButtonView({
   account,
   firstAccount,
   wallet,
-  networkId,
 }: {
   accountsCount: number;
   indexedAccount?: IDBIndexedAccount;
@@ -39,14 +36,10 @@ function AccountEditButtonView({
   account?: IDBAccount;
   firstAccount?: IDBAccount;
   wallet?: IDBWallet;
-  networkId?: string;
 }) {
   const intl = useIntl();
   const { config } = useAccountSelectorContextData();
   const name = indexedAccount?.name || account?.name || '--';
-  const { network, vaultSettings } = useAccountData({
-    networkId: account?.createAtNetwork ?? networkId,
-  });
   // const { config } = useAccountSelectorContextData();
   // if (!config) {
   //   return null;
@@ -61,22 +54,6 @@ function AccountEditButtonView({
     }
     return true;
   }, [accountsCount, indexedAccount, wallet?.id]);
-
-  const showCopyButton = useMemo(() => {
-    if (network?.isAllNetworks) {
-      return true;
-    }
-
-    if (vaultSettings?.copyAddressDisabled) {
-      return false;
-    }
-
-    if (!account && !indexedAccount?.associateAccount) {
-      return false;
-    }
-
-    return true;
-  }, [account, indexedAccount, network, vaultSettings?.copyAddressDisabled]);
 
   const isImportedAccount = useMemo(
     () =>
@@ -212,14 +189,6 @@ function AccountEditButtonView({
             });
             return null;
           })()}
-          {showCopyButton ? (
-            <AccountCopyButton
-              wallet={wallet}
-              indexedAccount={indexedAccount}
-              account={account}
-              onClose={handleActionListClose}
-            />
-          ) : null}
           <AccountRenameButton
             name={name}
             wallet={wallet}
@@ -227,7 +196,6 @@ function AccountEditButtonView({
             account={account}
             onClose={handleActionListClose}
           />
-
           {exportKeysVisible?.showExportPrivateKey ? (
             <AccountExportPrivateKeyButton
               testID={`popover-export-private-key-${name}`}
@@ -296,18 +264,17 @@ function AccountEditButtonView({
       );
     },
     [
-      config,
-      getExportKeysVisible,
-      name,
-      wallet,
-      indexedAccount,
-      account,
-      showCopyButton,
-      intl,
-      firstIndexedAccount,
-      firstAccount,
-      showRemoveButton,
       accountsCount,
+      account,
+      config,
+      firstAccount,
+      firstIndexedAccount,
+      getExportKeysVisible,
+      indexedAccount,
+      intl,
+      name,
+      showRemoveButton,
+      wallet,
     ],
   );
 

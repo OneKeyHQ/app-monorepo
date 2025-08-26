@@ -22,7 +22,6 @@ import {
   decodedTxsAtom,
   extraFeeInfoAtom,
   isSinglePresetAtom,
-  megafuelEligibleAtom,
   nativeTokenInfoAtom,
   nativeTokenTransferAmountAtom,
   nativeTokenTransferAmountToUpdateAtom,
@@ -264,23 +263,6 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
   updateTokenTransferAmount = contextAtomMethod((get, set, amount: string) => {
     set(tokenTransferAmountAtom(), amount);
   });
-
-  updateMegafuelEligible = contextAtomMethod(
-    (
-      get,
-      set,
-      payload: {
-        sponsorable?: boolean;
-        sponsorName?: string;
-      },
-    ) => {
-      const megafuelEligible = get(megafuelEligibleAtom());
-      set(megafuelEligibleAtom(), {
-        ...megafuelEligible,
-        ...payload,
-      });
-    },
-  );
 }
 
 const createActions = memoFn(() => {
@@ -311,7 +293,6 @@ export function useSignatureConfirmActions() {
     actions.updateTronResourceRentalInfo.use();
   const updatePayWithTokenInfo = actions.updatePayWithTokenInfo.use();
   const updateTokenTransferAmount = actions.updateTokenTransferAmount.use();
-  const updateMegafuelEligible = actions.updateMegafuelEligible.use();
   return useRef({
     updateUnsignedTxs,
     updateSendSelectedFee,
@@ -331,6 +312,5 @@ export function useSignatureConfirmActions() {
     updateTronResourceRentalInfo,
     updatePayWithTokenInfo,
     updateTokenTransferAmount,
-    updateMegafuelEligible,
   });
 }

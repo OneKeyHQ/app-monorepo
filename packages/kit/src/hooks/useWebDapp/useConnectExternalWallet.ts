@@ -100,9 +100,6 @@ export function useConnectExternalWallet() {
         const beforeConnectInfo = getExternalWalletConnectionDetails({
           externalConnectionInfo: connectionInfo,
         });
-        defaultLogger.account.wallet.onboard({
-          onboardMethod: 'connect3rdPartyWallet',
-        });
         defaultLogger.account.wallet.addWalletStarted({
           addMethod: 'Connect3rdPartyWallet',
           details: {

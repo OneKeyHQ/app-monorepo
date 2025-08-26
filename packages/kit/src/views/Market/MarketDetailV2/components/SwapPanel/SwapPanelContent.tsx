@@ -106,7 +106,6 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
 
   useEffect(() => {
     if (
-      new BigNumber(paymentAmountRef.current?.toFixed()).gt(0) &&
       !validateAmountInput(
         paymentAmountRef.current?.toFixed(),
         balanceToken?.decimals,
@@ -180,13 +179,11 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       )}
 
       {/* Slippage setting */}
-      {isWrapped ? null : (
-        <SlippageSetting
-          autoDefaultValue={slippageAutoValue}
-          isMEV={swapMevNetConfig?.includes(swapPanel.networkId ?? '')}
-          onSlippageChange={(item) => setSlippage(item.value)}
-        />
-      )}
+      <SlippageSetting
+        autoDefaultValue={slippageAutoValue}
+        isMEV={swapMevNetConfig?.includes(swapPanel.networkId ?? '')}
+        onSlippageChange={(item) => setSlippage(item.value)}
+      />
     </YStack>
   );
 }

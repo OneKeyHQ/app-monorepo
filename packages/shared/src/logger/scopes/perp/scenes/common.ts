@@ -5,27 +5,19 @@ export class CommonScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public placeOrder({
-    userAddress,
-    chainId,
     builderAddress,
     builderFee,
     grouping,
     orders,
     nonce,
-    errorMessage,
   }: {
-    userAddress: string;
-    chainId: string;
     builderAddress: string;
     builderFee: number;
     grouping: string;
     orders: object[];
     nonce: number;
-    errorMessage: string;
   }) {
     const result = {
-      userAddress,
-      chainId,
       builder: {
         b: builderAddress,
         f: builderFee,
@@ -33,7 +25,6 @@ export class CommonScene extends BaseScene {
       grouping,
       orders,
       nonce,
-      errorMessage,
     };
     return result;
   }

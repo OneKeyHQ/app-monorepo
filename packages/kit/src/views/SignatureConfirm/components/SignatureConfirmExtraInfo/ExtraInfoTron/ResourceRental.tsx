@@ -31,10 +31,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
-import {
-  openUrlExternal,
-  openUrlInApp,
-} from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { ETronResourceRentalPayType } from '@onekeyhq/shared/types/fee';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
@@ -66,10 +63,8 @@ const showResourceRentalDetailsDialog = ({
 
 function ResourceRentalLearnMoreButton({
   closeDialogAfterClick = true,
-  openLinkInApp = true,
 }: {
   closeDialogAfterClick?: boolean;
-  openLinkInApp?: boolean;
 }) {
   const intl = useIntl();
   const dialogInstance = useDialogInstance();
@@ -85,11 +80,7 @@ function ResourceRentalLearnMoreButton({
       variant="tertiary"
       icon="QuestionmarkOutline"
       onPress={() => {
-        if (openLinkInApp) {
-          openUrlInApp(resourceRentalHelpLink);
-        } else {
-          openUrlExternal(resourceRentalHelpLink);
-        }
+        openUrlInApp(resourceRentalHelpLink);
         if (closeDialogAfterClick) {
           void dialogInstance.close();
         }
@@ -132,10 +123,7 @@ function ResourceRental() {
             id: ETranslations.wallet_disable_energy_rental_description,
           }),
           content: (
-            <ResourceRentalLearnMoreButton
-              closeDialogAfterClick={false}
-              openLinkInApp={false}
-            />
+            <ResourceRentalLearnMoreButton closeDialogAfterClick={false} />
           ),
           onCancelText: intl.formatMessage({
             id: ETranslations.global_disable_button,

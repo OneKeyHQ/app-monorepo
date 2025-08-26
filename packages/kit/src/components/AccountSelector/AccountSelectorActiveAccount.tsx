@@ -13,6 +13,7 @@ import {
   SizableText,
   Tooltip,
   XStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAllNetworkCopyAddressHandler } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useAllNetworkCopyAddressHandler';
@@ -162,6 +163,7 @@ export function AccountSelectorActiveAccountHome({
 }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
+  const { copyText } = useClipboard();
   const copyAddressWithDeriveType = useCopyAddressWithDeriveType();
   const {
     account,
@@ -244,28 +246,14 @@ export function AccountSelectorActiveAccountHome({
         networkName: network?.shortname,
       });
     } else {
-      let networkName = network?.shortname;
-      if (
-        network?.isAllNetworks &&
-        accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
-        account?.createAtNetwork
-      ) {
-        const createAtNetwork =
-          await backgroundApiProxy.serviceNetwork.getNetworkSafe({
-            networkId: account.createAtNetwork,
-          });
-        networkName = createAtNetwork?.shortname ?? networkName;
-      }
-
       copyAddressWithDeriveType({
         address: account.address,
-        networkName,
+        networkName: network?.shortname,
       });
     }
     logActiveAccount();
   }, [
     account?.address,
-    account?.createAtNetwork,
     account?.id,
     copyAddressWithDeriveType,
     deriveInfoItems,

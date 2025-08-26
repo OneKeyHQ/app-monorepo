@@ -3,13 +3,13 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadRootTabPage } from '../../../components/LazyLoadPage';
 
-const PageWebviewPerpTrade = LazyLoadRootTabPage(
-  () => import('../pages/PageWebviewPerpTrade'),
+const PagePerpTrade = LazyLoadRootTabPage(
+  () => import('../pages/PagePerpTrade'),
 );
 
 export const perpTradeRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
-    name: ETabRoutes.WebviewPerpTrade,
-    component: PageWebviewPerpTrade,
+    name: ETabRoutes.PerpTrade,
+    component: PagePerpTrade,
   },
 ];

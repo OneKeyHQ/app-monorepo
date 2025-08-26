@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useCarouselIndex } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
@@ -40,8 +39,6 @@ export function useMarketWatchlistTokenList({
   const [hasMore] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  const pageIndex = useCarouselIndex();
-
   const {
     result: apiResult,
     isLoading: apiLoading,
@@ -58,7 +55,7 @@ export function useMarketWatchlistTokenList({
       const tokenAddressList = watchlist.map((item) => ({
         chainId: item.chainId,
         contractAddress: item.contractAddress,
-        isNative: !item.contractAddress,
+        isNative: false,
       }));
       const response =
         await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
@@ -68,11 +65,10 @@ export function useMarketWatchlistTokenList({
     },
     [watchlist, isInitialLoad],
     {
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
       watchLoading: true,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
-      overrideIsFocused: (isFocused) => isFocused && pageIndex === 0,
       checkIsFocused: true,
     },
   );
@@ -93,14 +89,10 @@ export function useMarketWatchlistTokenList({
     });
 
     const transformed: IMarketToken[] = apiResult.list.map((item) => {
-      // Short addresses are automatically normalized to empty strings in transformApiItemToToken
-      const originalKey = item.address.toLowerCase();
-      const key = originalKey.length < 15 ? '' : originalKey;
-
-      const chainId = chainIdMap[key] || item.networkId || '';
+      const key = item.address.toLowerCase();
+      const chainId = chainIdMap[key] || '';
       const networkLogoUri = getNetworkLogoUri(chainId);
       const sortIndex = sortIndexMap[key];
-
       return transformApiItemToToken(item, {
         chainId,
         networkLogoUri,
@@ -108,23 +100,14 @@ export function useMarketWatchlistTokenList({
       });
     });
 
-    console.log('🔍 Debug transformed data:', {
-      transformed,
-      watchlist,
-    });
-
     // Filter transformed data based on current watchlist to ensure immediate UI updates
     const filteredTransformed = transformed.filter((token) => {
       const key = token.address.toLowerCase();
-
-      const matchingWatchlistItem = watchlist.find((w) => {
-        const watchlistKey = w.contractAddress.toLowerCase();
-        const chainMatches = w.chainId === token.chainId;
-
-        return watchlistKey === key && chainMatches;
-      });
-
-      return !!matchingWatchlistItem;
+      return watchlist.some(
+        (w) =>
+          w.contractAddress.toLowerCase() === key &&
+          w.chainId === token.chainId,
+      );
     });
 
     setTransformedData(filteredTransformed);

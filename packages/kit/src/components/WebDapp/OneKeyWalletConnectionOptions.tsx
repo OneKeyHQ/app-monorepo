@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,7 +13,6 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { EXT_RATE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -48,11 +47,7 @@ function OneKeyHardwareWalletLogo() {
   );
 }
 
-function OneKeyWalletConnectionOptions({
-  showInModal,
-}: {
-  showInModal: boolean;
-}) {
+function OneKeyWalletConnectionOptions() {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
 
@@ -61,26 +56,8 @@ function OneKeyWalletConnectionOptions({
     useOneKeyWalletDetection();
   const media = useMedia();
 
-  // Track if user clicked Add button
-  const [hasClickedAdd, setHasClickedAdd] = useState(false);
-
   // Check if mobile (small screen)
   const isMobile = media.md;
-
-  // Get subtitle text
-  const getSubtitleText = () => {
-    if (isOneKeyInstalled) {
-      return 'EVM';
-    }
-    if (hasClickedAdd) {
-      return intl.formatMessage({
-        id: ETranslations.wallet_onekey_wallet_without_refresh,
-      });
-    }
-    return intl.formatMessage({
-      id: ETranslations.wallet_onekey_wallet_without_description,
-    });
-  };
 
   const handleExtensionPress = useCallback(async () => {
     const connectionInfo = getOneKeyConnectionInfo();
@@ -95,13 +72,6 @@ function OneKeyWalletConnectionOptions({
   const handleConnectHardwarePress = useCallback(() => {
     appNavigation.pushModal(EModalRoutes.OnboardingModal, {
       screen: EOnboardingPages.ConnectYourDevice,
-    });
-    defaultLogger.account.wallet.onboard({ onboardMethod: 'connectHWWallet' });
-  }, [appNavigation]);
-
-  const handleConnectWatchOnlyPress = useCallback(() => {
-    appNavigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.ImportAddress,
     });
   }, [appNavigation]);
 
@@ -128,31 +98,6 @@ function OneKeyWalletConnectionOptions({
           mx="$0"
           bg="$bgSubdued"
         />
-        {showInModal ? (
-          <ListItem
-            py="$4"
-            px="$5"
-            mx="$0"
-            bg="$bgSubdued"
-            title={intl.formatMessage({
-              id: ETranslations.global_watch_only_wallet,
-            })}
-            renderAvatar={
-              <Stack
-                h="$10"
-                w="$10"
-                bg="$bgStrong"
-                borderRadius="$2"
-                ai="center"
-                jc="center"
-              >
-                <Icon name="EyeOutline" size="$6" color="$icon" />
-              </Stack>
-            }
-            drillIn
-            onPress={handleConnectWatchOnlyPress}
-          />
-        ) : null}
       </>
     );
   }
@@ -172,7 +117,13 @@ function OneKeyWalletConnectionOptions({
         title={intl.formatMessage({
           id: ETranslations.global_onekey_wallet_extension,
         })}
-        subtitle={getSubtitleText()}
+        subtitle={
+          isOneKeyInstalled
+            ? 'EVM'
+            : intl.formatMessage({
+                id: ETranslations.wallet_onekey_wallet_without_description,
+              })
+        }
         renderAvatar={
           <Stack position="relative" width="$10" height="$10">
             <Icon
@@ -201,7 +152,6 @@ function OneKeyWalletConnectionOptions({
             variant="secondary"
             cursor="pointer"
             onPress={() => {
-              setHasClickedAdd(true);
               openUrlExternal(EXT_RATE_URL.chrome);
             }}
           >

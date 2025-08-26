@@ -13,10 +13,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import type {
+import {
   ETabMarketRoutes,
-  ITabMarketParamList,
+  ETabRoutes,
+  type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -61,7 +61,7 @@ function MarketDetail({
   });
 
   const handleBackPress = useCallback(() => {
-    navigation.pop();
+    navigation.navigate(ETabMarketRoutes.TabMarket);
   }, [navigation]);
 
   const customHeaderLeft = useMemo(

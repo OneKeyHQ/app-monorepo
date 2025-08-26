@@ -164,6 +164,10 @@ export type IHardwarePopup = {
 };
 export type IPopupType = 'normal' | 'inputPin' | 'inputPassphrase';
 
+export type IHardwareGetPubOrAddressExtraInfo = {
+  rootFingerprint?: number;
+};
+
 export type ISYSFirmwareInfo = {
   required: boolean;
   version: number[];

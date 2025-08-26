@@ -815,7 +815,7 @@ function BasicEarnHome() {
       theme?: 'light' | 'dark';
     }) => {
       if (account || indexedAccount) {
-        if (href.includes('/defi/staking')) {
+        if (href.includes('/earn/staking')) {
           const [path, query] = href.split('?');
           const paths = path.split('/');
           const provider = paths.pop();

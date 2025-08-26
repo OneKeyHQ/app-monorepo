@@ -70,16 +70,21 @@ export type IPrimeTransferSelectedItemMap = {
   watchingAccount: IPrimeTransferSelectedItemMapInfo;
 };
 
-export type IPrimeTransferSelectedDataItem<T> = {
-  item: T;
-  credential?: string;
-  tonMnemonicCredential?: string;
-  id: string;
-};
 export type IPrimeTransferSelectedData = {
-  wallets: IPrimeTransferSelectedDataItem<IPrimeTransferHDWallet>[];
-  importedAccounts: IPrimeTransferSelectedDataItem<IPrimeTransferAccount>[];
-  watchingAccounts: IPrimeTransferSelectedDataItem<IPrimeTransferAccount>[];
+  wallets: {
+    item: IPrimeTransferHDWallet;
+    credential?: string;
+    id: string;
+  }[];
+  importedAccounts: {
+    item: IPrimeTransferAccount;
+    credential?: string;
+    id: string;
+  }[];
+  watchingAccounts: {
+    item: IPrimeTransferAccount;
+    id: string;
+  }[];
 };
 
 export interface IE2EESocketUserInfo {

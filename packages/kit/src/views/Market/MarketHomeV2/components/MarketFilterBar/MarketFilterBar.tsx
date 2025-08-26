@@ -2,6 +2,8 @@ import { YStack } from '@onekeyhq/components';
 
 import { MarketTokenListNetworkSelector } from '../MarketTokenListNetworkSelector';
 
+import { MarketFilterBarSkeleton } from './MarketFilterBarSkeleton';
+
 import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
 
 export interface IMarketFilterBarProps {
@@ -15,10 +17,15 @@ export interface IMarketFilterBarProps {
 export function MarketFilterBar({
   selectedNetworkId,
   onNetworkIdChange,
+  isLoading = false,
 }: IMarketFilterBarProps) {
   const handleNetworkIdChange = (networkId: string) => {
     onNetworkIdChange?.(networkId);
   };
+
+  if (isLoading) {
+    return <MarketFilterBarSkeleton />;
+  }
 
   return (
     <YStack>

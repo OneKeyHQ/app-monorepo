@@ -78,16 +78,9 @@ function HardwareSales() {
           </SizableText>
           {items.map((item, key) => (
             <XStack key={key} py="$3" ai="center" jc="space-between">
-              <YStack>
-                <SizableText size="$bodyLgMedium" numberOfLines={1}>
-                  {item.orderName}
-                </SizableText>
-                {item.source ? (
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {item.source}
-                  </SizableText>
-                ) : null}
-              </YStack>
+              <SizableText size="$bodyLgMedium" numberOfLines={1}>
+                {item.orderName}
+              </SizableText>
               <SizableText size="$bodyMd" color="$textSubdued">
                 {item.createdAt
                   ? formatDate(item.createdAt, {

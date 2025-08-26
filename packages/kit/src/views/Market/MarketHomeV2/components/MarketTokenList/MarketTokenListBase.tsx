@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
 
 import { Spinner, Stack, Table, useMedia } from '@onekeyhq/components';
@@ -7,13 +7,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useToDetailPage } from './hooks/useToDetailPage';
 import { type IMarketToken } from './MarketTokenData';
 
-const SPINNER_HEIGHT = 52;
 const SORTABLE_COLUMNS = {
   liquidity: 'liquidity',
   marketCap: 'mc',
@@ -49,7 +47,7 @@ function MarketTokenListBase({
   const toDetailPage = useToDetailPage();
   const { md } = useMedia();
 
-  const marketTokenColumns = useMarketTokenColumns();
+  const marketTokenColumns = useMarketTokenColumns(networkId, isWatchlistMode);
 
   const {
     data,
@@ -130,22 +128,6 @@ function MarketTokenListBase({
   const showSkeleton =
     (Boolean(isLoading) && data.length === 0) || Boolean(isNetworkSwitching);
 
-  const TableFooterComponent = useMemo(() => {
-    return isLoadingMore ? (
-      <Stack alignItems="center" justifyContent="center" py="$4">
-        <Spinner size="small" />
-      </Stack>
-    ) : null;
-  }, [isLoadingMore]);
-
-  if (showSkeleton && platformEnv.isNativeAndroid) {
-    return (
-      <Stack flex={1} alignItems="center" justifyContent="center" py="$4">
-        <Spinner size="small" />
-      </Stack>
-    );
-  }
-
   return (
     <Stack flex={1} width="100%">
       {/* render custom toolbar if provided */}
@@ -165,7 +147,7 @@ function MarketTokenListBase({
           ...(md ? { marginLeft: 8, marginRight: 8 } : {}),
         }}
       >
-        <Stack flex={1} minHeight={platformEnv.isNative ? undefined : 400}>
+        <Stack minWidth={md ? '100%' : 1466} flex={1} minHeight={400}>
           {showSkeleton ? (
             <Table.Skeleton
               columns={marketTokenColumns}
@@ -176,28 +158,14 @@ function MarketTokenListBase({
             />
           ) : (
             <Table<IMarketToken>
-              // Add padding bottom to content container to provide space for loading spinner
-              // Fix Android loading spinner visibility issue by ensuring proper content height
-              contentContainerStyle={
-                platformEnv.isNativeAndroid
-                  ? {
-                      paddingBottom: SPINNER_HEIGHT * 2,
-                    }
-                  : undefined
-              }
+              key={networkId}
               stickyHeader
               scrollEnabled
               columns={marketTokenColumns}
               onEndReached={handleEndReached}
               dataSource={data}
-              keyExtractor={(item) =>
-                `${item.address}${item.chainId ?? ''}${item.name ?? ''}${
-                  item.networkId ?? ''
-                }${item.symbol ?? ''}${item.tokenImageUri ?? ''}`
-              }
-              extraData={networkId}
+              keyExtractor={(item) => item.address + item.symbol + item.name}
               onHeaderRow={handleHeaderRow}
-              TableFooterComponent={TableFooterComponent}
               estimatedItemSize="$14"
               onRow={
                 onItemPress
@@ -209,13 +177,20 @@ function MarketTokenListBase({
                         toDetailPage({
                           symbol: item.symbol,
                           tokenAddress: item.address,
-                          networkId: item.networkId,
+                          networkId,
                         }),
                     })
               }
             />
           )}
         </Stack>
+
+        {/* Loading more indicator */}
+        {isLoadingMore ? (
+          <Stack alignItems="center" justifyContent="center" py="$4">
+            <Spinner size="small" />
+          </Stack>
+        ) : null}
       </Stack>
     </Stack>
   );

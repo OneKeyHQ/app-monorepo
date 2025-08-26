@@ -115,7 +115,7 @@ const MarketNetworkFilter = forwardRef<
             }}
             scrollEventThrottle={16}
           >
-            <XStack gap="$0.5" pr={showMoreButton ? '$4' : undefined}>
+            <XStack gap="$0.5" pr="$4">
               {networks.map((network) => (
                 <NetworksFilterItem
                   key={network.id}

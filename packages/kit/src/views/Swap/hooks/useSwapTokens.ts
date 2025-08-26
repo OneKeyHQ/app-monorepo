@@ -408,15 +408,8 @@ export function useSwapSelectedTokenInfo({
   }, [isFocused, isModalPage, reloadSwapSelectTokenDetail]);
 
   useEffect(() => {
-    if (isFocused) {
-      void loadSwapSelectTokenDetailDeb(
-        type,
-        swapAddressInfoRef.current,
-        false,
-      );
-    }
+    void loadSwapSelectTokenDetailDeb(type, swapAddressInfoRef.current, false);
   }, [
-    isFocused,
     type,
     swapAddressInfo,
     token?.networkId,

@@ -4,10 +4,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import type { INetworkAccount } from '../../types/account';
-import type {
-  EDeriveAddressActionType,
-  EWalletAddressActionType,
-} from '../../types/address';
+import type { EDeriveAddressActionType } from '../../types/address';
 import type { IToken, ITokenFiat } from '../../types/token';
 
 export enum EModalWalletAddressRoutes {
@@ -36,13 +33,11 @@ export type IDeriveTypesAddressParams = {
 export type IModalWalletAddressParamList = {
   [EModalWalletAddressRoutes.DeriveTypesAddress]: IDeriveTypesAddressParams;
   [EModalWalletAddressRoutes.WalletAddress]: {
-    title?: string;
     accountId?: string;
     walletId?: string;
     indexedAccountId: string;
     excludeTestNetwork?: boolean;
     includingNotEqualGlobalDeriveTypeAccount?: boolean;
     includingDeriveTypeMismatchInDefaultVisibleNetworks?: boolean;
-    actionType?: EWalletAddressActionType;
   };
 };

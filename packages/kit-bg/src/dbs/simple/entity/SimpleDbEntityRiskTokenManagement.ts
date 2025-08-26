@@ -15,6 +15,7 @@ export class SimpleDbEntityRiskTokenManagement extends SimpleDbEntityBase<IRiskT
 
   @backgroundMethod()
   async getUnblockedTokens({ networkId }: { networkId: string }) {
+    console.log('getUnblockedTokens>>>>>', networkId);
     const rawData = await this.getRawData();
 
     if (networkUtils.isAllNetwork({ networkId })) {

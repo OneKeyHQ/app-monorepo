@@ -20,11 +20,6 @@ export enum EDeriveAddressActionType {
   Select = 'select',
 }
 
-export enum EWalletAddressActionType {
-  Copy = 'copy',
-  ViewInExplorer = 'viewInExplorer',
-}
-
 // TODO dbAddress, baseAddress, displayAddress, utxoAddress, normalizedAddress
 export type IAddressValidation = {
   isValid: boolean;

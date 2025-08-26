@@ -47,6 +47,7 @@ export type IWithHardwareProcessingControlParams = {
 export type IWithHardwareProcessingOptions = {
   deviceParams: IDeviceSharedCallParams | undefined;
   debugMethodName?: string;
+  onFinally?: () => void;
 } & IWithHardwareProcessingControlParams;
 
 export type ICloseHardwareUiStateDialogParams = {
@@ -336,6 +337,7 @@ class ServiceHardwareUI extends ServiceBase {
       skipCloseHardwareUiStateDialog = false,
       skipDeviceCancelAtFirst = true,
       hideCheckingDeviceLoading,
+      onFinally,
     } = params;
     const device = deviceParams?.dbDevice;
     const connectId = device?.connectId;
@@ -525,6 +527,7 @@ class ServiceHardwareUI extends ServiceBase {
         );
       }
       this.processingNestedNum -= 1;
+      onFinally?.();
     }
   }
 }

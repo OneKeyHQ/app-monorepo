@@ -78,7 +78,6 @@ function SignatureAssetDetailItem({
   showNetwork,
   amount,
   symbol,
-  name,
   editable,
   tokenProps,
   isLoading,
@@ -94,7 +93,6 @@ function SignatureAssetDetailItem({
   label: string;
   amount: string;
   symbol: string;
-  name?: string;
   editable?: boolean;
   showNetwork?: boolean;
   isLoading?: boolean;
@@ -144,11 +142,8 @@ function SignatureAssetDetailItem({
                 : amount}
             </SizableText>
           ) : null}
-          {type !== 'nft' && symbol ? (
+          {symbol ? (
             <SizableText size="$bodyLg">{`  ${symbol}`}</SizableText>
-          ) : null}
-          {type === 'nft' && name ? (
-            <SizableText size="$bodyLg">{`  ${name}`}</SizableText>
           ) : null}
         </SizableText>
         {editable ? (
@@ -158,16 +153,14 @@ function SignatureAssetDetailItem({
     );
   }, [
     isLoading,
-    editable,
     transferDirection,
+    amount,
     type,
     NFTType,
-    isSendNativeTokenOnly,
-    nativeTokenTransferAmountToUpdate?.isMaxSend,
-    nativeTokenTransferAmountToUpdate?.amountToUpdate,
-    amount,
     symbol,
-    name,
+    editable,
+    isSendNativeTokenOnly,
+    nativeTokenTransferAmountToUpdate,
   ]);
 
   return (
@@ -347,7 +340,6 @@ function AssetsInternalAssets(props: IInternalAssetsProps) {
     <SignatureAssetDetailItem
       label={component.label}
       amount={component.amountParsed}
-      name={component.name}
       symbol={component.symbol}
       tokenProps={{
         tokenImageUri: component.icon,

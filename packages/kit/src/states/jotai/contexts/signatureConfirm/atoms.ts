@@ -175,15 +175,6 @@ export const {
   isResourceClaimed: false,
 });
 
-export const { atom: megafuelEligibleAtom, use: useMegafuelEligibleAtom } =
-  contextAtom<{
-    sponsorable: boolean;
-    sponsorName: string;
-  }>({
-    sponsorable: false,
-    sponsorName: '',
-  });
-
 export const { atom: payWithTokenInfoAtom, use: usePayWithTokenInfoAtom } =
   contextAtom<{
     enabled: boolean;

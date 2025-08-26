@@ -17,7 +17,7 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
-import { IMPL_EVM, IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   OneKeyErrorAirGapInvalidQrCode,
   OneKeyLocalError,
@@ -126,11 +126,6 @@ class ServiceQrWallet extends ServiceBase {
     if (impl === IMPL_EVM) {
       return 'ETH';
     }
-
-    if (impl === IMPL_TRON) {
-      return 'TRON';
-    }
-
     return network.symbol.toUpperCase();
   }
 

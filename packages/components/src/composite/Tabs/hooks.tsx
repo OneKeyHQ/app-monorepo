@@ -1,17 +1,4 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-} from 'react';
-
-import { useWindowDimensions } from 'react-native';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import useProviderSideBarValue from '../../hocs/Provider/hooks/useProviderSideBarValue';
-import { getTokens, useIsHorizontalLayout, useMedia } from '../../hooks';
+import { createContext, useCallback, useContext, useState } from 'react';
 
 import { useTabNameContext as useNativeTabNameContext } from './TabNameContext';
 import { useFocusedTab } from './useFocusedTab';
@@ -68,33 +55,3 @@ export function useTabIsRefreshingFocused() {
 }
 
 export * from './useCurrentTabScrollY';
-
-const useNativeTabContainerWidth = platformEnv.isNativeIOSPad
-  ? () => {
-      const isHorizontal = useIsHorizontalLayout();
-      const { width } = useWindowDimensions();
-      const sideBarWidth = useMemo(() => {
-        if (isHorizontal) {
-          return getTokens().size.sideBarWidth.val;
-        }
-        return 0;
-      }, [isHorizontal]);
-      return width - sideBarWidth;
-    }
-  : () => undefined;
-export const useTabContainerWidth = platformEnv.isNative
-  ? useNativeTabContainerWidth
-  : () => {
-      const { leftSidebarCollapsed = false } = useProviderSideBarValue() || {};
-      const { md } = useMedia();
-      const sideBarWidth = useMemo(() => {
-        if (md) {
-          return 0;
-        }
-        if (!leftSidebarCollapsed) {
-          return getTokens().size.sideBarWidth.val;
-        }
-        return 0;
-      }, [md, leftSidebarCollapsed]);
-      return `calc(100vw - ${sideBarWidth}px)`;
-    };

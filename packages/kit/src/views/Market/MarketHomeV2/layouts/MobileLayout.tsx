@@ -7,7 +7,6 @@ import {
   Tabs,
   YStack,
   useSafeAreaInsets,
-  useTabContainerWidth,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -63,19 +62,17 @@ export function MobileLayout({
     [handlePageChanged],
   );
 
-  const pageWidth = useTabContainerWidth();
-
   const renderItem = useCallback(
     ({ item }: { item: string }) => {
       if (item === watchlistTabName) {
         return (
-          <YStack flex={1} height={platformEnv.isNative ? undefined : height}>
+          <YStack flex={1} height={height}>
             <MarketWatchlistTokenList />
           </YStack>
         );
       }
       return (
-        <YStack flex={1} height={platformEnv.isNative ? undefined : height}>
+        <YStack flex={1} height={height}>
           <MarketFilterBarSmall {...filterBarProps} />
           <MarketNormalTokenList networkId={selectedNetworkId} />
         </YStack>
@@ -96,7 +93,6 @@ export function MobileLayout({
         pagerProps={{
           scrollSensitivity: 5,
         }}
-        pageWidth={pageWidth}
         defaultIndex={defaultIndex}
         containerStyle={{ height }}
         ref={carouselRef as any}

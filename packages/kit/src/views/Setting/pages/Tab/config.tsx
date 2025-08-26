@@ -56,7 +56,6 @@ import {
   AutoLockListItem,
   BiologyAuthListItem,
   CleanDataListItem,
-  ClearAppCacheListItem,
   CurrencyListItem,
   DesktopBluetoothListItem,
   HardwareTransportTypeListItem,
@@ -473,13 +472,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               : null,
           ],
           [
-            {
-              icon: 'BroomOutline',
-              title: intl.formatMessage({
-                id: ETranslations.settings_clear_cache_on_app,
-              }),
-              renderElement: <ClearAppCacheListItem />,
-            },
             {
               icon: 'FolderDeleteOutline',
               title: intl.formatMessage({

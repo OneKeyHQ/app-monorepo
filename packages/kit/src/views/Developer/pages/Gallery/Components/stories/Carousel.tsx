@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 
-import { useAtom } from 'jotai';
+import { atom, useAtom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
 import { StyleSheet } from 'react-native';
 
@@ -8,6 +8,7 @@ import {
   Button,
   Carousel,
   Checkbox,
+  Image,
   Select,
   SizableText,
   XStack,

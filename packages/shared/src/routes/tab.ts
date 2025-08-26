@@ -20,7 +20,7 @@ export enum ETabRoutes {
   Developer = 'Developer',
   Earn = 'Earn',
   Swap = 'Swap',
-  WebviewPerpTrade = 'WebviewPerpTrade',
+  PerpTrade = 'PerpTrade',
   MultiTabBrowser = 'MultiTabBrowser',
   DeviceManagement = 'DeviceManagement',
   ReferFriends = 'ReferFriends',
@@ -34,7 +34,7 @@ export type ITabStackParamList = {
   [ETabRoutes.Earn]: ITabEarnParamList;
   [ETabRoutes.Market]: ITabMarketParamList;
   [ETabRoutes.Swap]: ITabSwapParamList;
-  [ETabRoutes.WebviewPerpTrade]: undefined;
+  [ETabRoutes.PerpTrade]: undefined;
   [ETabRoutes.MultiTabBrowser]: IMultiTabBrowserParamList;
   [ETabRoutes.DeviceManagement]: IModalDeviceManagementParamList;
   [ETabRoutes.ReferFriends]: IModalReferFriendsParamList;

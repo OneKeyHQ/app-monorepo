@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { type LayoutChangeEvent } from 'react-native';
+import { type LayoutChangeEvent, useWindowDimensions } from 'react-native';
 
 import {
   Icon,
@@ -10,8 +10,11 @@ import {
   Stack,
   Tabs,
   YStack,
-  useTabContainerWidth,
+  getTokens,
+  useIsHorizontalLayout,
+  useMedia,
 } from '@onekeyhq/components';
+import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderSideBarValue';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -40,6 +43,35 @@ import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
+const useNativeTabContainerWidth = platformEnv.isNativeIOSPad
+  ? () => {
+      const isHorizontal = useIsHorizontalLayout();
+      const { width } = useWindowDimensions();
+      const sideBarWidth = useMemo(() => {
+        if (isHorizontal) {
+          return getTokens().size.sideBarWidth.val;
+        }
+        return 0;
+      }, [isHorizontal]);
+      return width - sideBarWidth;
+    }
+  : () => undefined;
+const useTabContainerWidth = platformEnv.isNative
+  ? useNativeTabContainerWidth
+  : () => {
+      const { leftSidebarCollapsed = false } = useProviderSideBarValue() || {};
+      const { md } = useMedia();
+      const sideBarWidth = useMemo(() => {
+        if (md) {
+          return 0;
+        }
+        if (!leftSidebarCollapsed) {
+          return getTokens().size.sideBarWidth.val;
+        }
+        return 0;
+      }, [md, leftSidebarCollapsed]);
+      return `calc(100vw - ${sideBarWidth}px)`;
+    };
 export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onPressHide,
@@ -288,10 +320,7 @@ export function HomePageView({
     }
 
     let content = (
-      <ScrollView
-        h="100%"
-        contentContainerStyle={{ justifyContent: 'center', flexGrow: 1 }}
-      >
+      <ScrollView h="100%" contentContainerStyle={{ justifyContent: 'center' }}>
         {platformEnv.isWebDappMode ? <WebDappEmptyView /> : <EmptyWallet />}
       </ScrollView>
     );

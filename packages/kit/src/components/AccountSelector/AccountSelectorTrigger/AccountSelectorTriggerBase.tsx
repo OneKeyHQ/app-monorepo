@@ -21,7 +21,6 @@ export function AccountSelectorTriggerBase({
   horizontalLayout,
   showWalletAvatar,
   showWalletName = true,
-  showConnectWalletModalInDappMode,
   ...others
 }: {
   num: number;
@@ -30,16 +29,11 @@ export function AccountSelectorTriggerBase({
   horizontalLayout?: boolean;
   showWalletAvatar?: boolean;
   showWalletName?: boolean;
-  showConnectWalletModalInDappMode?: boolean;
 } & IAccountSelectorRouteParamsExtraConfig) {
   const {
     activeAccount: { account, dbAccount, indexedAccount, accountName, wallet },
     showAccountSelector,
-  } = useAccountSelectorTrigger({
-    num,
-    showConnectWalletModalInDappMode,
-    ...others,
-  });
+  } = useAccountSelectorTrigger({ num, ...others });
   const intl = useIntl();
   const walletName =
     wallet?.name || intl.formatMessage({ id: ETranslations.global_no_wallet });

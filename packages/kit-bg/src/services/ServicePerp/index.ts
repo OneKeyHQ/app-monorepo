@@ -1,4 +1,4 @@
-export { default } from './ServiceWebviewPerp';
+export { default } from './ServicePerp';
 export type {
   IHyperliquidClearinghouseState,
   IHyperliquidSubAccount,
@@ -8,4 +8,4 @@ export type {
   IHyperliquidMaxBuilderFee,
   IHyperliquidApproveBuilderFeeRequest,
   IHyperliquidExchangeResponse,
-} from './ServiceWebviewPerp';
+} from './ServicePerp';

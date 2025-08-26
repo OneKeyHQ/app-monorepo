@@ -97,19 +97,8 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     url.searchParams.set('theme', theme);
     url.searchParams.set('symbol', symbol);
     url.searchParams.set('decimal', decimal?.toString());
-    url.searchParams.set('networkId', networkId);
-    url.searchParams.set('address', tokenAddress);
     return url.toString();
-  }, [
-    finalTradingViewUrl,
-    calendars,
-    systemLocale,
-    theme,
-    symbol,
-    decimal,
-    networkId,
-    tokenAddress,
-  ]);
+  }, [finalTradingViewUrl, calendars, systemLocale, theme, symbol, decimal]);
 
   useAutoKLineUpdate({
     tokenAddress,

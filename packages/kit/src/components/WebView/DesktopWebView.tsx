@@ -16,7 +16,6 @@ import { JsBridgeDesktopHost } from '@onekeyfe/onekey-cross-webview';
 
 import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
@@ -98,7 +97,6 @@ const DesktopWebView = forwardRef(
     const [isWebviewReady, setIsWebviewReady] = useState(false);
     const webviewRef = useRef<IElectronWebView | null>(null);
     const [devToolsAtLeft, setDevToolsAtLeft] = useState(false);
-    const [devSettings] = useDevSettingsPersistAtom();
 
     const [desktopLoadError, setDesktopLoadError] = useState(false);
 
@@ -337,9 +335,8 @@ const DesktopWebView = forwardRef(
 
     return (
       <>
-        {devSettings?.enabled && devSettings?.settings?.showWebviewDevTools ? (
+        {isDev ? (
           <button
-            data-testid="webview-dev-tools"
             type="button"
             style={{
               fontSize: 12,

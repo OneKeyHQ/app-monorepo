@@ -7,12 +7,16 @@ import {
   LazyLoadRootTabPage,
 } from '../../../components/LazyLoadPage';
 
-const MarketHome = LazyLoadRootTabPage(() => {
-  return import('../../../views/Market/MarketHome');
-});
+const MarketHome = LazyLoadRootTabPage(
+  () => import('../../../views/Market/MarketHome'),
+);
 
 const MarketDetail = LazyLoadPage(
   () => import('../../../views/Market/MarketDetail'),
+);
+
+const MarketSwap = LazyLoadPage(
+  () => import('../../../views/Market/MarketSwap'),
 );
 
 const MarketDetailV2 = LazyLoadPage(
@@ -35,6 +39,6 @@ export const marketRouters: ITabSubNavigatorConfig<any, any>[] = [
     name: ETabMarketRoutes.MarketDetailV2,
     component: MarketDetailV2,
     headerShown: !platformEnv.isNative,
-    rewrite: '/tokens/v2/:networkId',
+    rewrite: '/tokens/v2/:networkId/:tokenAddress',
   },
 ];

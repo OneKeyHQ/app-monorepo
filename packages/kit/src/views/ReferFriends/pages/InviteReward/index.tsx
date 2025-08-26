@@ -334,21 +334,6 @@ function CumulativeRewardsLineItem({
   );
 }
 
-function FiatValue({ fiatValue }: { fiatValue?: string | number }) {
-  if (!fiatValue) {
-    return null;
-  }
-  return (
-    <>
-      <SizableText size="$bodyMd"> (</SizableText>
-      <Currency formatter="value" size="$bodyMd">
-        {fiatValue}
-      </Currency>
-      <SizableText size="$bodyMd">)</SizableText>
-    </>
-  );
-}
-
 function Dashboard({
   enabledNetworks,
   hardwareSales,
@@ -440,14 +425,6 @@ function Dashboard({
     return onChain.available
       ?.reduce((acc, curr) => {
         return acc.plus(BigNumber(curr.usdValue));
-      }, BigNumber(0))
-      .toFixed(2);
-  }, [onChain.available]);
-
-  const onChainSummaryFiat = useMemo(() => {
-    return onChain.available
-      ?.reduce((acc, curr) => {
-        return acc.plus(BigNumber(curr.fiatValue));
       }, BigNumber(0))
       .toFixed(2);
   }, [onChain.available]);
@@ -731,13 +708,8 @@ function Dashboard({
                     tokenSymbol: hardwareSales.available?.[0]?.token?.symbol,
                   }}
                 >
-                  {hardwareSales.available?.[0]?.amount || 0}
+                  {hardwareSales.available?.[0]?.fiatValue || 0}
                 </NumberSizeableText>
-                {hardwareSales.available?.[0]?.amount ? (
-                  <FiatValue
-                    fiatValue={hardwareSales.available?.[0]?.fiatValue}
-                  />
-                ) : null}
                 {showHardwarePendingFiat ? (
                   <>
                     <SizableText size="$bodyMd">{` + `}</SizableText>
@@ -750,11 +722,6 @@ function Dashboard({
                     >
                       {hardwareSales.pending?.[0]?.amount || 0}
                     </NumberSizeableText>
-                    {hardwareSales.pending?.[0]?.amount ? (
-                      <FiatValue
-                        fiatValue={hardwareSales.pending?.[0]?.fiatValue}
-                      />
-                    ) : null}
                   </>
                 ) : null}
               </SizableText>
@@ -797,20 +764,17 @@ function Dashboard({
                   size="xs"
                   tokenImageUri={earnToken?.logoURI || DEFAULT_EARN_IMAGE_URL}
                 />
-                <XStack pl="$2" pr="$3">
-                  <XStack gap="$1">
-                    <SizableText size="$bodyMd">≈</SizableText>
-                    <NumberSizeableText
-                      formatter="value"
-                      size="$bodyMd"
-                      formatterOptions={{
-                        tokenSymbol: 'USDC',
-                      }}
-                    >
-                      {onChainSummary}
-                    </NumberSizeableText>
-                  </XStack>
-                  <FiatValue fiatValue={onChainSummaryFiat} />
+                <XStack pl="$2" pr="$3" gap="$1">
+                  <SizableText size="$bodyMd">≈</SizableText>
+                  <NumberSizeableText
+                    formatter="value"
+                    size="$bodyMd"
+                    formatterOptions={{
+                      tokenSymbol: 'USDC',
+                    }}
+                  >
+                    {onChainSummary}
+                  </NumberSizeableText>
                 </XStack>
                 <Popover.Tooltip
                   iconSize="$5"

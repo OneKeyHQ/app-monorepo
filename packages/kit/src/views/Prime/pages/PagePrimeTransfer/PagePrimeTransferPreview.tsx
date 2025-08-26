@@ -139,12 +139,7 @@ function PreviewItem({
           />
         ) : null}
         <YStack flex={1}>
-          <SizableText
-            numberOfLines={1}
-            size="$bodyLgMedium"
-            color="$text"
-            w="100%"
-          >
+          <SizableText size="$bodyLgMedium" color="$text" w="100%">
             {wallet?.name || account?.name}
           </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">

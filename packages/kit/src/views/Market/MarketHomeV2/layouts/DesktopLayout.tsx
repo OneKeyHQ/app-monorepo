@@ -1,11 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import {
-  Carousel,
-  Tabs,
-  YStack,
-  useTabContainerWidth,
-} from '@onekeyhq/components';
+import { Carousel, Tabs, YStack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketFilterBar } from '../components/MarketFilterBar';
@@ -40,14 +35,12 @@ export function DesktopLayout({
     carouselRef,
     handleTabChange,
     defaultIndex,
-    handlePageChanged,
   } = useMarketTabsLogic(onTabChange);
 
   const height = useMemo(() => {
     return platformEnv.isNative ? undefined : 'calc(100vh - 96px)';
   }, []);
 
-  const pageWidth = useTabContainerWidth();
   const renderItem = useCallback(
     ({ item }: { item: string }) => {
       if (item === watchlistTabName) {
@@ -76,9 +69,7 @@ export function DesktopLayout({
         focusedTab={focusedTab}
       />
       <Carousel
-        pageWidth={pageWidth}
         defaultIndex={defaultIndex}
-        onPageChanged={handlePageChanged}
         disableAnimation
         containerStyle={{ height }}
         ref={carouselRef as any}

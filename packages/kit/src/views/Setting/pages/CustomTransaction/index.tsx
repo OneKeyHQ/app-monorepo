@@ -8,59 +8,19 @@ import {
   SizableText,
   Switch,
   YStack,
-  useDialogInstance,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  openUrlExternal,
-  openUrlInApp,
-} from '@onekeyhq/shared/src/utils/openUrlUtils';
-
-function CustomTxDataLearnMoreButton({
-  closeDialogAfterClick = true,
-  openLinkInApp = true,
-}: {
-  closeDialogAfterClick?: boolean;
-  openLinkInApp?: boolean;
-}) {
-  const intl = useIntl();
-  const dialogInstance = useDialogInstance();
-  const customTxDataHelpLink = useHelpLink({
-    path: 'articles/11959368',
-  });
-  return (
-    <Button
-      flex={1}
-      textAlign="left"
-      justifyContent="flex-start"
-      size="small"
-      variant="tertiary"
-      icon="QuestionmarkOutline"
-      onPress={() => {
-        if (openLinkInApp) {
-          openUrlInApp(customTxDataHelpLink);
-        } else {
-          openUrlExternal(customTxDataHelpLink);
-        }
-        if (closeDialogAfterClick) {
-          void dialogInstance.close();
-        }
-      }}
-    >
-      {intl.formatMessage({
-        id: ETranslations.global_learn_more,
-      })}
-    </Button>
-  );
-}
+import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 function CustomTransaction() {
   const intl = useIntl();
   const [settings, setSettings] = useSettingsPersistAtom();
-
+  const customTxDataHelpLink = useHelpLink({
+    path: 'articles/11959368',
+  });
   return (
     <Page>
       <Page.Header
@@ -120,7 +80,23 @@ function CustomTransaction() {
                           isCustomTxMessageEnabled: !!value,
                         }));
                       },
-                      renderContent: <CustomTxDataLearnMoreButton />,
+                      renderContent: (
+                        <Button
+                          flex={1}
+                          textAlign="left"
+                          justifyContent="flex-start"
+                          size="small"
+                          variant="tertiary"
+                          icon="QuestionmarkOutline"
+                          onPress={() => {
+                            openUrlInApp(customTxDataHelpLink);
+                          }}
+                        >
+                          {intl.formatMessage({
+                            id: ETranslations.global_learn_more,
+                          })}
+                        </Button>
+                      ),
                     });
                   } else {
                     setSettings((v) => ({

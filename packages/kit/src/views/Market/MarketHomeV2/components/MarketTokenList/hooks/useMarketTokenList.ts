@@ -23,7 +23,7 @@ export function useMarketTokenList({
   networkId,
   initialSortBy,
   initialSortType,
-  pageSize = 20,
+  pageSize = 50,
 }: IUseMarketTokenListParams) {
   // Get minLiquidity from market config
   const { minLiquidity } = useMarketBasicConfig();

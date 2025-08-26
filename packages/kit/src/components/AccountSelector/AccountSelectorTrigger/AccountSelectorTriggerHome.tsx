@@ -27,13 +27,13 @@ export function AccountSelectorTriggerHome({
       showWalletAvatar
       showWalletName={false}
       num={num}
-      linkNetwork={!network?.isAllNetworks}
-      hideAddress={vaultSettings?.mergeDeriveAssetsEnabled}
+      linkNetwork={
+        !(network?.isAllNetworks || vaultSettings?.mergeDeriveAssetsEnabled)
+      }
       linkNetworkId={linkNetworkId}
       keepAllOtherAccounts
       allowSelectEmptyAccount
       spotlightProps={spotlightProps}
-      showConnectWalletModalInDappMode
     />
   );
 }

@@ -320,14 +320,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     (
       get,
       set,
-      payload: {
-        tabId: string;
-        entry: 'Menu' | 'ShortCut' | 'BlockView';
-        isDesktop?: boolean;
-        navigation?: ReturnType<typeof useAppNavigation>;
-      },
+      payload: { tabId: string; entry: 'Menu' | 'ShortCut' | 'BlockView' },
     ) => {
-      const { tabId, entry, navigation } = payload;
+      const { tabId, entry } = payload;
       delete webviewRefs[tabId];
       const { tabs } = get(webTabsAtom());
       const targetIndex = tabs.findIndex((t) => t.id === tabId);
@@ -363,9 +358,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           if (newActiveTab) {
             newActiveTab.isActive = true;
             this.setCurrentWebTab.call(set, newActiveTab.id);
-          } else if (platformEnv.isDesktop) {
-            // if the new active tab is not in tabs, switch to Discovery (Desktop only)
-            navigation?.switchTab(ETabRoutes.Discovery);
           }
         };
 

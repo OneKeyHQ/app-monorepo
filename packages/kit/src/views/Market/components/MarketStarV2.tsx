@@ -93,7 +93,7 @@ function BasicMarketStarV2({
       size={size}
       iconSize={size ? undefined : '$5'}
       iconProps={{
-        color: checked ? '$iconActive' : '$iconSubdued',
+        color: checked ? '$iconActive' : '$iconDisabled',
       }}
       onPress={onPress}
       {...(props as IXStackProps)}

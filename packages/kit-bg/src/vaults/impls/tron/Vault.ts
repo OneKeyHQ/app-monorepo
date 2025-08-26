@@ -68,7 +68,6 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import { KeyringQr } from './KeytringQr';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -99,7 +98,7 @@ export default class Vault extends VaultBase {
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
-    qr: KeyringQr,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -1049,15 +1048,9 @@ export default class Vault extends VaultBase {
       },
     });
 
-    const uploadResult = await this._uploadResourceRentalOrder({
+    await this._uploadResourceRentalOrder({
       orderId: rentalOrder.orderId,
       signedTx: signedRentalTx,
     });
-
-    return {
-      preSendTx: {
-        txid: uploadResult?.tx_ids?.[0] ?? '',
-      },
-    };
   }
 }

@@ -458,14 +458,12 @@ export interface ISwapPreSwapData {
   shouldFallback?: boolean;
   toTokenAmount?: string;
   minToAmount?: string;
-  needFetchGas?: boolean;
   swapBuildLoading?: boolean;
   estimateNetworkFeeLoading?: boolean;
   stepBeforeActionsLoading?: boolean;
   providerInfo?: IFetchQuoteInfo;
   isHWAndExBatchTransfer?: boolean;
   slippage?: number;
-  swapType?: ESwapTabSwitchType;
   unSupportSlippage?: boolean;
   swapBuildResultData?: {
     swapInfo?: ISwapTxInfo;
@@ -758,8 +756,6 @@ export interface ISwapTips {
   title: string;
   detailLink?: string;
   userCanClose?: boolean;
-  iconImage?: string;
-  description?: string;
 }
 
 export interface ISwapInfoSide {

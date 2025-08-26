@@ -114,44 +114,52 @@ function BatchCreateAccountFormPage({
               return;
             }
 
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const batchCreateAddressForAllNetwork = async (
+              values: IBatchCreateAccountFormValues,
+            ) => {
+              await backgroundApiProxy.servicePassword.promptPasswordVerifyByWallet(
+                {
+                  walletId,
+                  reason: EReasonForNeedPassword.CreateOrRemoveWallet,
+                },
+              );
+
+              const from = values?.from ?? '1';
+              const count =
+                values?.count ??
+                String(BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT);
+              const fromInt = parseInt(from, 10);
+              const countInt = parseInt(count, 10);
+              const beginIndex = fromInt - 1;
+              const endIndex = beginIndex + countInt - 1;
+
+              showBatchCreateAccountProcessingDialog({
+                navigation,
+                allNetworkInfo: {
+                  count: countInt,
+                },
+              });
+              await timerUtils.wait(600);
+
+              await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlowForAllNetwork(
+                {
+                  walletId,
+                  fromIndex: beginIndex,
+                  toIndex: endIndex,
+                  excludedIndexes: {},
+                  saveToDb: true,
+                  hideCheckingDeviceLoading: true,
+                  autoHandleExitError: true,
+                },
+              );
+            };
+
             await formRef.current?.handleSubmit(async (values) => {
               const networkIdValue = values?.networkId;
               if (networkUtils.isAllNetwork({ networkId: networkIdValue })) {
-                await backgroundApiProxy.servicePassword.promptPasswordVerifyByWallet(
-                  {
-                    walletId,
-                    reason: EReasonForNeedPassword.CreateOrRemoveWallet,
-                  },
-                );
-
-                const from = values?.from ?? '1';
-                const count =
-                  values?.count ??
-                  String(BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT);
-                const fromInt = parseInt(from, 10);
-                const countInt = parseInt(count, 10);
-                const beginIndex = fromInt - 1;
-                const endIndex = beginIndex + countInt - 1;
-
-                showBatchCreateAccountProcessingDialog({
-                  navigation,
-                  allNetworkInfo: {
-                    count: countInt,
-                  },
-                });
-                await timerUtils.wait(600);
-
-                await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlowForAllNetwork(
-                  {
-                    walletId,
-                    fromIndex: beginIndex,
-                    toIndex: endIndex,
-                    excludedIndexes: {},
-                    saveToDb: true,
-                    hideCheckingDeviceLoading: true,
-                    autoHandleExitError: true,
-                  },
-                );
+                // TODO all network batch create address not support now
+                // await batchCreateAddressForAllNetwork(values);
               } else {
                 await navigateToPreview({ replace: false });
               }

@@ -90,6 +90,7 @@ export const generateNativeSegwitAccounts = async ({
         publicKey: xpub,
         path,
         relPath: firstAddressRelPath,
+        __hwExtraInfo__: undefined,
       };
       return addressItem;
     }),

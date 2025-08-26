@@ -24,6 +24,7 @@ import type {
 } from '@onekeyhq/shared/types/account';
 import type {
   IDeviceHomeScreen,
+  IHardwareGetPubOrAddressExtraInfo,
   IOneKeyDeviceFeatures,
   IQrWalletDevice,
 } from '@onekeyhq/shared/types/device';
@@ -182,7 +183,6 @@ export type IDBCreateHwWalletParamsBase = {
   hideCheckingDeviceLoading?: boolean;
   defaultIsTemp?: boolean;
   isMockedStandardHwWallet?: boolean;
-  isAttachPinMode?: boolean;
 };
 export type IDBCreateHwWalletParams = IDBCreateHwWalletParamsBase & {
   passphraseState?: string;
@@ -253,6 +253,8 @@ export type IDBAvatar = string; // stringify(IAvatarInfo)
 //   bgColor: string;
 // };
 export type IDBBaseAccount = IDBBaseObjectWithName & {
+  // TODO remove from DB
+  __hwExtraInfo__?: IHardwareGetPubOrAddressExtraInfo | undefined; // hardware wallet readonly field
   type: EDBAccountType | undefined;
   path: string;
   pathIndex?: number;

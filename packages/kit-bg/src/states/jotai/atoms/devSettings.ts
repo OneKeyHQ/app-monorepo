@@ -36,7 +36,6 @@ export interface IDevSettings {
 
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
-  showWebviewDevTools?: boolean;
   // strict signature alert display
   strictSignatureAlert?: boolean;
   // enable analytics requests in dev environment
@@ -51,8 +50,6 @@ export interface IDevSettings {
   showPerformanceMonitor?: boolean;
   // use local trading view URL for development
   useLocalTradingViewUrl?: boolean;
-  // enable market V2 (new version), default false uses V1
-  enableMarketV2?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -85,7 +82,6 @@ export const {
         selectedTab: ETabRoutes.Discovery,
       },
       useLocalTradingViewUrl: false,
-      enableMarketV2: false,
     },
   },
 });

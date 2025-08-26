@@ -137,18 +137,6 @@ export function ImportWalletOptions() {
     });
   };
 
-  const handleImportFromCloud = async () => {
-    await backupEntryStatus.check();
-    navigation.push(EOnboardingPages.ImportCloudBackup);
-    defaultLogger.account.wallet.addWalletStarted({
-      addMethod: 'ImportWallet',
-      details: {
-        importType: 'cloud',
-      },
-      isSoftwareWalletOnlyUser,
-    });
-  };
-
   const handleImportByTransfer = async () => {
     // await backupEntryStatus.check();
     navigation?.pushModal(EModalRoutes.PrimeModal, {
@@ -253,7 +241,7 @@ export function ImportWalletOptions() {
                   ? ETranslations.global_google_drive
                   : ETranslations.global_icloud,
               }),
-              onPress: handleImportFromCloud,
+              onPress: handleImportByTransfer,
             } as IOptionItem)
           : null,
         isV4DbExist

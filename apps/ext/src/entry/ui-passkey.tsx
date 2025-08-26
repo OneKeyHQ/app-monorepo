@@ -5,13 +5,9 @@ import '@onekeyhq/shared/src/polyfills/globalShim';
 const activeTimeAt = Date.now();
 console.log('activeTimeAt', activeTimeAt);
 const maxActiveTime = 5 * 60 * 1000;
-const checkInterval = setInterval(() => {
-  const currentTime = Date.now();
-  if (currentTime - activeTimeAt >= maxActiveTime) {
-    clearInterval(checkInterval);
-    window.close();
-  }
-}, 10);
+setTimeout(() => {
+  window.close();
+}, maxActiveTime);
 
 // Close the page after 5 minutes when the page is focused
 window.addEventListener('focus', () => {

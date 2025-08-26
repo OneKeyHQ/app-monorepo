@@ -48,9 +48,15 @@ export function NetworksFilterItem({
     >
       {networkImageUri && (!md || isSelected) ? (
         <Image
-          size="$4.5"
-          width="$4.5"
+          size={md ? '$5' : '$6'}
+          width={md ? '$5' : '$6'}
           borderRadius="$full"
+          $gtMd={
+            {
+              height: '$5',
+              width: '$5',
+            } as any
+          }
           source={{
             uri: networkImageUri,
           }}

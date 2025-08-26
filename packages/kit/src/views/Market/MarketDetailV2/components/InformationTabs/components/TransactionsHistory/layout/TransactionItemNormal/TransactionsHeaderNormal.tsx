@@ -7,10 +7,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTransactionsLayoutNormal } from './useTransactionsLayoutNormal';
 
-const commonTextProps = {
-  size: '$bodySmMedium',
-  color: '$textSubdued',
-} as const;
+const commonTextProps = { size: '$bodySm', color: '$textSubdued' } as const;
 
 function TransactionsHeaderNormalBase() {
   const intl = useIntl();
@@ -20,10 +17,11 @@ function TransactionsHeaderNormalBase() {
     <XStack
       width="100%"
       height="$10"
-      px="$5"
-      pt="$2"
-      pb="$3"
+      px="$4"
+      py="$3"
       alignItems="center"
+      borderBottomWidth="$px"
+      borderBottomColor="$borderSubdued"
       backgroundColor="$bgApp"
     >
       <SizableText {...commonTextProps} {...styles.time}>

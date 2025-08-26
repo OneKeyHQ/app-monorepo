@@ -251,8 +251,9 @@ export const DevSettingsSection = () => {
             switchWebDappMode();
             globalThis.location.reload();
           }}
-          title="Switch web mode"
-          subtitle={`Current: ${isWebInDappMode() ? 'dapp' : 'wallet'} mode`}
+          title={`Switch web mode: ${
+            isWebInDappMode() ? 'dapp' : 'wallet'
+          } mode`}
           titleProps={{ color: '$textCritical' }}
         />
       ) : null}
@@ -361,14 +362,6 @@ export const DevSettingsSection = () => {
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
       <SectionFieldItem
-        icon="ChromeBrand"
-        name="showWebviewDevTools"
-        title="开启 Webview 调试工具"
-        subtitle=""
-      >
-        <Switch size={ESwitchSize.small} />
-      </SectionFieldItem>
-      <SectionFieldItem
         icon="PrimeOutline"
         name="showPrimeTest"
         title="开启 Prime"
@@ -400,23 +393,6 @@ export const DevSettingsSection = () => {
             ? 'http://localhost:5173/'
             : 'https://tradingview.onekeytest.com/'
         }
-      >
-        <Switch size={ESwitchSize.small} />
-      </SectionFieldItem>
-      <SectionFieldItem
-        icon="Layers2Outline"
-        name="enableMarketV2"
-        title="启用市场模块 V2 版本"
-        subtitle={
-          devSettings.settings?.enableMarketV2
-            ? '使用新版本市场模块 (V2)'
-            : '使用旧版本市场模块 (V1)'
-        }
-        onValueChange={() => {
-          setTimeout(() => {
-            void backgroundApiProxy.serviceApp.restartApp();
-          }, 300);
-        }}
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
@@ -468,6 +444,24 @@ export const DevSettingsSection = () => {
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
 
+      <SectionPressItem
+        icon="RefreshCcwOutline"
+        title="重置 App 为初次更新状态"
+        testID="reset-app-to-fresh-state"
+        onPress={() => {
+          Dialog.show({
+            title: '重置 App 为初次更新状态',
+            description: '重置后 App 将恢复到初次更新状态',
+            onConfirm: async () => {
+              await appUpdatePersistAtom.set((prev) => ({
+                ...prev,
+                latestVersion: APP_VERSION,
+                status: EAppUpdateStatus.ready,
+              }));
+            },
+          });
+        }}
+      />
       <SectionPressItem
         icon="UploadOutline"
         title="Export Accounts Data"
