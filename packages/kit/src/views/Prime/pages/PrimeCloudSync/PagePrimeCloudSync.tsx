@@ -207,6 +207,8 @@ function EnableOneKeyCloudSwitchListItem() {
               if (shouldChangePasswordAutoLock) {
                 await new Promise<void>((resolve, reject) => {
                   Dialog.show({
+                    disableDrag: true,
+                    dismissOnOverlayPress: false,
                     title: intl.formatMessage({
                       id: ETranslations.settings_auto_lock,
                     }),
