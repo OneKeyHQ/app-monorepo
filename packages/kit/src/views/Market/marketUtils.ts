@@ -29,7 +29,7 @@ export function buildMarketFullUrlV2({
     platformEnv.isWeb && !platformEnv.isDev
       ? globalThis.location.origin
       : WEB_APP_URL;
-  const path = `/market/tokens/v2/${networkId}/${address}`;
+  const path = `/market/tokens/v2/${networkId}?tokenAddress=${address}`;
   return `${origin}${path}`;
 }
 
