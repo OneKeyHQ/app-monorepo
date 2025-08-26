@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -29,6 +29,7 @@ import type {
   IModalSignAndVerifyParamList,
 } from '@onekeyhq/shared/src/routes/signAndVerify';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { ISignAccount } from '@onekeyhq/shared/types/signAndVerify';
 import { ESignAndVerifyAction } from '@onekeyhq/shared/types/signAndVerify';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -55,15 +56,18 @@ const SignForm = ({
   isOthersWallet: boolean | undefined;
 }) => {
   const intl = useIntl();
+  const signAccountsRef = useRef<ISignAccount[]>([]);
+  // const currentSignAccount = useState<ISignAccount | undefined>(undefined);
   const { result: selectOptions } = usePromiseResult<ISelectSection[]>(
     async () => {
-      const { accounts: signAccounts } =
+      const signAccounts =
         await backgroundApiProxy.serviceInternalSignAndVerify.getSignAccounts({
           networkId,
           accountId,
           indexedAccountId,
           isOthersWallet,
         });
+      signAccountsRef.current = signAccounts;
       const result: ISelectSection[] = [];
       const ethereumAccount = signAccounts.find(
         (account) => account.network.id === getNetworkIdsMap().eth,
@@ -122,6 +126,16 @@ const SignForm = ({
     },
   );
 
+  const selectedAddress = form.watch('address');
+  const currentSignAccount = useMemo(() => {
+    if (!selectedAddress) {
+      return undefined;
+    }
+    return signAccountsRef.current.find(
+      (account) => account.account.address === selectedAddress,
+    );
+  }, [selectedAddress]);
+
   return (
     <Form form={form}>
       <Form.Field
@@ -172,7 +186,10 @@ const SignForm = ({
               size: 'large',
               renderContent: (
                 <XStack alignItems="center" px="$1" mr="$-3">
-                  <NetworkAvatar networkId={getNetworkIdsMap().btc} size="$6" />
+                  <NetworkAvatar
+                    networkId={currentSignAccount?.network.id}
+                    size="$6"
+                  />
                 </XStack>
               ),
             },
@@ -279,7 +296,6 @@ function SignAndVerifyMessage() {
 
   const handleSign = useCallback(() => {
     console.log('Sign form values:', signForm.getValues());
-    void backgroundApiProxy.serviceInternalSignAndVerify.sampleMethod();
   }, [signForm]);
 
   const renderContent = useCallback(() => {

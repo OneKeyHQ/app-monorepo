@@ -4,8 +4,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
-import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import type { ISignAccount } from '@onekeyhq/shared/types/signAndVerify';
 
 import ServiceBase from './ServiceBase';
 
@@ -18,25 +17,12 @@ class ServiceInternalSignAndVerify extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async sampleMethod() {
-    console.log('sampleMethod');
-    return 'sampleMethod';
-  }
-
-  @backgroundMethod()
   public async getSignAccounts(params: {
     networkId: string;
     accountId: string | undefined;
     indexedAccountId: string | undefined;
     isOthersWallet: boolean | undefined;
-  }): Promise<{
-    accounts: Array<{
-      account: INetworkAccount;
-      network: IServerNetwork;
-      deriveType?: string;
-      deriveLabel?: string;
-    }>;
-  }> {
+  }): Promise<ISignAccount[]> {
     const { networkId, accountId, indexedAccountId, isOthersWallet } = params;
 
     const networkIdsMap = getNetworkIdsMap();
@@ -47,12 +33,7 @@ class ServiceInternalSignAndVerify extends ServiceBase {
     ];
 
     const { serviceAccount, serviceNetwork } = this.backgroundApi;
-    const results: Array<{
-      account: INetworkAccount;
-      network: IServerNetwork;
-      deriveType?: string;
-      deriveLabel?: string;
-    }> = [];
+    const results: ISignAccount[] = [];
 
     // Handle indexedAccountId case - iterate through all supported networks
     if (indexedAccountId) {
@@ -146,7 +127,7 @@ class ServiceInternalSignAndVerify extends ServiceBase {
       }
     }
 
-    return { accounts: results };
+    return results;
   }
 }
 
