@@ -53,6 +53,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseSecretRecoveryPhrase } from '@onekeyhq/shared/src/utils/phrase';
 
+import useRecoveryPhraseProtected from '@onekeyhq/kit/src/hooks/useRecoveryPhraseProtected';
+
 import { PHRASE_LENGTHS, useSuggestion } from './hooks';
 
 import type { ReturnKeyTypeOptions, TextInput, ViewProps } from 'react-native';
@@ -552,9 +554,7 @@ export function PhaseInputArea({
     [handleClear],
   );
 
-  const handleScreenCapture = useCallback(() => {
-    console.log('screen capture');
-  }, []);
+  useRecoveryPhraseProtected();
 
   return (
     <>
@@ -601,7 +601,7 @@ export function PhaseInputArea({
           </XStack>
         ) : null}
         <Form form={form}>
-          <XStack bg="red" px="$4" flexWrap="wrap">
+          <XStack px="$4" flexWrap="wrap">
             {Array.from({ length: phraseLengthNumber }).map((_, index) => (
               <Stack
                 key={index}
