@@ -29,7 +29,6 @@
   },
   "dependencies": {
     "@backpackapp-io/react-native-toast": "0.14.0",
-    "@bufgix/react-native-secure-window": "0.1.1",
     "@expo-google-fonts/inter": "^0.2.3",
     "@formatjs/intl-getcanonicallocales": "^1.9.2",
     "@formatjs/intl-locale": "^2.4.47",
@@ -92,6 +91,7 @@
     "react-native-ble-plx": "3.5.0",
     "react-native-camera-kit": "15.1.0",
     "react-native-canvas": "^0.1.39",
+    "react-native-capture-protection": "2.3.0",
     "react-native-check-biometric-auth-changed": "0.1.1",
     "react-native-cloud-fs": "npm:@onekeyfe/react-native-cloud-fs@2.6.3",
     "react-native-collapsible-tab-view": "8.0.1",
