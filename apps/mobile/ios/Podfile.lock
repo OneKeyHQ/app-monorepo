@@ -298,7 +298,6 @@ PODS:
     - React-RCTText (= 0.79.5)
     - React-RCTVibration (= 0.79.5)
   - React-callinvoker (0.79.5)
-  - React-Codegen (0.1.0)
   - React-Core (0.79.5):
     - glog
     - hermes-engine
@@ -1762,12 +1761,29 @@ PODS:
     - Yoga
   - react-native-performance-stats (0.2.3):
     - CocoaLumberjack
-    - RCT-Folly
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.11.18.00)
     - RCTRequired
     - RCTTypeSafety
-    - React-Codegen
     - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
+    - Yoga
   - react-native-safe-area-context (5.4.1):
     - DoubleConversion
     - glog
@@ -3021,7 +3037,6 @@ SPEC REPOS:
     - lottie-ios
     - MultiplatformBleAdapter
     - PurchasesHybridCommon
-    - React-Codegen
     - RevenueCat
     - ScreenshotPreventing
     - SDWebImage
@@ -3385,7 +3400,6 @@ SPEC CHECKSUMS:
   RCTTypeSafety: cc4740278c2a52cbf740592b0a0a40df1587c9ab
   React: 6393ae1807614f017a84805bf2417e3497f518a6
   React-callinvoker: c34f666f551f05a325b87e7e3e6df0e082fa3d99
-  React-Codegen: 4b8b4817cea7a54b83851d4c1f91f79aa73de30a
   React-Core: 1ba9acdf7accbd46ccaae99999443ae2722c82b7
   React-CoreModules: 3c3cf4a91257f138e3feb47169a2d7fe341b5495
   React-cxxreact: 444d518a5d3a933e029b5e5ca6d8127c2e43255c
@@ -3420,7 +3434,7 @@ SPEC CHECKSUMS:
   react-native-lite-card: da6e268aa346e8ab6b80e272364637f228fe09cd
   react-native-mmkv: c8da06f2c3ed40726ac6b51ed4e3653d099f0b6a
   react-native-pager-view: 38d37b9c7dcddfacf97ad4a0a1ee7a6db7b85b76
-  react-native-performance-stats: a45aa22f574c01d00bc5cadd0a3b8d34b308ae2e
+  react-native-performance-stats: 088634dc35ead1dfcd371be67bd94dd0f2f104ac
   react-native-safe-area-context: 8cf8caf5fc0f5a5d3581b650579af9c85c16be04
   react-native-slider: 0c0125010b5299e647eb5d955b58133fb4eb34e4
   react-native-tcp-socket: 120072c8020262032773f80f0daaf3964aaa08a1
