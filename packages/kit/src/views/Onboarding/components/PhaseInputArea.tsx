@@ -44,16 +44,12 @@ import {
   useKeyboardEvent,
   useMedia,
 } from '@onekeyhq/components';
-import {
-  type EMnemonicType,
-  validateMnemonic,
-} from '@onekeyhq/core/src/secret';
+import type { EMnemonicType } from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useRecoveryPhraseProtected from '@onekeyhq/kit/src/hooks/useRecoveryPhraseProtected';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseSecretRecoveryPhrase } from '@onekeyhq/shared/src/utils/phrase';
-
-import useRecoveryPhraseProtected from '@onekeyhq/kit/src/hooks/useRecoveryPhraseProtected';
 
 import { PHRASE_LENGTHS, useSuggestion } from './hooks';
 
