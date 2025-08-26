@@ -1,6 +1,3 @@
-import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
-import { EMessageTypesTron } from '@onekeyhq/shared/types/message';
-import { ISignMessageParams } from './../../types';
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { isNil } from 'lodash';
 import { utils } from 'tronweb';
@@ -16,6 +13,8 @@ import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import { EMessageTypesTron } from '@onekeyhq/shared/types/message';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -24,6 +23,7 @@ import type {
   IBuildHwAllNetworkPrepareAccountsParams,
   IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
+  ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
 import type {
@@ -309,7 +309,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
   }
 
-  override async signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
+  override async signMessage(
+    params: ISignMessageParams,
+  ): Promise<ISignedMessagePro> {
     const { messages, deviceParams } = params;
     const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
     const { connectId, deviceId } = checkIsDefined(dbDevice);
@@ -325,7 +327,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               ...deviceCommonParams,
               path: account.path,
               messageHex: e.message,
-              messageType: "V1",
+              messageType: 'V1',
             }),
           );
           return res.signature;
@@ -337,7 +339,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               ...deviceCommonParams,
               path: account.path,
               messageHex: e.message,
-              messageType: "V2",
+              messageType: 'V2',
             }),
           );
           return hexUtils.addHexPrefix(res.signature);
