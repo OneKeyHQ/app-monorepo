@@ -3143,10 +3143,7 @@
   wallet_buy_crypto_instruction = 'wallet.buy_crypto_instruction',
   wallet_collapsed_assets = 'wallet.collapsed_assets',
   wallet_collapsed_risk_assets = 'wallet.collapsed_risk_assets',
-<<<<<<< HEAD
-=======
   wallet_collapsed_risk_assets_number = 'wallet.collapsed_risk_assets_number',
->>>>>>> x
   wallet_connect_wallet_more_options = 'wallet.connect_wallet_more_options',
   wallet_currently_supports_up_to_str_all_networks_accounts = 'wallet.currently_supports_up_to_str_all_networks_accounts',
   wallet_description_no_approvals = 'wallet.description_no_approvals',
@@ -3190,10 +3187,7 @@
   wallet_no_address_desc = 'wallet.no_address_desc',
   wallet_no_tron_account = 'wallet.no_tron_account',
   wallet_onekey_wallet_without_description = 'wallet.onekey_wallet_without_description',
-<<<<<<< HEAD
-=======
   wallet_onekey_wallet_without_refresh = 'wallet.onekey_wallet_without_refresh',
->>>>>>> x
   wallet_pay_with_usdt = 'wallet.pay_with_usdt',
   wallet_receive_token_instruction = 'wallet.receive_token_instruction',
   wallet_redeem_label = 'wallet.redeem_label',

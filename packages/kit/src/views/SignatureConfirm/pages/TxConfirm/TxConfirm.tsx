@@ -41,10 +41,10 @@ import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoadin
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 import StakingInfo from '../../components/StakingInfo';
 import SwapInfo from '../../components/SwapInfo';
+import TaskQueueController from '../../components/TaskQueueController/TaskQueueController';
 import { usePreCheckTokenBalance } from '../../hooks/usePreCheckTokenBalance';
 
 import type { RouteProp } from '@react-navigation/core';
-import TaskQueueController from '../../components/TaskQueueController/TaskQueueController';
 
 function TxConfirm() {
   const route =
@@ -75,7 +75,6 @@ function TxConfirm() {
     updatePreCheckTxStatus,
     updateSendFeeStatus,
     updateExtraFeeInfo,
-    updateUnsignedTxQueue,
   } = useSignatureConfirmActions().current;
 
   const [settings] = useSettingsPersistAtom();
@@ -248,7 +247,6 @@ function TxConfirm() {
     unsignedTxQueue,
     unsignedTxs,
     updateSendFeeStatus,
-    updateUnsignedTxQueue,
     updateUnsignedTxs,
   ]);
 

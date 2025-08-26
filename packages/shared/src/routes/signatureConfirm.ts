@@ -3,6 +3,7 @@ import type {
   IUnsignedMessage,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import type { IHasId, LinkedDeck } from '@onekeyhq/kit/src/hooks/useLinkedList';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
@@ -24,7 +25,6 @@ import type { IAccountNFT } from '../../types/nft';
 import type { ISwapTxInfo } from '../../types/swap/types';
 import type { IToken, ITokenFiat } from '../../types/token';
 import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
-import { IHasId, LinkedDeck } from '@onekeyhq/kit/src/hooks/useLinkedList';
 
 export enum EModalSignatureConfirmRoutes {
   TxDataInput = 'TxDataInput',
