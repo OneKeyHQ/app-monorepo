@@ -3917,7 +3917,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (allAccountsBelongToNetworkId) {
       for (const account of accounts) {
         try {
-          await this.saveAccountAddresses({
+          void this.saveAccountAddresses({
             networkId: allAccountsBelongToNetworkId,
             account: account as INetworkAccount,
           });
