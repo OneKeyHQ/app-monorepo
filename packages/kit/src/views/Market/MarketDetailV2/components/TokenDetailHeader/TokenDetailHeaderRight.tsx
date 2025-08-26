@@ -60,15 +60,16 @@ export function TokenDetailHeaderRight({
     address = '',
   } = tokenDetail || {};
 
-  const marketStar =
-    networkId && address ? (
-      <MarketStarV2
-        chainId={networkId}
-        contractAddress={address}
-        size="medium"
-        from={EWatchlistFrom.details}
-      />
-    ) : null;
+  const lastUpdatedString = tokenDetail?.lastUpdated?.toString();
+
+  const marketStar = networkId ? (
+    <MarketStarV2
+      chainId={networkId}
+      contractAddress={address}
+      size="medium"
+      from={EWatchlistFrom.details}
+    />
+  ) : null;
 
   const shareButton =
     networkId && address ? (
@@ -93,6 +94,7 @@ export function TokenDetailHeaderRight({
           price={currentPrice}
           tokenName={name}
           tokenSymbol={symbol}
+          lastUpdated={lastUpdatedString}
         />
         <PriceChangePercentage size="$bodySm">
           {clampPercentage(priceChange24hPercent)}

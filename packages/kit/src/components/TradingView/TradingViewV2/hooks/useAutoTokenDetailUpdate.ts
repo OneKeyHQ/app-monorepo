@@ -36,11 +36,10 @@ export function useAutoTokenDetailUpdate({
       const now = Math.floor(Date.now() / 1000);
 
       // Skip if we just updated recently (avoid duplicate calls)
-      if (now - lastUpdateTime.current < 1) {
+      if (now - lastUpdateTime.current < 0.1) {
         return;
       }
 
-      console.log('🔍 Pushing token detail update from atom:', tokenDetail);
       webRef.current.sendMessageViaInjectedScript({
         type: 'tokenDetailUpdate',
         payload: {

@@ -82,6 +82,7 @@ export interface IMarketTokenDetail {
   vSell4h?: string;
   vSell8h?: string;
   vSell24h?: string;
+  lastUpdated?: number;
   [key: string]: unknown;
 }
 
