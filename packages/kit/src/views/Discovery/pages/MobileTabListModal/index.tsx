@@ -312,7 +312,7 @@ function MobileTabListModal() {
               {
                 label: intl.formatMessage({ id: ETranslations.explore_share }),
                 icon: 'ShareOutline',
-                onPress: () => handleShare(tab.url),
+                onPress: () => handleShare(tab.displayUrl ?? tab.url),
                 testID: 'action-list-item-share',
               },
             ].filter(Boolean) as IActionListItemProps[],
