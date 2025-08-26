@@ -904,17 +904,22 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           return;
         }
 
-        void this.gotoSite.call(set, {
-          url,
-          title,
-          favicon,
-          isNewWindow,
-          isInPlace,
-          id: tab.id,
-        });
+        // Only call gotoSite for real navigation, not SPA route changes
+        // SPA route changes typically have loading: false and navigationType: "other"
+        if (loading) {
+          void this.gotoSite.call(set, {
+            url,
+            title,
+            favicon,
+            isNewWindow,
+            isInPlace,
+            id: tab.id,
+          });
+        }
       }
 
       this.setWebTabData.call(set, {
+        displayUrl: url,
         id: tab.id,
         title,
         favicon,
