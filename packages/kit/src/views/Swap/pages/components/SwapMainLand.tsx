@@ -402,6 +402,21 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     };
   }, [intl]);
 
+  const needFetchGas = useMemo(() => {
+    if (
+      currentQuoteRes?.allowanceResult &&
+      !(
+        swapBatchTransferType ===
+          ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP ||
+        swapBatchTransferType ===
+          ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP
+      )
+    ) {
+      return true;
+    }
+    return false;
+  }, [currentQuoteRes?.allowanceResult, swapBatchTransferType]);
+
   const parseQuoteResultToSteps = useCallback(() => {
     let steps: ISwapStep[] = [];
     if (currentQuoteRes?.isWrapped) {
@@ -507,6 +522,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         toTokenAmount: swapToAmount.value,
         providerInfo: currentQuoteRes?.info,
         supportPreBuild,
+        needFetchGas,
         minToAmount: currentQuoteRes?.minToAmount,
         slippage:
           currentQuoteRes?.protocol === EProtocolOfExchange.LIMIT ||
@@ -530,21 +546,22 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       quoteResult: { ...(currentQuoteRes as IFetchQuoteResult) },
     });
   }, [
-    swapTypeSwitch,
     currentQuoteRes,
     swapBatchTransferType,
     setSwapSteps,
+    swapTypeSwitch,
     fromSelectToken,
     toSelectToken,
     fromAmount.value,
     swapToAmount.value,
+    supportPreBuild,
+    needFetchGas,
     createWrapStep,
     createSignStep,
     createApproveStep,
     intl,
     createBatchApproveSwapStep,
     createSendTxStep,
-    supportPreBuild,
   ]);
   const onActionHandler = useCallback(() => {
     if (
