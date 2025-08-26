@@ -1610,6 +1610,30 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - react-native-capture-protection (2.3.0):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.11.18.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - react-native-cloud-fs (2.6.3):
     - React
   - react-native-compat (2.11.2):
@@ -2407,9 +2431,6 @@ PODS:
     - Yoga
   - ReactNativePasskeys (0.3.3):
     - ExpoModulesCore
-  - ReactNativeSecureWindow (0.1.1):
-    - ExpoModulesCore
-    - ScreenshotPreventing
   - RealmJS (20.2.0):
     - React
   - RestartNewArch (1.0.75):
@@ -2853,9 +2874,6 @@ PODS:
   - RNZipArchive/Core (7.0.2):
     - React-Core
     - SSZipArchive (~> 2.5.5)
-  - ScreenshotPreventing (1.4.0):
-    - ScreenshotPreventing/Core (= 1.4.0)
-  - ScreenshotPreventing/Core (1.4.0)
   - SDWebImage (5.21.1):
     - SDWebImage/Core (= 5.21.1)
   - SDWebImage/Core (5.21.1)
@@ -2961,6 +2979,7 @@ DEPENDENCIES:
   - React-microtasksnativemodule (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
   - react-native-aes (from `../../../node_modules/react-native-aes-crypto`)
   - react-native-ble-plx (from `../../../node_modules/react-native-ble-plx`)
+  - react-native-capture-protection (from `../../../node_modules/react-native-capture-protection`)
   - react-native-cloud-fs (from `../../../node_modules/react-native-cloud-fs`)
   - "react-native-compat (from `../../../node_modules/@walletconnect/react-native-compat`)"
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
@@ -3010,7 +3029,6 @@ DEPENDENCIES:
   - ReactNativeCameraKit (from `../../../node_modules/react-native-camera-kit`)
   - ReactNativeFs (from `../../../node_modules/react-native-fs`)
   - ReactNativePasskeys (from `../../../node_modules/react-native-passkeys/ios`)
-  - "ReactNativeSecureWindow (from `../../../node_modules/@bufgix/react-native-secure-window/ios`)"
   - RealmJS (from `../../../node_modules/realm`)
   - RestartNewArch (from `../../../node_modules/react-native-restart`)
   - "RNCAsyncStorage (from `../../../node_modules/@react-native-async-storage/async-storage`)"
@@ -3038,7 +3056,6 @@ SPEC REPOS:
     - MultiplatformBleAdapter
     - PurchasesHybridCommon
     - RevenueCat
-    - ScreenshotPreventing
     - SDWebImage
     - SDWebImageAVIFCoder
     - SDWebImageSVGCoder
@@ -3209,6 +3226,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-aes-crypto"
   react-native-ble-plx:
     :path: "../../../node_modules/react-native-ble-plx"
+  react-native-capture-protection:
+    :path: "../../../node_modules/react-native-capture-protection"
   react-native-cloud-fs:
     :path: "../../../node_modules/react-native-cloud-fs"
   react-native-compat:
@@ -3307,8 +3326,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-fs"
   ReactNativePasskeys:
     :path: "../../../node_modules/react-native-passkeys/ios"
-  ReactNativeSecureWindow:
-    :path: "../../../node_modules/@bufgix/react-native-secure-window/ios"
   RealmJS:
     :path: "../../../node_modules/realm"
   RestartNewArch:
@@ -3427,6 +3444,7 @@ SPEC CHECKSUMS:
   React-microtasksnativemodule: 4b0f5a344ca5ce6692650fae4fb67f7672bbd1b6
   react-native-aes: e38d08f68d27e85d14590b7ef0b404ceebf5f891
   react-native-ble-plx: 42b541d86904b350743b507a00222145d833cac9
+  react-native-capture-protection: 8df17cfa486df1c267f9de32f4877f75be216670
   react-native-cloud-fs: c86a54591a932e41d94b0965f16d0713150b1fd0
   react-native-compat: 81ec34c5738beae429211f8cb38294efb49b2edc
   react-native-get-random-values: 419569b6ed3d15bfb9b6781b2f2e058f8e8d2698
@@ -3476,7 +3494,6 @@ SPEC CHECKSUMS:
   ReactNativeCameraKit: d6ddbeddcd1eea74cf480f98fda4d18c9d13de88
   ReactNativeFs: 7beedb868bb83ad29623acc9effb517554b34bd3
   ReactNativePasskeys: 9e950e8cbf0e7d6aad9df4dcd21cee0efeb4e5cd
-  ReactNativeSecureWindow: aca1652c05825f4a3c1706b942a5a12060c54742
   RealmJS: 1c37c6bdfe060f4caa0f9175aa0eedb962622ee1
   RestartNewArch: 448d52741003a4918f8abe3dfc89ed32fc0c7a9d
   RevenueCat: 7e1d0768fb287c9983173c9b28e39ccbeeb828a9
@@ -3492,7 +3509,6 @@ SPEC CHECKSUMS:
   RNSentry: 857855d887a12dd8f049e7b72bf38d09f92ea7dc
   RNSVG: 45e3c3210465e75ab6374c9f746179e75d76ce48
   RNZipArchive: 4304f5100eab004eeb7349adc51997b3a28deb76
-  ScreenshotPreventing: 7057fd23cb00599ba265c0b166768e1e0cb3a0b0
   SDWebImage: f29024626962457f3470184232766516dee8dfea
   SDWebImageAVIFCoder: 00310d246aab3232ce77f1d8f0076f8c4b021d90
   SDWebImageSVGCoder: 15a300a97ec1c8ac958f009c02220ac0402e936c
