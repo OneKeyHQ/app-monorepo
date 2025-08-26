@@ -110,10 +110,7 @@ const ListFooterComponent = ({
   const { isInternalNav } = useBlockExplorerNavigation(network, walletId);
 
   const handleOnPress = useCallback(async () => {
-    if (
-      network?.isAllNetworks &&
-      !accountUtils.isOthersWallet({ walletId: walletId ?? '' })
-    ) {
+    if (isInternalNav) {
       appNavigation.pushModal(EModalRoutes.WalletAddress, {
         screen: EModalWalletAddressRoutes.WalletAddress,
         params: {
@@ -133,15 +130,15 @@ const ListFooterComponent = ({
       });
     }
   }, [
-    network?.isAllNetworks,
-    network?.id,
-    walletId,
+    isInternalNav,
     appNavigation,
     intl,
     accountId,
     indexedAccountId,
+    walletId,
     account?.createAtNetwork,
     account?.address,
+    network?.id,
   ]);
 
   if (
