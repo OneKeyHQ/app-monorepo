@@ -35,6 +35,7 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { useAccountData } from '../../hooks/useAccountData';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { useBlockExplorerNavigation } from '../../hooks/useBlockExplorerNavigation';
 import {
   useHasMoreOnChainHistoryAtom,
   useSearchKeyAtom,
@@ -106,6 +107,7 @@ const ListFooterComponent = ({
     accountId,
     networkId,
   });
+  const { isInternalNav } = useBlockExplorerNavigation(network, walletId);
 
   const handleOnPress = useCallback(async () => {
     if (
@@ -186,7 +188,12 @@ const ListFooterComponent = ({
               doubleConfirm
             />
           ) : (
-            <Button size="small" variant="secondary" onPress={handleOnPress}>
+            <Button
+              size="small"
+              variant="secondary"
+              onPress={handleOnPress}
+              iconAfter={isInternalNav ? undefined : 'OpenOutline'}
+            >
               {intl.formatMessage({ id: ETranslations.global_block_explorer })}
             </Button>
           )}

@@ -14,6 +14,7 @@ import { EWalletAddressActionType } from '@onekeyhq/shared/types/address';
 
 import { useAccountData } from '../../hooks/useAccountData';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { useBlockExplorerNavigation } from '../../hooks/useBlockExplorerNavigation';
 import { openExplorerAddressUrl } from '../../utils/explorerUtils';
 import AddressTypeSelector from '../AddressTypeSelector/AddressTypeSelector';
 
@@ -39,6 +40,7 @@ function EmptyHistory({
     accountId,
     networkId,
   });
+  const { isInternalNav } = useBlockExplorerNavigation(network, walletId);
 
   const handleOnPress = useCallback(async () => {
     if (
@@ -88,7 +90,7 @@ function EmptyHistory({
         networkId={networkId ?? ''}
         indexedAccountId={indexedAccountId ?? account?.indexedAccountId ?? ''}
         renderSelectorTrigger={
-          <Button size="small" variant="secondary" onPress={() => {}} mt="$3">
+          <Button size="medium" variant="secondary" onPress={() => {}} mt="$6">
             {intl.formatMessage({
               id: ETranslations.global_block_explorer,
             })}
@@ -103,13 +105,20 @@ function EmptyHistory({
         doubleConfirm
       />
     ) : (
-      <Button size="small" variant="secondary" onPress={handleOnPress} mt="$3">
+      <Button
+        size="medium"
+        variant="secondary"
+        onPress={handleOnPress}
+        mt="$6"
+        iconAfter={isInternalNav ? undefined : 'OpenOutline'}
+      >
         {intl.formatMessage({ id: ETranslations.global_block_explorer })}
       </Button>
     );
   }, [
     account?.indexedAccountId,
     handleOnPress,
+    isInternalNav,
     indexedAccountId,
     intl,
     isSingleAccount,
