@@ -331,7 +331,7 @@ export function useSwapQuote() {
       swapToAddressInfoRef.current.address,
     );
   }, [
-    swapToAnotherAccountAddress,
+    swapToAnotherAccountAddress?.address,
     cleanQuoteInterval,
     quoteAction,
     swapAddressInfo.address,
@@ -450,7 +450,7 @@ export function useSwapQuote() {
       swapToAddressInfoRef.current.address,
     );
   }, [
-    swapToAnotherAccountAddress,
+    swapToAnotherAccountAddress?.address,
     cleanQuoteInterval,
     quoteAction,
     swapAddressInfo.address,
