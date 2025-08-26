@@ -2433,7 +2433,7 @@ PODS:
     - ExpoModulesCore
   - RealmJS (20.2.0):
     - React
-  - RestartNewArch (1.0.75):
+  - RestartNewArch (1.0.80):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2618,7 +2618,7 @@ PODS:
   - RNPurchases (8.11.9):
     - PurchasesHybridCommon (= 14.2.0)
     - React-Core
-  - RNReanimated (3.18.0):
+  - RNReanimated (3.19.1):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2641,10 +2641,10 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - RNReanimated/reanimated (= 3.18.0)
-    - RNReanimated/worklets (= 3.18.0)
+    - RNReanimated/reanimated (= 3.19.1)
+    - RNReanimated/worklets (= 3.19.1)
     - Yoga
-  - RNReanimated/reanimated (3.18.0):
+  - RNReanimated/reanimated (3.19.1):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2667,9 +2667,9 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - RNReanimated/reanimated/apple (= 3.18.0)
+    - RNReanimated/reanimated/apple (= 3.19.1)
     - Yoga
-  - RNReanimated/reanimated/apple (3.18.0):
+  - RNReanimated/reanimated/apple (3.19.1):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2693,7 +2693,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - RNReanimated/worklets (3.18.0):
+  - RNReanimated/worklets (3.19.1):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2716,9 +2716,9 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - RNReanimated/worklets/apple (= 3.18.0)
+    - RNReanimated/worklets/apple (= 3.19.1)
     - Yoga
-  - RNReanimated/worklets/apple (3.18.0):
+  - RNReanimated/worklets/apple (3.19.1):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2983,7 +2983,7 @@ DEPENDENCIES:
   - react-native-cloud-fs (from `../../../node_modules/react-native-cloud-fs`)
   - "react-native-compat (from `../../../node_modules/@walletconnect/react-native-compat`)"
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
-  - react-native-keyboard-controller (from `../../../node_modules/react-native-keyboard-controller`)
+  - react-native-keyboard-controller (from `../node_modules/react-native-keyboard-controller`)
   - "react-native-lite-card (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
   - react-native-mmkv (from `../../../node_modules/react-native-mmkv`)
   - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
@@ -3038,7 +3038,7 @@ DEPENDENCIES:
   - "RNNotifee (from `../../../node_modules/@notifee/react-native`)"
   - RNPermissions (from `../../../node_modules/react-native-permissions`)
   - RNPurchases (from `../../../node_modules/react-native-purchases`)
-  - RNReanimated (from `../../../node_modules/react-native-reanimated`)
+  - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNScreens (from `../../../node_modules/react-native-screens`)
   - "RNSentry (from `../../../node_modules/@sentry/react-native`)"
   - RNSVG (from `../../../node_modules/react-native-svg`)
@@ -3235,7 +3235,7 @@ EXTERNAL SOURCES:
   react-native-get-random-values:
     :path: "../../../node_modules/react-native-get-random-values"
   react-native-keyboard-controller:
-    :path: "../../../node_modules/react-native-keyboard-controller"
+    :path: "../node_modules/react-native-keyboard-controller"
   react-native-lite-card:
     :path: "../../../node_modules/@onekeyfe/react-native-lite-card"
   react-native-mmkv:
@@ -3345,7 +3345,7 @@ EXTERNAL SOURCES:
   RNPurchases:
     :path: "../../../node_modules/react-native-purchases"
   RNReanimated:
-    :path: "../../../node_modules/react-native-reanimated"
+    :path: "../node_modules/react-native-reanimated"
   RNScreens:
     :path: "../../../node_modules/react-native-screens"
   RNSentry:
@@ -3495,7 +3495,7 @@ SPEC CHECKSUMS:
   ReactNativeFs: 7beedb868bb83ad29623acc9effb517554b34bd3
   ReactNativePasskeys: 9e950e8cbf0e7d6aad9df4dcd21cee0efeb4e5cd
   RealmJS: 1c37c6bdfe060f4caa0f9175aa0eedb962622ee1
-  RestartNewArch: 448d52741003a4918f8abe3dfc89ed32fc0c7a9d
+  RestartNewArch: 890641aebac8e2857f69faf016285030b111e045
   RevenueCat: 7e1d0768fb287c9983173c9b28e39ccbeeb828a9
   RNCAsyncStorage: c1dca434eda758348a549efb46822b4091d76804
   RNFileLogger: 52442d388d36b29b1e7884b5ffbfa916ecfbc06b
@@ -3504,7 +3504,7 @@ SPEC CHECKSUMS:
   RNNotifee: 3978eab0eb24f9c2ee6ee0440ee7c50748803559
   RNPermissions: 56c5d74ecf592d650d5c6cb252ed6956aaf22db0
   RNPurchases: 4c820359d90fab9c83ffd3ef5471d59db72e2ed1
-  RNReanimated: 24c64a050426b2e5b27d3435f1dcd89651207ff3
+  RNReanimated: 5c5779c19573b330f5c0190a3fd50b468a5fdf3a
   RNScreens: 6eccc6175d442f4d9142f9e0396f17fd8e3d26ec
   RNSentry: 857855d887a12dd8f049e7b72bf38d09f92ea7dc
   RNSVG: 45e3c3210465e75ab6374c9f746179e75d76ce48
