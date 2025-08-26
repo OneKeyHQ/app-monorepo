@@ -1,39 +1,5 @@
-diff --git a/node_modules/react-native-pager-view/android/.project b/node_modules/react-native-pager-view/android/.project
-new file mode 100644
-index 0000000..5abdc44
---- /dev/null
-+++ b/node_modules/react-native-pager-view/android/.project
-@@ -0,0 +1,28 @@
-+<?xml version="1.0" encoding="UTF-8"?>
-+<projectDescription>
-+	<name>react-native-pager-view</name>
-+	<comment>Project react-native-pager-view created by Buildship.</comment>
-+	<projects>
-+	</projects>
-+	<buildSpec>
-+		<buildCommand>
-+			<name>org.eclipse.buildship.core.gradleprojectbuilder</name>
-+			<arguments>
-+			</arguments>
-+		</buildCommand>
-+	</buildSpec>
-+	<natures>
-+		<nature>org.eclipse.buildship.core.gradleprojectnature</nature>
-+	</natures>
-+	<filteredResources>
-+		<filter>
-+			<id>1753155841748</id>
-+			<name></name>
-+			<type>30</type>
-+			<matcher>
-+				<id>org.eclipse.core.resources.regexFilterMatcher</id>
-+				<arguments>node_modules|\.git|__CREATED_BY_JAVA_LANGUAGE_SERVER__</arguments>
-+			</matcher>
-+		</filter>
-+	</filteredResources>
-+</projectDescription>
 diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManager.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManager.kt
-index 8ec286a..5ac15c2 100644
+index 8ec286a..a46ba48 100644
 --- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManager.kt
 +++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManager.kt
 @@ -17,7 +17,7 @@ import com.facebook.soloader.SoLoader
@@ -50,7 +16,7 @@ index 8ec286a..5ac15c2 100644
      }
  
 +    @ReactProp(name = "scrollSensitivity", defaultInt = 2)
-+    fun setScrollSensitivity(host: NestedScrollableHost, value: Int) {
++    override fun setScrollSensitivity(host: NestedScrollableHost, value: Int) {
 +        val view = PagerViewViewManagerImpl.getViewPager(host)
 +        view.reduceDragSensitivity(value)
 +    }
