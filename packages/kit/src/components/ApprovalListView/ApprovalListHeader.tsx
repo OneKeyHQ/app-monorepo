@@ -4,9 +4,12 @@ import { useIntl } from 'react-intl';
 
 import { Alert, SizableText, Stack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
+import { EContractApprovalAlertType } from '@onekeyhq/shared/types/approval';
 
+import useAppNavigation from '../../hooks/useAppNavigation';
 import { useApprovalListAtom } from '../../states/jotai/contexts/approvalList';
 import { ListItem } from '../ListItem';
 
@@ -24,6 +27,8 @@ function HeaderItem({ label }: { label: string }) {
 
 function ApprovalListHeader({ tableLayout }: IProps) {
   const intl = useIntl();
+
+  const navigation = useAppNavigation();
 
   const renderTableHeader = useCallback(() => {
     if (!tableLayout) {
@@ -64,9 +69,24 @@ function ApprovalListHeader({ tableLayout }: IProps) {
 
   const [{ approvals }] = useApprovalListAtom();
 
-  const handleViewRiskApprovals = useCallback(() => {
-    console.log('handleViewRiskApprovals');
-  }, []);
+  const handleViewRiskApprovals = useCallback(
+    ({
+      alertType,
+      approvals: _approvals,
+    }: {
+      alertType: EContractApprovalAlertType;
+      approvals: IContractApproval[];
+    }) => {
+      navigation.pushModal(EModalRoutes.ApprovalManagementModal, {
+        screen: EModalApprovalManagementRoutes.RevokeSuggestion,
+        params: {
+          approvals: _approvals,
+          alertType,
+        },
+      });
+    },
+    [navigation],
+  );
 
   const { riskApprovals, warningApprovals } = useMemo(() => {
     return approvals.reduce<{
@@ -94,6 +114,7 @@ function ApprovalListHeader({ tableLayout }: IProps) {
       <YStack px="$5" py="$3" gap="$5">
         {riskApprovals.length > 0 ? (
           <Alert
+            icon="ShieldExclamationSolid"
             title={intl.formatMessage({
               id: ETranslations.wallet_revoke_suggestion,
             })}
@@ -114,12 +135,18 @@ function ApprovalListHeader({ tableLayout }: IProps) {
               primary: intl.formatMessage({
                 id: ETranslations.global_view,
               }),
-              onPrimaryPress: () => {},
+              onPrimaryPress: () => {
+                handleViewRiskApprovals({
+                  alertType: EContractApprovalAlertType.Risk,
+                  approvals: riskApprovals,
+                });
+              },
             }}
           />
         ) : null}
         {warningApprovals.length > 0 ? (
           <Alert
+            icon="ShieldExclamationSolid"
             title={intl.formatMessage({
               id: ETranslations.wallet_revoke_suggestion,
             })}
@@ -137,11 +164,22 @@ function ApprovalListHeader({ tableLayout }: IProps) {
             )}
             closable
             type="warning"
+            action={{
+              primary: intl.formatMessage({
+                id: ETranslations.global_view,
+              }),
+              onPrimaryPress: () => {
+                handleViewRiskApprovals({
+                  alertType: EContractApprovalAlertType.Warning,
+                  approvals: warningApprovals,
+                });
+              },
+            }}
           />
         ) : null}
       </YStack>
     );
-  }, [intl, riskApprovals, warningApprovals.length]);
+  }, [handleViewRiskApprovals, intl, riskApprovals, warningApprovals]);
 
   return (
     <>

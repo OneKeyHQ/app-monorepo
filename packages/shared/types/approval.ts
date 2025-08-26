@@ -1,6 +1,11 @@
 import type { IAddressInfo } from './address';
 import type { IToken } from './token';
 
+export enum EContractApprovalAlertType {
+  Risk = 'risk',
+  Warning = 'warning',
+}
+
 export type IContractApproval = {
   accountId: string;
   networkId: string;

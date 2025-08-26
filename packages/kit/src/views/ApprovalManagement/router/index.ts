@@ -5,6 +5,9 @@ import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/appr
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
 
 const ApprovalDetails = LazyLoadPage(() => import('../pages/ApprovalDetails'));
+const RevokeSuggestion = LazyLoadPage(
+  () => import('../pages/RevokeSuggestion'),
+);
 
 export const ModalApprovalManagementStack: IModalFlowNavigatorConfig<
   EModalApprovalManagementRoutes,
@@ -13,5 +16,9 @@ export const ModalApprovalManagementStack: IModalFlowNavigatorConfig<
   {
     name: EModalApprovalManagementRoutes.ApprovalDetails,
     component: ApprovalDetails,
+  },
+  {
+    name: EModalApprovalManagementRoutes.RevokeSuggestion,
+    component: RevokeSuggestion,
   },
 ];

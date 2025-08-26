@@ -1,7 +1,11 @@
-import type { IContractApproval } from '@onekeyhq/shared/types/approval';
+import type {
+  EContractApprovalAlertType,
+  IContractApproval,
+} from '@onekeyhq/shared/types/approval';
 
 export enum EModalApprovalManagementRoutes {
-  ApprovalDetails = 'ApprovalManagement_ApprovalDetails',
+  ApprovalDetails = 'ApprovalDetails',
+  RevokeSuggestion = 'ApprovalList',
 }
 
 export type IModalApprovalManagementParamList = {
@@ -9,5 +13,9 @@ export type IModalApprovalManagementParamList = {
     approval: IContractApproval;
     isSelectMode?: boolean;
     onSelected?: (approval: IContractApproval) => void;
+  };
+  [EModalApprovalManagementRoutes.RevokeSuggestion]: {
+    approvals: IContractApproval[];
+    alertType: EContractApprovalAlertType;
   };
 };

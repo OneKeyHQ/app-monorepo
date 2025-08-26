@@ -30,7 +30,6 @@ import type {
 } from '@onekeyhq/shared/src/routes/approvalManagement';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -68,8 +67,6 @@ function ApprovalDetails() {
   const { copyText } = useClipboard();
 
   const navigation = useAppNavigation();
-
-  const isRiskApproval = approval.highestRiskLevel >= TX_RISKY_LEVEL_SPAM;
 
   const [isBulkRevokeMode, setIsBulkRevokeMode] = useState(false);
 
@@ -278,7 +275,7 @@ function ApprovalDetails() {
 
     return (
       <Stack>
-        {isRiskApproval && approval.riskReason ? (
+        {approval.isRiskContract && approval.riskReason ? (
           <Alert
             icon="ErrorSolid"
             type="danger"
@@ -312,7 +309,7 @@ function ApprovalDetails() {
               </SizableText>
             </YStack>
           </XStack>
-          {isRiskApproval ? (
+          {approval.isRiskContract ? (
             <XStack>
               <Badge badgeSize="lg" badgeType="critical">
                 <Badge.Text>
