@@ -42,7 +42,8 @@ export function DialogLoadingContainer() {
   return (
     <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
       <DialogContainer
-        // key={visible ? 'visible' : 'hidden'}
+        // Ensure the dialog appears above all other content with proper z-index
+        key={visible ? 'visible' : 'hidden'}
         open={visible}
         // ref={dialogRef}
         // onClose={buildForwardOnClose({ onClose })}
