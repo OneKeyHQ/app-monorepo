@@ -7884,7 +7884,7 @@ __metadata:
     "@react-native-community/slider": "npm:5.0.1"
     "@react-native-google-signin/google-signin": "npm:^9.1.0"
     "@sentry/react-native": "npm:6.16.1"
-    "@shopify/flash-list": "npm:2.0.2"
+    "@shopify/flash-list": "npm:2.0.3"
     "@types/react-native-canvas": "npm:^0.1.13"
     "@walletconnect/modal-react-native": "npm:1.1.0"
     "@walletconnect/react-native-compat": "npm:2.11.2"
@@ -10771,6 +10771,7 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@react-native-community/slider@npm:5.0.1":
   version: 5.0.1
   resolution: "@react-native-community/slider@npm:5.0.1"
   checksum: 10/0356357f43d52c56aab2abd10340855c33a2c84b8d856eadc09aa6d78128555513b627085e5e52b8b4ecfb10d949ae5e3193425eb369e4a75e7309130c5549a8
@@ -12145,16 +12146,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@shopify/flash-list@npm:2.0.2":
-  version: 2.0.2
-  resolution: "@shopify/flash-list@npm:2.0.2"
+"@shopify/flash-list@npm:2.0.3":
+  version: 2.0.3
+  resolution: "@shopify/flash-list@npm:2.0.3"
   dependencies:
     tslib: "npm:2.8.1"
   peerDependencies:
     "@babel/runtime": "*"
     react: "*"
     react-native: "*"
-  checksum: 10/9e4dad24e886b6ff318a66a27500e1293fa28d7c466453893c45a73ca195e9fac5d6cd41142cb5ad7480f8a89475ecd5ba0dfbac61a20b7704eb85b690990540
+  checksum: 10/5078d3779cfba5f286c73e1802ea78ecc337c3ae847b32f74af0de3bb38b2b96a759b1a0e04a5fd328387b31a57a436468bd022daec9af246ca2615d8ff3e44a
   languageName: node
   linkType: hard
 
