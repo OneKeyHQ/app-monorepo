@@ -104,7 +104,7 @@
     "react-native-image-crop-picker": "0.50.0",
     "react-native-keyboard-controller": "1.17.5",
     "react-native-level-fs": "3.0.1",
-    "react-native-mmkv": "3.2.0",
+    "react-native-mmkv": "3.3.0",
     "react-native-modal": "^13.0.1",
     "react-native-network-logger": "2.0.0",
     "react-native-pager-view": "6.8.1",
