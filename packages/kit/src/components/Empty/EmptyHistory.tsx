@@ -5,15 +5,9 @@ import { useIntl } from 'react-intl';
 import { Button, Empty } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalRoutes,
-  EModalWalletAddressRoutes,
-} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { EWalletAddressActionType } from '@onekeyhq/shared/types/address';
 
 import { useAccountData } from '../../hooks/useAccountData';
-import useAppNavigation from '../../hooks/useAppNavigation';
 import { useBlockExplorerNavigation } from '../../hooks/useBlockExplorerNavigation';
 import { openExplorerAddressUrl } from '../../utils/explorerUtils';
 import AddressTypeSelector from '../AddressTypeSelector/AddressTypeSelector';
@@ -35,40 +29,26 @@ function EmptyHistory({
   isSingleAccount,
 }: IEmptyHistoryProps) {
   const intl = useIntl();
-  const appNavigation = useAppNavigation();
   const { account, network, vaultSettings } = useAccountData({
     accountId,
     networkId,
   });
-  const { isInternalNav } = useBlockExplorerNavigation(network, walletId);
+  const { requiresNetworkSelection, openExplorer } = useBlockExplorerNavigation(
+    network,
+    walletId,
+  );
 
   const handleOnPress = useCallback(async () => {
-    if (isInternalNav) {
-      appNavigation.pushModal(EModalRoutes.WalletAddress, {
-        screen: EModalWalletAddressRoutes.WalletAddress,
-        params: {
-          title: intl.formatMessage({
-            id: ETranslations.global_select_network,
-          }),
-          accountId,
-          walletId: walletId ?? '',
-          indexedAccountId: indexedAccountId ?? '',
-          actionType: EWalletAddressActionType.ViewInExplorer,
-        },
-      });
-    } else {
-      await openExplorerAddressUrl({
-        networkId: account?.createAtNetwork ?? network?.id,
-        address: account?.address,
-      });
-    }
+    await openExplorer({
+      accountId,
+      indexedAccountId,
+      networkId: account?.createAtNetwork ?? network?.id,
+      address: account?.address,
+    });
   }, [
-    isInternalNav,
-    appNavigation,
-    intl,
+    openExplorer,
     accountId,
     indexedAccountId,
-    walletId,
     account?.createAtNetwork,
     account?.address,
     network?.id,
@@ -107,7 +87,7 @@ function EmptyHistory({
         variant="secondary"
         onPress={handleOnPress}
         mt="$6"
-        iconAfter={isInternalNav ? undefined : 'OpenOutline'}
+        iconAfter={requiresNetworkSelection ? undefined : 'OpenOutline'}
       >
         {intl.formatMessage({ id: ETranslations.global_block_explorer })}
       </Button>
@@ -115,7 +95,7 @@ function EmptyHistory({
   }, [
     account?.indexedAccountId,
     handleOnPress,
-    isInternalNav,
+    requiresNetworkSelection,
     indexedAccountId,
     intl,
     isSingleAccount,

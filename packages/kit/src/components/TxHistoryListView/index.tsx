@@ -16,17 +16,12 @@ import {
 import { useStyle } from '@onekeyhq/components/src/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalRoutes,
-  EModalWalletAddressRoutes,
-} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   convertToSectionGroups,
   getFilteredHistoryBySearchKey,
 } from '@onekeyhq/shared/src/utils/historyUtils';
-import { EWalletAddressActionType } from '@onekeyhq/shared/types/address';
 import type {
   IAccountHistoryTx,
   IHistoryListSectionGroup,
@@ -34,7 +29,6 @@ import type {
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { useAccountData } from '../../hooks/useAccountData';
-import useAppNavigation from '../../hooks/useAppNavigation';
 import { useBlockExplorerNavigation } from '../../hooks/useBlockExplorerNavigation';
 import {
   useHasMoreOnChainHistoryAtom,
@@ -95,7 +89,6 @@ const ListFooterComponent = ({
   hasMoreOnChainHistory?: boolean;
   isSingleAccount?: boolean;
 }) => {
-  const appNavigation = useAppNavigation();
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
   const intl = useIntl();
   const addPaddingOnListFooter = useMemo(
@@ -107,35 +100,22 @@ const ListFooterComponent = ({
     accountId,
     networkId,
   });
-  const { isInternalNav } = useBlockExplorerNavigation(network, walletId);
+  const { requiresNetworkSelection, openExplorer } = useBlockExplorerNavigation(
+    network,
+    walletId,
+  );
 
   const handleOnPress = useCallback(async () => {
-    if (isInternalNav) {
-      appNavigation.pushModal(EModalRoutes.WalletAddress, {
-        screen: EModalWalletAddressRoutes.WalletAddress,
-        params: {
-          title: intl.formatMessage({
-            id: ETranslations.global_select_network,
-          }),
-          accountId,
-          walletId: walletId ?? '',
-          indexedAccountId: indexedAccountId ?? '',
-          actionType: EWalletAddressActionType.ViewInExplorer,
-        },
-      });
-    } else {
-      await openExplorerAddressUrl({
-        networkId: account?.createAtNetwork ?? network?.id,
-        address: account?.address,
-      });
-    }
+    await openExplorer({
+      accountId,
+      indexedAccountId,
+      networkId: account?.createAtNetwork ?? network?.id,
+      address: account?.address,
+    });
   }, [
-    isInternalNav,
-    appNavigation,
-    intl,
+    openExplorer,
     accountId,
     indexedAccountId,
-    walletId,
     account?.createAtNetwork,
     account?.address,
     network?.id,
@@ -189,7 +169,7 @@ const ListFooterComponent = ({
               size="small"
               variant="secondary"
               onPress={handleOnPress}
-              iconAfter={isInternalNav ? undefined : 'OpenOutline'}
+              iconAfter={requiresNetworkSelection ? undefined : 'OpenOutline'}
             >
               {intl.formatMessage({ id: ETranslations.global_block_explorer })}
             </Button>
