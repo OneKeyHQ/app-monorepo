@@ -2482,8 +2482,8 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - RNFileLogger (0.6.1):
-    - CocoaLumberjack (~> 3.8.5)
+  - RNFileLogger (0.7.1):
+    - CocoaLumberjack (~> 3)
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2506,7 +2506,7 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - SSZipArchive (~> 2.5.5)
+    - SSZipArchive (~> 2)
     - Yoga
   - RNGestureHandler (2.27.1):
     - DoubleConversion
@@ -3498,7 +3498,7 @@ SPEC CHECKSUMS:
   RestartNewArch: 890641aebac8e2857f69faf016285030b111e045
   RevenueCat: 7e1d0768fb287c9983173c9b28e39ccbeeb828a9
   RNCAsyncStorage: c1dca434eda758348a549efb46822b4091d76804
-  RNFileLogger: 52442d388d36b29b1e7884b5ffbfa916ecfbc06b
+  RNFileLogger: bf2de384fca1484f291f361ad8d820e11f1cc4ad
   RNGestureHandler: 6b48571964d1b4302f531bb07f8360399a02200a
   RNImageCropPicker: de6a16085ad4e4c67850b0c662d1d333d367cc59
   RNNotifee: 3978eab0eb24f9c2ee6ee0440ee7c50748803559

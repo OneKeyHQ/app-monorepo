@@ -7935,7 +7935,7 @@ __metadata:
     react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@2.6.3"
     react-native-collapsible-tab-view: "npm:8.0.1"
     react-native-crypto: "npm:^2.2.0"
-    react-native-file-logger: "npm:0.6.1"
+    react-native-file-logger: "npm:0.7.1"
     react-native-fs: "npm:@dr.pogodin/react-native-fs@2.34.0"
     react-native-gesture-handler: "npm:2.27.1"
     react-native-get-random-values: "npm:1.9.0"
@@ -35225,15 +35225,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-file-logger@npm:0.6.1":
-  version: 0.6.1
-  resolution: "react-native-file-logger@npm:0.6.1"
+"react-native-file-logger@npm:0.7.1":
+  version: 0.7.1
+  resolution: "react-native-file-logger@npm:0.7.1"
   dependencies:
     util: "npm:^0.12.5"
   peerDependencies:
     react: ">=16.0.0"
     react-native: ">=0.60.0"
-  checksum: 10/3f072d5d0dc569bded33ca8c49aec1ff1668418bb0d86c6c74a3993ea543d373b68dbb279157ce67c25c434fc39436acd4775ce8fe6d3dc4f3e9e14d9ea842af
+  checksum: 10/9e399a8e3a68ae825cc9cc60b956c32ebeeadf2959ba8d77786a1be4bcf3f8916897bdc3dae64b3f4790abf95a4241af739059726c71b478563c11c3557d20a8
   languageName: node
   linkType: hard
 
