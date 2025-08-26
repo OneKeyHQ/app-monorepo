@@ -18,15 +18,17 @@ import {
   YStack,
   useForm,
 } from '@onekeyhq/components';
-import type { UseFormReturn } from '@onekeyhq/components';
+import type { ISelectSection, UseFormReturn } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSignAndVerifyRoutes,
   IModalSignAndVerifyParamList,
 } from '@onekeyhq/shared/src/routes/signAndVerify';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ESignAndVerifyAction } from '@onekeyhq/shared/types/signAndVerify';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -39,8 +41,86 @@ type ISignFormData = {
   hexFormat: boolean;
 };
 
-const SignForm = ({ form }: { form: UseFormReturn<ISignFormData> }) => {
+const SignForm = ({
+  form,
+  networkId,
+  accountId,
+  indexedAccountId,
+  isOthersWallet,
+}: {
+  form: UseFormReturn<ISignFormData>;
+  networkId: string;
+  accountId: string | undefined;
+  indexedAccountId: string | undefined;
+  isOthersWallet: boolean | undefined;
+}) => {
   const intl = useIntl();
+  const { result: selectOptions } = usePromiseResult<ISelectSection[]>(
+    async () => {
+      const { accounts: signAccounts } =
+        await backgroundApiProxy.serviceInternalSignAndVerify.getSignAccounts({
+          networkId,
+          accountId,
+          indexedAccountId,
+          isOthersWallet,
+        });
+      const result: ISelectSection[] = [];
+      const ethereumAccount = signAccounts.find(
+        (account) => account.network.id === getNetworkIdsMap().eth,
+      );
+      if (ethereumAccount) {
+        result.push({
+          title: ethereumAccount.network.name,
+          data: [
+            {
+              label: accountUtils.shortenAddress({
+                address: ethereumAccount.account.address,
+              }),
+              value: ethereumAccount.account.address,
+            },
+          ],
+        });
+      }
+
+      const solanaAccount = signAccounts.find(
+        (account) => account.network.id === getNetworkIdsMap().sol,
+      );
+      if (solanaAccount) {
+        result.push({
+          title: solanaAccount.network.name,
+          data: [
+            {
+              label: accountUtils.shortenAddress({
+                address: solanaAccount.account.address,
+              }),
+              value: solanaAccount.account.address,
+            },
+          ],
+        });
+      }
+
+      const btcAccounts = signAccounts.filter(
+        (account) => account.network.id === getNetworkIdsMap().btc,
+      );
+      if (btcAccounts.length > 0) {
+        result.push({
+          title: 'BTC',
+          data: btcAccounts.map((account) => ({
+            label: accountUtils.shortenAddress({
+              address: account.account.address,
+            }),
+            value: account.account.address,
+            description: account.deriveLabel,
+          })),
+        });
+      }
+      return result;
+    },
+    [accountId, indexedAccountId, isOthersWallet, networkId],
+    {
+      initResult: [],
+    },
+  );
 
   return (
     <Form form={form}>
@@ -86,12 +166,7 @@ const SignForm = ({ form }: { form: UseFormReturn<ISignFormData> }) => {
           placeholder={intl.formatMessage({
             id: ETranslations.global_address,
           })}
-          items={[
-            {
-              label: 'bc1p2y20...3fzymr',
-              value: 'bc1p2y20...3fzymr',
-            },
-          ]}
+          sections={selectOptions}
           defaultTriggerInputProps={{
             leftAddOnProps: {
               size: 'large',
@@ -209,10 +284,25 @@ function SignAndVerifyMessage() {
 
   const renderContent = useCallback(() => {
     if (action === ESignAndVerifyAction.Sign) {
-      return <SignForm form={signForm} />;
+      return (
+        <SignForm
+          form={signForm}
+          networkId={networkId}
+          accountId={accountId}
+          indexedAccountId={indexedAccountId}
+          isOthersWallet={isOthersWallet}
+        />
+      );
     }
     return <SizableText>Verify message</SizableText>;
-  }, [action, signForm]);
+  }, [
+    action,
+    signForm,
+    networkId,
+    accountId,
+    indexedAccountId,
+    isOthersWallet,
+  ]);
 
   return (
     <Page scrollEnabled onClose={() => {}} safeAreaEnabled>
