@@ -1244,23 +1244,10 @@ export function useSwapBuildTx() {
             }
           }
         }
-      } else if (
-        stepGasInfos?.find(
-          (s) =>
-            isEqual(s.encodeTx, unsignedTx.encodedTx) ||
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            (s.encodeTx as any)?.rawSignTx ===
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              (unsignedTx.encodedTx as any)?.rawSignTx,
-        )
-      ) {
-        const gasInfoFinal = stepGasInfos?.find(
-          (s) =>
-            isEqual(s.encodeTx, unsignedTx.encodedTx) ||
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            (s.encodeTx as any)?.rawSignTx ===
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              (unsignedTx.encodedTx as any)?.rawSignTx,
+      } else if (findGasInfo(stepGasInfos ?? [], unsignedTx.encodedTx)) {
+        const gasInfoFinal = findGasInfo(
+          stepGasInfos ?? [],
+          unsignedTx.encodedTx,
         )?.gasInfo;
         if (gasInfoFinal) {
           try {
