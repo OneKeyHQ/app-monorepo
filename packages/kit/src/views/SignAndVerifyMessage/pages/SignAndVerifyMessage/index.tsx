@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,24 +17,20 @@ import {
   YStack,
   useForm,
 } from '@onekeyhq/components';
+import type { UseFormReturn } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESignAndVerifyAction } from '@onekeyhq/shared/types/signAndVerify';
 
-const SignForm = () => {
-  const intl = useIntl();
-  const form = useForm({
-    defaultValues: {
-      message: '',
-      address: '',
-      format: 'electrum',
-      signature: '',
-      hexFormat: false,
-    },
-  });
+type ISignFormData = {
+  message: string;
+  address: string;
+  format: string;
+  signature: string;
+  hexFormat: boolean;
+};
 
-  const handleSign = () => {
-    console.log(form.getValues());
-  };
+const SignForm = ({ form }: { form: UseFormReturn<ISignFormData> }) => {
+  const intl = useIntl();
 
   return (
     <Form form={form}>
@@ -133,12 +129,32 @@ function SignAndVerifyMessage() {
   const intl = useIntl();
   const [action, setAction] = useState(ESignAndVerifyAction.Sign);
 
+  const signForm = useForm<ISignFormData>({
+    defaultValues: {
+      message: '',
+      address: '',
+      format: 'electrum',
+      signature: '',
+      hexFormat: false,
+    },
+  });
+
+  const signFormValues = signForm.watch();
+  const isSignDisabled = useMemo(
+    () => !signFormValues.message || !signFormValues.address,
+    [signFormValues],
+  );
+
+  const handleSign = useCallback(() => {
+    console.log('Sign form values:', signForm.getValues());
+  }, [signForm]);
+
   const renderContent = useCallback(() => {
     if (action === ESignAndVerifyAction.Sign) {
-      return <SignForm />;
+      return <SignForm form={signForm} />;
     }
     return <SizableText>Verify message</SizableText>;
-  }, [action]);
+  }, [action, signForm]);
 
   return (
     <Page scrollEnabled onClose={() => {}} safeAreaEnabled>
@@ -178,12 +194,12 @@ function SignAndVerifyMessage() {
           id: ETranslations.global_sign,
         })}
         confirmButtonProps={{
-          disabled: true,
+          disabled: action !== ESignAndVerifyAction.Sign || isSignDisabled,
           loading: false,
         }}
-        onConfirm={() => {
-          console.log('sign');
-        }}
+        onConfirm={
+          action === ESignAndVerifyAction.Sign ? handleSign : undefined
+        }
       />
     </Page>
   );
