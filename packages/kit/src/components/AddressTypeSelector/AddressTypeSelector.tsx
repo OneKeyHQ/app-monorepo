@@ -46,6 +46,7 @@ import AddressTypeSelectorItem from './AddressTypeSelectorItem';
 import AddressTypeSelectorTrigger from './AddressTypeSelectorTrigger';
 
 import type { PopoverProps } from 'tamagui';
+import { useAccountData } from '../../hooks/useAccountData';
 
 const helpLinkMap: Record<string, string> = {
   [IMPL_BTC]: 'https://help.onekey.so/articles/11461370',
@@ -104,7 +105,7 @@ function AddressTypeSelectorContent(
       deriveType: IAccountDeriveTypes;
     }[];
     refreshNetworkAccounts: () => Promise<void>;
-    selectorTitle: string | ReactElement;
+    selectorTitle: string | ReactNode;
   },
 ) {
   const {
@@ -233,7 +234,6 @@ function AddressTypeSelectorContent(
 
       if (!doubleConfirm) {
         if (changeDefaultAddressTypeAfterSelect) {
-          console.log('saveGlobalDeriveTypeForNetwork', networkId, deriveType);
           await backgroundApiProxy.serviceNetwork.saveGlobalDeriveTypeForNetwork(
             {
               networkId,
@@ -340,8 +340,77 @@ function AddressTypeSelectorContent(
   );
 }
 
-function AddressTypeSelector(props: IProps) {
+const SelectorTitle = ({
+  title,
+  helpLink,
+  closePopover,
+}: {
+  title: string | ReactElement | undefined;
+  helpLink: string;
+  closePopover: () => void;
+}) => {
   const intl = useIntl();
+  let defaultTitle = intl.formatMessage({
+    id: ETranslations.address_type_selector_title,
+  });
+
+  if (title)
+    if (typeof title === 'string') {
+      defaultTitle = title;
+    } else {
+      return title;
+    }
+
+  return (
+    <XStack alignItems="center" justifyContent="space-between">
+      <XStack
+        gap={6}
+        alignItems="center"
+        {...(helpLink && {
+          cursor: 'pointer',
+          px: '$2',
+          py: '$1',
+          mx: '$-2',
+          my: '$-1',
+          borderRadius: '$2',
+          hoverStyle: {
+            bg: '$bgHover',
+          },
+          pressStyle: {
+            bg: '$bgActive',
+          },
+          onPress: () => {
+            openUrlExternal(helpLink);
+          },
+        })}
+      >
+        <SizableText
+          size="$headingMd"
+          $gtMd={{
+            size: '$headingSm',
+          }}
+        >
+          {defaultTitle}
+        </SizableText>
+        {helpLink ? (
+          <Icon name="QuestionmarkOutline" size="$4" color="$iconSubdued" />
+        ) : null}
+      </XStack>
+      <IconButton
+        $gtMd={{
+          display: 'none',
+        }}
+        icon="CrossedSmallOutline"
+        variant="tertiary"
+        onPress={() => {
+          closePopover();
+        }}
+      />
+    </XStack>
+  );
+};
+
+function AddressTypeSelector(props: IProps) {
   const {
     walletId,
     networkId,
@@ -358,6 +427,10 @@ function AddressTypeSelector(props: IProps) {
     doubleConfirm,
     offset,
   } = props;
+
+  const { network } = useAccountData({
+    networkId,
+  });
 
   const helpLink = useMemo(() => {
     const impl = networkUtils.getNetworkImpl({ networkId });
@@ -411,72 +484,13 @@ function AddressTypeSelector(props: IProps) {
       ?.deriveInfo;
   }, [activeDeriveInfoProp, networkAccounts, activeDeriveType]);
 
-  const selectorTitle = useMemo(() => {
-    let defaultTitle = intl.formatMessage({
-      id: ETranslations.address_type_selector_title,
-    });
-
-    if (title)
-      if (typeof title === 'string') {
-        defaultTitle = title;
-      } else {
-        return title;
-      }
-
-    return (
-      <XStack alignItems="center" justifyContent="space-between">
-        <XStack
-          gap={6}
-          alignItems="center"
-          {...(helpLink && {
-            cursor: 'pointer',
-            px: '$2',
-            py: '$1',
-            mx: '$-2',
-            my: '$-1',
-            borderRadius: '$2',
-            hoverStyle: {
-              bg: '$bgHover',
-            },
-            pressStyle: {
-              bg: '$bgActive',
-            },
-            onPress: () => {
-              openUrlExternal(helpLink);
-            },
-          })}
-        >
-          <SizableText
-            size="$headingMd"
-            $gtMd={{
-              size: '$headingSm',
-            }}
-          >
-            {defaultTitle}
-          </SizableText>
-          {helpLink ? (
-            <Icon name="QuestionmarkOutline" size="$4" color="$iconSubdued" />
-          ) : null}
-        </XStack>
-        <Popover.Close>
-          <IconButton
-            $gtMd={{
-              display: 'none',
-            }}
-            icon="CrossedSmallOutline"
-            variant="tertiary"
-          />
-        </Popover.Close>
-      </XStack>
-    );
-  }, [helpLink, intl, title]);
-
   const contextValue = useMemo(
     () => ({
       tokenMap,
       activeDeriveType,
       creatingDeriveType,
       networkId,
+      networkLogoURI: network?.logoURI,
       isFetchingTokenMap,
       isCreatingAddress,
       setIsCreatingAddress,
@@ -488,6 +502,7 @@ function AddressTypeSelector(props: IProps) {
       activeDeriveType,
       creatingDeriveType,
       networkId,
+      network?.logoURI,
       isFetchingTokenMap,
       isCreatingAddress,
       setIsCreatingAddress,
@@ -599,7 +614,13 @@ function AddressTypeSelector(props: IProps) {
               closePopover={closePopover}
               networkAccounts={networkAccounts}
               refreshNetworkAccounts={refreshNetworkAccounts}
-              selectorTitle={selectorTitle}
+              selectorTitle={
+                <SelectorTitle
+                  title={title}
+                  helpLink={helpLink}
+                  closePopover={closePopover}
+                />
+              }
               {...props}
             />
           </AddressTypeSelectorContext.Provider>

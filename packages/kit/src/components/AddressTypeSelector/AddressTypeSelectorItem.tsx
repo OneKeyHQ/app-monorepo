@@ -23,7 +23,7 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { ListItem } from '../ListItem';
-import { NetworkAvatar } from '../NetworkAvatar';
+import { NetworkAvatarBase } from '../NetworkAvatar';
 
 import { useAddressTypeSelectorContext } from './AddressTypeSelectorContext';
 
@@ -47,7 +47,7 @@ function AddressTypeSelectorItem(props: IProps) {
   const {
     tokenMap,
     activeDeriveType,
-    networkId,
+    networkLogoURI,
     isCreatingAddress,
     creatingDeriveType,
   } = useAddressTypeSelectorContext();
@@ -133,7 +133,7 @@ function AddressTypeSelectorItem(props: IProps) {
       {tokenFiat ? (
         <YStack alignItems="flex-end" userSelect="none">
           <XStack alignItems="center" gap="$1" pb="$0.5">
-            <NetworkAvatar networkId={networkId} size={16} />
+            <NetworkAvatarBase logoURI={networkLogoURI ?? ''} size={16} />
             <NumberSizeableText
               size="$bodyMdMedium"
               $gtMd={{

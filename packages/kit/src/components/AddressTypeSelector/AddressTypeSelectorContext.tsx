@@ -8,6 +8,7 @@ const AddressTypeSelectorContext = createContext<{
   creatingDeriveType: IAccountDeriveTypes | undefined;
   tokenMap: Record<string, ITokenFiat> | undefined;
   networkId: string;
+  networkLogoURI: string | undefined;
   isFetchingTokenMap: boolean;
   isCreatingAddress: boolean;
   setIsCreatingAddress: (value: boolean) => void;
@@ -18,6 +19,7 @@ const AddressTypeSelectorContext = createContext<{
   creatingDeriveType: undefined,
   tokenMap: undefined,
   networkId: '',
+  networkLogoURI: undefined,
   isFetchingTokenMap: false,
   isCreatingAddress: false,
   setIsCreatingAddress: () => {},
