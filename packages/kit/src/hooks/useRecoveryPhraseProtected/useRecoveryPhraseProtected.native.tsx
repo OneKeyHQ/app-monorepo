@@ -80,12 +80,12 @@ export const useRecoveryPhraseProtected = () => {
                     borderColor="$border"
                     justifyContent="flex-end"
                     alignItems="center"
-                    bg="rgba(rgba(0, 0, 0, 0.9)"
+                    bg="rgba(0, 0, 0, 0.9)"
                   >
                     <Stack
                       h="$1"
                       w={50}
-                      bg="rgba(rgba(255, 255, 255, 0.95))"
+                      bg="rgba(255, 255, 255, 0.95)"
                       borderRadius={14}
                     />
                   </YStack>
