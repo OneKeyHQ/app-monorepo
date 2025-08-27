@@ -3,13 +3,21 @@ import { createContext, useContext } from 'react';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { ITokenFiat } from '@onekeyhq/shared/types/token';
 
-const AddressTypeSelectorContext = createContext<{
-  activeDeriveType: IAccountDeriveTypes | undefined;
-  creatingDeriveType: IAccountDeriveTypes | undefined;
+const AddressTypeSelectorStableContext = createContext<{
   tokenMap: Record<string, ITokenFiat> | undefined;
   networkId: string;
   networkLogoURI: string | undefined;
   isFetchingTokenMap: boolean;
+}>({
+  tokenMap: undefined,
+  networkId: '',
+  networkLogoURI: undefined,
+  isFetchingTokenMap: false,
+});
+
+const AddressTypeSelectorDynamicContext = createContext<{
+  activeDeriveType: IAccountDeriveTypes | undefined;
+  creatingDeriveType: IAccountDeriveTypes | undefined;
   isCreatingAddress: boolean;
   setIsCreatingAddress: (value: boolean) => void;
   setActiveDeriveType: (value: IAccountDeriveTypes | undefined) => void;
@@ -17,17 +25,21 @@ const AddressTypeSelectorContext = createContext<{
 }>({
   activeDeriveType: undefined,
   creatingDeriveType: undefined,
-  tokenMap: undefined,
-  networkId: '',
-  networkLogoURI: undefined,
-  isFetchingTokenMap: false,
   isCreatingAddress: false,
   setIsCreatingAddress: () => {},
   setActiveDeriveType: () => {},
   setCreatingDeriveType: () => {},
 });
 
-const useAddressTypeSelectorContext = () =>
-  useContext(AddressTypeSelectorContext);
+const useAddressTypeSelectorStableContext = () =>
+  useContext(AddressTypeSelectorStableContext);
 
-export { AddressTypeSelectorContext, useAddressTypeSelectorContext };
+const useAddressTypeSelectorDynamicContext = () =>
+  useContext(AddressTypeSelectorDynamicContext);
+
+export {
+  AddressTypeSelectorStableContext,
+  AddressTypeSelectorDynamicContext,
+  useAddressTypeSelectorStableContext,
+  useAddressTypeSelectorDynamicContext,
+};

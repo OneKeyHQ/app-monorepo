@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -34,19 +34,20 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useAccountData } from '../../hooks/useAccountData';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 import { useAccountSelectorCreateAddress } from '../AccountSelector/hooks/useAccountSelectorCreateAddress';
 
 import {
-  AddressTypeSelectorContext,
-  useAddressTypeSelectorContext,
+  AddressTypeSelectorDynamicContext,
+  AddressTypeSelectorStableContext,
+  useAddressTypeSelectorDynamicContext,
 } from './AddressTypeSelectorContext';
 import AddressTypeSelectorItem from './AddressTypeSelectorItem';
 import AddressTypeSelectorTrigger from './AddressTypeSelectorTrigger';
 
 import type { PopoverProps } from 'tamagui';
-import { useAccountData } from '../../hooks/useAccountData';
 
 const helpLinkMap: Record<string, string> = {
   [IMPL_BTC]: 'https://help.onekey.so/articles/11461370',
@@ -130,7 +131,7 @@ function AddressTypeSelectorContent(
     setIsCreatingAddress,
     setActiveDeriveType,
     setCreatingDeriveType,
-  } = useAddressTypeSelectorContext();
+  } = useAddressTypeSelectorDynamicContext();
 
   const { createAddress } = useAccountSelectorCreateAddress();
 
@@ -288,6 +289,7 @@ function AddressTypeSelectorContent(
         renderItem={({ item }) => {
           return (
             <AddressTypeSelectorItem
+              key={item.deriveType}
               data={item}
               onSelect={handleAddressTypeOnSelect}
             />
@@ -484,32 +486,42 @@ function AddressTypeSelector(props: IProps) {
       ?.deriveInfo;
   }, [activeDeriveInfoProp, networkAccounts, activeDeriveType]);
 
-  const contextValue = useMemo(
+  const stableContextValue = useMemo(
     () => ({
       tokenMap,
-      activeDeriveType,
-      creatingDeriveType,
       networkId,
       networkLogoURI: network?.logoURI,
       isFetchingTokenMap,
+    }),
+    [tokenMap, networkId, network?.logoURI, isFetchingTokenMap],
+  );
+
+  const dynamicContextValue = useMemo(
+    () => ({
+      activeDeriveType,
+      creatingDeriveType,
       isCreatingAddress,
       setIsCreatingAddress,
       setActiveDeriveType,
       setCreatingDeriveType,
     }),
     [
-      tokenMap,
       activeDeriveType,
       creatingDeriveType,
-      networkId,
-      network?.logoURI,
-      isFetchingTokenMap,
       isCreatingAddress,
       setIsCreatingAddress,
       setActiveDeriveType,
       setCreatingDeriveType,
     ],
   );
+
+  const activeDeriveTypeRef = useRef(activeDeriveType);
+  const isCreatingAddressRef = useRef(isCreatingAddress);
+  const dynamicContextValueRef = useRef(dynamicContextValue);
+
+  activeDeriveTypeRef.current = activeDeriveType;
+  isCreatingAddressRef.current = isCreatingAddress;
+  dynamicContextValueRef.current = dynamicContextValue;
 
   useEffect(() => {
     const fetchDefaultDeriveType = async () => {
@@ -578,6 +590,53 @@ function AddressTypeSelector(props: IProps) {
     };
   }, [refreshNetworkAccounts]);
 
+  const renderContent = useCallback(
+    ({
+      isOpen,
+      closePopover,
+    }: {
+      isOpen?: boolean;
+      closePopover: () => void;
+    }) => (
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
+      >
+        <AddressTypeSelectorStableContext.Provider value={stableContextValue}>
+          <AddressTypeSelectorDynamicContext.Provider
+            value={dynamicContextValueRef.current}
+          >
+            <AddressTypeSelectorContent
+              isOpen={isOpen}
+              closePopover={closePopover}
+              networkAccounts={networkAccounts}
+              refreshNetworkAccounts={refreshNetworkAccounts}
+              selectorTitle={
+                <SelectorTitle
+                  title={title}
+                  helpLink={helpLink}
+                  closePopover={closePopover}
+                />
+              }
+              {...props}
+            />
+          </AddressTypeSelectorDynamicContext.Provider>
+        </AddressTypeSelectorStableContext.Provider>
+      </AccountSelectorProviderMirror>
+    ),
+    [
+      stableContextValue,
+      networkAccounts,
+      refreshNetworkAccounts,
+      helpLink,
+      title,
+      props,
+    ],
+  );
+
   if (isSelectorDisabled) {
     return showTriggerWhenDisabled
       ? renderSelectorTrigger ?? (
@@ -600,32 +659,7 @@ function AddressTypeSelector(props: IProps) {
           <AddressTypeSelectorTrigger activeDeriveInfo={activeDeriveInfo} />
         )
       }
-      renderContent={({ isOpen, closePopover }) => (
-        <AccountSelectorProviderMirror
-          config={{
-            sceneName: EAccountSelectorSceneName.home,
-            sceneUrl: '',
-          }}
-          enabledNum={[0]}
-        >
-          <AddressTypeSelectorContext.Provider value={contextValue}>
-            <AddressTypeSelectorContent
-              isOpen={isOpen}
-              closePopover={closePopover}
-              networkAccounts={networkAccounts}
-              refreshNetworkAccounts={refreshNetworkAccounts}
-              selectorTitle={
-                <SelectorTitle
-                  title={title}
-                  helpLink={helpLink}
-                  closePopover={closePopover}
-                />
-              }
-              {...props}
-            />
-          </AddressTypeSelectorContext.Provider>
-        </AccountSelectorProviderMirror>
-      )}
+      renderContent={renderContent}
       onOpenChange={(open) => {
         if (!open && doubleConfirm) {
           void backgroundApiProxy.serviceNetwork
