@@ -22,13 +22,8 @@ export function useAutoTokenDetailUpdate({
 
   const pushLatestTokenDetailData = useCallback(() => {
     // Skip if disabled or missing required params
-    if (
-      !enabled ||
-      !tokenAddress ||
-      !networkId ||
-      !webRef.current ||
-      !tokenDetail
-    ) {
+    // For native tokens, tokenAddress might be empty, but networkId is required
+    if (!enabled || !networkId || !webRef.current || !tokenDetail) {
       return;
     }
 

@@ -54,6 +54,7 @@ export function useAutoKLineUpdate({
         timeTo,
       });
 
+
       if (webRef.current && kLineData) {
         webRef.current.sendMessageViaInjectedScript({
           type: 'autoKLineUpdate',
@@ -104,8 +105,6 @@ export function useAutoKLineUpdate({
   ]);
 
   // Use the existing useInterval hook pattern
-  useInterval(
-    enabled && tokenAddress && networkId ? pushLatestKLineData : () => {},
-    interval,
-  );
+  // For native tokens, tokenAddress might be empty, but networkId is required
+  useInterval(enabled && networkId ? pushLatestKLineData : () => {}, interval);
 }
