@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+let i = 1;
 export function DialogLoadingContainer() {
   // const dialogRef = useRef<IDialogInstance | null>(null);
   const [visible, setVisible] = useState(false);
@@ -43,15 +44,19 @@ export function DialogLoadingContainer() {
   const key = useMemo(() => {
     // Ensure the dialog appears above all other content with proper z-index
     if (platformEnv.isNativeIOS) {
-      return visible ? 'visible' : 'hidden';
+      return `${visible ? 'visible' : 'hidden'}-${
+        payload?.title || Math.random().toString()
+      }`;
     }
     return undefined;
-  }, [visible]);
+  }, [payload?.title, visible]);
 
+  console.log('key', key);
+  i += 1;
   return (
     <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
       <DialogContainer
-        key={key}
+        key={key + i.toString()}
         open={visible}
         // ref={dialogRef}
         // onClose={buildForwardOnClose({ onClose })}
