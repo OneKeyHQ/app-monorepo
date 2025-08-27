@@ -42,7 +42,9 @@ export const useRecoveryPhraseProtected = () => {
               {
                 tag: (chunks) =>
                   (
-                    <SizableText color="$textCritical">{chunks}</SizableText>
+                    <SizableText color="$textCritical" size="$bodyLgMedium">
+                      {chunks}
+                    </SizableText>
                   ) as unknown as string,
               },
             ),
@@ -68,8 +70,9 @@ export const useRecoveryPhraseProtected = () => {
                   right="$2"
                 />
                 <YStack
-                  bg="$bgApp"
+                  bg="rgba(rgba(0, 0, 0, 0.9)"
                   p="$3"
+                  pb={5}
                   w={120}
                   h={228}
                   borderColor="$neutral3"
@@ -80,43 +83,10 @@ export const useRecoveryPhraseProtected = () => {
                   shadowOpacity={1}
                   shadowRadius={4}
                   elevation={2}
+                  justifyContent="flex-end"
+                  alignItems="center"
                 >
-                  <Placeholder w="$10" alignSelf="center" />
-                  <Placeholder w="100%" mt="$2.5" />
-                  <Placeholder w="74%" mt={5} />
-                  <LinearGradient
-                    h={117}
-                    mt="$4"
-                    colors={['$critical3', '$critical5']}
-                    borderColor="$borderCritical"
-                    borderWidth={1}
-                    borderRadius={6}
-                    borderStyle="dashed"
-                    shadowColor="rgba(0, 0, 0, 0.1)"
-                    shadowOffset={{ width: 0, height: 2 }}
-                    shadowOpacity={1}
-                    shadowRadius={4}
-                    ai="center"
-                    jc="center"
-                  >
-                    <Icon
-                      name="CrossedSmallSolid"
-                      size="$6"
-                      color="$iconCritical"
-                    />
-                  </LinearGradient>
-                  <LinearGradient
-                    h="$5"
-                    mt="$4"
-                    colors={['$neutral11', '$neutral12']}
-                    borderColor="$neutral12"
-                    borderWidth={1}
-                    borderRadius={6}
-                    shadowColor="rgba(0, 0, 0, 0.1)"
-                    shadowOffset={{ width: 0, height: 2 }}
-                    shadowOpacity={1}
-                    shadowRadius={4}
-                  />
+                  <Stack h="$1" w={50} bg="rgba(rgba(255, 255, 255, 0.95))" />
                 </YStack>
               </YStack>
             ),
