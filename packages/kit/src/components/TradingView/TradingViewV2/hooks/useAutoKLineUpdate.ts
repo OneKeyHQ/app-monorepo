@@ -33,22 +33,8 @@ export function useAutoKLineUpdate({
     // Skip if disabled or missing required params
     // For native tokens, tokenAddress might be empty, but networkId is required
     if (!enabled || !networkId || !webRef.current) {
-      console.log('[PRICE_UPDATE] 🚫 K-line update skipped:', {
-        enabled,
-        networkId: !!networkId,
-        webRef: !!webRef.current,
-        tokenAddress: tokenAddress || 'NATIVE',
-      });
       return;
     }
-
-    console.log('[PRICE_UPDATE] 🔄 K-line update starting:', {
-      tokenAddress: tokenAddress || 'NATIVE',
-      networkId,
-      timestamp: new Date().toLocaleTimeString(),
-      hasTokenDetail: !!tokenDetail,
-      currentPrice: tokenDetail?.price,
-    });
 
     try {
       const now = Math.floor(Date.now() / 1000);
@@ -57,7 +43,6 @@ export function useAutoKLineUpdate({
 
       // Skip if we just updated recently (avoid duplicate calls)
       if (now - lastUpdateTime.current < 4) {
-        console.log('[PRICE_UPDATE] ⏭️ K-line update too frequent, skipping');
         return;
       }
 
@@ -74,19 +59,6 @@ export function useAutoKLineUpdate({
         kLineData.points.sort((a, b) => a.t - b.t);
       }
 
-      console.log(
-        '[PRICE_UPDATE] 📊 K-line data fetched and sorted:',
-        {
-          tokenAddress: tokenAddress || 'NATIVE',
-          hasData: !!kLineData,
-          pointsCount: kLineData?.points?.length || 0,
-          latestPrice:
-            kLineData?.points?.[kLineData.points.length - 1]?.c || 'N/A',
-          firstTimestamp: kLineData?.points?.[0]?.t,
-          lastTimestamp: kLineData?.points?.[kLineData.points.length - 1]?.t,
-        },
-      );
-
       if (webRef.current && kLineData) {
         webRef.current.sendMessageViaInjectedScript({
           type: 'autoKLineUpdate',
@@ -98,24 +70,10 @@ export function useAutoKLineUpdate({
         });
 
         // Update token detail price with latest K-line close price
-        console.log('[PRICE_UPDATE] 🔍 K-line price update check:', {
-          tokenAddress: tokenAddress || 'NATIVE',
-          hasPoints: !!(kLineData.points && kLineData.points.length > 0),
-          hasTokenDetail: !!tokenDetail,
-          pointsLength: kLineData.points?.length || 0,
-        });
 
         if (kLineData.points && kLineData.points.length > 0 && tokenDetail) {
           const latestPoint = kLineData.points[kLineData.points.length - 1];
           const latestPrice = latestPoint.c.toString(); // close price
-
-          console.log('[PRICE_UPDATE] 💰 K-line price comparison:', {
-            tokenAddress: tokenAddress || 'NATIVE',
-            currentPrice: tokenDetail.price,
-            latestPrice,
-            areEqual: tokenDetail.price === latestPrice,
-            symbol: tokenDetail.symbol,
-          });
 
           // Only update if the price is different to avoid unnecessary updates
           if (tokenDetail.price !== latestPrice) {
@@ -125,40 +83,11 @@ export function useAutoKLineUpdate({
               lastUpdated: now * 1000, // Convert to milliseconds for JavaScript Date
             };
 
-            console.log('[PRICE_UPDATE] 🚀 K-line updating token detail:', {
-              tokenAddress: tokenAddress || 'NATIVE',
-              oldPrice: tokenDetail.price,
-              newPrice: latestPrice,
-              lastUpdated: new Date(now * 1000).toLocaleTimeString(),
-              symbol: tokenDetail.symbol,
-            });
-
             tokenDetailActions.current.setTokenDetail(updatedTokenDetail);
-
-            console.log('[PRICE_UPDATE] ✅ K-line token detail update completed');
-          } else {
-            console.log('[PRICE_UPDATE] ⏭️ K-line price unchanged, skipping update');
           }
-        } else {
-          console.log('[PRICE_UPDATE] ❌ Cannot update K-line price - missing data:', {
-            tokenAddress: tokenAddress || 'NATIVE',
-            hasPoints: !!(kLineData.points && kLineData.points.length > 0),
-            hasTokenDetail: !!tokenDetail,
-            pointsCount: kLineData.points?.length || 0,
-            tokenDetailPrice: tokenDetail?.price,
-            tokenDetailSymbol: tokenDetail?.symbol,
-          });
         }
 
         lastUpdateTime.current = now;
-        // console.log('Auto K-line data pushed:', {
-        //   kLineData,
-        //   tokenAddress,
-        //   networkId,
-        //   timeFrom,
-        //   timeTo,
-        //   dataPoints: kLineData.points?.length || 0,
-        // });
       }
     } catch (error) {
       console.error('Failed to push auto K-line data:', error);

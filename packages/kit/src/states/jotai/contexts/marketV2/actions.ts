@@ -29,17 +29,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   // Token Detail Actions
   setTokenDetail = contextAtomMethod(
     (_, set, payload: IMarketTokenDetail | undefined) => {
-      console.log('[PRICE_UPDATE] 🏪 setTokenDetail called directly:', {
-        hasPayload: !!payload,
-        price: payload?.price,
-        symbol: payload?.symbol,
-        hasLastUpdated: !!payload?.lastUpdated,
-        lastUpdated: payload?.lastUpdated 
-          ? new Date(payload.lastUpdated).toLocaleTimeString()
-          : 'N/A',
-        caller: 'direct call',
-      });
-      
       set(tokenDetailAtom(), payload);
     },
   );
@@ -77,25 +66,8 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
 
   fetchTokenDetail = contextAtomMethod(
     async (get, set, tokenAddress: string, networkId: string) => {
-      console.log('[PRICE_UPDATE] 🌐 fetchTokenDetail API call starting:', {
-        tokenAddress: tokenAddress || 'NATIVE',
-        networkId,
-        timestamp: new Date().toLocaleTimeString(),
-      });
-
       try {
         set(tokenDetailLoadingAtom(), true);
-
-        // Get current token detail before API call
-        const currentTokenDetailBefore = get(tokenDetailAtom());
-        console.log('[PRICE_UPDATE] 📋 Current token detail before API:', {
-          tokenAddress: tokenAddress || 'NATIVE',
-          currentPrice: currentTokenDetailBefore?.price,
-          hasLastUpdated: !!currentTokenDetailBefore?.lastUpdated,
-          lastUpdated: currentTokenDetailBefore?.lastUpdated 
-            ? new Date(currentTokenDetailBefore.lastUpdated).toLocaleTimeString()
-            : 'N/A',
-        });
 
         const response =
           await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
@@ -103,38 +75,9 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
             networkId,
           );
 
-        console.log('[PRICE_UPDATE] 🌐 fetchTokenDetail API response received:', {
-          tokenAddress: tokenAddress || 'NATIVE',
-          apiPrice: response.price,
-          symbol: response.symbol,
-        });
-
         // Always preserve K-line updated price if it exists, fallback to API price
         const currentTokenDetail = get(tokenDetailAtom());
         const hasKLinePrice = currentTokenDetail?.lastUpdated;
-
-        // Debug: Log K-line price preservation logic
-        if (hasKLinePrice && currentTokenDetail.lastUpdated) {
-          console.log(
-            '[PRICE_UPDATE] 🔒 Preserving K-line price over API price:',
-            {
-              tokenAddress: tokenAddress || 'NATIVE',
-              kLinePrice: currentTokenDetail.price,
-              apiPrice: response.price,
-              lastUpdated: new Date(
-                currentTokenDetail.lastUpdated,
-              ).toLocaleTimeString(),
-            },
-          );
-        } else {
-          console.log(
-            '[PRICE_UPDATE] 📊 Using API price (no K-line price available):',
-            {
-              tokenAddress: tokenAddress || 'NATIVE',
-              apiPrice: response.price,
-            },
-          );
-        }
 
         const finalResponse = hasKLinePrice
           ? {
@@ -147,20 +90,8 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
               // Use API price as fallback when no K-line price available
             };
 
-        console.log('[PRICE_UPDATE] 🔧 Setting final token detail to state:', {
-          tokenAddress: tokenAddress || 'NATIVE',
-          finalPrice: finalResponse.price,
-          symbol: finalResponse.symbol,
-          priceSource: hasKLinePrice ? 'K-line' : 'API',
-          hasLastUpdated: !!finalResponse.lastUpdated,
-          lastUpdated: finalResponse.lastUpdated 
-            ? new Date(finalResponse.lastUpdated).toLocaleTimeString()
-            : 'N/A',
-        });
-
         set(tokenDetailAtom(), finalResponse);
 
-        console.log('[PRICE_UPDATE] ✅ fetchTokenDetail completed successfully');
         return finalResponse;
       } catch (error) {
         console.error('Failed to fetch token detail:', error);

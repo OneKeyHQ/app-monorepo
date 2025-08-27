@@ -36,43 +36,14 @@ class MarketTokenPriceEvent {
     const cachedData = this.tokenPriceMap.get(cacheKey);
     const { lastUpdated = 0 } = cachedData || {};
 
-    console.log('[PRICE_UPDATE] 💡 MarketTokenPriceEvent.updateTokenPrice:', {
-      tokenName,
-      tokenSymbol,
-      tokenPrice,
-      tokenLastUpdated,
-      cachedLastUpdated: lastUpdated,
-      isNewer: tokenLastUpdated > lastUpdated,
-      cacheKey,
-    });
-
     if (tokenLastUpdated > lastUpdated) {
-      console.log('[PRICE_UPDATE] 🔄 Price event triggering update for:', {
-        tokenName,
-        tokenSymbol,
-        newPrice: tokenPrice,
-        oldPrice: cachedData?.price,
-      });
-
       this.tokenPriceMap.set(cacheKey, {
         price: tokenPrice,
         lastUpdated: tokenLastUpdated,
       });
 
       const listeners = this.priceChangedListenerMap.get(cacheKey) || [];
-      console.log('[PRICE_UPDATE] 📢 Notifying listeners:', {
-        tokenName,
-        tokenSymbol,
-        listenersCount: listeners.length,
-      });
       listeners.forEach((i) => i());
-    } else {
-      console.log('[PRICE_UPDATE] ⏭️ Price event skipped - not newer:', {
-        tokenName,
-        tokenSymbol,
-        tokenLastUpdated,
-        cachedLastUpdated: lastUpdated,
-      });
     }
   }
 
@@ -80,18 +51,6 @@ class MarketTokenPriceEvent {
     const cacheKey = this.buildKey(tokenName, tokenSymbol);
     const cachedData = this.tokenPriceMap.get(cacheKey);
     const price = cachedData?.price || '-';
-
-    console.log('[PRICE_UPDATE] 🏪 getTokenPrice called:', {
-      tokenName,
-      tokenSymbol,
-      cacheKey,
-      hasCachedData: !!cachedData,
-      price,
-      lastUpdated: cachedData?.lastUpdated,
-      lastUpdatedTime: cachedData?.lastUpdated 
-        ? new Date(cachedData.lastUpdated).toLocaleTimeString()
-        : 'N/A',
-    });
 
     return price;
   }
@@ -131,24 +90,7 @@ export const useTokenPrice = ({
 }) => {
   const [count, setCount] = useState(0);
 
-  console.log('[PRICE_UPDATE] 🎣 useTokenPrice hook called:', {
-    tokenName,
-    tokenSymbol,
-    tokenPrice,
-    tokenLastUpdated,
-    count,
-    lastUpdatedTime: new Date(tokenLastUpdated).toLocaleTimeString(),
-  });
-
   useMemo(() => {
-    console.log('[PRICE_UPDATE] 🎯 MarketTokenPrice updating price event:', {
-      tokenName,
-      tokenSymbol,
-      tokenPrice,
-      tokenLastUpdated,
-      lastUpdatedTime: new Date(tokenLastUpdated).toLocaleTimeString(),
-    });
-
     marketTokenPriceEvent.updateTokenPrice({
       name: tokenName,
       symbol: tokenSymbol,
@@ -158,62 +100,25 @@ export const useTokenPrice = ({
   }, [tokenLastUpdated, tokenName, tokenPrice, tokenSymbol]);
 
   useLayoutEffect(() => {
-    console.log('[PRICE_UPDATE] 🔗 useLayoutEffect: Registering price change listener:', {
-      tokenName,
-      tokenSymbol,
-      dependencies: [tokenLastUpdated, tokenName, tokenPrice, tokenSymbol],
-    });
-
     const removeListener = marketTokenPriceEvent.onPriceChange(
       tokenName,
       tokenSymbol,
       () => {
-        console.log('[PRICE_UPDATE] 🔔 Price change callback triggered for:', {
-          tokenName,
-          tokenSymbol,
-          currentCount: count,
-        });
-        
-        setCount((i) => {
-          console.log('[PRICE_UPDATE] 🔢 setCount called:', {
-            tokenName,
-            tokenSymbol,
-            oldCount: i,
-            newCount: i + 1,
-          });
-          return i + 1;
-        });
+        setCount((i) => i + 1);
       },
     );
 
     return () => {
-      console.log('[PRICE_UPDATE] 🔌 useLayoutEffect: Removing price change listener:', {
-        tokenName,
-        tokenSymbol,
-      });
       removeListener();
     };
   }, [tokenLastUpdated, tokenName, tokenPrice, tokenSymbol]);
 
-  return useMemo(() => {
-    console.log('[PRICE_UPDATE] 🧮 useMemo: Recomputing token price:', {
-      tokenName,
-      tokenSymbol,
-      count,
-      dependencies: [tokenName, tokenSymbol, count],
-    });
+  return useMemo(
+    () => {
+      const price = marketTokenPriceEvent.getTokenPrice(tokenName, tokenSymbol);
 
-    const price = marketTokenPriceEvent.getTokenPrice(tokenName, tokenSymbol);
-    
-    console.log('[PRICE_UPDATE] 💵 useMemo: Computed price result:', {
-      tokenName,
-      tokenSymbol,
-      price,
-      count,
-    });
-    
-    return price;
-  },
+      return price;
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [tokenName, tokenSymbol, count],
   );
@@ -244,15 +149,6 @@ export function MarketTokenPrice({
     price,
     symbol: tokenSymbol,
     lastUpdated: lastUpdateDate,
-  });
-
-  console.log('[PRICE_UPDATE] 🎭 MarketTokenPrice render:', {
-    tokenName,
-    tokenSymbol,
-    inputPrice: price,
-    computedTokenPrice: tokenPrice,
-    lastUpdateDate,
-    currency,
   });
 
   return (
