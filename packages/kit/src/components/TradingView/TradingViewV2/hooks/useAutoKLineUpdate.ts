@@ -69,11 +69,18 @@ export function useAutoKLineUpdate({
         timeTo,
       });
 
-      console.log('[PRICE_UPDATE] 📊 K-line data fetched:', {
+      // Sort K-line data by time to ensure we get the actual latest price
+      if (kLineData?.points && kLineData.points.length > 0) {
+        kLineData.points.sort((a, b) => a.time - b.time);
+      }
+
+      console.log('[PRICE_UPDATE] 📊 K-line data fetched and sorted:', {
         tokenAddress: tokenAddress || 'NATIVE',
         hasData: !!kLineData,
         pointsCount: kLineData?.points?.length || 0,
         latestPrice: kLineData?.points?.[kLineData.points.length - 1]?.c || 'N/A',
+        firstTime: kLineData?.points?.[0]?.time,
+        lastTime: kLineData?.points?.[kLineData.points.length - 1]?.time,
       });
 
       if (webRef.current && kLineData) {
