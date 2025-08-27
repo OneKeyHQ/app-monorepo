@@ -54,7 +54,6 @@ export function useAutoKLineUpdate({
         timeTo,
       });
 
-
       if (webRef.current && kLineData) {
         webRef.current.sendMessageViaInjectedScript({
           type: 'autoKLineUpdate',
@@ -77,6 +76,13 @@ export function useAutoKLineUpdate({
               price: latestPrice,
               lastUpdated: now * 1000, // Convert to milliseconds for JavaScript Date
             };
+
+            console.log('[PRICE_UPDATE] 🚀 K-line updating token detail:', {
+              tokenAddress: tokenAddress || 'NATIVE',
+              oldPrice: tokenDetail.price,
+              newPrice: latestPrice,
+              lastUpdated: new Date(now * 1000).toLocaleTimeString(),
+            });
 
             tokenDetailActions.current.setTokenDetail(updatedTokenDetail);
           }

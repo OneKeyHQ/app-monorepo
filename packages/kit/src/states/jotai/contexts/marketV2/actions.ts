@@ -79,6 +79,29 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         const currentTokenDetail = get(tokenDetailAtom());
         const hasKLinePrice = currentTokenDetail?.lastUpdated;
 
+        // Debug: Log K-line price preservation logic
+        if (hasKLinePrice && currentTokenDetail.lastUpdated) {
+          console.log(
+            '[PRICE_UPDATE] 🔒 Preserving K-line price over API price:',
+            {
+              tokenAddress: tokenAddress || 'NATIVE',
+              kLinePrice: currentTokenDetail.price,
+              apiPrice: response.price,
+              lastUpdated: new Date(
+                currentTokenDetail.lastUpdated,
+              ).toLocaleTimeString(),
+            },
+          );
+        } else {
+          console.log(
+            '[PRICE_UPDATE] 📊 Using API price (no K-line price available):',
+            {
+              tokenAddress: tokenAddress || 'NATIVE',
+              apiPrice: response.price,
+            },
+          );
+        }
+
         const finalResponse = hasKLinePrice
           ? {
               ...response,
