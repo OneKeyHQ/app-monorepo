@@ -21,6 +21,7 @@ import {
 import type { ISelectSection, UseFormReturn } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -193,7 +194,7 @@ const SignForm = ({
       if (currentSignAccount?.deriveType === 'BIP86') {
         return [
           { label: 'Electrum', value: 'electrum', disabled: true },
-          { label: 'BIP137', value: 'bip137', disabled: false },
+          { label: 'BIP137', value: 'bip137', disabled: true },
           { label: 'BIP322', value: 'bip322', disabled: false },
         ];
       }
@@ -208,13 +209,23 @@ const SignForm = ({
   }, [currentSignAccount?.network.id, currentSignAccount?.deriveType]);
 
   const currentFormat = form.watch('format');
+  const accountKey = `${currentSignAccount?.network.id ?? ''}-${
+    currentSignAccount?.deriveType ?? ''
+  }`;
+  const previousAccountKey = usePrevious(accountKey);
+
   useEffect(() => {
+    // only update default value when account info changed
+    if (previousAccountKey !== undefined && previousAccountKey === accountKey) {
+      return;
+    }
+
     if (networkUtils.isBTCNetwork(currentSignAccount?.network.id)) {
       if (currentSignAccount?.deriveType === 'BIP86') {
         form.setValue('format', 'bip322');
-        return;
+      } else {
+        form.setValue('format', 'electrum');
       }
-      form.setValue('format', 'electrum');
     } else {
       form.setValue('format', '');
     }
@@ -223,6 +234,8 @@ const SignForm = ({
     currentSignAccount?.network.id,
     currentSignAccount?.deriveType,
     currentFormat,
+    accountKey,
+    previousAccountKey,
   ]);
 
   return (
