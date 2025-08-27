@@ -46,14 +46,10 @@ export function DialogLoadingContainer() {
   const key = useMemo(() => {
     // Ensure the dialog appears above all other content with proper z-index
     if (platformEnv.isNativeIOS) {
-      return `${visible ? 'visible' : 'hidden'}-${
-        payload?.title || Math.random().toString()
-      }-${count}`;
+      return `${visible ? 'visible' : 'hidden'}-${count}`;
     }
     return undefined;
-  }, [count, payload?.title, visible]);
-
-  console.log('key', key, visible, payload?.title);
+  }, [count, visible]);
 
   return (
     <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
