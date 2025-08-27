@@ -114,7 +114,7 @@ function ApprovalListHeader({ tableLayout }: IProps) {
       <YStack px="$5" py="$3" gap="$5">
         {riskApprovals.length > 0 ? (
           <Alert
-            icon="ShieldExclamationSolid"
+            icon="ShieldExclamationOutline"
             title={intl.formatMessage({
               id: ETranslations.wallet_revoke_suggestion,
             })}
@@ -125,7 +125,7 @@ function ApprovalListHeader({ tableLayout }: IProps) {
               {
                 number: (
                   <SizableText color="$textCritical">
-                    {warningApprovals.length}
+                    {riskApprovals.length}
                   </SizableText>
                 ) as unknown as string,
               },
@@ -146,7 +146,7 @@ function ApprovalListHeader({ tableLayout }: IProps) {
         ) : null}
         {warningApprovals.length > 0 ? (
           <Alert
-            icon="ShieldExclamationSolid"
+            icon="ShieldExclamationOutline"
             title={intl.formatMessage({
               id: ETranslations.wallet_revoke_suggestion,
             })}
