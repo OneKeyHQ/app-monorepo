@@ -20,6 +20,10 @@ import type {
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -546,6 +550,18 @@ function AddressTypeSelector(props: IProps) {
       setTokenMap(tokenMapProp);
     }
   }, [tokenMapProp, networkAccounts, networkId]);
+
+  useEffect(() => {
+    const fn = () => {
+      void refreshNetworkAccounts();
+    };
+    appEventBus.on(EAppEventBusNames.AccountUpdate, fn);
+    appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AccountUpdate, fn);
+      appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
+    };
+  }, [refreshNetworkAccounts]);
 
   if (isSelectorDisabled) {
     return showTriggerWhenDisabled
