@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   DialogContainer,
@@ -20,15 +20,18 @@ export function DialogLoadingContainer() {
     IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading] | undefined
   >();
   const [count, setCount] = useState(0);
+  const updateCount = useCallback(() => {
+    if (platformEnv.isNativeIOS) {
+      setCount((c) => c + 1);
+    }
+  }, []);
   useEffect(() => {
     const hideFn = async () => {
-      // OK-42375
-      // Delay rendering to ensure proper sheet z-index
       await timerUtils.wait(50);
       // await dialogRef.current?.close();
       setVisible(false);
       // setPayload(undefined);
-      setCount((c) => c + 1);
+      updateCount();
     };
     const showFn = async (
       p: IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading],
@@ -40,7 +43,7 @@ export function DialogLoadingContainer() {
       await timerUtils.wait(50);
       setVisible(true);
       setPayload(p);
-      setCount((c) => c + 1);
+      updateCount();
     };
     appEventBus.on(EAppEventBusNames.ShowDialogLoading, showFn);
     appEventBus.on(EAppEventBusNames.HideDialogLoading, hideFn);
@@ -48,7 +51,7 @@ export function DialogLoadingContainer() {
       appEventBus.off(EAppEventBusNames.ShowDialogLoading, showFn);
       appEventBus.off(EAppEventBusNames.HideDialogLoading, hideFn);
     };
-  }, []);
+  }, [updateCount]);
 
   const key = useMemo(() => {
     // OK-42375
@@ -69,7 +72,7 @@ export function DialogLoadingContainer() {
         // isExist={isExist}
         onClose={async () => {
           setVisible(false);
-          setCount((c) => c + 1);
+          updateCount();
         }}
         showExitButton={payload?.showExitButton ?? false}
         title={payload?.title}
