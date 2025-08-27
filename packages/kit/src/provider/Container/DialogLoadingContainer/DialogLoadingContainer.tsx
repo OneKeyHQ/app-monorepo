@@ -46,7 +46,7 @@ export function DialogLoadingContainer() {
   const key = useMemo(() => {
     // Ensure the dialog appears above all other content with proper z-index
     if (platformEnv.isNativeIOS) {
-      return `${visible ? 'visible' : 'hidden'}-${count}`;
+      return `${visible ? 1 : 0}-${count}`;
     }
     return undefined;
   }, [count, visible]);
