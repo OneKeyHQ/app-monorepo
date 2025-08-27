@@ -12,6 +12,7 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
+  EMessageTypesBtc,
   EMessageTypesCommon,
   EMessageTypesEth,
 } from '@onekeyhq/shared/types/message';
@@ -175,6 +176,23 @@ class ServiceInternalSignAndVerify extends ServiceBase {
         message: decodedMessage,
         payload: [message, accountId],
       };
+    } else if (networkUtils.isBTCNetwork(networkId)) {
+      const decodedMessage = isHexString
+        ? hexUtils.hexStringToUtf8String(message)
+        : message;
+      unsignedMessage = {
+        type:
+          format === 'bip322'
+            ? EMessageTypesBtc.BIP322_SIMPLE
+            : EMessageTypesBtc.ECDSA,
+        message: decodedMessage,
+        sigOptions: {
+          noScriptType: format === 'electrum',
+        },
+        payload: {
+          isFromDApp: false,
+        },
+      };
     }
 
     if (!unsignedMessage) {
@@ -218,7 +236,9 @@ class ServiceInternalSignAndVerify extends ServiceBase {
         },
       );
 
-    return signedMessage;
+    return networkUtils.isBTCNetwork(networkId)
+      ? Buffer.from(signedMessage, 'hex').toString('base64')
+      : signedMessage;
   }
 }
 
