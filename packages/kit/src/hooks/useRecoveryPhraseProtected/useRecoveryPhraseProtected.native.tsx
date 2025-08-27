@@ -62,7 +62,7 @@ export const useRecoveryPhraseProtected = () => {
                   h={228}
                   borderColor="$neutral3"
                   borderWidth={3}
-                  borderRadius="$3"
+                  borderRadius="$4"
                   shadowColor="rgba(0, 0, 0, 0.1)"
                   shadowOffset={{ width: 0, height: 2 }}
                   shadowOpacity={1}
