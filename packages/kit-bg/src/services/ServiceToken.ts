@@ -12,6 +12,7 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   getEmptyTokenData,
@@ -515,6 +516,11 @@ class ServiceToken extends ServiceBase {
     tokenIdOnNetwork?: string;
   }) {
     let tokenAddress = tokenIdOnNetwork;
+
+    if (networkUtils.isAllNetwork({ networkId })) {
+      return null;
+    }
+
     if (isNil(tokenAddress)) {
       tokenAddress = await this.getNativeTokenAddress({ networkId });
     }

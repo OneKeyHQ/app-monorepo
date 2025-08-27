@@ -5,15 +5,10 @@ import { useIntl } from 'react-intl';
 import { Button, Empty } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalRoutes,
-  EModalWalletAddressRoutes,
-} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { EWalletAddressActionType } from '@onekeyhq/shared/types/address';
 
 import { useAccountData } from '../../hooks/useAccountData';
-import useAppNavigation from '../../hooks/useAppNavigation';
+import { useBlockExplorerNavigation } from '../../hooks/useBlockExplorerNavigation';
 import { openExplorerAddressUrl } from '../../utils/explorerUtils';
 import AddressTypeSelector from '../AddressTypeSelector/AddressTypeSelector';
 
@@ -34,45 +29,29 @@ function EmptyHistory({
   isSingleAccount,
 }: IEmptyHistoryProps) {
   const intl = useIntl();
-  const appNavigation = useAppNavigation();
   const { account, network, vaultSettings } = useAccountData({
     accountId,
     networkId,
   });
+  const { requiresNetworkSelection, openExplorer } = useBlockExplorerNavigation(
+    network,
+    walletId,
+  );
 
   const handleOnPress = useCallback(async () => {
-    if (
-      network?.isAllNetworks &&
-      !accountUtils.isOthersWallet({ walletId: walletId ?? '' })
-    ) {
-      appNavigation.pushModal(EModalRoutes.WalletAddress, {
-        screen: EModalWalletAddressRoutes.WalletAddress,
-        params: {
-          title: intl.formatMessage({
-            id: ETranslations.global_select_network,
-          }),
-          accountId,
-          walletId: walletId ?? '',
-          indexedAccountId: indexedAccountId ?? '',
-          actionType: EWalletAddressActionType.ViewInExplorer,
-        },
-      });
-    } else {
-      await openExplorerAddressUrl({
-        networkId: account?.createAtNetwork ?? network?.id,
-        address: account?.address,
-      });
-    }
+    await openExplorer({
+      accountId,
+      indexedAccountId,
+      networkId: account?.createAtNetwork ?? network?.id,
+      address: account?.address,
+    });
   }, [
-    network?.isAllNetworks,
-    network?.id,
-    walletId,
-    appNavigation,
-    intl,
+    openExplorer,
     accountId,
     indexedAccountId,
     account?.createAtNetwork,
     account?.address,
+    network?.id,
   ]);
 
   const renderViewInExplorerButton = useCallback(() => {
@@ -88,7 +67,7 @@ function EmptyHistory({
         networkId={networkId ?? ''}
         indexedAccountId={indexedAccountId ?? account?.indexedAccountId ?? ''}
         renderSelectorTrigger={
-          <Button size="small" variant="secondary" onPress={() => {}} mt="$3">
+          <Button size="medium" variant="secondary" onPress={() => {}} mt="$6">
             {intl.formatMessage({
               id: ETranslations.global_block_explorer,
             })}
@@ -103,13 +82,20 @@ function EmptyHistory({
         doubleConfirm
       />
     ) : (
-      <Button size="small" variant="secondary" onPress={handleOnPress} mt="$3">
+      <Button
+        size="medium"
+        variant="secondary"
+        onPress={handleOnPress}
+        mt="$6"
+        iconAfter={requiresNetworkSelection ? undefined : 'OpenOutline'}
+      >
         {intl.formatMessage({ id: ETranslations.global_block_explorer })}
       </Button>
     );
   }, [
     account?.indexedAccountId,
     handleOnPress,
+    requiresNetworkSelection,
     indexedAccountId,
     intl,
     isSingleAccount,
