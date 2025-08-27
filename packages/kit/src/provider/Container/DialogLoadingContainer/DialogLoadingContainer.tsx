@@ -18,11 +18,13 @@ export function DialogLoadingContainer() {
   const [payload, setPayload] = useState<
     IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading] | undefined
   >();
+  const [count, setCount] = useState(0);
   useEffect(() => {
     const hideFn = async () => {
       // await dialogRef.current?.close();
       setVisible(false);
       // setPayload(undefined);
+      setCount((c) => c + 1);
     };
     const showFn = async (
       p: IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading],
@@ -31,6 +33,7 @@ export function DialogLoadingContainer() {
       // dialogRef.current = Dialog.loading(payload);
       setVisible(true);
       setPayload(p);
+      setCount((c) => c + 1);
     };
     appEventBus.on(EAppEventBusNames.ShowDialogLoading, showFn);
     appEventBus.on(EAppEventBusNames.HideDialogLoading, hideFn);
@@ -45,10 +48,12 @@ export function DialogLoadingContainer() {
     if (platformEnv.isNativeIOS) {
       return `${visible ? 'visible' : 'hidden'}-${
         payload?.title || Math.random().toString()
-      }`;
+      }-${count}`;
     }
     return undefined;
-  }, [payload?.title, visible]);
+  }, [count, payload?.title, visible]);
+
+  console.log('key', key, visible, payload?.title);
 
   return (
     <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
