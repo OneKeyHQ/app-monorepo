@@ -20,18 +20,11 @@ export function DialogLoadingContainer() {
     IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading] | undefined
   >();
   useEffect(() => {
-    // OK-42375
-    // Force re-render when zIndex changes to ensure proper stacking
-    const forceRender = () => {
-      if (platformEnv.isNativeIOS) {
-        setKey(Math.random().toString());
-      }
-    };
     const hideFn = async () => {
       // await dialogRef.current?.close();
       setVisible(false);
       // setPayload(undefined);
-      forceRender();
+      setKey(Math.random().toString());
     };
     const showFn = async (
       p: IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading],
@@ -40,7 +33,7 @@ export function DialogLoadingContainer() {
       // dialogRef.current = Dialog.loading(payload);
       setVisible(true);
       setPayload(p);
-      forceRender();
+      setKey(Math.random().toString());
     };
     appEventBus.on(EAppEventBusNames.ShowDialogLoading, showFn);
     appEventBus.on(EAppEventBusNames.HideDialogLoading, hideFn);
