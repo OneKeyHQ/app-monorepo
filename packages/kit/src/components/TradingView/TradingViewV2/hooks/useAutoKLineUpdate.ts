@@ -31,7 +31,8 @@ export function useAutoKLineUpdate({
 
   const pushLatestKLineData = useCallback(async () => {
     // Skip if disabled or missing required params
-    if (!enabled || !tokenAddress || !networkId || !webRef.current) {
+    // For native tokens, tokenAddress might be empty, but networkId is required
+    if (!enabled || !networkId || !webRef.current) {
       return;
     }
 
