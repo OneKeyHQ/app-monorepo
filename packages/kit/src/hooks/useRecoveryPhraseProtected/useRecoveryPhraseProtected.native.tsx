@@ -53,7 +53,7 @@ export const useRecoveryPhraseProtected = () => {
             }),
             renderContent: (
               <YStack
-                bg="$bgApp"
+                bg="$bgSubdued"
                 borderColor="$borderSubdued"
                 borderWidth="$px"
                 borderRadius="$3"
@@ -86,7 +86,12 @@ export const useRecoveryPhraseProtected = () => {
                   justifyContent="flex-end"
                   alignItems="center"
                 >
-                  <Stack h="$1" w={50} bg="rgba(rgba(255, 255, 255, 0.95))" />
+                  <Stack
+                    h="$1"
+                    w={50}
+                    bg="rgba(rgba(255, 255, 255, 0.95))"
+                    borderRadius={14}
+                  />
                 </YStack>
               </YStack>
             ),
