@@ -240,6 +240,7 @@ export function showPrimeTransferServerConfigDialog(params: {
   const { onConfirm } = params;
 
   return Dialog.show({
+    isAsync: true,
     title: appLocale.intl.formatMessage({
       id: ETranslations.transfer_transfer_server_server_configuration,
     }),

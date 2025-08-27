@@ -148,6 +148,7 @@ android {
         buildConfigField("boolean", "NO_FLIPPER", 'true')
         def appEnvConfig = readRootEnvFile()
         missingDimensionStrategy 'abi', 'x86', 'x86_64'
+        missingDimensionStrategy 'react-native-capture-protection', 'fullMediaCapture'
         manifestPlaceholders = [
             JPUSH_APPKEY    : defEnvStr(appEnvConfig, 'JPUSH_KEY'),
             JPUSH_CHANNEL   : 'prod',
