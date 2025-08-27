@@ -14,7 +14,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function DialogLoadingContainer() {
   // const dialogRef = useRef<IDialogInstance | null>(null);
-  const [key, setKey] = useState<string | undefined>(undefined);
   const [visible, setVisible] = useState(false);
   const [payload, setPayload] = useState<
     IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading] | undefined
@@ -24,7 +23,6 @@ export function DialogLoadingContainer() {
       // await dialogRef.current?.close();
       setVisible(false);
       // setPayload(undefined);
-      setKey(Math.random().toString());
     };
     const showFn = async (
       p: IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading],
@@ -33,7 +31,6 @@ export function DialogLoadingContainer() {
       // dialogRef.current = Dialog.loading(payload);
       setVisible(true);
       setPayload(p);
-      setKey(Math.random().toString());
     };
     appEventBus.on(EAppEventBusNames.ShowDialogLoading, showFn);
     appEventBus.on(EAppEventBusNames.HideDialogLoading, hideFn);
@@ -43,11 +40,20 @@ export function DialogLoadingContainer() {
     };
   }, []);
 
-  console.log('key', key, visible, payload?.title);
+  const key = useMemo(() => {
+    // Ensure the dialog appears above all other content with proper z-index
+    if (platformEnv.isNativeIOS) {
+      return `${visible ? 'visible' : 'hidden'}-${
+        payload?.title || Math.random().toString()
+      }`;
+    }
+    return undefined;
+  }, [payload?.title, visible]);
+
   return (
     <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
       <DialogContainer
-        key={undefined}
+        key={key}
         open={visible}
         // ref={dialogRef}
         // onClose={buildForwardOnClose({ onClose })}
