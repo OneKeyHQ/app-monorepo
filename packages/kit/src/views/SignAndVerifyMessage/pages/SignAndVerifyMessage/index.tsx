@@ -237,10 +237,14 @@ const SignForm = ({
   }, [currentSignAccount?.network.id, currentSignAccount?.deriveType]);
 
   const currentFormat = form.watch('format');
+  const currentMessage = form.watch('message');
+  const currentSignature = form.watch('signature');
   const accountKey = `${currentSignAccount?.network.id ?? ''}-${
     currentSignAccount?.deriveType ?? ''
   }`;
+  const messageAccountKey = `${currentMessage ?? ''}-${selectedAddress ?? ''}`;
   const previousAccountKey = usePrevious(accountKey);
+  const previousMessageAccountKey = usePrevious(messageAccountKey);
 
   useEffect(() => {
     // only update default value when account info changed
@@ -266,7 +270,15 @@ const SignForm = ({
     previousAccountKey,
   ]);
 
-  const signature = form.watch('signature');
+  useEffect(() => {
+    // Clear signature when message or account changes
+    if (
+      previousMessageAccountKey !== undefined &&
+      previousMessageAccountKey !== messageAccountKey
+    ) {
+      form.setValue('signature', '');
+    }
+  }, [form, messageAccountKey, previousMessageAccountKey]);
 
   return (
     <Form form={form}>
@@ -376,7 +388,7 @@ const SignForm = ({
           })}
           editable={false}
           addOns={
-            signature
+            currentSignature
               ? [
                   {
                     iconName: 'Copy3Outline',
@@ -484,7 +496,7 @@ function SignAndVerifyMessage() {
           message,
           address: currentSignAccount.account.address,
           signature: signedMessage,
-          network: currentSignAccount.network.name,
+          network: currentSignAccount.network.name.toUpperCase(),
         };
         Toast.success({
           title: intl.formatMessage({
