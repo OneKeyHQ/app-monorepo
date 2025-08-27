@@ -22,10 +22,12 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { TRANSFER_DEEPLINK_URL } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { usePrimeTransferExit } from './hooks/usePrimeTransferExit';
@@ -289,7 +291,15 @@ export function PrimeTransferHomeEnterLink({
           handlers: [],
           autoHandleResult: false,
         });
-        handlePairingCodeChange(result?.raw || '', true);
+        let text = result?.raw || '';
+        if (text.startsWith(TRANSFER_DEEPLINK_URL)) {
+          const parsedUrl = uriUtils.parseUrl(text);
+          const code = parsedUrl?.urlParamList?.code;
+          if (code) {
+            text = code;
+          }
+        }
+        handlePairingCodeChange(text, true);
       },
     },
   ].filter(Boolean);

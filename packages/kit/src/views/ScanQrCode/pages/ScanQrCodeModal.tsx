@@ -31,6 +31,7 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -229,9 +230,9 @@ export default function ScanQrCodeModal() {
       // Check if the scanned QR code is OneKey transfer URL
       if (value && value.startsWith(`${TRANSFER_DEEPLINK_URL}`)) {
         try {
-          const url = new URL(value);
-          const code = url.searchParams.get('code');
-          const server = url.searchParams.get('server');
+          const parsedUrl = uriUtils.parseUrl(value);
+          const code = parsedUrl?.urlParamList?.code;
+          const server = parsedUrl?.urlParamList?.server;
 
           if (code) {
             // Close the QR code modal first

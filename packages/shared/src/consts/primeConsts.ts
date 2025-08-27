@@ -1,4 +1,5 @@
 import platformEnv from '../platformEnv';
+
 import { ONEKEY_APP_DEEP_LINK } from './deeplinkConsts';
 
 // Privy
