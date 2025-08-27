@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   DialogContainer,
@@ -10,6 +10,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function DialogLoadingContainer() {
   // const dialogRef = useRef<IDialogInstance | null>(null);
@@ -39,9 +40,18 @@ export function DialogLoadingContainer() {
     };
   }, []);
 
+  const key = useMemo(() => {
+    // Ensure the dialog appears above all other content with proper z-index
+    if (platformEnv.isNativeIOS) {
+      return visible ? 'visible' : 'hidden';
+    }
+    return undefined;
+  }, [visible]);
+
   return (
     <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
       <DialogContainer
+        key={key}
         open={visible}
         // ref={dialogRef}
         // onClose={buildForwardOnClose({ onClose })}

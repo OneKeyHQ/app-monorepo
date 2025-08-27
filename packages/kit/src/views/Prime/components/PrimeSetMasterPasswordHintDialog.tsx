@@ -32,7 +32,7 @@ export function PrimeSetMasterPasswordHintDialog({
 
   return (
     <Stack>
-      <Dialog.Description>
+      <YStack>
         <YStack gap="$2">
           <SizableText>
             {intl.formatMessage({
@@ -45,7 +45,7 @@ export function PrimeSetMasterPasswordHintDialog({
             })}
           </SizableText>
         </YStack>
-      </Dialog.Description>
+      </YStack>
       <Stack pt="$2">
         <Checkbox
           label={intl.formatMessage({
