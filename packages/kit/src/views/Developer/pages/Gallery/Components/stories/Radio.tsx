@@ -39,6 +39,18 @@ const HorizontalRadioExample = () => {
   );
 };
 
+const RadioItemDisabledExample = () => {
+  const [radioValue, setRadioValue] = useState<string>();
+  const options = [
+    { label: 'Option 4', value: '4' },
+    { label: 'Option 5', value: '5' },
+    { label: 'Option 6', value: '6', disabled: true },
+  ];
+  return (
+    <Radio value={radioValue} onChange={setRadioValue} options={options} />
+  );
+};
+
 const RadioGallery = () => (
   <Layout
     filePath={__CURRENT_FILE_PATH__}
@@ -51,6 +63,10 @@ const RadioGallery = () => (
       {
         title: 'Horizontal Layout',
         element: <HorizontalRadioExample />,
+      },
+      {
+        title: 'Radio Item Disabled',
+        element: <RadioItemDisabledExample />,
       },
     ]}
   />

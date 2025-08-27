@@ -29,6 +29,7 @@ import type {
   IModalSignAndVerifyParamList,
 } from '@onekeyhq/shared/src/routes/signAndVerify';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISignAccount } from '@onekeyhq/shared/types/signAndVerify';
 import { ESignAndVerifyAction } from '@onekeyhq/shared/types/signAndVerify';
 
@@ -183,6 +184,47 @@ const SignForm = ({
     },
   );
 
+  const displayFormatForm = useMemo(() => {
+    return networkUtils.isBTCNetwork(currentSignAccount?.network.id);
+  }, [currentSignAccount?.network.id]);
+
+  const formatRadioOptions = useMemo(() => {
+    if (networkUtils.isBTCNetwork(currentSignAccount?.network.id)) {
+      if (currentSignAccount?.deriveType === 'BIP86') {
+        return [
+          { label: 'Electrum', value: 'electrum', disabled: true },
+          { label: 'BIP137', value: 'bip137', disabled: false },
+          { label: 'BIP322', value: 'bip322', disabled: false },
+        ];
+      }
+
+      return [
+        { label: 'Electrum', value: 'electrum' },
+        { label: 'BIP137', value: 'bip137' },
+        { label: 'BIP322', value: 'bip322' },
+      ];
+    }
+    return [];
+  }, [currentSignAccount?.network.id, currentSignAccount?.deriveType]);
+
+  const currentFormat = form.watch('format');
+  useEffect(() => {
+    if (networkUtils.isBTCNetwork(currentSignAccount?.network.id)) {
+      if (currentSignAccount?.deriveType === 'BIP86') {
+        form.setValue('format', 'bip322');
+        return;
+      }
+      form.setValue('format', 'electrum');
+    } else {
+      form.setValue('format', '');
+    }
+  }, [
+    form,
+    currentSignAccount?.network.id,
+    currentSignAccount?.deriveType,
+    currentFormat,
+  ]);
+
   return (
     <Form form={form}>
       <Form.Field
@@ -246,17 +288,15 @@ const SignForm = ({
 
       <Divider />
 
-      <Form.Field label="Format" name="format">
-        <Radio
-          orientation="horizontal"
-          gap="$5"
-          options={[
-            { label: 'Electrum', value: 'electrum' },
-            { label: 'BIP137', value: 'bip137' },
-            { label: 'BIP322', value: 'bip322' },
-          ]}
-        />
-      </Form.Field>
+      {displayFormatForm ? (
+        <Form.Field label="Format" name="format">
+          <Radio
+            orientation="horizontal"
+            gap="$5"
+            options={formatRadioOptions}
+          />
+        </Form.Field>
+      ) : null}
 
       <Form.Field
         label={intl.formatMessage({
@@ -329,7 +369,7 @@ function SignAndVerifyMessage() {
     defaultValues: {
       message: '',
       address: '',
-      format: 'electrum',
+      format: '',
       signature: '',
       hexFormat: false,
     },

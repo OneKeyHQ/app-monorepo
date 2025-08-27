@@ -14,6 +14,7 @@ export type IRadioProps = IFormFieldProps<
       description?: string;
       value: string;
       children?: React.ReactNode;
+      disabled?: boolean;
     }[];
     defaultValue?: string;
     orientation?: 'vertical' | 'horizontal';
@@ -42,7 +43,13 @@ export function Radio({
       <Container gap={gap} alignItems="flex-start" flexWrap="wrap">
         {options.map(
           (
-            { label, description, value: v, children: optionChildren },
+            {
+              label,
+              description,
+              value: v,
+              children: optionChildren,
+              disabled: optionDisabled,
+            },
             index,
           ) => {
             const ItemContainer =
@@ -73,6 +80,7 @@ export function Radio({
                     outlineColor: '$focusRing',
                   }}
                   hitSlop={NATIVE_HIT_SLOP}
+                  disabled={optionDisabled}
                 >
                   <RadioGroup.Indicator
                     unstyled
@@ -87,7 +95,11 @@ export function Radio({
                   my={orientation === 'horizontal' ? '$0' : '$-2'}
                   flex={orientation === 'horizontal' ? undefined : 1}
                 >
-                  <Label htmlFor={v} variant="$bodyLgMedium">
+                  <Label
+                    htmlFor={v}
+                    variant="$bodyLgMedium"
+                    color={optionDisabled ? '$textDisabled' : undefined}
+                  >
                     {label}
                   </Label>
                   {description ? (
