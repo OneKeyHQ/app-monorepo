@@ -6,20 +6,8 @@ import {
   CaptureProtection,
 } from 'react-native-capture-protection';
 
-import type { IStackProps } from '@onekeyhq/components';
-import {
-  Dialog,
-  Icon,
-  LinearGradient,
-  SizableText,
-  Stack,
-  YStack,
-} from '@onekeyhq/components';
+import { Dialog, Icon, SizableText, Stack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-function Placeholder(props: IStackProps) {
-  return <Stack bg="$neutral6" borderRadius={2} h="$1.5" {...props} />;
-}
 
 export const useRecoveryPhraseProtected = () => {
   const intl = useIntl();
