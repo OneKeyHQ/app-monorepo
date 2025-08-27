@@ -1,3 +1,5 @@
+import bs58 from 'bs58';
+
 import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types/coreTypesMessage';
 import {
@@ -9,7 +11,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+import {
+  EMessageTypesCommon,
+  EMessageTypesEth,
+} from '@onekeyhq/shared/types/message';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import type { ISignAccount } from '@onekeyhq/shared/types/signAndVerify';
 
@@ -150,15 +155,25 @@ class ServiceInternalSignAndVerify extends ServiceBase {
     const { networkId, accountId, message, isHexString, format } = params;
     let unsignedMessage: IUnsignedMessage | undefined;
     if (networkId === getNetworkIdsMap().eth) {
+      const decodedMessage = isHexString
+        ? message
+        : hexUtils.utf8StringToHexString(message);
       const finalMessage = autoFixPersonalSignMessage({
-        message: isHexString
-          ? message
-          : hexUtils.utf8StringToHexString(message),
+        message: decodedMessage,
       });
       unsignedMessage = {
         type: EMessageTypesEth.PERSONAL_SIGN,
         message: finalMessage,
         payload: [finalMessage, accountId],
+      };
+    } else if (networkId === getNetworkIdsMap().sol) {
+      const decodedMessage = isHexString
+        ? hexUtils.hexStringToUtf8String(message)
+        : message;
+      unsignedMessage = {
+        type: EMessageTypesCommon.SIGN_MESSAGE,
+        message: decodedMessage,
+        payload: [message, accountId],
       };
     }
 
