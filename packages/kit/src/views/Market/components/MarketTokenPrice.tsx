@@ -246,6 +246,15 @@ export function MarketTokenPrice({
     lastUpdated: lastUpdateDate,
   });
 
+  console.log('[PRICE_UPDATE] 🎭 MarketTokenPrice render:', {
+    tokenName,
+    tokenSymbol,
+    inputPrice: price,
+    computedTokenPrice: tokenPrice,
+    lastUpdateDate,
+    currency,
+  });
+
   return (
     <NumberSizeableText
       userSelect="none"
