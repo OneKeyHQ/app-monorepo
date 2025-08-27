@@ -54,7 +54,7 @@ export function DialogLoadingContainer() {
   return (
     <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
       <DialogContainer
-        key={key}
+        key={undefined}
         open={visible}
         // ref={dialogRef}
         // onClose={buildForwardOnClose({ onClose })}
