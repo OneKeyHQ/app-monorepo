@@ -36,14 +36,43 @@ class MarketTokenPriceEvent {
     const cachedData = this.tokenPriceMap.get(cacheKey);
     const { lastUpdated = 0 } = cachedData || {};
 
+    console.log('[PRICE_UPDATE] 💡 MarketTokenPriceEvent.updateTokenPrice:', {
+      tokenName,
+      tokenSymbol,
+      tokenPrice,
+      tokenLastUpdated,
+      cachedLastUpdated: lastUpdated,
+      isNewer: tokenLastUpdated > lastUpdated,
+      cacheKey,
+    });
+
     if (tokenLastUpdated > lastUpdated) {
+      console.log('[PRICE_UPDATE] 🔄 Price event triggering update for:', {
+        tokenName,
+        tokenSymbol,
+        newPrice: tokenPrice,
+        oldPrice: cachedData?.price,
+      });
+
       this.tokenPriceMap.set(cacheKey, {
         price: tokenPrice,
         lastUpdated: tokenLastUpdated,
       });
 
       const listeners = this.priceChangedListenerMap.get(cacheKey) || [];
+      console.log('[PRICE_UPDATE] 📢 Notifying listeners:', {
+        tokenName,
+        tokenSymbol,
+        listenersCount: listeners.length,
+      });
       listeners.forEach((i) => i());
+    } else {
+      console.log('[PRICE_UPDATE] ⏭️ Price event skipped - not newer:', {
+        tokenName,
+        tokenSymbol,
+        tokenLastUpdated,
+        cachedLastUpdated: lastUpdated,
+      });
     }
   }
 
@@ -89,6 +118,14 @@ export const useTokenPrice = ({
   const [count, setCount] = useState(0);
 
   useMemo(() => {
+    console.log('[PRICE_UPDATE] 🎯 MarketTokenPrice updating price event:', {
+      tokenName,
+      tokenSymbol,
+      tokenPrice,
+      tokenLastUpdated,
+      lastUpdatedTime: new Date(tokenLastUpdated).toLocaleTimeString(),
+    });
+
     marketTokenPriceEvent.updateTokenPrice({
       name: tokenName,
       symbol: tokenSymbol,
