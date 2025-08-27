@@ -236,9 +236,6 @@ function DialogFrame({
         snapPointsMode="fit"
         animation="quick"
         zIndex={zIndex}
-        // OK-42375
-        // Force re-render when zIndex changes to ensure proper stacking
-        key={platformEnv.isNativeIOS ? zIndex.toString() : undefined}
         // OK-36893 OK-38624
         // When modal is false, multiple Tamagui sheets may collapse into position:relative
         // which causes z-index stacking issues
