@@ -12,7 +12,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-let i = 1;
 export function DialogLoadingContainer() {
   // const dialogRef = useRef<IDialogInstance | null>(null);
   const [visible, setVisible] = useState(false);
@@ -51,12 +50,10 @@ export function DialogLoadingContainer() {
     return undefined;
   }, [payload?.title, visible]);
 
-  console.log('key', key);
-  i += 1;
   return (
     <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
       <DialogContainer
-        key={key + i.toString()}
+        key={key}
         open={visible}
         // ref={dialogRef}
         // onClose={buildForwardOnClose({ onClose })}
