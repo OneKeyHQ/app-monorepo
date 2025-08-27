@@ -26,6 +26,7 @@ import type {
   IAccountHistoryTx,
   IHistoryListSectionGroup,
 } from '@onekeyhq/shared/types/history';
+import type { ITokenFiat } from '@onekeyhq/shared/types/token';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { useAccountData } from '../../hooks/useAccountData';
@@ -44,7 +45,6 @@ import { EmptyHistory } from '../Empty/EmptyHistory';
 import { HistoryLoadingView } from '../Loading';
 
 import { TxHistoryListItem } from './TxHistoryListItem';
-import { ITokenFiat } from '@onekeyhq/shared/types/token';
 
 type IProps = {
   data: IAccountHistoryTx[];
