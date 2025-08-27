@@ -79,7 +79,21 @@ class MarketTokenPriceEvent {
   public getTokenPrice(tokenName: string, tokenSymbol: string) {
     const cacheKey = this.buildKey(tokenName, tokenSymbol);
     const cachedData = this.tokenPriceMap.get(cacheKey);
-    return cachedData?.price || '-';
+    const price = cachedData?.price || '-';
+
+    console.log('[PRICE_UPDATE] 🏪 getTokenPrice called:', {
+      tokenName,
+      tokenSymbol,
+      cacheKey,
+      hasCachedData: !!cachedData,
+      price,
+      lastUpdated: cachedData?.lastUpdated,
+      lastUpdatedTime: cachedData?.lastUpdated 
+        ? new Date(cachedData.lastUpdated).toLocaleTimeString()
+        : 'N/A',
+    });
+
+    return price;
   }
 
   public onPriceChange(
@@ -117,6 +131,15 @@ export const useTokenPrice = ({
 }) => {
   const [count, setCount] = useState(0);
 
+  console.log('[PRICE_UPDATE] 🎣 useTokenPrice hook called:', {
+    tokenName,
+    tokenSymbol,
+    tokenPrice,
+    tokenLastUpdated,
+    count,
+    lastUpdatedTime: new Date(tokenLastUpdated).toLocaleTimeString(),
+  });
+
   useMemo(() => {
     console.log('[PRICE_UPDATE] 🎯 MarketTokenPrice updating price event:', {
       tokenName,
@@ -135,18 +158,62 @@ export const useTokenPrice = ({
   }, [tokenLastUpdated, tokenName, tokenPrice, tokenSymbol]);
 
   useLayoutEffect(() => {
+    console.log('[PRICE_UPDATE] 🔗 useLayoutEffect: Registering price change listener:', {
+      tokenName,
+      tokenSymbol,
+      dependencies: [tokenLastUpdated, tokenName, tokenPrice, tokenSymbol],
+    });
+
     const removeListener = marketTokenPriceEvent.onPriceChange(
       tokenName,
       tokenSymbol,
       () => {
-        setCount((i) => i + 1);
+        console.log('[PRICE_UPDATE] 🔔 Price change callback triggered for:', {
+          tokenName,
+          tokenSymbol,
+          currentCount: count,
+        });
+        
+        setCount((i) => {
+          console.log('[PRICE_UPDATE] 🔢 setCount called:', {
+            tokenName,
+            tokenSymbol,
+            oldCount: i,
+            newCount: i + 1,
+          });
+          return i + 1;
+        });
       },
     );
-    return removeListener;
+
+    return () => {
+      console.log('[PRICE_UPDATE] 🔌 useLayoutEffect: Removing price change listener:', {
+        tokenName,
+        tokenSymbol,
+      });
+      removeListener();
+    };
   }, [tokenLastUpdated, tokenName, tokenPrice, tokenSymbol]);
 
-  return useMemo(
-    () => marketTokenPriceEvent.getTokenPrice(tokenName, tokenSymbol),
+  return useMemo(() => {
+    console.log('[PRICE_UPDATE] 🧮 useMemo: Recomputing token price:', {
+      tokenName,
+      tokenSymbol,
+      count,
+      dependencies: [tokenName, tokenSymbol, count],
+    });
+
+    const price = marketTokenPriceEvent.getTokenPrice(tokenName, tokenSymbol);
+    
+    console.log('[PRICE_UPDATE] 💵 useMemo: Computed price result:', {
+      tokenName,
+      tokenSymbol,
+      price,
+      count,
+    });
+    
+    return price;
+  },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [tokenName, tokenSymbol, count],
   );
