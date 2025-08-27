@@ -32,8 +32,6 @@ export function DialogLoadingContainer() {
     return undefined;
   }, []);
   useEffect(() => {
-    // OK-42375
-    // Force re-render when zIndex changes to ensure proper stacking
     const hideFn = async () => {
       // await dialogRef.current?.close();
       setVisibilityState({ visible: false, key: getKey() });
