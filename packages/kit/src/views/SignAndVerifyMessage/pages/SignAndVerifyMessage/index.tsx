@@ -17,6 +17,7 @@ import {
   Toast,
   XStack,
   YStack,
+  useClipboard,
   useForm,
 } from '@onekeyhq/components';
 import type { ISelectSection, UseFormReturn } from '@onekeyhq/components';
@@ -46,6 +47,23 @@ type ISignFormData = {
   hexFormat: boolean;
 };
 
+const formatSignedMessage = ({
+  message,
+  address,
+  signature,
+  network,
+}: {
+  message: string;
+  address: string;
+  signature: string;
+  network: string;
+}) => `-----BEGIN ${network} SIGNED MESSAGE-----
+${message}
+-----BEGIN SIGNATURE-----
+${address}
+${signature}
+-----END ${network} SIGNED MESSAGE-----`;
+
 const SignForm = ({
   form,
   networkId,
@@ -53,13 +71,15 @@ const SignForm = ({
   indexedAccountId,
   isOthersWallet,
   onCurrentSignAccountChange,
+  onCopySignature,
 }: {
   form: UseFormReturn<ISignFormData>;
   networkId: string;
   accountId: string | undefined;
   indexedAccountId: string | undefined;
   isOthersWallet: boolean | undefined;
-  onCurrentSignAccountChange?: (account: ISignAccount | undefined) => void;
+  onCurrentSignAccountChange: (account: ISignAccount | undefined) => void;
+  onCopySignature: () => void;
 }) => {
   const intl = useIntl();
   const signAccountsRef = useRef<ISignAccount[]>([]);
@@ -246,6 +266,8 @@ const SignForm = ({
     previousAccountKey,
   ]);
 
+  const signature = form.watch('signature');
+
   return (
     <Form form={form}>
       <Form.Field
@@ -353,15 +375,16 @@ const SignForm = ({
             id: ETranslations.message_signing_signature_desc,
           })}
           editable={false}
-          addOns={[
-            {
-              iconName: 'Copy3Outline',
-              onPress: () => {
-                console.log('copy');
-              },
-              disabled: true,
-            },
-          ]}
+          addOns={
+            signature
+              ? [
+                  {
+                    iconName: 'Copy3Outline',
+                    onPress: onCopySignature,
+                  },
+                ]
+              : []
+          }
         />
       </Form.Field>
     </Form>
@@ -413,6 +436,13 @@ function SignAndVerifyMessage() {
     ISignAccount | undefined
   >();
 
+  const signedMessageRef = useRef<{
+    message: string;
+    address: string;
+    signature: string;
+    network: string;
+  } | null>(null);
+
   const signForm = useForm<ISignFormData>({
     defaultValues: {
       message: '',
@@ -450,6 +480,12 @@ function SignAndVerifyMessage() {
               accountId: currentSignAccount.account.id,
             },
           );
+        signedMessageRef.current = {
+          message,
+          address: currentSignAccount.account.address,
+          signature: signedMessage,
+          network: currentSignAccount.network.name,
+        };
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.feedback_sign_success,
@@ -464,6 +500,21 @@ function SignAndVerifyMessage() {
     }
   }, [signForm, currentSignAccount, intl]);
 
+  const { copyText } = useClipboard();
+  const handleCopySignature = useCallback(() => {
+    if (!signedMessageRef.current) {
+      return;
+    }
+    const { message, address, signature, network } = signedMessageRef.current;
+    const willCopyText = formatSignedMessage({
+      message,
+      address,
+      signature,
+      network,
+    });
+    copyText(willCopyText);
+  }, [copyText]);
+
   const renderContent = useCallback(() => {
     if (action === ESignAndVerifyAction.Sign) {
       return (
@@ -474,6 +525,7 @@ function SignAndVerifyMessage() {
           indexedAccountId={indexedAccountId}
           isOthersWallet={isOthersWallet}
           onCurrentSignAccountChange={setCurrentSignAccount}
+          onCopySignature={handleCopySignature}
         />
       );
     }
@@ -485,6 +537,7 @@ function SignAndVerifyMessage() {
     accountId,
     indexedAccountId,
     isOthersWallet,
+    handleCopySignature,
   ]);
 
   return (
