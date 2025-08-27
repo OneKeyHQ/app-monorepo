@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   DialogContainer,
@@ -14,38 +14,33 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function DialogLoadingContainer() {
   // const dialogRef = useRef<IDialogInstance | null>(null);
-  const [visibilityState, setVisibilityState] = useState<{
-    visible: boolean;
-    key: string | undefined;
-  }>({
-    visible: false,
-    key: undefined,
-  });
+  const [key, setKey] = useState<string | undefined>(undefined);
+  const [visible, setVisible] = useState(false);
   const [payload, setPayload] = useState<
     IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading] | undefined
   >();
-
-  const getKey = useCallback(() => {
-    if (platformEnv.isNativeIOS) {
-      return Math.random().toString();
-    }
-    return undefined;
-  }, []);
   useEffect(() => {
     // OK-42375
     // Force re-render when zIndex changes to ensure proper stacking
+    const forceRender = () => {
+      if (platformEnv.isNativeIOS) {
+        setKey(Math.random().toString());
+      }
+    };
     const hideFn = async () => {
       // await dialogRef.current?.close();
-      setVisibilityState({ visible: false, key: getKey() });
+      setVisible(false);
       // setPayload(undefined);
+      forceRender();
     };
     const showFn = async (
       p: IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading],
     ) => {
       // await hideFn();
       // dialogRef.current = Dialog.loading(payload);
-      setVisibilityState({ visible: true, key: getKey() });
+      setVisible(true);
       setPayload(p);
+      forceRender();
     };
     appEventBus.on(EAppEventBusNames.ShowDialogLoading, showFn);
     appEventBus.on(EAppEventBusNames.HideDialogLoading, hideFn);
@@ -53,18 +48,19 @@ export function DialogLoadingContainer() {
       appEventBus.off(EAppEventBusNames.ShowDialogLoading, showFn);
       appEventBus.off(EAppEventBusNames.HideDialogLoading, hideFn);
     };
-  }, [getKey]);
+  }, []);
 
+  console.log('key', key, visible, payload?.title);
   return (
     <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
       <DialogContainer
-        key={visibilityState.key}
-        open={visibilityState.visible}
+        key={key}
+        open={visible}
         // ref={dialogRef}
         // onClose={buildForwardOnClose({ onClose })}
         // isExist={isExist}
         onClose={async () => {
-          setVisibilityState({ visible: false, key: getKey() });
+          setVisible(false);
         }}
         showExitButton={payload?.showExitButton ?? false}
         title={payload?.title}
