@@ -1,10 +1,19 @@
+import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
+import type { IUnsignedMessage } from '@onekeyhq/core/src/types/coreTypesMessage';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import type { ISignAccount } from '@onekeyhq/shared/types/signAndVerify';
+
+import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
@@ -128,6 +137,73 @@ class ServiceInternalSignAndVerify extends ServiceBase {
     }
 
     return results;
+  }
+
+  @backgroundMethod()
+  async signInternalMessage(params: {
+    message: string;
+    isHexString: boolean;
+    format: string;
+    networkId: string;
+    accountId: string;
+  }) {
+    const { networkId, accountId, message, isHexString, format } = params;
+    let unsignedMessage: IUnsignedMessage | undefined;
+    if (networkId === getNetworkIdsMap().eth) {
+      const finalMessage = autoFixPersonalSignMessage({
+        message: isHexString
+          ? message
+          : hexUtils.utf8StringToHexString(message),
+      });
+      unsignedMessage = {
+        type: EMessageTypesEth.PERSONAL_SIGN,
+        message: finalMessage,
+        payload: [finalMessage, accountId],
+      };
+    }
+
+    if (!unsignedMessage) {
+      throw new OneKeyLocalError('Invalid unsigned message');
+    }
+
+    let validUnsignedMessage = unsignedMessage;
+    if (unsignedMessage) {
+      // TODO fix message format and params in vault
+      validUnsignedMessage = getValidUnsignedMessage(unsignedMessage);
+    }
+
+    if (!validUnsignedMessage) {
+      throw new OneKeyLocalError('Invalid unsigned message');
+    }
+
+    const { password, deviceParams } =
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
+        accountId,
+        reason: EReasonForNeedPassword.CreateTransaction,
+      });
+
+    const vault = await vaultFactory.getVault({
+      networkId,
+      accountId,
+    });
+
+    const signedMessage =
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+        async () => {
+          const [_signedMessage] = await vault.keyring.signMessage({
+            messages: [validUnsignedMessage],
+            password,
+            deviceParams,
+          });
+          return _signedMessage;
+        },
+        {
+          deviceParams,
+          debugMethodName: 'serviceInternalSignAndVerify.signInternalMessage',
+        },
+      );
+
+    return signedMessage;
   }
 }
 

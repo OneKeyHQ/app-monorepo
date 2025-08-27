@@ -14,6 +14,7 @@ import {
   SizableText,
   Switch,
   TextAreaInput,
+  Toast,
   XStack,
   YStack,
   useForm,
@@ -51,12 +52,14 @@ const SignForm = ({
   accountId,
   indexedAccountId,
   isOthersWallet,
+  onCurrentSignAccountChange,
 }: {
   form: UseFormReturn<ISignFormData>;
   networkId: string;
   accountId: string | undefined;
   indexedAccountId: string | undefined;
   isOthersWallet: boolean | undefined;
+  onCurrentSignAccountChange?: (account: ISignAccount | undefined) => void;
 }) => {
   const intl = useIntl();
   const signAccountsRef = useRef<ISignAccount[]>([]);
@@ -70,6 +73,10 @@ const SignForm = ({
       (account) => account.account.address === selectedAddress,
     );
   }, [selectedAddress]);
+
+  useEffect(() => {
+    onCurrentSignAccountChange?.(currentSignAccount);
+  }, [currentSignAccount, onCurrentSignAccountChange]);
 
   const setDefaultAccount = useCallback(async () => {
     if (selectedAddress) {
@@ -400,7 +407,11 @@ function SignAndVerifyMessage() {
     walletId,
   ]);
 
+  const [isSigning, setIsSigning] = useState(false);
   const [action, setAction] = useState(ESignAndVerifyAction.Sign);
+  const [currentSignAccount, setCurrentSignAccount] = useState<
+    ISignAccount | undefined
+  >();
 
   const signForm = useForm<ISignFormData>({
     defaultValues: {
@@ -418,8 +429,40 @@ function SignAndVerifyMessage() {
     const isValid = await signForm.trigger();
     if (isValid) {
       console.log('Sign form values:', signForm.getValues());
+      console.log('Current sign account:', currentSignAccount);
+      const { message, format, hexFormat } = signForm.getValues();
+
+      if (!currentSignAccount) {
+        console.error('No sign account selected');
+        return;
+      }
+
+      try {
+        setIsSigning(true);
+        signForm.setValue('signature', '');
+        const signedMessage =
+          await backgroundApiProxy.serviceInternalSignAndVerify.signInternalMessage(
+            {
+              message,
+              isHexString: hexFormat,
+              format,
+              networkId: currentSignAccount.network.id,
+              accountId: currentSignAccount.account.id,
+            },
+          );
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.feedback_sign_success,
+          }),
+        });
+        signForm.setValue('signature', signedMessage);
+      } catch (error) {
+        console.error('Sign error:', error);
+      } finally {
+        setIsSigning(false);
+      }
     }
-  }, [signForm]);
+  }, [signForm, currentSignAccount, intl]);
 
   const renderContent = useCallback(() => {
     if (action === ESignAndVerifyAction.Sign) {
@@ -430,6 +473,7 @@ function SignAndVerifyMessage() {
           accountId={accountId}
           indexedAccountId={indexedAccountId}
           isOthersWallet={isOthersWallet}
+          onCurrentSignAccountChange={setCurrentSignAccount}
         />
       );
     }
@@ -482,7 +526,7 @@ function SignAndVerifyMessage() {
         })}
         confirmButtonProps={{
           disabled: action !== ESignAndVerifyAction.Sign,
-          loading: false,
+          loading: isSigning,
         }}
         onConfirm={
           action === ESignAndVerifyAction.Sign ? handleSign : undefined
