@@ -312,7 +312,7 @@ function BaseInput(
     }
     if (allowSecureTextEye) {
       allAddOns.push({
-        iconName: secureEntryState ? 'EyeOutline' : 'EyeOffOutline',
+        iconName: secureEntryState ? 'EyeOffOutline' : 'EyeOutline',
         onPress: () => {
           setSecureEntryState(!secureEntryState);
         },
