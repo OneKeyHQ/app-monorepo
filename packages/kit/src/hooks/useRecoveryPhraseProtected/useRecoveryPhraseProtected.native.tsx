@@ -58,9 +58,6 @@ export const useRecoveryPhraseProtected = () => {
                   right="$2"
                 />
                 <YStack
-                  bg="rgba(rgba(0, 0, 0, 0.9)"
-                  p="$3"
-                  pb={5}
                   w={120}
                   h={228}
                   borderColor="$neutral3"
@@ -71,15 +68,27 @@ export const useRecoveryPhraseProtected = () => {
                   shadowOpacity={1}
                   shadowRadius={4}
                   elevation={2}
-                  justifyContent="flex-end"
-                  alignItems="center"
+                  overflow="hidden"
                 >
-                  <Stack
-                    h="$1"
-                    w={50}
-                    bg="rgba(rgba(255, 255, 255, 0.95))"
-                    borderRadius={14}
-                  />
+                  <YStack
+                    flex={1}
+                    p="$3"
+                    pb={5}
+                    borderWidth={1}
+                    borderRadius="$3"
+                    overflow="hidden"
+                    borderColor="$border"
+                    justifyContent="flex-end"
+                    alignItems="center"
+                    bg="rgba(rgba(0, 0, 0, 0.9)"
+                  >
+                    <Stack
+                      h="$1"
+                      w={50}
+                      bg="rgba(rgba(255, 255, 255, 0.95))"
+                      borderRadius={14}
+                    />
+                  </YStack>
                 </YStack>
               </YStack>
             ),
