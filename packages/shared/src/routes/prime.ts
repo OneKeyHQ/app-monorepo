@@ -47,7 +47,10 @@ export type IPrimeParamList = {
     serverUserInfo?: IPrimeServerUserInfo;
   };
   [EPrimePages.PrimeDeleteAccount]: undefined;
-  [EPrimePages.PrimeTransfer]: undefined;
+  [EPrimePages.PrimeTransfer]: {
+    code?: string | null;
+    server?: string | null;
+  };
   [EPrimePages.PrimeTransferPreview]: {
     directionUserInfo:
       | {
