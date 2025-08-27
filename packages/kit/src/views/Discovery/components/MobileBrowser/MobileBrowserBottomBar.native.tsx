@@ -133,15 +133,16 @@ function MobileBrowserBottomBar({
   }, [closeWebTab, setCurrentWebTab, id]);
 
   const onShare = useCallback(() => {
-    handleShareUrl(tab?.url ?? '');
-  }, [tab?.url, handleShareUrl]);
+    handleShareUrl(tab?.displayUrl ?? tab?.url ?? '');
+  }, [tab?.displayUrl, tab?.url, handleShareUrl]);
 
   const { copyText } = useClipboard();
   const onCopyUrl = useCallback(() => {
-    if (tab?.url) {
-      copyText(tab.url);
+    const urlToCopy = tab?.displayUrl ?? tab?.url;
+    if (urlToCopy) {
+      copyText(urlToCopy);
     }
-  }, [tab?.url, copyText]);
+  }, [tab?.displayUrl, tab?.url, copyText]);
 
   useEffect(() => {
     const fn = () => {
@@ -236,8 +237,9 @@ function MobileBrowserBottomBar({
           isPinned={tab?.isPinned ?? false}
           onPinnedPress={handlePinTab}
           onBrowserOpen={() => {
-            if (tab?.url) {
-              openUrlExternal(tab.url);
+            const urlToOpen = tab?.displayUrl ?? tab?.url;
+            if (urlToOpen) {
+              openUrlExternal(urlToOpen);
             }
           }}
           onGoBackHomePage={onGoBackHomePage}
