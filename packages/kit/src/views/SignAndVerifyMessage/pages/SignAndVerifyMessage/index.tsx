@@ -57,6 +57,62 @@ const SignForm = ({
 }) => {
   const intl = useIntl();
   const signAccountsRef = useRef<ISignAccount[]>([]);
+
+  const selectedAddress = form.watch('address');
+  const currentSignAccount = useMemo(() => {
+    if (!selectedAddress) {
+      return undefined;
+    }
+    return signAccountsRef.current.find(
+      (account) => account.account.address === selectedAddress,
+    );
+  }, [selectedAddress]);
+
+  const setDefaultAccount = useCallback(async () => {
+    if (selectedAddress) {
+      return;
+    }
+
+    if (
+      !Array.isArray(signAccountsRef.current) ||
+      !signAccountsRef.current.length
+    ) {
+      return;
+    }
+
+    if (
+      networkId === getNetworkIdsMap().eth ||
+      networkId === getNetworkIdsMap().sol
+    ) {
+      const defaultAccount = signAccountsRef.current.find(
+        (i) => i.network.id === networkId,
+      );
+      if (defaultAccount) {
+        form.setValue('address', defaultAccount.account.address);
+        return;
+      }
+    }
+    if (networkId === getNetworkIdsMap().btc) {
+      const globalDeriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId,
+        });
+      const btcAccounts = signAccountsRef.current.filter(
+        (i) => i.network.id === getNetworkIdsMap().btc,
+      );
+      if (btcAccounts.length > 0) {
+        const defaultAccount =
+          btcAccounts.find((i) => i.deriveType === globalDeriveType) ||
+          btcAccounts[0];
+        if (defaultAccount) {
+          form.setValue('address', defaultAccount.account.address);
+          return;
+        }
+      }
+    }
+    form.setValue('address', signAccountsRef.current[0].account.address);
+  }, [form, networkId, selectedAddress, signAccountsRef]);
+
   // const currentSignAccount = useState<ISignAccount | undefined>(undefined);
   const { result: selectOptions } = usePromiseResult<ISelectSection[]>(
     async () => {
@@ -118,23 +174,14 @@ const SignForm = ({
           })),
         });
       }
+      void setDefaultAccount();
       return result;
     },
-    [accountId, indexedAccountId, isOthersWallet, networkId],
+    [accountId, indexedAccountId, isOthersWallet, networkId, setDefaultAccount],
     {
       initResult: [],
     },
   );
-
-  const selectedAddress = form.watch('address');
-  const currentSignAccount = useMemo(() => {
-    if (!selectedAddress) {
-      return undefined;
-    }
-    return signAccountsRef.current.find(
-      (account) => account.account.address === selectedAddress,
-    );
-  }, [selectedAddress]);
 
   return (
     <Form form={form}>
