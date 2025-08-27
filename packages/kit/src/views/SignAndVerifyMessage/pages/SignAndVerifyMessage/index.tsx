@@ -30,6 +30,7 @@ import type {
   IModalSignAndVerifyParamList,
 } from '@onekeyhq/shared/src/routes/signAndVerify';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISignAccount } from '@onekeyhq/shared/types/signAndVerify';
 import { ESignAndVerifyAction } from '@onekeyhq/shared/types/signAndVerify';
@@ -245,6 +246,24 @@ const SignForm = ({
         label={intl.formatMessage({
           id: ETranslations.global_hex_data,
         })}
+        rules={{
+          required: intl.formatMessage({
+            id: ETranslations.address_book_add_address_name_required,
+          }),
+          maxLength: {
+            value: 1024,
+            message: `Maximum length is 1024 characters`,
+          },
+          validate: (value: string) => {
+            const hexFormat = form.getValues('hexFormat');
+            if (hexFormat && value) {
+              if (!hexUtils.isHexString(value)) {
+                return 'Not a valid hex';
+              }
+            }
+            return true;
+          },
+        }}
         labelAddon={
           <XStack alignItems="center" gap="$2">
             <SizableText color="$text" size="$bodyMd">
@@ -274,6 +293,11 @@ const SignForm = ({
         description={intl.formatMessage({
           id: ETranslations.message_signing_address_desc,
         })}
+        rules={{
+          required: intl.formatMessage({
+            id: ETranslations.address_book_add_address_name_required,
+          }),
+        }}
       >
         <Select
           title={intl.formatMessage({
@@ -386,16 +410,15 @@ function SignAndVerifyMessage() {
       signature: '',
       hexFormat: false,
     },
+    mode: 'onSubmit',
+    reValidateMode: 'onBlur',
   });
 
-  const signFormValues = signForm.watch();
-  const isSignDisabled = useMemo(
-    () => !signFormValues.message || !signFormValues.address,
-    [signFormValues],
-  );
-
-  const handleSign = useCallback(() => {
-    console.log('Sign form values:', signForm.getValues());
+  const handleSign = useCallback(async () => {
+    const isValid = await signForm.trigger();
+    if (isValid) {
+      console.log('Sign form values:', signForm.getValues());
+    }
   }, [signForm]);
 
   const renderContent = useCallback(() => {
@@ -458,7 +481,7 @@ function SignAndVerifyMessage() {
           id: ETranslations.global_sign,
         })}
         confirmButtonProps={{
-          disabled: action !== ESignAndVerifyAction.Sign || isSignDisabled,
+          disabled: action !== ESignAndVerifyAction.Sign,
           loading: false,
         }}
         onConfirm={
