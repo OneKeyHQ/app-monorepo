@@ -58,6 +58,8 @@ export function DialogLoadingContainer() {
   return (
     <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
       <DialogContainer
+        // OK-42375
+        // Force re-render when zIndex changes to ensure proper stacking
         key={visibilityState.key}
         open={visibilityState.visible}
         // ref={dialogRef}
