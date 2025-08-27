@@ -11,6 +11,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export function DialogLoadingContainer() {
   // const dialogRef = useRef<IDialogInstance | null>(null);
@@ -21,6 +22,9 @@ export function DialogLoadingContainer() {
   const [count, setCount] = useState(0);
   useEffect(() => {
     const hideFn = async () => {
+      // OK-42375
+      // Delay rendering to ensure proper sheet z-index
+      await timerUtils.wait(50);
       // await dialogRef.current?.close();
       setVisible(false);
       // setPayload(undefined);
@@ -31,6 +35,9 @@ export function DialogLoadingContainer() {
     ) => {
       // await hideFn();
       // dialogRef.current = Dialog.loading(payload);
+      // OK-42375
+      // Delay rendering to ensure proper sheet z-index
+      await timerUtils.wait(50);
       setVisible(true);
       setPayload(p);
       setCount((c) => c + 1);
@@ -44,6 +51,7 @@ export function DialogLoadingContainer() {
   }, []);
 
   const key = useMemo(() => {
+    // OK-42375
     // Ensure the dialog appears above all other content with proper z-index
     if (platformEnv.isNativeIOS) {
       return `${visible ? 1 : 0}-${count}`;
@@ -61,6 +69,7 @@ export function DialogLoadingContainer() {
         // isExist={isExist}
         onClose={async () => {
           setVisible(false);
+          setCount((c) => c + 1);
         }}
         showExitButton={payload?.showExitButton ?? false}
         title={payload?.title}
