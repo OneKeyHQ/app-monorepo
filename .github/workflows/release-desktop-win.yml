@@ -94,12 +94,7 @@ jobs:
           CSC_LINK: './sign.p12'
         run: |
           cd apps/desktop
-          $env:NODE_ENV="production"
-          yarn clean:build
-          yarn build:renderer
-          yarn build:main
-          yarn install-app-deps
-          npx electron-builder build -w --config electron-builder-win.config.js --publish never
+          yarn build:win
 
       - name: Upload x64 Windows exe
         uses: actions/upload-artifact@v4
