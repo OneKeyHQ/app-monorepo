@@ -97,20 +97,6 @@ jobs:
           cd apps/desktop
           yarn build:winms
 
-      - name: Upload x64 Windows Store exe
-        uses: actions/upload-artifact@v4
-        with:
-          name: onekey-desktop-winms-x64-exe
-          path: |
-            ./apps/desktop/build-electron/*-x64.exe
-
-      - name: Upload arm64 Windows Store exe
-        uses: actions/upload-artifact@v4
-        with:
-          name: onekey-desktop-winms-arm64-exe
-          path: |
-            ./apps/desktop/build-electron/*-arm64.exe
-      
       - name: Upload universal Windows Store exe
         uses: actions/upload-artifact@v4
         with:
@@ -119,18 +105,6 @@ jobs:
             ./apps/desktop/build-electron/*.exe
             !./apps/desktop/build-electron/*-x64.exe
             !./apps/desktop/build-electron/*-arm64.exe
-
-      - name: Upload Artifacts Release
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-windows-store
-          path: |
-            ./apps/desktop/build-electron/*
-            !./apps/desktop/build-electron/win-unpacked
-            !./apps/desktop/build-electron/mac-arm64
-            !./apps/desktop/build-electron/mac
-            !./apps/desktop/build-electron/linux-unpacked
-            !./apps/desktop/build-electron/builder-debug.yml
 
       - name: 'Notify to Slack'
         if: ${{ github.event.workflow_run }}
