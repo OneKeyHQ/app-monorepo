@@ -14,6 +14,8 @@ export class PageScene extends BaseScene {
     };
   }
 
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
   public enterReferralGuideFromDeepLink(
     referralCode: string | undefined | null,
     utmSource: string | undefined | null,
