@@ -218,23 +218,38 @@ const SignForm = ({
   }, [currentSignAccount?.network.id]);
 
   const formatRadioOptions = useMemo(() => {
-    if (networkUtils.isBTCNetwork(currentSignAccount?.network.id)) {
-      if (currentSignAccount?.deriveType === 'BIP86') {
-        return [
-          { label: 'Electrum', value: 'electrum', disabled: true },
-          { label: 'BIP137', value: 'bip137', disabled: true },
-          { label: 'BIP322', value: 'bip322', disabled: false },
-        ];
-      }
-
+    const isHwAccount = accountUtils.isHwAccount({
+      accountId: currentSignAccount?.account.id ?? '',
+    });
+    if (!networkUtils.isBTCNetwork(currentSignAccount?.network.id)) {
+      return [];
+    }
+    if (currentSignAccount?.deriveType === 'BIP86') {
       return [
-        { label: 'Electrum', value: 'electrum' },
-        { label: 'BIP137', value: 'bip137' },
-        { label: 'BIP322', value: 'bip322' },
+        { label: 'Electrum', value: 'electrum', disabled: true },
+        { label: 'BIP137', value: 'bip137', disabled: true },
+        { label: 'BIP322', value: 'bip322', disabled: false },
       ];
     }
-    return [];
-  }, [currentSignAccount?.network.id, currentSignAccount?.deriveType]);
+
+    if (currentSignAccount?.deriveType === 'BIP84') {
+      return [
+        { label: 'Electrum', value: 'electrum', disabled: false },
+        { label: 'BIP137', value: 'bip137', disabled: false },
+        { label: 'BIP322', value: 'bip322', disabled: isHwAccount },
+      ];
+    }
+
+    return [
+      { label: 'Electrum', value: 'electrum', disabled: false },
+      { label: 'BIP137', value: 'bip137', disabled: false },
+      { label: 'BIP322', value: 'bip322', disabled: true },
+    ];
+  }, [
+    currentSignAccount?.network.id,
+    currentSignAccount?.deriveType,
+    currentSignAccount?.account.id,
+  ]);
 
   const currentFormat = form.watch('format');
   const currentMessage = form.watch('message');

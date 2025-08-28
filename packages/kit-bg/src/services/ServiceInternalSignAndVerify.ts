@@ -1,10 +1,9 @@
-import bs58 from 'bs58';
-
 import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types/coreTypesMessage';
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -145,6 +144,7 @@ class ServiceInternalSignAndVerify extends ServiceBase {
     return results;
   }
 
+  @toastIfError()
   @backgroundMethod()
   async signInternalMessage(params: {
     message: string;
