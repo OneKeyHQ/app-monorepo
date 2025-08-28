@@ -84,7 +84,7 @@ jobs:
         run: |
           echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > apps/desktop/sign.p12
 
-      - name: Publish and Sign Static Linux / Macos / Windows Installer
+      - name: Publish and Sign Static Linux / Macos
         if: ${{ (github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/x') }}
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
@@ -96,7 +96,7 @@ jobs:
           CSC_LINK: './sign.p12'
         run: 'cd apps/desktop && yarn publish:all'
 
-      - name: Build and Sign Static Linux / Macos / Windows Installer
+      - name: Build and Sign Static Linux / Macos
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           APPLEID: ${{ secrets.APPLEID }}
@@ -120,13 +120,6 @@ jobs:
           name: onekey-desktop-mac
           path: |
             ./apps/desktop/build-electron/*.dmg
-
-      - name: Upload Artifacts Windows
-        uses: actions/upload-artifact@v4
-        with:
-          name: onekey-desktop-windows
-          path: |
-            ./apps/desktop/build-electron/*.exe
 
       - name: Upload Artifacts Linux
         uses: actions/upload-artifact@v4

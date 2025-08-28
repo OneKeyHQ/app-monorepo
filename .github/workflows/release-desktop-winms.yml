@@ -98,17 +98,40 @@ jobs:
           cd apps/desktop
           yarn build:winms
 
-      - name: Upload Artifacts Windows
+      - name: Upload x64 Windows Store exe
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-windows-${{ matrix.arch }}
+          name: onekey-desktop-winms-x64-exe
+          path: |
+            ./apps/desktop/build-electron/*-x64.exe
+
+      - name: Upload arm64 Windows Store exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-winms-arm64-exe
+          path: |
+            ./apps/desktop/build-electron/*-arm64.exe
+      
+      - name: Upload universal Windows Store exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-winms-universal-exe
           path: |
             ./apps/desktop/build-electron/*.exe
+            !./apps/desktop/build-electron/*-x64.exe
+            !./apps/desktop/build-electron/*-arm64.exe
+      
+      - name: Upload Artifacts latest.yml
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-yml
+          path: |
+            ./apps/desktop/build-electron/*.yml
 
       - name: Upload Artifacts Release
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ matrix.arch }}
+          name: release
           path: |
             ./apps/desktop/build-electron/*
             !./apps/desktop/build-electron/win-unpacked
