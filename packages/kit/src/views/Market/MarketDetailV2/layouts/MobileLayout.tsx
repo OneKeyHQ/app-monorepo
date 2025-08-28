@@ -112,7 +112,9 @@ export function MobileLayout() {
   const renderItem = useCallback(
     ({ index }: { index: number }) => {
       if (index === 0) {
-        const tradingViewHeight = Number(height) * 0.58;
+        const tradingViewHeight = platformEnv.isNative
+          ? Number(height) * 0.58
+          : '40vh';
 
         return (
           <YStack flex={1} height={height}>

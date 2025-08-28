@@ -8,6 +8,7 @@ import {
   SizableText,
   Switch,
   YStack,
+  startViewTransition,
   useDialogInstance,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -80,7 +81,12 @@ function CustomTransaction() {
                 size={ESwitchSize.small}
                 value={settings.isCustomNonceEnabled}
                 onChange={async (value) => {
-                  setSettings((v) => ({ ...v, isCustomNonceEnabled: !!value }));
+                  startViewTransition(() => {
+                    setSettings((v) => ({
+                      ...v,
+                      isCustomNonceEnabled: !!value,
+                    }));
+                  });
                 }}
               />
             </ListItem>
@@ -100,34 +106,36 @@ function CustomTransaction() {
                 size={ESwitchSize.small}
                 value={settings.isCustomTxMessageEnabled}
                 onChange={async (value) => {
-                  if (value) {
-                    Dialog.show({
-                      icon: 'ErrorOutline',
-                      tone: 'destructive',
-                      title: intl.formatMessage({
-                        id: ETranslations.global_warning,
-                      }),
-                      description: intl.formatMessage({
-                        id: ETranslations.global_hex_data_warning,
-                      }),
-                      onConfirmText: intl.formatMessage({
-                        id: ETranslations.global_i_understand,
-                      }),
-                      showCancelButton: false,
-                      onConfirm: async () => {
-                        setSettings((v) => ({
-                          ...v,
-                          isCustomTxMessageEnabled: !!value,
-                        }));
-                      },
-                      renderContent: <CustomTxDataLearnMoreButton />,
-                    });
-                  } else {
+                  await new Promise<void>((resolve) => {
+                    if (value) {
+                      Dialog.show({
+                        icon: 'ErrorOutline',
+                        tone: 'destructive',
+                        title: intl.formatMessage({
+                          id: ETranslations.global_warning,
+                        }),
+                        description: intl.formatMessage({
+                          id: ETranslations.global_hex_data_warning,
+                        }),
+                        onConfirmText: intl.formatMessage({
+                          id: ETranslations.global_i_understand,
+                        }),
+                        showCancelButton: false,
+                        onConfirm: async () => {
+                          resolve();
+                        },
+                        renderContent: <CustomTxDataLearnMoreButton />,
+                      });
+                    } else {
+                      resolve();
+                    }
+                  });
+                  startViewTransition(() => {
                     setSettings((v) => ({
                       ...v,
                       isCustomTxMessageEnabled: !!value,
                     }));
-                  }
+                  });
                 }}
               />
             </ListItem>

@@ -1,4 +1,3 @@
-import { ISignMessageParams } from './../../types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 
@@ -11,6 +10,7 @@ import type {
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareHdAccountsParams,
+  ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
 

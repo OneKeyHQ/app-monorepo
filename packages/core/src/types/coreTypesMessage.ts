@@ -7,7 +7,7 @@ import type {
   EMessageTypesEth,
   EMessageTypesSolana,
   EMessageTypesTon,
-  EMessageTypesTron
+  EMessageTypesTron,
 } from '@onekeyhq/shared/types/message';
 
 import type { ISignMessageRequest } from '../chains/aptos/types';

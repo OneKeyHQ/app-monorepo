@@ -26,6 +26,7 @@ import type {
   IAccountHistoryTx,
   IHistoryListSectionGroup,
 } from '@onekeyhq/shared/types/history';
+import type { ITokenFiat } from '@onekeyhq/shared/types/token';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { useAccountData } from '../../hooks/useAccountData';
@@ -70,6 +71,7 @@ type IProps = {
   networkId?: string;
   indexedAccountId?: string;
   isSingleAccount?: boolean;
+  tokenMap?: Record<string, ITokenFiat>;
 };
 
 const ListFooterComponent = ({
@@ -233,6 +235,7 @@ function BaseTxHistoryListView(props: IProps) {
     walletId,
     indexedAccountId,
     isSingleAccount,
+    tokenMap,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
@@ -332,6 +335,7 @@ function BaseTxHistoryListView(props: IProps) {
         networkId={networkId}
         indexedAccountId={indexedAccountId}
         isSingleAccount={isSingleAccount}
+        tokenMap={tokenMap}
       />
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
