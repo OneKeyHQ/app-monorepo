@@ -163,12 +163,24 @@ const BreadcrumbComponent = BreadcrumbFrame.styleable<
 
   const handleRenderItem = useCallback(
     (item: IBreadcrumbItem, index: number) => {
-      if (item.render) {
-        return item.render(item, index);
-      }
-
       if (renderItem) {
         return renderItem(item, index);
+      }
+
+      let element: React.ReactNode | null = null;
+      if (item.render) {
+        element = item.render(item, index);
+      } else {
+        element =
+          item.label === '...' ? (
+            <BreadcrumbText breadcrumbSize={breadcrumbSize}>
+              {item.label}
+            </BreadcrumbText>
+          ) : (
+            <BreadcrumbLinkText breadcrumbSize={breadcrumbSize}>
+              {item.label}
+            </BreadcrumbLinkText>
+          );
       }
 
       return (
@@ -181,19 +193,11 @@ const BreadcrumbComponent = BreadcrumbFrame.styleable<
           onPress={() => handleItemPress(item)}
           disabled={!item.onClick ? !item.href : undefined}
         >
-          {item.label === '...' ? (
-            <BreadcrumbText breadcrumbSize={breadcrumbSize}>
-              {item.label}
-            </BreadcrumbText>
-          ) : (
-            <BreadcrumbLinkText breadcrumbSize={breadcrumbSize}>
-              {item.label}
-            </BreadcrumbLinkText>
-          )}
+          {element}
         </BreadcrumbItem>
       );
     },
-    [breadcrumbSize, renderItem],
+    [breadcrumbSize, handleItemPress, renderItem],
   );
 
   return (
