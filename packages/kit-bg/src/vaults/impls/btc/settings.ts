@@ -152,6 +152,7 @@ const settings: IVaultSettings = {
   },
   stakingResultPollingInterval: 60,
   createAllDeriveTypeAccountsByDefault: true,
+  enabledInternalSignAndVerify: true,
 };
 
 export default Object.freeze(settings);

@@ -20,6 +20,7 @@ import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -82,12 +83,16 @@ export const SignForm = ({
       return;
     }
 
+    const network = await backgroundApiProxy.serviceNetwork.getNetwork({
+      networkId,
+    });
     if (
       networkId === getNetworkIdsMap().eth ||
+      network.impl === IMPL_EVM ||
       networkId === getNetworkIdsMap().sol
     ) {
       const defaultAccount = signAccountsRef.current.find(
-        (i) => i.network.id === networkId,
+        (i) => i.network.id === networkId || i.network.impl === network.impl,
       );
       if (defaultAccount) {
         form.setValue('address', defaultAccount.account.address);

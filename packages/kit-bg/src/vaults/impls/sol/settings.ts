@@ -105,6 +105,7 @@ const settings: IVaultSettings = {
   stakingResultPollingInterval: 5,
   maxRetryBroadcastTxCount: 5,
   minRetryBroadcastTxInterval: timerUtils.getTimeDurationMs({ seconds: 1 }),
+  enabledInternalSignAndVerify: true,
 };
 
 export default Object.freeze(settings);
