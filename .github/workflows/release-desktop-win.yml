@@ -14,7 +14,6 @@ jobs:
     strategy:
       matrix:
         node-version: [20.x]
-        arch: [x64, arm64]
 
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
@@ -100,7 +99,7 @@ jobs:
           yarn build:renderer
           yarn build:main
           yarn install-app-deps
-          npx electron-builder build -w --config electron-builder-win.config.js --${{ matrix.arch }} --publish never
+          npx electron-builder build -w --config electron-builder-win.config.js --publish never
 
       - name: Upload x64 Windows exe
         uses: actions/upload-artifact@v4
