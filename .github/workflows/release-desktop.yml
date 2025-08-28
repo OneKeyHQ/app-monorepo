@@ -114,24 +114,38 @@ jobs:
           path: |
             ./apps/desktop/build-electron/*.yml
 
-      - name: Upload Artifacts Mac
+      - name: Upload universal Mac DMG
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-mac
+          name: onekey-desktop-mac-universal-dmg
           path: |
-            ./apps/desktop/build-electron/*.dmg
+            ./apps/desktop/build-electron/*-universal.dmg
 
-      - name: Upload Artifacts Linux
+      - name: Upload x64 Mac DMG
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-linux
+          name: onekey-desktop-mac-x64-dmg
           path: |
-            ./apps/desktop/build-electron/*.AppImage
+            ./apps/desktop/build-electron/*-x64.dmg
+
+      - name: Upload arm64 Mac DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-mac-arm64-dmg
+          path: |
+            ./apps/desktop/build-electron/*-arm64.dmg
+
+      - name: Upload Linux x86_64 AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-linux-x86_64-appimage
+          path: |
+            ./apps/desktop/build-electron/*-x86_64.AppImage
 
       - name: Upload Artifacts Release
         uses: actions/upload-artifact@v4
         with:
-          name: release
+          name: release-desktop-mac-and-linux
           path: |
             ./apps/desktop/build-electron/*
             !./apps/desktop/build-electron/win-unpacked
