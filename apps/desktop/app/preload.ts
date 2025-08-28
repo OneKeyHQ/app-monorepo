@@ -203,7 +203,6 @@ const updateGlobalTitleBarBackgroundColor = () => {
 const desktopApi: IDesktopAPILegacy = Object.freeze({
   on: (channel: string, func: (...args: any[]) => any) => {
     if (validChannels.includes(channel)) {
-      ipcRenderer.removeAllListeners(channel);
       ipcRenderer.on(channel, (_, ...args) => func(...args));
     }
   },
@@ -330,6 +329,8 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_UNSUBSCRIBE, uuid),
     write: (uuid: string, data: string) =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_WRITE, uuid, data),
+    cancelPairing: () =>
+      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_CANCEL_PAIRING),
     onNotification: (callback: (deviceId: string, data: string) => void) => {
       const subscription = (_: unknown, deviceId: string, data: string) => {
         callback(deviceId, data);

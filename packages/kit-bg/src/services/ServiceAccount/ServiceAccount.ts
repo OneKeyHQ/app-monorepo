@@ -468,8 +468,14 @@ class ServiceAccount extends ServiceBase {
         }
       }
       if (accountUtils.isImportedAccount({ accountId: credential.id })) {
+        let accountId = credential.id;
+        if (accountUtils.isTonMnemonicCredentialId(credential.id)) {
+          accountId = accountUtils.getAccountIdFromTonMnemonicCredentialId({
+            credentialId: credential.id,
+          });
+        }
         const account = await this.getDBAccountSafe({
-          accountId: credential.id,
+          accountId,
         });
         if (!account) {
           isRemoved = true;
@@ -780,10 +786,14 @@ class ServiceAccount extends ServiceBase {
     walletId,
     networkId,
     account,
+    indexedAccountNames,
   }: {
     walletId: string;
     networkId: string;
     account: IBatchCreateAccount;
+    indexedAccountNames?: {
+      [index: number]: string;
+    };
   }) {
     const {
       addressDetail: _addressDetail,
@@ -800,6 +810,7 @@ class ServiceAccount extends ServiceBase {
       walletId,
       indexes: [dbAccount.pathIndex],
       skipIfExists: true,
+      names: indexedAccountNames,
     });
     await localDb.addAccountsToWallet({
       allAccountsBelongToNetworkId: networkId,
@@ -3234,14 +3245,38 @@ class ServiceAccount extends ServiceBase {
     accountId: string;
     networkId: string;
   }) {
+    const info = await this.getAccountAddressInfoForApi({
+      dbAccount,
+      accountId,
+      networkId,
+    });
+    return info.address;
+  }
+
+  @backgroundMethod()
+  async getAccountAddressInfoForApi({
+    dbAccount,
+    accountId,
+    networkId,
+  }: {
+    dbAccount?: IDBAccount;
+    accountId: string;
+    networkId: string;
+  }): Promise<{ address: string; account: INetworkAccount }> {
+    const account: INetworkAccount = await this.getAccount({
+      accountId,
+      networkId,
+      dbAccount,
+    });
+
     if (networkUtils.isAllNetwork({ networkId })) {
-      return ALL_NETWORK_ACCOUNT_MOCK_ADDRESS;
+      return { address: ALL_NETWORK_ACCOUNT_MOCK_ADDRESS, account };
     }
-    const account = await this.getAccount({ accountId, networkId, dbAccount });
+
     if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
-      return account.addressDetail.normalizedAddress;
+      return { address: account.addressDetail.normalizedAddress, account };
     }
-    return account.address;
+    return { address: account.address, account };
   }
 
   @backgroundMethod()

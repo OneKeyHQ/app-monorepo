@@ -12,3 +12,5 @@ export const tronTokenAddressTestnet: Record<string, string> = {
 
 export const TRON_SOURCE_FLAG_TESTNET = 'test';
 export const TRON_SOURCE_FLAG_MAINNET = '1key';
+
+export const TRON_MESSAGE_PREFIX = '\x19TRON Signed Message:\n';

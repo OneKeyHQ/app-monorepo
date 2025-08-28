@@ -773,6 +773,14 @@ function isTonMnemonicCredentialId(credentialId: string): boolean {
   return credentialId.endsWith('--ton_credential');
 }
 
+function getAccountIdFromTonMnemonicCredentialId({
+  credentialId,
+}: {
+  credentialId: string;
+}) {
+  return credentialId.replace(/--ton_credential$/, '');
+}
+
 function buildHyperLiquidAgentCredentialId({
   userAddress,
   agentName,
@@ -904,6 +912,7 @@ export default {
   buildAccountLocalAssetsKey,
   buildTonMnemonicCredentialId,
   isTonMnemonicCredentialId,
+  getAccountIdFromTonMnemonicCredentialId,
   buildHyperLiquidAgentCredentialId,
   HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
   buildCustomEvmNetworkId,

@@ -16,12 +16,9 @@ import type {
 } from 'expo-local-authentication';
 
 const isSupportBiologyAuthFn = () =>
-  new Promise<boolean>((resolve) => {
-    const result = platformEnv.isE2E
-      ? false
-      : globalThis?.desktopApiProxy?.security?.canPromptTouchID();
-    resolve(!!result);
-  });
+  platformEnv.isE2E
+    ? Promise.resolve(false)
+    : globalThis?.desktopApiProxy?.security?.canPromptTouchID();
 
 export const isSupportBiologyAuth = memoizee(isSupportBiologyAuthFn, {
   promise: true,

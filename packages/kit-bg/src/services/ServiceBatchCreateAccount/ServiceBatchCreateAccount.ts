@@ -63,6 +63,9 @@ export type IBatchBuildAccountsParams = IBatchBuildAccountsBaseParams & {
   excludedIndexes?: {
     [index: number]: true;
   };
+  indexedAccountNames?: {
+    [index: number]: string;
+  };
   saveToDb?: boolean;
   saveToCache?: boolean;
   isVerifyAddressAction?: boolean;
@@ -83,6 +86,9 @@ type IAdvancedModeFlowParamsBase = {
   toIndex: number;
   excludedIndexes: {
     [index: number]: true;
+  };
+  indexedAccountNames?: {
+    [index: number]: string;
   };
   saveToDb: boolean;
   progressTotalCount?: number;
@@ -796,6 +802,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               excludedIndexes,
               saveToDb: true,
               hwAllNetworkPrepareAccountsResponse,
+              indexedAccountNames: params.indexedAccountNames,
             });
             addedAccounts.push({
               networkId: networkParams.networkId,
@@ -1031,6 +1038,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     hwAllNetworkPrepareAccountsResponse,
     isVerifyAddressAction,
     errorMessage,
+    indexedAccountNames,
   }: IBatchBuildAccountsParams): Promise<{
     accountsForCreate: IBatchCreateAccount[];
   }> {
@@ -1079,6 +1087,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             walletId,
             networkId,
             account: accountForCreate,
+            indexedAccountNames,
           });
           if (this.progressInfo) {
             this.progressInfo.createdCount += 1;

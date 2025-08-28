@@ -31,7 +31,7 @@ function TokenSecurityAlert() {
     });
   };
 
-  // Don't render if no security data or if should be hidden due to trust_list being false
+  // Always execute the status check, but don't render UI if no security data
   if (!securityData) {
     return null;
   }
@@ -47,11 +47,9 @@ function TokenSecurityAlert() {
       hitSlop={NATIVE_HIT_SLOP}
     >
       <Icon name="BugOutline" size="$4" color={color} />
-      {warningCount > 0 ? (
-        <SizableText size="$bodySmMedium" color={color}>
-          {warningCount}
-        </SizableText>
-      ) : null}
+      <SizableText size="$bodySmMedium" color={color}>
+        {warningCount}
+      </SizableText>
     </XStack>
   );
 }

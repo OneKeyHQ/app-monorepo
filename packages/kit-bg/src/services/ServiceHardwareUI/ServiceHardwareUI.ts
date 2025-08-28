@@ -343,7 +343,7 @@ class ServiceHardwareUI extends ServiceBase {
     } = params;
     const device = deviceParams?.dbDevice;
     const connectId = device?.connectId;
-    const isOuterCall = this.isOuterProcessing();
+    let isOuterCall = false;
 
     let deviceResetToHome = true;
     let isBusy = false;
@@ -352,6 +352,8 @@ class ServiceHardwareUI extends ServiceBase {
         this.processingNestedNum = 0;
       }
       this.processingNestedNum += 1;
+      // Determine outer call AFTER increment so that the first caller is treated as outer
+      isOuterCall = this.isOuterProcessing();
 
       defaultLogger.hardware.sdkLog.consoleLog('withHardwareProcessing');
       defaultLogger.account.accountCreatePerf.withHardwareProcessingStart(
@@ -503,9 +505,10 @@ class ServiceHardwareUI extends ServiceBase {
       }
       throw error;
     } finally {
-      console.log(
-        `withHardwareProcessing FINALLY: processingNestedNum=${this.processingNestedNum}, skipCloseHardwareUiStateDialog=${skipCloseHardwareUiStateDialog}`,
-      );
+      console.log('withHardwareProcessing FINALLY:', {
+        processingNestedNum: this.processingNestedNum,
+        skipCloseHardwareUiStateDialog,
+      });
       if (connectId && isOuterCall) {
         if (!skipCloseHardwareUiStateDialog) {
           const closeDialogParams = {
