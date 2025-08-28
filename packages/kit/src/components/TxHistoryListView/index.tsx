@@ -16,25 +16,21 @@ import {
 import { useStyle } from '@onekeyhq/components/src/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalRoutes,
-  EModalWalletAddressRoutes,
-} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   convertToSectionGroups,
   getFilteredHistoryBySearchKey,
 } from '@onekeyhq/shared/src/utils/historyUtils';
-import { EWalletAddressActionType } from '@onekeyhq/shared/types/address';
 import type {
   IAccountHistoryTx,
   IHistoryListSectionGroup,
 } from '@onekeyhq/shared/types/history';
+import type { ITokenFiat } from '@onekeyhq/shared/types/token';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { useAccountData } from '../../hooks/useAccountData';
-import useAppNavigation from '../../hooks/useAppNavigation';
+import { useBlockExplorerNavigation } from '../../hooks/useBlockExplorerNavigation';
 import {
   useHasMoreOnChainHistoryAtom,
   useSearchKeyAtom,
@@ -75,6 +71,7 @@ type IProps = {
   networkId?: string;
   indexedAccountId?: string;
   isSingleAccount?: boolean;
+  tokenMap?: Record<string, ITokenFiat>;
 };
 
 const ListFooterComponent = ({
@@ -94,7 +91,6 @@ const ListFooterComponent = ({
   hasMoreOnChainHistory?: boolean;
   isSingleAccount?: boolean;
 }) => {
-  const appNavigation = useAppNavigation();
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
   const intl = useIntl();
   const addPaddingOnListFooter = useMemo(
@@ -106,40 +102,25 @@ const ListFooterComponent = ({
     accountId,
     networkId,
   });
+  const { requiresNetworkSelection, openExplorer } = useBlockExplorerNavigation(
+    network,
+    walletId,
+  );
 
   const handleOnPress = useCallback(async () => {
-    if (
-      network?.isAllNetworks &&
-      !accountUtils.isOthersWallet({ walletId: walletId ?? '' })
-    ) {
-      appNavigation.pushModal(EModalRoutes.WalletAddress, {
-        screen: EModalWalletAddressRoutes.WalletAddress,
-        params: {
-          title: intl.formatMessage({
-            id: ETranslations.global_select_network,
-          }),
-          accountId,
-          walletId: walletId ?? '',
-          indexedAccountId: indexedAccountId ?? '',
-          actionType: EWalletAddressActionType.ViewInExplorer,
-        },
-      });
-    } else {
-      await openExplorerAddressUrl({
-        networkId: account?.createAtNetwork ?? network?.id,
-        address: account?.address,
-      });
-    }
+    await openExplorer({
+      accountId,
+      indexedAccountId,
+      networkId: account?.createAtNetwork ?? network?.id,
+      address: account?.address,
+    });
   }, [
-    network?.isAllNetworks,
-    network?.id,
-    walletId,
-    appNavigation,
-    intl,
+    openExplorer,
     accountId,
     indexedAccountId,
     account?.createAtNetwork,
     account?.address,
+    network?.id,
   ]);
 
   if (
@@ -186,7 +167,12 @@ const ListFooterComponent = ({
               doubleConfirm
             />
           ) : (
-            <Button size="small" variant="secondary" onPress={handleOnPress}>
+            <Button
+              size="small"
+              variant="secondary"
+              onPress={handleOnPress}
+              iconAfter={requiresNetworkSelection ? undefined : 'OpenOutline'}
+            >
               {intl.formatMessage({ id: ETranslations.global_block_explorer })}
             </Button>
           )}
@@ -249,6 +235,7 @@ function BaseTxHistoryListView(props: IProps) {
     walletId,
     indexedAccountId,
     isSingleAccount,
+    tokenMap,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
@@ -348,6 +335,7 @@ function BaseTxHistoryListView(props: IProps) {
         networkId={networkId}
         indexedAccountId={indexedAccountId}
         isSingleAccount={isSingleAccount}
+        tokenMap={tokenMap}
       />
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps

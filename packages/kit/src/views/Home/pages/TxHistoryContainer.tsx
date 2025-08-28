@@ -34,9 +34,11 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
+  ProviderJotaiContextHistoryList,
   useHistoryListActions,
-  withHistoryListProvider,
 } from '../../../states/jotai/contexts/historyList';
+import { useAllTokenListMapAtom } from '../../../states/jotai/contexts/tokenList';
+import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 
 function TxHistoryListContainer() {
@@ -50,6 +52,8 @@ function TxHistoryListContainer() {
     setHasMoreOnChainHistory,
   } = useHistoryListActions().current;
   const { updateAllNetworksState } = useAccountOverviewActions().current;
+
+  const [allTokenListMap] = useAllTokenListMapAtom();
 
   const [historyData, setHistoryData] = useState<IAccountHistoryTx[]>([]);
 
@@ -428,12 +432,24 @@ function TxHistoryListContainer() {
           mt: '$3',
         },
       }}
+      tokenMap={allTokenListMap}
     />
   );
 }
 
-const TxHistoryListContainerWithProvider = memo(
-  withHistoryListProvider(TxHistoryListContainer),
-);
+const TxHistoryListContainerWithProvider = memo(() => {
+  const {
+    activeAccount: { account },
+  } = useActiveAccount({ num: 0 });
+  return (
+    <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
+      <ProviderJotaiContextHistoryList>
+        <TxHistoryListContainer />
+      </ProviderJotaiContextHistoryList>
+    </HomeTokenListProviderMirrorWrapper>
+  );
+});
+TxHistoryListContainerWithProvider.displayName =
+  'TxHistoryListContainerWithProvider';
 
 export { TxHistoryListContainerWithProvider };
