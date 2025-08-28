@@ -814,7 +814,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   ]);
 
   return (
-    <ScrollView>
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+    >
       <YStack
         testID="swap-content-container"
         flex={1}
