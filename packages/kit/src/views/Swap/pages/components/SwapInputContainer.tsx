@@ -2,8 +2,21 @@ import { memo, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import {
+  InputAccessoryView,
+  Keyboard,
+  type StyleProp,
+  type TextStyle,
+} from 'react-native';
 
-import { Dialog, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  SizableText,
+  XStack,
+  YStack,
+  useIsKeyboardShown,
+} from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
@@ -33,15 +46,67 @@ import {
   ESwapRateDifferenceUnit,
   ESwapTabSwitchType,
   SwapAmountInputAccessoryViewID,
+  SwapPercentageInputStageForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
+import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
 
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
 import SwapInputActions from './SwapInputActions';
 
-import type { StyleProp, TextStyle } from 'react-native';
+export function PercentageStageOnKeyboard({
+  onSelectPercentageStage,
+}: {
+  onSelectPercentageStage?: (stage: number) => void;
+}) {
+  const isShow = useIsKeyboardShown();
+  const [{ swapPercentageInputStageShowForNative }] =
+    useInAppNotificationAtom();
+  let viewShow = platformEnv.isNativeIOS;
+  if (!platformEnv.isNativeIOS) {
+    viewShow = isShow && swapPercentageInputStageShowForNative;
+  }
+  return viewShow ? (
+    <XStack
+      alignItems="center"
+      gap="$1"
+      justifyContent="space-around"
+      bg="$bgSubdued"
+      h="$10"
+    >
+      <>
+        {SwapPercentageInputStageForNative.map((stage) => (
+          <SwapPercentageStageBadge
+            badgeSize="lg"
+            key={`swap-percentage-input-stage-${stage}`}
+            stage={stage}
+            borderRadius={0}
+            onSelectStage={onSelectPercentageStage}
+            flex={1}
+            justifyContent="center"
+            alignItems="center"
+            h="$10"
+          />
+        ))}
+        <Button
+          icon="CheckLargeOutline"
+          flex={1}
+          h="$10"
+          size="small"
+          justifyContent="center"
+          borderRadius={0}
+          alignItems="center"
+          variant="tertiary"
+          onPress={() => {
+            Keyboard.dismiss();
+          }}
+        />
+      </>
+    </XStack>
+  ) : null;
+}
 
 interface ISwapInputContainerProps {
   direction: ESwapDirectionType;
@@ -374,6 +439,13 @@ const SwapInputContainer = ({
         }}
         enableMaxAmount={!!(direction === ESwapDirectionType.FROM)}
       />
+      {platformEnv.isNativeIOS && direction === ESwapDirectionType.FROM ? (
+        <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={onSelectPercentageStage}
+          />
+        </InputAccessoryView>
+      ) : null}
     </YStack>
   );
 };
