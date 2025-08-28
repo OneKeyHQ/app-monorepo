@@ -119,7 +119,7 @@ jobs:
       - name: Upload universal Windows exe
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-win-${{ matrix.arch }}-exe
+          name: onekey-desktop-win-universal-exe
           path: |
             ./apps/desktop/build-electron/*.exe
             !./apps/desktop/build-electron/*-x64.exe
