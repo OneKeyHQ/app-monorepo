@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
@@ -7,6 +7,7 @@ import {
   Divider,
   Form,
   Input,
+  Radio,
   SizableText,
   Switch,
   TextAreaInput,
@@ -17,6 +18,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 type IVerifyFormData = {
   message: string;
@@ -94,6 +96,20 @@ export const VerifyForm = ({
   useEffect(() => {
     void throttledAddressValidation(watchedAddress || '');
   }, [watchedAddress, throttledAddressValidation]);
+
+  const displayFormatForm = useMemo(() => {
+    return networkUtils.isBTCNetwork(detectedNetworkId ?? undefined);
+  }, [detectedNetworkId]);
+
+  const formatRadioOptions = useMemo(() => {
+    if (!networkUtils.isBTCNetwork(detectedNetworkId ?? undefined)) {
+      return [];
+    }
+    return [
+      { label: 'Standard or BIP137', value: 'standard', disabled: false },
+      { label: 'BIP322', value: 'bip322', disabled: false },
+    ];
+  }, [detectedNetworkId]);
 
   return (
     <Form form={form}>
@@ -173,6 +189,16 @@ export const VerifyForm = ({
       </Form.Field>
 
       <Divider />
+
+      {displayFormatForm ? (
+        <Form.Field label="Signature format" name="format">
+          <Radio
+            orientation="horizontal"
+            gap="$5"
+            options={formatRadioOptions}
+          />
+        </Form.Field>
+      ) : null}
 
       <Form.Field
         label={intl.formatMessage({
