@@ -283,6 +283,7 @@ export class WalletConnectDappSide {
         logger: WALLET_CONNECT_LOGGER_LEVEL,
         metadata: WALLET_CONNECT_CLIENT_META,
         client,
+        // TODO client include storage, remove walletConnectStorage here
         storage: walletConnectStorage.dappSideStorage,
         sessionTopic: topic,
       });
