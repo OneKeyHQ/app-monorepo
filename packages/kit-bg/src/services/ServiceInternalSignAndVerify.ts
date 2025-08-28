@@ -1,3 +1,4 @@
+import { normalizeElectrumToBip137 } from '@onekeyhq/core/src/chains/btc/sdkBtc/bip137';
 import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types/coreTypesMessage';
 import {
@@ -7,6 +8,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -235,6 +237,20 @@ class ServiceInternalSignAndVerify extends ServiceBase {
           debugMethodName: 'serviceInternalSignAndVerify.signInternalMessage',
         },
       );
+
+    if (
+      networkUtils.isBTCNetwork(networkId) &&
+      accountUtils.isHdAccount({ accountId }) &&
+      format === 'bip137'
+    ) {
+      const account = await this.backgroundApi.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+      const sigB64 = Buffer.from(signedMessage, 'hex').toString('base64');
+      const bip137Sig = normalizeElectrumToBip137(sigB64, account.address);
+      return bip137Sig;
+    }
 
     return networkUtils.isBTCNetwork(networkId)
       ? Buffer.from(signedMessage, 'hex').toString('base64')
