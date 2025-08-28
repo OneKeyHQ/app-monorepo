@@ -14,6 +14,16 @@ export class PageScene extends BaseScene {
     };
   }
 
+  public enterReferralGuideFromDeepLink(
+    referralCode: string | undefined | null,
+    utmSource: string | undefined | null,
+  ) {
+    return {
+      referralCode: referralCode ?? '',
+      utmSource: utmSource ?? '',
+    };
+  }
+
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public signupOneKeyID() {
