@@ -5,11 +5,12 @@ import { createStyledContext, withStaticProperties } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Icon, SizableText, XStack } from '../../primitives';
+import { Icon, Image, SizableText, XStack } from '../../primitives';
 
 import type { IXStackProps } from '../../primitives';
 
 export type IBreadcrumbItem = {
+  icon?: string;
   label: string;
   href?: string;
   onClick?: () => void;
@@ -65,6 +66,11 @@ const BreadcrumbText = styled(SizableText, {
   } as const,
 });
 
+const sizeMap = {
+  sm: { minWidth: 14, minHeight: 14 },
+  md: { minWidth: 16, minHeight: 16 },
+  lg: { minWidth: 18, minHeight: 16 },
+};
 const BreadcrumbSeparator = ({
   separator,
   breadcrumbSize = 'md',
@@ -73,12 +79,6 @@ const BreadcrumbSeparator = ({
   separator?: React.ReactNode;
   breadcrumbSize?: IBreadcrumbSize;
 } & IXStackProps) => {
-  const sizeMap = {
-    sm: { minWidth: 14, minHeight: 14 },
-    md: { minWidth: 16, minHeight: 16 },
-    lg: { minWidth: 18, minHeight: 16 },
-  };
-
   return (
     <XStack
       alignItems="center"
@@ -141,6 +141,7 @@ const BreadcrumbComponent = BreadcrumbFrame.styleable<
     items,
     breadcrumbSize = 'md',
     maxItems,
+    separator,
     showOverflowIndicator = true,
     renderItem,
     ...rest
@@ -169,16 +170,22 @@ const BreadcrumbComponent = BreadcrumbFrame.styleable<
       } else if (renderItem) {
         element = renderItem(item, index);
       } else {
-        element =
-          item.label === '...' ? (
-            <BreadcrumbText breadcrumbSize={breadcrumbSize}>
-              {item.label}
-            </BreadcrumbText>
-          ) : (
-            <BreadcrumbLinkText breadcrumbSize={breadcrumbSize}>
-              {item.label}
-            </BreadcrumbLinkText>
-          );
+        element = (
+          <>
+            {item.icon ? (
+              <Image source={item.icon} size="$5" mr="$1.5" />
+            ) : null}
+            {item.label === '...' ? (
+              <BreadcrumbText breadcrumbSize={breadcrumbSize}>
+                {item.label}
+              </BreadcrumbText>
+            ) : (
+              <BreadcrumbLinkText breadcrumbSize={breadcrumbSize}>
+                {item.label}
+              </BreadcrumbLinkText>
+            )}
+          </>
+        );
       }
 
       return (
@@ -209,7 +216,10 @@ const BreadcrumbComponent = BreadcrumbFrame.styleable<
         <XStack key={index} alignItems="center">
           {handleRenderItem(item, index)}
           {index < displayItems.length - 1 ? (
-            <BreadcrumbSeparator breadcrumbSize={breadcrumbSize} />
+            <BreadcrumbSeparator
+              separator={separator}
+              breadcrumbSize={breadcrumbSize}
+            />
           ) : null}
         </XStack>
       ))}
