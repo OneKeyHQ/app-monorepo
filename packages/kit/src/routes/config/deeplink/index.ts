@@ -100,7 +100,7 @@ async function processDeepLinkUrlAccount(
                 },
               });
             }
-            defaultLogger.referral.page.enterReferralGuide(code);
+            defaultLogger.referral.page.enterReferralGuide(code, utmSource);
           }
           break;
         default:
