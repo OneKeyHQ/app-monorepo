@@ -9,6 +9,7 @@ import {
   Radio,
   Select,
   SizableText,
+  Skeleton,
   Switch,
   TextAreaInput,
   XStack,
@@ -221,6 +222,29 @@ export const SignForm = ({
     currentSignAccount?.account.id,
   ]);
 
+  const networkAvatarContent = useMemo(
+    () => (
+      <XStack alignItems="center" px="$1" mr="$-3">
+        {currentSignAccount?.network.id ? (
+          <NetworkAvatar networkId={currentSignAccount.network.id} size="$6" />
+        ) : (
+          <Skeleton w="$6" h="$6" borderRadius="$full" />
+        )}
+      </XStack>
+    ),
+    [currentSignAccount?.network.id],
+  );
+
+  const selectTriggerInputProps = useMemo(
+    () => ({
+      leftAddOnProps: {
+        size: 'large' as const,
+        renderContent: networkAvatarContent,
+      },
+    }),
+    [networkAvatarContent],
+  );
+
   const currentFormat = form.watch('format');
   const currentMessage = form.watch('message');
   const currentSignature = form.watch('signature');
@@ -333,19 +357,7 @@ export const SignForm = ({
             id: ETranslations.global_address,
           })}
           sections={selectOptions}
-          defaultTriggerInputProps={{
-            leftAddOnProps: {
-              size: 'large',
-              renderContent: (
-                <XStack alignItems="center" px="$1" mr="$-3">
-                  <NetworkAvatar
-                    networkId={currentSignAccount?.network.id}
-                    size="$6"
-                  />
-                </XStack>
-              ),
-            },
-          }}
+          defaultTriggerInputProps={selectTriggerInputProps}
         />
       </Form.Field>
 

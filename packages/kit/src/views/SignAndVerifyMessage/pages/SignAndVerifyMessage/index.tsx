@@ -234,6 +234,7 @@ function SignAndVerifyMessage() {
     if (action === ESignAndVerifyAction.Sign) {
       return (
         <SignForm
+          key="sign-form"
           form={signForm}
           networkId={networkId}
           accountId={accountId}
@@ -246,6 +247,7 @@ function SignAndVerifyMessage() {
     }
     return (
       <VerifyForm
+        key="verify-form"
         form={verifyForm}
         onNetworkDetected={setVerifyDetectedNetworkId}
       />
@@ -274,7 +276,30 @@ function SignAndVerifyMessage() {
             value={action}
             fullWidth
             onChange={(v) => {
-              setAction(v as ESignAndVerifyAction);
+              const newAction = v as ESignAndVerifyAction;
+              setAction(newAction);
+
+              // Reset form states when switching tabs
+              if (newAction === ESignAndVerifyAction.Sign) {
+                signForm.reset({
+                  message: '',
+                  address: '',
+                  format: '',
+                  signature: '',
+                  hexFormat: false,
+                });
+                setCurrentSignAccount(undefined);
+                signedMessageRef.current = null;
+              } else {
+                verifyForm.reset({
+                  message: '',
+                  address: '',
+                  signature: '',
+                  hexFormat: false,
+                  format: '',
+                });
+                setVerifyDetectedNetworkId(null);
+              }
             }}
             options={[
               {
