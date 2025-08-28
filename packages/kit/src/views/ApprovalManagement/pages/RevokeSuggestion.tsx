@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -12,15 +12,24 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  EModalApprovalManagementRoutes,
-  IModalApprovalManagementParamList,
-} from '@onekeyhq/shared/src/routes/approvalManagement';
+import type { IModalApprovalManagementParamList } from '@onekeyhq/shared/src/routes/approvalManagement';
+import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
+import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 import { EContractApprovalAlertType } from '@onekeyhq/shared/types/approval';
 
 import { ApprovalListView } from '../../../components/ApprovalListView';
-import { HomeApprovalListProviderMirror } from '../../Home/components/HomeApprovalListProvider/HomeApprovalListProviderMirror';
-import { ApprovalManagementContext } from '../components/ApprovalManagementContext';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import {
+  ProviderJotaiContextApprovalList,
+  useApprovalListActions,
+  useRevokeTxsStateAtom,
+  useSelectedTokensAtom,
+} from '../../../states/jotai/contexts/approvalList';
+import ApprovalActions from '../components/ApprovalActions';
+import {
+  buildToggleSelectAllTokensMap,
+  checkIsSelectAllTokens,
+} from '../utils';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -33,7 +42,87 @@ function RevokeSuggestion() {
         EModalApprovalManagementRoutes.RevokeSuggestion
       >
     >();
-  const { approvals, alertType } = route.params;
+  const { approvals, alertType, tokenMap, contractMap } = route.params;
+  const {
+    updateApprovalList,
+    updateTokenMap,
+    updateContractMap,
+    updateApprovalListState,
+    updateSelectedTokens,
+    updateIsBulkRevokeMode,
+  } = useApprovalListActions().current;
+
+  const navigation = useAppNavigation();
+
+  const [{ selectedTokens }] = useSelectedTokensAtom();
+  const [{ isBuildingRevokeTxs }] = useRevokeTxsStateAtom();
+
+  const { isSelectAllTokens, selectedCount } = useMemo(() => {
+    return checkIsSelectAllTokens({
+      approvals,
+      selectedTokens,
+    });
+  }, [approvals, selectedTokens]);
+
+  useEffect(() => {
+    // select all tokens by default
+    const selectedTokensTemp = buildToggleSelectAllTokensMap({
+      approvals,
+      toggle: true,
+    });
+
+    updateSelectedTokens({
+      selectedTokens: selectedTokensTemp,
+    });
+    updateApprovalList({
+      data: approvals,
+    });
+    updateTokenMap({
+      data: tokenMap,
+    });
+    updateContractMap({
+      data: contractMap,
+    });
+    updateApprovalListState({
+      isRefreshing: false,
+      initialized: true,
+    });
+
+    updateIsBulkRevokeMode(true);
+  }, [
+    approvals,
+    alertType,
+    contractMap,
+    tokenMap,
+    updateApprovalList,
+    updateTokenMap,
+    updateContractMap,
+    updateApprovalListState,
+    updateSelectedTokens,
+    updateIsBulkRevokeMode,
+  ]);
+
+  const handleApprovalItemOnPress = useCallback(
+    (approval: IContractApproval) => {
+      navigation.push(EModalApprovalManagementRoutes.ApprovalDetails, {
+        approval,
+        isSelectMode: true,
+        onSelected: ({
+          selectedTokens: _selectedTokens,
+        }: {
+          selectedTokens: Record<string, boolean>;
+        }) => {
+          updateSelectedTokens({
+            selectedTokens: _selectedTokens,
+            merge: true,
+          });
+        },
+        selectedTokens,
+      });
+    },
+    [navigation, updateSelectedTokens, selectedTokens],
+  );
+
   const renderRevokeSuggestionOverview = useCallback(() => {
     return (
       <YStack p="$5" gap="$4">
@@ -98,14 +187,47 @@ function RevokeSuggestion() {
 
   const renderRevokeSuggestionList = useCallback(() => {
     return (
-      <YStack p="$5" gap="$4">
-        <ApprovalListView />
-      </YStack>
+      <ApprovalListView hideRiskBadge onPress={handleApprovalItemOnPress} />
     );
+  }, [handleApprovalItemOnPress]);
+
+  const handleSelectAll = useCallback(() => {
+    const selectedTokensTemp = buildToggleSelectAllTokensMap({
+      approvals,
+      toggle: !(isSelectAllTokens === true),
+    });
+
+    updateSelectedTokens({
+      selectedTokens: selectedTokensTemp,
+    });
+  }, [approvals, isSelectAllTokens, updateSelectedTokens]);
+
+  const handleOnConfirm = useCallback(() => {
+    console.log('handleOnConfirm');
   }, []);
+  const handleOnCancel = useCallback(() => {
+    navigation.popStack();
+  }, [navigation]);
+
+  const renderBulkRevokeActions = () => {
+    return (
+      <ApprovalActions
+        isSelectAll={isSelectAllTokens}
+        setIsSelectAll={handleSelectAll}
+        onConfirm={handleOnConfirm}
+        onCancel={handleOnCancel}
+        onCancelText={intl.formatMessage({
+          id: ETranslations.global_cancel,
+        })}
+        isBulkRevokeMode
+        selectedCount={selectedCount}
+        isBuildingRevokeTxs={isBuildingRevokeTxs}
+      />
+    );
+  };
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.wallet_revoke_suggestion,
@@ -115,36 +237,16 @@ function RevokeSuggestion() {
         {renderRevokeSuggestionOverview()}
         {renderRevokeSuggestionList()}
       </Page.Body>
+      {renderBulkRevokeActions()}
     </Page>
   );
 }
 
 const RevokeSuggestionWithProvider = memo(() => {
-  const [isBuildingRevokeTxs, setIsBuildingRevokeTxs] = useState(false);
-  const [selectedTokens, setSelectedTokens] = useState<Record<string, boolean>>(
-    {},
-  );
-
-  const contextValue = useMemo(
-    () => ({
-      isBuildingRevokeTxs,
-      setIsBuildingRevokeTxs,
-      selectedTokens,
-      setSelectedTokens,
-    }),
-    [
-      isBuildingRevokeTxs,
-      setIsBuildingRevokeTxs,
-      selectedTokens,
-      setSelectedTokens,
-    ],
-  );
   return (
-    <HomeApprovalListProviderMirror>
-      <ApprovalManagementContext.Provider value={contextValue}>
-        <RevokeSuggestion />
-      </ApprovalManagementContext.Provider>
-    </HomeApprovalListProviderMirror>
+    <ProviderJotaiContextApprovalList>
+      <RevokeSuggestion />
+    </ProviderJotaiContextApprovalList>
   );
 });
 RevokeSuggestionWithProvider.displayName = 'RevokeSuggestionWithProvider';

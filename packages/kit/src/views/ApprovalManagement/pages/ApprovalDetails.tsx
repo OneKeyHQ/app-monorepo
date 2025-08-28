@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -48,9 +48,10 @@ import {
   useApprovalManagementContext,
 } from '../components/ApprovalManagementContext';
 import ApprovedTokenItem from '../components/ApprovedTokenItem';
-import { buildSelectedTokenKey } from '../utils';
+import { buildSelectedTokenKey, checkIsSelectAllTokens } from '../utils';
 
 import type { RouteProp } from '@react-navigation/core';
+import { useDebouncedCallback } from 'use-debounce';
 
 function ApprovalDetails() {
   const route =
@@ -60,7 +61,12 @@ function ApprovalDetails() {
         EModalApprovalManagementRoutes.ApprovalDetails
       >
     >();
-  const { approval, isSelectMode, onSelected } = route.params;
+  const {
+    approval,
+    isSelectMode,
+    onSelected,
+    selectedTokens: selectedTokensProp,
+  } = route.params;
 
   const intl = useIntl();
 
@@ -72,39 +78,19 @@ function ApprovalDetails() {
 
   const [{ tokenMap }] = useTokenMapAtom();
 
-  const { selectedTokens, setSelectedTokens, setIsBuildingRevokeTxs } =
-    useApprovalManagementContext();
-
-  const isSelectAllTokens = useMemo(() => {
-    let selectedCount = 0;
-    for (const item of approval.approvals) {
-      if (
-        selectedTokens[
-          buildSelectedTokenKey({
-            networkId: approval.networkId,
-            contractAddress: approval.contractAddress,
-            tokenAddress: item.tokenAddress,
-          })
-        ]
-      ) {
-        selectedCount += 1;
-      }
-    }
-    if (selectedCount === approval.approvals.length) {
-      return true;
-    }
-
-    if (selectedCount > 0) {
-      return 'indeterminate';
-    }
-
-    return false;
-  }, [
-    approval.approvals,
-    approval.contractAddress,
-    approval.networkId,
+  const {
     selectedTokens,
-  ]);
+    setSelectedTokens,
+    setIsBuildingRevokeTxs,
+    isBuildingRevokeTxs,
+  } = useApprovalManagementContext();
+
+  const { isSelectAllTokens, selectedCount } = useMemo(() => {
+    return checkIsSelectAllTokens({
+      approvals: [approval],
+      selectedTokens,
+    });
+  }, [approval, selectedTokens]);
 
   const [{ contractMap }] = useContractMapAtom();
   const contract = contractMap[
@@ -116,6 +102,8 @@ function ApprovalDetails() {
     label: intl.formatMessage({ id: ETranslations.global_unknown }),
     icon: 'Document2Outline',
   };
+
+  const [searchText, setSearchText] = useState('');
 
   const handleTokenOnSelect = useCallback(
     async ({
@@ -164,6 +152,14 @@ function ApprovalDetails() {
   );
 
   const handleOnConfirm = useCallback(async () => {
+    if (isSelectMode) {
+      onSelected?.({
+        selectedTokens,
+      });
+      navigation.pop();
+      return;
+    }
+
     const revokeInfos: IApproveInfo[] = approval.approvals.map((item) => ({
       owner: approval.owner,
       spender: approval.contractAddress,
@@ -211,13 +207,16 @@ function ApprovalDetails() {
     approval.contractAddress,
     approval.networkId,
     approval.owner,
+    isSelectMode,
     navigation,
+    onSelected,
+    selectedTokens,
     tokenMap,
   ]);
 
   const handleOnCancel = useCallback(() => {
-    console.log('handleOnCancel');
-  }, []);
+    setIsBulkRevokeMode(false);
+  }, [setIsBulkRevokeMode]);
 
   const handleTokenOnRevoke = useCallback(
     async ({ tokenInfo }: { tokenInfo: IToken }) => {
@@ -367,34 +366,62 @@ function ApprovalDetails() {
     );
   };
 
+  const filteredApprovals = useMemo(() => {
+    if (!searchText) {
+      return approval.approvals;
+    }
+
+    return approval.approvals.filter((item) => {
+      const searchTextLower = searchText.toLowerCase();
+      if (item.tokenAddress.toLowerCase() === searchTextLower) {
+        return true;
+      }
+
+      const tokenInfo =
+        tokenMap[
+          approvalUtils.buildTokenMapKey({
+            networkId: approval.networkId,
+            tokenAddress: item.tokenAddress,
+          })
+        ].info;
+
+      return (
+        tokenInfo.name?.toLowerCase().includes(searchTextLower) ||
+        tokenInfo.symbol?.toLowerCase().includes(searchTextLower)
+      );
+    });
+  }, [approval.approvals, approval.networkId, searchText, tokenMap]);
+
   const renderApprovedTokens = () => {
     return (
       <ListView
         ListHeaderComponent={
-          <XStack
-            justifyContent="space-between"
-            alignItems="center"
-            px="$5"
-            py="$2"
-          >
-            <SizableText size="$bodyMdMedium" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.wallet_approval_approved_token,
-              })}
-            </SizableText>
-            <IconButton
-              title={intl.formatMessage({ id: ETranslations.global_edit })}
-              variant="tertiary"
-              icon="EditOutline"
-              iconColor="$iconSubdued"
-              size="small"
-              onPress={() => {
-                setIsBulkRevokeMode((v) => !v);
-              }}
-            />
-          </XStack>
+          isSelectMode ? null : (
+            <XStack
+              justifyContent="space-between"
+              alignItems="center"
+              px="$5"
+              py="$2"
+            >
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.wallet_approval_approved_token,
+                })}
+              </SizableText>
+              <IconButton
+                title={intl.formatMessage({ id: ETranslations.global_edit })}
+                variant="tertiary"
+                icon="EditOutline"
+                iconColor="$iconSubdued"
+                size="small"
+                onPress={() => {
+                  setIsBulkRevokeMode((v) => !v);
+                }}
+              />
+            </XStack>
+          )
         }
-        data={approval.approvals}
+        data={filteredApprovals}
         renderItem={({ item }) => (
           <ApprovedTokenItem
             key={item.tokenAddress}
@@ -419,7 +446,8 @@ function ApprovalDetails() {
           onCancel={handleOnCancel}
           isSelectMode={isSelectMode}
           isBulkRevokeMode={isBulkRevokeMode}
-          selectedCount={Object.keys(selectedTokens).length}
+          selectedCount={selectedCount}
+          isBuildingRevokeTxs={isBuildingRevokeTxs}
         />
       );
     }
@@ -427,12 +455,32 @@ function ApprovalDetails() {
     return null;
   };
 
+  const handleSearchTextChange = useDebouncedCallback((text: string) => {
+    setSearchText(text);
+  }, 500);
+
+  useEffect(() => {
+    if (selectedTokensProp) {
+      setSelectedTokens(selectedTokensProp);
+    }
+  }, [selectedTokensProp, setSelectedTokens]);
+
   return (
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.wallet_approval_approval_details,
         })}
+        headerSearchBarOptions={
+          isSelectMode
+            ? {
+                placeholder: intl.formatMessage({
+                  id: ETranslations.global_search,
+                }),
+                onSearchTextChange: handleSearchTextChange,
+              }
+            : undefined
+        }
       />
       <Page.Body>
         {renderApprovalOverview()}

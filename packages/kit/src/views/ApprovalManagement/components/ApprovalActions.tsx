@@ -6,8 +6,6 @@ import type { ICheckedState } from '@onekeyhq/components';
 import { Checkbox, Page, Stack, useSafeAreaInsets } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useApprovalManagementContext } from './ApprovalManagementContext';
-
 type IProps = {
   isSelectMode?: boolean;
   isBulkRevokeMode?: boolean;
@@ -16,40 +14,44 @@ type IProps = {
   onConfirm: () => void;
   onCancel: () => void;
   selectedCount: number;
+  onCancelText?: string;
+  isBuildingRevokeTxs: boolean;
 };
 
 function ApprovalActions(props: IProps) {
   const {
-    isSelectMode: _isSelectMode,
+    isSelectMode,
     isBulkRevokeMode,
     isSelectAll,
     setIsSelectAll,
     onConfirm,
     onCancel,
+    onCancelText,
+    selectedCount,
+    isBuildingRevokeTxs,
   } = props;
 
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
-  const { isBuildingRevokeTxs, selectedTokens } =
-    useApprovalManagementContext();
 
   return (
     <Page.Footer disableKeyboardAnimation>
       <Page.FooterActions
         confirmButtonProps={{
           disabled:
-            isBuildingRevokeTxs || Object.keys(selectedTokens).length === 0,
+            isBuildingRevokeTxs || (selectedCount === 0 && !isSelectMode),
           loading: isBuildingRevokeTxs,
           variant: 'primary',
         }}
         cancelButtonProps={{
           disabled: isBuildingRevokeTxs,
         }}
+        onCancelText={onCancelText}
         onConfirmText={
           isBulkRevokeMode
             ? `${intl.formatMessage({
                 id: ETranslations.global_revoke,
-              })} (${Object.keys(selectedTokens).length})`
+              })} (${selectedCount})`
             : intl.formatMessage({ id: ETranslations.global_apply })
         }
         onConfirm={onConfirm}

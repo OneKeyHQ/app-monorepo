@@ -50,3 +50,20 @@ export const { atom: contractMapAtom, use: useContractMapAtom } = contextAtom<{
 }>({
   contractMap: {},
 });
+
+export const { atom: selectedTokensAtom, use: useSelectedTokensAtom } =
+  contextAtom<{
+    selectedTokens: Record<string, boolean>;
+  }>({
+    selectedTokens: {},
+  });
+
+export const { atom: isBulkRevokeModeAtom, use: useIsBulkRevokeModeAtom } =
+  contextAtom<boolean>(false);
+
+export const { atom: revokeTxsStateAtom, use: useRevokeTxsStateAtom } =
+  contextAtom<{
+    isBuildingRevokeTxs: boolean;
+  }>({
+    isBuildingRevokeTxs: false,
+  });

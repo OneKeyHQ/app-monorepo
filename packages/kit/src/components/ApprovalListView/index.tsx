@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { ListView, Stack, Tabs, YStack, useStyle } from '@onekeyhq/components';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
@@ -29,6 +29,7 @@ type IProps = {
     | 'ListFooterComponentStyle'
     | 'contentContainerStyle'
   >;
+  hideRiskBadge?: boolean;
 };
 
 function ApprovalListViewCmp(props: IProps) {
@@ -40,6 +41,7 @@ function ApprovalListViewCmp(props: IProps) {
     tableLayout,
     isAllNetworks,
     onPress,
+    hideRiskBadge,
   } = props;
 
   const [{ approvals }] = useApprovalListAtom();
@@ -123,6 +125,7 @@ function ApprovalListViewCmp(props: IProps) {
           isAllNetworks={isAllNetworks}
           tableLayout={tableLayout}
           onPress={onPress}
+          hideRiskBadge={hideRiskBadge}
         />
       )}
       ListFooterComponent={

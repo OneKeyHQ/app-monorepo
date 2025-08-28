@@ -11,16 +11,19 @@ import ContractAddressView from './ContractAddressView';
 import ContractIconView from './ContractIconView';
 import ContractNameView from './ContractNameView';
 import ContractNetworkView from './ContractNetworkView';
+import ApprovalCheckMark from './ApprovalCheckMark';
 
 type IProps = {
   approval: IContractApproval;
   tableLayout?: boolean;
   isAllNetworks?: boolean;
   onPress?: (approval: IContractApproval) => void;
+  hideRiskBadge?: boolean;
 };
 
 function ApproveListItem(props: IProps) {
-  const { approval, tableLayout, isAllNetworks, onPress } = props;
+  const { approval, tableLayout, isAllNetworks, onPress, hideRiskBadge } =
+    props;
 
   const renderFirstColumn = useCallback(() => {
     return (
@@ -43,6 +46,9 @@ function ApproveListItem(props: IProps) {
           <ContractNameView
             address={approval.contractAddress}
             networkId={approval.networkId}
+            isRiskContract={approval.isRiskContract}
+            isInactiveApproval={approval.isInactiveApproval}
+            hideRiskBadge={hideRiskBadge}
           />
           {tableLayout ? (
             <ContractNetworkView networkId={approval.networkId} />
@@ -60,7 +66,7 @@ function ApproveListItem(props: IProps) {
         </YStack>
       </XStack>
     );
-  }, [approval, tableLayout, isAllNetworks]);
+  }, [approval, tableLayout, isAllNetworks, hideRiskBadge]);
 
   const renderSecondColumn = useCallback(() => {
     if (!tableLayout) {
@@ -121,6 +127,7 @@ function ApproveListItem(props: IProps) {
       onPress={() => {
         onPress?.(approval);
       }}
+      childrenBefore={<ApprovalCheckMark approval={approval} />}
     >
       {renderFirstColumn()}
       {renderSecondColumn()}

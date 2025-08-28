@@ -12,6 +12,9 @@ import {
   approvalListStateAtom,
   contextAtomMethod,
   contractMapAtom,
+  isBulkRevokeModeAtom,
+  revokeTxsStateAtom,
+  selectedTokensAtom,
   tokenMapAtom,
 } from './atoms';
 
@@ -68,6 +71,35 @@ class ContextJotaiActionsApprovalList extends ContextJotaiActionsBase {
       }));
     },
   );
+
+  updateRevokeTxsState = contextAtomMethod(
+    (get, set, value: { isBuildingRevokeTxs: boolean }) => {
+      set(revokeTxsStateAtom(), {
+        isBuildingRevokeTxs: value.isBuildingRevokeTxs,
+      });
+    },
+  );
+
+  updateSelectedTokens = contextAtomMethod(
+    (
+      get,
+      set,
+      value: { selectedTokens: Record<string, boolean>; merge?: boolean },
+    ) => {
+      set(selectedTokensAtom(), (v) => {
+        if (value.merge) {
+          return {
+            selectedTokens: { ...v.selectedTokens, ...value.selectedTokens },
+          };
+        }
+        return { selectedTokens: value.selectedTokens };
+      });
+    },
+  );
+
+  updateIsBulkRevokeMode = contextAtomMethod((get, set, value: boolean) => {
+    set(isBulkRevokeModeAtom(), value);
+  });
 }
 
 const createActions = memoFn(() => {
@@ -82,11 +114,16 @@ export function useApprovalListActions() {
   const updateTokenMap = actions.updateTokenMap.use();
   const updateContractMap = actions.updateContractMap.use();
   const updateApprovalListState = actions.updateApprovalListState.use();
-
+  const updateRevokeTxsState = actions.updateRevokeTxsState.use();
+  const updateSelectedTokens = actions.updateSelectedTokens.use();
+  const updateIsBulkRevokeMode = actions.updateIsBulkRevokeMode.use();
   return useRef({
     updateApprovalList,
     updateTokenMap,
     updateContractMap,
     updateApprovalListState,
+    updateRevokeTxsState,
+    updateSelectedTokens,
+    updateIsBulkRevokeMode,
   });
 }

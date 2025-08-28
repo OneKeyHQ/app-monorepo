@@ -136,10 +136,10 @@ class ServiceApproval extends ServiceBase {
       ...resp.data.data,
       contractApprovals: [
         ...riskApprovals.sort(
-          (a, b) => b.latestApprovalTime - a.latestApprovalTime,
+          (a, b) => a.latestApprovalTime - b.latestApprovalTime,
         ),
         ...normalApprovals.sort(
-          (a, b) => b.latestApprovalTime - a.latestApprovalTime,
+          (a, b) => a.latestApprovalTime - b.latestApprovalTime,
         ),
       ],
     };

@@ -3,6 +3,7 @@ import { memo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   type ISizableTextProps,
   SizableText,
   XStack,
@@ -16,10 +17,20 @@ type IProps = {
   address: string;
   networkId: string;
   nameStyleProps?: ISizableTextProps;
+  isRiskContract?: boolean;
+  isInactiveApproval?: boolean;
+  hideRiskBadge?: boolean;
 };
 
 function ContractNameView(props: IProps) {
-  const { address, networkId, nameStyleProps } = props;
+  const {
+    address,
+    networkId,
+    nameStyleProps,
+    isInactiveApproval,
+    isRiskContract,
+    hideRiskBadge,
+  } = props;
   const intl = useIntl();
 
   const [{ contractMap }] = useContractMapAtom();
@@ -34,10 +45,24 @@ function ContractNameView(props: IProps) {
 
   return (
     <XStack alignItems="center" gap="$1">
-      <SizableText size="$bodyMdMedium" {...nameStyleProps}>
+      <SizableText size="$bodyMdMedium" {...nameStyleProps} numberOfLines={1}>
         {contract?.label ||
           intl.formatMessage({ id: ETranslations.global_unknown })}
       </SizableText>
+      {isRiskContract && !hideRiskBadge ? (
+        <Badge badgeSize="sm" badgeType="critical">
+          <Badge.Text>
+            {intl.formatMessage({ id: ETranslations.global_risk })}
+          </Badge.Text>
+        </Badge>
+      ) : null}
+      {isInactiveApproval && !hideRiskBadge ? (
+        <Badge badgeSize="sm" badgeType="warning">
+          <Badge.Text>
+            {intl.formatMessage({ id: ETranslations.global_inactive })}
+          </Badge.Text>
+        </Badge>
+      ) : null}
     </XStack>
   );
 }

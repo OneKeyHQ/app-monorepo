@@ -10,7 +10,11 @@ import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 import { EContractApprovalAlertType } from '@onekeyhq/shared/types/approval';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { useApprovalListAtom } from '../../states/jotai/contexts/approvalList';
+import {
+  useApprovalListAtom,
+  useContractMapAtom,
+  useTokenMapAtom,
+} from '../../states/jotai/contexts/approvalList';
 import { ListItem } from '../ListItem';
 
 type IProps = {
@@ -68,6 +72,8 @@ function ApprovalListHeader({ tableLayout }: IProps) {
   }, [intl, tableLayout]);
 
   const [{ approvals }] = useApprovalListAtom();
+  const [{ tokenMap }] = useTokenMapAtom();
+  const [{ contractMap }] = useContractMapAtom();
 
   const handleViewRiskApprovals = useCallback(
     ({
@@ -81,11 +87,13 @@ function ApprovalListHeader({ tableLayout }: IProps) {
         screen: EModalApprovalManagementRoutes.RevokeSuggestion,
         params: {
           approvals: _approvals,
+          contractMap,
+          tokenMap,
           alertType,
         },
       });
     },
-    [navigation],
+    [navigation, contractMap, tokenMap],
   );
 
   const { riskApprovals, warningApprovals } = useMemo(() => {
@@ -183,8 +191,8 @@ function ApprovalListHeader({ tableLayout }: IProps) {
 
   return (
     <>
-      {renderTableHeader()}
       {renderRiskOverview()}
+      {renderTableHeader()}
     </>
   );
 }
