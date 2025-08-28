@@ -3,6 +3,11 @@ const baseElectronBuilderConfig = require('./electron-builder-base.config');
 
 module.exports = {
   ...baseElectronBuilderConfig,
+  asarUnpack: [
+    '**/node_modules/@stoprocent/noble/**/*',
+    '**/node_modules/@stoprocent/bluetooth-hci-socket/**',
+  ],
+
   'nsis': {
     'oneClick': false,
     'installerSidebar': 'app/build/static/images/icons/installerSidebar.bmp',

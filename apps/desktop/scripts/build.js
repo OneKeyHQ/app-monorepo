@@ -60,8 +60,8 @@ build({
   },
   external: [
     'electron',
-    '@abandonware/noble',
-    '@abandonware/bluetooth-hci-socket',
+    '@stoprocent/noble',
+    '@stoprocent/bluetooth-hci-socket',
     'bufferutil',
     'utf-8-validate',
     ...Object.keys(pkg.dependencies),

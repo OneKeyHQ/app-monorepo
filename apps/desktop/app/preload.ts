@@ -329,6 +329,8 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_UNSUBSCRIBE, uuid),
     write: (uuid: string, data: string) =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_WRITE, uuid, data),
+    cancelPairing: () =>
+      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_CANCEL_PAIRING),
     onNotification: (callback: (deviceId: string, data: string) => void) => {
       const subscription = (_: unknown, deviceId: string, data: string) => {
         callback(deviceId, data);

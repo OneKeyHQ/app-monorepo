@@ -330,6 +330,10 @@ class ServiceHardwareUI extends ServiceBase {
   ): Promise<T> {
     clearTimeout(this.closeHardwareUiStateDialogTimer);
     clearTimeout(this.backgroundApi.serviceHardware.cancelTimer);
+    console.log(
+      `withHardwareProcessing START: processingNestedNum=${this.processingNestedNum}`,
+      params,
+    );
     const {
       deviceParams,
       skipDeviceCancel = false,
@@ -339,6 +343,7 @@ class ServiceHardwareUI extends ServiceBase {
     } = params;
     const device = deviceParams?.dbDevice;
     const connectId = device?.connectId;
+    let isOuterCall = false;
 
     let deviceResetToHome = true;
     let isBusy = false;
@@ -347,6 +352,8 @@ class ServiceHardwareUI extends ServiceBase {
         this.processingNestedNum = 0;
       }
       this.processingNestedNum += 1;
+      // Determine outer call AFTER increment so that the first caller is treated as outer
+      isOuterCall = this.isOuterProcessing();
 
       defaultLogger.hardware.sdkLog.consoleLog('withHardwareProcessing');
       defaultLogger.account.accountCreatePerf.withHardwareProcessingStart(
@@ -367,6 +374,7 @@ class ServiceHardwareUI extends ServiceBase {
         //   deviceParams.dbDevice.connectId = '11111';
         // }
 
+        await this.cleanHardwareUiState();
         if (connectId && !hideCheckingDeviceLoading) {
           await this.showCheckingDeviceDialog({
             connectId,
@@ -497,7 +505,11 @@ class ServiceHardwareUI extends ServiceBase {
       }
       throw error;
     } finally {
-      if (connectId && this.isOuterProcessing()) {
+      console.log('withHardwareProcessing FINALLY:', {
+        processingNestedNum: this.processingNestedNum,
+        skipCloseHardwareUiStateDialog,
+      });
+      if (connectId && isOuterCall) {
         if (!skipCloseHardwareUiStateDialog) {
           const closeDialogParams = {
             // skipDeviceCancel: true,

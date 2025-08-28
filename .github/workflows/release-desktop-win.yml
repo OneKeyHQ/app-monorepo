@@ -1,4 +1,4 @@
-name: release-desktop-winms
+name: release-desktop-win
 
 on:
   workflow_run:
@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  release-desktop-winms:
+  release-desktop-win:
     runs-on: windows-latest
     strategy:
       matrix:
@@ -31,7 +31,7 @@ jobs:
         uses: ./.github/actions/shared-env
         with:
           env_file_name: '.env'
-          sentry_project: 'desktop-winms'
+          sentry_project: 'desktop'
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
           sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
@@ -52,7 +52,6 @@ jobs:
           $artifacts_url = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
           "ARTIFACTS_URL=$artifacts_url" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
@@ -64,10 +63,10 @@ jobs:
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         shell: pwsh
-        run: echo "dir=$(yarn config get cacheFolder)" >> $env:GITHUB_OUTPUT
+        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
 
       - uses: actions/cache@v3
-        id: yarn-cache # use this to check for `cache-hit` (`steps.yarn-cache.outputs.cache-hit != 'true'`)
+        id: yarn-cache
         with:
           path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
@@ -96,7 +95,12 @@ jobs:
           CSC_LINK: './sign.p12'
         run: |
           cd apps/desktop
-          yarn build:winms
+          $env:NODE_ENV="production"
+          yarn clean:build
+          yarn build:renderer
+          yarn build:main
+          yarn install-app-deps
+          npx electron-builder build -w --config electron-builder-win.config.js --${{ matrix.arch }} --publish never
 
       - name: Upload Artifacts Windows
         uses: actions/upload-artifact@v4
@@ -112,6 +116,7 @@ jobs:
           path: |
             ./apps/desktop/build-electron/*
             !./apps/desktop/build-electron/win-unpacked
+            !./apps/desktop/build-electron/win-arm64-unpacked
             !./apps/desktop/build-electron/mac-arm64
             !./apps/desktop/build-electron/mac
             !./apps/desktop/build-electron/linux-unpacked
@@ -124,8 +129,9 @@ jobs:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
           secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
           artifact-type: Desktop
-          artifact-name: OneKey-Desktop-Win-Store
+          artifact-name: OneKey-Desktop-Win
           artifact-bundle-id: 'so.onekey.wallet.desktop'
           artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+
