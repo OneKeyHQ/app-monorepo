@@ -256,6 +256,38 @@ class ServiceInternalSignAndVerify extends ServiceBase {
       ? Buffer.from(signedMessage, 'hex').toString('base64')
       : signedMessage;
   }
+
+  @backgroundMethod()
+  async verifyMessage(params: {
+    message: string;
+    address: string;
+    signature: string;
+    networkId: string;
+    format: string;
+    hexFormat: boolean;
+  }) {
+    const { networkId, message, address, signature, hexFormat, format } =
+      params;
+    console.log('verifyMessage', { networkId, message, address, signature });
+
+    const vault = await vaultFactory.getChainOnlyVault({
+      networkId,
+    });
+
+    let finalMessage = message;
+    if (hexFormat) {
+      finalMessage = hexUtils.hexStringToUtf8String(message);
+    }
+
+    const verifyMessageResult = await vault.verifyMessage({
+      message: finalMessage,
+      address,
+      signature,
+      format,
+    });
+
+    return verifyMessageResult.valid;
+  }
 }
 
 export default ServiceInternalSignAndVerify;

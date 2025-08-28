@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import {
   Page,
   SegmentControl,
-  SizableText,
   Toast,
   YStack,
   useClipboard,
@@ -22,8 +21,10 @@ import type { ISignAccount } from '@onekeyhq/shared/types/signAndVerify';
 import { ESignAndVerifyAction } from '@onekeyhq/shared/types/signAndVerify';
 
 import { SignForm } from '../../components/SignForm';
+import { VerifyForm } from '../../components/VerifyForm';
 
-import type { ISignFormData } from '../../components/SignForm/types';
+import type { ISignFormData } from '../../components/SignForm';
+import type { IVerifyFormData } from '../../components/VerifyForm';
 import type { RouteProp } from '@react-navigation/core';
 
 const formatSignedMessage = ({
@@ -87,6 +88,9 @@ function SignAndVerifyMessage() {
   const [currentSignAccount, setCurrentSignAccount] = useState<
     ISignAccount | undefined
   >();
+  const [verifyDetectedNetworkId, setVerifyDetectedNetworkId] = useState<
+    string | null
+  >(null);
 
   const signedMessageRef = useRef<{
     message: string;
@@ -102,6 +106,18 @@ function SignAndVerifyMessage() {
       format: '',
       signature: '',
       hexFormat: false,
+    },
+    mode: 'onSubmit',
+    reValidateMode: 'onBlur',
+  });
+
+  const verifyForm = useForm<IVerifyFormData>({
+    defaultValues: {
+      message: '',
+      address: '',
+      signature: '',
+      hexFormat: false,
+      format: '',
     },
     mode: 'onSubmit',
     reValidateMode: 'onBlur',
@@ -167,6 +183,53 @@ function SignAndVerifyMessage() {
     copyText(willCopyText);
   }, [copyText]);
 
+  const handleVerify = useCallback(async () => {
+    const isValid = await verifyForm.trigger();
+    if (isValid) {
+      const { message, address, signature, hexFormat, format } =
+        verifyForm.getValues();
+      if (!verifyDetectedNetworkId) {
+        console.error('No network detected for address:', address);
+        Toast.error({
+          title: 'Verification failed',
+        });
+        return;
+      }
+
+      try {
+        setIsSigning(true);
+        // Note: Need to implement verifyInternalMessage method in serviceInternalSignAndVerify
+        // For now, using a placeholder that always returns false
+        const result =
+          await backgroundApiProxy.serviceInternalSignAndVerify.verifyMessage({
+            networkId: verifyDetectedNetworkId,
+            message,
+            address,
+            signature,
+            format,
+            hexFormat,
+          });
+
+        if (result) {
+          Toast.success({
+            title: 'Verification successful',
+          });
+        } else {
+          Toast.error({
+            title: 'Verification failed',
+          });
+        }
+      } catch (error) {
+        console.error('Verify error:', error);
+        Toast.error({
+          title: 'Verification failed',
+        });
+      } finally {
+        setIsSigning(false);
+      }
+    }
+  }, [verifyDetectedNetworkId, verifyForm]);
+
   const renderContent = useCallback(() => {
     if (action === ESignAndVerifyAction.Sign) {
       return (
@@ -181,10 +244,16 @@ function SignAndVerifyMessage() {
         />
       );
     }
-    return <SizableText>Verify message</SizableText>;
+    return (
+      <VerifyForm
+        form={verifyForm}
+        onNetworkDetected={setVerifyDetectedNetworkId}
+      />
+    );
   }, [
     action,
     signForm,
+    verifyForm,
     networkId,
     accountId,
     indexedAccountId,
@@ -227,14 +296,16 @@ function SignAndVerifyMessage() {
       </Page.Body>
       <Page.Footer
         onConfirmText={intl.formatMessage({
-          id: ETranslations.global_sign,
+          id:
+            action === ESignAndVerifyAction.Sign
+              ? ETranslations.global_sign
+              : ETranslations.message_signing_verify_action,
         })}
         confirmButtonProps={{
-          disabled: action !== ESignAndVerifyAction.Sign,
           loading: isSigning,
         }}
         onConfirm={
-          action === ESignAndVerifyAction.Sign ? handleSign : undefined
+          action === ESignAndVerifyAction.Sign ? handleSign : handleVerify
         }
       />
     </Page>
