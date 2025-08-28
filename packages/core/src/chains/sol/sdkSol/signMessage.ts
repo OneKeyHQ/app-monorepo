@@ -10,11 +10,15 @@ export function verifySignedMessage({
   address: string;
   signature: string;
 }) {
-  const pubkey = bs58.decode(address); // 32 bytes
-  const sig =
-    typeof signature === 'string' ? bs58.decode(signature) : signature;
-  const msg =
-    typeof message === 'string' ? Buffer.from(message, 'utf8') : message;
+  try {
+    const pubkey = bs58.decode(address); // 32 bytes
+    const sig =
+      typeof signature === 'string' ? bs58.decode(signature) : signature;
+    const msg =
+      typeof message === 'string' ? Buffer.from(message, 'utf8') : message;
 
-  return nacl.sign.detached.verify(msg, sig, pubkey);
+    return nacl.sign.detached.verify(msg, sig, pubkey);
+  } catch {
+    return false;
+  }
 }
