@@ -60,20 +60,18 @@ export function TokenDetailHeaderRight({
     address = '',
   } = tokenDetail || {};
 
-  const marketStar =
-    networkId && address ? (
-      <MarketStarV2
-        chainId={networkId}
-        contractAddress={address}
-        size="medium"
-        from={EWatchlistFrom.details}
-      />
-    ) : null;
+  const marketStar = networkId ? (
+    <MarketStarV2
+      chainId={networkId}
+      contractAddress={address}
+      size="medium"
+      from={EWatchlistFrom.details}
+    />
+  ) : null;
 
-  const shareButton =
-    networkId && address ? (
-      <ShareButton networkId={networkId} address={address} />
-    ) : null;
+  const shareButton = networkId ? (
+    <ShareButton networkId={networkId} address={address} />
+  ) : null;
 
   if (!showStats) {
     return (

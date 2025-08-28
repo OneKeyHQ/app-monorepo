@@ -24,7 +24,7 @@ class DesktopApiSecurity {
       logger.info('[TOUCH_ID_CAN_PROMPT] Windows checkAvailabilityAsync');
       try {
         const result = await checkAvailabilityAsync();
-        return result;
+        return !!result;
       } catch (error) {
         logger.info(
           '[TOUCH_ID_CAN_PROMPT] Windows checkAvailabilityAsync',

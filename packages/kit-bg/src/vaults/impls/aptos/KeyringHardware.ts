@@ -179,10 +179,16 @@ export class KeyringHardware extends KeyringHardwareBase {
     return Promise.all(
       messages.map(async (e) => {
         if (e.type === EMessageTypesAptos.SIGN_IN) {
-          throw new OneKeyLocalError(
-            'SignIn messages are not supported on hardware',
+          const res = await convertDeviceResponse(() =>
+            sdk.aptosSignInMessage(connectId, deviceId, {
+              ...deviceCommonParams,
+              path: account.path,
+              payload: e.message,
+            }),
           );
-        } else if (e.type === EMessageTypesAptos.SIGN_MESSAGE) {
+          return res.signature;
+        }
+        if (e.type === EMessageTypesAptos.SIGN_MESSAGE) {
           const payload = e.payload as ISignMessageRequest;
           const res = await convertDeviceResponse(() =>
             sdk.aptosSignMessage(connectId, deviceId, {
