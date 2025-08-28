@@ -23,6 +23,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  startViewTransition,
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -609,8 +610,10 @@ export function SocialButtonGroup() {
 export function DesktopBluetoothListItem(props: ICustomElementProps) {
   const [{ enableDesktopBluetooth }] = useSettingsPersistAtom();
   const toggleBluetooth = useCallback(async (value: boolean) => {
-    await backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(value);
-    defaultLogger.setting.page.settingsEnableBluetooth({ enabled: value });
+    startViewTransition(() => {
+      void backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(value);
+      defaultLogger.setting.page.settingsEnableBluetooth({ enabled: value });
+    });
   }, []);
   return (
     <TabSettingsListItem {...props} userSelect="none">
