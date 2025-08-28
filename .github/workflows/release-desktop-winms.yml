@@ -123,7 +123,7 @@ jobs:
       - name: Upload Artifacts Release
         uses: actions/upload-artifact@v4
         with:
-          name: release
+          name: release-windows-store
           path: |
             ./apps/desktop/build-electron/*
             !./apps/desktop/build-electron/win-unpacked
