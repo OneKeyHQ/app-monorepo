@@ -36,6 +36,7 @@
   },
   "dependencies": {
     "@sentry/electron": "5.8.0",
+    "@stoprocent/noble": "2.3.4",
     "adm-zip": "^0.5.10",
     "electron-check-biometric-auth-changed": "0.0.6",
     "electron-context-menu": "^3.5.0",
