@@ -233,12 +233,6 @@ const SwapQuoteInput = ({
         onSelectToken={onSelectToken}
         balance={toTokenBalance}
       />
-
-      {platformEnv.isNativeIOS ? (
-        <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
-          <SizableText h="$0" />
-        </InputAccessoryView>
-      ) : null}
     </YStack>
   );
 };
