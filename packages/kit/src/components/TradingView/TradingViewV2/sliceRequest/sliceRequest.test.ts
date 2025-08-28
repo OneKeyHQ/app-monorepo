@@ -184,10 +184,12 @@ describe('sliceRequest', () => {
       // 1 day interval, 150 days total = 150 data points (would be sliced for non-native)
       const timeFrom = mockTimeFrom;
       const timeTo = mockTimeFrom + 150 * SECONDS_IN_DAY;
-      const result = sliceRequest('1D', timeFrom, timeTo, { isNativeToken: true });
+      const nativeTokenSlices = sliceRequest('1D', timeFrom, timeTo, {
+        isNativeToken: true,
+      });
 
-      expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({
+      expect(nativeTokenSlices).toHaveLength(1);
+      expect(nativeTokenSlices[0]).toEqual({
         from: timeFrom,
         to: timeTo,
         interval: '1D',
@@ -198,10 +200,12 @@ describe('sliceRequest', () => {
       // 1 day interval, 200 days total = 200 data points
       const timeFrom = mockTimeFrom;
       const timeTo = mockTimeFrom + 200 * SECONDS_IN_DAY;
-      const result = sliceRequest('1D', timeFrom, timeTo, { isNativeToken: true });
+      const nativeTokenSlices = sliceRequest('1D', timeFrom, timeTo, {
+        isNativeToken: true,
+      });
 
-      expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({
+      expect(nativeTokenSlices).toHaveLength(1);
+      expect(nativeTokenSlices[0]).toEqual({
         from: timeFrom,
         to: timeTo,
         interval: '1D',
@@ -236,21 +240,23 @@ describe('sliceRequest', () => {
       // 1 day interval, 250 days total = 250 data points
       const timeFrom = mockTimeFrom;
       const timeTo = mockTimeFrom + 250 * SECONDS_IN_DAY;
-      const result = sliceRequest('1D', timeFrom, timeTo, { isNativeToken: true });
+      const nativeTokenSlices = sliceRequest('1D', timeFrom, timeTo, {
+        isNativeToken: true,
+      });
 
-      expect(result.length).toBeGreaterThan(1);
-      expect(result.length).toBe(2); // Math.ceil(250 / 200) = 2
+      expect(nativeTokenSlices.length).toBeGreaterThan(1);
+      expect(nativeTokenSlices.length).toBe(2); // Math.ceil(250 / 200) = 2
 
       // Check first slice
-      expect(result[0].from).toBe(timeFrom);
-      expect(result[0].to).toBeGreaterThan(timeFrom);
+      expect(nativeTokenSlices[0].from).toBe(timeFrom);
+      expect(nativeTokenSlices[0].to).toBeGreaterThan(timeFrom);
 
       // Check last slice ends at correct time
-      expect(result[result.length - 1].to).toBe(timeTo);
+      expect(nativeTokenSlices[nativeTokenSlices.length - 1].to).toBe(timeTo);
 
       // Check slices are continuous
-      for (let i = 1; i < result.length; i += 1) {
-        expect(result[i].from).toBe(result[i - 1].to);
+      for (let i = 1; i < nativeTokenSlices.length; i += 1) {
+        expect(nativeTokenSlices[i].from).toBe(nativeTokenSlices[i - 1].to);
       }
     });
 
@@ -258,9 +264,11 @@ describe('sliceRequest', () => {
       // 1 day interval, 150 days total = 150 data points
       const timeFrom = mockTimeFrom;
       const timeTo = mockTimeFrom + 150 * SECONDS_IN_DAY;
-      
+
       const nonNativeResult = sliceRequest('1D', timeFrom, timeTo);
-      const nativeResult = sliceRequest('1D', timeFrom, timeTo, { isNativeToken: true });
+      const nativeResult = sliceRequest('1D', timeFrom, timeTo, {
+        isNativeToken: true,
+      });
 
       expect(nonNativeResult.length).toBe(2); // Math.ceil(150 / 100) = 2
       expect(nativeResult.length).toBe(1); // 150 <= 200, no slicing needed
