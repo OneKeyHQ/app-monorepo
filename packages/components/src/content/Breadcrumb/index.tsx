@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { styled } from '@tamagui/core';
 import { createStyledContext, withStaticProperties } from 'tamagui';
 
@@ -126,7 +128,7 @@ export type IBreadcrumbProps = IXStackProps & {
   separator?: React.ReactNode;
   maxItems?: number;
   showOverflowIndicator?: boolean;
-  itemRender?: (item: IBreadcrumbItem, index: number) => React.ReactNode;
+  renderItem?: (item: IBreadcrumbItem, index: number) => React.ReactNode;
 };
 
 const BreadcrumbComponent = BreadcrumbFrame.styleable<
@@ -139,7 +141,7 @@ const BreadcrumbComponent = BreadcrumbFrame.styleable<
     breadcrumbSize = 'md',
     maxItems,
     showOverflowIndicator = true,
-    itemRender,
+    renderItem,
     ...rest
   } = props;
 
@@ -154,39 +156,40 @@ const BreadcrumbComponent = BreadcrumbFrame.styleable<
         ]
       : items;
 
-  const handleItemPress = (item: IBreadcrumbItem) => {
-    if (item.onClick) {
-      item.onClick();
-    }
-  };
+  const handleItemPress = useCallback((item: IBreadcrumbItem) => {
+    item.onClick?.();
+  }, []);
 
-  const renderItem = (item: IBreadcrumbItem, index: number) => {
-    if (itemRender) {
-      return itemRender(item, index);
-    }
+  const handleRenderItem = useCallback(
+    (item: IBreadcrumbItem, index: number) => {
+      if (renderItem) {
+        return renderItem(item, index);
+      }
 
-    return (
-      <BreadcrumbItem
-        role={
-          !platformEnv.isNative && (item.onClick || item.href)
-            ? 'button'
-            : undefined
-        }
-        onPress={() => handleItemPress(item)}
-        disabled={!item.onClick ? !item.href : undefined}
-      >
-        {item.label === '...' ? (
-          <BreadcrumbText breadcrumbSize={breadcrumbSize}>
-            {item.label}
-          </BreadcrumbText>
-        ) : (
-          <BreadcrumbLinkText breadcrumbSize={breadcrumbSize}>
-            {item.label}
-          </BreadcrumbLinkText>
-        )}
-      </BreadcrumbItem>
-    );
-  };
+      return (
+        <BreadcrumbItem
+          role={
+            !platformEnv.isNative && (item.onClick || item.href)
+              ? 'button'
+              : undefined
+          }
+          onPress={() => handleItemPress(item)}
+          disabled={!item.onClick ? !item.href : undefined}
+        >
+          {item.label === '...' ? (
+            <BreadcrumbText breadcrumbSize={breadcrumbSize}>
+              {item.label}
+            </BreadcrumbText>
+          ) : (
+            <BreadcrumbLinkText breadcrumbSize={breadcrumbSize}>
+              {item.label}
+            </BreadcrumbLinkText>
+          )}
+        </BreadcrumbItem>
+      );
+    },
+    [breadcrumbSize, renderItem],
+  );
 
   return (
     <BreadcrumbFrame
@@ -197,7 +200,7 @@ const BreadcrumbComponent = BreadcrumbFrame.styleable<
     >
       {displayItems.map((item, index) => (
         <XStack key={index} alignItems="center">
-          {renderItem(item, index)}
+          {handleRenderItem(item, index)}
           {index < displayItems.length - 1 ? (
             <BreadcrumbSeparator breadcrumbSize={breadcrumbSize} />
           ) : null}
