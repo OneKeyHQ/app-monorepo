@@ -144,7 +144,7 @@ const BreadcrumbGallery = () => {
                     return (
                       <XStack gap="$1.5" ai="center" jc="center">
                         <Image source={item.icon} size="$5" />
-                        <SizableText size="$bodySm" color="$textDisabled">
+                        <SizableText size="$bodySm" color="$text">
                           {item.label}
                         </SizableText>
                         <SizableText size="$bodySm" color="$textDisabled">
