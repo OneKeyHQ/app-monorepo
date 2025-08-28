@@ -122,7 +122,7 @@ jobs:
       - name: Upload Artifacts latest.yml
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-yml
+          name: onekey-windows-desktop-yml
           path: |
             ./apps/desktop/build-electron/*.yml
 
