@@ -156,7 +156,7 @@ const BreadcrumbGallery = () => {
                 },
                 {
                   label: 'Morpho',
-                  onClick: () => console.log('Current Page clicked'),
+                  onClick: () => console.log('Morpho clicked'),
                 },
               ]}
               separator={
