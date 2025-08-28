@@ -13,6 +13,7 @@ export type IBreadcrumbItem = {
   label: string;
   href?: string;
   onClick?: () => void;
+  render?: (item: IBreadcrumbItem, index: number) => React.ReactNode;
 };
 
 export type IBreadcrumbSize = 'sm' | 'md' | 'lg';
@@ -162,6 +163,10 @@ const BreadcrumbComponent = BreadcrumbFrame.styleable<
 
   const handleRenderItem = useCallback(
     (item: IBreadcrumbItem, index: number) => {
+      if (item.render) {
+        return item.render(item, index);
+      }
+
       if (renderItem) {
         return renderItem(item, index);
       }
