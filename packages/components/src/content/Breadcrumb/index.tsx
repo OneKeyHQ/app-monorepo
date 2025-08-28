@@ -26,48 +26,14 @@ const BreadcrumbFrame = styled(XStack, {
   context: BreadcrumbContext,
   alignItems: 'center',
   flexWrap: 'wrap',
-  gap: '$1',
-  variants: {
-    breadcrumbSize: {
-      sm: {
-        gap: '$0.5',
-      },
-      md: {
-        gap: '$1',
-      },
-      lg: {
-        gap: '$1.5',
-      },
-    },
-  } as const,
 });
 
 const BreadcrumbItem = styled(XStack, {
   name: 'BreadcrumbItem',
   context: BreadcrumbContext,
   alignItems: 'center',
-  gap: '$1',
   cursor: 'pointer',
   userSelect: 'none',
-  borderRadius: '$1',
-  paddingHorizontal: '$1',
-  paddingVertical: '$0.5',
-  variants: {
-    breadcrumbSize: {
-      sm: {
-        paddingHorizontal: '$0.5',
-        paddingVertical: '$0.25',
-      },
-      md: {
-        paddingHorizontal: '$1',
-        paddingVertical: '$0.5',
-      },
-      lg: {
-        paddingHorizontal: '$1.5',
-        paddingVertical: '$0.75',
-      },
-    },
-  } as const,
   pressStyle: {
     bg: '$bgHover',
   },
@@ -105,9 +71,9 @@ const BreadcrumbSeparator = ({
   breadcrumbSize?: IBreadcrumbSize;
 } & IXStackProps) => {
   const sizeMap = {
-    sm: { minWidth: 12, minHeight: 12 },
-    md: { minWidth: 14, minHeight: 14 },
-    lg: { minWidth: 16, minHeight: 16 },
+    sm: { minWidth: 14, minHeight: 14 },
+    md: { minWidth: 16, minHeight: 16 },
+    lg: { minWidth: 18, minHeight: 16 },
   };
 
   return (
@@ -138,7 +104,7 @@ const BreadcrumbLinkText = styled(SizableText, {
   name: 'BreadcrumbLinkText',
   allowFontScaling: false,
   context: BreadcrumbContext,
-  color: '$textDefault',
+  color: '$textSubdued',
   variants: {
     breadcrumbSize: {
       sm: {
@@ -201,7 +167,6 @@ const BreadcrumbComponent = BreadcrumbFrame.styleable<
 
     return (
       <BreadcrumbItem
-        breadcrumbSize={breadcrumbSize}
         role={
           !platformEnv.isNative && (item.onClick || item.href)
             ? 'button'
@@ -226,7 +191,6 @@ const BreadcrumbComponent = BreadcrumbFrame.styleable<
   return (
     <BreadcrumbFrame
       ref={ref}
-      breadcrumbSize={breadcrumbSize}
       role={!platformEnv.isNative ? 'navigation' : undefined}
       aria-label="Breadcrumb"
       {...rest}
