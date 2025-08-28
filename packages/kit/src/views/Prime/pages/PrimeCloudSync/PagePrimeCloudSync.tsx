@@ -13,6 +13,7 @@ import {
   SizableText,
   Stack,
   Switch,
+  startViewTransition,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -77,9 +78,11 @@ function AutoLockUpdateDialogContent({
         })}
         onConfirm={async () => {
           try {
-            await backgroundApiProxy.servicePassword.setAppLockDuration(
-              Number(selectedValue),
-            );
+            startViewTransition(async () => {
+              await backgroundApiProxy.servicePassword.setAppLockDuration(
+                Number(selectedValue),
+              );
+            });
             onContinue();
           } catch (error) {
             onError(error as Error);

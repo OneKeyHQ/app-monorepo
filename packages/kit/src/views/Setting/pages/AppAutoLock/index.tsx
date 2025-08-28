@@ -10,6 +10,7 @@ import {
   Stack,
   Switch,
   YStack,
+  startViewTransition,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -74,10 +75,12 @@ const EnableSystemIdleTimeItem = ({
           size={ESwitchSize.small}
           disabled={switchDisabled}
           value={switchValue}
-          onChange={async (checked) => {
-            await backgroundApiProxy.servicePassword.setEnableSystemIdleLock(
-              checked,
-            );
+          onChange={(checked) => {
+            startViewTransition(async () => {
+              await backgroundApiProxy.servicePassword.setEnableSystemIdleLock(
+                checked,
+              );
+            });
           }}
         />
       </ListItem>
@@ -159,9 +162,11 @@ export function AppAutoLockSettingsView({
         setLocalStateSelectedValue(value);
         return;
       }
-      await backgroundApiProxy.servicePassword
-        .setAppLockDuration(Number(value))
-        .catch(() => console.log('failed to set app lock duration'));
+      startViewTransition(async () => {
+        await backgroundApiProxy.servicePassword
+          .setAppLockDuration(Number(value))
+          .catch(() => console.log('failed to set app lock duration'));
+      });
     },
     [useLocalState],
   );
