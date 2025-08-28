@@ -97,11 +97,11 @@ const BreadcrumbText = styled(SizableText, {
 });
 
 const BreadcrumbSeparator = ({
-  children,
+  separator,
   breadcrumbSize = 'md',
   ...props
 }: {
-  children?: React.ReactNode;
+  separator?: React.ReactNode;
   breadcrumbSize?: IBreadcrumbSize;
 } & IXStackProps) => {
   const sizeMap = {
@@ -117,12 +117,18 @@ const BreadcrumbSeparator = ({
       {...sizeMap[breadcrumbSize]}
       {...props}
     >
-      {children || (
-        <Icon
-          name="ChevronRightSmallOutline"
-          size="$3.5"
-          color="$iconDisabled"
-        />
+      {typeof separator === 'string' ? (
+        <BreadcrumbText breadcrumbSize={breadcrumbSize}>
+          {separator}
+        </BreadcrumbText>
+      ) : (
+        separator || (
+          <Icon
+            name="ChevronRightSmallOutline"
+            size="$3.5"
+            color="$iconDisabled"
+          />
+        )
       )}
     </XStack>
   );
@@ -151,9 +157,10 @@ const BreadcrumbLinkText = styled(SizableText, {
 export type IBreadcrumbProps = IXStackProps & {
   items: IBreadcrumbItem[];
   breadcrumbSize?: IBreadcrumbSize;
-  separator?: string;
+  separator?: React.ReactNode;
   maxItems?: number;
   showOverflowIndicator?: boolean;
+  itemRender?: (item: IBreadcrumbItem, index: number) => React.ReactNode;
 };
 
 const BreadcrumbComponent = BreadcrumbFrame.styleable<
@@ -164,9 +171,9 @@ const BreadcrumbComponent = BreadcrumbFrame.styleable<
   const {
     items,
     breadcrumbSize = 'md',
-    separator = 'ChevronRight',
     maxItems,
     showOverflowIndicator = true,
+    itemRender,
     ...rest
   } = props;
 
@@ -187,6 +194,35 @@ const BreadcrumbComponent = BreadcrumbFrame.styleable<
     }
   };
 
+  const renderItem = (item: IBreadcrumbItem, index: number) => {
+    if (itemRender) {
+      return itemRender(item, index);
+    }
+
+    return (
+      <BreadcrumbItem
+        breadcrumbSize={breadcrumbSize}
+        role={
+          !platformEnv.isNative && (item.onClick || item.href)
+            ? 'button'
+            : undefined
+        }
+        onPress={() => handleItemPress(item)}
+        disabled={!item.onClick ? !item.href : undefined}
+      >
+        {item.label === '...' ? (
+          <BreadcrumbText breadcrumbSize={breadcrumbSize}>
+            {item.label}
+          </BreadcrumbText>
+        ) : (
+          <BreadcrumbLinkText breadcrumbSize={breadcrumbSize}>
+            {item.label}
+          </BreadcrumbLinkText>
+        )}
+      </BreadcrumbItem>
+    );
+  };
+
   return (
     <BreadcrumbFrame
       ref={ref}
@@ -197,26 +233,7 @@ const BreadcrumbComponent = BreadcrumbFrame.styleable<
     >
       {displayItems.map((item, index) => (
         <XStack key={index} alignItems="center">
-          <BreadcrumbItem
-            breadcrumbSize={breadcrumbSize}
-            role={
-              !platformEnv.isNative && (item.onClick || item.href)
-                ? 'button'
-                : undefined
-            }
-            onPress={() => handleItemPress(item)}
-            disabled={!item.onClick ? !item.href : undefined}
-          >
-            {item.label === '...' ? (
-              <BreadcrumbText breadcrumbSize={breadcrumbSize}>
-                {item.label}
-              </BreadcrumbText>
-            ) : (
-              <BreadcrumbLinkText breadcrumbSize={breadcrumbSize}>
-                {item.label}
-              </BreadcrumbLinkText>
-            )}
-          </BreadcrumbItem>
+          {renderItem(item, index)}
           {index < displayItems.length - 1 ? (
             <BreadcrumbSeparator breadcrumbSize={breadcrumbSize} />
           ) : null}
