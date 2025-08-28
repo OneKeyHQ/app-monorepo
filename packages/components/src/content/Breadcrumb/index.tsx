@@ -163,13 +163,11 @@ const BreadcrumbComponent = BreadcrumbFrame.styleable<
 
   const handleRenderItem = useCallback(
     (item: IBreadcrumbItem, index: number) => {
-      if (renderItem) {
-        return renderItem(item, index);
-      }
-
       let element: React.ReactNode | null = null;
       if (item.render) {
         element = item.render(item, index);
+      } else if (renderItem) {
+        element = renderItem(item, index);
       } else {
         element =
           item.label === '...' ? (
