@@ -3,6 +3,8 @@ import { useState } from 'react';
 import {
   Breadcrumb,
   Button,
+  Icon,
+  Image,
   Page,
   SizableText,
   Stack,
@@ -75,14 +77,96 @@ const BreadcrumbGallery = () => {
             'Disabled/read-only state',
           ]}
         >
-          <YStack space="$6" padding="$4">
+          <YStack gap="$6" padding="$4">
             {/* Basic Breadcrumb */}
 
             <Breadcrumb items={sampleItems} />
 
-            {/* Different Sizes */}
+            <Breadcrumb
+              separator={
+                <Icon
+                  name="CirclePlaceholderOnSolid"
+                  size="$1"
+                  color="$iconDisabled"
+                />
+              }
+              items={sampleItems}
+            />
 
+            <Breadcrumb
+              items={[
+                {
+                  icon: 'https://uni.onekey-asset.com/static/chain/btc.png',
+                  label: 'Home',
+                  onClick: () => console.log('Home clicked'),
+                },
+                {
+                  icon: 'https://uni.onekey-asset.com/static/chain/eth.png',
+                  label: 'Products',
+                  onClick: () => console.log('Products clicked'),
+                },
+                {
+                  label: 'Current Page',
+                  onClick: () => console.log('Current Page clicked'),
+                },
+              ]}
+              separator={
+                <Icon
+                  name="CirclePlaceholderOnSolid"
+                  size="$1"
+                  color="$iconDisabled"
+                />
+              }
+            />
 
+            <Breadcrumb
+              items={[
+                {
+                  icon: 'https://uni.onekey-asset.com/static/chain/btc.png',
+                  label: 'Home',
+                  onClick: () => console.log('Home clicked'),
+                  render: (item: IBreadcrumbItem) => {
+                    return (
+                      <XStack gap="$1.5">
+                        <Image source={item.icon} size="$5" />
+                        <SizableText size="$headingSm">
+                          {item.label}
+                        </SizableText>
+                      </XStack>
+                    );
+                  },
+                },
+                {
+                  icon: 'https://uni.onekey-asset.com/static/chain/eth.png',
+                  label: 'Products',
+                  onClick: () => console.log('Products clicked'),
+                  render: (item: IBreadcrumbItem) => {
+                    return (
+                      <XStack gap="$1.5" ai="center" jc="center">
+                        <Image source={item.icon} size="$5" />
+                        <SizableText size="$bodySm" color="$textDisabled">
+                          {item.label}
+                        </SizableText>
+                        <SizableText size="$bodySm" color="$textDisabled">
+                          Managed
+                        </SizableText>
+                      </XStack>
+                    );
+                  },
+                },
+                {
+                  label: 'Morpho',
+                  onClick: () => console.log('Current Page clicked'),
+                },
+              ]}
+              separator={
+                <Icon
+                  name="CirclePlaceholderOnSolid"
+                  size="$1"
+                  color="$iconDisabled"
+                />
+              }
+            />
           </YStack>
         </Layout>
       </Page.Body>
