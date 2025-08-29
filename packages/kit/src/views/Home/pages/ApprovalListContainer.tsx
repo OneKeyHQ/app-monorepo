@@ -147,9 +147,10 @@ function ApprovalListContainer() {
 
   return (
     <ApprovalListView
+      accountId={account?.id ?? ''}
+      networkId={network?.id ?? ''}
       inTabList
       withHeader
-      isAllNetworks={network?.isAllNetworks}
       onRefresh={onHomePageRefresh}
       onPress={handleApprovalOnPress}
       listViewStyleProps={{

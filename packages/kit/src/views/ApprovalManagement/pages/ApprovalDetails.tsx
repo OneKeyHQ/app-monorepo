@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import type { ICheckedState } from '@onekeyhq/components';
 import {
@@ -51,7 +52,6 @@ import ApprovedTokenItem from '../components/ApprovedTokenItem';
 import { buildSelectedTokenKey, checkIsSelectAllTokens } from '../utils';
 
 import type { RouteProp } from '@react-navigation/core';
-import { useDebouncedCallback } from 'use-debounce';
 
 function ApprovalDetails() {
   const route =

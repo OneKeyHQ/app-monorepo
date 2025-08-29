@@ -9,6 +9,7 @@ import type { IToken } from '../../types/token';
 export enum EModalApprovalManagementRoutes {
   ApprovalDetails = 'ApprovalDetails',
   RevokeSuggestion = 'RevokeSuggestion',
+  ApprovalList = 'ApprovalList',
 }
 
 export type IModalApprovalManagementParamList = {
@@ -19,6 +20,8 @@ export type IModalApprovalManagementParamList = {
     selectedTokens?: Record<string, boolean>;
   };
   [EModalApprovalManagementRoutes.RevokeSuggestion]: {
+    accountId: string;
+    networkId: string;
     approvals: IContractApproval[];
     contractMap: Record<string, IAddressInfo>;
     tokenMap: Record<
@@ -30,5 +33,9 @@ export type IModalApprovalManagementParamList = {
       }
     >;
     alertType: EContractApprovalAlertType;
+  };
+  [EModalApprovalManagementRoutes.ApprovalList]: {
+    accountId: string;
+    networkId: string;
   };
 };

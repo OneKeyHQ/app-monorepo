@@ -8,6 +8,7 @@ const ApprovalDetails = LazyLoadPage(() => import('../pages/ApprovalDetails'));
 const RevokeSuggestion = LazyLoadPage(
   () => import('../pages/RevokeSuggestion'),
 );
+const ApprovalList = LazyLoadPage(() => import('../pages/ApprovalList'));
 
 export const ModalApprovalManagementStack: IModalFlowNavigatorConfig<
   EModalApprovalManagementRoutes,
@@ -20,5 +21,9 @@ export const ModalApprovalManagementStack: IModalFlowNavigatorConfig<
   {
     name: EModalApprovalManagementRoutes.RevokeSuggestion,
     component: RevokeSuggestion,
+  },
+  {
+    name: EModalApprovalManagementRoutes.ApprovalList,
+    component: ApprovalList,
   },
 ];

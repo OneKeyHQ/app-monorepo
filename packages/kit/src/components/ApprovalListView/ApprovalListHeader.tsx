@@ -19,6 +19,8 @@ import { ListItem } from '../ListItem';
 
 type IProps = {
   tableLayout?: boolean;
+  accountId: string;
+  networkId: string;
 };
 
 function HeaderItem({ label }: { label: string }) {
@@ -29,7 +31,7 @@ function HeaderItem({ label }: { label: string }) {
   );
 }
 
-function ApprovalListHeader({ tableLayout }: IProps) {
+function ApprovalListHeader({ tableLayout, accountId, networkId }: IProps) {
   const intl = useIntl();
 
   const navigation = useAppNavigation();
@@ -90,10 +92,12 @@ function ApprovalListHeader({ tableLayout }: IProps) {
           contractMap,
           tokenMap,
           alertType,
+          accountId,
+          networkId,
         },
       });
     },
-    [navigation, contractMap, tokenMap],
+    [navigation, contractMap, tokenMap, accountId, networkId],
   );
 
   const { riskApprovals, warningApprovals } = useMemo(() => {

@@ -5,13 +5,13 @@ import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 
 import { ListItem } from '../ListItem';
 
+import ApprovalCheckMark from './ApprovalCheckMark';
 import ApprovalTimeView from './ApprovalTimeView';
 import ApprovalTokenView from './ApprovalTokenView';
 import ContractAddressView from './ContractAddressView';
 import ContractIconView from './ContractIconView';
 import ContractNameView from './ContractNameView';
 import ContractNetworkView from './ContractNetworkView';
-import ApprovalCheckMark from './ApprovalCheckMark';
 
 type IProps = {
   approval: IContractApproval;

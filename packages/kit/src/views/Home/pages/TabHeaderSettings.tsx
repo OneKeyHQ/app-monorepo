@@ -23,6 +23,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ListItem } from '../../../components/ListItem';
 import { useManageToken } from '../../../hooks/useManageToken';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 
 function TokenListSettings() {
   const intl = useIntl();
@@ -166,6 +169,34 @@ function TxHistorySettings() {
   );
 }
 
+function ApprovalSettings() {
+  const navigation = useAppNavigation();
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
+  const handleOnOpenApprovalList = useCallback(() => {
+    navigation.pushModal(EModalRoutes.ApprovalManagementModal, {
+      screen: EModalApprovalManagementRoutes.ApprovalList,
+      params: {
+        accountId: account?.id ?? '',
+        networkId: network?.id ?? '',
+      },
+    });
+  }, [account?.id, navigation, network?.id]);
+
+  const intl = useIntl();
+  return (
+    <IconButton
+      title={intl.formatMessage({
+        id: ETranslations.manage_token_title,
+      })}
+      variant="tertiary"
+      icon="Document2Outline"
+      onPress={handleOnOpenApprovalList}
+    />
+  );
+}
+
 function BasicTabHeaderSettings({ focusedTab }: { focusedTab: string }) {
   const intl = useIntl();
   const historyName = useMemo(
@@ -182,16 +213,26 @@ function BasicTabHeaderSettings({ focusedTab }: { focusedTab: string }) {
       }),
     [intl],
   );
+
+  const approvalName = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.global_approval,
+      }),
+    [intl],
+  );
   const content = useMemo(() => {
     switch (focusedTab) {
       case cryptoName:
         return <TokenListSettings />;
       case historyName:
         return <TxHistorySettings />;
+      case approvalName:
+        return <ApprovalSettings />;
       default:
         return null;
     }
-  }, [cryptoName, focusedTab, historyName]);
+  }, [approvalName, cryptoName, focusedTab, historyName]);
   return <XStack pr="$5">{content}</XStack>;
 }
 

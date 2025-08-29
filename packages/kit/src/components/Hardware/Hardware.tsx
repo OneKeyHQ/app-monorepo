@@ -307,7 +307,6 @@ function MacBluetoothIllustrationViews({
   );
 }
 
-
 function WindowsBluetoothIllustrationViews({
   view,
 }: {
@@ -333,7 +332,11 @@ function WindowsBluetoothIllustrationViews({
         bg={themeVariant === 'dark' ? '#101112' : '#F9F9F9'}
         borderRadius={12}
         borderWidth={1}
-        borderColor={themeVariant === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.055)'}
+        borderColor={
+          themeVariant === 'dark'
+            ? 'rgba(255,255,255,0.06)'
+            : 'rgba(0,0,0,0.055)'
+        }
         overflow="visible"
         $platform-web={{
           boxShadow:
@@ -343,20 +346,17 @@ function WindowsBluetoothIllustrationViews({
         }}
       >
         <LinearGradient
-          colors={[
-            'rgba(0,0,0,0.70)',
-            'rgba(0,0,0,0.80)'
-          ]}
+          colors={['rgba(0,0,0,0.70)', 'rgba(0,0,0,0.80)']}
           start={[0, 0]}
           end={[0, 1]}
           w={117}
           h={48}
           borderRadius={8}
           borderWidth={1}
-          borderColor={'rgba(0, 0, 0, 0.95)'}
+          borderColor="rgba(0, 0, 0, 0.95)"
           $platform-web={{
             boxShadow:
-              '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px rgba(0, 0, 0, 0.10), 0 1px 2px rgba(0, 0, 0, 0.10), inset 0 1px 2px rgba(255, 255, 255, 0.25)'
+              '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px rgba(0, 0, 0, 0.10), 0 1px 2px rgba(0, 0, 0, 0.10), inset 0 1px 2px rgba(255, 255, 255, 0.25)',
           }}
           overflow="hidden"
           p={8}
@@ -365,7 +365,12 @@ function WindowsBluetoothIllustrationViews({
           <XStack alignItems="center" gap={4} w={101} h={4}>
             <XStack gap={4} alignItems="center" w={85} h={4}>
               <YStack w={4} h={4} bg="rgba(255,255,255,0.5)" borderRadius={1} />
-              <YStack w={16} h={4} bg="rgba(255,255,255,0.8)" borderRadius={1} />
+              <YStack
+                w={16}
+                h={4}
+                bg="rgba(255,255,255,0.8)"
+                borderRadius={1}
+              />
             </XStack>
             <XStack gap={4} alignItems="center" w={12} h={4}>
               <YStack w={4} h={4} bg="rgba(255,255,255,0.5)" borderRadius={1} />

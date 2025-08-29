@@ -42,7 +42,8 @@ function RevokeSuggestion() {
         EModalApprovalManagementRoutes.RevokeSuggestion
       >
     >();
-  const { approvals, alertType, tokenMap, contractMap } = route.params;
+  const { accountId, networkId, approvals, alertType, tokenMap, contractMap } =
+    route.params;
   const {
     updateApprovalList,
     updateTokenMap,
@@ -187,9 +188,14 @@ function RevokeSuggestion() {
 
   const renderRevokeSuggestionList = useCallback(() => {
     return (
-      <ApprovalListView hideRiskBadge onPress={handleApprovalItemOnPress} />
+      <ApprovalListView
+        hideRiskBadge
+        onPress={handleApprovalItemOnPress}
+        accountId={accountId}
+        networkId={networkId}
+      />
     );
-  }, [handleApprovalItemOnPress]);
+  }, [accountId, handleApprovalItemOnPress, networkId]);
 
   const handleSelectAll = useCallback(() => {
     const selectedTokensTemp = buildToggleSelectAllTokensMap({

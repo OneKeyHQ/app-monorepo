@@ -1,7 +1,8 @@
 import type { ComponentProps } from 'react';
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { ListView, Stack, Tabs, YStack, useStyle } from '@onekeyhq/components';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 
 import {
@@ -17,9 +18,10 @@ import ApprovalListHeader from './ApprovalListHeader';
 import ApproveListItem from './ApprovalListItem';
 
 type IProps = {
+  accountId: string;
+  networkId: string;
   inTabList?: boolean;
   tableLayout?: boolean;
-  isAllNetworks?: boolean;
   onRefresh?: () => void;
   onPress?: (approval: IContractApproval) => void;
   withHeader?: boolean;
@@ -39,9 +41,10 @@ function ApprovalListViewCmp(props: IProps) {
     onRefresh,
     withHeader,
     tableLayout,
-    isAllNetworks,
     onPress,
     hideRiskBadge,
+    accountId,
+    networkId,
   } = props;
 
   const [{ approvals }] = useApprovalListAtom();
@@ -115,14 +118,18 @@ function ApprovalListViewCmp(props: IProps) {
       ListEmptyComponent={EmptyComponentElement}
       ListHeaderComponent={
         withHeader && !showSkeleton ? (
-          <ApprovalListHeader tableLayout={tableLayout} />
+          <ApprovalListHeader
+            tableLayout={tableLayout}
+            accountId={accountId}
+            networkId={networkId}
+          />
         ) : null
       }
       renderItem={({ item }) => (
         <ApproveListItem
           key={`${item.networkId}_${item.contractAddress}`}
           approval={item}
-          isAllNetworks={isAllNetworks}
+          isAllNetworks={networkUtils.isAllNetwork({ networkId })}
           tableLayout={tableLayout}
           onPress={onPress}
           hideRiskBadge={hideRiskBadge}
