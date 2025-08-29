@@ -30,15 +30,10 @@ type IVerifyFormData = {
 
 interface IVerifyFormProps {
   form: UseFormReturn<IVerifyFormData>;
-  onVerifyResult?: (isValid: boolean) => void;
   onNetworkDetected?: (networkId: string | null) => void;
 }
 
-export const VerifyForm = ({
-  form,
-  onVerifyResult,
-  onNetworkDetected,
-}: IVerifyFormProps) => {
+export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
   const intl = useIntl();
   const [detectedNetworkId, setDetectedNetworkId] = useState<string | null>(
     null,
@@ -106,10 +101,22 @@ export const VerifyForm = ({
       return [];
     }
     return [
-      { label: 'Standard or BIP137', value: 'standard', disabled: false },
+      { label: 'Standard or BIP137', value: 'bip137', disabled: false },
       { label: 'BIP322', value: 'bip322', disabled: false },
     ];
   }, [detectedNetworkId]);
+
+  // Set default format when displayFormatForm changes
+  useEffect(() => {
+    if (displayFormatForm) {
+      const currentFormat = form.getValues('format');
+      if (!currentFormat) {
+        form.setValue('format', 'bip137');
+      }
+    } else {
+      form.setValue('format', '');
+    }
+  }, [displayFormatForm, form]);
 
   return (
     <Form form={form}>

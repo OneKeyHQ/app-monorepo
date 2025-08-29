@@ -423,7 +423,7 @@ function BasicSelect<
   const media = useMedia();
   const defaultRenderTrigger = useCallback(
     ({ label, placeholder, disabled }: ISelectRenderTriggerProps) => (
-      <>
+      <Stack position="relative" flex={1}>
         <Input
           value={label}
           disabled={disabled}
@@ -446,7 +446,7 @@ function BasicSelect<
           right="$3"
           top={media.gtMd ? '$2' : '$3'}
         />
-      </>
+      </Stack>
     ),
     [defaultTriggerInputProps, media.gtMd, testID],
   );
