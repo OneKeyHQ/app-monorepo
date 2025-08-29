@@ -1,11 +1,6 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
-
-import type {
-  IPageNavigationProp,
-  IPageScreenProps,
-} from '@onekeyhq/components';
+import type { IPageScreenProps } from '@onekeyhq/components';
 import { NavBackButton, Page, XStack, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -32,6 +27,7 @@ import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirro
 
 import { TokenDetailHeader } from './components/TokenDetailHeader/TokenDetailHeader';
 import { useAutoRefreshTokenDetail } from './hooks';
+import { useMarketDetailBackNavigation } from './hooks/useMarketDetailBackNavigation';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileLayout } from './layouts/MobileLayout';
 
@@ -41,7 +37,7 @@ function MarketDetail({
   const { tokenAddress, networkId } = route.params;
   const media = useMedia();
   const tokenDetailActions = useTokenDetailActions();
-  const navigation = useNavigation<IPageNavigationProp<ITabMarketParamList>>();
+  const { handleBackPress } = useMarketDetailBackNavigation();
 
   // Clear all token detail content when unmount
   useEffect(() => {
@@ -59,10 +55,6 @@ function MarketDetail({
     tokenAddress,
     networkId,
   });
-
-  const handleBackPress = useCallback(() => {
-    navigation.pop();
-  }, [navigation]);
 
   const customHeaderLeft = useMemo(
     () => (
