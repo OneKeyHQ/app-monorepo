@@ -67,8 +67,20 @@ function MarketDetail({
   const customHeaderLeft = useMemo(
     () => (
       <XStack gap="$3" ai="center">
-        {platformEnv.isNative ? (
-          <>
+        <NavBackButton onPress={handleBackPress} />
+        <AccountSelectorTriggerHome num={0} />
+      </XStack>
+    ),
+    [handleBackPress],
+  );
+
+  const customHeaderRight = useMemo(() => null, []);
+
+  return (
+    <Page>
+      {platformEnv.isNative ? (
+        <TabPageHeaderContainer>
+          <XStack gap="$3" ai="center">
             <HeaderLeftCloseButton />
 
             <MarketWatchListProviderMirrorV2
@@ -80,24 +92,8 @@ function MarketDetail({
                 showMediaAndSecurity={false}
               />
             </MarketWatchListProviderMirrorV2>
-          </>
-        ) : (
-          <>
-            <NavBackButton onPress={handleBackPress} />
-            <AccountSelectorTriggerHome num={0} />
-          </>
-        )}
-      </XStack>
-    ),
-    [handleBackPress],
-  );
-
-  const customHeaderRight = useMemo(() => null, []);
-
-  return (
-    <Page>
-      {platformEnv.isNative ? (
-        <TabPageHeaderContainer>{customHeaderLeft}</TabPageHeaderContainer>
+          </XStack>
+        </TabPageHeaderContainer>
       ) : (
         <TabPageHeader
           sceneName={EAccountSelectorSceneName.home}
