@@ -246,8 +246,11 @@ function WebModalNavigator({
     [],
   );
 
-  const isExistBackdrop =
-    document.querySelectorAll(`[data-testid="${backdropId}"]`).length > 1;
+  const isExistBackdrop = useMemo(() => {
+    return (
+      document.querySelectorAll(`[data-testid="${backdropId}"]`).length > 0
+    );
+  }, []);
 
   return (
     <NavigationContent>
