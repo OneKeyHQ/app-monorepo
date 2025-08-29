@@ -697,5 +697,55 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'serviceInternalSignAndVerify', { value });
     return value;
   }
+  
+  get serviceHyperliquid() {
+    const Service =
+      require('../services/ServiceHyperLiquid/ServiceHyperliquid') as typeof import('../services/ServiceHyperLiquid/ServiceHyperliquid');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceHyperliquid', { value });
+    return value;
+  }
+
+  get serviceHyperliquidInfo() {
+    const Service =
+      require('../services/ServiceHyperLiquid/ServiceHyperliquidInfo') as typeof import('../services/ServiceHyperLiquid/ServiceHyperliquidInfo');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceHyperliquidInfo', { value });
+    return value;
+  }
+
+  get serviceHyperliquidExchange() {
+    const Service =
+      require('../services/ServiceHyperLiquid/ServiceHyperliquidExchange') as typeof import('../services/ServiceHyperLiquid/ServiceHyperliquidExchange');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceHyperliquidExchange', { value });
+    return value;
+  }
+
+  get serviceHyperliquidWallet() {
+    const Service =
+      require('../services/ServiceHyperLiquid/ServiceHyperliquidWallet') as typeof import('../services/ServiceHyperLiquid/ServiceHyperliquidWallet');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceHyperliquidWallet', { value });
+    return value;
+  }
+
+  get serviceHyperliquidSubscription() {
+    const Service =
+      require('../services/ServiceHyperLiquid/ServiceHyperliquidSubscription') as typeof import('../services/ServiceHyperLiquid/ServiceHyperliquidSubscription');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceHyperliquidSubscription', { value });
+    return value;
+  }
 }
 export default BackgroundApi;

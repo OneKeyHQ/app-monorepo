@@ -256,7 +256,7 @@ function WebviewPerpTradeView() {
   return (
     <Page fullPage>
       <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
+        sceneName={EAccountSelectorSceneName.perp}
         tabRoute={ETabRoutes.WebviewPerpTrade}
         customHeaderLeftItems={leftHeaderItems}
         renderCustomHeaderRightItems={({ fixedItems }) => (
@@ -309,7 +309,7 @@ const PageWebviewPerpTrade = () => {
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: EAccountSelectorSceneName.home,
+        sceneName: EAccountSelectorSceneName.perp,
         sceneUrl: '',
       }}
       enabledNum={[0]}
