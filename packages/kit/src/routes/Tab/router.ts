@@ -23,6 +23,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useToReferFriendsModalByRootNavigation } from '../../hooks/useReferFriends';
 import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';
+import { perpRouters } from '../../views/Perp/router';
 import { perpTradeRouters } from '../../views/PerpTrade/router';
 
 import { discoveryRouters } from './Discovery/router';
@@ -142,6 +143,14 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           exact: true,
           children: swapRouters,
           trackId: 'global-trade',
+        },
+        {
+          name: ETabRoutes.Perp,
+          tabBarIcon: (focused?: boolean) =>
+            focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
+          translationId: ETranslations.global_perp,
+          freezeOnBlur: Boolean(params?.freezeOnBlur),
+          children: perpRouters,
         },
         // platformEnv.isDesktop || platformEnv.isNative
         platformEnv.isDesktop
