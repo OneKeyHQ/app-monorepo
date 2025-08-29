@@ -6,6 +6,7 @@ import { Button, Empty } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { useAccountData } from '../../hooks/useAccountData';
 import { useBlockExplorerNavigation } from '../../hooks/useBlockExplorerNavigation';
@@ -19,6 +20,7 @@ interface IEmptyHistoryProps {
   indexedAccountId?: string;
   showViewInExplorer?: boolean;
   isSingleAccount?: boolean;
+  tokenMap?: Record<string, ITokenFiat>;
 }
 
 function EmptyHistory({
@@ -27,6 +29,7 @@ function EmptyHistory({
   networkId,
   indexedAccountId,
   isSingleAccount,
+  tokenMap,
 }: IEmptyHistoryProps) {
   const intl = useIntl();
   const { account, network, vaultSettings } = useAccountData({
@@ -79,6 +82,7 @@ function EmptyHistory({
             address: a?.address,
           });
         }}
+        tokenMap={tokenMap}
         doubleConfirm
       />
     ) : (
@@ -93,18 +97,19 @@ function EmptyHistory({
       </Button>
     );
   }, [
-    account?.indexedAccountId,
-    handleOnPress,
-    requiresNetworkSelection,
-    indexedAccountId,
-    intl,
-    isSingleAccount,
-    network?.id,
-    network?.isAllNetworks,
-    networkId,
     vaultSettings?.hideBlockExplorer,
     vaultSettings?.mergeDeriveAssetsEnabled,
+    network?.isAllNetworks,
+    network?.id,
+    isSingleAccount,
     walletId,
+    networkId,
+    indexedAccountId,
+    account?.indexedAccountId,
+    intl,
+    tokenMap,
+    handleOnPress,
+    requiresNetworkSelection,
   ]);
 
   return (

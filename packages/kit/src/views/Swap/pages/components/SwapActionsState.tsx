@@ -1,7 +1,6 @@
 import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Keyboard } from 'react-native';
 
 import {
   Button,
@@ -11,7 +10,6 @@ import {
   SizableText,
   Stack,
   XStack,
-  useIsKeyboardShown,
   useIsModalPage,
   useMedia,
 } from '@onekeyhq/components';
@@ -24,20 +22,15 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import {
-  useInAppNotificationAtom,
-  useSettingsAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import {
   ESwapDirectionType,
   ESwapQuoteKind,
-  SwapPercentageInputStageForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
-import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
 import {
   useSwapAddressInfo,
   useSwapRecipientAddressInfo,
@@ -49,58 +42,12 @@ import {
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
 
+import { PercentageStageOnKeyboard } from './SwapInputContainer';
+
 interface ISwapActionsStateProps {
   onPreSwap: () => void;
   onOpenRecipientAddress: () => void;
   onSelectPercentageStage?: (stage: number) => void;
-}
-
-function PercentageStageOnKeyboard({
-  onSelectPercentageStage,
-}: {
-  onSelectPercentageStage?: (stage: number) => void;
-}) {
-  const isShow = useIsKeyboardShown();
-  const [{ swapPercentageInputStageShowForNative }] =
-    useInAppNotificationAtom();
-  return isShow && swapPercentageInputStageShowForNative ? (
-    <XStack
-      alignItems="center"
-      gap="$1"
-      justifyContent="space-around"
-      bg="$bgSubdued"
-      h="$10"
-    >
-      <>
-        {SwapPercentageInputStageForNative.map((stage) => (
-          <SwapPercentageStageBadge
-            badgeSize="lg"
-            key={`swap-percentage-input-stage-${stage}`}
-            stage={stage}
-            borderRadius={0}
-            onSelectStage={onSelectPercentageStage}
-            flex={1}
-            justifyContent="center"
-            alignItems="center"
-            h="$10"
-          />
-        ))}
-        <Button
-          icon="CheckLargeOutline"
-          flex={1}
-          h="$10"
-          size="small"
-          justifyContent="center"
-          borderRadius={0}
-          alignItems="center"
-          variant="tertiary"
-          onPress={() => {
-            Keyboard.dismiss();
-          }}
-        />
-      </>
-    </XStack>
-  ) : null;
 }
 
 function PageFooter({
@@ -120,9 +67,11 @@ function PageFooter({
         {...(isModalPage && !md ? { buttonContainerProps: { flex: 1 } } : {})}
         confirmButton={actionComponent}
       />
-      <PercentageStageOnKeyboard
-        onSelectPercentageStage={onSelectPercentageStage}
-      />
+      {!platformEnv.isNativeIOS ? (
+        <PercentageStageOnKeyboard
+          onSelectPercentageStage={onSelectPercentageStage}
+        />
+      ) : null}
     </Page.Footer>
   );
 }
@@ -332,11 +281,13 @@ const SwapActionsState = ({
     () => (
       <>
         {actionComponent}
-        <Page.Footer>
-          <PercentageStageOnKeyboard
-            onSelectPercentageStage={onSelectPercentageStage}
-          />
-        </Page.Footer>
+        {!platformEnv.isNativeIOS ? (
+          <Page.Footer>
+            <PercentageStageOnKeyboard
+              onSelectPercentageStage={onSelectPercentageStage}
+            />
+          </Page.Footer>
+        ) : null}
       </>
     ),
     [actionComponent, onSelectPercentageStage],
