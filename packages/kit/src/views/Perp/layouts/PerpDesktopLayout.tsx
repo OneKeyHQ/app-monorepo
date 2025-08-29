@@ -1,12 +1,10 @@
-import React from 'react';
-
 import { XStack, YStack } from '@onekeyhq/components';
 
-import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
-import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 import { PerpChartsSection } from '../components/Charts/PerpChartsSection';
-import { PerpProtfolioPanel } from '../components/PerpProtfolioPanel';
+import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
+import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import { PerpAccountPanel } from '../components/TradingPanel/PerpAccountPanel';
+import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 
 function PerpDesktopLayout() {
   return (
@@ -32,7 +30,7 @@ function PerpDesktopLayout() {
 
           {/* Positions Section - Takes 40% of left side height */}
           <YStack flex={0.4} minHeight={300}>
-            <PerpProtfolioPanel />
+            <PerpOrderInfoPanel />
           </YStack>
         </YStack>
 
