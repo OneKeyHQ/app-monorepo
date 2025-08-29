@@ -32,7 +32,7 @@ export function MarketDetailHeader() {
 
   return (
     <>
-      {platformEnv.isNative ? (
+      {media.md ? (
         <TabPageHeaderContainer>
           <XStack gap="$3" ai="center">
             <HeaderLeftCloseButton />

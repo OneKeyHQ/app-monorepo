@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { Page } from '@onekeyhq/components';
+import { Page, XStack } from '@onekeyhq/components';
 
 interface ITabPageHeaderContainerProps {
   children: ReactNode;
@@ -11,7 +11,16 @@ export function TabPageHeaderContainer({
 }: ITabPageHeaderContainerProps) {
   return (
     <>
-      <Page.Header headerTitle={() => children} />
+      <Page.Header headerShown={false} />
+      <XStack
+        width="100%"
+        alignItems="center"
+        justifyContent="space-between"
+        px="$5"
+        h="$11"
+      >
+        {children}
+      </XStack>
     </>
   );
 }
