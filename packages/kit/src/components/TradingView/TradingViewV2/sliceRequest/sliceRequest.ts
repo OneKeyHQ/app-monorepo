@@ -1,6 +1,6 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-const DEFAULT_MAX_DATA_LENGTH = 100;
+const DEFAULT_MAX_DATA_LENGTH = 500;
 const NATIVE_TOKEN_MAX_DATA_LENGTH = 200;
 
 export interface ITimeSlice {
