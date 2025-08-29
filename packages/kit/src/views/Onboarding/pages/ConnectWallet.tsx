@@ -409,7 +409,7 @@ function WalletItem({
       title: intl.formatMessage(
         { id: ETranslations.global_connect_to_wallet },
         {
-          wallet: name || 'Wallet',
+          wallet: `32355 ${name || 'Wallet'}`, //  name || 'Wallet',
         },
       ),
       showFooter: false,

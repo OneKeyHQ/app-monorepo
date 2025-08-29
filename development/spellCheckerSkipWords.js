@@ -14,6 +14,7 @@ module.exports = [
   '0xxxxxxx',
   '100vw',
   '10xxxxxx',
+  'reown',
   'perp',
   'hyperliquid',
   'PerpTrade',

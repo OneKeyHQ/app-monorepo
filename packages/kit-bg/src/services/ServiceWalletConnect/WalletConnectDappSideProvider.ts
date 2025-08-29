@@ -59,6 +59,7 @@ export class WalletConnectDappSideProvider extends UniversalProvider {
     super.registerEventListeners();
   }
 
+  // https://github.com/WalletConnect/walletconnect-monorepo/blob/v2.0/providers/universal-provider/src/UniversalProvider.ts#L250
   private async checkStoragePro(opts: IWalletConnectDappProviderOpts) {
     this.namespaces = await this.getFromStorePro('namespaces');
     this.optionalNamespaces =
@@ -76,7 +77,14 @@ export class WalletConnectDappSideProvider extends UniversalProvider {
       if (key) {
         this.session = this.client.session.get(key);
       }
-      this.createProvidersPro();
+
+      if (this.session) {
+        // getFromStore should read this.session.topic
+        this.namespaces = (await this.getFromStorePro('namespaces')) || {};
+        this.optionalNamespaces =
+          (await this.getFromStorePro('optionalNamespaces')) || {};
+        this.createProvidersPro();
+      }
     }
   }
 

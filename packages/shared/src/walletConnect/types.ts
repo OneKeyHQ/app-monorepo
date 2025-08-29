@@ -44,6 +44,7 @@ export enum EWalletConnectSessionEvents {
   session_event = 'session_event',
   session_update = 'session_update',
   session_delete = 'session_delete',
+  session_connect = 'session_connect',
   session_proposal = 'session_proposal',
   session_request = 'session_request',
   auth_request = 'auth_request', // TODO rename to session_authenticate

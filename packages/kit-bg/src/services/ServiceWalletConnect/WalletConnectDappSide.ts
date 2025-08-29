@@ -37,7 +37,6 @@ import localDb from '../../dbs/local/localDb';
 
 import walletConnectClient from './walletConnectClient';
 import { WalletConnectDappSideProvider } from './WalletConnectDappSideProvider';
-import walletConnectStorage from './walletConnectStorage';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBExternalAccount } from '../../dbs/local/types';
@@ -284,7 +283,7 @@ export class WalletConnectDappSide {
         metadata: WALLET_CONNECT_CLIENT_META,
         client,
         // TODO client include storage, remove walletConnectStorage here
-        storage: walletConnectStorage.dappSideStorage,
+        // storage: walletConnectStorage.dappSideStorage,
         sessionTopic: topic,
       });
     }
@@ -507,7 +506,8 @@ export class WalletConnectDappSide {
       )
       .filter(Boolean);
 
-    const sessions = await walletConnectStorage.dappSideStorage.getSessions();
+    const sessions = await walletConnectClient.getDappSideStorageSessions();
+    // const sessions = await walletConnectStorage.dappSideStorage.getSessions();
     const sessionTopics: string[] = (sessions || [])
       .map((item) => item.topic)
       .filter(Boolean);

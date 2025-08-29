@@ -92,6 +92,14 @@ class ProviderApiWalletConnect {
       EWalletConnectSessionEvents.session_authenticate,
       this.onAuthRequest,
     );
+    // this.web3Wallet.on(
+    //   EWalletConnectSessionEvents.session_connect,
+    //   function () {
+    //     // eslint-disable-next-line prefer-rest-params
+    //     console.log('session_connect: ', arguments);
+    //     debugger;
+    //   },
+    // );
   }
 
   unregisterEvents() {

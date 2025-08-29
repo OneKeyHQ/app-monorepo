@@ -88,12 +88,14 @@ async function getWalletSideClient(): Promise<IWalletConnectWeb3Wallet> {
   return web3Wallet;
 }
 
-async function getWalletSideStorageSessions(): Promise<
-  IWalletConnectSession[]
-> {
+async function getStorageSessions({
+  storagePrefix,
+}: {
+  storagePrefix: string;
+}): Promise<IWalletConnectSession[]> {
   const storage = getSharedStorage();
   const keys = await storage.getKeys();
-  const endWith = `${WALLET_STORAGE_PREFIX}:${SESSION_CONTEXT}`;
+  const endWith = `${storagePrefix}:${SESSION_CONTEXT}`;
   const sessionKey = keys.find((key) => key.endsWith(endWith));
   if (!sessionKey) {
     return [];
@@ -113,6 +115,20 @@ async function getWalletSideStorageSessions(): Promise<
   return [];
 }
 
+async function getWalletSideStorageSessions(): Promise<
+  IWalletConnectSession[]
+> {
+  return getStorageSessions({
+    storagePrefix: WALLET_STORAGE_PREFIX,
+  });
+}
+
+async function getDappSideStorageSessions(): Promise<IWalletConnectSession[]> {
+  return getStorageSessions({
+    storagePrefix: DAPP_STORAGE_PREFIX,
+  });
+}
+
 export default {
   sharedOptions,
   // DappProvider -> SignClient -> Core -> Relayer(Websocket)
@@ -120,4 +136,5 @@ export default {
   // Web3Wallet -> Core -> Relayer(Websocket)
   getWalletSideClient,
   getWalletSideStorageSessions,
+  getDappSideStorageSessions,
 };
