@@ -370,6 +370,8 @@ export class WalletConnectDappSide {
     await this.getOrCreateProvider({ topic, updateDB: true });
   }
 
+  lastConnectToWalletProvider: WalletConnectDappSideProvider | undefined;
+
   async connectToWallet({ impl }: IWalletConnectConnectToWalletParams) {
     console.log('WalletConnectDappSide connectToWallet111');
 
@@ -475,6 +477,7 @@ export class WalletConnectDappSide {
         }
       }
       console.log('WalletConnectDappSide connectToWallet', connectParams);
+      this.lastConnectToWalletProvider = provider;
       // call connect() to create new session
       await provider.connect(connectParams);
       if (!provider.session || !provider.isWalletConnect) {
@@ -483,8 +486,12 @@ export class WalletConnectDappSide {
         );
       }
       return provider.session;
+    } catch (error) {
+      console.error('connectToWallet error: ', error);
+      throw error;
     } finally {
       this.closeModal();
+      this.lastConnectToWalletProvider = undefined;
       provider.off(EWalletConnectSessionEvents.display_uri, displayUriHandler);
       provider.off(
         EWalletConnectSessionEvents.session_delete,

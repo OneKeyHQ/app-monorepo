@@ -429,7 +429,7 @@ function WalletItem({
       onPress={connectToWalletWithDialog}
       logo={logo}
       name={name || 'unknown'}
-      loading={localLoading}
+      loading={loading}
     />
   );
 }

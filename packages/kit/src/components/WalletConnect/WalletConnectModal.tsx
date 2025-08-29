@@ -14,10 +14,13 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { WALLET_CONNECT_V2_PROJECT_ID } from '@onekeyhq/shared/src/walletConnect/constant';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+
 import { createOneKeyAppKit } from './AppKitClient';
 
 import type { IWalletConnectModalShared } from './types';
 import type { AppKit, PublicStateControllerState } from '@reown/appkit/core';
+import { tamaguiWebFontFamily } from '@onekeyhq/components/tamagui.config';
 
 if (process.env.NODE_ENV !== 'production') {
   EventsController.subscribe((state) => {
@@ -29,31 +32,44 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 function updateModalSizeOnExtFn() {
-  if (!platformEnv.isExtension) {
+  if (!platformEnv.isExtensionUiPopup) {
     return;
   }
   if (!globalThis.document) return;
 
+  // const qrModal = globalThis.document
+  //   ?.querySelector('wcm-modal')
+  //   ?.shadowRoot?.querySelector('#wcm-modal .wcm-card wcm-modal-router')
+  //   ?.shadowRoot?.querySelector('.wcm-content wcm-connect-wallet-view')
+  //   ?.shadowRoot?.querySelector('wcm-desktop-wallet-selection')
+  //   ?.shadowRoot?.querySelector('wcm-modal-content wcm-walletconnect-qr') as
+  //   | HTMLElement
+  //   | undefined;
+
   const qrModal = globalThis.document
-    ?.querySelector('wcm-modal')
-    ?.shadowRoot?.querySelector('#wcm-modal .wcm-card wcm-modal-router')
-    ?.shadowRoot?.querySelector('.wcm-content wcm-connect-wallet-view')
-    ?.shadowRoot?.querySelector('wcm-desktop-wallet-selection')
-    ?.shadowRoot?.querySelector('wcm-modal-content wcm-walletconnect-qr') as
-    | HTMLElement
-    | undefined;
+    ?.querySelector('w3m-modal')
+    ?.shadowRoot?.querySelector('wui-card w3m-router')
+    ?.shadowRoot?.querySelector('w3m-connecting-wc-basic-view')
+    ?.shadowRoot?.querySelector('wui-flex w3m-connecting-wc-view')
+    ?.shadowRoot?.querySelector('w3m-connecting-wc-qrcode')
+    ?.shadowRoot?.querySelector('wui-shimmer') as HTMLElement | undefined;
 
   if (!qrModal) return;
 
-  qrModal.style.height = '270px';
+  /*
+  document.querySelector('w3m-modal').shadowRoot.querySelector('wui-card w3m-router').shadowRoot.querySelector('w3m-connecting-wc-basic-view').shadowRoot.querySelector('wui-flex w3m-connecting-wc-view').shadowRoot.querySelector('w3m-connecting-wc-qrcode').shadowRoot.querySelector('wui-qr-code').shadowRoot.querySelector('wui-flex')
+  */
+
+  qrModal.style.height = '300px';
+  // qrModal.style.width = '300px';
   qrModal.style.display = 'block';
-  const qrContainer = qrModal.shadowRoot?.querySelector('.wcm-qr-container') as
-    | HTMLElement
-    | undefined;
+  const qrContainer = qrModal
+    ?.querySelector('wui-qr-code')
+    ?.shadowRoot?.querySelector?.('wui-flex') as HTMLElement | undefined;
 
   if (!qrContainer) return;
 
-  qrContainer.style.transform = 'scale(0.85) translate(0, -40px)';
+  qrContainer.style.transform = 'scale(0.85) translate(0, 0)';
 }
 
 function updateModalSizeOnExt() {
@@ -76,7 +92,9 @@ const modal: IWalletConnectModalShared = {
   useModal() {
     // const modalRef0 = useRef<WalletConnectModal | null>(null);
     const modalRef = useRef<AppKit | null>(null);
+    const uriRef = useRef<string | undefined>(undefined);
     const openModal = useCallback(async ({ uri }: { uri: string }) => {
+      uriRef.current = uri;
       if (!modalRef.current) {
         // modalRef.current = new WalletConnectModal({
         //   projectId: WALLET_CONNECT_V2_PROJECT_ID,
@@ -93,12 +111,27 @@ const modal: IWalletConnectModalShared = {
           // networks: [] as any,
           universalProvider: {} as any,
           // manualWCControl: true,
+          themeMode: 'dark',
+          themeVariables: {
+            // https://docs.reown.com/appkit/react/core/theming
+            '--w3m-font-family': tamaguiWebFontFamily,
+          },
+          // debug: true,
+          enableInjected: true,
+          enableEIP6963: true,
+          enableCoinbase: true,
+          enableWallets: true,
         });
         modalRef.current.subscribeState((state: PublicStateControllerState) => {
           // hide connect Dialog loading by eventBus
           appEventBus.emit(EAppEventBusNames.WalletConnectModalState, state);
           if (state.open) {
             updateModalSizeOnExt();
+          } else {
+            console.log('WalletConnectModal closed.');
+            void backgroundApiProxy.serviceWalletConnect.abortConnectPairing({
+              uri: uriRef.current || '',
+            });
           }
         });
       }

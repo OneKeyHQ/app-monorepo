@@ -2,9 +2,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import UniversalProvider from '@walletconnect/universal-provider';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
+import type { IEngineEvents } from '@walletconnect/types';
 import type {
   NamespaceConfig,
   RequestArguments,
@@ -21,6 +22,20 @@ export type IWalletConnectDappProviderOpts = UniversalProviderOpts & {
 export class WalletConnectDappSideProvider extends UniversalProvider {
   // use shared events, as it may be setGlobal() and getGlobal() at universal-provider
   // public events: EventEmitter = new EventEmitter();
+
+  async abortConnectPairing() {
+    // @ts-ignore
+    const events = this.client.engine.events as IEngineEvents;
+    // TODO not working
+    // as sign-client engine generate random session_connect event id,
+    // eg: "session_connect:1756469336854687"
+    events.emit('session_connect', {
+      error: new OneKeyError({
+        code: 8_376_239,
+        message: 'User closed the modal',
+      }),
+    });
+  }
 
   // @ts-ignore
   override async request(

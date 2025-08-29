@@ -37,7 +37,7 @@ import ServiceBase from '../ServiceBase';
 
 import { WalletConnectDappSide } from './WalletConnectDappSide';
 
-import type { IWalletKit, WalletKitTypes } from '@reown/walletkit';
+import type { WalletKitTypes } from '@reown/walletkit';
 import type { ProposalTypes, SessionTypes } from '@walletconnect/types';
 
 @backgroundClass()
@@ -50,6 +50,21 @@ class ServiceWalletConnect extends ServiceBase {
   dappSide = new WalletConnectDappSide({
     backgroundApi: this.backgroundApi,
   });
+
+  @backgroundMethod()
+  async abortConnectPairing({ uri }: { uri: string }) {
+    const providers = this.dappSide.providers;
+    const lastProvider = this.dappSide.lastConnectToWalletProvider;
+    if (lastProvider?.uri === uri) {
+      await lastProvider.abortConnectPairing();
+    }
+    console.log(
+      'abortConnectPairing lastProvider: ',
+      uri,
+      lastProvider,
+      providers,
+    );
+  }
 
   @backgroundMethod()
   @toastIfError()
