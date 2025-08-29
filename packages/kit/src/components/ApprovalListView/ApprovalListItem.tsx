@@ -113,7 +113,7 @@ function ApproveListItem(props: IProps) {
         maxWidth="$36"
         pr={tableLayout ? 0 : 6}
       >
-        <ApprovalTokenView approvedTokenNumber={approval.approvals.length} />
+        <ApprovalTokenView approval={approval} tableLayout={tableLayout} />
       </Stack>
     );
   }, [approval, tableLayout]);

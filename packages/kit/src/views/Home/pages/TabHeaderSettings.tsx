@@ -1,5 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import type { PropsWithChildren } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -18,14 +17,13 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { ListItem } from '../../../components/ListItem';
-import { useManageToken } from '../../../hooks/useManageToken';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
+
+import { ListItem } from '../../../components/ListItem';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useManageToken } from '../../../hooks/useManageToken';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 function TokenListSettings() {
   const intl = useIntl();
@@ -188,7 +186,7 @@ function ApprovalSettings() {
   return (
     <IconButton
       title={intl.formatMessage({
-        id: ETranslations.manage_token_title,
+        id: ETranslations.global_approvals,
       })}
       variant="tertiary"
       icon="Document2Outline"
