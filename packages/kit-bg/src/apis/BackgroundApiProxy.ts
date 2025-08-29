@@ -73,6 +73,11 @@ import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletBanner from '../services/ServiceWalletBanner';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
 import type ServiceWebviewPerp from '../services/ServiceWebviewPerp';
+import type ServiceHyperliquid from '../services/ServiceHyperLiquid/ServiceHyperliquid';
+import type ServiceHyperliquidInfo from '../services/ServiceHyperLiquid/ServiceHyperliquidInfo';
+import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
+import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
+import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 
 class BackgroundApiProxy
   extends BackgroundApiProxyBase
@@ -319,6 +324,26 @@ class BackgroundApiProxy
   serviceWalletBanner = this._createProxyService(
     'serviceWalletBanner',
   ) as ServiceWalletBanner;
+
+  serviceHyperliquid = this._createProxyService(
+    'serviceHyperliquid',
+  ) as ServiceHyperliquid;
+
+  serviceHyperliquidInfo = this._createProxyService(
+    'serviceHyperliquidInfo',
+  ) as ServiceHyperliquidInfo;
+
+  serviceHyperliquidExchange = this._createProxyService(
+    'serviceHyperliquidExchange',
+  ) as ServiceHyperliquidExchange;
+
+  serviceHyperliquidWallet = this._createProxyService(
+    'serviceHyperliquidWallet',
+  ) as ServiceHyperliquidWallet;
+
+  serviceHyperliquidSubscription = this._createProxyService(
+    'serviceHyperliquidSubscription',
+  ) as ServiceHyperliquidSubscription;
 }
 
 export default BackgroundApiProxy;

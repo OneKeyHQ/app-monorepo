@@ -66,6 +66,7 @@
     "@morpho-org/bundler-sdk-ethers": "^1.0.3",
     "@mysten/sui": "1.28.0",
     "@ngraveio/bc-ur": "^1.1.13",
+    "@nktkas/hyperliquid": "^0.24.2",
     "@onekeyfe/cross-inpage-provider-core": "2.2.42",
     "@onekeyfe/cross-inpage-provider-errors": "2.2.42",
     "@onekeyfe/cross-inpage-provider-injected": "2.2.42",
