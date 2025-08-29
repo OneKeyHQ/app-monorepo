@@ -1,11 +1,13 @@
+import memoizee from 'memoizee';
+
 import {
   atom,
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
-import type { IHLHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IHLTokenListItem } from '@onekeyhq/shared/types/hyperliquid/market';
+import type { IHLHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
+
 import type * as HL from '@nktkas/hyperliquid';
-import memoizee from 'memoizee';
 
 const {
   Provider: ProviderJotaiContextHyperliquid,
@@ -51,7 +53,7 @@ export const { atom: currentAccountAtom, use: useCurrentAccountAtom } =
 export const { atom: subscriptionActiveAtom, use: useSubscriptionActiveAtom } =
   contextAtom<boolean>(false);
 
-export const tokenListAtom = (() =>
+export const tokenListAtom = () =>
   atom((get): IHLTokenListItem[] => {
     const allMids = get(allMidsAtom());
     const webData2 = get(webData2Atom());
@@ -88,10 +90,13 @@ export const tokenListAtom = (() =>
           ? (activeAssetCtx as any)?.prevDayPx || price
           : price;
 
-        const change24h = (parseFloat(price) - parseFloat(prevDayPx)).toString();
-        const change24hPercent = prevDayPx !== '0'
-          ? ((parseFloat(change24h) / parseFloat(prevDayPx)) * 100).toFixed(2)
-          : '0';
+        const change24h = (
+          parseFloat(price) - parseFloat(prevDayPx)
+        ).toString();
+        const change24hPercent =
+          prevDayPx !== '0'
+            ? ((parseFloat(change24h) / parseFloat(prevDayPx)) * 100).toFixed(2)
+            : '0';
 
         const funding8h = (parseFloat(fundingRate) * 8 * 100).toFixed(4);
 
@@ -108,7 +113,7 @@ export const tokenListAtom = (() =>
           fundingRate,
         };
       })
-      .filter(item => {
+      .filter((item) => {
         if (universe.length === 0) return true;
         return universe.some((u: any) => u.name === item.coin);
       })
@@ -117,8 +122,7 @@ export const tokenListAtom = (() =>
         const bVolume = parseFloat(b.volume24h) || 0;
         return bVolume - aVolume;
       });
-  })
-);
+  });
 
 export const useTokenListAtom = () => tokenListAtom();
 
@@ -127,8 +131,8 @@ export const currentTokenInfoAtom = memoizee(() =>
     const currentToken = get(currentTokenAtom());
     const tokenList = get(tokenListAtom());
 
-    return tokenList.find(token => token.coin === currentToken) || null;
-  })
+    return tokenList.find((token) => token.coin === currentToken) || null;
+  }),
 );
 
 export const accountSummaryAtom = memoizee(() =>
@@ -138,13 +142,14 @@ export const accountSummaryAtom = memoizee(() =>
 
     return {
       accountValue: webData2.clearinghouseState.marginSummary.accountValue,
-      totalMarginUsed: webData2.clearinghouseState.marginSummary.totalMarginUsed,
+      totalMarginUsed:
+        webData2.clearinghouseState.marginSummary.totalMarginUsed,
       totalNtlPos: webData2.clearinghouseState.marginSummary.totalNtlPos,
       totalRawUsd: webData2.clearinghouseState.marginSummary.totalRawUsd,
       withdrawable: webData2.clearinghouseState.withdrawable,
       lastUpdate: Date.now(),
     };
-  })
+  }),
 );
 
 export const useAccountSummaryAtom = () => accountSummaryAtom();
@@ -172,7 +177,7 @@ export const requiredSubscriptionsAtom = memoizee(() =>
     }
 
     return subscriptions;
-  })
+  }),
 );
 
 export const useRequiredSubscriptionsAtom = () => requiredSubscriptionsAtom();
@@ -184,13 +189,13 @@ export interface ITradingFormData {
   price: string;
   size: string;
   leverage?: number;
-  
+
   // Take Profit / Stop Loss
   hasTpsl: boolean;
-  tpTriggerPx: string;    // TP Price
-  tpGainPercent: string;  // Gain %
-  slTriggerPx: string;    // SL Price
-  slLossPercent: string;  // Loss %
+  tpTriggerPx: string; // TP Price
+  tpGainPercent: string; // Gain %
+  slTriggerPx: string; // SL Price
+  slLossPercent: string; // Loss %
 }
 
 export const { atom: tradingFormAtom, use: useTradingFormAtom } =

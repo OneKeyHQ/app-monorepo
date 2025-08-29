@@ -1,5 +1,3 @@
-import { useAtom } from 'jotai';
-
 import { useWebData2Atom } from '../../../states/jotai/contexts/hyperliquid';
 
 export function usePerpPositions() {
