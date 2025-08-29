@@ -45,6 +45,13 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     set(networkIdAtom(), payload);
   });
 
+  clearTokenDetail = contextAtomMethod((_, set) => {
+    set(tokenDetailAtom(), undefined);
+    set(tokenDetailLoadingAtom(), false);
+    set(tokenAddressAtom(), '');
+    set(networkIdAtom(), '');
+  });
+
   // ShowWatchlistOnly Actions
   setShowWatchlistOnly = contextAtomMethod((_, set, payload: boolean) => {
     set(showWatchlistOnlyAtom(), payload);
@@ -74,6 +81,11 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
             tokenAddress,
             networkId,
           );
+
+        if (typeof response?.name === 'undefined' || response.name === '') {
+          console.warn('Token detail is not available');
+          return;
+        }
 
         set(tokenDetailAtom(), response);
         return response;
@@ -231,6 +243,7 @@ export function useTokenDetailActions() {
   const setTokenAddress = actions.setTokenAddress.use();
   const setNetworkId = actions.setNetworkId.use();
   const fetchTokenDetail = actions.fetchTokenDetail.use();
+  const clearTokenDetail = actions.clearTokenDetail.use();
 
   return useRef({
     setTokenDetail,
@@ -238,6 +251,7 @@ export function useTokenDetailActions() {
     setTokenAddress,
     setNetworkId,
     fetchTokenDetail,
+    clearTokenDetail,
   });
 }
 
