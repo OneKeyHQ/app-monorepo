@@ -38,8 +38,6 @@ function NetworkSelectorTriggerApproval({
     { initResult: [] },
   );
 
-  console.log('selectorNetworks', selectorNetworks);
-
   const current = useMemo(() => {
     const item = selectorNetworks.find((o) => o.id === value);
     return item;

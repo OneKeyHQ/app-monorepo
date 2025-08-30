@@ -127,7 +127,7 @@ function ApprovalList() {
     (approval: IContractApproval) => {
       navigation.push(EModalApprovalManagementRoutes.ApprovalDetails, {
         approval,
-        isBulkRevokeMode,
+        isSelectMode: isBulkRevokeMode,
         onSelected: ({
           selectedTokens: _selectedTokens,
         }: {
@@ -181,9 +181,15 @@ function ApprovalList() {
       />
     );
   };
+  const handleOnClose = useCallback(() => {
+    updateIsBulkRevokeMode(false);
+    updateSelectedTokens({
+      selectedTokens: {},
+    });
+  }, [updateIsBulkRevokeMode, updateSelectedTokens]);
 
   return (
-    <Page>
+    <Page onClose={handleOnClose}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_approvals })}
         headerRight={renderHeaderRight}
