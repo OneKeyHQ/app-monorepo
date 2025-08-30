@@ -327,14 +327,15 @@ class ServiceAllNetwork extends ServiceBase {
             let accountXpub: string | undefined;
             if (isMatched) {
               perf.markStart('getAccountAddressForApi');
-              apiAddress =
-                await this.backgroundApi.serviceAccount.getAccountAddressForApi(
+              let theMatchedNetworkAccount: INetworkAccount | undefined;
+              ({ address: apiAddress, account: theMatchedNetworkAccount } =
+                await this.backgroundApi.serviceAccount.getAccountAddressInfoForApi(
                   {
                     dbAccount: a,
                     accountId: a.id,
                     networkId: realNetworkId,
                   },
-                );
+                ));
               perf.markEnd('getAccountAddressForApi');
 
               // TODO pass dbAccount for better performance
@@ -362,6 +363,10 @@ class ServiceAllNetwork extends ServiceBase {
               };
 
               appendAccountInfo(accountInfo);
+              void this.backgroundApi.serviceAccount.saveAccountAddresses({
+                networkId: realNetworkId,
+                account: theMatchedNetworkAccount,
+              });
 
               compatibleAccountExists = true;
             }

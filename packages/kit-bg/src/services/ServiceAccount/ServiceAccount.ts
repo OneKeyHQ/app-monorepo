@@ -3245,14 +3245,38 @@ class ServiceAccount extends ServiceBase {
     accountId: string;
     networkId: string;
   }) {
+    const info = await this.getAccountAddressInfoForApi({
+      dbAccount,
+      accountId,
+      networkId,
+    });
+    return info.address;
+  }
+
+  @backgroundMethod()
+  async getAccountAddressInfoForApi({
+    dbAccount,
+    accountId,
+    networkId,
+  }: {
+    dbAccount?: IDBAccount;
+    accountId: string;
+    networkId: string;
+  }): Promise<{ address: string; account: INetworkAccount }> {
+    const account: INetworkAccount = await this.getAccount({
+      accountId,
+      networkId,
+      dbAccount,
+    });
+
     if (networkUtils.isAllNetwork({ networkId })) {
-      return ALL_NETWORK_ACCOUNT_MOCK_ADDRESS;
+      return { address: ALL_NETWORK_ACCOUNT_MOCK_ADDRESS, account };
     }
-    const account = await this.getAccount({ accountId, networkId, dbAccount });
+
     if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
-      return account.addressDetail.normalizedAddress;
+      return { address: account.addressDetail.normalizedAddress, account };
     }
-    return account.address;
+    return { address: account.address, account };
   }
 
   @backgroundMethod()
