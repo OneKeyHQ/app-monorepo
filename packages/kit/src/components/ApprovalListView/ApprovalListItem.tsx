@@ -6,6 +6,7 @@ import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 import { ListItem } from '../ListItem';
 
 import ApprovalCheckMark from './ApprovalCheckMark';
+import { useApprovalListViewContext } from './ApprovalListViewContext';
 import ApprovalTimeView from './ApprovalTimeView';
 import ApprovalTokenView from './ApprovalTokenView';
 import ContractAddressView from './ContractAddressView';
@@ -15,15 +16,14 @@ import ContractNetworkView from './ContractNetworkView';
 
 type IProps = {
   approval: IContractApproval;
-  tableLayout?: boolean;
-  isAllNetworks?: boolean;
+
   onPress?: (approval: IContractApproval) => void;
-  hideRiskBadge?: boolean;
 };
 
 function ApproveListItem(props: IProps) {
-  const { approval, tableLayout, isAllNetworks, onPress, hideRiskBadge } =
-    props;
+  const { approval, onPress } = props;
+
+  const { tableLayout } = useApprovalListViewContext();
 
   const renderFirstColumn = useCallback(() => {
     return (
@@ -40,7 +40,6 @@ function ApproveListItem(props: IProps) {
         <ContractIconView
           address={approval.contractAddress}
           networkId={approval.networkId}
-          isAllNetworks={isAllNetworks}
         />
         <YStack flex={1}>
           <ContractNameView
@@ -48,7 +47,6 @@ function ApproveListItem(props: IProps) {
             networkId={approval.networkId}
             isRiskContract={approval.isRiskContract}
             isInactiveApproval={approval.isInactiveApproval}
-            hideRiskBadge={hideRiskBadge}
           />
           {tableLayout ? (
             <ContractNetworkView networkId={approval.networkId} />
@@ -66,7 +64,7 @@ function ApproveListItem(props: IProps) {
         </YStack>
       </XStack>
     );
-  }, [approval, tableLayout, isAllNetworks, hideRiskBadge]);
+  }, [approval, tableLayout]);
 
   const renderSecondColumn = useCallback(() => {
     if (!tableLayout) {
@@ -113,7 +111,7 @@ function ApproveListItem(props: IProps) {
         maxWidth="$36"
         pr={tableLayout ? 0 : 6}
       >
-        <ApprovalTokenView approval={approval} tableLayout={tableLayout} />
+        <ApprovalTokenView approval={approval} />
       </Stack>
     );
   }, [approval, tableLayout]);

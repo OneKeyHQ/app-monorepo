@@ -1,3 +1,4 @@
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -66,4 +67,14 @@ export const { atom: revokeTxsStateAtom, use: useRevokeTxsStateAtom } =
     isBuildingRevokeTxs: boolean;
   }>({
     isBuildingRevokeTxs: false,
+  });
+
+export const { atom: searchKeyAtom, use: useSearchKeyAtom } =
+  contextAtom<string>('');
+
+export const { atom: searchNetworkAtom, use: useSearchNetworkAtom } =
+  contextAtom<{
+    networkId: string;
+  }>({
+    networkId: getNetworkIdsMap().onekeyall,
   });

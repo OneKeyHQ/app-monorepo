@@ -35,6 +35,7 @@ export type IModalApprovalManagementParamList = {
     alertType: EContractApprovalAlertType;
   };
   [EModalApprovalManagementRoutes.ApprovalList]: {
+    walletId: string;
     accountId: string;
     networkId: string;
   };

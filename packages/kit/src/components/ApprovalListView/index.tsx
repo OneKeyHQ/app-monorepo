@@ -1,13 +1,21 @@
 import type { ComponentProps } from 'react';
 import { memo, useMemo } from 'react';
 
+import { isEmpty } from 'lodash';
+import { useIntl } from 'react-intl';
+
 import { ListView, Stack, Tabs, YStack, useStyle } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 
 import {
   useApprovalListAtom,
   useApprovalListStateAtom,
+  useContractMapAtom,
+  useSearchKeyAtom,
+  useSearchNetworkAtom,
 } from '../../states/jotai/contexts/approvalList';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { PullToRefresh } from '../../views/Home/components/PullToRefresh';
@@ -16,6 +24,7 @@ import { ListLoading } from '../Loading/ListLoading';
 
 import ApprovalListHeader from './ApprovalListHeader';
 import ApproveListItem from './ApprovalListItem';
+import { ApprovalListViewContext } from './ApprovalListViewContext';
 
 type IProps = {
   accountId: string;
@@ -32,6 +41,9 @@ type IProps = {
     | 'contentContainerStyle'
   >;
   hideRiskBadge?: boolean;
+  selectDisabled?: boolean;
+  searchDisabled?: boolean;
+  filterByNetworkDisabled?: boolean;
 };
 
 function ApprovalListViewCmp(props: IProps) {
@@ -39,16 +51,18 @@ function ApprovalListViewCmp(props: IProps) {
     inTabList,
     listViewStyleProps,
     onRefresh,
-    withHeader,
-    tableLayout,
     onPress,
-    hideRiskBadge,
-    accountId,
-    networkId,
+    tableLayout,
+    withHeader,
+    searchDisabled,
+    filterByNetworkDisabled,
   } = props;
-
+  const intl = useIntl();
   const [{ approvals }] = useApprovalListAtom();
   const [approvalListState] = useApprovalListStateAtom();
+  const [searchKey] = useSearchKeyAtom();
+  const [searchNetwork] = useSearchNetworkAtom();
+  const [{ contractMap }] = useContractMapAtom();
 
   const {
     ListHeaderComponentStyle,
@@ -103,6 +117,55 @@ function ApprovalListViewCmp(props: IProps) {
     return <EmptyToken />;
   }, [showSkeleton, tableLayout]);
 
+  const filteredApprovals = useMemo(() => {
+    let _filteredApprovals = approvals;
+
+    if (!searchDisabled && !isEmpty(searchKey)) {
+      const searchKeyLower = searchKey.toLowerCase();
+      _filteredApprovals = _filteredApprovals.filter((approval) => {
+        if (approval.contractAddress.toLowerCase() === searchKeyLower) {
+          return true;
+        }
+
+        const contract =
+          contractMap[
+            approvalUtils.buildContractMapKey({
+              networkId: approval.networkId,
+              contractAddress: approval.contractAddress,
+            })
+          ];
+
+        if (contract && contract.label) {
+          return contract.label?.toLowerCase().includes(searchKeyLower);
+        }
+        return intl
+          .formatMessage({ id: ETranslations.global_unknown })
+          .toLowerCase()
+          .includes(searchKeyLower);
+      });
+    }
+
+    if (
+      !filterByNetworkDisabled &&
+      searchNetwork.networkId &&
+      !networkUtils.isAllNetwork({ networkId: searchNetwork.networkId })
+    ) {
+      _filteredApprovals = _filteredApprovals.filter((approval) => {
+        return approval.networkId === searchNetwork.networkId;
+      });
+    }
+
+    return _filteredApprovals;
+  }, [
+    approvals,
+    searchDisabled,
+    searchKey,
+    filterByNetworkDisabled,
+    searchNetwork.networkId,
+    contractMap,
+    intl,
+  ]);
+
   return (
     <ListComponent
       // @ts-ignore
@@ -110,29 +173,20 @@ function ApprovalListViewCmp(props: IProps) {
       refreshControl={
         onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }
-      extraData={approvals?.length ?? 0}
-      data={approvals}
+      extraData={filteredApprovals?.length ?? 0}
+      data={filteredApprovals}
       contentContainerStyle={resolvedContentContainerStyle as any}
       ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
       ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       ListEmptyComponent={EmptyComponentElement}
       ListHeaderComponent={
-        withHeader && !showSkeleton ? (
-          <ApprovalListHeader
-            tableLayout={tableLayout}
-            accountId={accountId}
-            networkId={networkId}
-          />
-        ) : null
+        withHeader && !showSkeleton ? <ApprovalListHeader /> : null
       }
       renderItem={({ item }) => (
         <ApproveListItem
           key={`${item.networkId}_${item.contractAddress}`}
           approval={item}
-          isAllNetworks={networkUtils.isAllNetwork({ networkId })}
-          tableLayout={tableLayout}
           onPress={onPress}
-          hideRiskBadge={hideRiskBadge}
         />
       )}
       ListFooterComponent={
@@ -144,6 +198,31 @@ function ApprovalListViewCmp(props: IProps) {
   );
 }
 
-const ApprovalListView = memo(ApprovalListViewCmp);
+const ApprovalListView = memo((props: IProps) => {
+  const contextValue = useMemo(() => {
+    return {
+      accountId: props.accountId,
+      networkId: props.networkId,
+      tableLayout: props.tableLayout,
+      hideRiskBadge: props.hideRiskBadge,
+      selectDisabled: props.selectDisabled,
+      isAllNetworks: networkUtils.isAllNetwork({ networkId: props.networkId }),
+    };
+  }, [
+    props.accountId,
+    props.hideRiskBadge,
+    props.networkId,
+    props.selectDisabled,
+    props.tableLayout,
+  ]);
 
-export { ApprovalListView };
+  return (
+    <ApprovalListViewContext.Provider value={contextValue}>
+      <ApprovalListViewCmp {...props} />
+    </ApprovalListViewContext.Provider>
+  );
+});
+
+ApprovalListView.displayName = 'ApprovalListView';
+
+export default ApprovalListView;

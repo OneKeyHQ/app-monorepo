@@ -5,14 +5,17 @@ import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import { useContractMapAtom } from '../../states/jotai/contexts/approvalList';
 import { Token } from '../Token';
 
+import { useApprovalListViewContext } from './ApprovalListViewContext';
+
 type IProps = {
   address: string;
   networkId: string;
-  isAllNetworks?: boolean;
 };
 
 function ContractIconView(props: IProps) {
-  const { address, networkId, isAllNetworks } = props;
+  const { address, networkId } = props;
+
+  const { isAllNetworks } = useApprovalListViewContext();
 
   const [{ contractMap }] = useContractMapAtom();
 

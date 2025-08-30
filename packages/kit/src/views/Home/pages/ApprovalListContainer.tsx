@@ -13,7 +13,7 @@ import { EHomeTab } from '@onekeyhq/shared/types';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { ApprovalListView } from '../../../components/ApprovalListView';
+import ApprovalListView from '../../../components/ApprovalListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -151,6 +151,9 @@ function ApprovalListContainer() {
       networkId={network?.id ?? ''}
       inTabList
       withHeader
+      searchDisabled
+      selectDisabled
+      filterByNetworkDisabled
       onRefresh={onHomePageRefresh}
       onPress={handleApprovalOnPress}
       listViewStyleProps={{

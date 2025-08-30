@@ -9,13 +9,17 @@ import {
 } from '../../states/jotai/contexts/approvalList';
 import { checkIsSelectAllTokens } from '../../views/ApprovalManagement/utils';
 
+import { useApprovalListViewContext } from './ApprovalListViewContext';
+
 type IProps = {
   approval: IContractApproval;
-  tableLayout?: boolean;
 };
 
 function ApprovalTokenView(props: IProps) {
-  const { approval, tableLayout } = props;
+  const { approval } = props;
+
+  const { tableLayout, selectDisabled } = useApprovalListViewContext();
+
   const [isBulkRevokeMode] = useIsBulkRevokeModeAtom();
 
   const [{ selectedTokens }] = useSelectedTokensAtom();
@@ -33,7 +37,7 @@ function ApprovalTokenView(props: IProps) {
         size={tableLayout ? '$bodyMdMedium' : '$bodyMd'}
         color={tableLayout ? '$text' : '$textSubdued'}
       >
-        {isBulkRevokeMode
+        {isBulkRevokeMode && !selectDisabled
           ? `${selectedCount} / ${approval.approvals.length}`
           : approval.approvals.length}
       </SizableText>

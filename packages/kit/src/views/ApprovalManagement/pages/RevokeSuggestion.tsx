@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -17,7 +17,7 @@ import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/appr
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 import { EContractApprovalAlertType } from '@onekeyhq/shared/types/approval';
 
-import { ApprovalListView } from '../../../components/ApprovalListView';
+import ApprovalListView from '../../../components/ApprovalListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   ProviderJotaiContextApprovalList,

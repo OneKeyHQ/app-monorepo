@@ -13,13 +13,14 @@ import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 
 import { useContractMapAtom } from '../../states/jotai/contexts/approvalList';
 
+import { useApprovalListViewContext } from './ApprovalListViewContext';
+
 type IProps = {
   address: string;
   networkId: string;
   nameStyleProps?: ISizableTextProps;
   isRiskContract?: boolean;
   isInactiveApproval?: boolean;
-  hideRiskBadge?: boolean;
 };
 
 function ContractNameView(props: IProps) {
@@ -29,8 +30,10 @@ function ContractNameView(props: IProps) {
     nameStyleProps,
     isInactiveApproval,
     isRiskContract,
-    hideRiskBadge,
   } = props;
+
+  const { hideRiskBadge } = useApprovalListViewContext();
+
   const intl = useIntl();
 
   const [{ contractMap }] = useContractMapAtom();

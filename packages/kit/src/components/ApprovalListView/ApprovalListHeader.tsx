@@ -17,11 +17,7 @@ import {
 } from '../../states/jotai/contexts/approvalList';
 import { ListItem } from '../ListItem';
 
-type IProps = {
-  tableLayout?: boolean;
-  accountId: string;
-  networkId: string;
-};
+import { useApprovalListViewContext } from './ApprovalListViewContext';
 
 function HeaderItem({ label }: { label: string }) {
   return (
@@ -31,10 +27,12 @@ function HeaderItem({ label }: { label: string }) {
   );
 }
 
-function ApprovalListHeader({ tableLayout, accountId, networkId }: IProps) {
+function ApprovalListHeader() {
   const intl = useIntl();
 
   const navigation = useAppNavigation();
+
+  const { tableLayout, accountId, networkId } = useApprovalListViewContext();
 
   const renderTableHeader = useCallback(() => {
     if (!tableLayout) {

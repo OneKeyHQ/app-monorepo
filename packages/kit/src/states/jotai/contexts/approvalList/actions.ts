@@ -14,6 +14,8 @@ import {
   contractMapAtom,
   isBulkRevokeModeAtom,
   revokeTxsStateAtom,
+  searchKeyAtom,
+  searchNetworkAtom,
   selectedTokensAtom,
   tokenMapAtom,
 } from './atoms';
@@ -100,6 +102,20 @@ class ContextJotaiActionsApprovalList extends ContextJotaiActionsBase {
   updateIsBulkRevokeMode = contextAtomMethod((get, set, value: boolean) => {
     set(isBulkRevokeModeAtom(), value);
   });
+
+  toggleIsBulkRevokeMode = contextAtomMethod((get, set) => {
+    set(isBulkRevokeModeAtom(), (v) => !v);
+  });
+
+  updateSearchKey = contextAtomMethod((get, set, value: string) => {
+    set(searchKeyAtom(), value);
+  });
+
+  updateSearchNetwork = contextAtomMethod((get, set, value: string) => {
+    set(searchNetworkAtom(), {
+      networkId: value,
+    });
+  });
 }
 
 const createActions = memoFn(() => {
@@ -117,6 +133,9 @@ export function useApprovalListActions() {
   const updateRevokeTxsState = actions.updateRevokeTxsState.use();
   const updateSelectedTokens = actions.updateSelectedTokens.use();
   const updateIsBulkRevokeMode = actions.updateIsBulkRevokeMode.use();
+  const toggleIsBulkRevokeMode = actions.toggleIsBulkRevokeMode.use();
+  const updateSearchKey = actions.updateSearchKey.use();
+  const updateSearchNetwork = actions.updateSearchNetwork.use();
   return useRef({
     updateApprovalList,
     updateTokenMap,
@@ -125,5 +144,8 @@ export function useApprovalListActions() {
     updateRevokeTxsState,
     updateSelectedTokens,
     updateIsBulkRevokeMode,
+    toggleIsBulkRevokeMode,
+    updateSearchKey,
+    updateSearchNetwork,
   });
 }

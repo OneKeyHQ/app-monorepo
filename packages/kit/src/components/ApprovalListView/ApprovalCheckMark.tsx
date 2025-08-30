@@ -13,6 +13,8 @@ import {
   checkIsSelectAllTokens,
 } from '../../views/ApprovalManagement/utils';
 
+import { useApprovalListViewContext } from './ApprovalListViewContext';
+
 type IProps = {
   approval: IContractApproval;
 };
@@ -23,6 +25,8 @@ function ApprovalCheckMark(props: IProps) {
   const [isBulkRevokeMode] = useIsBulkRevokeModeAtom();
   const [{ selectedTokens }] = useSelectedTokensAtom();
   const { updateSelectedTokens } = useApprovalListActions().current;
+
+  const { selectDisabled } = useApprovalListViewContext();
 
   const { isSelectAllTokens } = useMemo(() => {
     return checkIsSelectAllTokens({
@@ -43,7 +47,7 @@ function ApprovalCheckMark(props: IProps) {
     });
   }, [approval, isSelectAllTokens, updateSelectedTokens]);
 
-  if (!isBulkRevokeMode) {
+  if (!isBulkRevokeMode || selectDisabled) {
     return null;
   }
 
