@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 
-import type { IHLWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { WsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
   Button,
@@ -23,7 +23,7 @@ const COLUMN_WIDTHS = {
   actions: 140,
 };
 
-const PerpOrdersRow = memo(({ order }: { order: IHLWsWebData2['openOrders'][number] }) => {
+const PerpOrdersRow = memo(({ order }: { order: WsWebData2['openOrders'][number] }) => {
   const {
     triggerCondition,
     orderType,

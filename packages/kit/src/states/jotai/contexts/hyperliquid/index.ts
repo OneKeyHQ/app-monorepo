@@ -26,14 +26,10 @@ export {
 export { useHyperliquidActions } from './actions';
 
 export type {
-  IHLConnectionState,
   ITradingFormData,
 } from './atoms';
 
 export type {
-  IHLTokenListItem,
-  IHLTokenSelectorItem,
-  IHLMarketSummary,
-  IHLTickerItem,
-  IHLTickerBarData,
-} from '@onekeyhq/shared/types/hyperliquid/market';
+  ConnectionState,
+  TokenListItem,
+} from '@onekeyhq/shared/types/hyperliquid/types';

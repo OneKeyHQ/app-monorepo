@@ -9,7 +9,7 @@ import {
   useWebData2Atom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { formatAssetCtx } from '../utils/formatData';
-import { IHLWsActiveAssetCtx, IHLActiveAssetData, IHLPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import { WsActiveAssetCtx, ActiveAssetData } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 export interface IPerpMarketDataReturn {
   // Current token data
@@ -36,10 +36,16 @@ export interface IPerpMarketDataReturn {
   getTokenPrice: (symbol: string) => string | null;
 }
 
-export interface ICurrentTokenData extends IHLWsActiveAssetCtx, IHLActiveAssetData, IHLPerpsUniverse {
+export interface ICurrentTokenData {
   name: string;
   assetId: number;
   weiDecimals: number;
+  markPx?: string;
+  oraclePx?: string;
+  dayNtlVlm?: string;
+  openInterest?: string;
+  funding?: string;
+  prevDayPx?: string;
 }
 
 export function usePerpMarketData(): IPerpMarketDataReturn {
