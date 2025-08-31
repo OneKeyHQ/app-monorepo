@@ -9,7 +9,7 @@ import {
   EAppEventBusNames,
   appEventBus
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { IHLActiveAssetData, IHLHex, IHLWsActiveAssetCtx, IHLWsAllMids, IHLWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { ActiveAssetData, Hex, WsActiveAssetCtx, WsAllMids, WsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
   allMidsAtom,
@@ -49,19 +49,19 @@ export function useHyperliquidEventBusListener() {
       try {
         switch (subType) {
           case 'allMids':
-            void actions.current.updateAllMids(data as IHLWsAllMids);
+            void actions.current.updateAllMids(data as WsAllMids);
             break;
 
           case 'activeAssetCtx':
-            void actions.current.updateActiveAssetCtx(data as IHLWsActiveAssetCtx);
+            void actions.current.updateActiveAssetCtx(data as WsActiveAssetCtx);
             break;
 
           case 'webData2':
-            void actions.current.updateWebData2(data as IHLWsWebData2);
+            void actions.current.updateWebData2(data as WsWebData2);
             break;
 
           case 'activeAssetData':
-            void actions.current.updateActiveAssetData(data as IHLActiveAssetData);
+            void actions.current.updateActiveAssetData(data as ActiveAssetData);
             break;
 
           case 'l2Book':
@@ -145,7 +145,7 @@ export function useHyperliquidSession() {
     },
     [activeAccount?.account?.id],
   );
-  let userAddress = ethAccountData?.address as IHLHex | undefined;
+  let userAddress = ethAccountData?.address as Hex | undefined;
   useEffect(() => {
     if (userAddress?.startsWith('0x')) {
       void actions.current.setCurrentUser(userAddress);
@@ -175,7 +175,7 @@ export function useHyperliquidSession() {
   }, [actions]);
 
   return {
-    userAddress: activeAccount?.account?.address as IHLHex | undefined,
+    userAddress: activeAccount?.account?.address as Hex | undefined,
     isConnected: connectionState.isConnected,
     isActive: subscriptionActive,
   };
@@ -240,7 +240,7 @@ export function useHyperliquidTrading() {
     }
 
     return await backgroundApiProxy.serviceHyperliquid.checkWalletStatus({
-      userAddress: currentUser as IHLHex,
+      userAddress: currentUser as Hex,
     });
   }, [currentUser]);
 
@@ -250,7 +250,7 @@ export function useHyperliquidTrading() {
     let needApproveAgent = true;
 
     const proxyWalletAddress = await backgroundApiProxy.serviceHyperliquidWallet.getProxyWalletAddress({
-      userAddress: currentUser as IHLHex,
+      userAddress: currentUser as Hex,
     });
     if (extraAgents.length > 0) {
       extraAgents.forEach(agent => {
@@ -260,13 +260,13 @@ export function useHyperliquidTrading() {
     if (!maxBuilderFee || needApproveAgent) {
       await backgroundApiProxy.serviceHyperliquid.enableTrading({
         userAccountId: currentAccount,
-        userAddress: currentUser as IHLHex,
+        userAddress: currentUser as Hex,
         approveAgent: needApproveAgent,
         approveBuilderFee: !maxBuilderFee,
       });
     } else {
       await backgroundApiProxy.serviceHyperliquidExchange.setup({
-        userAddress: currentUser as IHLHex,
+        userAddress: currentUser as Hex,
         userAccountId: currentAccount,
       });
     }

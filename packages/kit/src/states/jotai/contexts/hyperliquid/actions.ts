@@ -3,7 +3,7 @@ import { useRef } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
-import type { IHLHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { Hex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type * as HL from '@nktkas/hyperliquid';
 
 import {
@@ -70,7 +70,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   );
 
   setCurrentUser = contextAtomMethod(
-    async (get, set, user: IHLHex | null) => {
+    async (get, set, user: Hex | null) => {
       const currentUser = get(currentUserAtom());
       if (currentUser === user) return;
 
@@ -173,7 +173,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   );
 
   setupTradingSession = contextAtomMethod(
-    async (get, set, payload: { userAddress: IHLHex; userAccountId: string }) => {
+    async (get, set, payload: { userAddress: Hex; userAccountId: string }) => {
       try {
         await this.setCurrentUser.call(set, payload.userAddress);
 
@@ -191,7 +191,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   );
 
   checkWalletStatus = contextAtomMethod(
-    async (get, set, userAddress: IHLHex) => {
+    async (get, set, userAddress: Hex) => {
       try {
         return await backgroundApiProxy.serviceHyperliquid.checkWalletStatus({
           userAddress,
@@ -205,7 +205,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   enableTrading = contextAtomMethod(
     async (get, set, payload: {
-      userAddress: IHLHex;
+      userAddress: Hex;
       userAccountId: string;
       approveAgent?: boolean;
       approveBuilderFee?: boolean;
@@ -244,7 +244,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  // 交易表单相关操作
   updateTradingForm = contextAtomMethod(
     (get, set, updates: Partial<ITradingFormData>) => {
       const current = get(tradingFormAtom());
@@ -275,7 +274,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  // 交易下单操作
   placeOrder = contextAtomMethod(
     async (get, set, params: { 
       assetId: number;

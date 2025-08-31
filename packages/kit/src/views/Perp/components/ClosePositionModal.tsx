@@ -11,12 +11,12 @@ import {
   Button,
 } from '@onekeyhq/components';
 
-import type { IHLWsWebData2, IHLWsAllMids } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { WsWebData2, WsAllMids } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { formatPriceToSignificantDigits, validatePriceInput } from '../utils/tokenUtils';
 
 interface IShowClosePositionParams {
-  position: IHLWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
+  position: WsWebData2['clearinghouseState']['assetPositions'][number]['position'];
   assetId: number;
   mid?: string;
   hyperliquidActions: {
@@ -33,7 +33,7 @@ interface IShowClosePositionParams {
 }
 
 interface ClosePositionFormProps {
-  position: IHLWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
+  position: WsWebData2['clearinghouseState']['assetPositions'][number]['position'];
   size: string;
   onSizeChange: (value: string) => void;
   mid?: string;
