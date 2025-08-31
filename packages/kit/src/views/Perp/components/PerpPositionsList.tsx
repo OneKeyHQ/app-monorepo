@@ -1,6 +1,6 @@
 import React, { memo, useMemo } from 'react';
 
-import type { IHLWsWebData2, IHLWsAllMids } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { WsWebData2, WsAllMids } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
   Button,
@@ -30,7 +30,7 @@ const COLUMN_WIDTHS = {
 };
 
 const PerpPositionRow = memo(({ pos, mid, actions }: {
-  pos: IHLWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
+  pos: WsWebData2['clearinghouseState']['assetPositions'][number]['position'];
   mid?: string;
   actions: any;
 }) => {

@@ -10,11 +10,10 @@ import {
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
-  IHLExchangeClient,
-  IHLOrderRequest,
-  IHLOrderResponse,
-  IHLOrderParams,
-  IHLTIF,
+  OrderRequest,
+  OrderResponse,
+  OrderParams,
+  TIF,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import ServiceBase from '../ServiceBase';
@@ -97,7 +96,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   private _account: string | null = null;
-  private _exchangeClient: IHLExchangeClient | null = null;
+  private _exchangeClient: ExchangeClient | null = null;
 
   public slippage: number = 0.08;
 
@@ -128,7 +127,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       this._exchangeClient = new ExchangeClient({
         transport,
         wallet
-      }) as IHLExchangeClient;
+      }) as ExchangeClient;
 
       this._account = account;
     } catch (error) {
@@ -140,7 +139,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async getOnekeyWalletClient(params: {
     userAddress: string;
     userAccountId?: string;
-  }): Promise<IHLExchangeClient> {
+  }): Promise<ExchangeClient> {
     const transport = new HttpTransport();
 
     let wallet: WalletHyperliquidProxy | WalletHyperliquidOnekey;
@@ -159,7 +158,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     return new ExchangeClient({
       transport,
       wallet
-    }) as IHLExchangeClient;
+    }) as ExchangeClient;
   }
 
   private _ensureSetup(): void {
@@ -210,7 +209,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async placeOrderRaw(params: IHLOrderRequest): Promise<IHLOrderResponse> {
+  async placeOrderRaw(params: OrderRequest): Promise<OrderResponse> {
     this._ensureSetup();
     try {
       return await this._exchangeClient!.order({
@@ -245,7 +244,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async placeOrder(params: IPlaceOrderParams): Promise<IHLOrderResponse> {
+  async placeOrder(params: IPlaceOrderParams): Promise<OrderResponse> {
     this._ensureSetup();
 
     try {
@@ -255,16 +254,16 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         throw new OneKeyLocalError('Market orders require current market price - not implemented yet');
       }
 
-      const orderParams: IHLOrderParams = {
+      const orderParams: OrderParams = {
         a: params.assetId,
         b: params.isBuy,
         p: price,
         s: params.sz,
         r: false,
         t: 'limit' in params.orderType ? {
-          limit: { tif: params.orderType.limit.tif as IHLTIF }
+          limit: { tif: params.orderType.limit.tif as TIF }
         } : {
-          limit: { tif: 'Ioc' as IHLTIF }
+          limit: { tif: 'Ioc' as TIF }
         },
       };
 
@@ -278,7 +277,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async marketOrderOpen(params: IMarketOrderOpenParams): Promise<IHLOrderResponse> {
+  async marketOrderOpen(params: IMarketOrderOpenParams): Promise<OrderResponse> {
     this._ensureSetup();
 
     try {
@@ -290,9 +289,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         params.slippage || this.slippage
       );
 
-      const orders: IHLOrderParams[] = [];
+      const orders: OrderParams[] = [];
 
-      const mainOrder: IHLOrderParams = {
+      const mainOrder: OrderParams = {
         a: params.assetId,
         b: params.isBuy,
         p: price,
@@ -314,7 +313,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
             params.slippage || this.slippage
           );
         }
-        const tpOrder: IHLOrderParams = {
+        const tpOrder: OrderParams = {
           a: params.assetId,
           b: !params.isBuy,
           p: params.tpTriggerPx,
@@ -339,7 +338,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
             params.slippage || this.slippage
           );
         }
-        const slOrder: IHLOrderParams = {
+        const slOrder: OrderParams = {
           a: params.assetId,
           b: !params.isBuy,
           p: params.slTriggerPx,
@@ -366,7 +365,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async marketOrderClose(params: IMarketOrderCloseParams): Promise<IHLOrderResponse> {
+  async marketOrderClose(params: IMarketOrderCloseParams): Promise<OrderResponse> {
     this._ensureSetup();
 
     try {
@@ -377,13 +376,13 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         params.slippage || this.slippage
       );
 
-      const orderParams: IHLOrderParams = {
+      const orderParams: OrderParams = {
         a: params.assetId,
         b: !params.isBuy,
         p: price,
         s: params.size,
         r: true,
-        t: { limit: { tif: 'Gtc' as IHLTIF } },
+        t: { limit: { tif: 'Gtc' as TIF } },
       };
 
       return await this._exchangeClient!.order({
@@ -429,18 +428,18 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async multiOrder(params: IMultiOrderParams): Promise<IHLOrderResponse> {
+  async multiOrder(params: IMultiOrderParams): Promise<OrderResponse> {
     this._ensureSetup();
 
     try {
       const orderParams = params.orders.map((order) => {
-        const orderParam: IHLOrderParams = {
+        const orderParam: OrderParams = {
           a: order.assetId,
           b: order.isBuy,
           p: order.limitPx,
           s: order.sz,
           r: false,
-          t: { limit: { tif: order.orderType.limit.tif as IHLTIF } },
+          t: { limit: { tif: order.orderType.limit.tif as TIF } },
         };
 
         return orderParam;

@@ -1,7 +1,7 @@
-import { IHLWsActiveAssetCtx } from "@onekeyhq/shared/types/hyperliquid/sdk";
+import { WsActiveAssetCtx } from "@onekeyhq/shared/types/hyperliquid/sdk";
 
 
-export function formatAssetCtx(assetCtx: IHLWsActiveAssetCtx["ctx"] | null) {
+export function formatAssetCtx(assetCtx: WsActiveAssetCtx["ctx"] | null) {
     const prevPrice = parseFloat(assetCtx?.prevDayPx || '0');
     const markPrice = parseFloat(assetCtx?.markPx || '0');
     const change24hPercent = prevPrice > 0
