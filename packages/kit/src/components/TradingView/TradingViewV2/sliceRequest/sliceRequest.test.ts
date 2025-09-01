@@ -152,10 +152,10 @@ describe('sliceRequest', () => {
   });
 
   describe('no slicing needed', () => {
-    it('should return single slice when data points <= 100', () => {
-      // 1 day interval, 50 days total = 50 data points
+    it('should return single slice when data points <= 2000', () => {
+      // 1 day interval, 1000 days total = 1000 data points
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 50 * SECONDS_IN_DAY;
+      const timeTo = mockTimeFrom + 1000 * SECONDS_IN_DAY;
       const result = sliceRequest('1D', timeFrom, timeTo);
 
       expect(result).toHaveLength(1);
@@ -166,10 +166,10 @@ describe('sliceRequest', () => {
       });
     });
 
-    it('should return single slice when data points exactly 100', () => {
-      // 1 day interval, 100 days total = 100 data points
+    it('should return single slice when data points exactly 2000', () => {
+      // 1 day interval, 2000 days total = 2000 data points
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 100 * SECONDS_IN_DAY;
+      const timeTo = mockTimeFrom + 2000 * SECONDS_IN_DAY;
       const result = sliceRequest('1D', timeFrom, timeTo);
 
       expect(result).toHaveLength(1);
@@ -214,14 +214,14 @@ describe('sliceRequest', () => {
   });
 
   describe('slicing required', () => {
-    it('should slice when data points > 100', () => {
-      // 1 day interval, 365 days total = 365 data points
+    it('should slice when data points > 2000', () => {
+      // 1 day interval, 3000 days total = 3000 data points
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 365 * SECONDS_IN_DAY;
+      const timeTo = mockTimeFrom + 3000 * SECONDS_IN_DAY;
       const result = sliceRequest('1D', timeFrom, timeTo);
 
       expect(result.length).toBeGreaterThan(1);
-      expect(result.length).toBe(4); // Math.ceil(365 / 100) = 4
+      expect(result.length).toBe(2); // Math.ceil(3000 / 2000) = 2
 
       // Check first slice
       expect(result[0].from).toBe(timeFrom);
@@ -270,17 +270,17 @@ describe('sliceRequest', () => {
         isNativeToken: true,
       });
 
-      expect(nonNativeResult.length).toBe(2); // Math.ceil(150 / 100) = 2
+      expect(nonNativeResult.length).toBe(1); // 150 <= 2000, no slicing needed
       expect(nativeResult.length).toBe(1); // 150 <= 200, no slicing needed
     });
 
     it('should handle large data sets correctly', () => {
-      // 1 minute interval, 1000 minutes = 1000 data points
+      // 1 minute interval, 6000 minutes = 6000 data points
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 1000 * SECONDS_IN_MINUTE;
+      const timeTo = mockTimeFrom + 6000 * SECONDS_IN_MINUTE;
       const result = sliceRequest('1m', timeFrom, timeTo);
 
-      expect(result.length).toBe(10); // Math.ceil(1000 / 100) = 10
+      expect(result.length).toBe(3); // Math.ceil(6000 / 2000) = 3
 
       // Verify continuity
       for (let i = 1; i < result.length; i += 1) {
@@ -293,15 +293,15 @@ describe('sliceRequest', () => {
     });
 
     it('should handle hour intervals correctly', () => {
-      // 1 hour interval, 500 hours = 500 data points
+      // 1 hour interval, 4000 hours = 4000 data points
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 500 * SECONDS_IN_HOUR;
+      const timeTo = mockTimeFrom + 4000 * SECONDS_IN_HOUR;
       const result = sliceRequest('1H', timeFrom, timeTo);
 
-      expect(result.length).toBe(5); // Math.ceil(500 / 100) = 5
+      expect(result.length).toBe(2); // Math.ceil(4000 / 2000) = 2
 
       // Check each slice has roughly equal time span except the last one
-      const expectedTimePerSlice = Math.floor((timeTo - timeFrom) / 5);
+      const expectedTimePerSlice = Math.floor((timeTo - timeFrom) / 2);
 
       for (let i = 0; i < result.length - 1; i += 1) {
         const sliceTime = result[i].to - result[i].from;
@@ -310,12 +310,12 @@ describe('sliceRequest', () => {
     });
 
     it('should handle week intervals correctly', () => {
-      // 1 week interval, 200 weeks = 200 data points
+      // 1 week interval, 3000 weeks = 3000 data points
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 200 * SECONDS_IN_WEEK;
+      const timeTo = mockTimeFrom + 3000 * SECONDS_IN_WEEK;
       const result = sliceRequest('1W', timeFrom, timeTo);
 
-      expect(result.length).toBe(2); // Math.ceil(200 / 100) = 2
+      expect(result.length).toBe(2); // Math.ceil(3000 / 2000) = 2
 
       // Verify continuity and bounds
       expect(result[0].from).toBe(timeFrom);
@@ -324,12 +324,12 @@ describe('sliceRequest', () => {
     });
 
     it('should handle month intervals correctly', () => {
-      // 1 month interval, 300 months = 300 data points
+      // 1 month interval, 3000 months = 3000 data points
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 300 * SECONDS_IN_MONTH;
+      const timeTo = mockTimeFrom + 3000 * SECONDS_IN_MONTH;
       const result = sliceRequest('1M', timeFrom, timeTo);
 
-      expect(result.length).toBe(3); // Math.ceil(300 / 100) = 3
+      expect(result.length).toBe(2); // Math.ceil(3000 / 2000) = 2
 
       // Verify all slices
       expect(result[0].from).toBe(timeFrom);
@@ -341,12 +341,12 @@ describe('sliceRequest', () => {
     });
 
     it('should handle year intervals correctly', () => {
-      // 1 year interval, 150 years = 150 data points
+      // 1 year interval, 3000 years = 3000 data points
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 150 * SECONDS_IN_YEAR;
+      const timeTo = mockTimeFrom + 3000 * SECONDS_IN_YEAR;
       const result = sliceRequest('1y', timeFrom, timeTo);
 
-      expect(result.length).toBe(2); // Math.ceil(150 / 100) = 2
+      expect(result.length).toBe(2); // Math.ceil(3000 / 2000) = 2
 
       // Verify all slices
       expect(result[0].from).toBe(timeFrom);
@@ -383,13 +383,13 @@ describe('sliceRequest', () => {
       });
     });
 
-    it('should handle exactly 101 data points', () => {
-      // 1 day interval, 101 days total = 101 data points
+    it('should handle exactly 2001 data points', () => {
+      // 1 day interval, 2001 days total = 2001 data points
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 101 * SECONDS_IN_DAY;
+      const timeTo = mockTimeFrom + 2001 * SECONDS_IN_DAY;
       const result = sliceRequest('1D', timeFrom, timeTo);
 
-      expect(result.length).toBe(2); // Math.ceil(101 / 100) = 2
+      expect(result.length).toBe(2); // Math.ceil(2001 / 2000) = 2
       expect(result[0].from).toBe(timeFrom);
       expect(result[result.length - 1].to).toBe(timeTo);
     });
@@ -412,7 +412,7 @@ describe('sliceRequest', () => {
       const timeTo = 1_672_531_200; // 2023-01-01
       const result = sliceRequest('1D', timeFrom, timeTo);
 
-      expect(result.length).toBe(4); // Math.ceil(365 / 100) = 4
+      expect(result.length).toBe(1); // Math.ceil(365 / 2000) = 1, no slicing needed
 
       // Verify total coverage
       expect(result[0].from).toBe(timeFrom);
@@ -430,7 +430,7 @@ describe('sliceRequest', () => {
       const timeTo = mockTimeFrom + SECONDS_IN_WEEK;
       const result = sliceRequest('1H', timeFrom, timeTo);
 
-      expect(result.length).toBe(2); // Math.ceil(168 / 100) = 2
+      expect(result.length).toBe(1); // Math.ceil(168 / 2000) = 1, no slicing needed
       expect(result[0].from).toBe(timeFrom);
       expect(result[result.length - 1].to).toBe(timeTo);
     });
@@ -441,7 +441,7 @@ describe('sliceRequest', () => {
       const timeTo = mockTimeFrom + SECONDS_IN_DAY;
       const result = sliceRequest('1m', timeFrom, timeTo);
 
-      expect(result.length).toBe(15); // Math.ceil(1440 / 100) = 15
+      expect(result.length).toBe(1); // Math.ceil(1440 / 2000) = 1, no slicing needed
       expect(result[0].from).toBe(timeFrom);
       expect(result[result.length - 1].to).toBe(timeTo);
     });
@@ -452,7 +452,7 @@ describe('sliceRequest', () => {
       const timeTo = mockTimeFrom + 120 * SECONDS_IN_MONTH;
       const result = sliceRequest('1M', timeFrom, timeTo);
 
-      expect(result.length).toBe(2); // Math.ceil(120 / 100) = 2
+      expect(result.length).toBe(1); // Math.ceil(120 / 2000) = 1, no slicing needed
       expect(result[0].from).toBe(timeFrom);
       expect(result[result.length - 1].to).toBe(timeTo);
     });
@@ -463,7 +463,7 @@ describe('sliceRequest', () => {
       const timeTo = mockTimeFrom + 200 * SECONDS_IN_YEAR;
       const result = sliceRequest('1y', timeFrom, timeTo);
 
-      expect(result.length).toBe(2); // Math.ceil(200 / 100) = 2
+      expect(result.length).toBe(1); // Math.ceil(200 / 2000) = 1, no slicing needed
       expect(result[0].from).toBe(timeFrom);
       expect(result[result.length - 1].to).toBe(timeTo);
     });
