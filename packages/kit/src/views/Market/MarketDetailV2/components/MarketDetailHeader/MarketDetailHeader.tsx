@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import { NavBackButton, XStack, useMedia } from '@onekeyhq/components';
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
-import { TabPageHeaderContainer } from '@onekeyhq/kit/src/components/TabPageHeader/components/TabPageHeaderContainer';
 import { HeaderLeftCloseButton } from '@onekeyhq/kit/src/components/TabPageHeader/HeaderLeft';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -13,6 +12,8 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProviderMirrorV2';
 import { useMarketDetailBackNavigation } from '../../hooks/useMarketDetailBackNavigation';
 import { TokenDetailHeader } from '../TokenDetailHeader/TokenDetailHeader';
+
+import { TabPageHeaderContainer } from './TabPageHeaderContainer';
 
 export function MarketDetailHeader() {
   const media = useMedia();
