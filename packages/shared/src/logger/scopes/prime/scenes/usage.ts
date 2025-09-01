@@ -18,10 +18,8 @@ export class PrimeUsageScene extends BaseScene {
    * 触发时机: Prime 用户成功执行一次"批量复制地址"操作后触发
    */
   @LogToServer()
-  public bulkCopyAddressSuccess({ addressCount }: { addressCount: number }) {
-    return {
-      addressCount,
-    };
+  public bulkCopyAddressSuccess() {
+    return {};
   }
 
   /**
