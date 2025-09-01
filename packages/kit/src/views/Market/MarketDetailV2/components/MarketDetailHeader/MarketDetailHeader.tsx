@@ -34,19 +34,17 @@ export function MarketDetailHeader() {
     <>
       {media.md ? (
         <TabPageHeaderContainer>
-          <XStack gap="$3" ai="center">
-            <HeaderLeftCloseButton />
+          <HeaderLeftCloseButton />
 
-            <MarketWatchListProviderMirrorV2
-              storeName={EJotaiContextStoreNames.marketWatchListV2}
-            >
-              <TokenDetailHeader
-                containerProps={{ p: '$0' }}
-                showStats={false}
-                showMediaAndSecurity={false}
-              />
-            </MarketWatchListProviderMirrorV2>
-          </XStack>
+          <MarketWatchListProviderMirrorV2
+            storeName={EJotaiContextStoreNames.marketWatchListV2}
+          >
+            <TokenDetailHeader
+              containerProps={{ p: '$0' }}
+              showStats={false}
+              showMediaAndSecurity={false}
+            />
+          </MarketWatchListProviderMirrorV2>
         </TabPageHeaderContainer>
       ) : (
         <TabPageHeader
