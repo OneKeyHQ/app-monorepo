@@ -280,6 +280,8 @@ export type IVaultSettings = {
 
   maxRetryBroadcastTxCount?: number;
   minRetryBroadcastTxInterval?: number;
+
+  enabledInternalSignAndVerify?: boolean;
 };
 
 export type IVaultFactoryOptions = {
