@@ -1,5 +1,6 @@
 import { Dialog, Input } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { isCorrectDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { showDevOnlyPasswordDialog } from '../pages/Tab/DevSettingsSection';
@@ -35,13 +36,6 @@ const showPromoteDialog = async () =>
     });
   });
 
-const getCorrectDevOnlyPwd = () => {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  return `${yyyy}${mm}${dd}-onekey-dev`;
-};
 export const showDevModePasswordDialog = async () => {
   return new Promise((resolve, reject) => {
     Dialog.show({
@@ -70,7 +64,7 @@ export const showDevModePasswordDialog = async () => {
         const form = getForm();
         if (form) {
           const password = form.getValues('password');
-          if (password === getCorrectDevOnlyPwd()) {
+          if (isCorrectDevOnlyPassword(password)) {
             resolve(true);
           } else {
             reject(new OneKeyLocalError('Invalid dev password'));

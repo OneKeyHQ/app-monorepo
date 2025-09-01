@@ -36,7 +36,7 @@ const shouldDbTxCreatedDebuggerRule: Record<string, boolean> = {
 };
 
 const generalDebuggerRule: Record<string, number> = {
-  'OneKeySimpleDB_readonly': 70,
+  'OneKeySimpleDB_readonly': 999,
 };
 
 const shouldLocalDbDebuggerRule: Record<string, number> = {
