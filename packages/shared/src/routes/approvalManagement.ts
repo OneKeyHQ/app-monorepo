@@ -1,3 +1,4 @@
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type {
   EContractApprovalAlertType,
   IContractApproval,
@@ -10,6 +11,7 @@ export enum EModalApprovalManagementRoutes {
   ApprovalDetails = 'ApprovalDetails',
   RevokeSuggestion = 'RevokeSuggestion',
   ApprovalList = 'ApprovalList',
+  BulkRevoke = 'BulkRevoke',
 }
 
 export type IModalApprovalManagementParamList = {
@@ -38,5 +40,8 @@ export type IModalApprovalManagementParamList = {
     walletId: string;
     accountId: string;
     networkId: string;
+  };
+  [EModalApprovalManagementRoutes.BulkRevoke]: {
+    unsignedTxs: IUnsignedTxPro[];
   };
 };

@@ -6,6 +6,30 @@ export enum EContractApprovalAlertType {
   Warning = 'warning',
 }
 
+export enum ERevokeTxStatus {
+  Succeeded = 'Succeeded',
+  Processing = 'Processing',
+  Pending = 'Pending',
+  Skipped = 'Skipped',
+  Paused = 'Paused',
+}
+
+export enum ERevokeProgressState {
+  InProgress = 'InProgress',
+  Finished = 'Finished',
+  Aborted = 'Aborted',
+  Paused = 'Paused',
+}
+
+export type IRevokeTxStatus = {
+  status: ERevokeTxStatus;
+  txId?: string;
+  feeBalance?: string;
+  feeSymbol?: string;
+  feeFiat?: string;
+  skippedReason?: string;
+};
+
 export type IContractApproval = {
   accountId: string;
   networkId: string;
