@@ -19,13 +19,9 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { WebEmbedDevConfig } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed';
-import {
-  appUpdatePersistAtom,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import appDeviceInfo from '@onekeyhq/shared/src/appDeviceInfo/appDeviceInfo';
-import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { isCorrectDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
@@ -76,8 +72,6 @@ let correctDevOnlyPwd = '';
 if (process.env.NODE_ENV !== 'production') {
   correctDevOnlyPwd = `${formatDateFns(new Date(), 'yyyyMMdd')}-onekey-debug`;
 }
-
-const APP_VERSION = platformEnv.version ?? '1.0.0';
 
 export function showDevOnlyPasswordDialog({
   title,
@@ -400,23 +394,6 @@ export const DevSettingsSection = () => {
             ? 'http://localhost:5173/'
             : 'https://tradingview.onekeytest.com/'
         }
-      >
-        <Switch size={ESwitchSize.small} />
-      </SectionFieldItem>
-      <SectionFieldItem
-        icon="Layers2Outline"
-        name="enableMarketV2"
-        title="启用市场模块 V2 版本"
-        subtitle={
-          devSettings.settings?.enableMarketV2
-            ? '使用新版本市场模块 (V2)'
-            : '使用旧版本市场模块 (V1)'
-        }
-        onValueChange={() => {
-          setTimeout(() => {
-            void backgroundApiProxy.serviceApp.restartApp();
-          }, 300);
-        }}
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
