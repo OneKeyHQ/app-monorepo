@@ -2636,6 +2636,7 @@
   "spotlight.account_alignment_desc": "OneKey wechselt jetzt standardmäßig automatisch zu deinem zuletzt verwendeten dApp-Konto. Um diese Einstellung zu ändern, gehe zu Einstellungen > Wallet- & dApp-Kontoabgleich.",
   "spotlight.enable_account_asset_message": "Wenn Guthaben fehlen, gehen Sie auf der Startseite zu \"Netzwerke\" und wählen Sie zuerst \"Alle Netzwerke\" aus.",
   "spotlight.enable_network_message": "Verwalten Sie die Netzwerksichtbarkeit und kopieren Sie schnell Adressen für jedes Netzwerk in der Ansicht 'Alle Netzwerke'.",
+  "standard_or_BIP137": "Standard oder BIP137",
   "swap.approve_token": "Genehmigen Sie {num} {token}...",
   "swap.approve_token_est_time": "In {num} Sekunden geschätzt.",
   "swap.btn_approving": "Genehmigung läuft...",

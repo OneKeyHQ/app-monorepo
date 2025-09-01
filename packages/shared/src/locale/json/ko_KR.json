@@ -2636,6 +2636,7 @@
   "spotlight.account_alignment_desc": "OneKey는 이제 기본적으로 마지막으로 사용한 dApp 계정으로 자동 전환됩니다. 이 설정을 변경하려면 설정 > 지갑 & dApp 계정 정렬로 이동하세요.",
   "spotlight.enable_account_asset_message": "잔액이 없는 경우, 홈페이지에서 \"네트워크\"를 선택하고 먼저 \"모든 네트워크\"를 선택하십시오.",
   "spotlight.enable_network_message": "네트워크 가시성을 관리하고 '모든 네트워크' 보기에서 어떤 네트워크의 주소도 빠르게 복사하세요.",
+  "standard_or_BIP137": "표준 또는 BIP137",
   "swap.approve_token": "{num} {token} 승인...",
   "swap.approve_token_est_time": "{num}초 후에 시작",
   "swap.btn_approving": "승인 중...",

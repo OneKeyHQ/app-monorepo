@@ -2636,6 +2636,7 @@
   "spotlight.account_alignment_desc": "OneKey अब डिफ़ॉल्ट रूप से अपने अंतिम उपयोग किए गए dApp खाते पर स्वचालित रूप से स्विच करता है। इस सेटिंग को बदलने के लिए, सेटिंग्स > वॉलेट और dApp खाता संरेखण पर जाएँ।",
   "spotlight.enable_account_asset_message": "यदि बैलेंस गायब हैं, तो होमपेज पर \"नेटवर्क\" पर जाएं और पहले \"सभी नेटवर्क\" का चयन करें।",
   "spotlight.enable_network_message": "नेटवर्क दृश्यता प्रबंधित करें और 'सभी नेटवर्क' दृश्य में किसी भी नेटवर्क के लिए पतों को जल्दी से कॉपी करें।",
+  "standard_or_BIP137": "मानक या BIP137",
   "swap.approve_token": "{num} {token} को स्वीकृत करें...",
   "swap.approve_token_est_time": "{num} सेकंड में स्थापित।",
   "swap.btn_approving": "स्वीकृत कर रहा है...",

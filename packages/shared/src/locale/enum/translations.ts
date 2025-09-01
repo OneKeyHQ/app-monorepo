@@ -2641,6 +2641,7 @@
   spotlight_account_alignment_desc = 'spotlight.account_alignment_desc',
   spotlight_enable_account_asset_message = 'spotlight.enable_account_asset_message',
   spotlight_enable_network_message = 'spotlight.enable_network_message',
+  standard_or_BIP137 = 'standard_or_BIP137',
   swap_approve_token = 'swap.approve_token',
   swap_approve_token_est_time = 'swap.approve_token_est_time',
   swap_btn_approving = 'swap.btn_approving',

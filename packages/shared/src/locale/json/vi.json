@@ -2636,6 +2636,7 @@
   "spotlight.account_alignment_desc": "OneKey hiện mặc định tự động chuyển sang tài khoản dApp bạn đã sử dụng gần nhất. Để thay đổi cài đặt này, hãy vào Cài đặt > Đồng bộ hóa Ví & tài khoản dApp.",
   "spotlight.enable_account_asset_message": "Nếu các số dư bị thiếu, hãy đi đến \"Mạng\" trên trang chủ và chọn \"Tất cả các mạng\" trước tiên.",
   "spotlight.enable_network_message": "Quản lý khả năng hiển thị mạng và nhanh chóng sao chép địa chỉ cho bất kỳ mạng nào trong chế độ xem 'Tất cả các mạng'.",
+  "standard_or_BIP137": "Tiêu chuẩn hoặc BIP137",
   "swap.approve_token": "Phê duyệt {num} {token}...",
   "swap.approve_token_est_time": "Ước tính trong {num} giây",
   "swap.btn_approving": "Đang phê duyệt...",

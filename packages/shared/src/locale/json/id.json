@@ -2636,6 +2636,7 @@
   "spotlight.account_alignment_desc": "OneKey kini secara default akan otomatis beralih ke akun dApp yang terakhir Anda gunakan. Untuk mengubah pengaturan ini, buka Pengaturan > Penyelarasan akun Wallet & dApp.",
   "spotlight.enable_account_asset_message": "Jika saldo tidak ada, pergi ke \"Jaringan\" di halaman utama dan pilih \"Semua jaringan\" terlebih dahulu.",
   "spotlight.enable_network_message": "Kelola visibilitas jaringan dan salin alamat dengan cepat untuk jaringan apa pun dalam tampilan 'Semua jaringan'.",
+  "standard_or_BIP137": "Standar atau BIP137",
   "swap.approve_token": "Menyetujui {num} {token}...",
   "swap.approve_token_est_time": "Diperkirakan dalam {num} detik",
   "swap.btn_approving": "Menyetujui...",

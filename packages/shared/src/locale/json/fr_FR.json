@@ -2636,6 +2636,7 @@
   "spotlight.account_alignment_desc": "OneKey passe désormais par défaut à votre dernier compte d'application décentralisée utilisé. Pour modifier ce paramètre, allez dans Paramètres > Alignement du portefeuille et du compte d'application décentralisée.",
   "spotlight.enable_account_asset_message": "Si des soldes sont manquants, allez à \"Réseaux\" sur la page d'accueil et sélectionnez d'abord \"Tous les réseaux\".",
   "spotlight.enable_network_message": "Gérez la visibilité du réseau et copiez rapidement les adresses pour n'importe quel réseau dans la vue 'Tous les réseaux'.",
+  "standard_or_BIP137": "Standard ou BIP137",
   "swap.approve_token": "Approuver {num} {token}...",
   "swap.approve_token_est_time": "Est. en {num} secondes",
   "swap.btn_approving": "Approbation...",

@@ -2636,6 +2636,7 @@
   "spotlight.account_alignment_desc": "OneKey ahora cambia automáticamente por defecto a la última cuenta de dApp que usaste. Para cambiar esta configuración, ve a Configuración > Alineación de cuenta de Wallet y dApp.",
   "spotlight.enable_account_asset_message": "Si faltan saldos, vaya a \"Redes\" en la página de inicio y seleccione \"Todas las redes\" primero.",
   "spotlight.enable_network_message": "Administra la visibilidad de la red y copia rápidamente las direcciones de cualquier red en la vista de 'Todas las redes'.",
+  "standard_or_BIP137": "Estándar o BIP137",
   "swap.approve_token": "Aprobar {num} {token}...",
   "swap.approve_token_est_time": "Est. en {num} segundos",
   "swap.btn_approving": "Aprobando...",

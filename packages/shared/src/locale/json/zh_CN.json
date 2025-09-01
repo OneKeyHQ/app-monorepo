@@ -2636,6 +2636,7 @@
   "spotlight.account_alignment_desc": "OneKey 现在默认会自动切换到你上次使用的 dApp 账户。要更改此设置，请前往设置 > 钱包与 dApp 账户对齐。",
   "spotlight.enable_account_asset_message": "如果余额缺失，请先在主页上选择“网络”，然后选择“所有网络”。",
   "spotlight.enable_network_message": "管理网络可见性，并在「所有网络」视图中快速复制任何网络的地址。",
+  "standard_or_BIP137": "标准或 BIP137",
   "swap.approve_token": "授权 {num} {token}...",
   "swap.approve_token_est_time": "预计完成 {num} 秒",
   "swap.btn_approving": "授权中...",

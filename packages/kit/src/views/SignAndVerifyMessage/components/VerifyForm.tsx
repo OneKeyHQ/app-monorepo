@@ -104,7 +104,11 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
       return [];
     }
     return [
-      { label: 'Standard or BIP137', value: 'bip137', disabled: false },
+      {
+        label: intl.formatMessage({ id: ETranslations.standard_or_BIP137 }),
+        value: 'bip137',
+        disabled: false,
+      },
       { label: 'BIP322', value: 'bip322', disabled: false },
     ];
   }, [detectedNetworkId]);
