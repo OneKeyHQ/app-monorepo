@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import { BaseScene } from '../../../base/baseScene';
@@ -32,7 +33,7 @@ export class PrimeSubscriptionScene extends BaseScene {
     entryPoint,
   }: {
     featureName: EPrimeFeatures;
-    entryPoint: 'settingsPage' | 'moreActions' | 'approvalPopup' | 'primePage';
+    entryPoint?: 'settingsPage' | 'moreActions' | 'approvalPopup' | 'primePage';
   }) {
     return {
       featureName,
@@ -41,16 +42,16 @@ export class PrimeSubscriptionScene extends BaseScene {
   }
 
   /**
-   * 点击"去订阅"按钮
+   * 点击"关于Prime"按钮
    * 触发时机: 在功能介绍/引导页上，用户点击"订阅"或类似的行动号召（CTA）按钮时触发
    */
   @LogToServer()
-  public primeSubscribeButtonClick({
+  public primeUpsellActionClick({
     featureName,
     entryPoint,
   }: {
     featureName: EPrimeFeatures;
-    entryPoint: 'settingsPage' | 'moreActions' | 'approvalPopup' | 'primePage';
+    entryPoint?: 'settingsPage' | 'moreActions' | 'approvalPopup' | 'primePage';
   }) {
     return {
       featureName,
@@ -67,18 +68,15 @@ export class PrimeSubscriptionScene extends BaseScene {
     planType,
     amount,
     currency,
-    triggerFeature,
   }: {
     planType: 'monthly' | 'yearly';
     amount: number;
     currency: string;
-    triggerFeature: EPrimeFeatures;
   }) {
     return {
       planType,
       amount,
       currency,
-      triggerFeature,
     };
   }
 }

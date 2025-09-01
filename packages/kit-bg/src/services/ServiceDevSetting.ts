@@ -55,6 +55,11 @@ class ServiceDevSetting extends ServiceBase {
       },
     }));
     void this.saveDevModeToSyncStorage();
+
+    // Re-initialize analytics if the analytics setting is changed
+    if (name === 'enableAnalyticsRequest') {
+      void this.initAnalytics();
+    }
   }
 
   @backgroundMethod()
