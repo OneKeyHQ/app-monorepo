@@ -220,6 +220,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       address: '',
       addresses: { [networkInfo.networkId]: address },
       publicKey: pubHex,
+      __hwExtraInfo__: undefined,
     });
   }
 
