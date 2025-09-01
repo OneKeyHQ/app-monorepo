@@ -25,7 +25,7 @@ export function convertRecommendedTokens(
     address: token.contractAddress,
     name: token.name,
     symbol: token.name, // Use name as symbol since API doesn't provide symbol
-    logoUrl: '', // API doesn't provide logo URL
+    logoUrl: token.logo || '', // Map logo from IMarketBasicConfigToken to logoUrl
     decimals: 6, // Default decimals
     // Set minimal required fields for IMarketTokenListItem
     marketCap: undefined,
