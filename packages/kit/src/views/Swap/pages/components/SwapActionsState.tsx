@@ -281,13 +281,13 @@ const SwapActionsState = ({
     () => (
       <>
         {actionComponent}
-        <Page.Footer>
-          {!platformEnv.isNativeIOS ? (
+        {!platformEnv.isNativeIOS ? (
+          <Page.Footer>
             <PercentageStageOnKeyboard
               onSelectPercentageStage={onSelectPercentageStage}
             />
-          ) : null}
-        </Page.Footer>
+          </Page.Footer>
+        ) : null}
       </>
     ),
     [actionComponent, onSelectPercentageStage],

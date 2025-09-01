@@ -75,6 +75,7 @@ const settings: IVaultSettings = {
   replaceTxEnabled: false,
 
   createAllDeriveTypeAccountsByDefault: false,
+  enabledInternalSignAndVerify: false,
 };
 
 export default Object.freeze(settings);

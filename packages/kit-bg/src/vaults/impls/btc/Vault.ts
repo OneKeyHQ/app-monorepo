@@ -15,6 +15,7 @@ import {
   formatPsbtHex,
   toPsbtNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
+import { verifyBitcoinMessage } from '@onekeyhq/core/src/chains/btc/sdkBtc/signMessage';
 import {
   EOutputsTypeForCoinSelect,
   type IBtcInput,
@@ -67,6 +68,7 @@ import type {
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import type { IStakeTxBtcBabylon } from '@onekeyhq/shared/types/staking';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import {
@@ -681,6 +683,18 @@ export default class VaultBtc extends VaultBase {
     }
 
     return result;
+  }
+
+  override verifyMessage(
+    params: IVerifyMessageParams,
+  ): Promise<{ valid: boolean }> {
+    const valid = verifyBitcoinMessage({
+      message: params.message,
+      signature: params.signature,
+      format: params.format ?? '',
+      address: params.address,
+    });
+    return Promise.resolve({ valid });
   }
 
   private parseAddressEncodings(

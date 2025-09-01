@@ -295,6 +295,8 @@ const settings: IVaultSettings = {
     [networkIdMap.taiko]: true,
     [networkIdMap.mantle]: true,
   },
+
+  enabledInternalSignAndVerify: true,
 };
 
 export default Object.freeze(settings);
