@@ -33,9 +33,13 @@ type ITransferMethod = (typeof TRANSFER_METHOD)[keyof typeof TRANSFER_METHOD];
 export function PrimeTransferHome({
   remotePairingCode,
   setRemotePairingCode,
+  autoConnect,
+  autoConnectCustomServer,
 }: {
   remotePairingCode: string;
   setRemotePairingCode: (code: string) => void;
+  autoConnect?: boolean;
+  autoConnectCustomServer?: string;
 }) {
   const [primeTransferAtom] = usePrimeTransferAtom();
 
@@ -57,7 +61,9 @@ export function PrimeTransferHome({
     [intl],
   );
 
-  const [value, setValue] = useState<ITransferMethod>(QR_CODE);
+  const [value, setValue] = useState<ITransferMethod>(
+    autoConnect ? ENTER_LINK : QR_CODE,
+  );
 
   return (
     <>
@@ -86,6 +92,8 @@ export function PrimeTransferHome({
           <PrimeTransferHomeEnterLink
             remotePairingCode={remotePairingCode}
             setRemotePairingCode={setRemotePairingCode}
+            autoConnect={autoConnect}
+            autoConnectCustomServer={autoConnectCustomServer}
           />
         </Stack>
 

@@ -60,6 +60,7 @@ export type ISettingsPersistAtom = {
 
   hiddenWalletImmediately: boolean;
   showAddHiddenInWalletSidebar?: boolean;
+  enableDesktopBluetooth?: boolean;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
@@ -93,6 +94,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   hardwareTransportType: getDefaultHardwareTransportType(),
   hiddenWalletImmediately: true,
   showAddHiddenInWalletSidebar: true,
+  enableDesktopBluetooth: true,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
@@ -145,6 +147,21 @@ export const {
   name: EAtomNames.settingsValuePersistAtom,
   initialValue: {
     hideValue: false,
+  },
+});
+
+export type ISettingsTronRentalPersistAtom = {
+  preventDisableTronRental: boolean;
+};
+
+export const {
+  target: settingsTronRentalPersistAtom,
+  use: useSettingsTronRentalPersistAtom,
+} = globalAtom<ISettingsTronRentalPersistAtom>({
+  persist: true,
+  name: EAtomNames.settingsTronRentalPersistAtom,
+  initialValue: {
+    preventDisableTronRental: false,
   },
 });
 

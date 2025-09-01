@@ -27,6 +27,7 @@ import type {
 import type { CustomerInfo, PurchaseParams } from '@revenuecat/purchases-js';
 
 if (process.env.NODE_ENV !== 'production') {
+  console.log('Purchases.setLogLevel Verbose');
   Purchases.setLogLevel(LogLevel.Verbose);
 }
 
@@ -37,6 +38,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
 
   const initSdk = useCallback(
     async ({ loginRequired }: { loginRequired?: boolean } = {}) => {
+      console.log('initSdk');
       const { apiKey } = await getPrimePaymentApiKey({
         apiKeyType: 'web',
       });

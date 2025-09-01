@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useCarouselIndex } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
@@ -18,8 +20,6 @@ export interface IUseMarketWatchlistTokenListParams {
   initialSortBy?: string;
   initialSortType?: 'asc' | 'desc';
   pageSize?: number;
-  minLiquidity?: number;
-  maxLiquidity?: number;
 }
 
 export function useMarketWatchlistTokenList({
@@ -27,9 +27,9 @@ export function useMarketWatchlistTokenList({
   initialSortBy,
   initialSortType,
   pageSize = 100,
-  minLiquidity,
-  maxLiquidity,
 }: IUseMarketWatchlistTokenListParams) {
+  // Get minLiquidity from market config
+  const { minLiquidity } = useMarketBasicConfig();
   const [currentPage, setCurrentPage] = useState(1);
   const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
   const [sortBy, setSortBy] = useState<string | undefined>(initialSortBy);
@@ -38,18 +38,27 @@ export function useMarketWatchlistTokenList({
   );
   const [isLoadingMore] = useState(false);
   const [hasMore] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  const pageIndex = useCarouselIndex();
 
   const {
     result: apiResult,
-    isLoading,
+    isLoading: apiLoading,
     run: refetchData,
   } = usePromiseResult(
     async () => {
-      if (!watchlist || watchlist.length === 0) return { list: [] } as const;
+      if (!watchlist || watchlist.length === 0) {
+        // For empty watchlist, still simulate a brief loading period for better UX
+        if (isInitialLoad) {
+          await new Promise((resolve) => setTimeout(resolve, 300));
+        }
+        return { list: [] } as const;
+      }
       const tokenAddressList = watchlist.map((item) => ({
         chainId: item.chainId,
         contractAddress: item.contractAddress,
-        isNative: false,
+        isNative: !item.contractAddress,
       }));
       const response =
         await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
@@ -57,15 +66,19 @@ export function useMarketWatchlistTokenList({
         });
       return response;
     },
-    [watchlist],
+    [watchlist, isInitialLoad],
     {
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
       watchLoading: true,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
+      overrideIsFocused: (isFocused) => isFocused && pageIndex === 0,
       checkIsFocused: true,
     },
   );
+
+  // Combined loading state: show loading during initial load or when API is loading
+  const isLoading = isInitialLoad || apiLoading;
 
   useEffect(() => {
     if (!apiResult || !apiResult.list) return;
@@ -80,10 +93,14 @@ export function useMarketWatchlistTokenList({
     });
 
     const transformed: IMarketToken[] = apiResult.list.map((item) => {
-      const key = item.address.toLowerCase();
-      const chainId = chainIdMap[key] || '';
+      // Short addresses are automatically normalized to empty strings in transformApiItemToToken
+      const originalKey = item.address.toLowerCase();
+      const key = originalKey.length < 15 ? '' : originalKey;
+
+      const chainId = chainIdMap[key] || item.networkId || '';
       const networkLogoUri = getNetworkLogoUri(chainId);
       const sortIndex = sortIndexMap[key];
+
       return transformApiItemToToken(item, {
         chainId,
         networkLogoUri,
@@ -91,30 +108,40 @@ export function useMarketWatchlistTokenList({
       });
     });
 
+    console.log('🔍 Debug transformed data:', {
+      transformed,
+      watchlist,
+    });
+
     // Filter transformed data based on current watchlist to ensure immediate UI updates
     const filteredTransformed = transformed.filter((token) => {
       const key = token.address.toLowerCase();
-      return watchlist.some(
-        (w) =>
-          w.contractAddress.toLowerCase() === key &&
-          w.chainId === token.chainId,
-      );
+
+      const matchingWatchlistItem = watchlist.find((w) => {
+        const watchlistKey = w.contractAddress.toLowerCase();
+        const chainMatches = w.chainId === token.chainId;
+
+        return watchlistKey === key && chainMatches;
+      });
+
+      return !!matchingWatchlistItem;
     });
 
     setTransformedData(filteredTransformed);
-  }, [apiResult, watchlist]);
 
-  // Apply liquidity filter
+    // Reset initial load state after first data arrives
+    if (isInitialLoad) {
+      setIsInitialLoad(false);
+    }
+  }, [apiResult, watchlist, isInitialLoad]);
+
+  // Apply minimum liquidity filter (maxLiquidity no longer exists)
   const filteredData = useMemo(() => {
-    let res = transformedData;
     if (typeof minLiquidity === 'number') {
-      res = res.filter((d) => d.liquidity >= minLiquidity);
+      return transformedData.filter((d) => d.liquidity >= minLiquidity);
     }
-    if (typeof maxLiquidity === 'number') {
-      res = res.filter((d) => d.liquidity <= maxLiquidity);
-    }
-    return res;
-  }, [transformedData, minLiquidity, maxLiquidity]);
+    return transformedData;
+  }, [transformedData, minLiquidity]);
 
   // Sorting
   const sortedData = useMemo(() => {
@@ -161,11 +188,16 @@ export function useMarketWatchlistTokenList({
     void refetchData();
   }, [refetchData]);
 
+  // Add isNetworkSwitching state for consistency with normal token list
+  // Watchlist doesn't switch networks, so always false
+  const isNetworkSwitching = false;
+
   return {
     data: paginatedData,
     isLoading,
     isLoadingMore,
-    hasMore,
+    isNetworkSwitching,
+    canLoadMore: hasMore,
     currentPage,
     totalPages,
     totalCount,

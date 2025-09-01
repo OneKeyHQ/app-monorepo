@@ -8,17 +8,24 @@ interface ITradingViewWithVersionProps extends ITradingViewProps {
   version?: 'v1' | 'v2';
   symbol?: string;
   decimal?: number;
+  onPanesCountChange?: (count: number) => void;
 }
 
 export function TradingView({
   version = 'v1',
   symbol,
   decimal,
+  onPanesCountChange,
   ...props
 }: ITradingViewWithVersionProps & WebViewProps) {
   if (version === 'v2') {
     return (
-      <TradingViewV2 {...props} decimal={decimal || 2} symbol={symbol ?? ''} />
+      <TradingViewV2
+        {...props}
+        decimal={decimal || 2}
+        symbol={symbol ?? ''}
+        onPanesCountChange={onPanesCountChange}
+      />
     );
   }
 

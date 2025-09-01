@@ -4,10 +4,13 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
+  IMarketBasicConfigResponse,
   IMarketChainsResponse,
   IMarketTokenBatchListResponse,
   IMarketTokenDetail,
@@ -48,14 +51,43 @@ class ServiceMarketV2 extends ServiceBase {
     return data.token;
   }
 
+  private memoizedFetchMarketChains = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        data: IMarketChainsResponse;
+      }>('/utility/v2/market/chains');
+      const { data } = response.data;
+      return data;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
+      promise: true,
+    },
+  );
+
   @backgroundMethod()
   async fetchMarketChains() {
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      data: IMarketChainsResponse;
-    }>('/utility/v2/market/chains');
-    const { data } = response.data;
-    return data;
+    return this.memoizedFetchMarketChains();
+  }
+
+  private memoizedFetchMarketBasicConfig = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<IMarketBasicConfigResponse>(
+        '/utility/v2/market/basic-config',
+      );
+      return response.data;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
+      promise: true,
+    },
+  );
+
+  @backgroundMethod()
+  async fetchMarketBasicConfig() {
+    return this.memoizedFetchMarketBasicConfig();
   }
 
   @backgroundMethod()

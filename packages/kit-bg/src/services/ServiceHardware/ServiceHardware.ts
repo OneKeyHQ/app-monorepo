@@ -35,6 +35,7 @@ import deviceHomeScreenUtils, {
 } from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
@@ -43,15 +44,20 @@ import type {
   IDeviceVerifyVersionCompareResult,
   IDeviceVersionCacheInfo,
   IFirmwareReleasePayload,
+  IHardwareCallContext,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
-import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareCallContext,
+  EOneKeyDeviceMode,
+} from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import localDb from '../../dbs/local/localDb';
 import simpleDb from '../../dbs/simple/simpleDb';
 import {
   EHardwareUiStateAction,
+  hardwareForceTransportAtom,
   hardwareUiStateAtom,
   hardwareUiStateCompletedAtom,
   settingsPersistAtom,
@@ -102,15 +108,20 @@ import type {
 export type IDeviceGetFeaturesOptions = {
   connectId: string | undefined;
   withHardwareProcessing?: boolean;
+  silentMode?: boolean;
   params?: CommonParams & {
     allowEmptyConnectId?: boolean;
   };
+  hardwareCallContext?: IHardwareCallContext;
 };
 
 // skip events
 const SKIPPED_EVENTS = [
   EHardwareUiStateAction.CLOSE_UI_WINDOW,
+  EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW,
   EHardwareUiStateAction.PREVIOUS_ADDRESS,
+  EHardwareUiStateAction.BLUETOOTH_UNSUPPORTED,
+  EHardwareUiStateAction.BLUETOOTH_POWERED_OFF,
 ];
 
 const NEW_DIALOG_EVENTS = [
@@ -213,9 +224,10 @@ class ServiceHardware extends ServiceBase {
     backgroundApi: this.backgroundApi,
   });
 
-  connectionManager: HardwareConnectionManager = new HardwareConnectionManager({
-    backgroundApi: this.backgroundApi,
-  });
+  connectionManager: HardwareConnectionManager =
+    HardwareConnectionManager.getInstance({
+      backgroundApi: this.backgroundApi,
+    });
 
   private registeredEvents = false;
 
@@ -249,8 +261,12 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
-  async getSDKInstance(options?: { skipTransportDetection?: boolean }) {
-    const { skipTransportDetection = false } = options || {};
+  async getSDKInstance(options: {
+    connectId: string | undefined;
+    hardwareCallContext?: EHardwareCallContext;
+  }) {
+    const { hardwareCallContext = EHardwareCallContext.USER_INTERACTION } =
+      options || {};
     this.checkSdkVersionValid();
 
     const { hardwareConnectSrc } = await settingsPersistAtom.get();
@@ -269,12 +285,13 @@ class ServiceHardware extends ServiceBase {
 
     // Desktop Auto switch transport type
     if (platformEnv.isSupportDesktopBle) {
-      if (!skipTransportDetection) {
-        // Check if we should switch transport type based on optimal connection strategy
-        const result = await this.connectionManager.shouldSwitchTransportType();
-        shouldSwitch = result.shouldSwitch;
-        hardwareTransportType = result.targetType;
-      }
+      // Check if we should switch transport type based on optimal connection strategy
+      const result = await this.connectionManager.shouldSwitchTransportType({
+        connectId: options?.connectId,
+        hardwareCallContext,
+      });
+      shouldSwitch = result.shouldSwitch;
+      hardwareTransportType = result.targetType;
       // If transport type needs to be switched, update it
       if (shouldSwitch) {
         const currentTransportType =
@@ -557,12 +574,17 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async init() {
-    await this.getSDKInstance();
+    await this.getSDKInstance({
+      hardwareCallContext: EHardwareCallContext.SDK_INITIALIZATION,
+      connectId: undefined,
+    });
   }
 
   @backgroundMethod()
   async passHardwareEventsFromOffscreenToBackground(eventMessage: CoreMessage) {
-    const sdk = await this.getSDKInstance();
+    const sdk = await this.getSDKInstance({
+      connectId: undefined,
+    });
     sdk.emit(eventMessage.event, eventMessage);
   }
 
@@ -577,7 +599,9 @@ class ServiceHardware extends ServiceBase {
   // TODO use convertDeviceResponse()
   @backgroundMethod()
   async searchDevices() {
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: undefined,
+    });
     const response = await hardwareSDK?.searchDevices();
     console.log('searchDevices response: ', response);
     return response;
@@ -623,6 +647,7 @@ class ServiceHardware extends ServiceBase {
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
       featuresDeviceId: device.deviceId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
 
     if (platformEnv.isNative) {
@@ -646,9 +671,12 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async unlockDevice({ connectId }: { connectId: string }) {
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId,
+    });
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceUnlock(compatibleConnectId, {}),
@@ -659,6 +687,7 @@ class ServiceHardware extends ServiceBase {
   async getFeaturesWithUnlock({ connectId }: { connectId: string }) {
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
     let features = await this.getFeaturesWithoutCache({
       connectId: compatibleConnectId,
@@ -666,7 +695,9 @@ class ServiceHardware extends ServiceBase {
 
     if (!features.unlocked) {
       // unlock device
-      features = await this.unlockDevice({ connectId: compatibleConnectId });
+      features = await this.unlockDevice({
+        connectId: compatibleConnectId,
+      });
     }
 
     return features;
@@ -713,7 +744,10 @@ class ServiceHardware extends ServiceBase {
 
     const fn = async () => {
       // For cancel operations, skip transport detection to avoid unnecessary /enumerate calls
-      const sdk = await this.getSDKInstance({ skipTransportDetection: true });
+      const sdk = await this.getSDKInstance({
+        connectId,
+        hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+      });
       // sdk.cancel() always cause device re-emit UI_EVENT:  ui-close_window
 
       // cancel the hardware process
@@ -724,7 +758,7 @@ class ServiceHardware extends ServiceBase {
         const compatibleConnectId = connectId
           ? await this.getCompatibleConnectId({
               connectId,
-              skipTransportDetection: true,
+              hardwareCallContext: EHardwareCallContext.SILENT_CALL,
             })
           : undefined;
         sdk.cancel(compatibleConnectId);
@@ -786,24 +820,31 @@ class ServiceHardware extends ServiceBase {
   async getDeviceSupportFeatures(connectId: string) {
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+    });
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceSupportFeatures(compatibleConnectId),
     );
   }
 
   _getFeaturesLowLevel = async (options: IDeviceGetFeaturesOptions) => {
-    const { connectId, params } = options;
+    const { connectId, params, silentMode, hardwareCallContext } = options;
     serviceHardwareUtils.hardwareLog('call getFeatures()', connectId);
     if (!params?.allowEmptyConnectId && !connectId) {
       throw new OneKeyLocalError(
         'hardware getFeatures ERROR: connectId is undefined',
       );
     }
-    const hardwareSDK = await this.getSDKInstance();
-    const features = await convertDeviceResponse(() =>
-      hardwareSDK?.getFeatures(connectId, params),
+    const hardwareSDK = await this.getSDKInstance({
+      connectId,
+      hardwareCallContext,
+    });
+    const features = await convertDeviceResponse(
+      () => hardwareSDK?.getFeatures(connectId, params),
+      { silentMode },
     );
     return features;
   };
@@ -875,6 +916,7 @@ class ServiceHardware extends ServiceBase {
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId: params.connectId,
       featuresDeviceId: dbDevice.deviceId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
@@ -912,7 +954,9 @@ class ServiceHardware extends ServiceBase {
     forceInputPassphrase: boolean; // not working?
     useEmptyPassphrase?: boolean;
   }): Promise<string | undefined> {
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId,
+    });
 
     return convertDeviceResponse(() =>
       hardwareSDK?.getPassphraseState(connectId, {
@@ -1087,8 +1131,11 @@ class ServiceHardware extends ServiceBase {
   async uploadResource(connectId: string, params: DeviceUploadResourceParams) {
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+    });
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceUploadResource(compatibleConnectId, params),
     );
@@ -1098,7 +1145,9 @@ class ServiceHardware extends ServiceBase {
   async getLogs(): Promise<string[]> {
     const logs: string[] = ['===== device logs ====='];
     try {
-      const hardwareSDK = await this.getSDKInstance();
+      const hardwareSDK = await this.getSDKInstance({
+        connectId: undefined,
+      });
       const messages = await convertDeviceResponse(() => hardwareSDK.getLogs());
       logs.push(...messages);
     } catch (error) {
@@ -1115,7 +1164,13 @@ class ServiceHardware extends ServiceBase {
     connectId: string;
     deviceType: IDeviceType;
   }): Promise<OnekeyFeatures> {
-    const hardwareSDK = await this.getSDKInstance();
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+    });
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+    });
     return convertDeviceResponse(() => {
       // classic1s does not support getOnekeyFeatures method
       if (
@@ -1123,10 +1178,10 @@ class ServiceHardware extends ServiceBase {
         deviceType === EDeviceType.ClassicPure
       ) {
         return hardwareSDK?.getFeatures(
-          connectId,
+          compatibleConnectId,
         ) as unknown as Response<OnekeyFeatures>;
       }
-      return hardwareSDK?.getOnekeyFeatures(connectId);
+      return hardwareSDK?.getOnekeyFeatures(compatibleConnectId);
     });
   }
 
@@ -1186,9 +1241,11 @@ class ServiceHardware extends ServiceBase {
       const compatibleConnectId = await this.getCompatibleConnectId({
         connectId: params.connectId,
         featuresDeviceId: params.deviceId,
-        skipTransportDetection: true, // Skip detection during EVM address retrieval
+        hardwareCallContext: EHardwareCallContext.SILENT_CALL,
       });
-      const hardwareSDK = await this.getSDKInstance();
+      const hardwareSDK = await this.getSDKInstance({
+        connectId: compatibleConnectId,
+      });
       await timerUtils.wait(600);
       const evmAddressResponse = await convertDeviceResponse(() =>
         hardwareSDK?.evmGetAddress(compatibleConnectId, params.deviceId, {
@@ -1215,11 +1272,13 @@ class ServiceHardware extends ServiceBase {
     deviceId,
     passphraseState,
     throwError,
+    withUserInteraction,
   }: {
     connectId: string | undefined | null;
     deviceId: string | undefined | null;
     passphraseState: string | undefined;
     throwError: boolean;
+    withUserInteraction: boolean;
   }): Promise<string | undefined> {
     if (!connectId) {
       return;
@@ -1228,9 +1287,13 @@ class ServiceHardware extends ServiceBase {
       const compatibleConnectId = await this.getCompatibleConnectId({
         connectId,
         featuresDeviceId: deviceId,
-        skipTransportDetection: true, // Skip detection during XFP generation
+        hardwareCallContext: withUserInteraction
+          ? EHardwareCallContext.USER_INTERACTION
+          : EHardwareCallContext.SILENT_CALL,
       });
-      const hardwareSDK = await this.getSDKInstance();
+      const hardwareSDK = await this.getSDKInstance({
+        connectId: compatibleConnectId,
+      });
       await timerUtils.wait(600);
       const result = await convertDeviceResponse(() => {
         return hardwareSDK.btcGetPublicKey(
@@ -1266,7 +1329,9 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async promptWebDeviceAccess(params: { deviceSerialNumberFromUI: string }) {
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: undefined,
+    });
     return convertDeviceResponse(() =>
       hardwareSDK?.promptWebDeviceAccess(params),
     );
@@ -1329,7 +1394,9 @@ class ServiceHardware extends ServiceBase {
   }: {
     transportType: EHardwareTransportType;
   }) {
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: undefined,
+    });
     await hardwareSDK.switchTransport(
       transportType === EHardwareTransportType.WEBUSB ? 'webusb' : 'web',
     );
@@ -1354,7 +1421,9 @@ class ServiceHardware extends ServiceBase {
       await resetHardwareSDKInstance();
 
       // 4. Get new SDK instance with new transport type
-      const newInstance = await this.getSDKInstance();
+      const newInstance = await this.getSDKInstance({
+        connectId: undefined,
+      });
 
       console.log(
         `Successfully switched hardware transport type to: ${transportType}`,
@@ -1368,6 +1437,42 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async setForceTransportType({
+    forceTransportType,
+  }: {
+    forceTransportType: EHardwareTransportType;
+  }) {
+    const operationId = stringUtils.randomString(12);
+    await hardwareForceTransportAtom.set({
+      forceTransportType,
+      operationId,
+    });
+    defaultLogger.setting.device.setForceTransportType({
+      forceTransportType,
+      operationId,
+    });
+  }
+
+  @backgroundMethod()
+  async clearForceTransportType() {
+    await hardwareForceTransportAtom.set({
+      forceTransportType: undefined,
+      operationId: undefined,
+    });
+    defaultLogger.setting.device.clearForceTransportType();
+  }
+
+  @backgroundMethod()
+  async getCurrentTransportType() {
+    return this.connectionManager.getCurrentTransportType();
+  }
+
+  @backgroundMethod()
+  async detectUSBDeviceAvailability() {
+    return this.connectionManager.detectUSBDeviceAvailability();
+  }
+
+  @backgroundMethod()
   async repairBleConnectIdWithProgress({
     connectId,
     featuresDeviceId,
@@ -1376,58 +1481,50 @@ class ServiceHardware extends ServiceBase {
     connectId?: string;
     featuresDeviceId?: string | undefined | null;
     features?: IOneKeyDeviceFeatures;
-  }): Promise<string | null> {
+  }): Promise<string> {
     if (!connectId || !features) {
-      return null;
+      throw new deviceErrors.DeviceNotFound({
+        payload: {
+          connectId,
+          deviceId: featuresDeviceId || undefined,
+          inBluetoothCommunication: true,
+        },
+      });
     }
 
     try {
-      // Step 1: Notify UI that search is starting
-      appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
-        stage: 'searching',
-        message: 'Searching for Bluetooth devices...',
-      });
-
-      // Step 2: Search for available BLE devices
+      // Step 1: Search for available BLE devices
       const searchResult = await this.searchDevices();
       if (!searchResult?.success || !searchResult?.payload?.length) {
-        appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
-          stage: 'failed',
-          message: 'No Bluetooth devices found',
+        throw new deviceErrors.DeviceNotFound({
+          payload: {
+            connectId,
+            deviceId: featuresDeviceId || undefined,
+            inBluetoothCommunication: true,
+          },
         });
-        return null;
       }
 
-      // Step 3: Get expected device name from features
+      // Step 2: Get expected device name from features
       const expectedDeviceName = features.ble_name;
 
-      // Step 4: Notify UI that matching is in progress
-      appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
-        stage: 'matching',
-        message: `Looking for device: ${expectedDeviceName || 'Unknown'}`,
-      });
-
-      // Step 5: Find matching device by name and model
+      // Step 3: Find matching device by name
       const matchingDevice = searchResult.payload.find((device) => {
         const nameMatch = device.name === expectedDeviceName;
         return nameMatch;
       });
 
       if (!matchingDevice) {
-        appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
-          stage: 'failed',
-          message: `Device ${expectedDeviceName || 'Unknown'} not found`,
+        throw new deviceErrors.DeviceNotFound({
+          payload: {
+            connectId,
+            deviceId: featuresDeviceId || undefined,
+            inBluetoothCommunication: true,
+          },
         });
-        return null;
       }
 
-      // Step 6: Notify UI that connection is being tested
-      appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
-        stage: 'connecting',
-        message: `Connecting to ${expectedDeviceName || 'Unknown'}...`,
-      });
-
-      // Step 7: Try to connect and verify using this.connect
+      // Step 4: Try to connect and verify
       const connectResult = await this.connect({
         device: {
           ...matchingDevice,
@@ -1437,7 +1534,7 @@ class ServiceHardware extends ServiceBase {
       });
 
       if (connectResult && connectResult.device_id === features.device_id) {
-        // Step 8: Update device in DB with BLE connectId
+        // Step 5: Update device in DB with BLE connectId
         const device = await localDb.getDeviceByQuery({
           connectId,
           featuresDeviceId: featuresDeviceId || undefined,
@@ -1451,43 +1548,45 @@ class ServiceHardware extends ServiceBase {
             bleConnectId: matchingDevice.connectId || undefined,
           });
 
-          // Notify UI that repair was successful
-          appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
-            stage: 'success',
-            message: 'Connection repaired successfully',
-          });
-
-          return matchingDevice.connectId;
+          return matchingDevice.connectId || '';
         }
       }
 
-      appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
-        stage: 'failed',
-        message: 'Device verification failed',
+      throw new deviceErrors.DeviceNotFound({
+        payload: {
+          connectId,
+          deviceId: featuresDeviceId || undefined,
+          inBluetoothCommunication: true,
+        },
       });
-
-      return null;
     } catch (error) {
       console.error('Repair BLE connectId with progress failed:', error);
-      appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
-        stage: 'failed',
-        message: `Repair failed: ${(error as Error).message}`,
+      // Re-throw if it's already a hardware error
+      if (error instanceof deviceErrors.OneKeyHardwareError) {
+        throw error;
+      }
+      // Wrap other errors in DeviceNotFound
+      throw new deviceErrors.DeviceNotFound({
+        payload: {
+          connectId,
+          deviceId: featuresDeviceId || undefined,
+          inBluetoothCommunication: true,
+        },
       });
-      return null;
     }
   }
 
   @backgroundMethod()
   async getCompatibleConnectId({
+    hardwareCallContext,
     connectId,
     featuresDeviceId,
     features,
-    skipTransportDetection = false,
   }: {
+    hardwareCallContext: EHardwareCallContext;
     connectId?: string;
     featuresDeviceId?: string | undefined | null; // rawDeviceId
     features?: IOneKeyDeviceFeatures;
-    skipTransportDetection?: boolean; // Skip transport type detection for performance
   }) {
     if (!connectId) {
       throw new OneKeyLocalError('connectId is required');
@@ -1504,19 +1603,26 @@ class ServiceHardware extends ServiceBase {
       return device?.connectId || connectId;
     }
 
-    // Determine the transport type to use
-    let targetTransportType: EHardwareTransportType;
-
-    if (skipTransportDetection) {
-      // Skip detection and use current transport type
-      const currentTransportType =
-        await this.connectionManager.getCurrentTransportType();
-      targetTransportType = currentTransportType;
-    } else {
-      // Perform transport type detection
-      const result = await this.connectionManager.shouldSwitchTransportType();
-      targetTransportType = result.targetType;
+    if (hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK) {
+      const currentTransportType = await this.getCurrentTransportType();
+      if (
+        currentTransportType === EHardwareTransportType.DesktopWebBle &&
+        device?.bleConnectId
+      ) {
+        return device.bleConnectId;
+      }
+      return device?.connectId || connectId;
     }
+
+    // Determine the transport type to use
+    const result = await this.connectionManager.shouldSwitchTransportType({
+      connectId: device?.connectId || connectId,
+      hardwareCallContext,
+    });
+    console.log('🔍 shouldSwitchTransportType result:', result);
+    const targetTransportType = result.targetType;
+    const forceTransportType = (await hardwareForceTransportAtom.get())
+      .forceTransportType;
 
     // Handle connection logic based on transport type
     if (targetTransportType === EHardwareTransportType.DesktopWebBle) {
@@ -1527,7 +1633,17 @@ class ServiceHardware extends ServiceBase {
       if (!device) {
         return connectId;
       }
+      // onboarding flow
+      if (
+        device.connectId &&
+        forceTransportType === EHardwareTransportType.DesktopWebBle
+      ) {
+        return device.connectId;
+      }
       if (device && !device.bleConnectId) {
+        if (hardwareCallContext === EHardwareCallContext.SILENT_CALL) {
+          return connectId;
+        }
         // Use servicePromise to wait for UI dialog to complete BLE pairing
         const bleConnectId = await new Promise<string>((resolve, reject) => {
           const promiseId = this.backgroundApi.servicePromise.createCallback({
@@ -1535,15 +1651,29 @@ class ServiceHardware extends ServiceBase {
             reject,
           });
 
-          // Emit event for UI dialog with promiseId
-          appEventBus.emit(EAppEventBusNames.DesktopBleRepairRequired, {
-            connectId,
-            deviceId: featuresDeviceId || undefined,
-            deviceName: features?.label || device.name,
-            features,
-            promiseId,
-          });
+          // Show the new Bluetooth device pairing dialog with promiseId
+          void this.backgroundApi.serviceHardwareUI.showBluetoothDevicePairingDialog(
+            {
+              device,
+              deviceId:
+                featuresDeviceId || device.featuresInfo?.device_id || '',
+              usbConnectId: connectId,
+              features: features || device.featuresInfo,
+              promiseId,
+            },
+          );
         });
+
+        // Validate bleConnectId result
+        if (!bleConnectId) {
+          throw new deviceErrors.DeviceNotFound({
+            payload: {
+              connectId,
+              deviceId: featuresDeviceId || undefined,
+              message: 'Failed to obtain BLE connectId during pairing process',
+            },
+          });
+        }
 
         return bleConnectId;
       }
@@ -1611,6 +1741,42 @@ class ServiceHardware extends ServiceBase {
         screenHex: item.screenHex,
         nameHex: item.nameHex,
       }));
+  }
+
+  @backgroundMethod()
+  async clearAllBleConnectIdsForTesting(): Promise<void> {
+    try {
+      // Get all devices from database
+      const { devices } = await localDb.getAllDevices();
+
+      if (devices.length === 0) {
+        console.log('No devices found in database');
+        return;
+      }
+
+      // Filter devices that have bleConnectId
+      const devicesWithBle = devices.filter((device) => device.bleConnectId);
+
+      if (devicesWithBle.length === 0) {
+        console.log('No devices with bleConnectId found');
+        return;
+      }
+
+      console.log(`Clearing bleConnectId for ${devicesWithBle.length} devices`);
+
+      // Clear bleConnectId for each device using the existing update method
+      for (const device of devicesWithBle) {
+        await localDb.cleanDeviceConnectId({ dbDeviceId: device.id });
+        console.log(
+          `Cleared bleConnectId for device: ${device.name || device.id}`,
+        );
+      }
+
+      console.log('Successfully cleared all bleConnectId fields for testing');
+    } catch (error) {
+      console.error('Failed to clear bleConnectId fields:', error);
+      throw error;
+    }
   }
 }
 

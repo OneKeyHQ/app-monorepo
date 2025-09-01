@@ -27,9 +27,11 @@ function _keyFromPasswordAndSaltCheck({
 async function keyFromPasswordAndSaltAsync({
   password,
   salt,
+  iterations,
 }: {
   password: string;
   salt: Buffer;
+  iterations?: number;
 }): Promise<Buffer> {
   _keyFromPasswordAndSaltCheck({ password, salt });
 
@@ -40,6 +42,7 @@ async function keyFromPasswordAndSaltAsync({
   const r: Buffer = await pbkdf2({
     password: hashedPassword,
     salt: saltBuffer,
+    iterations,
   });
   return r;
 }
@@ -47,9 +50,11 @@ async function keyFromPasswordAndSaltAsync({
 function keyFromPasswordAndSaltSync({
   password,
   salt,
+  iterations,
 }: {
   password: string;
   salt: Buffer;
+  iterations?: number;
 }): Buffer {
   _keyFromPasswordAndSaltCheck({ password, salt });
 
@@ -57,16 +62,22 @@ function keyFromPasswordAndSaltSync({
 
   const saltBuffer = bufferUtils.toBuffer(salt);
 
-  const r: Buffer = pbkdf2Sync({ password: hashedPassword, salt: saltBuffer });
+  const r: Buffer = pbkdf2Sync({
+    password: hashedPassword,
+    salt: saltBuffer,
+    iterations,
+  });
   return r;
 }
 
 async function keyFromPasswordAndSalt({
   password,
   salt,
+  iterations,
 }: {
   password: string;
   salt: Buffer;
+  iterations?: number;
 }): Promise<Buffer> {
   _keyFromPasswordAndSaltCheck({ password, salt });
 
@@ -76,12 +87,14 @@ async function keyFromPasswordAndSalt({
     const r: Buffer = await keyFromPasswordAndSaltAsync({
       password,
       salt: saltBuffer,
+      iterations,
     });
     return r;
   }
   const r: Buffer = keyFromPasswordAndSaltSync({
     password,
     salt: saltBuffer,
+    iterations,
   });
   return r;
 }

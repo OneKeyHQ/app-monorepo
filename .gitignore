@@ -9,6 +9,7 @@ __generated__
 .chat/
 .claude/PRPs
 .claude/settings.local.json
+.tmp/
 
 dist
 build-electron

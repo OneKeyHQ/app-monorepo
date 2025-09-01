@@ -1,49 +1,53 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import type { IPopoverProps } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IListViewProps, IPopoverProps } from '@onekeyhq/components';
+import { useMedia } from '@onekeyhq/components';
+import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
+import { MarketTokenListNetworkSelectorMobile } from './MarketTokenListNetworkSelectorMobile';
 import { MarketTokenListNetworkSelectorNormal } from './MarketTokenListNetworkSelectorNormal';
-import { MarketTokenListNetworkSelectorSmall } from './MarketTokenListNetworkSelectorSmall';
 
+import type { IMarketTokenListNetworkSelectorMobileRef } from './MarketTokenListNetworkSelectorMobile';
 import type { IMarketTokenListNetworkSelectorNormalRef } from './MarketTokenListNetworkSelectorNormal';
 
 interface IMarketTokenListNetworkSelectorProps {
   selectedNetworkId?: string;
   onSelectNetworkId?: (networkId: string) => void;
-  forceLoading?: boolean;
-  size?: 'normal' | 'small';
   placement?: IPopoverProps['placement'];
+  containerStyle?: IListViewProps<any>['contentContainerStyle'];
 }
 
 function MarketTokenListNetworkSelector({
   selectedNetworkId,
   onSelectNetworkId,
-  forceLoading,
-  size = 'normal',
   placement,
+  containerStyle,
 }: IMarketTokenListNetworkSelectorProps) {
+  const { md } = useMedia();
   const normalComponentRef =
     useRef<IMarketTokenListNetworkSelectorNormalRef>(null);
+  const mobileComponentRef =
+    useRef<IMarketTokenListNetworkSelectorMobileRef>(null);
 
-  const { result: marketChainsData, isLoading } = usePromiseResult(
-    () => backgroundApiProxy.serviceMarketV2.fetchMarketChains(),
-    [],
-  );
+  const { networkList, isLoading } = useMarketBasicConfig();
 
   const marketNetworks: IServerNetwork[] = useMemo(() => {
-    if (!marketChainsData?.list) return [];
-    return marketChainsData.list
-      .map((chain) => {
-        const networkInfo = networkUtils.getLocalNetworkInfo(chain.networkId);
+    if (!networkList || networkList.length === 0) return [];
+
+    // Sort by index (smaller numbers first) then map to local network info
+    return networkList
+      .sort((a, b) => a.index - b.index)
+      .map((configNetwork) => {
+        const networkInfo = networkUtils.getLocalNetworkInfo(
+          configNetwork.networkId,
+        );
         if (!networkInfo) return null;
         return networkInfo;
       })
       .filter(Boolean);
-  }, [marketChainsData]);
+  }, [networkList]);
 
   // Derive currently selected network purely from props to keep component stateless.
   const currentSelectNetwork = useMemo(() => {
@@ -75,19 +79,25 @@ function MarketTokenListNetworkSelector({
 
   useEffect(() => {
     if (selectedNetworkId) {
-      normalComponentRef.current?.scrollToNetwork(selectedNetworkId);
+      if (md) {
+        mobileComponentRef.current?.scrollToNetwork(selectedNetworkId);
+      } else {
+        normalComponentRef.current?.scrollToNetwork(selectedNetworkId);
+      }
     }
-  }, [selectedNetworkId]);
+  }, [selectedNetworkId, md]);
 
-  if (size === 'small') {
+  if (md) {
     return (
-      <MarketTokenListNetworkSelectorSmall
+      <MarketTokenListNetworkSelectorMobile
+        ref={mobileComponentRef}
         marketNetworks={marketNetworks}
         currentSelectNetwork={currentSelectNetwork}
         onSelectCurrentNetwork={onSelectCurrentNetwork}
+        handleMoreNetworkSelect={handleMoreNetworkSelect}
         isLoading={isLoading}
-        forceLoading={forceLoading}
         placement={placement}
+        containerStyle={containerStyle}
       />
     );
   }
@@ -100,7 +110,6 @@ function MarketTokenListNetworkSelector({
       onSelectCurrentNetwork={onSelectCurrentNetwork}
       handleMoreNetworkSelect={handleMoreNetworkSelect}
       isLoading={isLoading}
-      forceLoading={forceLoading}
       placement={placement}
     />
   );

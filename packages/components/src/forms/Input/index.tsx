@@ -16,12 +16,12 @@ import {
 
 import { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/src/enum';
 import noop from 'lodash/noop';
-import { InteractionManager } from 'react-native';
 import { Group, getFontSize, useProps, useThemeName } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { useSelectionColor } from '../../hooks';
+import { useClipboard, useSelectionColor } from '../../hooks';
 import { useScrollToLocation } from '../../layouts/ScrollView';
 import { Icon } from '../../primitives';
 
@@ -71,6 +71,7 @@ export type IInputProps = {
   leftAddOnProps?: IInputAddOnProps;
   addOns?: IInputAddOnProps[];
   allowClear?: boolean; // add clear button when controlled value is not empty
+  allowPaste?: boolean; // add paste button
   autoFocusDelayMs?: number;
   /**
    * Auto scroll to top delay in milliseconds.
@@ -237,6 +238,7 @@ function BaseInput(
     leftIconName,
     addOns: addOnsInProps,
     allowClear,
+    allowPaste,
     disabled,
     editable,
     error,
@@ -270,6 +272,11 @@ function BaseInput(
   const inputRef: RefObject<TextInput | null> | null = useRef(null);
   const reloadAutoFocus = useAutoFocus(inputRef, autoFocus, autoFocusDelayMs);
   const readOnlyStyle = useReadOnlyStyle(readonly);
+  const {
+    //  onPasteClearText, clearText,
+    getClipboard,
+    supportPaste,
+  } = useClipboard();
 
   const [secureEntryState, setSecureEntryState] = useState(true);
 
@@ -291,9 +298,21 @@ function BaseInput(
         },
       });
     }
+    if (allowPaste && supportPaste) {
+      allAddOns.push({
+        iconName: 'ClipboardOutline' as IKeyOfIcons,
+        onPress: async () => {
+          const text = await getClipboard();
+          if (text) {
+            onChangeText?.(text || '');
+            // clearText();
+          }
+        },
+      });
+    }
     if (allowSecureTextEye) {
       allAddOns.push({
-        iconName: secureEntryState ? 'EyeOutline' : 'EyeOffOutline',
+        iconName: secureEntryState ? 'EyeOffOutline' : 'EyeOutline',
         onPress: () => {
           setSecureEntryState(!secureEntryState);
         },
@@ -304,8 +323,11 @@ function BaseInput(
     addOnsInProps,
     allowClear,
     inputProps?.value,
+    allowPaste,
+    supportPaste,
     allowSecureTextEye,
     onChangeText,
+    getClipboard,
     secureEntryState,
   ]);
 
@@ -353,7 +375,7 @@ function BaseInput(
       onFocus?.(e);
       if (platformEnv.isNative && selectTextOnFocus) {
         const { currentTarget } = e;
-        await InteractionManager.runAfterInteractions(() => {
+        await timerUtils.setTimeoutPromised(() => {
           currentTarget.setNativeProps({
             selection: { start: 0, end: valueRef.current?.length || 0 },
           });

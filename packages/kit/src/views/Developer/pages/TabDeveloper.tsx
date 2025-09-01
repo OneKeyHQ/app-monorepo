@@ -189,6 +189,37 @@ const TabDeveloper = () => {
                   </>
                 )}
               </Button>
+
+              {platformEnv.isSupportDesktopBle ? (
+                <Button
+                  onPress={async () => {
+                    await backgroundApiProxy.serviceSetting.setDesktopBluetoothAtom(
+                      {
+                        isRequestedPermission: false,
+                      },
+                    );
+                    console.log('Reset Bluetooth Permission');
+                  }}
+                >
+                  Reset Bluetooth Permission
+                </Button>
+              ) : null}
+
+              <Button
+                onPress={async () => {
+                  try {
+                    await backgroundApiProxy.serviceHardware.clearAllBleConnectIdsForTesting();
+                    console.log('Successfully cleared all bleConnectId fields');
+                  } catch (error) {
+                    console.error(
+                      'Failed to clear bleConnectId fields:',
+                      error,
+                    );
+                  }
+                }}
+              >
+                Clear All BLE ConnectIds (Test)
+              </Button>
             </PartContainer>
 
             {platformEnv.isNative ? (

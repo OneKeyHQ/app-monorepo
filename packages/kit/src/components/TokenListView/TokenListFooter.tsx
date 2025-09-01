@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
+import { groupBy, keyBy, mapValues } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -160,17 +161,32 @@ function TokenListFooter(props: IProps) {
     async () => {
       if (!network) return riskyTokens?.length ?? 0;
 
-      const unblockedTokensMap =
-        await backgroundApiProxy.serviceToken.getUnblockedTokensMap({
-          networkId: network.id,
-        });
+      const [unblockedTokensMap, blockedTokensMap, customTokens] =
+        await Promise.all([
+          backgroundApiProxy.serviceToken.getUnblockedTokensMap({
+            networkId: network.id,
+          }),
+          backgroundApiProxy.serviceToken.getBlockedTokensMap({
+            networkId: network.id,
+          }),
+          backgroundApiProxy.serviceCustomToken.getAllCustomTokens(),
+        ]);
+
+      const customTokensMap = mapValues(
+        groupBy(customTokens, 'networkId'),
+        (tokenArray) => keyBy(tokenArray, 'address'),
+      );
 
       const blockedTokens = [];
 
       for (const token of riskyTokens) {
         const tokenNetworkId = token.networkId ?? network.id;
 
-        if (!unblockedTokensMap?.[tokenNetworkId]?.[token.address]) {
+        if (
+          blockedTokensMap?.[tokenNetworkId]?.[token.address] ||
+          (!unblockedTokensMap?.[tokenNetworkId]?.[token.address] &&
+            !customTokensMap?.[tokenNetworkId]?.[token.address])
+        ) {
           blockedTokens.push({
             ...token,
             isBlocked: true,
@@ -202,15 +218,11 @@ function TokenListFooter(props: IProps) {
       {!isSearchMode && smallBalanceTokens.length > 0 ? (
         <ListItem onPress={handleOnPressLowValueTokens} userSelect="none">
           <XStack flexGrow={1} flexBasis={0} alignItems="center" gap="$3">
-            <Stack
-              p={tableLayout ? '$1' : '$1.5'}
-              borderRadius="$full"
-              bg="$bgStrong"
-            >
+            <Stack p="$2" borderRadius="$full" bg="$bgStrong">
               <Icon
                 name="ControllerRoundUpSolid"
                 color="$iconSubdued"
-                size={tableLayout ? '$8' : '$7'}
+                size="$6"
               />
             </Stack>
             <ListItem.Text
@@ -272,21 +284,16 @@ function TokenListFooter(props: IProps) {
       {!isSearchMode && riskyTokens.length > 0 ? (
         <ListItem onPress={handleOnPressRiskyTokens} userSelect="none">
           <XStack alignItems="center" gap="$3" flex={1}>
-            <Stack
-              p={tableLayout ? '$1' : '$1.5'}
-              borderRadius="$full"
-              bg="$bgStrong"
-            >
-              <Icon
-                name="ErrorSolid"
-                color="$iconSubdued"
-                size={tableLayout ? '$8' : '$7'}
-              />
+            <Stack p="$2" borderRadius="$full" bg="$bgStrong">
+              <Icon name="ErrorSolid" color="$iconSubdued" size="$6" />
             </Stack>
             <ListItem.Text
-              primary={`${blockedTokensLength} ${intl.formatMessage({
-                id: ETranslations.wallet_collapsed_risk_assets,
-              })}`}
+              primary={intl.formatMessage(
+                {
+                  id: ETranslations.wallet_collapsed_risk_assets_number,
+                },
+                { number: blockedTokensLength },
+              )}
               {...(tableLayout && {
                 primaryTextProps: { size: '$bodyMdMedium' },
               })}

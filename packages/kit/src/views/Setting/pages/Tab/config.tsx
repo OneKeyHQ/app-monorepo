@@ -56,7 +56,9 @@ import {
   AutoLockListItem,
   BiologyAuthListItem,
   CleanDataListItem,
+  ClearAppCacheListItem,
   CurrencyListItem,
+  DesktopBluetoothListItem,
   HardwareTransportTypeListItem,
   LanguageListItem,
   ListVersionItem,
@@ -71,6 +73,7 @@ import type { RouteProp } from '@react-navigation/native';
 export interface ISubSettingConfig {
   icon: string | IKeyOfIcons;
   title: string;
+  subtitle?: string;
   badgeProps?: {
     badgeSize: 'sm' | 'md' | 'lg';
     badgeText: string;
@@ -94,6 +97,7 @@ export type ISettingsConfig = (
   | {
       icon: string;
       title: string;
+      subtitle?: string;
       name: ESettingsTabNames;
       isHidden?: boolean;
       showDot?: boolean;
@@ -126,6 +130,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
   const { isPrimeAvailable } = usePrimeAvailable();
+  const { isLoggedIn } = usePrimeAuthV2();
   const [settings] = useSettingsPersistAtom();
   return useMemo(
     () => [
@@ -152,6 +157,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               : null,
             isPrimeAvailable
               ? {
+                  // OneKey Cloud
                   icon: 'CloudOutline',
                   title: intl.formatMessage({
                     id: ETranslations.global_onekey_cloud,
@@ -163,6 +169,23 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   },
                 }
               : undefined,
+          ],
+          [
+            {
+              // OneKey Transfer
+              icon: 'MultipleDevicesOutline',
+              title: intl.formatMessage({
+                id: ETranslations.transfer_transfer,
+              }),
+              subtitle: intl.formatMessage({
+                id: ETranslations.prime_transfer_description,
+              }),
+              onPress: (navigation) => {
+                navigation?.pushModal(EModalRoutes.PrimeModal, {
+                  screen: EPrimePages.PrimeTransfer,
+                });
+              },
+            },
           ],
           [
             platformEnv.isNative
@@ -179,6 +202,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 }
               : undefined,
             {
+              // OneKey Keytag
               icon: 'OnekeyKeytagOutline',
               title: intl.formatMessage({
                 id: ETranslations.global_onekey_keytag,
@@ -250,6 +274,17 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   ) => {
                     navigation?.push(EModalSettingRoutes.SettingNotifications);
                   },
+                }
+              : undefined,
+          ],
+          [
+            platformEnv.isSupportDesktopBle
+              ? {
+                  icon: 'BluetoothOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.global_bluetooth,
+                  }),
+                  renderElement: <DesktopBluetoothListItem />,
                 }
               : undefined,
           ],
@@ -423,6 +458,28 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               : undefined,
           ],
           [
+            isLoggedIn
+              ? {
+                  icon: 'RemovePeopleOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.id_delete_onekey_id,
+                  }),
+                  onPress: (navigation) => {
+                    navigation?.pushModal(EModalRoutes.PrimeModal, {
+                      screen: EPrimePages.PrimeDeleteAccount,
+                    });
+                  },
+                }
+              : null,
+          ],
+          [
+            {
+              icon: 'BroomOutline',
+              title: intl.formatMessage({
+                id: ETranslations.settings_clear_cache_on_app,
+              }),
+              renderElement: <ClearAppCacheListItem />,
+            },
             {
               icon: 'FolderDeleteOutline',
               title: intl.formatMessage({
@@ -462,8 +519,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               },
             },
             platformEnv.isSupportWebUSB ||
-            (platformEnv.isDesktopMac &&
-              devSettings.settings?.enableDesktopBluetooth)
+            (platformEnv.isSupportDesktopBle && platformEnv.isDev)
               ? {
                   icon: 'UsbOutline',
                   title: intl.formatMessage({
@@ -704,6 +760,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     [
       intl,
       isPrimeAvailable,
+      isLoggedIn,
       isPasswordSet,
       biologyAuthIsSupport,
       webAuthIsSupport,
@@ -716,7 +773,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       userAgreementUrl,
       privacyPolicyUrl,
       copyText,
-      devSettings.settings?.enableDesktopBluetooth,
       settings.hardwareTransportType,
     ],
   );

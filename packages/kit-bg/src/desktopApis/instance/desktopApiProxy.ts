@@ -10,6 +10,7 @@ import type {
   IDesktopApiKeys,
   IDesktopApiMessagePayload,
 } from '../base/types';
+import type DesktopApiBluetooth from '../DesktopApiBluetooth';
 import type DesktopApiDev from '../DesktopApiDev';
 import type DesktopApiInAppPurchase from '../DesktopApiInAppPurchase';
 import type DesktopApiNotification from '../DesktopApiNotification';
@@ -69,6 +70,9 @@ export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
 
   inAppPurchase: DesktopApiInAppPurchase =
     this._createProxyModule<IDesktopApiKeys>('inAppPurchase');
+
+  bluetooth: DesktopApiBluetooth =
+    this._createProxyModule<IDesktopApiKeys>('bluetooth');
 }
 
 const desktopApiProxy = new DesktopApiProxy();

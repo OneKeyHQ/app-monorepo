@@ -6,7 +6,7 @@
   "private": true,
   "author": "OneKey <hi@onekey.so>",
   "dependencies": {
-    "@abandonware/noble": "^1.9.2-26",
+    "@stoprocent/noble": "2.3.4",
     "electron-check-biometric-auth-changed": "0.0.6",
     "electron-windows-security": "0.0.7"
   }

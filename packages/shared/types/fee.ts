@@ -61,6 +61,7 @@ export type IGasEIP1559 = {
 };
 
 export type IGasLegacy = {
+  originalGasPrice?: string;
   gasPrice: string;
   gasLimit: string;
   gasLimitForDisplay?: string;
@@ -253,6 +254,11 @@ export type IEstimateGasResp = {
   }[];
   feeBudget?: IFeeSui[];
   feeNeoN3?: IFeeNeoN3[];
+
+  megafuelEligible?: {
+    sponsorable: boolean;
+    sponsorName: string;
+  };
 };
 
 export type IServerBatchEstimateFeeResponse = {

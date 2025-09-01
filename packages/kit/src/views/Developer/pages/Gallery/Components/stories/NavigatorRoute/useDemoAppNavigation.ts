@@ -10,8 +10,6 @@ import type {
 import { EDemoRootRoutes } from './Routes';
 
 import type { ERootModalRoutes, IDemoRootModalParamList } from './Modal/Routes';
-import type { ITabStackParamList } from './Tab/RouteParamTypes';
-import type { EDemoTabRoutes } from './Tab/Routes';
 
 function useDemoAppNavigation<
   P extends
@@ -30,19 +28,6 @@ function useDemoAppNavigation<
     } else {
       popStack();
     }
-  };
-
-  const switchTab = <T extends EDemoTabRoutes>(
-    route: T,
-    params?: {
-      screen: keyof ITabStackParamList[T];
-      params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
-    },
-  ) => {
-    navigation.navigate(EDemoRootRoutes.Main, {
-      screen: route,
-      params,
-    });
   };
 
   const pushModal = <T extends ERootModalRoutes>(
@@ -69,7 +54,6 @@ function useDemoAppNavigation<
     reset: navigation.reset,
     dispatch: navigation.dispatch,
     push: navigation.navigate,
-    switchTab,
     pushModal,
     pop,
     popStack,

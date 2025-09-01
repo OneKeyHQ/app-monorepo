@@ -9,6 +9,7 @@ import {
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 
@@ -78,8 +79,11 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     const compatibleConnectId =
       await this.serviceHardware.getCompatibleConnectId({
         connectId,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+    });
 
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceChangePin(compatibleConnectId, {
@@ -96,8 +100,11 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     const compatibleConnectId =
       await this.serviceHardware.getCompatibleConnectId({
         connectId,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+    });
 
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceSettings(compatibleConnectId, settings),
@@ -154,14 +161,35 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
   async getDeviceLabel({ walletId }: IGetDeviceLabelParams) {
     const device = await localDb.getWalletDevice({ walletId });
-    const features =
-      await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
-        connectId: device.connectId,
-      });
-    const label = await deviceUtils.buildDeviceLabel({
-      features,
-    });
-    return label || 'Unknown';
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+      async () => {
+        const compatibleConnectId =
+          await this.serviceHardware.getCompatibleConnectId({
+            connectId: device.connectId,
+            hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+          });
+        const features =
+          await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
+            connectId: compatibleConnectId,
+            hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+          });
+        await this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog({
+          connectId: compatibleConnectId,
+          skipDeviceCancel: true,
+          deviceResetToHome: false,
+        });
+        const label = await deviceUtils.buildDeviceLabel({
+          features,
+        });
+        return label || 'Unknown';
+      },
+      {
+        deviceParams: {
+          dbDevice: device,
+        },
+        debugMethodName: 'deviceSettings.applySettingsToDevice',
+      },
+    );
   }
 
   @backgroundMethod()
@@ -212,7 +240,15 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             );
           }
 
-          const hardwareSDK = await this.getSDKInstance();
+          const compatibleConnectId =
+            await this.serviceHardware.getCompatibleConnectId({
+              connectId: device.connectId,
+              featuresDeviceId: device.deviceId,
+              hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+            });
+          const hardwareSDK = await this.getSDKInstance({
+            connectId: compatibleConnectId,
+          });
           const uploadResParams: DeviceUploadResourceParams = {
             resType: ResourceType.WallPaper,
             suffix: 'jpeg',
@@ -221,11 +257,6 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             nftMetaData: '',
           };
           // upload wallpaper resource will automatically set the home screen
-          const compatibleConnectId =
-            await this.serviceHardware.getCompatibleConnectId({
-              connectId: device.connectId,
-              featuresDeviceId: device.deviceId,
-            });
           await convertDeviceResponse(() =>
             hardwareSDK.deviceUploadResource(
               compatibleConnectId,

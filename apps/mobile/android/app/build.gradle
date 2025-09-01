@@ -148,6 +148,7 @@ android {
         buildConfigField("boolean", "NO_FLIPPER", 'true')
         def appEnvConfig = readRootEnvFile()
         missingDimensionStrategy 'abi', 'x86', 'x86_64'
+        missingDimensionStrategy 'react-native-capture-protection', 'fullMediaCapture'
         manifestPlaceholders = [
             JPUSH_APPKEY    : defEnvStr(appEnvConfig, 'JPUSH_KEY'),
             JPUSH_CHANNEL   : 'prod',
@@ -269,6 +270,9 @@ dependencies {
 
     // Google Play Services
     implementation("com.google.android.gms:play-services-base:18.5.0")
+
+    // EventBus
+    implementation 'org.greenrobot:eventbus-java:3.3.1'
 
     // geckoview
     // implementation("org.mozilla.geckoview:geckoview:133.0.20241209150345")

@@ -72,6 +72,7 @@ export class KeyringHardware extends KeyringHardwareBase {
                 path: account.path,
                 address: account.payload?.address || '',
                 publicKey: account.payload?.pub || '',
+                __hwExtraInfo__: undefined,
               }),
             });
             if (allNetworkAccounts) {
@@ -82,7 +83,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         });
         const ret: ICoreApiGetAddressItem[] = [];
         for (const addressInfo of addressesInfo) {
-          const { address, path, publicKey } = addressInfo;
+          const { address, path, publicKey, __hwExtraInfo__ } = addressInfo;
           if (!address) {
             throw new OneKeyHardwareError('Address is empty');
           }
@@ -90,6 +91,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             address,
             path,
             publicKey: publicKey || '',
+            __hwExtraInfo__,
           };
           ret.push(item);
         }
@@ -110,7 +112,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     const serializedTx = transaction.serialize(false);
 
     const magicNumber = 860_833_102;
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId,
+    });
     const response = await sdk.neoSignTransaction(connectId, deviceId, {
       path: dbAccount.path,
       rawTx: serializedTx,
@@ -145,7 +149,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: params.deviceParams?.dbDevice?.connectId || '',
+    });
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
     const dbAccount = await this.vault.getAccount();

@@ -244,6 +244,8 @@ function HeaderView({
             onFocus={headerSearchBarOptions?.onFocus}
             onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
             isModalScreen={isModelScreen}
+            addOns={headerSearchBarOptions?.addOns}
+            searchBarInputValue={headerSearchBarOptions?.searchBarInputValue}
           />
         ) : null}
       </Stack>

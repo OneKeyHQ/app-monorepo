@@ -88,6 +88,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceWebviewPerp() {
+    const Service =
+      require('../services/ServiceWebviewPerp') as typeof import('../services/ServiceWebviewPerp');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceWebviewPerp', { value });
+    return value;
+  }
+
   get serviceNetwork() {
     const Service =
       require('../services/ServiceNetwork') as typeof import('../services/ServiceNetwork');
@@ -665,6 +675,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceWalletBanner', { value });
+    return value;
+  }
+
+  get serviceInternalSignAndVerify() {
+    const ServiceInternalSignAndVerify =
+      require('../services/ServiceInternalSignAndVerify') as typeof import('../services/ServiceInternalSignAndVerify');
+    const value = new ServiceInternalSignAndVerify.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceInternalSignAndVerify', { value });
     return value;
   }
 }

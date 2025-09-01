@@ -161,11 +161,11 @@ export function normalizeErrorProps(
   }
 
   return {
+    ...(isString(props) ? {} : props),
     message: msg,
     key,
     autoToast: (props as IOneKeyError)?.autoToast ?? config?.defaultAutoToast,
     requestId: (props as IOneKeyError)?.requestId,
-    ...(isString(props) ? {} : props),
   };
 }
 

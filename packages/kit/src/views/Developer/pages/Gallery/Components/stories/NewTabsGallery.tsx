@@ -1,12 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import {
-  IconButton,
   ListView,
   SizableText,
   Stack,
   Tabs,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -29,7 +27,6 @@ const BasicTabsDemo = () => {
       <Tabs.Tab name="Tokens">
         <ListView
           data={data}
-          estimatedItemSize="$10"
           scrollEnabled={platformEnv.isWebTouchable}
           disableScrollViewPanResponder
           renderItem={({ item }) => (
@@ -46,7 +43,6 @@ const BasicTabsDemo = () => {
       <Tabs.Tab name="NFTs">
         <ListView
           data={data.slice(0, 10)}
-          estimatedItemSize="$10"
           scrollEnabled={platformEnv.isWebTouchable}
           disableScrollViewPanResponder
           renderItem={({ item }) => (
@@ -63,7 +59,6 @@ const BasicTabsDemo = () => {
       <Tabs.Tab name="History">
         <ListView
           data={data.slice(0, 15)}
-          estimatedItemSize="$10"
           scrollEnabled={platformEnv.isWebTouchable}
           disableScrollViewPanResponder
           renderItem={({ item }) => (
@@ -96,34 +91,33 @@ const TabsWithCustomTabBarDemo = () => {
       renderTabBar={(props) => (
         <Tabs.TabBar
           {...props}
-          renderToolbar={({ focusedTab }) => (
-            <XStack ai="center" gap="$2">
-              <SizableText size="$bodySmMedium" color="$textSubdued">
-                Current: {focusedTab}
-              </SizableText>
-              <IconButton
-                icon="PlusCircleOutline"
-                size="small"
-                onPress={() => {
-                  Toast.success({ title: `Add new item to ${focusedTab}` });
-                }}
-              />
-              <IconButton
-                icon="SettingsOutline"
-                size="small"
-                onPress={() => {
-                  Toast.success({ title: `Settings for ${focusedTab}` });
-                }}
-              />
-            </XStack>
-          )}
+          // renderToolbar={({ focusedTab }) => (
+          //   <XStack ai="center" gap="$2">
+          //     <SizableText size="$bodySmMedium" color="$textSubdued">
+          //       Current: {focusedTab}
+          //     </SizableText>
+          //     <IconButton
+          //       icon="PlusCircleOutline"
+          //       size="small"
+          //       onPress={() => {
+          //         Toast.success({ title: `Add new item to ${focusedTab}` });
+          //       }}
+          //     />
+          //     <IconButton
+          //       icon="SettingsOutline"
+          //       size="small"
+          //       onPress={() => {
+          //         Toast.success({ title: `Settings for ${focusedTab}` });
+          //       }}
+          //     />
+          //   </XStack>
+          // )}
         />
       )}
     >
       <Tabs.Tab name="Assets">
         <ListView
           data={data}
-          estimatedItemSize="$10"
           scrollEnabled={platformEnv.isWebTouchable}
           disableScrollViewPanResponder
           renderItem={({ item }) => (
@@ -140,7 +134,6 @@ const TabsWithCustomTabBarDemo = () => {
       <Tabs.Tab name="DeFi">
         <ListView
           data={data.slice(0, 12)}
-          estimatedItemSize="$10"
           scrollEnabled={platformEnv.isWebTouchable}
           disableScrollViewPanResponder
           renderItem={({ item }) => (
@@ -245,6 +238,131 @@ const TabsWithHeaderDemo = () => {
   );
 };
 
+// Tabs with Initial Tab Name Demo
+const TabsWithInitialTabDemo = () => {
+  const data = useMemo(
+    () =>
+      new Array(15).fill({}).map((_, index) => ({
+        id: index,
+        title: `Item ${index + 1}`,
+        category: ['Recent', 'Favorites', 'Archive'][
+          Math.floor(Math.random() * 3)
+        ],
+      })),
+    [],
+  );
+
+  return (
+    <Tabs.Container initialTabName="Archive">
+      <Tabs.Tab name="Recent">
+        <YStack p="$4" gap="$2">
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            Recent items (默认不会显示，因为设置了 initialTabName="Favorites")
+          </SizableText>
+          <ListView
+            data={data.filter((item) => item.category === 'Recent')}
+            scrollEnabled={platformEnv.isWebTouchable}
+            disableScrollViewPanResponder
+            renderItem={({ item }) => (
+              <Stack
+                p="$3"
+                borderBottomWidth="$px"
+                borderBottomColor="$borderSubdued"
+              >
+                <SizableText>📝 Recent: {item.title}</SizableText>
+              </Stack>
+            )}
+          />
+        </YStack>
+      </Tabs.Tab>
+      <Tabs.Tab name="Favorites">
+        <YStack p="$4" gap="$2">
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            收藏项目 (默认显示此标签页)
+          </SizableText>
+          <ListView
+            data={data.filter((item) => item.category === 'Favorites')}
+            scrollEnabled={platformEnv.isWebTouchable}
+            disableScrollViewPanResponder
+            renderItem={({ item }) => (
+              <Stack
+                p="$3"
+                borderBottomWidth="$px"
+                borderBottomColor="$borderSubdued"
+              >
+                <SizableText>⭐ Favorite: {item.title}</SizableText>
+              </Stack>
+            )}
+          />
+        </YStack>
+      </Tabs.Tab>
+      <Tabs.Tab name="Archive">
+        <YStack p="$4" gap="$2">
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            已归档的项目
+          </SizableText>
+          <ListView
+            data={data.filter((item) => item.category === 'Archive')}
+            scrollEnabled={platformEnv.isWebTouchable}
+            disableScrollViewPanResponder
+            renderItem={({ item }) => (
+              <Stack
+                p="$3"
+                borderBottomWidth="$px"
+                borderBottomColor="$borderSubdued"
+              >
+                <SizableText>📦 Archive: {item.title}</SizableText>
+              </Stack>
+            )}
+          />
+        </YStack>
+      </Tabs.Tab>
+    </Tabs.Container>
+  );
+};
+
+const TabsWithOnIndexChangeDemo = () => {
+  const [activeTabIndex, setActiveTabIndex] = useState(0);
+  return (
+    <YStack>
+      <YStack p="$4" gap="$2">
+        <SizableText size="$bodyMdMedium" color="$textSubdued">
+          Active tab index: {activeTabIndex}
+        </SizableText>
+      </YStack>
+      <Tabs.Container
+        initialTabName="Favorites"
+        onIndexChange={(index) => {
+          console.log('===>index: ', index);
+          setActiveTabIndex(index);
+        }}
+      >
+        <Tabs.Tab name="Recent">
+          <YStack p="$4" gap="$2">
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
+              Recent items (默认不会显示，因为设置了 initialTabName="Favorites")
+            </SizableText>
+          </YStack>
+        </Tabs.Tab>
+        <Tabs.Tab name="Favorites">
+          <YStack p="$4" gap="$2">
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
+              Favorites items
+            </SizableText>
+          </YStack>
+        </Tabs.Tab>
+        <Tabs.Tab name="Archive">
+          <YStack p="$4" gap="$2">
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
+              Archive items
+            </SizableText>
+          </YStack>
+        </Tabs.Tab>
+      </Tabs.Container>
+    </YStack>
+  );
+};
+
 const NewTabsGallery = () => (
   <Layout
     filePath={__CURRENT_FILE_PATH__}
@@ -254,6 +372,7 @@ const NewTabsGallery = () => (
       'Tabs.Tab 定义每个标签页的内容',
       'renderTabBar 可以自定义标签栏样式和工具栏',
       'renderHeader 可以添加粘性头部内容',
+      'initialTabName 设置默认显示的标签页',
       'ref 可以用来程序化控制标签切换',
       '适用于需要分类展示大量数据的场景',
     ]}
@@ -279,6 +398,22 @@ const NewTabsGallery = () => (
         element: (
           <Stack h={400}>
             <TabsWithHeaderDemo />
+          </Stack>
+        ),
+      },
+      {
+        title: 'Tabs with Initial Tab Name',
+        element: (
+          <Stack h={400}>
+            <TabsWithInitialTabDemo />
+          </Stack>
+        ),
+      },
+      {
+        title: 'Tabs with OnIndexChange',
+        element: (
+          <Stack h={400}>
+            <TabsWithOnIndexChangeDemo />
           </Stack>
         ),
       },

@@ -36,6 +36,7 @@ export const InputAddOnItem = XStack.styleable<IExtraProps, any, any>(
       disabled,
       error,
       onPress,
+      renderContent,
       tooltipProps,
       ...rest
     } = props;
@@ -66,28 +67,32 @@ export const InputAddOnItem = XStack.styleable<IExtraProps, any, any>(
             })}
           {...rest}
         >
-          {loading ? (
-            <YStack {...(size !== 'small' && { p: '$0.5' })}>
-              <Spinner size="small" />
-            </YStack>
-          ) : (
-            iconName && (
-              <Icon
-                name={iconName}
-                color={iconColor}
-                size={size === 'small' ? '$5' : '$6'}
-              />
-            )
+          {renderContent || (
+            <>
+              {loading ? (
+                <YStack {...(size !== 'small' && { p: '$0.5' })}>
+                  <Spinner size="small" />
+                </YStack>
+              ) : (
+                iconName && (
+                  <Icon
+                    name={iconName}
+                    color={iconColor}
+                    size={size === 'small' ? '$5' : '$6'}
+                  />
+                )
+              )}
+              {label ? (
+                <SizableText
+                  size={size === 'small' ? '$bodyMd' : '$bodyLg'}
+                  ml={iconName ? '$2' : '$0'}
+                  color={disabled ? '$textDisabled' : '$textSubdued'}
+                >
+                  {label}
+                </SizableText>
+              ) : null}
+            </>
           )}
-          {label ? (
-            <SizableText
-              size={size === 'small' ? '$bodyMd' : '$bodyLg'}
-              ml={iconName ? '$2' : '$0'}
-              color={disabled ? '$textDisabled' : '$textSubdued'}
-            >
-              {label}
-            </SizableText>
-          ) : null}
         </XStack>
       ),
       [
@@ -98,6 +103,7 @@ export const InputAddOnItem = XStack.styleable<IExtraProps, any, any>(
         loading,
         onPress,
         ref,
+        renderContent,
         rest,
         sharedStyles.focusVisibleStyle,
         size,

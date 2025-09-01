@@ -1,20 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { type LayoutChangeEvent, useWindowDimensions } from 'react-native';
+import { type LayoutChangeEvent } from 'react-native';
 
 import {
   Icon,
   Page,
+  ScrollView,
   Stack,
   Tabs,
   YStack,
-  getTokens,
-  useIsHorizontalLayout,
-  useMedia,
+  useTabContainerWidth,
 } from '@onekeyhq/components';
-import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderSideBarValue';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -26,6 +28,7 @@ import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WalletBackupAlert } from '../../../components/WalletBackup';
+import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
@@ -37,35 +40,6 @@ import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
-const useNativeTabContainerWidth = platformEnv.isNativeIOSPad
-  ? () => {
-      const isHorizontal = useIsHorizontalLayout();
-      const { width } = useWindowDimensions();
-      const sideBarWidth = useMemo(() => {
-        if (isHorizontal) {
-          return getTokens().size.sideBarWidth.val;
-        }
-        return 0;
-      }, [isHorizontal]);
-      return width - sideBarWidth;
-    }
-  : () => undefined;
-const useTabContainerWidth = platformEnv.isNative
-  ? useNativeTabContainerWidth
-  : () => {
-      const { leftSidebarCollapsed = false } = useProviderSideBarValue() || {};
-      const { md } = useMedia();
-      const sideBarWidth = useMemo(() => {
-        if (md) {
-          return 0;
-        }
-        if (!leftSidebarCollapsed) {
-          return getTokens().size.sideBarWidth.val;
-        }
-        return 0;
-      }, [md, leftSidebarCollapsed]);
-      return `calc(100vw - ${sideBarWidth}px)`;
-    };
 export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onPressHide,
@@ -189,15 +163,6 @@ export function HomePageView({
         key={key}
         allowHeaderOverscroll
         width={tabContainerWidth}
-        headerContainerStyle={{
-          shadowOpacity: 0,
-          elevation: 0,
-        }}
-        pagerProps={
-          {
-            scrollSensitivity: 4,
-          } as any
-        }
         renderHeader={renderHeader}
         renderTabBar={(props: any) => (
           <Tabs.TabBar
@@ -227,6 +192,21 @@ export function HomePageView({
 
   useEffect(() => {
     void Icon.prefetch('CloudOffOutline');
+  }, []);
+
+  useEffect(() => {
+    const clearCache = async () => {
+      await backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
+    };
+
+    appEventBus.on(EAppEventBusNames.WalletUpdate, clearCache);
+    appEventBus.on(EAppEventBusNames.AccountUpdate, clearCache);
+    appEventBus.on(EAppEventBusNames.AddressBookUpdate, clearCache);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, clearCache);
+      appEventBus.off(EAppEventBusNames.AccountUpdate, clearCache);
+      appEventBus.off(EAppEventBusNames.AddressBookUpdate, clearCache);
+    };
   }, []);
 
   const homePageContent = useMemo(() => {
@@ -308,9 +288,12 @@ export function HomePageView({
     }
 
     let content = (
-      <Stack h="100%" justifyContent="center">
-        <EmptyWallet />
-      </Stack>
+      <ScrollView
+        h="100%"
+        contentContainerStyle={{ justifyContent: 'center', flexGrow: 1 }}
+      >
+        {platformEnv.isWebDappMode ? <WebDappEmptyView /> : <EmptyWallet />}
+      </ScrollView>
     );
 
     if (wallet) {

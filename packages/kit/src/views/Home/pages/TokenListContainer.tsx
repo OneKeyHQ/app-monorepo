@@ -17,6 +17,7 @@ import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
 import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
+import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -128,6 +129,19 @@ function TokenListContainer({
     tokens: [],
     map: {},
   });
+
+  const riskTokenManagementRawData = useRef<IRiskTokenManagementDBStruct>({
+    unblockedTokens: {},
+    blockedTokens: {},
+  });
+
+  const customTokensRawData = useRef<ICustomTokenDBStruct | undefined>(
+    undefined,
+  );
+
+  const localTokensRawData = useRef<ISimpleDBLocalTokens | undefined>(
+    undefined,
+  );
 
   const { handleFiatCrypto, isSupported } = useFiatCrypto({
     accountId: account?.id ?? '',
@@ -291,7 +305,6 @@ function TokenListContainer({
               let accountWorthValue = new BigNumber(0);
               accountWorthValue = accountWorthValue
                 .plus(item.tokens.fiatValue ?? '0')
-                .plus(item.riskTokens.fiatValue ?? '0')
                 .plus(item.smallBalanceTokens.fiatValue ?? '0');
 
               accountWorth[
@@ -327,7 +340,6 @@ function TokenListContainer({
           let accountWorth = new BigNumber(0);
           accountWorth = accountWorth
             .plus(r.tokens.fiatValue ?? '0')
-            .plus(r.riskTokens.fiatValue ?? '0')
             .plus(r.smallBalanceTokens.fiatValue ?? '0');
 
           updateAccountOverviewState({
@@ -488,13 +500,11 @@ function TokenListContainer({
       networkId,
       dbAccount,
       allNetworkDataInit,
-      customTokensRawData,
     }: {
       accountId: string;
       networkId: string;
       dbAccount?: IDBAccount;
       allNetworkDataInit?: boolean;
-      customTokensRawData?: ICustomTokenDBStruct;
     }) => {
       const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
         dbAccount,
@@ -507,7 +517,10 @@ function TokenListContainer({
         allNetworksAccountId: account?.id,
         allNetworksNetworkId: network?.id,
         saveToLocal: true,
-        customTokensRawData,
+        customTokensRawData: customTokensRawData.current,
+        blockedTokensRawData: riskTokenManagementRawData.current.blockedTokens,
+        unblockedTokensRawData:
+          riskTokenManagementRawData.current.unblockedTokens,
       });
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
@@ -515,7 +528,6 @@ function TokenListContainer({
         let createAtNetworkWorth = new BigNumber(0);
         accountWorth = accountWorth
           .plus(r.tokens.fiatValue ?? '0')
-          .plus(r.riskTokens.fiatValue ?? '0')
           .plus(r.smallBalanceTokens.fiatValue ?? '0');
 
         perfTokenListView.markEnd('tokenListRefreshing_allNetworkRequests');
@@ -698,7 +710,13 @@ function TokenListContainer({
   ]);
 
   const handleAllNetworkRequestsFinished = useCallback(
-    ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
+    async ({
+      accountId,
+      networkId,
+    }: {
+      accountId?: string;
+      networkId?: string;
+    }) => {
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: false,
         type: EHomeTab.TOKENS,
@@ -710,7 +728,30 @@ function TokenListContainer({
   );
 
   const handleAllNetworkRequestsStarted = useCallback(
-    ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
+    async ({
+      accountId,
+      networkId,
+    }: {
+      accountId?: string;
+      networkId?: string;
+    }) => {
+      perfTokenListView.markStart('allNetworkRequestsStarted_getRawData');
+
+      const [c, r, l] = await Promise.all([
+        backgroundApiProxy.serviceToken.getCustomTokensRawData(),
+        backgroundApiProxy.serviceToken.getRiskTokenManagementRawData(),
+        backgroundApiProxy.simpleDb.localTokens.getRawData(),
+      ]);
+
+      perfTokenListView.markEnd('allNetworkRequestsStarted_getRawData');
+
+      customTokensRawData.current = c ?? undefined;
+      riskTokenManagementRawData.current = {
+        unblockedTokens: r?.unblockedTokens ?? {},
+        blockedTokens: r?.blockedTokens ?? {},
+      };
+      localTokensRawData.current = l ?? undefined;
+
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
         type: EHomeTab.TOKENS,
@@ -727,13 +768,11 @@ function TokenListContainer({
       networkId,
       xpub,
       accountAddress,
-      simpleDbLocalTokensRawData,
     }: {
       accountId: string;
       networkId: string;
       xpub?: string;
       accountAddress: string;
-      simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
     }) => {
       const perf = perfUtils.createPerf({
         name: EPerformanceTimerLogNames.allNetwork__handleAllNetworkCacheRequests,
@@ -742,7 +781,7 @@ function TokenListContainer({
       perf.markStart('getAccountLocalTokens', {
         networkId,
         accountAddress,
-        rawDataExist: !!simpleDbLocalTokensRawData,
+        rawDataExist: !!localTokensRawData.current,
       });
       const localTokens =
         await backgroundApiProxy.serviceToken.getAccountLocalTokens({
@@ -750,7 +789,7 @@ function TokenListContainer({
           networkId,
           accountAddress,
           xpub,
-          simpleDbLocalTokensRawData,
+          simpleDbLocalTokensRawData: localTokensRawData.current,
         });
       perf.markEnd('getAccountLocalTokens');
 
@@ -1053,9 +1092,9 @@ function TokenListContainer({
           mergeDeriveAssets: mergeDeriveAssetsEnabled,
         });
 
-        const accountWorth = new BigNumber(r.tokens.fiatValue ?? '0')
-          .plus(r.riskTokens.fiatValue ?? '0')
-          .plus(r.smallBalanceTokens.fiatValue ?? '0');
+        const accountWorth = new BigNumber(r.tokens.fiatValue ?? '0').plus(
+          r.smallBalanceTokens.fiatValue ?? '0',
+        );
 
         accountsWorth = {
           ...accountsWorth,
@@ -1074,7 +1113,6 @@ function TokenListContainer({
         ) {
           createAtNetworkWorth = createAtNetworkWorth
             .plus(r.tokens.fiatValue ?? '0')
-            .plus(r.riskTokens.fiatValue ?? '0')
             .plus(r.smallBalanceTokens.fiatValue ?? '0');
         }
       }

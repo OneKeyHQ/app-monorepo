@@ -1,4 +1,4 @@
-import { cloneDeep, debounce, isEqual, merge } from 'lodash';
+import { cloneDeep, debounce, isEqual, isNil, merge } from 'lodash';
 
 import appGlobals from '../../appGlobals';
 import errorUtils from '../../errors/utils/errorUtils';
@@ -32,6 +32,11 @@ const shouldDbTxCreatedDebuggerRule: Record<string, boolean> = {
   'OneKeyStorage_readwrite': false,
   'OneKeyV5_readonly': false,
   'OneKeyV5_readwrite': false,
+  'OneKeyV5-account_readonly': false,
+};
+
+const generalDebuggerRule: Record<string, number> = {
+  'OneKeySimpleDB_readonly': 999,
 };
 
 const shouldLocalDbDebuggerRule: Record<string, number> = {
@@ -299,6 +304,15 @@ function toastWarningAndReset(key: string) {
       });
     }
     logResult({ isWarning: true });
+
+    if (
+      !isNil(generalDebuggerRule[key]) &&
+      indexedDBResult[key] >= generalDebuggerRule[key]
+    ) {
+      if (settings?.debuggerEnabled) {
+        debugger;
+      }
+    }
 
     if (shouldDbTxCreatedDebuggerRule[key]) {
       if (settings?.debuggerEnabled) {

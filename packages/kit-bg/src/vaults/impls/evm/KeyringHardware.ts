@@ -152,7 +152,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.evm.hd;
 
   async signTransaction(params: ISignTransactionParams): Promise<ISignedTxPro> {
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: params.deviceParams?.dbDevice?.connectId || '',
+    });
     const path = await this.vault.getAccountPath();
     const chainId = await this.getNetworkChainId();
     const { unsignedTx } = params;
@@ -189,7 +191,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { dbDevice, deviceCommonParams } = deviceParams;
     const { connectId, deviceId } = dbDevice;
 
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId,
+    });
     const path = await this.vault.getAccountPath();
 
     const chainId = Number(await this.getNetworkChainId());
@@ -317,6 +321,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               buildResultAccount: ({ account }) => ({
                 path: account.path,
                 address: account.payload?.address || '',
+                __hwExtraInfo__: undefined,
               }),
               hwSdkNetwork: this.hwSdkNetwork,
             });
@@ -358,7 +363,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];
-          const { path, address } = item;
+          const { path, address, __hwExtraInfo__ } = item;
           const { normalizedAddress } = await this.vault.validateAddress(
             address,
           );
@@ -366,6 +371,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             address: normalizedAddress || address,
             path,
             publicKey: '', // TODO return pub from hardware?
+            __hwExtraInfo__,
           };
           ret.push(addressInfo);
         }

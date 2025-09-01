@@ -207,7 +207,7 @@ function HeaderLeftToolBarInput({
       <Stack ml={24}>
         <Popover
           placement="bottom-start"
-          title="dApp info"
+          title={intl.formatMessage({ id: ETranslations.global_info })}
           open={dappInfoIsOpen}
           onOpenChange={setDappInfoIsOpen}
           renderTrigger={<Stack />}

@@ -51,7 +51,7 @@ function PrimeTransferImportProcessingDialogContent({
     return Boolean(
       importProgress &&
         !importProgress.isImporting &&
-        importProgress.current === importProgress.total,
+        importProgress.current >= importProgress.total,
     );
   }, [importProgress]);
 
@@ -154,9 +154,9 @@ function PrimeTransferImportProcessingDialogContent({
               <SizableText size="$bodyLg" textAlign="center">
                 {(() => {
                   if (isDone || importProgress) {
-                    return intl.formatMessage(
+                    return `${intl.formatMessage(
                       {
-                        id: ETranslations.global_bulk_accounts_loading,
+                        id: ETranslations.global_import_progress,
                       },
                       {
                         amount: platformEnv.isDev
@@ -165,7 +165,7 @@ function PrimeTransferImportProcessingDialogContent({
                             } ${progressPercentage}%`
                           : importProgress?.current ?? 0,
                       },
-                    );
+                    )} ${progressPercentage}%`;
                   }
                   if (isCancelled) {
                     return intl.formatMessage({

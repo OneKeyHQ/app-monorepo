@@ -38,6 +38,8 @@ import type {
 import type { BaseCurve } from './curves';
 import type {
   ICoreHdCredentialEncryptHex,
+  ICoreHyperLiquidAgentCredential,
+  ICoreHyperLiquidAgentCredentialEncryptHex,
   ICoreImportedCredential,
   ICoreImportedCredentialEncryptHex,
   ICurveName,
@@ -50,9 +52,9 @@ export * from './curves';
 export * from './encryptors/aes256';
 export * from './encryptors/rsa';
 
+export * from '@onekeyhq/shared/src/appCrypto/modules/hash';
 export * from './ton-mnemonic';
 export { ecc };
-export * from '@onekeyhq/shared/src/appCrypto/modules/hash';
 
 export enum EMnemonicType {
   BIP39 = 'bip39',
@@ -62,6 +64,7 @@ export enum EMnemonicType {
 const EncryptPrefixImportedCredential = '|PK|'; // private key
 const EncryptPrefixHdCredential = '|RP|'; // recovery phrase
 const EncryptPrefixVerifyString = '|VS|'; // verify string
+const EncryptPrefixHyperLiquidAgentCredential = '|HL|'; // hyperliquid agent credential
 
 const curves: Map<ICurveName, BaseCurve> = new Map([
   ['secp256k1', secp256k1],
@@ -265,19 +268,61 @@ async function decryptImportedCredential({
 async function encryptImportedCredential({
   credential,
   password,
+  allowRawPassword,
 }: {
   credential: ICoreImportedCredential;
   password: string;
+  allowRawPassword?: boolean;
 }): Promise<ICoreImportedCredentialEncryptHex> {
   if (!credential || !credential.privateKey) {
     throw new OneKeyLocalError('Invalid credential object');
   }
   const encrypted = await encryptStringAsync({
+    allowRawPassword,
     password,
     data: JSON.stringify(credential),
     dataEncoding: 'utf8',
   });
   return EncryptPrefixImportedCredential + encrypted;
+}
+
+async function decryptHyperLiquidAgentCredential({
+  credential,
+  password,
+  allowRawPassword,
+}: {
+  credential: ICoreHyperLiquidAgentCredentialEncryptHex;
+  password: string;
+  allowRawPassword?: boolean;
+}): Promise<ICoreHyperLiquidAgentCredential> {
+  const decrypted = await decryptAsync({
+    allowRawPassword,
+    password,
+    data: credential.replace(EncryptPrefixHyperLiquidAgentCredential, ''),
+  });
+  const text = bufferUtils.bytesToUtf8(decrypted);
+  return JSON.parse(text) as ICoreHyperLiquidAgentCredential;
+}
+
+async function encryptHyperLiquidAgentCredential({
+  credential,
+  password,
+  allowRawPassword,
+}: {
+  credential: ICoreHyperLiquidAgentCredential;
+  password: string;
+  allowRawPassword?: boolean;
+}): Promise<ICoreHyperLiquidAgentCredentialEncryptHex> {
+  if (!credential || !credential.privateKey) {
+    throw new OneKeyLocalError('Invalid credential object');
+  }
+  const encrypted = await encryptStringAsync({
+    allowRawPassword,
+    password,
+    data: JSON.stringify(credential),
+    dataEncoding: 'utf8',
+  });
+  return EncryptPrefixHyperLiquidAgentCredential + encrypted;
 }
 
 async function batchGetKeys(
@@ -821,9 +866,11 @@ export {
   CKDPriv,
   CKDPub,
   compressPublicKey,
+  decryptHyperLiquidAgentCredential,
   decryptImportedCredential,
   decryptRevealableSeed,
   decryptVerifyString,
+  encryptHyperLiquidAgentCredential,
   encryptImportedCredential,
   encryptRevealableSeed,
   encryptVerifyString,

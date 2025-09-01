@@ -42,6 +42,7 @@ export interface ITabNavigatorConfig<RouteName extends string> {
   actionList?: IActionListSection[];
   shortcutKey?: EShortcutEvents;
   tabbarOnPress?: () => void;
+  onPressWhenSelected?: () => void;
   trackId?: string;
 }
 

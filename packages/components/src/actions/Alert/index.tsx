@@ -31,7 +31,8 @@ export type IAlertType =
   | 'critical'
   | 'success'
   | 'default'
-  | 'danger';
+  | 'danger'
+  | 'caution';
 
 type IAlertActionProps = {
   primary: string;
@@ -40,6 +41,8 @@ type IAlertActionProps = {
   onSecondaryPress?: () => void;
   isPrimaryLoading?: boolean;
   isSecondaryLoading?: boolean;
+  isPrimaryDisabled?: boolean;
+  isSecondaryDisabled?: boolean;
 };
 
 interface IAlertContext {
@@ -90,6 +93,10 @@ const AlertFrame = styled(XStack, {
         backgroundColor: '$bgCautionSubdued',
         borderColor: '$borderCautionSubdued',
       },
+      caution: {
+        backgroundColor: '$bgSubdued',
+        borderColor: '$borderSubdued',
+      },
       critical: {
         backgroundColor: '$bgCriticalSubdued',
         borderColor: '$borderCriticalSubdued',
@@ -128,6 +135,7 @@ const AlertIcon = (props: { children: any }) => {
     critical: '$iconCritical',
     danger: '$iconCritical',
     success: '$iconSuccess',
+    caution: '$iconCritical',
   };
   return cloneElement(props.children, {
     color: colorMapping[type],
@@ -222,6 +230,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
             size="small"
             onPress={action.onPrimaryPress}
             loading={action.isPrimaryLoading}
+            disabled={action.isPrimaryDisabled}
           >
             {action.primary}
           </Button>
@@ -231,6 +240,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
               variant="tertiary"
               onPress={action.onSecondaryPress}
               loading={action.isSecondaryLoading}
+              disabled={action.isSecondaryDisabled}
             >
               {action.secondary}
             </Button>

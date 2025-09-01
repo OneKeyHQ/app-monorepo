@@ -10,7 +10,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EGalleryRoutes } from '@onekeyhq/shared/src/routes';
 
 if (platformEnv.isDev && platformEnv.isNative) {
-  globalThis.__CURRENT_FILE_PATH__ = '';
+  __CURRENT_FILE_PATH__ = '';
 }
 
 const Index = () => {

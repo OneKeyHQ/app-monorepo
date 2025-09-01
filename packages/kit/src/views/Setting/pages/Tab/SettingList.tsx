@@ -58,6 +58,7 @@ export function SettingList() {
                       icon={config.icon as IKeyOfIcons}
                       iconProps={config.tabBarIconStyle}
                       title={config.title}
+                      subtitle={config.subtitle}
                       px="$7"
                       titleProps={config.tabBarLabelStyle}
                       onPress={() => {

@@ -41,6 +41,7 @@ export function captureSpecialError(
 
 export function convertDeviceError(
   payloadOrigin: IOneKeyHardwareErrorPayload,
+  options?: { silentMode?: boolean },
 ): IOneKeyError {
   const payload = {
     ...payloadOrigin,
@@ -77,7 +78,10 @@ export function convertDeviceError(
     case HardwareErrorCode.DeviceCheckDeviceIdError:
       return new HardwareErrors.DeviceNotSame({ payload });
     case HardwareErrorCode.DeviceNotFound:
-      return new HardwareErrors.DeviceNotFound({ payload });
+      return new HardwareErrors.DeviceNotFound({
+        payload,
+        silentMode: options?.silentMode,
+      });
     case HardwareErrorCode.DeviceInitializeFailed:
       return new HardwareErrors.DeviceInitializeFailed({ payload });
     case HardwareErrorCode.DeviceDetectInBootloaderMode:
@@ -210,6 +214,8 @@ export function convertDeviceError(
       return new HardwareErrors.FirmwareUpdateTransferInterruptedError({
         payload,
       });
+    case HardwareErrorCode.DefectiveFirmware:
+      return new HardwareErrors.DefectiveFirmware({ payload });
 
     // Bridge error
     case 'ERR_BAD_REQUEST':
@@ -227,6 +233,7 @@ export function convertDeviceError(
 
 export async function convertDeviceResponse<T>(
   fn: () => Promise<IDeviceResponseResult<T>>,
+  options?: { silentMode?: boolean },
 ): Promise<T> {
   let response: IDeviceResponseResult<T> | undefined;
   try {
@@ -238,7 +245,7 @@ export async function convertDeviceResponse<T>(
     throw hardwareCommonError;
   }
   if (!response.success) {
-    throw convertDeviceError(response.payload);
+    throw convertDeviceError(response.payload, options);
   }
   return response.payload;
 }

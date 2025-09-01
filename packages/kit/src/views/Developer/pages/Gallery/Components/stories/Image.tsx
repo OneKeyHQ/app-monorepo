@@ -70,6 +70,13 @@ const ImageGallery = () => (
                 uri: 'https://uni.onekey-asset.com/static/chain/btc.png',
               }}
             />
+            <Image
+              height="$10"
+              width="$10"
+              source={{
+                uri: 'https://nft-cdn.alchemy.com/matic-mainnet/d2fe2bf505d8be27c632ec53d08132bd',
+              }}
+            />
           </YStack>
         ),
       },

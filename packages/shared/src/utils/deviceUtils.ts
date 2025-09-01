@@ -204,10 +204,37 @@ function isConfirmOnDeviceAction(state: IHardwareUiState | undefined) {
 
 function getUpdatingConnectId({
   connectId,
+  currentTransportType,
 }: {
   connectId: string | undefined;
+  currentTransportType: EHardwareTransportType;
 }) {
+  if (platformEnv.isSupportDesktopBle) {
+    if (currentTransportType === EHardwareTransportType.DesktopWebBle) {
+      return connectId;
+    }
+    return undefined;
+  }
   return platformEnv.isNative ? connectId : undefined;
+}
+
+function getFixedUpdatingConnectId({
+  updatingConnectId,
+  currentTransportType,
+  device,
+}: {
+  updatingConnectId: string | undefined;
+  currentTransportType: EHardwareTransportType;
+  device: IDBDevice | undefined;
+}) {
+  if (
+    platformEnv.isSupportDesktopBle &&
+    currentTransportType === EHardwareTransportType.DesktopWebBle &&
+    device?.connectId
+  ) {
+    return device?.connectId || updatingConnectId;
+  }
+  return updatingConnectId;
 }
 
 async function buildDeviceLabel({
@@ -505,6 +532,7 @@ export default {
   existsFirmwareFromSearchDevice,
   getDeviceScanner,
   getUpdatingConnectId,
+  getFixedUpdatingConnectId,
   isConfirmOnDeviceAction,
   buildDeviceLabel,
   buildDeviceName,

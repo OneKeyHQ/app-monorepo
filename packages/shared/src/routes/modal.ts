@@ -1,3 +1,5 @@
+import type { IModalMarketParamList } from '@onekeyhq/kit/src/views/Market/router';
+
 import type { IAccountManagerStacksParamList } from './accountManagerStacks';
 import type { IModalAddressBookParamList } from './addressBook';
 import type { IAppUpdatePagesParamList } from './appUpdate';
@@ -24,6 +26,7 @@ import type { IScanQrCodeModalParamList } from './scanQrCode';
 import type { IModalSendParamList } from './send';
 import type { IModalSettingParamList } from './setting';
 import type { IModalShortcutsParamList } from './shortcuts';
+import type { IModalSignAndVerifyParamList } from './signAndVerify';
 import type { IModalSignatureConfirmParamList } from './signatureConfirm';
 import type { IModalStakingParamList } from './staking';
 import type { IModalSwapParamList } from './swap';
@@ -39,6 +42,7 @@ export enum EModalRoutes {
   SettingModal = 'SettingModal',
   TestModal = 'TestModal',
   SwapModal = 'SwapModal',
+  MarketModal = 'MarketModal',
   AccountManagerStacks = 'AccountManagerStacks',
   OnboardingModal = 'OnboardingModal',
   PrimeModal = 'PrimeModal',
@@ -65,6 +69,7 @@ export enum EModalRoutes {
   DeviceManagementModal = 'DeviceManagementModal',
   ReferFriendsModal = 'ReferFriendsModal',
   BulkCopyAddressesModal = 'BulkCopyAddressesModal',
+  SignAndVerifyModal = 'SignAndVerifyModal',
 }
 
 export type IModalParamList = {
@@ -85,6 +90,7 @@ export type IModalParamList = {
     IModalAssetDetailsParamList &
     IModalRewardCenterParamList &
     ITabHomeUrlAccountParamList;
+  [EModalRoutes.MarketModal]: IModalMarketParamList;
   [EModalRoutes.NotificationsModal]: IModalNotificationsParamList;
   [EModalRoutes.OnboardingModal]: IOnboardingParamList;
   [EModalRoutes.PrimeModal]: IPrimeParamList;
@@ -102,4 +108,5 @@ export type IModalParamList = {
   [EModalRoutes.WalletAddress]: IModalWalletAddressParamList;
   [EModalRoutes.WebViewModal]: IModalWebViewParamList;
   [EModalRoutes.BulkCopyAddressesModal]: IModalBulkCopyAddressesParamList;
+  [EModalRoutes.SignAndVerifyModal]: IModalSignAndVerifyParamList;
 };

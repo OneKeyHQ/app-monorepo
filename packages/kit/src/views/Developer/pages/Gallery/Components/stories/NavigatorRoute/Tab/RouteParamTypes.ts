@@ -1,9 +1,7 @@
 import type {
   EDemoDeveloperTabRoutes,
   EDemoHomeTabRoutes,
-  EDemoMeTabRoutes,
   EDemoTabRoutes,
-  EDemoTabsTabRoutes,
 } from './Routes';
 
 export type IDemoHomeTabParamList = {
@@ -19,17 +17,7 @@ export type IDemoDeveloperTabParamList = {
   };
 };
 
-export type IDemoMeTabParamList = {
-  [EDemoMeTabRoutes.DemoRootMe]: undefined;
-};
-
-export type IDemoTabsTabParamList = {
-  [EDemoTabsTabRoutes.DemoRootTabs]: undefined;
-};
-
 export type ITabStackParamList = {
   [EDemoTabRoutes.Home]: IDemoHomeTabParamList;
-  [EDemoTabRoutes.Me]: IDemoMeTabParamList;
-  [EDemoTabRoutes.Tabs]: IDemoTabsTabParamList;
   [EDemoTabRoutes.Developer]: IDemoDeveloperTabParamList;
 };

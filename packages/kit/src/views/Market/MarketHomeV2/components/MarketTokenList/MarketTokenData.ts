@@ -13,6 +13,7 @@ export interface IMarketToken {
   turnover: number;
   tokenImageUri: string;
   networkLogoUri: string;
+  networkId: string;
   walletInfo?: import('./components/Txns').ITxnsWalletInfo;
   chainId?: string;
   sortIndex?: number;

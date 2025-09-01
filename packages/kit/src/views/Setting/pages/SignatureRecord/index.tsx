@@ -102,15 +102,6 @@ const PageView = () => {
           <Tabs.Container
             renderHeader={() => <ListHeaderComponent />}
             containerStyle={{ flex: 1 }}
-            headerContainerStyle={{
-              shadowOpacity: 0,
-              elevation: 0,
-            }}
-            pagerProps={
-              {
-                scrollSensitivity: 4,
-              } as any
-            }
             renderTabBar={(props) => <Tabs.TabBar {...props} />}
           >
             <Tabs.Tab

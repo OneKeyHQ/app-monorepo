@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StatusBar } from 'react-native';
 import zxcvbn from 'zxcvbn';
 
 import {
@@ -15,6 +16,7 @@ import {
   XStack,
   YStack,
   useForm,
+  useKeyboardEvent,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IPrimeLoginDialogAtomPasswordData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -209,6 +211,23 @@ export function PrimeLoginPasswordDialog({
       data?.isRegister,
       promiseId,
     ],
+  );
+
+  // OK-42373
+  // Hide status bar when keyboard is shown
+  useKeyboardEvent({
+    keyboardWillShow: () => {
+      StatusBar.setHidden(true);
+    },
+    keyboardWillHide: () => {
+      StatusBar.setHidden(false);
+    },
+  });
+  useEffect(
+    () => () => {
+      StatusBar.setHidden(false);
+    },
+    [],
   );
 
   return (

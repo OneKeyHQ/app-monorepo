@@ -4,7 +4,9 @@ import { useIntl } from 'react-intl';
 
 import {
   AnimatePresence,
+  Button,
   Image,
+  LottieView,
   SizableText,
   XStack,
   YStack,
@@ -23,12 +25,14 @@ interface IPreSwapConfirmResultProps {
   lastStep: ISwapStep;
   fromToken?: ISwapToken;
   supportUrl?: string;
+  onConfirm?: () => void;
 }
 
 const PreSwapConfirmResult = ({
   lastStep,
   fromToken,
   supportUrl,
+  onConfirm,
 }: IPreSwapConfirmResultProps) => {
   const [explorerUrl, setExplorerUrl] = useState<string>('');
   const intl = useIntl();
@@ -108,11 +112,11 @@ const PreSwapConfirmResult = ({
               </YStack>
             ) : (
               <YStack key={lastStep.status}>
-                <Image
-                  key={lastStep.status}
-                  source={require('@onekeyhq/kit/assets/preSwapPending2.png')}
+                <LottieView
+                  source={require('@onekeyhq/kit/assets/animations/swap_order_pending.json')}
                   width={110}
                   height={110}
+                  autoPlay
                 />
               </YStack>
             )}
@@ -205,6 +209,20 @@ const PreSwapConfirmResult = ({
           </SizableText>
         </XStack>
       ) : null}
+      <Button
+        mt="$4"
+        variant="primary"
+        onPress={onConfirm}
+        size="medium"
+        width="100%"
+      >
+        {intl.formatMessage({
+          id:
+            lastStep.status === ESwapStepStatus.FAILED
+              ? ETranslations.global_retry
+              : ETranslations.global_done,
+        })}
+      </Button>
     </YStack>
   );
 };

@@ -22,16 +22,15 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 
 function PrimeUserInfoMoreButtonDropDownMenu({
   handleActionListClose,
-  doPurchase,
   onLogoutSuccess,
 }: {
   handleActionListClose: () => void;
-  doPurchase?: () => Promise<void>;
   onLogoutSuccess?: () => Promise<void>;
 }) {
   const { logout, user } = usePrimeAuthV2();
@@ -41,6 +40,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   const [devSettings] = useDevSettingsPersistAtom();
   const navigation = useAppNavigation();
   const intl = useIntl();
+  const { purchase } = usePrimePurchaseCallback();
 
   const refreshUserInfo = useCallback(async () => {
     void getCustomerInfo();
@@ -140,7 +140,9 @@ function PrimeUserInfoMoreButtonDropDownMenu({
               icon="CreditCardOutline"
               onClose={handleActionListClose}
               onPress={async () => {
-                void doPurchase?.();
+                void purchase({
+                  selectedSubscriptionPeriod: 'P1Y',
+                });
               }}
             />
           ) : null}
@@ -184,48 +186,13 @@ function PrimeUserInfoMoreButtonDropDownMenu({
           });
         }}
       />
-
-      <Divider mx="$2" my="$1" />
-      <ActionList.Item
-        label={intl.formatMessage({
-          id: ETranslations.id_delete_onekey_id,
-        })}
-        icon="ErrorOutline"
-        destructive
-        onClose={handleActionListClose}
-        onPress={() => {
-          navigation.pushModal(EModalRoutes.PrimeModal, {
-            screen: EPrimePages.PrimeDeleteAccount,
-          });
-
-          // Dialog.show({
-          //   icon: 'ErrorOutline',
-          //   tone: 'destructive',
-          //   title: intl.formatMessage({
-          //     id: ETranslations.id_delete_onekey_id,
-          //   }),
-          //   description: intl.formatMessage({
-          //     id: ETranslations.id_delete_onekey_id_desc,
-          //   }),
-          //   onConfirmText: intl.formatMessage({
-          //     id: ETranslations.id_delete_onekey_id,
-          //   }),
-          //   onConfirm: async () => {
-          //     await logout();
-          //     await onLogoutSuccess?.();
-          //   },
-          // });
-        }}
-      />
     </>
   );
 }
 
 export function PrimeUserInfoMoreButton({
-  doPurchase,
   onLogoutSuccess,
 }: {
-  doPurchase?: () => Promise<void>;
   onLogoutSuccess?: () => Promise<void>;
 }) {
   const intl = useIntl();
@@ -238,11 +205,10 @@ export function PrimeUserInfoMoreButton({
     }) => (
       <PrimeUserInfoMoreButtonDropDownMenu
         handleActionListClose={handleActionListClose}
-        doPurchase={doPurchase}
         onLogoutSuccess={onLogoutSuccess}
       />
     ),
-    [doPurchase, onLogoutSuccess],
+    [onLogoutSuccess],
   );
   return (
     <ActionList

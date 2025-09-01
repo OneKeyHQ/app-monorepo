@@ -14,13 +14,16 @@ import {
   ActionList,
   Badge,
   Dialog,
+  ESwitchSize,
   IconButton,
   Select,
   SizableText,
+  Switch,
   Toast,
   Tooltip,
   XStack,
   YStack,
+  startViewTransition,
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -47,6 +50,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -231,14 +235,18 @@ export function BiologyAuthListItem({
   );
 }
 
+export function ClearAppCacheListItem(props: ICustomElementProps) {
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
+  const onPress = useCallback(() => {
+    navigation.push(EModalSettingRoutes.SettingClearAppCache);
+  }, [navigation]);
+  return <TabSettingsListItem {...props} onPress={onPress} drillIn />;
+}
+
 export function CleanDataListItem(props: ICustomElementProps) {
   const intl = useIntl();
   const resetApp = useResetApp();
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
-  const toSettingClearAppCachePage = useCallback(() => {
-    navigation.push(EModalSettingRoutes.SettingClearAppCache);
-  }, [navigation]);
   return (
     <ActionList
       offset={{ mainAxis: -4, crossAxis: -10 }}
@@ -249,12 +257,6 @@ export function CleanDataListItem(props: ICustomElementProps) {
         </TabSettingsListItem>
       }
       items={[
-        {
-          label: intl.formatMessage({
-            id: ETranslations.settings_clear_cache_on_app,
-          }),
-          onPress: toSettingClearAppCachePage,
-        },
         {
           label: intl.formatMessage({
             id: ETranslations.settings_clear_pending_transactions,
@@ -579,7 +581,14 @@ export function SocialButtonGroup() {
         userSelect="none"
         testID="setting-version"
       >
-        <SizableText color={textColor} size={textSize} onPress={handlePress}>
+        <SizableText
+          color={textColor}
+          size={textSize}
+          minWidth={platformEnv.isNativeAndroid ? 240 : undefined}
+          textAlign={platformEnv.isNativeAndroid ? 'center' : undefined}
+          numberOfLines={platformEnv.isNativeAndroid ? 1 : undefined}
+          onPress={handlePress}
+        >
           {upperFirst(versionString)}
         </SizableText>
         {!isTabNavigator &&
@@ -595,5 +604,24 @@ export function SocialButtonGroup() {
         ) : null}
       </YStack>
     </YStack>
+  );
+}
+
+export function DesktopBluetoothListItem(props: ICustomElementProps) {
+  const [{ enableDesktopBluetooth }] = useSettingsPersistAtom();
+  const toggleBluetooth = useCallback(async (value: boolean) => {
+    startViewTransition(() => {
+      void backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(value);
+      defaultLogger.setting.page.settingsEnableBluetooth({ enabled: value });
+    });
+  }, []);
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        size={ESwitchSize.small}
+        value={enableDesktopBluetooth}
+        onChange={toggleBluetooth}
+      />
+    </TabSettingsListItem>
   );
 }

@@ -67,16 +67,9 @@ function MarketHome() {
     }
     return (
       <Tabs.Container
-        headerContainerStyle={{
-          shadowOpacity: 0,
-          elevation: 0,
+        pagerProps={{
+          offscreenPageLimit: 8,
         }}
-        pagerProps={
-          {
-            offscreenPageLimit: 8,
-            scrollSensitivity: 4,
-          } as any
-        }
         renderTabBar={(props) => (
           <Tabs.TabBar
             {...props}

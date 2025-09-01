@@ -36,6 +36,7 @@ export interface IDevSettings {
 
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
+  showWebviewDevTools?: boolean;
   // strict signature alert display
   strictSignatureAlert?: boolean;
   // enable analytics requests in dev environment
@@ -44,10 +45,12 @@ export interface IDevSettings {
     enabled: boolean;
     selectedTab: ETabRoutes | null;
   };
-  // enable desktop bluetooth functionality
-  enableDesktopBluetooth?: boolean;
   // custom API endpoints
   customApiEndpoints?: IApiEndpointConfig[];
+  // show performance monitor
+  showPerformanceMonitor?: boolean;
+  // use local trading view URL for development
+  useLocalTradingViewUrl?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -74,12 +77,12 @@ export const {
       enableAnalyticsRequest: false,
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
-
+      showPerformanceMonitor: true,
       autoNavigation: {
         enabled: false,
         selectedTab: ETabRoutes.Discovery,
       },
-      enableDesktopBluetooth: false,
+      useLocalTradingViewUrl: false,
     },
   },
 });

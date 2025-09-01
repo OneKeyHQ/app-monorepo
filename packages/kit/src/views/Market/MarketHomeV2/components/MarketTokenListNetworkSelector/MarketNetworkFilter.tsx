@@ -16,6 +16,7 @@ interface ISwapNetworkToggleGroupProps {
   selectedNetwork?: IServerNetwork;
   onMoreNetworkSelect: (network: IServerNetwork) => void;
   placement?: IPopoverProps['placement'];
+  showMoreButton?: boolean;
 }
 
 // Layout constants for network filter scrolling calculations
@@ -48,6 +49,7 @@ const MarketNetworkFilter = forwardRef<
       onSelectNetwork,
       onMoreNetworkSelect,
       placement,
+      showMoreButton = false,
     },
     ref,
   ) => {
@@ -94,6 +96,8 @@ const MarketNetworkFilter = forwardRef<
         position="relative"
         p="$1"
         gap="$1"
+        mt="$3"
+        mb="$2"
         maxWidth="100%"
         overflow="hidden"
         borderWidth={1}
@@ -111,7 +115,7 @@ const MarketNetworkFilter = forwardRef<
             }}
             scrollEventThrottle={16}
           >
-            <XStack gap="$0.5" pr="$4">
+            <XStack gap="$0.5" pr={showMoreButton ? '$4' : undefined}>
               {networks.map((network) => (
                 <NetworksFilterItem
                   key={network.id}
@@ -131,12 +135,14 @@ const MarketNetworkFilter = forwardRef<
           <GradientMask position="right" />
         </XStack>
 
-        <MoreButton
-          networks={networks}
-          selectedNetworkId={selectedNetwork?.id}
-          onNetworkSelect={onMoreNetworkSelect}
-          placement={placement}
-        />
+        {showMoreButton ? (
+          <MoreButton
+            networks={networks}
+            selectedNetworkId={selectedNetwork?.id}
+            onNetworkSelect={onMoreNetworkSelect}
+            placement={placement}
+          />
+        ) : null}
       </XStack>
     );
   },

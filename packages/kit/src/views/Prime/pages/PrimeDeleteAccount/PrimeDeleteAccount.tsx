@@ -205,19 +205,26 @@ export default function PrimeDeleteAccount() {
             alignSelf="center"
             mb={0}
           />
-          <SizableText size="$headingXl" textAlign="center">
-            {intl.formatMessage({
-              id: ETranslations.id_delete_onekey_id,
-            })}
-          </SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-            {intl.formatMessage({
-              id: ETranslations.id_delete_onekey_id_desc,
-            })}
-          </SizableText>
+          <YStack gap="$2" alignItems="center">
+            <SizableText size="$headingXl" textAlign="center">
+              {intl.formatMessage({
+                id: ETranslations.id_delete_onekey_id,
+              })}
+            </SizableText>
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              textAlign="center"
+              maxWidth={420}
+            >
+              {intl.formatMessage({
+                id: ETranslations.id_delete_onekey_id_desc,
+              })}
+            </SizableText>
+          </YStack>
 
           {/* Warning Alert */}
-          <Alert type="default">
+          <Alert type="default" w="100%">
             <Markdown>
               {intl.formatMessage({
                 id: ETranslations.id_delete_onekey_id_detail_markdown,

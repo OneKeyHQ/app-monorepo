@@ -165,6 +165,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return {
       address,
       publicKey,
+      __hwExtraInfo__: undefined,
     };
   }
 
@@ -180,7 +181,11 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const address = `0x${keccak256(uncompressedPublicKey.slice(-64)).slice(
       -40,
     )}`;
-    return Promise.resolve({ address, publicKey });
+    return Promise.resolve({
+      address,
+      publicKey,
+      __hwExtraInfo__: undefined,
+    });
   }
 
   override async getAddressesFromHd(

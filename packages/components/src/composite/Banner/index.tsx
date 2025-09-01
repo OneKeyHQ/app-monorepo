@@ -125,7 +125,7 @@ export function Banner<T extends IBannerData>({
   const [isHovering, setIsHovering] = useState(false);
   const setIsHoveringThrottled = useDebouncedCallback((value: boolean) => {
     setIsHovering(value);
-  }, 200);
+  }, 100);
   const hoverOpacity = useHoverOpacity(isHovering);
 
   const renderItem = useCallback(
@@ -186,6 +186,7 @@ export function Banner<T extends IBannerData>({
               direction="previous"
               onPress={gotToPrevIndex}
               theme="light"
+              onMouseEnter={() => setIsHoveringThrottled(true)}
             />
 
             <PaginationButton
@@ -193,6 +194,7 @@ export function Banner<T extends IBannerData>({
               direction="next"
               onPress={goToNextIndex}
               theme="light"
+              onMouseEnter={() => setIsHoveringThrottled(true)}
             />
           </>
         ) : null}
@@ -215,6 +217,7 @@ export function Banner<T extends IBannerData>({
       showCloseButton,
       showPaginationButton,
       hoverOpacity,
+      setIsHoveringThrottled,
     ],
   );
 
@@ -226,12 +229,9 @@ export function Banner<T extends IBannerData>({
 
   return (
     <Stack
-      onMouseEnter={() => {
-        setIsHoveringThrottled(true);
-      }}
-      onMouseLeave={() => {
-        setIsHoveringThrottled(false);
-      }}
+      onPointerMove={() => setIsHoveringThrottled(true)}
+      onMouseEnter={() => setIsHoveringThrottled(true)}
+      onMouseLeave={() => setIsHoveringThrottled(false)}
       w="100%"
     >
       <Swiper

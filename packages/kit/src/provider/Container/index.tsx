@@ -17,7 +17,6 @@ import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
 import { AppStateLockContainer } from './AppStateLockContainer';
 import { CloudBackupContainer } from './CloudBackupContainer';
 import { CreateAddressContainer } from './CreateAddressContainer';
-import { DesktopBleRepairContainer } from './DesktopBleRepairContainer';
 import { DialogLoadingContainer } from './DialogLoadingContainer';
 import { DiskFullWarningDialogContainer } from './DiskFullWarningDialogContainer';
 import { ErrorToastContainer } from './ErrorToastContainer';
@@ -28,9 +27,11 @@ import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalCon
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import InAppNotification from './InAppNotification';
 import { NavigationContainer } from './NavigationContainer';
+import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
+import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
 
 const PageTrackerContainer = LazyLoad(
   () => import('./PageTrackerContainer'),
@@ -106,7 +107,6 @@ export function Container() {
           <PrevCheckBeforeSendingContainer />
           <WalletBackupPreCheckContainer />
           <HardwareUiStateContainer />
-          <DesktopBleRepairContainer />
           <PrimeLoginContainerLazy />
           <DialogLoadingContainer />
           <DiskFullWarningDialogContainer />
@@ -119,6 +119,8 @@ export function Container() {
           <ForceFirmwareUpdateContainer />
           <ColdStartByNotification />
           <PrimeGlobalEffect />
+          <WebPerformanceMonitorContainer />
+          <PasswordVerifyPortalContainer />
         </NavigationContainer>
         <GlobalWalletConnectModalContainer />
       </AppStateLockContainer>

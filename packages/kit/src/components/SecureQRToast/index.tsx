@@ -78,7 +78,11 @@ const SecureQRToastBase = ({
             intl.formatMessage({ id: ETranslations.global_confirm_on_device })}
         </SizableText>
         <IconButton
-          title={show ? 'Collapse' : 'Expand'}
+          title={
+            show
+              ? intl.formatMessage({ id: ETranslations.global_collapse })
+              : intl.formatMessage({ id: ETranslations.global_expand })
+          }
           variant="tertiary"
           size="small"
           onPressIn={toggleShowState}

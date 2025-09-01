@@ -1,6 +1,8 @@
 import type { RefObject } from 'react';
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -43,6 +45,22 @@ const defaultRenderPaginationItem = <T,>(
  *
  * @returns The rendered carousel component.
  */
+const CarouselContext = createContext<{
+  pageIndex: number;
+}>({
+  pageIndex: 0,
+});
+
+const useCarouselContext = () => {
+  const context = useContext(CarouselContext);
+  return context;
+};
+
+export const useCarouselIndex = () => {
+  const { pageIndex } = useCarouselContext();
+  return pageIndex;
+};
+
 export function Carousel<T>({
   data = [],
   autoPlayInterval = 2500,
@@ -55,23 +73,39 @@ export function Carousel<T>({
   dotStyle,
   onPageChanged,
   marginRatio = 0,
+  pageWidth: pageWidthProp,
   maxPageWidth,
+  showPagination = true,
   renderPaginationItem = defaultRenderPaginationItem,
+  disableAnimation = false,
+  pagerProps,
+  defaultIndex = 0,
 }: ICarouselProps<T>) {
   const pagerRef = useRef<NativePagerView>(undefined);
-  const [pageIndex, setPageIndex] = useState<number>(0);
-  const currentPage = useRef<number>(0);
+  const [pageIndex, setPageIndex] = useState<number>(defaultIndex);
+  const currentPage = useRef<number>(defaultIndex);
   currentPage.current = pageIndex;
 
   const debouncedSetPageIndex = useDebouncedCallback(setPageIndex, 50);
 
+  const setPage = useCallback(
+    (page: number) => {
+      if (disableAnimation) {
+        pagerRef.current?.setPageWithoutAnimation(page);
+      } else {
+        pagerRef.current?.setPage(page);
+      }
+    },
+    [disableAnimation],
+  );
+
   const scrollToPreviousPage = useCallback(() => {
     const previousPage =
       currentPage.current > 0 ? currentPage.current - 1 : data.length - 1;
-    pagerRef.current?.setPage(previousPage);
+    setPage(previousPage);
     currentPage.current = previousPage;
     debouncedSetPageIndex(previousPage);
-  }, [data.length, debouncedSetPageIndex]);
+  }, [data.length, debouncedSetPageIndex, setPage]);
   const scrollToNextPage = useCallback(() => {
     if (currentPage.current >= data.length - 1) {
       pagerRef.current?.setPageWithoutAnimation(0);
@@ -80,10 +114,10 @@ export function Carousel<T>({
       return;
     }
     const nextPage = currentPage.current + 1;
-    pagerRef.current?.setPage(nextPage);
+    setPage(nextPage);
     currentPage.current = nextPage;
     debouncedSetPageIndex(nextPage);
-  }, [data.length, debouncedSetPageIndex]);
+  }, [data.length, debouncedSetPageIndex, setPage]);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -116,14 +150,17 @@ export function Carousel<T>({
         return currentPage.current || 0;
       },
       scrollTo: ({ index }: { index: number }) => {
-        pagerRef.current?.setPage(index);
+        setPage(index);
         debouncedSetPageIndex(index);
+      },
+      setScrollEnabled: (scrollEnabled: boolean) => {
+        pagerRef.current?.setScrollEnabled(scrollEnabled);
       },
     };
   });
 
   const onPressPagination = (index: number) => {
-    pagerRef.current?.setPage(index);
+    setPage(index);
     debouncedSetPageIndex(index);
   };
 
@@ -141,6 +178,9 @@ export function Carousel<T>({
   });
 
   const pageWidth = useMemo(() => {
+    if (pageWidthProp) {
+      return pageWidthProp;
+    }
     if (platformEnv.isNative) {
       return layout.width;
     }
@@ -149,13 +189,16 @@ export function Carousel<T>({
       return Math.min(width, maxPageWidth);
     }
     return width;
-  }, [layout.width, marginRatio, maxPageWidth]);
+  }, [layout.width, marginRatio, maxPageWidth, pageWidthProp]);
 
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
+      if (pageWidthProp) {
+        return;
+      }
       setLayout(event.nativeEvent.layout);
     },
-    [setLayout],
+    [setLayout, pageWidthProp],
   );
 
   const handleHoverIn = useCallback(() => {
@@ -167,70 +210,84 @@ export function Carousel<T>({
     startAutoPlay();
   }, [startAutoPlay]);
 
+  const value = useMemo(() => ({ pageIndex }), [pageIndex]);
+
   return (
-    <YStack userSelect="none">
-      <XStack
-        {...(containerStyle as any)}
-        onLayout={handleLayout}
-        onHoverIn={handleHoverIn}
-        onHoverOut={handleHoverOut}
-        onPressIn={platformEnv.isNative ? handleHoverIn : undefined}
-        onPressOut={platformEnv.isNative ? handleHoverOut : undefined}
-      >
-        {layout.width > 0 && layout.height > 0 ? (
-          <Stack
-            style={{ width: layout.width, height: layout.height }}
-            key={`${layout.width}-${layout.height}`}
-          >
-            <PagerView
-              ref={pagerRef as RefObject<NativePagerView>}
-              style={{ width: layout.width, height: layout.height }}
-              initialPage={0}
-              pageWidth={pageWidth}
-              onPageSelected={onPageSelected}
-              keyboardDismissMode="on-drag"
-            >
-              {data.map((item, index) => (
-                <Stack
-                  key={index}
-                  style={{
-                    width: pageWidth,
-                    height: '100%',
-                  }}
-                >
-                  {renderItem({ item, index })}
-                </Stack>
-              ))}
-            </PagerView>
-          </Stack>
-        ) : null}
-      </XStack>
-      {data.length > 1 ? (
+    <CarouselContext.Provider value={value}>
+      <YStack userSelect="none">
         <XStack
-          gap="$0.5"
-          ai="center"
-          jc="center"
-          {...(paginationContainerStyle as any)}
+          {...(containerStyle as any)}
+          onLayout={handleLayout}
+          onHoverIn={handleHoverIn}
+          onHoverOut={handleHoverOut}
+          onPressIn={platformEnv.isNative ? handleHoverIn : undefined}
+          onPressOut={platformEnv.isNative ? handleHoverOut : undefined}
         >
-          {data.map((item, index) => {
-            return renderPaginationItem?.(
-              {
-                data: item,
-                dotStyle,
-                activeDotStyle:
-                  index === pageIndex
-                    ? activeDotStyle || { bg: '$bgPrimary' }
-                    : undefined,
-                onPress: () => onPressPagination(index),
-              },
-              index,
-            );
-          })}
+          {pageWidthProp || (layout.width > 0 && layout.height > 0) ? (
+            <Stack
+              style={{
+                width: pageWidthProp || layout.width,
+                height: pageWidthProp ? '100%' : layout.height,
+              }}
+              key={
+                pageWidthProp ? undefined : `${layout.width}-${layout.height}`
+              }
+            >
+              <PagerView
+                ref={pagerRef as RefObject<NativePagerView>}
+                style={{
+                  width: (pageWidthProp || layout.width) as number,
+                  height: pageWidthProp ? '100%' : layout.height,
+                }}
+                initialPage={defaultIndex}
+                pageWidth={pageWidth}
+                onPageSelected={onPageSelected}
+                keyboardDismissMode="on-drag"
+                disableAnimation={disableAnimation}
+                {...pagerProps}
+              >
+                {data.map((item, index) => (
+                  <Stack
+                    key={index}
+                    style={{
+                      width: pageWidth,
+                      height: '100%',
+                    }}
+                  >
+                    {renderItem({ item, index })}
+                  </Stack>
+                ))}
+              </PagerView>
+            </Stack>
+          ) : null}
         </XStack>
-      ) : (
-        <XStack />
-      )}
-    </YStack>
+        {showPagination && data.length > 1 ? (
+          <XStack
+            gap="$0.5"
+            ai="center"
+            jc="center"
+            {...(paginationContainerStyle as any)}
+          >
+            {data.map((item, index) => {
+              return renderPaginationItem?.(
+                {
+                  data: item,
+                  dotStyle,
+                  activeDotStyle:
+                    index === pageIndex
+                      ? activeDotStyle || { bg: '$bgPrimary' }
+                      : undefined,
+                  onPress: () => onPressPagination(index),
+                },
+                index,
+              );
+            })}
+          </XStack>
+        ) : (
+          <XStack />
+        )}
+      </YStack>
+    </CarouselContext.Provider>
   );
 }
 

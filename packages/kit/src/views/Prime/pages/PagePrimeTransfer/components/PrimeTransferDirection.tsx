@@ -388,7 +388,9 @@ export function PrimeTransferDirection({
                 title={intl.formatMessage({
                   id: ETranslations.prime_enter_verification_code,
                 })}
-                description="Please enter the verification code from the other device"
+                description={intl.formatMessage({
+                  id: ETranslations.prime_enter_verification_code_from_other_device,
+                })}
                 hideResendButton
                 onConfirm={async (code: string) => {
                   await verifyCodeAndSendData({
@@ -416,12 +418,12 @@ export function PrimeTransferDirection({
           dialogRef.current = Dialog.show({
             showCancelButton: false,
             showConfirmButton: false,
-            // title: intl.formatMessage({
-            //   id: ETranslations.prime_enter_verification_code,
-            // }),
-            title: 'Verification code',
-            description:
-              'Please enter the verification code on the other device to continue',
+            title: intl.formatMessage({
+              id: ETranslations.prime_verification_code,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_enter_verification_code_on_other_device,
+            }),
             renderContent: (
               <SizableText size="$heading4xl">{verifyCode}</SizableText>
             ),

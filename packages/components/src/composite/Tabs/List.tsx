@@ -73,7 +73,6 @@ export function List<Item>({
   ListHeaderComponent,
   ListFooterComponent,
   ListEmptyComponent,
-  estimatedItemSize,
   renderSectionHeader,
   renderSectionFooter,
   ListHeaderComponentStyle,
@@ -179,7 +178,7 @@ export function List<Item>({
     () =>
       new CellMeasurerCache({
         fixedWidth: true,
-        defaultHeight: estimatedItemSize || 60,
+        defaultHeight: 60,
         keyMapper: (rowIndex, columnIndex) => {
           if (keyExtractor) {
             const item = listData[rowIndex];
@@ -198,7 +197,7 @@ export function List<Item>({
           return `${rowIndex}-${columnIndex}`;
         },
       }),
-    [estimatedItemSize, keyExtractor, listData],
+    [keyExtractor, listData],
   );
 
   const isVisible = useMemo(() => {

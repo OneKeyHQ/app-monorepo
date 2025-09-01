@@ -6,28 +6,103 @@ import {
   Alert,
   Icon,
   Page,
-  ScrollView,
   SegmentControl,
   SizableText,
   Stack,
   UnOrderedList,
+  YStack,
 } from '@onekeyhq/components';
+import type { IIconProps, ISizableTextProps } from '@onekeyhq/components';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+interface IListItemConfig {
+  title: string;
+  description?: string;
+  titleSize?: ISizableTextProps['size'];
+}
+
+interface ISectionConfig {
+  title: string;
+  items: IListItemConfig[];
+}
+
 function IncludedDataContent() {
   const intl = useIntl();
 
-  const sectionProps = {
-    titleProps: {
-      paddingHorizontal: 0,
-    },
+  const defaultItemProps = {
+    icon: 'CheckRadioSolid' as IIconProps['name'],
+    iconProps: { color: '$iconSuccess' as IIconProps['color'] },
   };
+
+  const sectionsConfig: ISectionConfig[] = [
+    {
+      title: intl.formatMessage({
+        id: ETranslations.global_wallet,
+      }),
+      items: [
+        {
+          title: intl.formatMessage({
+            id: ETranslations.prime_wallet_list,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.prime_wallet_list_description,
+          }),
+        },
+        {
+          title: intl.formatMessage({
+            id: ETranslations.prime_custom_token_n_network,
+          }),
+        },
+      ],
+    },
+    {
+      title: intl.formatMessage({
+        id: ETranslations.global_browser,
+      }),
+      items: [
+        {
+          title: intl.formatMessage({
+            id: ETranslations.explore_bookmarks,
+          }),
+        },
+      ],
+    },
+    {
+      title: intl.formatMessage({
+        id: ETranslations.global_market,
+      }),
+      items: [
+        {
+          title: intl.formatMessage({
+            id: ETranslations.global_watchlist,
+          }),
+        },
+      ],
+    },
+    {
+      title: intl.formatMessage({
+        id: ETranslations.global_settings,
+      }),
+      items: [
+        {
+          title: intl.formatMessage({
+            id: ETranslations.settings_address_book,
+          }),
+        },
+        {
+          title: intl.formatMessage({
+            id: ETranslations.custom_rpc_title,
+          }),
+        },
+      ],
+    },
+  ];
 
   return (
     <Stack>
-      <Stack gap="$4">
+      <Stack gap="$1.5">
         <SizableText size="$headingLg">
           {intl.formatMessage({
             id: ETranslations.prime_what_data_included,
@@ -40,96 +115,31 @@ function IncludedDataContent() {
         </SizableText>
       </Stack>
 
-      <Section
-        title={intl.formatMessage({
-          id: ETranslations.global_wallet,
-        })}
-        {...sectionProps}
-      >
-        <UnOrderedList>
-          <UnOrderedList.Item
-            icon="CheckRadioSolid"
-            iconProps={{ color: '$iconSuccess' }}
-            description={intl.formatMessage({
-              id: ETranslations.prime_wallet_list_description,
-            })}
-          >
-            {intl.formatMessage({
-              id: ETranslations.prime_wallet_list,
-            })}
-          </UnOrderedList.Item>
-          <UnOrderedList.Item
-            icon="CheckRadioSolid"
-            iconProps={{ color: '$iconSuccess' }}
-          >
-            {intl.formatMessage({
-              id: ETranslations.prime_custom_token_n_network,
-            })}
-          </UnOrderedList.Item>
-        </UnOrderedList>
-      </Section>
-
-      <Section
-        title={intl.formatMessage({
-          id: ETranslations.global_browser,
-        })}
-        {...sectionProps}
-      >
-        <UnOrderedList>
-          <UnOrderedList.Item
-            icon="CheckRadioSolid"
-            iconProps={{ color: '$iconSuccess' }}
-          >
-            {intl.formatMessage({
-              id: ETranslations.explore_bookmarks,
-            })}
-          </UnOrderedList.Item>
-        </UnOrderedList>
-      </Section>
-
-      <Section
-        title={intl.formatMessage({
-          id: ETranslations.global_market,
-        })}
-        {...sectionProps}
-      >
-        <UnOrderedList>
-          <UnOrderedList.Item
-            icon="CheckRadioSolid"
-            iconProps={{ color: '$iconSuccess' }}
-          >
-            {intl.formatMessage({
-              id: ETranslations.global_watchlist,
-            })}
-          </UnOrderedList.Item>
-        </UnOrderedList>
-      </Section>
-
-      <Section
-        title={intl.formatMessage({
-          id: ETranslations.global_settings,
-        })}
-        {...sectionProps}
-      >
-        <UnOrderedList>
-          <UnOrderedList.Item
-            icon="CheckRadioSolid"
-            iconProps={{ color: '$iconSuccess' }}
-          >
-            {intl.formatMessage({
-              id: ETranslations.settings_address_book,
-            })}
-          </UnOrderedList.Item>
-          <UnOrderedList.Item
-            icon="CheckRadioSolid"
-            iconProps={{ color: '$iconSuccess' }}
-          >
-            {intl.formatMessage({
-              id: ETranslations.custom_rpc_title,
-            })}
-          </UnOrderedList.Item>
-        </UnOrderedList>
-      </Section>
+      {sectionsConfig.map((section, sectionIndex) => (
+        <Section
+          key={`section-${sectionIndex}`}
+          title={section.title}
+          titleProps={{
+            paddingLeft: 0,
+          }}
+        >
+          <UnOrderedList>
+            {section.items.map((item, index) => (
+              <UnOrderedList.Item
+                key={`item-${sectionIndex}-${index}`}
+                {...defaultItemProps}
+                titleSize="$bodyLgMedium"
+                description={item.description}
+                style={{
+                  paddingTop: index !== 0 ? 8 : 0,
+                }}
+              >
+                {item.title}
+              </UnOrderedList.Item>
+            ))}
+          </UnOrderedList>
+        </Section>
+      ))}
     </Stack>
   );
 }
@@ -155,6 +165,9 @@ function SourceCodeLink({
       hoverStyle={{
         bg: '$bgSubdued',
       }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
       onPress={() => {
         openUrlUtils.openUrlExternal(link);
       }}
@@ -173,19 +186,54 @@ function SourceCodeLink({
 function SecurityContent() {
   const intl = useIntl();
 
+  const defaultItemProps = {
+    icon: 'CheckRadioSolid' as IIconProps['name'],
+    iconProps: { color: '$iconSuccess' as IIconProps['color'] },
+  };
+
+  const securityFeatures = [
+    {
+      title: intl.formatMessage({
+        id: ETranslations.prime_cloud_sync_security_feature_one,
+      }),
+    },
+    {
+      title: intl.formatMessage({
+        id: ETranslations.prime_cloud_sync_security_feature_two,
+      }),
+    },
+    {
+      title: intl.formatMessage({
+        id: ETranslations.prime_cloud_sync_security_feature_three,
+      }),
+    },
+    {
+      title: intl.formatMessage({
+        id: ETranslations.prime_cloud_sync_security_feature_four,
+      }),
+    },
+    {
+      title: intl.formatMessage({
+        id: ETranslations.prime_cloud_sync_security_feature_five,
+      }),
+    },
+  ];
+
   return (
     <Stack gap="$4">
-      <SizableText size="$headingLg">
-        {intl.formatMessage({
-          id: ETranslations.prime_end_to_end_encryption_protection,
-        })}
-      </SizableText>
+      <YStack gap="$1.5">
+        <SizableText size="$headingLg">
+          {intl.formatMessage({
+            id: ETranslations.prime_end_to_end_encryption_protection,
+          })}
+        </SizableText>
 
-      <SizableText color="$textSubdued">
-        {intl.formatMessage({
-          id: ETranslations.prime_end_to_end_encryption_protection_description,
-        })}
-      </SizableText>
+        <SizableText color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.prime_end_to_end_encryption_protection_description,
+          })}
+        </SizableText>
+      </YStack>
 
       <Alert
         type="warning"
@@ -196,46 +244,18 @@ function SecurityContent() {
       />
 
       <UnOrderedList>
-        <UnOrderedList.Item
-          icon="CheckRadioSolid"
-          iconProps={{ color: '$iconSuccess' }}
-        >
-          {intl.formatMessage({
-            id: ETranslations.prime_cloud_sync_security_feature_one,
-          })}
-        </UnOrderedList.Item>
-        <UnOrderedList.Item
-          icon="CheckRadioSolid"
-          iconProps={{ color: '$iconSuccess' }}
-        >
-          {intl.formatMessage({
-            id: ETranslations.prime_cloud_sync_security_feature_two,
-          })}
-        </UnOrderedList.Item>
-        <UnOrderedList.Item
-          icon="CheckRadioSolid"
-          iconProps={{ color: '$iconSuccess' }}
-        >
-          {intl.formatMessage({
-            id: ETranslations.prime_cloud_sync_security_feature_three,
-          })}
-        </UnOrderedList.Item>
-        <UnOrderedList.Item
-          icon="CheckRadioSolid"
-          iconProps={{ color: '$iconSuccess' }}
-        >
-          {intl.formatMessage({
-            id: ETranslations.prime_cloud_sync_security_feature_four,
-          })}
-        </UnOrderedList.Item>
-        <UnOrderedList.Item
-          icon="CheckRadioSolid"
-          iconProps={{ color: '$iconSuccess' }}
-        >
-          {intl.formatMessage({
-            id: ETranslations.prime_cloud_sync_security_feature_five,
-          })}
-        </UnOrderedList.Item>
+        {securityFeatures.map((feature, index) => (
+          <UnOrderedList.Item
+            key={`security-feature-${index}`}
+            titleSize="$bodyLgMedium"
+            style={{
+              paddingTop: index !== 0 ? 8 : 0,
+            }}
+            {...defaultItemProps}
+          >
+            {feature.title}
+          </UnOrderedList.Item>
+        ))}
       </UnOrderedList>
 
       <Stack flexDirection="row" gap="$3" mt="$4">
@@ -256,7 +276,7 @@ function SecurityContent() {
           description={intl.formatMessage({
             id: ETranslations.global_source_code,
           })}
-          link="https://github.com/OneKeyHQ/app-monorepo"
+          link="https://github.com/OneKeyHQ/e2ee-server/tree/main/packages/cloud-sync-server"
         />
       </Stack>
     </Stack>
@@ -303,7 +323,7 @@ export default function PagePrimeCloudSyncInfo() {
         })}
       />
       <Page.Body>
-        <Stack p="$5" gap="$5">
+        <Stack px="$5" pt="$2" pb="$5" gap="$5">
           <SegmentControl
             fullWidth
             value={selectedTab}

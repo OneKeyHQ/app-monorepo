@@ -63,6 +63,7 @@ let mainWindow: BrowserWindow | null;
 
 // static path
 const preloadJsUrl = path.join(staticPath, 'preload.js');
+// const preloadJsUrl = path.join(staticPath, 'preload-webview-test.js');
 
 const sdkConnectSrc = isDev
   ? `file://${path.join(staticPath, 'js-sdk/')}`
@@ -766,7 +767,7 @@ function createMainWindow() {
     }
   });
 
-  // void initNobleBleSupport(browserWindow.webContents);
+  void initNobleBleSupport(browserWindow.webContents);
 
   return browserWindow;
 }

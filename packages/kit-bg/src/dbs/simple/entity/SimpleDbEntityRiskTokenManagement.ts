@@ -3,12 +3,12 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
-export interface IRiskTokenManagement {
+export interface IRiskTokenManagementDBStruct {
   unblockedTokens: Record<string, Record<string, boolean>>; // <networkId, Record<tokenAddress, boolean>>
   blockedTokens: Record<string, Record<string, boolean>>; // <networkId, Record<tokenAddress, boolean>>
 }
 
-export class SimpleDbEntityRiskTokenManagement extends SimpleDbEntityBase<IRiskTokenManagement> {
+export class SimpleDbEntityRiskTokenManagement extends SimpleDbEntityBase<IRiskTokenManagementDBStruct> {
   entityName = 'riskTokenManagement';
 
   override enableCache = false;

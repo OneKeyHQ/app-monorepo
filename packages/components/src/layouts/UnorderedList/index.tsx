@@ -2,13 +2,14 @@ import { Children, cloneElement, isValidElement } from 'react';
 
 import { Icon, SizableText, Stack, XStack, YStack } from '../../primitives';
 
-import type { IIconProps } from '../../primitives';
+import type { IIconProps, ISizableTextProps } from '../../primitives';
 import type { StackProps, XStackProps } from 'tamagui';
 
 export interface IUnOrderedListItemProps extends XStackProps {
   icon?: IIconProps['name'];
   iconProps?: IIconProps;
   description?: string;
+  titleSize?: ISizableTextProps['size'];
 }
 
 export function UnOrderedListItem({
@@ -16,6 +17,7 @@ export function UnOrderedListItem({
   icon,
   iconProps,
   description,
+  titleSize = '$bodyLg',
   ...rest
 }: IUnOrderedListItemProps) {
   return (
@@ -28,7 +30,7 @@ export function UnOrderedListItem({
         )}
       </XStack>
       <YStack pl="$2">
-        <SizableText tag="p" size="$bodyLg">
+        <SizableText tag="p" size={titleSize}>
           {children}
         </SizableText>
         {description ? (

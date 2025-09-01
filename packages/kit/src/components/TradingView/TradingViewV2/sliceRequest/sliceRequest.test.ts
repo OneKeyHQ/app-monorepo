@@ -14,8 +14,7 @@ const SECONDS_IN_WEEK = 7 * 24 * 60 * 60; // 604_800
 const SECONDS_IN_MONTH = 30 * 24 * 60 * 60; // 2_592_000
 const SECONDS_IN_YEAR = 365 * 24 * 60 * 60; // 31_536_000
 
-// TODO: Temporarily disable the entire test suite, pending fix for month interval-related issues
-describe.skip('sliceRequest', () => {
+describe('sliceRequest', () => {
   const mockTimeFrom = 1_640_995_200; // 2022-01-01 00:00:00 UTC
   const mockTimeTo = 1_672_531_200; // 2023-01-01 00:00:00 UTC
 
@@ -36,7 +35,7 @@ describe.skip('sliceRequest', () => {
 
     it('should parse hours interval correctly', () => {
       const result = sliceRequest(
-        '2h',
+        '2H',
         mockTimeFrom,
         mockTimeFrom + 2 * SECONDS_IN_HOUR,
       );
@@ -44,13 +43,13 @@ describe.skip('sliceRequest', () => {
       expect(result[0]).toEqual({
         from: mockTimeFrom,
         to: mockTimeFrom + 2 * SECONDS_IN_HOUR,
-        interval: '2h',
+        interval: '2H',
       });
     });
 
     it('should parse days interval correctly', () => {
       const result = sliceRequest(
-        '1d',
+        '1D',
         mockTimeFrom,
         mockTimeFrom + SECONDS_IN_DAY,
       );
@@ -58,13 +57,13 @@ describe.skip('sliceRequest', () => {
       expect(result[0]).toEqual({
         from: mockTimeFrom,
         to: mockTimeFrom + SECONDS_IN_DAY,
-        interval: '1d',
+        interval: '1D',
       });
     });
 
     it('should parse weeks interval correctly', () => {
       const result = sliceRequest(
-        '1w',
+        '1W',
         mockTimeFrom,
         mockTimeFrom + SECONDS_IN_WEEK,
       );
@@ -72,12 +71,11 @@ describe.skip('sliceRequest', () => {
       expect(result[0]).toEqual({
         from: mockTimeFrom,
         to: mockTimeFrom + SECONDS_IN_WEEK,
-        interval: '1w',
+        interval: '1W',
       });
     });
 
-    // TODO: Fix month interval parsing issue
-    it.skip('should parse months interval correctly', () => {
+    it('should parse months interval correctly', () => {
       const result = sliceRequest(
         '1M',
         mockTimeFrom,
@@ -133,7 +131,7 @@ describe.skip('sliceRequest', () => {
     });
 
     it('should throw error for missing number in interval', () => {
-      expect(() => sliceRequest('d', mockTimeFrom, mockTimeTo)).toThrow(
+      expect(() => sliceRequest('D', mockTimeFrom, mockTimeTo)).toThrow(
         OneKeyLocalError,
       );
     });
@@ -158,13 +156,13 @@ describe.skip('sliceRequest', () => {
       // 1 day interval, 50 days total = 50 data points
       const timeFrom = mockTimeFrom;
       const timeTo = mockTimeFrom + 50 * SECONDS_IN_DAY;
-      const result = sliceRequest('1d', timeFrom, timeTo);
+      const result = sliceRequest('1D', timeFrom, timeTo);
 
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
         from: timeFrom,
         to: timeTo,
-        interval: '1d',
+        interval: '1D',
       });
     });
 
@@ -172,13 +170,13 @@ describe.skip('sliceRequest', () => {
       // 1 day interval, 100 days total = 100 data points
       const timeFrom = mockTimeFrom;
       const timeTo = mockTimeFrom + 100 * SECONDS_IN_DAY;
-      const result = sliceRequest('1d', timeFrom, timeTo);
+      const result = sliceRequest('1D', timeFrom, timeTo);
 
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
         from: timeFrom,
         to: timeTo,
-        interval: '1d',
+        interval: '1D',
       });
     });
   });
@@ -188,7 +186,7 @@ describe.skip('sliceRequest', () => {
       // 1 day interval, 365 days total = 365 data points
       const timeFrom = mockTimeFrom;
       const timeTo = mockTimeFrom + 365 * SECONDS_IN_DAY;
-      const result = sliceRequest('1d', timeFrom, timeTo);
+      const result = sliceRequest('1D', timeFrom, timeTo);
 
       expect(result.length).toBeGreaterThan(1);
       expect(result.length).toBe(4); // Math.ceil(365 / 100) = 4
@@ -228,7 +226,7 @@ describe.skip('sliceRequest', () => {
       // 1 hour interval, 500 hours = 500 data points
       const timeFrom = mockTimeFrom;
       const timeTo = mockTimeFrom + 500 * SECONDS_IN_HOUR;
-      const result = sliceRequest('1h', timeFrom, timeTo);
+      const result = sliceRequest('1H', timeFrom, timeTo);
 
       expect(result.length).toBe(5); // Math.ceil(500 / 100) = 5
 
@@ -245,7 +243,7 @@ describe.skip('sliceRequest', () => {
       // 1 week interval, 200 weeks = 200 data points
       const timeFrom = mockTimeFrom;
       const timeTo = mockTimeFrom + 200 * SECONDS_IN_WEEK;
-      const result = sliceRequest('1w', timeFrom, timeTo);
+      const result = sliceRequest('1W', timeFrom, timeTo);
 
       expect(result.length).toBe(2); // Math.ceil(200 / 100) = 2
 
@@ -255,8 +253,7 @@ describe.skip('sliceRequest', () => {
       expect(result[1].to).toBe(timeTo);
     });
 
-    // TODO: Fix month interval slicing logic issue
-    it.skip('should handle month intervals correctly', () => {
+    it('should handle month intervals correctly', () => {
       // 1 month interval, 300 months = 300 data points
       const timeFrom = mockTimeFrom;
       const timeTo = mockTimeFrom + 300 * SECONDS_IN_MONTH;
@@ -293,12 +290,12 @@ describe.skip('sliceRequest', () => {
 
   describe('edge cases', () => {
     it('should handle when timeFrom equals timeTo', () => {
-      const result = sliceRequest('1d', mockTimeFrom, mockTimeFrom);
+      const result = sliceRequest('1D', mockTimeFrom, mockTimeFrom);
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
         from: mockTimeFrom,
         to: mockTimeFrom,
-        interval: '1d',
+        interval: '1D',
       });
     });
 
@@ -320,7 +317,7 @@ describe.skip('sliceRequest', () => {
       // 1 day interval, 101 days total = 101 data points
       const timeFrom = mockTimeFrom;
       const timeTo = mockTimeFrom + 101 * SECONDS_IN_DAY;
-      const result = sliceRequest('1d', timeFrom, timeTo);
+      const result = sliceRequest('1D', timeFrom, timeTo);
 
       expect(result.length).toBe(2); // Math.ceil(101 / 100) = 2
       expect(result[0].from).toBe(timeFrom);
@@ -343,7 +340,7 @@ describe.skip('sliceRequest', () => {
       // 1 day interval, 365 days = 365 data points
       const timeFrom = 1_640_995_200; // 2022-01-01
       const timeTo = 1_672_531_200; // 2023-01-01
-      const result = sliceRequest('1d', timeFrom, timeTo);
+      const result = sliceRequest('1D', timeFrom, timeTo);
 
       expect(result.length).toBe(4); // Math.ceil(365 / 100) = 4
 
@@ -361,7 +358,7 @@ describe.skip('sliceRequest', () => {
       // 1 hour interval, 168 hours = 168 data points
       const timeFrom = mockTimeFrom;
       const timeTo = mockTimeFrom + SECONDS_IN_WEEK;
-      const result = sliceRequest('1h', timeFrom, timeTo);
+      const result = sliceRequest('1H', timeFrom, timeTo);
 
       expect(result.length).toBe(2); // Math.ceil(168 / 100) = 2
       expect(result[0].from).toBe(timeFrom);
@@ -379,8 +376,7 @@ describe.skip('sliceRequest', () => {
       expect(result[result.length - 1].to).toBe(timeTo);
     });
 
-    // TODO: Fix multi-year monthly data processing issue
-    it.skip('should handle multi-year monthly data', () => {
+    it('should handle multi-year monthly data', () => {
       // 1 month interval, 120 months (10 years) = 120 data points
       const timeFrom = mockTimeFrom;
       const timeTo = mockTimeFrom + 120 * SECONDS_IN_MONTH;
@@ -405,7 +401,7 @@ describe.skip('sliceRequest', () => {
 
   describe('return type validation', () => {
     it('should return array of ITimeSlice objects', () => {
-      const result = sliceRequest('1d', mockTimeFrom, mockTimeTo);
+      const result = sliceRequest('1D', mockTimeFrom, mockTimeTo);
 
       expect(Array.isArray(result)).toBe(true);
 
@@ -414,13 +410,13 @@ describe.skip('sliceRequest', () => {
         expect(typeof slice.from).toBe('number');
         expect(typeof slice.to).toBe('number');
         expect(typeof slice.interval).toBe('string');
-        expect(slice.interval).toBe('1d');
+        expect(slice.interval).toBe('1D');
         expect(slice.from).toBeLessThanOrEqual(slice.to);
       });
     });
 
     it('should ensure all slices have valid time ranges', () => {
-      const result = sliceRequest('1h', mockTimeFrom, mockTimeTo);
+      const result = sliceRequest('1H', mockTimeFrom, mockTimeTo);
 
       result.forEach((slice) => {
         expect(slice.from).toBeGreaterThanOrEqual(mockTimeFrom);

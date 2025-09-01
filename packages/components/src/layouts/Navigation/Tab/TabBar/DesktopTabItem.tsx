@@ -54,6 +54,7 @@ export interface IDesktopTabItemProps {
   children?: React.ReactNode;
   trackId?: string;
   showDot?: boolean;
+  onPressWhenSelected?: () => void; // New: Click event when already selected
 }
 
 function BasicDesktopTabItemImage({
@@ -106,6 +107,7 @@ export function DesktopTabItem(
     size = 'medium',
     children,
     showDot,
+    onPressWhenSelected,
     ...rest
   } = props;
 
@@ -137,7 +139,12 @@ export function DesktopTabItem(
   const reloadOnPress = useCallback(
     (e: GestureResponderEvent) => {
       if (selected) {
-        openActionList?.current?.();
+        // If there's a specific "when selected" callback, use it first
+        if (onPressWhenSelected) {
+          onPressWhenSelected();
+        } else {
+          openActionList?.current?.();
+        }
       } else {
         onPress?.(e);
       }
@@ -145,7 +152,7 @@ export function DesktopTabItem(
         defaultLogger.app.page.tabBarClick(trackId);
       }
     },
-    [onPress, selected, trackId],
+    [onPress, selected, trackId, onPressWhenSelected],
   );
   const trigger = useMemo(
     () => (

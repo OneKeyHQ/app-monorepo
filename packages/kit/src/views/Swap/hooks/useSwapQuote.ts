@@ -43,6 +43,7 @@ import {
   useSwapSelectToTokenAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSlippageDialogOpeningAtom,
+  useSwapToAnotherAccountAddressAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
@@ -68,6 +69,7 @@ export function useSwapQuote() {
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const [swapToAnotherAccountAddress] = useSwapToAnotherAccountAddressAtom();
   const [fromToken, setSwapSelectFromToken] = useSwapSelectFromTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [toToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
@@ -270,6 +272,13 @@ export function useSwapQuote() {
       return;
     }
     if (
+      !isFocusRef.current &&
+      !swapToAnotherAccountAddress?.address &&
+      settingsAtomRef.current.swapToAnotherAccountSwitchOn
+    ) {
+      return;
+    }
+    if (
       fromToken?.networkId !== activeAccountRef.current?.networkId ||
       equalTokenNoCaseSensitive({
         token1: {
@@ -327,6 +336,7 @@ export function useSwapQuote() {
       swapToAddressInfoRef.current.address,
     );
   }, [
+    swapToAnotherAccountAddress?.address,
     cleanQuoteInterval,
     quoteAction,
     swapAddressInfo.address,
@@ -374,6 +384,13 @@ export function useSwapQuote() {
       !isFocusRef.current &&
       swapToAddressInfo.address ===
         swapQuoteActionLockRef.current?.receivingAddress
+    ) {
+      return;
+    }
+    if (
+      !isFocusRef.current &&
+      !swapToAnotherAccountAddress?.address &&
+      settingsAtomRef.current.swapToAnotherAccountSwitchOn
     ) {
       return;
     }
@@ -438,6 +455,7 @@ export function useSwapQuote() {
       swapToAddressInfoRef.current.address,
     );
   }, [
+    swapToAnotherAccountAddress?.address,
     cleanQuoteInterval,
     quoteAction,
     swapAddressInfo.address,
@@ -488,6 +506,9 @@ export function useSwapQuote() {
       approvedSwapInfo: ISwapApproveTransaction;
       enableFilled?: boolean;
     }) => {
+      if (swapShouldRefreshRef.current) {
+        return;
+      }
       setSwapManualSelectQuoteProviders({
         protocol: data.approvedSwapInfo.protocol,
         quoteId: data.approvedSwapInfo?.quoteId,
@@ -565,53 +586,58 @@ export function useSwapQuote() {
     ],
   );
 
-  const swapQuoteMixEventAction = useCallback((errorMessage?: string) => {
-    if (
-      swapQuoteResultListRef.current?.length &&
-      swapQuoteEventTotalCountRef.current.count > 0 &&
-      swapQuoteResultListRef.current[0].eventId !==
-        swapQuoteEventTotalCountRef.current.eventId
-    ) {
-      return;
-    }
-    const providerQuoteResult: ISwapQuoteProvideResult[] =
-      swapQuoteResultListRef.current?.map((item) => {
-        return {
-          provider: item.info.provider,
-          providerName: item.info.providerName,
-          toAmount: item.toAmount,
-          errorMessage: item.errorMessage,
-        };
+  const swapQuoteMixEventAction = useCallback(
+    (errorMessage?: string) => {
+      if (
+        swapQuoteResultListRef.current?.length &&
+        swapQuoteEventTotalCountRef.current.count > 0 &&
+        swapQuoteResultListRef.current[0].eventId !==
+          swapQuoteEventTotalCountRef.current.eventId
+      ) {
+        return;
+      }
+      const providerQuoteResult: ISwapQuoteProvideResult[] =
+        swapQuoteResultListRef.current?.map((item) => {
+          return {
+            provider: item.info.provider,
+            providerName: item.info.providerName,
+            toAmount: item.toAmount,
+            errorMessage: item.errorMessage,
+          };
+        });
+      let finalStatus = errorMessage
+        ? ESwapEventAPIStatus.FAIL
+        : ESwapEventAPIStatus.SUCCESS;
+      if (!providerQuoteResult?.length || providerQuoteResult.length === 0) {
+        finalStatus = ESwapEventAPIStatus.FAIL;
+      } else if (providerQuoteResult?.every((item) => !item.toAmount)) {
+        finalStatus = ESwapEventAPIStatus.FAIL;
+      } else if (providerQuoteResult?.some((item) => !item.toAmount)) {
+        finalStatus = ESwapEventAPIStatus.PARTIAL_SUCCESS;
+      }
+      defaultLogger.swap.swapQuote.swapQuote({
+        fromAddress: swapAddressInfo.address ?? '',
+        toAddress: swapToAddressInfo.address ?? '',
+        walletType: activeAccountRef.current?.accountInfo?.wallet?.type ?? '',
+        quoteType: swapTabSwitchTypeRef.current,
+        slippageSetting:
+          settingsAtomRef.current.swapSlippagePercentageMode ===
+          ESwapSlippageSegmentKey.AUTO
+            ? 'auto'
+            : 'custom',
+        sourceChain: fromTokenRef.current?.networkId ?? '',
+        receivedChain: toTokenRef.current?.networkId ?? '',
+        sourceTokenSymbol: fromTokenRef.current?.symbol ?? '',
+        receivedTokenSymbol: toTokenRef.current?.symbol ?? '',
+        isAddReceiveAddress: settingsAtomRef.current.swapEnableRecipientAddress,
+        isSmartMode: settingsPersistAtomRef.current.swapBatchApproveAndSwap,
+        status: finalStatus,
+        providerQuoteResult,
+        message: errorMessage,
       });
-    let finalStatus = errorMessage
-      ? ESwapEventAPIStatus.FAIL
-      : ESwapEventAPIStatus.SUCCESS;
-    if (!providerQuoteResult?.length || providerQuoteResult.length === 0) {
-      finalStatus = ESwapEventAPIStatus.FAIL;
-    } else if (providerQuoteResult?.every((item) => !item.toAmount)) {
-      finalStatus = ESwapEventAPIStatus.FAIL;
-    } else if (providerQuoteResult?.some((item) => !item.toAmount)) {
-      finalStatus = ESwapEventAPIStatus.PARTIAL_SUCCESS;
-    }
-    defaultLogger.swap.swapQuote.swapQuote({
-      walletType: activeAccountRef.current?.accountInfo?.wallet?.type ?? '',
-      quoteType: swapTabSwitchTypeRef.current,
-      slippageSetting:
-        settingsAtomRef.current.swapSlippagePercentageMode ===
-        ESwapSlippageSegmentKey.AUTO
-          ? 'auto'
-          : 'custom',
-      sourceChain: fromTokenRef.current?.networkId ?? '',
-      receivedChain: toTokenRef.current?.networkId ?? '',
-      sourceTokenSymbol: fromTokenRef.current?.symbol ?? '',
-      receivedTokenSymbol: toTokenRef.current?.symbol ?? '',
-      isAddReceiveAddress: settingsAtomRef.current.swapEnableRecipientAddress,
-      isSmartMode: settingsPersistAtomRef.current.swapBatchApproveAndSwap,
-      status: finalStatus,
-      providerQuoteResult,
-      message: errorMessage,
-    });
-  }, []);
+    },
+    [swapAddressInfo.address, swapToAddressInfo.address],
+  );
 
   const swapQuoteMixEvent = useCallback(
     async (event: {

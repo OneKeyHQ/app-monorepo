@@ -115,6 +115,7 @@ export class KeyringHardware extends KeyringHardwareBase {
                 path: account.path,
                 xpub: account.payload?.xpub || '',
                 xpubSegwit: account.payload?.xpubSegwit || '',
+                __hwExtraInfo__: undefined,
               }),
             });
             if (allNetworkAccounts) {
@@ -145,7 +146,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         const network = getBtcForkNetwork(btcImpl);
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];
-          const { path, xpub, xpubSegwit } = item;
+          const { path, xpub, xpubSegwit, __hwExtraInfo__ } = item;
           const addressRelPath = `0/0`;
           const addressFromXpub = await this.coreApi.getAddressFromXpub({
             network,
@@ -192,6 +193,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             relPath: addressRelPath,
             xpub,
             xpubSegwit,
+            __hwExtraInfo__,
             addresses: {
               [addressRelPath]: address,
             },
@@ -226,7 +228,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { isTestnet } = await this.getNetwork();
     const coinName = this.getBtcCoinName(isTestnet);
     const message = stringify(msgPayload);
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId,
+    });
     const response = await convertDeviceResponse(async () =>
       sdk.btcSignMessage(connectId, deviceId, {
         ...deviceCommonParams,
@@ -320,7 +324,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     const dbAccount = await this.vault.getAccount();
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId,
+    });
     const result = await Promise.all(
       params.messages.map(async ({ message }) => {
         const response = await sdk.btcSignMessage(connectId, deviceId, {
@@ -351,7 +357,9 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId,
+    });
     const response = await sdk.lnurlAuth(connectId, deviceId, {
       ...params.deviceParams?.deviceCommonParams,
       domain: url.hostname,

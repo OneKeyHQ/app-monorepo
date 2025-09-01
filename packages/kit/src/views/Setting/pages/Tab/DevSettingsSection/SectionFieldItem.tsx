@@ -15,6 +15,7 @@ interface ISectionFieldItem extends PropsWithChildren {
   subtitle?: IListItemProps['subtitle'];
   onValueChange?: (v: any) => void;
   onBeforeValueChange?: () => Promise<void>;
+  icon?: IListItemProps['icon'];
 }
 
 export function SectionFieldItem({
@@ -26,6 +27,7 @@ export function SectionFieldItem({
   titleProps = { color: '$textCritical' },
   testID = '',
   onBeforeValueChange,
+  icon,
 }: IPropsWithTestId<ISectionFieldItem>) {
   const [devSetting] = useDevSettingsPersistAtom();
   const child = Children.only(children) as ReactElement;
@@ -51,6 +53,7 @@ export function SectionFieldItem({
     : null;
   return (
     <ListItem
+      icon={icon}
       title={title}
       subtitle={subtitle}
       titleProps={titleProps}

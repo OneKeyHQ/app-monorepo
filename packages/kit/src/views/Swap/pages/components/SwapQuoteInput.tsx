@@ -1,13 +1,14 @@
 import { memo, useCallback, useEffect } from 'react';
 
-import { InputAccessoryView } from 'react-native';
+import BigNumber from 'bignumber.js';
 
-import { IconButton, SizableText, Stack, YStack } from '@onekeyhq/components';
+import { IconButton, Stack, YStack } from '@onekeyhq/components';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceFromAmountAtom,
   useSwapLimitPriceToAmountAtom,
+  useSwapNativeTokenReserveGasAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -26,7 +27,6 @@ import {
 import {
   ESwapDirectionType,
   ESwapTabSwitchType,
-  SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
@@ -63,6 +63,7 @@ const SwapQuoteInput = ({
   const [swapLimitPriceFromAmount] = useSwapLimitPriceFromAmountAtom();
   const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
   const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
+  const [swapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   useSwapQuote();
   useSwapFromAccountNetworkSync();
 
@@ -71,7 +72,7 @@ const SwapQuoteInput = ({
       return { transform: 'translate(-50%, -50%)' };
     }
     return {
-      transform: [{ translateX: -24 }, { translateY: -24 }],
+      transform: [{ translateX: -13 }, { translateY: -13 }], // size small
     };
   }, []);
 
@@ -165,9 +166,20 @@ const SwapQuoteInput = ({
         onSelectPercentageStage={onSelectPercentageStage}
         amountValue={fromInputAmount.value}
         onBalanceMaxPress={() => {
-          const maxAmount = fromTokenBalance;
+          let maxAmount = new BigNumber(fromTokenBalance ?? 0);
+          if (fromToken?.isNative) {
+            const reserveGas = swapNativeTokenReserveGas.find(
+              (item) => item.networkId === fromToken.networkId,
+            )?.reserveGas;
+            if (reserveGas) {
+              maxAmount = BigNumber.max(
+                0,
+                maxAmount.minus(new BigNumber(reserveGas)),
+              );
+            }
+          }
           setFromInputAmount({
-            value: maxAmount,
+            value: maxAmount.toFixed(),
             isInput: true,
           });
         }}
@@ -219,12 +231,6 @@ const SwapQuoteInput = ({
         onSelectToken={onSelectToken}
         balance={toTokenBalance}
       />
-
-      {platformEnv.isNativeIOS ? (
-        <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
-          <SizableText h="$0" />
-        </InputAccessoryView>
-      ) : null}
     </YStack>
   );
 };

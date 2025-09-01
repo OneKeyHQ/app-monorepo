@@ -12,6 +12,7 @@ import type {
   IMarketCategory,
   IMarketDetailPlatform,
   IMarketDetailPool,
+  IMarketSearchV2Token,
   IMarketToken,
   IMarketTokenChart,
   IMarketTokenDetail,
@@ -191,6 +192,23 @@ class ServiceMarket extends ServiceBase {
     const { data } = response.data;
     if (data.length) {
       return this.fetchCategory('all', data, false);
+    }
+    return [];
+  }
+
+  @backgroundMethod()
+  async searchV2Token(query: string) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      data: IMarketSearchV2Token[];
+    }>('/utility/v2/market/search', {
+      params: {
+        query,
+      },
+    });
+    const { data } = response.data;
+    if (Array.isArray(data) && data.length) {
+      return data;
     }
     return [];
   }
