@@ -98,7 +98,10 @@ function PerpOpenOrdersList() {
       >
         <YStack>
           {orders.map((order) => (
-            <OpenOrdersRow key={`${order.oid}-${order.cloid}`} order={order} />
+            <OpenOrdersRow
+              key={`${order.oid}-${order.cloid?.toString() ?? ''}`}
+              order={order}
+            />
           ))}
         </YStack>
       </ScrollView>

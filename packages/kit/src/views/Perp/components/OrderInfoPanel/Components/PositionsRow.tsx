@@ -1,10 +1,11 @@
 import { memo, useMemo } from 'react';
 
 import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
-import type { IHLWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { WsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useTokenList } from '../../../hooks';
 import { formatPriceToSignificantDigits } from '../../../utils/tokenUtils';
+import { showClosePositionDialog } from '../../ClosePositionModal';
 
 const COLUMN_WIDTHS = {
   side: 10,
@@ -24,7 +25,7 @@ const PositionRow = memo(
     mid,
     actions,
   }: {
-    pos: IHLWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
+    pos: WsWebData2['clearinghouseState']['assetPositions'][number]['position'];
     mid?: string;
     actions: any;
   }) => {

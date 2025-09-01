@@ -1,7 +1,7 @@
 import { memo } from 'react';
 
 import { Button, SizableText, XStack } from '@onekeyhq/components';
-import type { IHLWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { WsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 const COLUMN_WIDTHS = {
   side: 10,
@@ -15,7 +15,7 @@ const COLUMN_WIDTHS = {
 };
 
 const OpenOrdersRow = memo(
-  ({ order }: { order: IHLWsWebData2['openOrders'][number] }) => {
+  ({ order }: { order: WsWebData2['openOrders'][number] }) => {
     const { limitPx, coin, side, sz } = order;
 
     return (
