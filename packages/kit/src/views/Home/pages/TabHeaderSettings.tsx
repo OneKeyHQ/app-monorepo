@@ -170,17 +170,18 @@ function TxHistorySettings() {
 function ApprovalSettings() {
   const navigation = useAppNavigation();
   const {
-    activeAccount: { account, network },
+    activeAccount: { wallet, account, network },
   } = useActiveAccount({ num: 0 });
   const handleOnOpenApprovalList = useCallback(() => {
     navigation.pushModal(EModalRoutes.ApprovalManagementModal, {
       screen: EModalApprovalManagementRoutes.ApprovalList,
       params: {
+        walletId: wallet?.id ?? '',
         accountId: account?.id ?? '',
         networkId: network?.id ?? '',
       },
     });
-  }, [account?.id, navigation, network?.id]);
+  }, [account?.id, navigation, network?.id, wallet?.id]);
 
   const intl = useIntl();
   return (
