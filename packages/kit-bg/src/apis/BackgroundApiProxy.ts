@@ -37,6 +37,7 @@ import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHardwareUI from '../services/ServiceHardwareUI';
 import type ServiceHistory from '../services/ServiceHistory';
+import type ServiceInternalSignAndVerify from '../services/ServiceInternalSignAndVerify';
 import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
 import type ServiceLogger from '../services/ServiceLogger';
@@ -319,6 +320,10 @@ class BackgroundApiProxy
   serviceWalletBanner = this._createProxyService(
     'serviceWalletBanner',
   ) as ServiceWalletBanner;
+
+  serviceInternalSignAndVerify = this._createProxyService(
+    'serviceInternalSignAndVerify',
+  ) as ServiceInternalSignAndVerify;
 }
 
 export default BackgroundApiProxy;
