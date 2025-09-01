@@ -25,7 +25,7 @@ import {
 class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   updateAllMids = contextAtomMethod(
     (_, set, data: HL.WsAllMids) => {
-      console.log('[HyperliquidActions.updateAllMids] data', data);
+
       set(allMidsAtom(), data);
     },
   );

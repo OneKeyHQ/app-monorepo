@@ -72,7 +72,7 @@ export function usePerpTokenSelector() {
       setIsLoading(true);
       try {
         await actions.current.setCurrentToken(symbol);
-        console.log(`[PerpTokenSelector] Successfully switched to token: ${symbol}`);
+
       } catch (error) {
         console.error('[PerpTokenSelector] Failed to select token:', error);
       } finally {

@@ -76,7 +76,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     agentApproved?: boolean;
     builderFeeApproved?: boolean;
   }> {
-    console.log('[ServiceHyperliquid.enableTrading] params:', params);
+
     try {
       const result = {
         success: true,

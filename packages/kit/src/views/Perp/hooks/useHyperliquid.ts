@@ -21,6 +21,7 @@ import {
   subscriptionActiveAtom,
   useWebData2Atom,
   currentAccountAtom,
+  useAccountPanelDataAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/index';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -74,7 +75,7 @@ export function useHyperliquidEventBusListener() {
             break;
 
           case 'trades':
-            console.log('Trades data received:', { coin: metadata.coin, data });
+
             break;
 
           case 'userEvents':
@@ -199,32 +200,9 @@ export function useHyperliquidMarket() {
 }
 
 export function useHyperliquidAccount() {
-  const [webData2] = useWebData2Atom();
-  const currentUser = webData2?.user === ZeroAddress ? null : webData2?.user;
-  const userPositions = webData2?.clearinghouseState.assetPositions || [];
+  const [accountData] = useAccountPanelDataAtom();
 
-  const accountSummary = {
-    accountValue: webData2?.clearinghouseState.marginSummary.accountValue,
-    totalMarginUsed: webData2?.clearinghouseState.marginSummary.totalMarginUsed,
-    totalNtlPos: webData2?.clearinghouseState.marginSummary.totalNtlPos,
-    totalRawUsd: webData2?.clearinghouseState.marginSummary.totalRawUsd,
-    withdrawable: webData2?.clearinghouseState.withdrawable,
-  };
-
-  const [activeAssetData] = useAtom(activeAssetDataAtom());
-
-  const userWebData2 = webData2;
-  const hasUserData = !!currentUser && !!userWebData2;
-
-  return {
-    currentUser,
-    userWebData2,
-    userPositions,
-    accountSummary,
-    activeAssetData,
-    hasUserData,
-    isLoggedIn: !!currentUser,
-  };
+  return accountData;
 }
 
 export function useHyperliquidTrading() {

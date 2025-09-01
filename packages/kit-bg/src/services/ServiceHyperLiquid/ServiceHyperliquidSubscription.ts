@@ -14,8 +14,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import ServiceBase from '../ServiceBase';
-
-import { dataProcessorRegistry } from './utils/DataProcessor';
 import type {
   SubscriptionType,
   SubscriptionSpec,
@@ -400,14 +398,36 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         this._activeSubscriptions.set(key, subscription);
       }
 
-      const processor = dataProcessorRegistry.getProcessor(config.processor);
-
-      if (processor.validate && !processor.validate(data)) {
+      if (data == null) {
         console.warn(`[ServiceHyperliquidSubscription.handleSubscriptionData] Data validation failed for: ${key}`);
         return;
       }
 
-      processor.process(key, data, config);
+      const parts = key.split(':');
+      const type = parts[0];
+      const metadata: any = {
+        timestamp: Date.now(),
+        source: 'ServiceHyperliquidSubscription',
+        key,
+      };
+      if (type === 'activeAssetCtx' || type === 'l2Book' || type === 'trades' || type === 'bbo') {
+        metadata.coin = parts[1];
+      } else if (type === 'candles') {
+        metadata.coin = parts[1];
+        metadata.interval = parts[2];
+      } else if (type === 'webData2' || type === 'userEvents' || type === 'userNotifications' || type === 'activeAssetData') {
+        metadata.userId = parts[1];
+        if (type === 'activeAssetData') {
+          metadata.coin = parts[2];
+        }
+      }
+
+      appEventBus.emit(EAppEventBusNames.HyperliquidDataUpdate, {
+        type: config.eventType,
+        subType: config.eventSubType,
+        data,
+        metadata,
+      });
 
     } catch (error) {
       console.error(`[ServiceHyperliquidSubscription.handleSubscriptionData] Failed to handle data for ${key}:`, error);
