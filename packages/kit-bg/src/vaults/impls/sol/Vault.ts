@@ -45,6 +45,7 @@ import { isEmpty, isNil } from 'lodash';
 
 import { BLOCK_HASH_NOT_FOUND_ERROR_CODE } from '@onekeyhq/core/src/chains/sol/constants';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
+import { verifySignedMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/signMessage';
 import type {
   IDecodedTxExtraSol,
   IEncodedTxSol,
@@ -78,6 +79,7 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import {
   EDecodedTxActionType,
@@ -1312,6 +1314,22 @@ export default class Vault extends VaultBase {
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
     return result;
+  }
+
+  override async verifyMessage(
+    params: IVerifyMessageParams,
+  ): Promise<{ valid: boolean }> {
+    const { message, address, signature } = params;
+
+    const valid = verifySignedMessage({
+      message,
+      address,
+      signature,
+    });
+
+    return Promise.resolve({
+      valid,
+    });
   }
 
   override async buildEstimateFeeParams({

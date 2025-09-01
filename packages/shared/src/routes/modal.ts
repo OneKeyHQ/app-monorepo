@@ -27,6 +27,7 @@ import type { IScanQrCodeModalParamList } from './scanQrCode';
 import type { IModalSendParamList } from './send';
 import type { IModalSettingParamList } from './setting';
 import type { IModalShortcutsParamList } from './shortcuts';
+import type { IModalSignAndVerifyParamList } from './signAndVerify';
 import type { IModalSignatureConfirmParamList } from './signatureConfirm';
 import type { IModalStakingParamList } from './staking';
 import type { IModalSwapParamList } from './swap';
@@ -70,6 +71,7 @@ export enum EModalRoutes {
   ReferFriendsModal = 'ReferFriendsModal',
   BulkCopyAddressesModal = 'BulkCopyAddressesModal',
   ApprovalManagementModal = 'ApprovalManagementModal',
+  SignAndVerifyModal = 'SignAndVerifyModal',
 }
 
 export type IModalParamList = {
@@ -109,4 +111,5 @@ export type IModalParamList = {
   [EModalRoutes.WebViewModal]: IModalWebViewParamList;
   [EModalRoutes.BulkCopyAddressesModal]: IModalBulkCopyAddressesParamList;
   [EModalRoutes.ApprovalManagementModal]: IModalApprovalManagementParamList;
+  [EModalRoutes.SignAndVerifyModal]: IModalSignAndVerifyParamList;
 };

@@ -18,6 +18,7 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IUniversalSearchAccountAssets } from '@onekeyhq/shared/types/search';
 
@@ -40,52 +41,51 @@ export function UniversalSearchAccountAssetItem({
   });
   const fiatValue = new BigNumber(tokenFiat?.fiatValue ?? 0);
 
-  const handlePress = useCallback(() => {
+  const handlePress = useCallback(async () => {
     navigation.pop();
-    setTimeout(async () => {
-      if (
-        !activeAccount ||
-        !activeAccount.account ||
-        !activeAccount.network ||
-        !activeAccount.wallet ||
-        !activeAccount.deriveInfo ||
-        !activeAccount.deriveType ||
-        !activeAccount.indexedAccount
-      )
-        return;
+    if (
+      !activeAccount ||
+      !activeAccount.account ||
+      !activeAccount.network ||
+      !activeAccount.wallet ||
+      !activeAccount.deriveInfo ||
+      !activeAccount.deriveType ||
+      !activeAccount.indexedAccount
+    )
+      return;
 
-      navigation.pushModal(EModalRoutes.MainModal, {
-        screen: EModalAssetDetailRoutes.TokenDetails,
-        params: {
-          accountId: token.accountId ?? activeAccount.account?.id ?? '',
-          networkId: token.networkId ?? activeAccount.network?.id,
-          walletId: activeAccount.wallet?.id,
-          deriveInfo: activeAccount.deriveInfo,
-          deriveType: activeAccount.deriveType,
-          tokenInfo: token,
-          isAllNetworks: activeAccount.network?.isAllNetworks,
-          indexedAccountId: activeAccount.indexedAccount?.id ?? '',
-        },
-      });
+    // wait for the modal animation is finished
+    await timerUtils.wait(300);
+    navigation.pushModal(EModalRoutes.MainModal, {
+      screen: EModalAssetDetailRoutes.TokenDetails,
+      params: {
+        accountId: token.accountId ?? activeAccount.account?.id ?? '',
+        networkId: token.networkId ?? activeAccount.network?.id,
+        walletId: activeAccount.wallet?.id,
+        deriveInfo: activeAccount.deriveInfo,
+        deriveType: activeAccount.deriveType,
+        tokenInfo: token,
+        isAllNetworks: activeAccount.network?.isAllNetworks,
+        indexedAccountId: activeAccount.indexedAccount?.id ?? '',
+      },
+    });
 
-      // Add to recent search list
-      setTimeout(() => {
-        universalSearchActions.current.addIntoRecentSearchList({
-          id: `${token.symbol}-${token.networkId || ''}-${
-            token.accountId || activeAccount.account?.id || ''
-          }`,
-          text: token.symbol || token.name || '',
-          type: item.type,
-          timestamp: Date.now(),
-          extra: {
-            tokenSymbol: token.symbol || '',
-            tokenName: token.name || '',
-            networkId: token.networkId || '',
-            accountId: token.accountId || '',
-          },
-        });
-      }, 10);
-    }, 80);
+    await timerUtils.wait(10);
+    // Add to recent search list
+    universalSearchActions.current.addIntoRecentSearchList({
+      id: `${token.symbol}-${token.networkId || ''}-${
+        token.accountId || activeAccount.account?.id || ''
+      }`,
+      text: token.symbol || token.name || '',
+      type: item.type,
+      timestamp: Date.now(),
+      extra: {
+        tokenSymbol: token.symbol || '',
+        tokenName: token.name || '',
+        networkId: token.networkId || '',
+        accountId: token.accountId || '',
+      },
+    });
   }, [activeAccount, item.type, navigation, token, universalSearchActions]);
 
   return (
