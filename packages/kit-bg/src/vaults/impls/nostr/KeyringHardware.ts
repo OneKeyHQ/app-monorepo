@@ -74,6 +74,7 @@ export class KeyringHardware extends KeyringHardwareBase {
                 path: account.path,
                 publickey: account.payload?.publickey || '',
                 npub: account.payload?.npub || '',
+                __hwExtraInfo__: undefined,
               }),
             });
             if (allNetworkAccounts) {
@@ -94,11 +95,12 @@ export class KeyringHardware extends KeyringHardwareBase {
         });
         const ret: ICoreApiGetAddressItem[] = [];
         for (const addressInfo of addressesInfo) {
-          const { publickey, path, npub } = addressInfo;
+          const { publickey, path, npub, __hwExtraInfo__ } = addressInfo;
           const item: ICoreApiGetAddressItem = {
             address: npub ?? '',
             path,
             publicKey: publickey || '',
+            __hwExtraInfo__,
           };
           ret.push(item);
         }
