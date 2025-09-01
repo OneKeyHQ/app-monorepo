@@ -18,7 +18,7 @@
     "build:main:dev": "rimraf ./app/dist && cross-env node scripts/build.js",
     "build:main": "rimraf ./app/dist && cross-env NODE_ENV=production node scripts/build.js",
     "build:renderer": "cross-env NODE_ENV=production yarn clean:build && cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 webpack build && node scripts/finalize-renderer-assets.js",
-    "build:electron": "electron-builder build -mwl --config electron-builder.config.js",
+    "build:electron": "electron-builder build -ml --config electron-builder.config.js",
     "build:electron:win": "electron-builder build -w --config electron-builder-win.config.js",
     "build:electron:winms": "electron-builder build -w --config electron-builder-ms.config.js",
     "build:electron:mac": "electron-builder build -m --config electron-builder.config.js",
