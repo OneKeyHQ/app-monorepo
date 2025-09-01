@@ -13,10 +13,11 @@ function TokenSecurityAlert() {
   const intl = useIntl();
   const { tokenAddress, networkId } = useTokenDetail();
 
-  const { securityData, securityStatus, warningCount } = useTokenSecurity({
-    tokenAddress,
-    networkId,
-  });
+  const { securityData, securityStatus, riskCount, cautionCount } =
+    useTokenSecurity({
+      tokenAddress,
+      networkId,
+    });
 
   const handlePress = () => {
     Dialog.show({
@@ -25,7 +26,8 @@ function TokenSecurityAlert() {
       renderContent: (
         <TokenSecurityAlertDialogContent
           securityData={securityData}
-          warningCount={warningCount}
+          riskCount={riskCount}
+          cautionCount={cautionCount}
         />
       ),
     });
@@ -48,7 +50,7 @@ function TokenSecurityAlert() {
     >
       <Icon name="BugOutline" size="$4" color={color} />
       <SizableText size="$bodySmMedium" color={color}>
-        {warningCount}
+        {cautionCount}
       </SizableText>
     </XStack>
   );

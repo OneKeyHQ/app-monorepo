@@ -42,21 +42,28 @@ export const useTokenSecurity = ({
   // Note: Removed trusted_token special handling since we now use dynamic structure
   // and rely on API's riskType directly. Backend should handle data filtering.
 
-  const { securityStatus, warningCount, formattedData } = useMemo(() => {
-    const { status, count } = analyzeSecurityData(securityData);
-    const formatted = formatSecurityData(securityData);
+  const { securityStatus, riskCount, cautionCount, formattedData } =
+    useMemo(() => {
+      const {
+        status,
+        riskCount: risks,
+        cautionCount: cautions,
+      } = analyzeSecurityData(securityData);
+      const formatted = formatSecurityData(securityData);
 
-    return {
-      securityStatus: status,
-      warningCount: count,
-      formattedData: formatted,
-    };
-  }, [securityData]);
+      return {
+        securityStatus: status,
+        riskCount: risks,
+        cautionCount: cautions,
+        formattedData: formatted,
+      };
+    }, [securityData]);
 
   return {
     securityData,
     securityStatus,
-    warningCount,
+    riskCount,
+    cautionCount,
     formattedData,
   };
 };

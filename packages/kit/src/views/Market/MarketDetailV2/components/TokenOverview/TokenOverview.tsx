@@ -54,10 +54,11 @@ const formatCirculatingSupply = (tokenDetail: ITokenDetail): string => {
 export function TokenOverview() {
   const intl = useIntl();
   const { tokenDetail, tokenAddress, networkId } = useTokenDetail();
-  const { warningCount, securityStatus, securityData } = useTokenSecurity({
-    tokenAddress,
-    networkId,
-  });
+  const { securityStatus, securityData, riskCount, cautionCount } =
+    useTokenSecurity({
+      tokenAddress,
+      networkId,
+    });
 
   const handleAuditPress = useCallback(() => {
     Dialog.show({
@@ -66,11 +67,12 @@ export function TokenOverview() {
       renderContent: (
         <TokenSecurityAlertDialogContent
           securityData={securityData}
-          warningCount={warningCount}
+          riskCount={riskCount}
+          cautionCount={cautionCount}
         />
       ),
     });
-  }, [intl, securityData, warningCount]);
+  }, [intl, securityData, riskCount, cautionCount]);
 
   // Optimized stat builders
   const auditStat = useMemo<IStatItem>(
@@ -78,13 +80,13 @@ export function TokenOverview() {
       label: intl.formatMessage({ id: ETranslations.dexmarket_audit }),
       value: intl.formatMessage(
         { id: ETranslations.dexmarket_details_audit_issue },
-        { amount: warningCount },
+        { amount: cautionCount },
       ),
       icon: securityStatus === 'safe' ? 'ShieldCheckDoneSolid' : 'BugOutline',
       iconColor: securityStatus === 'safe' ? '$iconSuccess' : '$iconCaution',
       onPress: securityData ? handleAuditPress : undefined,
     }),
-    [intl, warningCount, securityStatus, handleAuditPress, securityData],
+    [intl, cautionCount, securityStatus, handleAuditPress, securityData],
   );
 
   const holdersStat = useMemo<IStatItem>(

@@ -18,6 +18,7 @@ export type IUseTokenSecurityParams = {
 export type IUseTokenSecurityResult = {
   securityData: IMarketTokenSecurityData | null;
   securityStatus: ISecurityStatus | null;
-  warningCount: number;
+  riskCount: number;
+  cautionCount: number;
   formattedData: ISecurityKeyValue[];
 };

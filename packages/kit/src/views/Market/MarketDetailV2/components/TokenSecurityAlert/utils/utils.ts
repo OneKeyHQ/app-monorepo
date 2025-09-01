@@ -40,21 +40,34 @@ export const formatSecurityData = (
   return items;
 };
 
-// Simplified function to analyze security data - directly use riskType
+// Simplified function to analyze security data - directly use riskType with separated counts
 export const analyzeSecurityData = (
   data: IMarketTokenSecurityData | null,
-): { status: ISecurityStatus | null; count: number } => {
-  if (!data) return { status: null, count: 0 };
+): {
+  status: ISecurityStatus | null;
+  riskCount: number;
+  cautionCount: number;
+} => {
+  if (!data) return { status: null, riskCount: 0, cautionCount: 0 };
 
-  let warningCount = 0;
+  let riskCount = 0;
+  let cautionCount = 0;
 
-  // Count warnings based on riskType
+  // Count risks and cautions separately based on riskType
   Object.values(data).forEach((item: IMarketTokenSecurityItem) => {
-    if (item.riskType === 'caution' || item.riskType === 'risk') {
-      warningCount += 1;
+    if (item.riskType === 'risk') {
+      riskCount += 1;
+    } else if (item.riskType === 'caution') {
+      cautionCount += 1;
     }
   });
 
-  const status = warningCount > 0 ? 'warning' : 'safe';
-  return { status, count: warningCount };
+  const totalWarningCount = riskCount + cautionCount;
+  const status = totalWarningCount > 0 ? 'warning' : 'safe';
+
+  return {
+    status,
+    riskCount,
+    cautionCount,
+  };
 };

@@ -15,12 +15,14 @@ import { TokenSecurityAlertDialogContentOverview } from './TokenSecurityAlertDia
 
 type ITokenSecurityAlertDialogContentProps = {
   securityData: IMarketTokenSecurityData | null;
-  warningCount: number;
+  riskCount: number;
+  cautionCount: number;
 };
 
 function TokenSecurityAlertDialogContent({
   securityData,
-  warningCount,
+  riskCount,
+  cautionCount,
 }: ITokenSecurityAlertDialogContentProps) {
   const formattedData = formatSecurityData(securityData);
 
@@ -28,7 +30,10 @@ function TokenSecurityAlertDialogContent({
     <ScrollView maxHeight="$96">
       <Stack gap="$4">
         {/* Overview section with warning count */}
-        <TokenSecurityAlertDialogContentOverview warningCount={warningCount} />
+        <TokenSecurityAlertDialogContentOverview
+          riskCount={riskCount}
+          cautionCount={cautionCount}
+        />
 
         {formattedData.length > 0 ? (
           <YStack>
