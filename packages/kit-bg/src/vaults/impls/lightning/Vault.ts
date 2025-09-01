@@ -561,7 +561,7 @@ export default class Vault extends VaultBase {
     return (this.keyring as KeyringHd).lnurlAuth(params);
   }
 
-  async verifyMessage({
+  async verifyLightningMessage({
     message,
     signature,
   }: {

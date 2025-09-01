@@ -14,7 +14,6 @@ jobs:
     strategy:
       matrix:
         node-version: [20.x]
-        arch: [x64, arm64]
 
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
@@ -95,24 +94,42 @@ jobs:
           CSC_LINK: './sign.p12'
         run: |
           cd apps/desktop
-          $env:NODE_ENV="production"
-          yarn clean:build
-          yarn build:renderer
-          yarn build:main
-          yarn install-app-deps
-          npx electron-builder build -w --config electron-builder-win.config.js --${{ matrix.arch }} --publish never
+          yarn build:win
 
-      - name: Upload Artifacts Windows
+      - name: Upload x64 Windows exe
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-windows-${{ matrix.arch }}
+          name: onekey-desktop-win-x64-exe
+          path: |
+            ./apps/desktop/build-electron/*-x64.exe
+
+      - name: Upload arm64 Windows exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-win-arm64-exe
+          path: |
+            ./apps/desktop/build-electron/*-arm64.exe
+
+      - name: Upload universal Windows exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-win-universal-exe
           path: |
             ./apps/desktop/build-electron/*.exe
+            !./apps/desktop/build-electron/*-x64.exe
+            !./apps/desktop/build-electron/*-arm64.exe
+      
+      - name: Upload Artifacts latest.yml
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-windows-desktop-yml
+          path: |
+            ./apps/desktop/build-electron/*.yml
 
       - name: Upload Artifacts Release
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ matrix.arch }}
+          name: release-windows
           path: |
             ./apps/desktop/build-electron/*
             !./apps/desktop/build-electron/win-unpacked
