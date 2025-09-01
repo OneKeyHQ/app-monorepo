@@ -44,7 +44,11 @@ export async function fetchTradingViewV2DataWithSlicing({
   timeTo,
 }: ITradingViewV2Params): Promise<IMarketTokenKLineResponse | null> {
   try {
-    const slices = sliceRequest(interval, timeFrom, timeTo);
+    // Check if the token is a native token
+    // Native tokens typically have empty or undefined tokenAddress
+    const isNativeToken = !tokenAddress || tokenAddress === '';
+
+    const slices = sliceRequest(interval, timeFrom, timeTo, { isNativeToken });
 
     const dataPromises = slices.map((slice) =>
       backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline({

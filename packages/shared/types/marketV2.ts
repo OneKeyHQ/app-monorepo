@@ -328,6 +328,7 @@ export interface IMarketBasicConfigToken {
   chainId: string;
   isNative: boolean;
   name: string;
+  logo?: string;
 }
 
 export interface IMarketBasicConfigData {

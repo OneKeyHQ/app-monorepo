@@ -290,6 +290,7 @@ export abstract class KeyringQrBase extends KeyringBase {
       xpub: '',
       relPath: accountUtils.buildUtxoAddressRelPath(),
       addresses: {},
+      __hwExtraInfo__: undefined,
     });
     return ret;
   }

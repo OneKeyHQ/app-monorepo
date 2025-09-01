@@ -12,11 +12,12 @@ import {
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { HardwareSDK } from '@onekeyhq/shared/src/hardware/instance';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
-  EConfirmOnDeviceType,
-  type IDeviceResponse,
-  type IGetDeviceAccountDataParams,
+import type {
+  IDeviceResponse,
+  IGetDeviceAccountDataParams,
+  IHardwareGetPubOrAddressExtraInfo,
 } from '@onekeyhq/shared/types/device';
+import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import { EVaultKeyringTypes } from '../types';
 
@@ -144,7 +145,11 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     });
   }
 
-  async getAllNetworkPrepareAccounts<T>({
+  async getAllNetworkPrepareAccounts<
+    T extends {
+      __hwExtraInfo__: IHardwareGetPubOrAddressExtraInfo | undefined;
+    },
+  >({
     hwSdkNetwork,
     params,
     usedIndexes,
@@ -170,44 +175,71 @@ export abstract class KeyringHardwareBase extends KeyringBase {
       return undefined;
     }
     const { hwAllNetworkPrepareAccountsResponse } = params;
-    if (hwAllNetworkPrepareAccountsResponse?.length) {
-      const resultAccounts: T[] = [];
-      for (const index of usedIndexes) {
-        const path: string = await buildPath({
-          index,
-        });
-        const account = hwAllNetworkPrepareAccountsResponse?.find(
-          (item) =>
-            item.network && item.path === path && item.network === hwSdkNetwork,
-        );
-        if (account && account.success) {
-          resultAccounts.push(buildResultAccount({ account, index }));
-        }
-      }
-      if (resultAccounts.length === usedIndexes.length) {
-        return {
-          success: true,
-          payload: resultAccounts,
-        };
-      }
+    if (hwAllNetworkPrepareAccountsResponse) {
+      try {
+        const resultAccounts: T[] = [];
+        for (const index of usedIndexes) {
+          const path: string = await buildPath({
+            index,
+          });
+          // const account = hwAllNetworkPrepareAccountsResponse?.find(
+          //   (item) =>
+          //     item.network && item.path === path && item.network === hwSdkNetwork,
+          // );
+          const account = await hwAllNetworkPrepareAccountsResponse.getItem({
+            path,
+            hwSdkNetwork,
+          });
+          if (account && account.success && account.payload) {
+            const resultAccount = buildResultAccount({ account, index });
+            if (resultAccount) {
+              resultAccount.__hwExtraInfo__ = {
+                rootFingerprint: account?.payload?.rootFingerprint,
+              };
 
-      // if result length not match to indexes, throw first error item
-      const hasErrorItem = hwAllNetworkPrepareAccountsResponse?.find(
-        (item) => !item.success && !!item.payload?.error,
-      );
-      if (!hasErrorItem?.success && hasErrorItem?.payload?.error) {
-        if (
-          // response.payload.code === HardwareErrorCode.RuntimeError &&
-          hasErrorItem?.payload?.error?.indexOf(
-            'Failure_DataError,Forbidden key path',
-          ) !== -1
-        ) {
-          throw new UnsupportedAddressTypeError();
+              // TODO remove this
+              // resultAccount.__hwExtraInfo__ = undefined;
+              // if (index % 2 === 1) {
+              //   resultAccount.__hwExtraInfo__ = {
+              //     rootFingerprint: 1111,
+              //   };
+              // }
+            }
+            resultAccounts.push(resultAccount);
+          }
         }
-        throw convertDeviceError(hasErrorItem.payload);
-        // throw new OneKeyInternalError(hasErrorItem.payload.error);
+        if (resultAccounts.length === usedIndexes.length) {
+          return {
+            success: true,
+            payload: resultAccounts,
+          };
+        }
+
+        // if result length not match to indexes, throw first error item
+        const hasErrorItem =
+          await hwAllNetworkPrepareAccountsResponse.getFirstErrorItem();
+        if (
+          hasErrorItem &&
+          !hasErrorItem?.success &&
+          hasErrorItem?.payload?.error
+        ) {
+          if (
+            // response.payload.code === HardwareErrorCode.RuntimeError &&
+            hasErrorItem?.payload?.error?.indexOf(
+              'Failure_DataError,Forbidden key path',
+            ) !== -1
+          ) {
+            throw new UnsupportedAddressTypeError();
+          }
+          throw convertDeviceError(hasErrorItem.payload);
+          // throw new OneKeyInternalError(hasErrorItem.payload.error);
+        }
+        throw new OneKeyInternalError('SDK GetAllNetworkAccounts Failed');
+      } finally {
+        // do not destroy hwAllNetworkPrepareAccountsResponse here,
+        // it will be destroyed in onFinally callback of ServiceBatchCreateAccount
+        // hwAllNetworkPrepareAccountsResponse?.destroy();
       }
-      throw new OneKeyInternalError('SDK GetAllNetworkAccounts Failed');
     }
   }
 }
