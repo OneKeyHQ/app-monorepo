@@ -6,12 +6,12 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
-  Button,
   Icon,
+  IconButton,
   Page,
   SizableText,
   Stack,
-  TextArea,
+  TextAreaInput,
   Toast,
   XStack,
   YStack,
@@ -19,6 +19,7 @@ import {
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { TRANSFER_DEEPLINK_URL } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -26,9 +27,13 @@ import type {
   EScanQrCodeModalPages,
   IScanQrCodeModalParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
+import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ScanQrCode } from '../components';
 import { scanFromURLAsync } from '../utils/scanFromURLAsync';
@@ -47,35 +52,43 @@ function DebugInput({ onText }: { onText: (text: string) => void }) {
   );
   const [visible, setVisible] = useState(false);
 
-  if (process.env.NODE_ENV === 'production') {
-    return null;
-  }
   if (visible) {
     return (
-      <XStack>
-        <Stack flex={1}>
-          <TextArea
-            value={inputText}
-            onChangeText={setInputText}
-            flex={1}
-            placeholder="demo qrcode scan text"
+      <YStack>
+        <XStack>
+          <IconButton
+            onPress={() => navigation.popStack()}
+            icon="CrossedLargeOutline"
+            variant="destructive"
           />
-        </Stack>
-        <Button onPress={() => onText(inputText)} size="small">
-          Confirm
-        </Button>
-        <Button onPress={() => navigation.popStack()} size="small">
-          Close
-        </Button>
-      </XStack>
+          <Stack flex={1} />
+          <IconButton
+            onPress={() => onText(inputText)}
+            icon="CheckLargeOutline"
+          />
+        </XStack>
+        <XStack>
+          <Stack flex={1}>
+            <TextAreaInput
+              value={inputText}
+              onChangeText={setInputText}
+              flex={1}
+              placeholder="demo qrcode scan text"
+              allowClear
+              allowPaste
+            />
+          </Stack>
+        </XStack>
+      </YStack>
     );
   }
   return (
-    <XStack
-      onPress={() => setVisible(true)}
+    <MultipleClickStack
+      triggerAt={process.env.NODE_ENV === 'production' ? 10 : 1}
+      showDevBgColor
       w="$8"
       h="$8"
-      backgroundColor="transparent"
+      onPress={() => setVisible(true)}
     />
   );
 }
@@ -195,6 +208,8 @@ export default function ScanQrCodeModal() {
     showProTutorial,
   } = route.params;
 
+  const navigation = useAppNavigation();
+
   const callback = useCallback(
     async ({
       value,
@@ -211,12 +226,38 @@ export default function ScanQrCodeModal() {
           );
         }
       }
+
+      // Check if the scanned QR code is OneKey transfer URL
+      if (value && value.startsWith(`${TRANSFER_DEEPLINK_URL}`)) {
+        try {
+          const parsedUrl = uriUtils.parseUrl(value);
+          const code = parsedUrl?.urlParamList?.code;
+          const server = parsedUrl?.urlParamList?.server;
+
+          if (code) {
+            // Close the QR code modal first
+            popNavigation();
+
+            // Navigate to Prime Transfer page
+            navigation.pushModal(EModalRoutes.PrimeModal, {
+              screen: EPrimePages.PrimeTransfer,
+              params: {
+                code,
+                server,
+              },
+            });
+
+            return;
+          }
+        } catch (error) {
+          // URL parsing failed, continue with normal flow
+        }
+      }
+
       return routeCallback({ value, popNavigation });
     },
-    [routeCallback],
+    [routeCallback, navigation],
   );
-
-  const navigation = useAppNavigation();
 
   const popNavigation = useCallback(() => {
     navigation.pop();
@@ -261,7 +302,8 @@ export default function ScanQrCodeModal() {
         return {};
       }
       defaultLogger.scanQrCode.readQrCode.readFromCamera(value);
-      return callback({ value, popNavigation });
+      await callback({ value, popNavigation });
+      return {};
     },
     [callback, popNavigation],
   );
@@ -324,11 +366,9 @@ export default function ScanQrCodeModal() {
           showProTutorial={showProTutorial}
         />
       </Page.Body>
-      {platformEnv.isDev ? (
-        <Page.Footer>
-          <DebugInput onText={(value) => callback({ value, popNavigation })} />
-        </Page.Footer>
-      ) : null}
+      <Page.Footer>
+        <DebugInput onText={(value) => callback({ value, popNavigation })} />
+      </Page.Footer>
     </Page>
   );
 }

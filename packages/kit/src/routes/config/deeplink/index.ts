@@ -106,6 +106,9 @@ async function processDeepLinkUrlAccount(
             );
           }
           break;
+        case EOneKeyDeepLinkPath.cross_device_transfer:
+          console.log('TODO implement cross_device_transfer deeplink');
+          break;
         default:
           break;
       }

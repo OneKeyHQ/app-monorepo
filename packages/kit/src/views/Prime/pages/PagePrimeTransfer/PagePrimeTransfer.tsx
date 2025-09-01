@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import axios from 'axios';
 import { noop } from 'lodash';
@@ -8,6 +8,7 @@ import { Button, Dialog, Page } from '@onekeyhq/components';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   EPrimeTransferStatus,
@@ -20,14 +21,11 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { usePrimeTransferExit } from './components/hooks/usePrimeTransferExit';
 import { PrimeTransferDirection } from './components/PrimeTransferDirection';
 import { PrimeTransferExitPrevent } from './components/PrimeTransferExitPrevent';
 import { PrimeTransferHome } from './components/PrimeTransferHome';
-import { PrimeTransferHomeSkeleton } from './components/PrimeTransferHomeSkeleton';
 
 export default function PagePrimeTransfer() {
   const intl = useIntl();
@@ -35,13 +33,25 @@ export default function PagePrimeTransfer() {
   const navigation = useAppNavigation();
   const { exitTransferFlow, disableExitPrevention } = usePrimeTransferExit();
 
-  const [remotePairingCode, setRemotePairingCode] = useState('');
+  const route = useAppRoute<IPrimeParamList, EPrimePages.PrimeTransfer>();
+  const routeParamsCode = route.params?.code;
+  const routeParamsServer = route.params?.server;
 
+  const initialCode = routeParamsCode || '';
+
+  const [remotePairingCode, setRemotePairingCode] = useState(initialCode);
+
+  const isInitialCodeSet = useRef(false);
   useEffect(() => {
     if (primeTransferAtom.status === EPrimeTransferStatus.init) {
-      setRemotePairingCode('');
+      if (!isInitialCodeSet.current) {
+        isInitialCodeSet.current = true;
+        setRemotePairingCode(initialCode);
+      } else {
+        setRemotePairingCode('');
+      }
     }
-  }, [primeTransferAtom.status]);
+  }, [primeTransferAtom.status, initialCode]);
 
   const { result } = usePromiseResult(async () => {
     noop(primeTransferAtom.websocketEndpointUpdatedAt);
@@ -107,6 +117,8 @@ export default function PagePrimeTransfer() {
         <PrimeTransferHome
           remotePairingCode={remotePairingCode}
           setRemotePairingCode={setRemotePairingCode}
+          autoConnect={!!routeParamsCode}
+          autoConnectCustomServer={routeParamsServer || undefined}
         />
       );
     }
@@ -121,7 +133,12 @@ export default function PagePrimeTransfer() {
       );
     }
     return <></>;
-  }, [primeTransferAtom.status, remotePairingCode, setRemotePairingCode]);
+  }, [
+    routeParamsCode,
+    routeParamsServer,
+    primeTransferAtom.status,
+    remotePairingCode,
+  ]);
 
   const debugButtons = useMemo(() => {
     if (process.env.NODE_ENV !== 'production') {
