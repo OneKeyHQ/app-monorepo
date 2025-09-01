@@ -1,6 +1,7 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-const maxDataLength = 100;
+const DEFAULT_MAX_DATA_LENGTH = 2000;
+const NATIVE_TOKEN_MAX_DATA_LENGTH = 200;
 
 export interface ITimeSlice {
   from: number;
@@ -8,10 +9,15 @@ export interface ITimeSlice {
   interval: string;
 }
 
+export interface ISliceRequestOptions {
+  isNativeToken?: boolean;
+}
+
 export function sliceRequest(
   interval: string,
   timeFrom: number,
   timeTo: number,
+  options?: ISliceRequestOptions,
 ): ITimeSlice[] {
   const getIntervalInSeconds = (intervalStr: string): number => {
     const match = intervalStr.match(/^(\d+)([mHDWMy])$/);
@@ -41,6 +47,11 @@ export function sliceRequest(
   };
 
   const intervalSeconds = getIntervalInSeconds(interval);
+
+  // Determine max data length based on token type
+  const maxDataLength = options?.isNativeToken
+    ? NATIVE_TOKEN_MAX_DATA_LENGTH
+    : DEFAULT_MAX_DATA_LENGTH;
 
   // Calculate total data points
   const totalDataPoints = Math.ceil((timeTo - timeFrom) / intervalSeconds);
