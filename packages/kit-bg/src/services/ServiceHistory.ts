@@ -234,7 +234,11 @@ class ServiceHistory extends ServiceBase {
     }
 
     // 4. Fetch the on-chain history
-    const { txs, addressMap } = await this.fetchAccountOnChainHistory({
+    const {
+      txs,
+      addressMap,
+      hasMore: hasMoreOnChainHistory,
+    } = await this.fetchAccountOnChainHistory({
       ...params,
       isAllNetworks,
       accountAddress,
@@ -386,6 +390,7 @@ class ServiceHistory extends ServiceBase {
     });
 
     return {
+      hasMoreOnChainHistory,
       accounts,
       allAccounts,
       txs: result,
@@ -789,6 +794,7 @@ class ServiceHistory extends ServiceBase {
       tokens,
       nfts,
       addressMap,
+      hasMore,
     } = resp.data.data;
 
     const dbAccountCache: {
@@ -818,6 +824,7 @@ class ServiceHistory extends ServiceBase {
     return {
       txs,
       addressMap,
+      hasMore,
     };
   }
 

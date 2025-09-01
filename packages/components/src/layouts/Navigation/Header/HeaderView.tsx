@@ -1,26 +1,34 @@
 import type { ReactNode } from 'react';
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import * as React from 'react';
 
 import { Header } from '@react-navigation/elements';
-import { get } from 'lodash';
+import {
+  useFocusEffect,
+  useIsFocused,
+  useNavigation,
+} from '@react-navigation/native';
 import { useMedia, useTheme } from 'tamagui';
+import { useDebouncedCallback } from 'use-debounce';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useIsModalPage } from '../../../hocs';
 import { Stack, XStack } from '../../../primitives';
 import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
+import { rootNavigationRef } from '../Navigator/NavigationContainer';
 
 import HeaderBackButton from './HeaderBackButton';
 import HeaderSearchBar from './HeaderSearchBar';
 
 import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
+import type { IDesktopDragZoneBoxProps } from '../../DesktopDragZoneBox';
 import type { IStackHeaderProps } from '../ScreenProps';
-import type { Layout } from '@react-navigation/elements';
 import type {
   HeaderBackButtonProps,
   HeaderOptions,
-} from '@react-navigation/elements/src/types';
+  Layout,
+} from '@react-navigation/elements';
 
 function getHeaderTitle(
   options: { title?: string; headerTitle?: HeaderOptions['headerTitle'] },
@@ -33,6 +41,48 @@ function getHeaderTitle(
     ? options?.title
     : fallback;
 }
+
+const DesktopDragZoneBoxView = platformEnv.isDesktop
+  ? ({ disabled, children }: IDesktopDragZoneBoxProps) => {
+      const isModalPage = useIsModalPage();
+
+      const [isFocus, setIsFocus] = useState(true);
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const { getState } = useNavigation();
+
+      const currentRouteName = useMemo(() => {
+        const state = getState?.();
+        return state?.routes?.at(-1)?.name;
+      }, [getState]);
+
+      const handlePageFocus = useDebouncedCallback(() => {
+        setIsFocus(
+          currentRouteName ===
+            rootNavigationRef.current?.getCurrentRoute()?.name,
+        );
+      }, 100);
+
+      const handlePageBlur = useDebouncedCallback(() => {
+        setIsFocus(false);
+      }, 100);
+
+      const handlePageEffect = useCallback(() => {
+        handlePageFocus();
+        return () => {
+          handlePageBlur();
+        };
+      }, [handlePageBlur, handlePageFocus]);
+
+      useFocusEffect(handlePageEffect);
+
+      return (
+        <DesktopDragZoneBox disabled={disabled || !isFocus || isModalPage}>
+          {children}
+        </DesktopDragZoneBox>
+      );
+    }
+  : DesktopDragZoneBox;
 
 function HeaderView({
   back: headerBack,
@@ -61,7 +111,6 @@ function HeaderView({
   const state = navigation?.getState();
   const canGoBack = headerBack !== undefined;
   const topStack = (state?.index ?? 0) === 0;
-  const disableClose = get(options, 'disableClose', false);
 
   const onBackCallback = useCallback(() => {
     if (canGoBack) {
@@ -72,14 +121,17 @@ function HeaderView({
   }, [canGoBack, navigation]);
 
   const headerLeftView = useCallback(
-    (props: HeaderBackButtonProps): ReactNode => {
+    ({
+      canGoBack: canGoBackNative,
+      onPress,
+      ...props
+    }: HeaderBackButtonProps & { canGoBack: boolean }): ReactNode => {
       const headerBackButton = (
         <HeaderBackButton
           canGoBack={!topStack}
           onPress={onBackCallback}
           isRootScreen={isRootScreen}
           isModelScreen={isModelScreen}
-          disableClose={disableClose}
           renderLeft={headerLeft}
           {...props}
         />
@@ -89,14 +141,7 @@ function HeaderView({
         <XStack className="app-region-no-drag">{headerBackButton}</XStack>
       ) : null;
     },
-    [
-      topStack,
-      onBackCallback,
-      isRootScreen,
-      isModelScreen,
-      disableClose,
-      headerLeft,
-    ],
+    [topStack, onBackCallback, isRootScreen, isModelScreen, headerLeft],
   );
 
   const { gtMd } = useMedia();
@@ -118,7 +163,7 @@ function HeaderView({
   }
 
   return (
-    <DesktopDragZoneBox disabled={isModelScreen}>
+    <DesktopDragZoneBoxView disabled={isModelScreen}>
       <Stack
         alignItems="center"
         bg={headerTransparent ? 'transparent' : '$bgApp'}
@@ -153,7 +198,7 @@ function HeaderView({
             layout={layout}
             title={getHeaderTitle(options, route.name)}
             headerTintColor={theme.text.val}
-            headerLeft={headerLeftView}
+            headerLeft={headerLeftView as any}
             headerRightContainerStyle={headerRightContainerStyle}
             headerRight={
               typeof headerRight === 'function'
@@ -199,10 +244,12 @@ function HeaderView({
             onFocus={headerSearchBarOptions?.onFocus}
             onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
             isModalScreen={isModelScreen}
+            addOns={headerSearchBarOptions?.addOns}
+            searchBarInputValue={headerSearchBarOptions?.searchBarInputValue}
           />
         ) : null}
       </Stack>
-    </DesktopDragZoneBox>
+    </DesktopDragZoneBoxView>
   );
 }
 

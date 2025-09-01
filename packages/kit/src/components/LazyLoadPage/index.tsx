@@ -17,7 +17,7 @@ export const LazyLoadPage = (
     }
 
     return (
-      <Stack flex={1} bg="$bgApp">
+      <Stack flex={1} className="LazyLoadPageContainer" bg="$bgApp">
         <LazyLoadComponent {...props} />
       </Stack>
     );

@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, memo, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,13 +7,16 @@ import {
   Page,
   SizableText,
   XStack,
+  rootNavigationRef,
   useMedia,
 } from '@onekeyhq/components';
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabHomeRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -34,6 +37,50 @@ export function HeaderLeftCloseButton() {
   );
 }
 
+function AccountSelectorTriggerWithSpotlight({
+  isFocus,
+  linkNetworkId,
+}: {
+  isFocus: boolean;
+  linkNetworkId?: string;
+}) {
+  const intl = useIntl();
+  const { tourTimes, tourVisited } = useSpotlight(
+    ESpotlightTour.switchDappAccount,
+  );
+  const [isLocked] = useAppIsLockedAtom();
+
+  const spotlightVisible = useMemo(
+    () => tourTimes === 1 && isFocus && !isLocked,
+    [isFocus, isLocked, tourTimes],
+  );
+  return (
+    <AccountSelectorTriggerHome
+      num={0}
+      key="accountSelectorTrigger"
+      linkNetworkId={linkNetworkId}
+      spotlightProps={{
+        visible: spotlightVisible,
+        content: (
+          <SizableText size="$bodyMd">
+            {intl.formatMessage({
+              id: ETranslations.spotlight_account_alignment_desc,
+            })}
+          </SizableText>
+        ),
+        onConfirm: () => {
+          void tourVisited(2);
+        },
+        childrenPaddingVertical: 0,
+      }}
+    />
+  );
+}
+
+const MemoizedAccountSelectorTriggerWithSpotlight = memo(
+  AccountSelectorTriggerWithSpotlight,
+);
+
 export function HeaderLeft({
   sceneName,
   tabRoute,
@@ -43,10 +90,6 @@ export function HeaderLeft({
   tabRoute: ETabRoutes;
   customHeaderLeftItems?: ReactNode;
 }) {
-  const intl = useIntl();
-  const { tourTimes, tourVisited } = useSpotlight(
-    ESpotlightTour.switchDappAccount,
-  );
   const { gtMd } = useMedia();
 
   const [isFocus, setIsFocus] = useState(false);
@@ -57,10 +100,6 @@ export function HeaderLeft({
       setIsFocus(!hideByModal && focus);
     },
   );
-  const spotlightVisible = useMemo(
-    () => tourTimes === 1 && isFocus,
-    [isFocus, tourTimes],
-  );
   const items = useMemo(() => {
     if (customHeaderLeftItems) {
       return customHeaderLeftItems;
@@ -68,34 +107,47 @@ export function HeaderLeft({
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       return (
         <XStack gap="$1.5">
-          <HeaderLeftCloseButton />
+          <NavBackButton
+            onPress={() => {
+              rootNavigationRef.current?.navigate(
+                ETabRoutes.Home,
+                {
+                  screen: ETabHomeRoutes.TabHome,
+                },
+                {
+                  pop: true,
+                },
+              );
+            }}
+          />
           {platformEnv.isNativeIOS ? <UrlAccountPageHeader /> : null}
         </XStack>
       );
     }
 
+    let linkNetworkId: string | undefined;
+    if (tabRoute === ETabRoutes.WebviewPerpTrade) {
+      linkNetworkId = presetNetworksMap.arbitrum.id;
+    }
+
     const accountSelectorTrigger = (
-      <AccountSelectorTriggerHome
-        num={0}
-        key="accountSelectorTrigger"
-        spotlightProps={{
-          visible: spotlightVisible,
-          content: (
-            <SizableText size="$bodyMd">
-              {intl.formatMessage({
-                id: ETranslations.spotlight_account_alignment_desc,
-              })}
-            </SizableText>
-          ),
-          onConfirm: () => {
-            void tourVisited(2);
-          },
-          childrenPaddingVertical: 0,
-        }}
+      <MemoizedAccountSelectorTriggerWithSpotlight
+        isFocus={isFocus}
+        linkNetworkId={linkNetworkId}
       />
     );
 
     if (tabRoute === ETabRoutes.Discovery) {
+      return (
+        <SizableText size="$headingLg">
+          {/* {intl.formatMessage({
+            id: ETranslations.global_browser,
+          })} */}
+        </SizableText>
+      );
+    }
+
+    if (tabRoute === ETabRoutes.WebviewPerpTrade) {
       return (
         <SizableText size="$headingLg">
           {/* {intl.formatMessage({
@@ -123,15 +175,7 @@ export function HeaderLeft({
         />
       </XStack>
     );
-  }, [
-    gtMd,
-    intl,
-    sceneName,
-    spotlightVisible,
-    tabRoute,
-    tourVisited,
-    customHeaderLeftItems,
-  ]);
+  }, [customHeaderLeftItems, sceneName, isFocus, tabRoute, gtMd]);
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}

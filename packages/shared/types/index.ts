@@ -80,6 +80,7 @@ export enum EAccountSelectorSceneName {
   discover = 'discover',
   addressInput = 'addressInput', // test Gallery AddressInput test
   market = 'market',
+  rewardCenter = 'rewardCenter',
 }
 
 export enum EAccountSelectorAutoSelectTriggerBy {
@@ -111,4 +112,5 @@ export enum EHardwareTransportType {
   BLE = 'ble',
   WEBUSB = 'webusb',
   Bridge = 'bridge',
+  DesktopWebBle = 'desktop-web-ble',
 }

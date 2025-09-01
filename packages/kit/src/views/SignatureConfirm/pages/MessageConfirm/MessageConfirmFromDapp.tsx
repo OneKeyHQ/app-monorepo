@@ -21,7 +21,7 @@ import type {
 
 function MessageConfirmFromDapp() {
   const navigation = useNavigation();
-  const pendingAction = useRef<StackActionType>();
+  const pendingAction = useRef<StackActionType>(undefined);
   const {
     $sourceInfo,
     unsignedMessage,

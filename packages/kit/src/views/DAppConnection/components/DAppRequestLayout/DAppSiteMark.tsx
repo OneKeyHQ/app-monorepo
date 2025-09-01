@@ -79,20 +79,17 @@ function DAppSiteMark({
   return (
     <XStack alignItems="center" alignSelf="flex-start" gap="$1.5">
       <Image
-        w="$5"
-        h="$5"
+        size="$5"
         bg="$bgSubdued"
         borderRadius={6}
         borderCurve="continuous"
-      >
-        <Image.Source source={{ uri: favicon || faviconUri }} />
-        <Image.Fallback>
-          <Icon size="$5" name="GlobusOutline" color="$iconSubdued" />
-        </Image.Fallback>
-        <Image.Loading>
-          <Skeleton width="100%" height="100%" />
-        </Image.Loading>
-      </Image>
+        source={{ uri: favicon || faviconUri }}
+        fallback={
+          <Image.Fallback>
+            <Icon size="$5" name="GlobusOutline" color="$iconSubdued" />
+          </Image.Fallback>
+        }
+      />
       <SizableText
         size="$bodyMd"
         color={riskyStyle.textColor}

@@ -2,7 +2,11 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IIconButtonProps, IStackProps } from '@onekeyhq/components';
+import type {
+  IIconButtonProps,
+  IStackProps,
+  IXStackProps,
+} from '@onekeyhq/components';
 import { IconButton, useMedia } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
@@ -124,7 +128,7 @@ function BasicMarketStar({
         color: checked ? '$iconActive' : '$iconDisabled',
       }}
       onPress={onPress}
-      {...props}
+      {...(props as IXStackProps)}
     />
   );
 }

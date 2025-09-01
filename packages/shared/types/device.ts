@@ -194,6 +194,12 @@ export type IResourceUpdateInfo = {
   limitVersion?: string;
 };
 
+export type IDeviceHomeScreen = {
+  deviceId: string;
+  imgBase64: string;
+  name: string;
+};
+
 export type IQrWalletDevice = {
   name: string; // device name like: 'OneKey Pro'
   // TODO deviceType
@@ -380,3 +386,13 @@ export type IFirmwareUpdateV3VersionParams = {
   firmwareVersion: string | undefined;
   bootloaderVersion: string | undefined;
 };
+
+export enum EHardwareCallContext {
+  USER_INTERACTION = 'user_interaction',
+  USER_INTERACTION_NO_BLE_DIALOG = 'user_interaction_no_ble_dialog',
+  BACKGROUND_TASK = 'background_task',
+  SDK_INITIALIZATION = 'sdk_initialization',
+  SILENT_CALL = 'silent_call',
+}
+
+export type IHardwareCallContext = EHardwareCallContext;

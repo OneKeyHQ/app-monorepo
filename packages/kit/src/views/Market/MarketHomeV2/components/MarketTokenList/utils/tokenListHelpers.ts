@@ -45,28 +45,35 @@ export function transformApiItemToToken(
     chainId,
     networkLogoUri,
     index,
+    sortIndex,
   }: {
     chainId: string;
     networkLogoUri: string;
     index?: number;
+    sortIndex?: number;
   },
 ): IMarketToken {
+  // Normalize address: treat short addresses (< 15 chars) as empty strings for native tokens
+  const normalizedAddress = item.address.length < 15 ? '' : item.address;
+
   return {
-    id: item.address || `${index ?? 0}`,
+    id: normalizedAddress || `${index ?? 0}`,
     name: item.name,
     symbol: item.symbol,
-    address: item.address,
+    address: normalizedAddress,
     price: safeNumber(item.price),
     change24h: safeNumber(item.priceChange24hPercent),
     marketCap: safeNumber(item.marketCap),
-    liquidity: safeNumber(item.tvl),
+    liquidity: safeNumber(item.liquidity),
     transactions: safeNumber(item.trade24hCount),
     uniqueTraders: safeNumber(item.uniqueWallet24h),
     holders: item.holders || 0,
     turnover: safeNumber(item.volume24h),
     tokenImageUri: item.logoUrl || '',
     networkLogoUri,
+    networkId: item.networkId || chainId,
     chainId,
+    sortIndex,
     walletInfo: {
       buy: safeNumber(item.buy24hCount),
       sell: safeNumber(item.sell24hCount),

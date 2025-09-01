@@ -312,7 +312,7 @@ function MobileTabListModal() {
               {
                 label: intl.formatMessage({ id: ETranslations.explore_share }),
                 icon: 'ShareOutline',
-                onPress: () => handleShare(tab.url),
+                onPress: () => handleShare(tab.displayUrl ?? tab.url),
                 testID: 'action-list-item-share',
               },
             ].filter(Boolean) as IActionListItemProps[],
@@ -418,7 +418,7 @@ function MobileTabListModal() {
   }, [pinnedData, renderPinnedItem, pinInitialScrollIndex]);
 
   return (
-    <Page>
+    <Page lazyLoad>
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.explore_tabs_count },

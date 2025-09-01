@@ -1,0 +1,16 @@
+diff --git a/node_modules/@react-navigation/elements/lib/module/useFrameSize.js b/node_modules/@react-navigation/elements/lib/module/useFrameSize.js
+index af9105b..9a886fa 100644
+--- a/node_modules/@react-navigation/elements/lib/module/useFrameSize.js
++++ b/node_modules/@react-navigation/elements/lib/module/useFrameSize.js
+@@ -9,9 +9,10 @@ import useLatestCallback from 'use-latest-callback';
+ import { useSyncExternalStoreWithSelector } from 'use-sync-external-store/with-selector';
+ 
+ // Load with require to avoid error from webpack due to missing export in older versions
++const SafeAreaListener = undefined;
++
+ // eslint-disable-next-line import-x/no-commonjs
+ import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-runtime";
+-const SafeAreaListener = require('react-native-safe-area-context').SafeAreaListener;
+ const FrameContext = /*#__PURE__*/React.createContext(undefined);
+ export function useFrameSize(selector, throttle) {
+   const context = React.useContext(FrameContext);

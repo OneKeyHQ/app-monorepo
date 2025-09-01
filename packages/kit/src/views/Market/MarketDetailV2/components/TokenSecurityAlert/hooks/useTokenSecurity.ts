@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 
-import { analyzeSecurityData } from '../utils';
+import { analyzeSecurityData, formatSecurityData } from '../utils';
 
 import type {
   IUseTokenSecurityParams,
@@ -39,14 +39,30 @@ export const useTokenSecurity = ({
     },
   );
 
-  const { securityStatus, warningCount } = useMemo(() => {
+  if (
+    securityData &&
+    'trusted_token' in securityData &&
+    securityData.trusted_token?.value === false
+  ) {
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+    Reflect.deleteProperty(securityData, 'trusted_token');
+  }
+
+  const { securityStatus, warningCount, formattedData } = useMemo(() => {
     const { status, count } = analyzeSecurityData(securityData);
-    return { securityStatus: status, warningCount: count };
+    const formatted = formatSecurityData(securityData);
+
+    return {
+      securityStatus: status,
+      warningCount: count,
+      formattedData: formatted,
+    };
   }, [securityData]);
 
   return {
     securityData,
     securityStatus,
     warningCount,
+    formattedData,
   };
 };

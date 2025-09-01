@@ -25,70 +25,110 @@ export const generateConnectSrc = () => {
   return connectSrc;
 };
 
-export const getHardwareSDKInstance = memoizee(
-  async (params: {
-    isPreRelease: boolean;
-    hardwareConnectSrc?: EOnekeyDomain;
-    debugMode?: boolean;
-    hardwareTransportType?: EHardwareTransportType;
-  }) =>
-    // eslint-disable-next-line no-async-promise-executor
-    new Promise<CoreApi>(async (resolve, reject) => {
-      if (HardwareSDK) {
-        resolve(HardwareSDK); // TODO cache conflict with memoizee?
-        return;
+// Clean up current SDK instance and its event listeners
+export const cleanupHardwareSDKInstance = async (): Promise<void> => {
+  if (HardwareSDK) {
+    try {
+      // Remove all event listeners
+      if (typeof HardwareSDK.removeAllListeners === 'function') {
+        // @ts-expect-error
+        HardwareSDK.removeAllListeners();
       }
 
-      const env =
-        params.hardwareTransportType === EHardwareTransportType.WEBUSB
-          ? ('webusb' as const)
-          : undefined;
+      // Dispose SDK instance
+      if (typeof HardwareSDK.dispose === 'function') {
+        HardwareSDK.dispose();
+      }
 
-      const settings: Partial<ConnectSettings> = {
-        debug: params.debugMode,
-        fetchConfig: true,
-        env,
-      };
+      // Clear SDK references
+      HardwareSDK = undefined as any;
+      HardwareLowLevelSDK = undefined as any;
 
-      HardwareSDK = await importHardwareSDK({
-        hardwareTransportType: params.hardwareTransportType,
-      });
+      console.log('HardwareSDK instance cleaned up');
+    } catch (error) {
+      console.error('Error cleaning up HardwareSDK instance:', error);
+    }
+  }
+};
 
-      if (!platformEnv.isNative) {
-        let connectSrc = generateConnectSrc();
-        if (platformEnv.isDesktop) {
-          const { sdkConnectSrc } = globalThis.ONEKEY_DESKTOP_GLOBALS ?? {};
-          if (sdkConnectSrc) {
-            connectSrc = sdkConnectSrc;
-          }
+const createHardwareSDKInstance = async (params: {
+  isPreRelease: boolean;
+  hardwareConnectSrc?: EOnekeyDomain;
+  debugMode?: boolean;
+  hardwareTransportType?: EHardwareTransportType;
+}) =>
+  // eslint-disable-next-line no-async-promise-executor
+  new Promise<CoreApi>(async (resolve, reject) => {
+    // Clean up previous instance if exists
+    if (HardwareSDK) {
+      await cleanupHardwareSDKInstance();
+    }
+
+    let env: undefined | ConnectSettings['env'];
+    if (params.hardwareTransportType === EHardwareTransportType.WEBUSB) {
+      env = 'webusb' as const;
+    } else if (
+      params.hardwareTransportType === EHardwareTransportType.DesktopWebBle
+    ) {
+      env = 'desktop-web-ble' as const;
+    }
+
+    const settings: Partial<ConnectSettings> = {
+      debug: params.debugMode,
+      fetchConfig: true,
+      env,
+    };
+
+    HardwareSDK = await importHardwareSDK({
+      hardwareTransportType: params.hardwareTransportType,
+    });
+
+    if (!platformEnv.isNative) {
+      let connectSrc = generateConnectSrc();
+      if (platformEnv.isDesktop) {
+        const { sdkConnectSrc } = globalThis.ONEKEY_DESKTOP_GLOBALS ?? {};
+        if (sdkConnectSrc) {
+          connectSrc = sdkConnectSrc;
         }
-        settings.connectSrc = connectSrc;
-        HardwareLowLevelSDK = await importHardwareSDKLowLevel();
-        if (platformEnv.isExtensionBackgroundServiceWorker) {
-          // addHardwareGlobalEventListener in ext offscreen
-        } else {
-          HardwareLowLevelSDK?.addHardwareGlobalEventListener((eventParams) => {
-            HardwareSDK.emit(eventParams.event, { ...eventParams });
-          });
-        }
       }
-
-      settings.preRelease = params.isPreRelease;
-
-      try {
-        await HardwareSDK.init(settings, HardwareLowLevelSDK);
-        // debugLogger.hardwareSDK.info('HardwareSDK initialized success');
-        console.log('HardwareSDK initialized success');
-        resolve(HardwareSDK);
-      } catch (e) {
-        reject(e);
+      settings.connectSrc = connectSrc;
+      HardwareLowLevelSDK = await importHardwareSDKLowLevel();
+      if (platformEnv.isExtensionBackgroundServiceWorker) {
+        // addHardwareGlobalEventListener in ext offscreen
+      } else {
+        HardwareLowLevelSDK?.addHardwareGlobalEventListener((eventParams) => {
+          HardwareSDK.emit(eventParams.event, { ...eventParams });
+        });
       }
-    }),
-  {
-    promise: true,
-    max: 1,
-  },
-);
+    }
+
+    settings.preRelease = params.isPreRelease;
+
+    try {
+      await HardwareSDK.init(settings, HardwareLowLevelSDK);
+      // debugLogger.hardwareSDK.info('HardwareSDK initialized success');
+      console.log('HardwareSDK initialized success');
+      resolve(HardwareSDK);
+    } catch (e) {
+      reject(e);
+    }
+  });
+
+export const getHardwareSDKInstance = memoizee(createHardwareSDKInstance, {
+  promise: true,
+  max: 1,
+});
+
+// Reset SDK instance by clearing memoizee cache and cleaning up
+export const resetHardwareSDKInstance = async (): Promise<void> => {
+  // Clear memoizee cache
+  getHardwareSDKInstance.clear();
+
+  // Clean up current instance
+  await cleanupHardwareSDKInstance();
+
+  console.log('HardwareSDK instance reset completed');
+};
 
 export const CoreSDKLoader = async () => import('@onekeyfe/hd-core');
 

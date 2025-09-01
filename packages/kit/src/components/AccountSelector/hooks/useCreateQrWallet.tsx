@@ -135,7 +135,7 @@ export function useCreateQrWallet() {
   //   [],
   // );
 
-  const createQrWalletByAccount = useCallback(
+  const createQrWalletAccount = useCallback(
     async ({
       walletId,
       networkId,
@@ -185,6 +185,6 @@ export function useCreateQrWallet() {
   return {
     createQrWallet,
     createQrWalletByUr,
-    createQrWalletByAccount,
+    createQrWalletAccount,
   };
 }

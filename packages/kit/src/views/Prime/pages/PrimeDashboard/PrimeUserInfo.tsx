@@ -9,11 +9,9 @@ import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { PrimeUserInfoMoreButton } from './PrimeUserInfoMoreButton';
 
 export function PrimeUserInfo({
-  doPurchase,
   onLogoutSuccess,
   ...stackProps
 }: {
-  doPurchase?: () => Promise<void>;
   onLogoutSuccess?: () => Promise<void>;
 } & ComponentProps<typeof XStack>) {
   const { user } = usePrimeAuthV2();
@@ -59,10 +57,7 @@ export function PrimeUserInfo({
         //   })}
         // </Badge>
       }
-      <PrimeUserInfoMoreButton
-        doPurchase={doPurchase}
-        onLogoutSuccess={onLogoutSuccess}
-      />
+      <PrimeUserInfoMoreButton onLogoutSuccess={onLogoutSuccess} />
     </XStack>
   );
 }

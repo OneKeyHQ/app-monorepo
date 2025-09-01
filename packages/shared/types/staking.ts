@@ -1,11 +1,14 @@
 import type {
   ColorTokens,
+  IAlertType,
   IBadgeType,
   IButtonProps,
   IKeyOfIcons,
 } from '@onekeyhq/components';
+import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
 
 import type { INetworkAccount } from './account';
+import type { IEarnAvailableAssetAprInfo } from './earn';
 import type { IFetchTokenDetailItem, IToken } from './token';
 import type { ESpotlightTour } from '../src/spotlight';
 import type { FontSizeTokens } from 'tamagui';
@@ -19,6 +22,27 @@ export enum ECheckAmountActionType {
   STAKING = 'stake',
   UNSTAKING = 'unstake',
   CLAIM = 'claim',
+}
+
+export interface IEarnAlertButton {
+  text: {
+    text: string;
+    color?: string;
+    size?: FontSizeTokens;
+  };
+  type: string;
+  disabled: boolean;
+  data: {
+    link: string;
+  };
+}
+
+export interface ICheckAmountAlert {
+  type: IAlertType;
+  text: {
+    text: string;
+  };
+  button?: IEarnAlertButton;
 }
 
 // export type IStakeTag = 'lido-eth' | 'lido-matic';
@@ -119,7 +143,7 @@ export type IStakeBaseParams = {
   feeRate?: number;
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
-  morphoVault?: string; // morpho vault
+  protocolVault?: string; // protocol vault
   approveType?: EApproveType;
   permitSignature?: string;
 
@@ -138,7 +162,7 @@ export type IWithdrawBaseParams = {
   identity?: string; // sol pubkey
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
-  morphoVault?: string; // morpho vault
+  protocolVault?: string; // protocol vault
   withdrawAll?: boolean;
 };
 
@@ -176,7 +200,7 @@ export type IStakeHistoryParams = {
   networkId: string;
   symbol: string;
   provider: string;
-  morphoVault?: string;
+  protocolVault?: string;
 };
 
 export type IStakeHistory = {
@@ -227,7 +251,8 @@ export type IStakeTx =
   | IStakeTxBtcBabylon
   | IStakeTxEthEvertStake
   | IStakeTxEthLido
-  | IStakeTxCosmosAmino;
+  | IStakeTxCosmosAmino
+  | IStakeTxSui;
 
 export type IStakeTxResponse = {
   tx: IStakeTx;
@@ -274,6 +299,8 @@ export type IStakeTxCosmosAmino = {
   }[];
   readonly memo: string;
 };
+
+export type IStakeTxSui = string;
 
 export type IEarnTokenItem = {
   balance: string;
@@ -325,6 +352,7 @@ export type IProtocolInfo = {
   maxUnstakeAmount?: string;
   minUnstakeAmount?: string;
   claimable?: string;
+  remainingCap?: string;
 };
 
 export interface IEarnToken {
@@ -403,7 +431,7 @@ export interface IEarnPopupActionIcon {
   data: {
     bulletList?: IEarnText[];
     icon?: IEarnIcon;
-    description?: IEarnText;
+    description?: IEarnText[];
     panel?: {
       title: IEarnText;
       description: IEarnText;
@@ -424,6 +452,7 @@ export interface IEarnLinkActionIcon {
   type: 'link';
   data: {
     link: string;
+    showIntercom?: boolean;
   };
   icon?: IEarnIcon;
   disabled?: boolean;
@@ -518,6 +547,7 @@ export interface IEarnClaimWithKycActionIcon {
     title?: IEarnText;
     description?: IEarnText[];
     button?: IEarnActionIcon;
+    tone?: IDialogProps['tone'];
   };
 }
 
@@ -656,6 +686,13 @@ export interface IEarnAlert {
   alert: string;
   key: ESpotlightTour;
   badge: IBadgeType;
+  button?: IEarnAlertButton;
+}
+
+export interface IEarnRiskNoticeDialog {
+  title: IEarnText;
+  description: IEarnText;
+  checkboxes: IEarnText[];
 }
 
 export interface IStakeEarnDetail {
@@ -726,6 +763,7 @@ export interface IStakeEarnDetail {
     maxUnstakeAmount: string;
     minTransactionFee: string;
     claimable: string;
+    remainingCap: string;
   };
   managers?: {
     items: {
@@ -750,6 +788,7 @@ export interface IStakeEarnDetail {
       };
     }[];
   };
+  riskNoticeDialog?: Record<string, IEarnRiskNoticeDialog>;
 }
 
 export interface IEarnProvider {
@@ -761,6 +800,7 @@ export interface IEarnProvider {
 
 export interface IStakeTransactionConfirmation {
   title: IEarnText;
+  tooltip?: IEarnTooltip;
   rewards: Array<{
     title: IEarnText;
     description: IEarnText;
@@ -840,6 +880,7 @@ export type IStakeProtocolListItem = {
     logoURI: string;
   };
   isEarning: boolean;
+  aprInfo?: IEarnAvailableAssetAprInfo;
 };
 
 export type IRewardApys = {

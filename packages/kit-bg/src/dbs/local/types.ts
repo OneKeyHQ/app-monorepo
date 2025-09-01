@@ -16,12 +16,14 @@ import type {
   IndexedDBPromised,
 } from '@onekeyhq/shared/src/IndexedDBPromised';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
+import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
   INetworkAccount,
   IQrWalletAirGapAccount,
   IQrWalletAirGapAccountsInfo,
 } from '@onekeyhq/shared/types/account';
 import type {
+  IDeviceHomeScreen,
   IOneKeyDeviceFeatures,
   IQrWalletDevice,
 } from '@onekeyhq/shared/types/device';
@@ -44,6 +46,7 @@ import type { RealmSchemaCloudSyncItem } from './realm/schemas/RealmSchemaCloudS
 import type { RealmSchemaContext } from './realm/schemas/RealmSchemaContext';
 import type { RealmSchemaCredential } from './realm/schemas/RealmSchemaCredential';
 import type { RealmSchemaDevice } from './realm/schemas/RealmSchemaDevice';
+import type { RealmSchemaHardwareHomeScreen } from './realm/schemas/RealmSchemaHardwareHomeScreen';
 import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
@@ -142,6 +145,7 @@ export type IDBWallet = IDBBaseObjectWithName & {
   // };
   nextIds: IDBWalletNextIds;
   associatedDevice?: string; // alias to `dbDeviceId`
+  associatedDeviceInfo?: IDBDevice; // readonly field
   avatar?: IDBAvatar;
   avatarInfo?: IAvatarInfo; // readonly field
   hiddenWallets?: IDBWallet[]; // readonly field
@@ -178,12 +182,14 @@ export type IDBCreateHwWalletParamsBase = {
   hideCheckingDeviceLoading?: boolean;
   defaultIsTemp?: boolean;
   isMockedStandardHwWallet?: boolean;
+  isAttachPinMode?: boolean;
 };
 export type IDBCreateHwWalletParams = IDBCreateHwWalletParamsBase & {
   passphraseState?: string;
   xfp?: string;
   getFirstEvmAddressFn?: () => Promise<string | null>;
   fillingXfpByCallingSdk?: boolean;
+  transportType?: EHardwareTransportType; // Transport type used for this connection
 };
 
 export type IDBCreateQRWalletParams = {
@@ -352,6 +358,10 @@ export type IDBDevice = IDBBaseObjectWithName & {
   createdAt: number;
   updatedAt: number;
   verifiedAtVersion?: string;
+
+  // New fields for USB/BLE connection support
+  usbConnectId?: string; // USB connection ID (serial number)
+  bleConnectId?: string; // BLE connection ID (MAC address)
 };
 export type IDBUpdateDeviceSettingsParams = {
   dbDeviceId: string;
@@ -377,6 +387,10 @@ export type IDBSignedTransaction = IDBBaseObject &
 
 export type IDBConnectedSite = IDBBaseObject &
   IBaseConnectedSite &
+  IBaseCreatedAt;
+
+export type IDBHardwareHomeScreen = IDBBaseObject &
+  IDeviceHomeScreen &
   IBaseCreatedAt;
 
 // ---------------------------------------------- prime cloud sync
@@ -412,6 +426,7 @@ export interface ILocalDBSchemaMap {
   [ELocalDBStoreNames.SignedTransaction]: IDBSignedTransaction;
   [ELocalDBStoreNames.ConnectedSite]: IDBConnectedSite;
   [ELocalDBStoreNames.CloudSyncItem]: IDBCloudSyncItem;
+  [ELocalDBStoreNames.HardwareHomeScreen]: IDBHardwareHomeScreen;
 }
 
 export interface IRealmDBSchemaMap {
@@ -427,6 +442,7 @@ export interface IRealmDBSchemaMap {
   [ELocalDBStoreNames.SignedTransaction]: IDBSignedTransaction;
   [ELocalDBStoreNames.ConnectedSite]: IDBConnectedSite;
   [ELocalDBStoreNames.CloudSyncItem]: RealmSchemaCloudSyncItem;
+  [ELocalDBStoreNames.HardwareHomeScreen]: RealmSchemaHardwareHomeScreen;
 }
 
 export type IIndexedBucketsMap = Record<
@@ -498,6 +514,10 @@ export interface IIndexedDBSchemaMap extends DBSchema {
   [ELocalDBStoreNames.CloudSyncItem]: {
     key: string;
     value: IDBCloudSyncItem;
+  };
+  [ELocalDBStoreNames.HardwareHomeScreen]: {
+    key: string;
+    value: IDBHardwareHomeScreen;
   };
 }
 
@@ -574,6 +594,12 @@ export type ILocalDBTransactionStores = {
     ELocalDBStoreNames.CloudSyncItem,
     'readwrite'
   >;
+  [ELocalDBStoreNames.HardwareHomeScreen]: IndexedDBObjectStorePromised<
+    IIndexedDBSchemaMap,
+    ELocalDBStoreNames.HardwareHomeScreen[],
+    ELocalDBStoreNames.HardwareHomeScreen,
+    'readwrite'
+  >;
 };
 
 // TODO generic type of bucketName
@@ -617,6 +643,12 @@ export interface ILocalDBGetRecordByIdParams<T extends ELocalDBStoreNames> {
 export type ILocalDBGetRecordByIdResult<T extends ELocalDBStoreNames> =
   ILocalDBRecord<T>;
 
+// GetRecordIds
+export interface ILocalDBGetRecordIdsParams<T extends ELocalDBStoreNames> {
+  name: T;
+}
+export type ILocalDBGetRecordIdsResult = string[];
+
 // GetRecords
 export type ILocalDBGetRecordsQuery = {
   limit?: number;
@@ -658,6 +690,13 @@ export interface ILocalDBGetRecordsByIdsResult<T extends ELocalDBStoreNames> {
   records: Array<ILocalDBRecord<T> | null | undefined>;
   // recordPairs is only available of txGetAllRecords()
 }
+
+// GetRecordIds
+export interface ILocalDBTxGetRecordIdsParams<T extends ELocalDBStoreNames> {
+  tx: ILocalDBTransaction;
+  name: T;
+}
+export type ILocalDBTxGetRecordIdsResult = string[];
 
 // UpdateRecords
 export interface ILocalDBTxUpdateRecordsParams<T extends ELocalDBStoreNames> {
@@ -735,6 +774,10 @@ export interface ILocalDBAgent {
     params: ILocalDBGetRecordByIdParams<T>,
   ): Promise<ILocalDBGetRecordByIdResult<T>>;
 
+  getRecordIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBGetRecordIdsParams<T>,
+  ): Promise<ILocalDBGetRecordIdsResult>;
+
   txGetRecordsCount<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetRecordsCountParams<T>,
   ): Promise<ILocalDBGetRecordsCountResult>;
@@ -750,6 +793,10 @@ export interface ILocalDBAgent {
   txGetRecordById<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetRecordByIdParams<T>,
   ): Promise<ILocalDBTxGetRecordByIdResult<T>>;
+
+  txGetRecordIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBTxGetRecordIdsParams<T>,
+  ): Promise<ILocalDBGetRecordIdsResult>;
 
   // TODO batch update/add/remove
   txUpdateRecords<T extends ELocalDBStoreNames>(

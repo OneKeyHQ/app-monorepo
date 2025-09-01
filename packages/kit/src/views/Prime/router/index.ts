@@ -12,9 +12,16 @@ const PrimeCloudSync = LazyLoadPage(() => import('../pages/PrimeCloudSync'));
 const PrimeCloudSyncDebug = LazyLoadPage(
   () => import('../pages/PrimeCloudSync/PagePrimeCloudSyncDebug'),
 );
+const PrimeCloudSyncInfo = LazyLoadPage(
+  () => import('../pages/PrimeCloudSync/PagePrimeCloudSyncInfo'),
+);
 const PrimeFeatures = LazyLoadPage(() => import('../pages/PrimeFeatures'));
 const PrimeDeleteAccount = LazyLoadPage(
   () => import('../pages/PrimeDeleteAccount'),
+);
+const PrimeTransfer = LazyLoadPage(() => import('../pages/PagePrimeTransfer'));
+const PrimeTransferPreview = LazyLoadPage(
+  () => import('../pages/PagePrimeTransfer/PagePrimeTransferPreview'),
 );
 
 export const PrimeRouter: IModalFlowNavigatorConfig<
@@ -41,6 +48,10 @@ export const PrimeRouter: IModalFlowNavigatorConfig<
     component: PrimeCloudSyncDebug,
   },
   {
+    name: EPrimePages.PrimeCloudSyncInfo,
+    component: PrimeCloudSyncInfo,
+  },
+  {
     name: EPrimePages.PrimeFeatures,
     component: PrimeFeatures,
     options: {
@@ -50,5 +61,13 @@ export const PrimeRouter: IModalFlowNavigatorConfig<
   {
     name: EPrimePages.PrimeDeleteAccount,
     component: PrimeDeleteAccount,
+  },
+  {
+    name: EPrimePages.PrimeTransfer,
+    component: PrimeTransfer,
+  },
+  {
+    name: EPrimePages.PrimeTransferPreview,
+    component: PrimeTransferPreview,
   },
 ];

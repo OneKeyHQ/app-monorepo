@@ -12,7 +12,8 @@ import type {
   IButtonProps,
   IKeyOfIcons,
   IStackProps,
-  IStackStyle,
+  IXStackProps,
+  IYStackProps,
 } from '../../primitives';
 import type { UseFormProps, useForm } from 'react-hook-form';
 import type {
@@ -43,7 +44,7 @@ export interface IDialogFooterProps extends PropsWithChildren {
   tone?: 'default' | 'destructive' | 'warning' | 'success' | 'info';
   trackID?: string;
   showFooter?: boolean;
-  footerProps?: Omit<IStackProps, 'children'>;
+  footerProps?: Omit<IXStackProps, 'children'>;
   contentContainerProps?: Omit<IStackProps, 'children'>;
   showExitButton?: boolean;
   showConfirmButton?: boolean;
@@ -85,12 +86,13 @@ interface IBasicDialogProps extends TMDialogProps {
   /* estimatedContentHeight is a single numeric value that hints Dialog about the approximate size of the content before they're rendered.  */
   estimatedContentHeight?: number;
   renderContent?: ReactNode;
+  // close on overlay or backdrop press
   dismissOnOverlayPress?: TMSheetProps['dismissOnOverlayPress'];
   sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
-  sheetOverlayProps?: IStackStyle;
+  sheetOverlayProps?: IYStackProps;
   floatingPanelProps?: TMDialogContentProps;
   contextValue?: IDialogContextType;
-  disableDrag?: boolean;
+  disableDrag?: boolean; // disable drag gesture to close
   testID?: string;
   onConfirm?: IOnDialogConfirm;
   onCancel?: (close: () => Promise<void>) => void;

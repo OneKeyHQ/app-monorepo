@@ -27,9 +27,10 @@ import type { GetProps } from 'tamagui';
 type IBasicNavigationContainerProps = GetProps<typeof RNNavigationContainer>;
 export type INavigationContainerProps = Partial<IBasicNavigationContainerProps>;
 export const rootNavigationRef = createRef<NavigationContainerRef<any>>();
-
 // for background open modal
-appGlobals.$navigationRef = rootNavigationRef;
+appGlobals.$navigationRef = rootNavigationRef as MutableRefObject<
+  NavigationContainerRef<any>
+>;
 
 export type IRouterChangeEvent = INavigationContainerProps['onStateChange'];
 const RouterEventContext = createContext<
@@ -75,6 +76,7 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
 
   const themeOptions = useMemo(() => {
     return {
+      fonts: DefaultTheme.fonts,
       dark: themeName === 'dark',
       colors: {
         ...(themeName === 'dark' ? DarkTheme : DefaultTheme).colors,
@@ -84,6 +86,7 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
       },
     };
   }, [theme.bgApp.val, themeName]);
+
   return (
     <RNNavigationContainer
       {...props}

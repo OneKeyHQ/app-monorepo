@@ -8,10 +8,10 @@ require File.join(File.dirname(`node --print "require.resolve('react-native-perm
 require 'json'
 podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json'))) rescue {}
 
-ENV['RCT_NEW_ARCH_ENABLED'] = podfile_properties['newArchEnabled'] == 'true' ? '1' : '0'
+ENV['RCT_NEW_ARCH_ENABLED'] = '1'
 ENV['EX_DEV_CLIENT_NETWORK_INSPECTOR'] = podfile_properties['EX_DEV_CLIENT_NETWORK_INSPECTOR']
 
-platform :ios, podfile_properties['ios.deploymentTarget'] || '13.4'
+platform :ios, podfile_properties['ios.deploymentTarget'] || '15.5'
 install! 'cocoapods',
   :deterministic_uuids => false
 
@@ -41,30 +41,6 @@ setup_permissions([
   # 'StoreKit',
 ])
 
-# If you are using a `react-native-flipper` your iOS build will fail when `NO_FLIPPER=1` is set.
-# because `react-native-flipper` depends on (FlipperKit,...), which will be excluded. To fix this,
-# you can also exclude `react-native-flipper` in `react-native.config.js`
-#
-# ```js
-# module.exports = {
-#   dependencies: {
-#     ...(process.env.NO_FLIPPER ? { 'react-native-flipper': { platforms: { ios: null } } } : {}),
-#   }
-# }
-# ```
-flipper_config = FlipperConfiguration.disabled
-# if ENV['NO_FLIPPER'] == '1' then
-#   # Explicitly disabled through environment variables
-#   flipper_config = FlipperConfiguration.disabled
-# elsif podfile_properties.key?('ios.flipper') then
-#   # Configure Flipper in Podfile.properties.json
-#   if podfile_properties['ios.flipper'] == 'true' then
-#     flipper_config = FlipperConfiguration.enabled(["Debug"])
-#   elsif podfile_properties['ios.flipper'] != 'false' then
-#     flipper_config = FlipperConfiguration.enabled(["Debug"], { 'Flipper' => podfile_properties['ios.flipper'] })
-#   end
-# end
-
 target 'OneKeyWallet' do
   use_expo_modules!
   config = use_native_modules!
@@ -82,8 +58,6 @@ target 'OneKeyWallet' do
     :fabric_enabled => flags[:fabric_enabled],
     # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/..",
-    # Note that if you have use_frameworks! enabled, Flipper will not work if enabled
-    :flipper_configuration => flipper_config
   )
 
   post_install do |installer|
@@ -140,17 +114,6 @@ target 'OneKeyWallet' do
     end
   end
 
-  # https://github.com/teslamotors/react-native-camera-kit/issues/578
-  pre_install do |installer|
-    installer.pod_targets.each do |pod|
-      if pod.name.eql?('ReactNativeCameraKit')
-        def pod.build_type
-          Pod::BuildType.static_library
-        end
-      end
-    end
-  end
-
   post_integrate do |installer|
     begin
       expo_patch_react_imports!(installer)
@@ -158,7 +121,5 @@ target 'OneKeyWallet' do
       Pod::UI.warn e
     end
   end
-
-  pod 'SDWebImageWebPCoder', '0.8.5'
 
 end

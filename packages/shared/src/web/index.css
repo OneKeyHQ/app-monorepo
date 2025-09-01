@@ -62,7 +62,9 @@ body {
 */
 /* set width=0 to hide scrollbar */
 ::-webkit-scrollbar {
+  /* width: 0 controls vertical scrollbar, height: 0 controls horizontal scrollbar */
   width: 0;
+  height: 0;
   background: transparent;
 }
 

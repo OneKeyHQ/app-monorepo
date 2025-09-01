@@ -62,6 +62,8 @@ export class SendScene extends BaseScene {
     tronIsResourceRentalEnabled,
     tronIsSwapTrxEnabled,
     tronPayCoinCode,
+    tronUseCredit,
+    tronUseRedemptionCode,
   }: {
     network: string | undefined;
     txnType: string | undefined;
@@ -73,6 +75,8 @@ export class SendScene extends BaseScene {
     tronIsResourceRentalEnabled: boolean | undefined;
     tronIsSwapTrxEnabled: boolean | undefined;
     tronPayCoinCode: string | undefined;
+    tronUseCredit: boolean | undefined;
+    tronUseRedemptionCode: boolean | undefined;
   }) {
     return {
       network,
@@ -85,6 +89,8 @@ export class SendScene extends BaseScene {
       tronIsResourceRentalEnabled,
       tronIsSwapTrxEnabled,
       tronPayCoinCode,
+      tronUseCredit,
+      tronUseRedemptionCode,
     };
   }
 

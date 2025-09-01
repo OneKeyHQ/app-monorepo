@@ -10,6 +10,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -20,7 +21,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FIX_SHEET_PROPS } from '../../composite/Dialog';
-import { Divider } from '../../content';
+import { Keyboard } from '../../content';
 import { Portal } from '../../hocs';
 import {
   ModalNavigatorContext,
@@ -31,7 +32,7 @@ import {
   useSafeAreaInsets,
 } from '../../hooks';
 import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
-import { SizableText, XStack, YStack } from '../../primitives';
+import { SizableText, Stack, XStack, YStack } from '../../primitives';
 import { NATIVE_HIT_SLOP } from '../../utils';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
@@ -99,6 +100,7 @@ const usePopoverValue = (
         trackId: trackID,
       });
     }
+    void Keyboard.dismissWithDelay(50);
   }, [isControlled, onOpenChange, trackID]);
 
   const closePopover = useCallback(() => {
@@ -114,6 +116,7 @@ const usePopoverValue = (
         trackId: trackID,
       });
     }
+    void Keyboard.dismissWithDelay(50);
   }, [isControlled, onOpenChange, trackID]);
 
   return {
@@ -170,6 +173,22 @@ function ModalPortalProvider({ children }: PropsWithChildren) {
 }
 
 const when: (state: { media: UseMediaState }) => boolean = () => true;
+
+const useDismissKeyboard = platformEnv.isNative
+  ? (isOpen?: boolean) => {
+      useMemo(() => {
+        void Keyboard.dismissWithDelay(50);
+      }, []);
+      const isOpenRef = useRef(isOpen);
+      useEffect(() => {
+        if (isOpenRef.current !== isOpen) {
+          isOpenRef.current = isOpen;
+          void Keyboard.dismissWithDelay(50);
+        }
+      }, [isOpen]);
+    }
+  : () => {};
+
 function RawPopover({
   title,
   open: isOpen,
@@ -237,6 +256,8 @@ function RawPopover({
     return true;
   }, [handleClosePopover, isOpen]);
 
+  useDismissKeyboard(isOpen);
+
   useBackHandler(handleBackPress);
 
   const [maxScrollViewHeight, setMaxScrollViewHeight] = useState<
@@ -298,6 +319,8 @@ function RawPopover({
     </ModalPortalProvider>
   );
 
+  const isShowNativeKeepChildrenMountedBackdrop =
+    platformEnv.isNative && props.keepChildrenMounted;
   return (
     <TMPopover
       offset={8}
@@ -316,9 +339,6 @@ function RawPopover({
       {platformEnv.isNative ? null : (
         <TMPopover.Content
           unstyled
-          outlineColor="$neutral3"
-          outlineStyle="solid"
-          outlineWidth="$px"
           display={display}
           style={{
             transformOrigin,
@@ -331,7 +351,16 @@ function RawPopover({
           w="$96"
           bg="$bg"
           borderRadius="$3"
-          elevation={20}
+          $platform-web={{
+            outlineColor: '$neutral3',
+            outlineStyle: 'solid',
+            outlineWidth: '$px',
+            boxShadow:
+              '0 4px 6px -4px rgba(0, 0, 0, 0.10), 0 10px 15px -3px rgba(0, 0, 0, 0.10)',
+          }}
+          $platform-native={{
+            elevation: 20,
+          }}
           animation={[
             'quick',
             {
@@ -352,83 +381,101 @@ function RawPopover({
       )}
       {/* sheet */}
       {usingSheet ? (
-        <TMPopover.Adapt when={platformEnv.isNative ? when : 'md'}>
-          <TMPopover.Sheet
-            dismissOnSnapToBottom
-            animation="quick"
-            snapPointsMode="fit"
-            zIndex={zIndex}
-            {...sheetProps}
-          >
-            <TMPopover.Sheet.Overlay
-              {...FIX_SHEET_PROPS}
-              zIndex={sheetProps?.zIndex || zIndex}
-              backgroundColor="$bgBackdrop"
-              animation="quick"
-              enterStyle={{ opacity: 0 }}
-              exitStyle={{ opacity: 0 }}
+        <>
+          {/* TODO: Temporary solution for overlay backdrop. 
+               This should be deprecated in favor of Tamagui's overlay implementation */}
+          {isShowNativeKeepChildrenMountedBackdrop ? (
+            <Stack
+              position="absolute"
+              pointerEvents={isOpen ? 'auto' : 'none'}
+              onPress={isOpen ? closePopover : undefined}
+              bg={isOpen ? '$bgBackdrop' : 'transparent'}
+              top={0}
+              left={0}
+              right={0}
+              bottom={0}
             />
-            <TMPopover.Sheet.Frame
-              unstyled
-              paddingBottom={keyboardHeight}
-              {...(gtMd || platformEnv.isNativeIOSPad
-                ? gtMdShFrameStyle
-                : undefined)}
+          ) : null}
+
+          <TMPopover.Adapt when={platformEnv.isNative ? when : 'md'}>
+            <TMPopover.Sheet
+              dismissOnSnapToBottom
+              animation="quick"
+              snapPointsMode="fit"
+              zIndex={zIndex}
+              {...sheetProps}
             >
-              {/* header */}
-              {showHeader ? (
-                <XStack
-                  borderTopLeftRadius="$6"
-                  borderTopRightRadius="$6"
-                  backgroundColor="$bg"
-                  mx="$5"
-                  p="$5"
-                  justifyContent="space-between"
-                  alignItems="center"
-                  borderCurve="continuous"
-                  gap="$2"
-                >
-                  {typeof title === 'string' ? (
-                    <SizableText
-                      size="$headingXl"
-                      color="$text"
-                      flexShrink={1}
-                      style={{
-                        wordBreak: 'break-all',
-                      }}
-                    >
-                      {title}
-                    </SizableText>
-                  ) : (
-                    title
-                  )}
-                  <IconButton
-                    icon="CrossedSmallOutline"
-                    size="small"
-                    hitSlop={NATIVE_HIT_SLOP}
-                    onPress={closePopover}
-                    testID="popover-btn-close"
-                  />
-                </XStack>
-              ) : null}
-              <TMPopover.Sheet.ScrollView
-                marginTop="$-0.5"
-                borderTopLeftRadius={showHeader ? undefined : '$6'}
-                borderTopRightRadius={showHeader ? undefined : '$6'}
-                borderBottomLeftRadius="$6"
-                borderBottomRightRadius="$6"
-                backgroundColor="$bg"
-                showsVerticalScrollIndicator={false}
-                mx="$5"
-                mb={bottom || '$5'}
-                borderCurve="continuous"
+              {isShowNativeKeepChildrenMountedBackdrop ? null : (
+                <TMPopover.Sheet.Overlay
+                  {...FIX_SHEET_PROPS}
+                  zIndex={sheetProps?.zIndex || zIndex}
+                  backgroundColor="$bgBackdrop"
+                  animation="quick"
+                  enterStyle={{ opacity: 0 }}
+                  exitStyle={{ opacity: 0 }}
+                />
+              )}
+              <TMPopover.Sheet.Frame
+                unstyled
+                paddingBottom={keyboardHeight}
+                {...(gtMd || platformEnv.isNativeIOSPad
+                  ? gtMdShFrameStyle
+                  : undefined)}
               >
-                {showHeader ? <Divider mx="$5" /> : null}
-                {content}
-              </TMPopover.Sheet.ScrollView>
-            </TMPopover.Sheet.Frame>
-          </TMPopover.Sheet>
-        </TMPopover.Adapt>
+                {/* header */}
+                {showHeader ? (
+                  <XStack
+                    borderTopLeftRadius="$6"
+                    borderTopRightRadius="$6"
+                    backgroundColor="$bg"
+                    mx="$5"
+                    p="$5"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    borderCurve="continuous"
+                    gap="$2"
+                  >
+                    {typeof title === 'string' ? (
+                      <SizableText
+                        size="$headingXl"
+                        color="$text"
+                        flexShrink={1}
+                        style={{
+                          wordBreak: 'break-all',
+                        }}
+                      >
+                        {title}
+                      </SizableText>
+                    ) : (
+                      title
+                    )}
+                    <IconButton
+                      icon="CrossedSmallOutline"
+                      size="small"
+                      hitSlop={NATIVE_HIT_SLOP}
+                      onPress={closePopover}
+                      testID="popover-btn-close"
+                    />
+                  </XStack>
+                ) : null}
+                <TMPopover.Sheet.ScrollView
+                  marginTop="$-0.5"
+                  borderTopLeftRadius={showHeader ? undefined : '$6'}
+                  borderTopRightRadius={showHeader ? undefined : '$6'}
+                  borderBottomLeftRadius="$6"
+                  borderBottomRightRadius="$6"
+                  backgroundColor="$bg"
+                  showsVerticalScrollIndicator={false}
+                  mx="$5"
+                  mb={bottom || '$5'}
+                  borderCurve="continuous"
+                >
+                  {content}
+                </TMPopover.Sheet.ScrollView>
+              </TMPopover.Sheet.Frame>
+            </TMPopover.Sheet>
+          </TMPopover.Adapt>
+        </>
       ) : null}
     </TMPopover>
   );
@@ -440,6 +487,7 @@ function BasicPopover({
   renderTrigger,
   sheetProps,
   trackID,
+  keepChildrenMounted,
   ...rest
 }: IPopoverProps) {
   const { isOpen, onOpenChange, openPopover, closePopover } = usePopoverValue(
@@ -456,11 +504,20 @@ function BasicPopover({
         openPopover={openPopover}
         closePopover={closePopover}
         renderTrigger={undefined}
+        keepChildrenMounted={keepChildrenMounted}
         {...rest}
         sheetProps={sheetProps}
       />
     ),
-    [closePopover, isOpen, onOpenChange, openPopover, rest, sheetProps],
+    [
+      closePopover,
+      isOpen,
+      keepChildrenMounted,
+      onOpenChange,
+      openPopover,
+      rest,
+      sheetProps,
+    ],
   );
   const modalNavigatorContext = useModalNavigatorContext();
   const pageContextValue = usePageContext();
@@ -472,13 +529,15 @@ function BasicPopover({
         {renderTrigger ? (
           <Trigger onPress={openPopover}>{renderTrigger}</Trigger>
         ) : null}
-        <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
-          <ModalNavigatorContext.Provider value={modalNavigatorContext}>
-            <PageContext.Provider value={pageContextValue}>
-              {memoPopover}
-            </PageContext.Provider>
-          </ModalNavigatorContext.Provider>
-        </Portal.Body>
+        {isOpen || keepChildrenMounted ? (
+          <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
+            <ModalNavigatorContext.Provider value={modalNavigatorContext}>
+              <PageContext.Provider value={pageContextValue}>
+                {memoPopover}
+              </PageContext.Provider>
+            </ModalNavigatorContext.Provider>
+          </Portal.Body>
+        ) : null}
       </>
     );
   }
@@ -495,6 +554,7 @@ function BasicPopover({
       sheetProps={{ ...sheetProps, modal: true }}
       renderTrigger={renderTrigger}
       trackID={trackID}
+      keepChildrenMounted={keepChildrenMounted}
       {...rest}
     />
   );

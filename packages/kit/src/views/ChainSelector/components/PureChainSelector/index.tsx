@@ -31,7 +31,7 @@ export const PureChainSelector: FC<IPureChainSelectorProps> = ({
   const intl = useIntl();
 
   return (
-    <Page safeAreaEnabled={false}>
+    <Page lazyLoad safeAreaEnabled={false}>
       <Page.Header
         title={
           title || intl.formatMessage({ id: ETranslations.global_networks })

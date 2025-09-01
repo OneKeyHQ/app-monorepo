@@ -14,6 +14,7 @@ export enum EJotaiContextStoreNames {
   swap = 'swap',
   swapModal = 'swapModal',
   marketWatchList = 'marketWatchList',
+  marketWatchListV2 = 'marketWatchListV2',
   universalSearch = 'universalSearch',
   earn = 'earn',
   sendConfirm = 'sendConfirm',

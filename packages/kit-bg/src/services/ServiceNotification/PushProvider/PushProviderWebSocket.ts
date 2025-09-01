@@ -11,7 +11,10 @@ import type {
   INotificationPushMessageAckParams,
   INotificationPushMessageInfo,
 } from '@onekeyhq/shared/types/notification';
-import { EPushProviderEventNames } from '@onekeyhq/shared/types/notification';
+import {
+  ENotificationPushMessageAckAction,
+  EPushProviderEventNames,
+} from '@onekeyhq/shared/types/notification';
 import type {
   IPrimeConfigChangedInfo,
   IPrimeConfigFlushInfo,
@@ -152,6 +155,10 @@ export class PushProviderWebSocket extends PushProviderBase {
     this.socket.on(
       EAppSocketEventNames.primeDeviceLogout,
       (payload: IPrimeDeviceLogoutInfo) => {
+        void this.backgroundApi.serviceNotification.ackNotificationMessage({
+          msgId: payload.msgId,
+          action: ENotificationPushMessageAckAction.arrived,
+        });
         appEventBus.emit(EAppEventBusNames.PrimeDeviceLogout, undefined);
         defaultLogger.notification.websocket.consoleLog(
           'WebSocket 收到 primeDeviceLogout 消息:',
@@ -167,6 +174,10 @@ export class PushProviderWebSocket extends PushProviderBase {
           'WebSocket 收到 primeConfigChanged 消息:',
           payload,
         );
+        void this.backgroundApi.serviceNotification.ackNotificationMessage({
+          msgId: payload.msgId,
+          action: ENotificationPushMessageAckAction.arrived,
+        });
         const syncCredential =
           await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
         await this.backgroundApi.servicePrimeCloudSync.saveServerSyncItemsToLocal(
@@ -187,6 +198,10 @@ export class PushProviderWebSocket extends PushProviderBase {
           'WebSocket 收到 primeLockChanged 消息:',
           payload,
         );
+        void this.backgroundApi.serviceNotification.ackNotificationMessage({
+          msgId: payload.msgId,
+          action: ENotificationPushMessageAckAction.arrived,
+        });
         void this.backgroundApi.servicePrimeCloudSync.onWebSocketMasterPasswordChanged(
           payload,
         );
@@ -200,6 +215,10 @@ export class PushProviderWebSocket extends PushProviderBase {
           'WebSocket 收到 primeConfigFlush 消息:',
           payload,
         );
+        void this.backgroundApi.serviceNotification.ackNotificationMessage({
+          msgId: payload.msgId,
+          action: ENotificationPushMessageAckAction.arrived,
+        });
         void this.backgroundApi.servicePrimeCloudSync.onWebSocketMasterPasswordChanged(
           payload,
         );

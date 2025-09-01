@@ -12,7 +12,11 @@ import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickSt
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-export function Welcome() {
+export function Welcome({
+  setShowTransfer,
+}: {
+  setShowTransfer: (show: boolean) => void;
+}) {
   const intl = useIntl();
   const navigation = useAppNavigation();
 
@@ -45,16 +49,23 @@ export function Welcome() {
           }}
         />
         <Stack zIndex={1}>
-          <Heading size="$heading4xl" textAlign="center">
-            {intl.formatMessage({
-              id: ETranslations.onboarding_welcome_message,
-            })}
-          </Heading>
-          <SizableText size="$bodyLg" textAlign="center" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.onboarding_welcome_description,
-            })}
-          </SizableText>
+          <MultipleClickStack
+            onPress={() => {
+              setShowTransfer(true);
+            }}
+          >
+            <Heading size="$heading4xl" textAlign="center">
+              {intl.formatMessage({
+                id: ETranslations.onboarding_welcome_message,
+              })}
+            </Heading>
+
+            <SizableText size="$bodyLg" textAlign="center" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.onboarding_welcome_description,
+              })}
+            </SizableText>
+          </MultipleClickStack>
         </Stack>
       </Stack>
     </Stack>

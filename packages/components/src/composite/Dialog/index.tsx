@@ -24,13 +24,12 @@ import {
   useMedia,
 } from 'tamagui';
 
-import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Toast } from '../../actions/Toast';
-import { SheetGrabber } from '../../content';
+import { Keyboard, SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { EPortalContainerConstantName, Portal } from '../../hocs';
 import {
@@ -69,7 +68,8 @@ import type {
   IDialogShowProps,
 } from './type';
 import type { IPortalManager } from '../../hocs';
-import type { IStackProps } from '../../primitives';
+import type { UseFormReturn } from '../../hooks';
+import type { IYStackProps } from '../../primitives';
 import type { IColorTokens } from '../../types';
 import type { GestureResponderEvent } from 'react-native';
 
@@ -82,11 +82,14 @@ export type {
 } from './type';
 export * from './dialogInstances';
 
-export const FIX_SHEET_PROPS: IStackProps = {
+export const FIX_SHEET_PROPS: IYStackProps = {
   display: 'block',
 };
 
+const MAX_CONTENT_WIDTH = 400;
+
 function DialogFrame({
+  title,
   open,
   onHeaderCloseButtonPress,
   onClose,
@@ -178,7 +181,7 @@ function DialogFrame({
 
   const media = useMedia();
 
-  const zIndex = useOverlayZIndex(open);
+  const zIndex = useOverlayZIndex(open, title);
   const renderDialogContent = (
     <Stack>
       <DialogHeader trackID={trackID} onClose={handleHeaderCloseButtonPress} />
@@ -187,7 +190,7 @@ function DialogFrame({
         testID={testID}
         isAsync={isAsync}
         estimatedContentHeight={estimatedContentHeight}
-        {...contentContainerProps}
+        {...(contentContainerProps as any)}
       >
         {renderContent}
       </Content>
@@ -242,8 +245,8 @@ function DialogFrame({
         <Sheet.Overlay
           {...FIX_SHEET_PROPS}
           animation="quick"
-          enterStyle={{ opacity: 0 }}
-          exitStyle={{ opacity: 0 }}
+          enterStyle={{ opacity: 0 } as any}
+          exitStyle={{ opacity: 0 } as any}
           backgroundColor="$bgBackdrop"
           zIndex={sheetProps?.zIndex || zIndex}
           {...sheetOverlayProps}
@@ -256,6 +259,10 @@ function DialogFrame({
           bg="$bg"
           borderCurve="continuous"
           disableHideBottomOverflow
+          // Fix width issue for portrait iPad mini - ensure proper dialog width
+          mx={platformEnv.isNativeIOSPad ? 'auto' : undefined}
+          width={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
+          maxWidth={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
         >
           {!disableDrag ? <SheetGrabber /> : null}
           {renderDialogContent}
@@ -321,11 +328,17 @@ function DialogFrame({
               exitStyle={{ opacity: 0, scale: 0.85 }}
               borderRadius="$4"
               borderWidth="$0"
-              outlineColor="$borderSubdued"
-              outlineStyle="solid"
-              outlineWidth="$px"
+              $theme-dark={{
+                outlineColor: '$neutral5',
+              }}
+              outlineWidth={1}
+              outlineOffset={0}
+              outlineColor="$neutral3"
+              style={{
+                outlineStyle: 'solid',
+              }}
               bg="$bg"
-              width={400}
+              width={MAX_CONTENT_WIDTH}
               p="$0"
               {...floatingPanelProps}
               zIndex={floatingPanelProps?.zIndex || zIndex}
@@ -369,7 +382,9 @@ function BaseDialogContainer(
     },
     [isControlled, onOpenChange],
   );
-  const formRef = useRef();
+  const formRef = useRef<UseFormReturn<any, any, any> | undefined | undefined>(
+    undefined,
+  );
   const handleClose = useCallback(
     (extra?: { flag?: string }) => {
       if (
@@ -382,6 +397,7 @@ function BaseDialogContainer(
         });
       }
       changeIsOpen(false);
+      void Keyboard.dismissWithDelay(50);
       return onClose(extra);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
@@ -461,6 +477,7 @@ function BaseDialogContainer(
           onOpen={handleOpen}
           renderContent={renderContent}
           onClose={handleClose}
+          title={title}
           {...props}
         />
       </DialogHeaderContext.Provider>
@@ -475,7 +492,7 @@ export const DialogContainer = forwardRef<
 
 type IDialogShowFunctionProps = IDialogShowProps & {
   dialogContainer?: (o: {
-    ref: React.RefObject<IDialogInstance> | undefined;
+    ref: React.RefObject<IDialogInstance | null>;
   }) => JSX.Element;
 };
 function dialogShow({
@@ -485,9 +502,9 @@ function dialogShow({
   isOverTopAllViews,
   ...props
 }: IDialogShowFunctionProps): IDialogInstance {
-  dismissKeyboard();
-  let instanceRef: React.RefObject<IDialogInstance> | undefined =
-    createRef<IDialogInstance>();
+  void Keyboard.dismissWithDelay(50);
+  let instanceRef: React.RefObject<IDialogInstance | null> | undefined =
+    createRef();
 
   let portalRef:
     | {
@@ -516,6 +533,7 @@ function dialogShow({
             removeDialogInstance(dialogInstance);
             dialogInstance = undefined;
           }
+          void Keyboard.dismissWithDelay(50);
           void options.onClose?.(extra);
           resolve();
         }, 300);

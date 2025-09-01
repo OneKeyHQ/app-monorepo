@@ -11,6 +11,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
@@ -31,6 +32,7 @@ import {
   SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useDebounce } from '../../../hooks/useDebounce';
 import {
   useSwapActions,
@@ -49,6 +51,7 @@ import {
   useSwapSelectedFromTokenBalanceAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSilenceQuoteLoading,
+  useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 
@@ -126,6 +129,7 @@ export function useSwapQuoteLoading() {
 export function useSwapQuoteEventFetching() {
   const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [quoteResult] = useSwapQuoteListAtom();
+
   if (quoteEventTotalCount.count > 0) {
     if (
       quoteResult?.every((q) => q.eventId === quoteEventTotalCount.eventId) &&
@@ -138,27 +142,44 @@ export function useSwapQuoteEventFetching() {
   return false;
 }
 
-export function useSwapBatchTransfer(
+export enum ESwapBatchTransferType {
+  CONTINUOUS_APPROVE_AND_SWAP = 'continuous_approve_and_swap',
+  BATCH_APPROVE_AND_SWAP = 'batch_approve_and_swap',
+  NORMAL = 'normal',
+}
+
+export function useSwapBatchTransferType(
   networkId?: string,
   accountId?: string,
   providerDisableBatchTransfer?: boolean,
+  swapShouldSignedData?: boolean,
+  needApprove?: boolean,
 ) {
+  let type = ESwapBatchTransferType.NORMAL;
   const [settingsPersistAtom] = useSettingsPersistAtom();
+  if (settingsPersistAtom.swapBatchApproveAndSwap && needApprove) {
+    type = ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP;
+  }
   const isExternalAccount = accountUtils.isExternalAccount({
     accountId: accountId ?? '',
   });
   const isHDAccount = accountUtils.isHwOrQrAccount({
     accountId: accountId ?? '',
   });
+  if ((isExternalAccount || isHDAccount) && needApprove) {
+    type = ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP;
+  }
   const isUnSupportBatchTransferNet =
     SwapBuildUseMultiplePopoversNetworkIds.includes(networkId ?? '');
-  return (
-    settingsPersistAtom.swapBatchApproveAndSwap &&
-    !isUnSupportBatchTransferNet &&
-    !isExternalAccount &&
-    !isHDAccount &&
-    !providerDisableBatchTransfer
-  );
+  if (
+    providerDisableBatchTransfer ||
+    isUnSupportBatchTransferNet ||
+    !settingsPersistAtom.swapBatchApproveAndSwap ||
+    swapShouldSignedData
+  ) {
+    type = ESwapBatchTransferType.NORMAL;
+  }
+  return type;
 }
 
 export function useSwapActionState() {
@@ -170,6 +191,7 @@ export function useSwapActionState() {
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [shouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [swapQuoteApproveAllowanceUnLimit] =
     useSwapQuoteApproveAllowanceUnLimitAtom();
@@ -210,11 +232,7 @@ export function useSwapActionState() {
     fromToken,
     toToken,
   ]);
-  const isBatchTransfer = useSwapBatchTransfer(
-    swapFromAddressInfo.networkId,
-    swapFromAddressInfo.accountInfo?.account?.id,
-    quoteCurrentSelect?.providerDisableBatchTransfer,
-  );
+
   const isRefreshQuote = useMemo(
     () => quoteIntervalCount > swapQuoteIntervalMaxCount || shouldRefreshQuote,
     [quoteIntervalCount, shouldRefreshQuote],
@@ -250,10 +268,7 @@ export function useSwapActionState() {
     const infoRes = {
       disable: !(!hasError && !!quoteCurrentSelect),
       noConnectWallet: alerts.states.some((item) => item.noConnectWallet),
-      label:
-        swapTypeSwitchValue === ESwapTabSwitchType.LIMIT
-          ? intl.formatMessage({ id: ETranslations.limit_place_order })
-          : intl.formatMessage({ id: ETranslations.swap_page_swap_button }),
+      label: intl.formatMessage({ id: ETranslations.global_review }),
     };
     if (
       !swapFromAddressInfo.address ||
@@ -278,44 +293,50 @@ export function useSwapActionState() {
     ) {
       infoRes.disable = true;
     }
-
+    if (
+      new BigNumber(toTokenAmount.value ?? 0).isZero() ||
+      new BigNumber(toTokenAmount.value ?? 0).isNaN()
+    ) {
+      infoRes.disable = true;
+    }
     if (
       quoteLoading ||
       quoteEventFetching ||
       swapApprovingMatchLoading ||
       buildTxFetching
     ) {
-      if (swapApprovingMatchLoading) {
-        infoRes.label = intl.formatMessage({
-          id: ETranslations.swap_btn_approving,
-        });
-      } else if (buildTxFetching) {
-        infoRes.label = intl.formatMessage({
-          id: ETranslations.swap_btn_building,
-        });
-      } else {
-        infoRes.label = intl.formatMessage({
-          id: ETranslations.swap_page_button_fetching_quotes,
-        });
-      }
+      // if (swapApprovingMatchLoading) {
+      //   infoRes.label = intl.formatMessage({
+      //     id: ETranslations.swap_btn_approving,
+      //   });
+      // } else if (buildTxFetching) {
+      //   infoRes.label = intl.formatMessage({
+      //     id: ETranslations.swap_btn_building,
+      //   });
+      // } else {
+      //   infoRes.label = intl.formatMessage({
+      //     id: ETranslations.swap_page_button_fetching_quotes,
+      //   });
+      // }
+      infoRes.disable = true;
     } else {
-      if (isCrossChain && fromToken && toToken) {
-        infoRes.label = intl.formatMessage({
-          id: ETranslations.swap_page_button_cross_chain,
-        });
-      }
-      if (quoteCurrentSelect && quoteCurrentSelect.isWrapped) {
-        infoRes.label = intl.formatMessage({
-          id: ETranslations.swap_page_button_wrap,
-        });
-      }
-      if (quoteCurrentSelect && quoteCurrentSelect.allowanceResult) {
-        infoRes.label = intl.formatMessage({
-          id: isBatchTransfer
-            ? ETranslations.swap_page_approve_and_swap
-            : ETranslations.global_approve,
-        });
-      }
+      // if (isCrossChain && fromToken && toToken) {
+      //   infoRes.label = intl.formatMessage({
+      //     id: ETranslations.swap_page_button_cross_chain,
+      //   });
+      // }
+      // if (quoteCurrentSelect && quoteCurrentSelect.isWrapped) {
+      //   infoRes.label = intl.formatMessage({
+      //     id: ETranslations.swap_page_button_wrap,
+      //   });
+      // }
+      // if (quoteCurrentSelect && quoteCurrentSelect.allowanceResult) {
+      //   infoRes.label = intl.formatMessage({
+      //     id: isBatchTransfer
+      //       ? ETranslations.swap_page_approve_and_swap
+      //       : ETranslations.global_approve,
+      //   });
+      // }
       if (
         quoteCurrentSelect &&
         !quoteCurrentSelect.toAmount &&
@@ -395,24 +416,23 @@ export function useSwapActionState() {
     return infoRes;
   }, [
     hasError,
-    buildTxFetching,
     quoteCurrentSelect,
     alerts.states,
-    swapTypeSwitchValue,
     intl,
     swapFromAddressInfo.address,
     swapToAddressInfo.address,
     fromTokenAmount.value,
+    swapTypeSwitchValue,
     isRefreshQuote,
+    toTokenAmount.value,
     quoteLoading,
     quoteEventFetching,
     swapApprovingMatchLoading,
-    isCrossChain,
+    buildTxFetching,
+    selectedFromTokenBalance,
     fromToken,
     toToken,
-    selectedFromTokenBalance,
     quoteResultNoMatchDebounce,
-    isBatchTransfer,
     swapUseLimitPrice.rate,
   ]);
   const stepState: ISwapState = {

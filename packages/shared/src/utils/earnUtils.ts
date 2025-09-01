@@ -36,6 +36,14 @@ const isFalconProvider = createProviderCheck(EEarnProviderEnum.Falcon);
 
 const isEthenaProvider = createProviderCheck(EEarnProviderEnum.Ethena);
 
+const isMomentumProvider = createProviderCheck(EEarnProviderEnum.Momentum);
+
+const useVaultProvider = ({ providerName }: { providerName: string }) => {
+  return (
+    isMorphoProvider({ providerName }) || isMomentumProvider({ providerName })
+  );
+};
+
 function getEarnProviderName({
   providerName,
 }: {
@@ -72,7 +80,9 @@ export default {
   isEverstakeProvider,
   isFalconProvider,
   isEthenaProvider,
+  isMomentumProvider,
   getEarnProviderName,
   getEarnPermitCacheKey,
   isUSDTonETHNetwork,
+  useVaultProvider,
 };

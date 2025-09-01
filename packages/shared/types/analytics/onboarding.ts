@@ -14,7 +14,8 @@ interface IImportWalletPayload {
     | 'address'
     | 'keyTag'
     | 'cloud'
-    | 'lite';
+    | 'lite'
+    | 'transfer';
 }
 
 type IHardwareTransportType = 'USB' | 'Bluetooth' | 'WebUSB' | 'QRCode';

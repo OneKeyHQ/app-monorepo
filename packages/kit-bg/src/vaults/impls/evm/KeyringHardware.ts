@@ -152,7 +152,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.evm.hd;
 
   async signTransaction(params: ISignTransactionParams): Promise<ISignedTxPro> {
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: params.deviceParams?.dbDevice?.connectId || '',
+    });
     const path = await this.vault.getAccountPath();
     const chainId = await this.getNetworkChainId();
     const { unsignedTx } = params;
@@ -189,7 +191,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { dbDevice, deviceCommonParams } = deviceParams;
     const { connectId, deviceId } = dbDevice;
 
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId,
+    });
     const path = await this.vault.getAccountPath();
 
     const chainId = Number(await this.getNetworkChainId());

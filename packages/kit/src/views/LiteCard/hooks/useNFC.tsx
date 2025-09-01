@@ -28,7 +28,7 @@ enum ENFCEventCode {
 
 export default function useNFC() {
   const intl = useIntl();
-  const willCloseDialogInstance = useRef<IDialogInstance>();
+  const willCloseDialogInstance = useRef<IDialogInstance>(undefined);
   const handlerNFCConnectStatus = useCallback(
     ({ code }: { code: number }) => {
       if (code !== ENFCEventCode.TRANSFERRING_DATA) {

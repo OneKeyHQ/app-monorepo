@@ -54,6 +54,7 @@ export interface IDesktopTabItemProps {
   children?: React.ReactNode;
   trackId?: string;
   showDot?: boolean;
+  onPressWhenSelected?: () => void; // New: Click event when already selected
 }
 
 function BasicDesktopTabItemImage({
@@ -64,21 +65,21 @@ function BasicDesktopTabItemImage({
   selected?: boolean;
 }) {
   return (
-    <Image borderRadius="$1" size="$4.5" m="$px">
-      {avatarSrc ? <Image.Source src={avatarSrc} /> : null}
-      <Image.Fallback bg="$bgSidebar" delayMs={180}>
-        <Icon
-          size="$4.5"
-          name="GlobusOutline"
-          color={selected ? '$iconActive' : '$iconSubdued'}
-        />
-      </Image.Fallback>
-      {avatarSrc ? (
-        <Image.Loading delayMs={180}>
-          <Skeleton width="100%" height="100%" />
-        </Image.Loading>
-      ) : null}
-    </Image>
+    <Image
+      borderRadius="$1"
+      size="$4.5"
+      m="$px"
+      source={avatarSrc}
+      fallback={
+        <Image.Fallback bg="$bgSidebar" delayMs={180}>
+          <Icon
+            size="$4.5"
+            name="GlobusOutline"
+            color={selected ? '$iconActive' : '$iconSubdued'}
+          />
+        </Image.Fallback>
+      }
+    />
   );
 }
 
@@ -106,12 +107,13 @@ export function DesktopTabItem(
     size = 'medium',
     children,
     showDot,
+    onPressWhenSelected,
     ...rest
   } = props;
 
   const intl = useIntl();
   const stackRef = useRef<TamaguiElement>(null);
-  const openActionList = useRef<() => void | undefined>();
+  const openActionList = useRef<() => void | undefined>(undefined);
   const [isHovered, setIsHovered] = useState(false);
   const [isContextMenuOpened, setIsContextMenuOpened] = useState(false);
   const onOpenContextMenu = useCallback((e: Event) => {
@@ -137,7 +139,12 @@ export function DesktopTabItem(
   const reloadOnPress = useCallback(
     (e: GestureResponderEvent) => {
       if (selected) {
-        openActionList?.current?.();
+        // If there's a specific "when selected" callback, use it first
+        if (onPressWhenSelected) {
+          onPressWhenSelected();
+        } else {
+          openActionList?.current?.();
+        }
       } else {
         onPress?.(e);
       }
@@ -145,7 +152,7 @@ export function DesktopTabItem(
         defaultLogger.app.page.tabBarClick(trackId);
       }
     },
-    [onPress, selected, trackId],
+    [onPress, selected, trackId, onPressWhenSelected],
   );
   const trigger = useMemo(
     () => (
@@ -153,21 +160,23 @@ export function DesktopTabItem(
         {...tabBarItemStyle}
         alignItems="center"
         py={size === 'small' ? '$1.5' : '$2'}
-        $gtMd={{
-          flexDirection: 'row',
-          px: '$2',
-          bg: selected ? '$bgActive' : undefined,
-          borderRadius: '$2',
-        }}
+        $gtMd={
+          {
+            flexDirection: 'row',
+            px: '$2',
+            bg: selected ? '$bgActive' : undefined,
+            borderRadius: '$2',
+          } as any
+        }
         userSelect="none"
-        {...(!selected && {
+        {...((!selected && {
           pressStyle: {
             bg: '$bgActive',
           },
-        })}
-        {...((isContextMenuOpened || isHovered) && {
+        }) as any)}
+        {...(((isContextMenuOpened || isHovered) && {
           bg: '$bgHover',
-        })}
+        }) as any)}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
         onPress={reloadOnPress}
@@ -189,13 +198,13 @@ export function DesktopTabItem(
             />
             {showDot ? (
               <Stack
-                width="$3"
-                height="$3"
+                width="$2.5"
+                height="$2.5"
                 bg="$iconInfo"
                 borderRadius="$full"
                 position="absolute"
-                right={-4}
-                top={-4}
+                right={-3}
+                top={-2}
                 borderWidth="$0.5"
                 borderColor="$bgSubdued"
               />

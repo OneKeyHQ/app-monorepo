@@ -12,6 +12,8 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { LetterAvatar } from '../LetterAvatar';
 
+import type { FontSizeTokens } from 'tamagui';
+
 export const NetworkAvatarBase = ({
   logoURI,
   size,
@@ -50,18 +52,19 @@ export const NetworkAvatarBase = ({
     );
   }
   return (
-    <Image size={size} src={logoURI} borderRadius="$full">
-      <Image.Source bg="$gray5" source={{ uri: logoURI }} />
-      <Image.Fallback
-        delayMs={1000}
-        alignItems="center"
-        justifyContent="center"
-        bg="$gray5"
-        padding="$1"
-      >
-        <Icon name="GlobusOutline" color="$iconSubdued" />
-      </Image.Fallback>
-    </Image>
+    <Image
+      size={size}
+      src={logoURI}
+      borderRadius="$full"
+      source={{ uri: logoURI }}
+      fallback={
+        <Icon
+          size={size as FontSizeTokens}
+          name="GlobusOutline"
+          color="$iconSubdued"
+        />
+      }
+    />
   );
 };
 

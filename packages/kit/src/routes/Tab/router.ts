@@ -1,6 +1,12 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
-import { getTokenValue, useMedia } from '@onekeyhq/components';
+import { CommonActions } from '@react-navigation/native';
+
+import {
+  getTokenValue,
+  rootNavigationRef,
+  useMedia,
+} from '@onekeyhq/components';
 import type {
   ITabNavigatorConfig,
   ITabNavigatorExtraConfig,
@@ -11,11 +17,13 @@ import {
 } from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useToReferFriendsModalByRootNavigation } from '../../hooks/useReferFriends';
 import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';
+import { perpTradeRouters } from '../../views/PerpTrade/router';
 
 import { discoveryRouters } from './Discovery/router';
 import { earnRouters } from './Earn/router';
@@ -63,6 +71,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   const isShowMDDiscover = useMemo(
     () =>
       !isShowDesktopDiscover &&
+      !platformEnv.isWebDappMode &&
       !platformEnv.isExtensionUiPopup &&
       !(platformEnv.isExtensionUiSidePanel && md),
     [isShowDesktopDiscover, md],
@@ -71,6 +80,26 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   const toMyOneKeyModal = useToMyOneKeyModalByRootNavigation();
   const toReferFriendsPage = useToReferFriendsModalByRootNavigation();
   const isShowMyOneKeyOnTabbar = useIsShowMyOneKeyOnTabbar();
+
+  // Custom Market tab press handler - only for non-mobile platforms
+  const handleMarketTabPress = useMemo(() => {
+    return () => {
+      const navigation = rootNavigationRef.current;
+      if (navigation) {
+        // Always navigate to Market home when this handler is called
+        // Since this is only called when Market tab is already selected,
+        // we can assume user wants to go to Market home
+        navigation.dispatch(
+          CommonActions.navigate({
+            name: ETabRoutes.Market,
+            params: {
+              screen: ETabMarketRoutes.TabMarket,
+            },
+          }),
+        );
+      }
+    };
+  }, []);
 
   return useMemo(
     () =>
@@ -96,6 +125,12 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           exact: true,
           children: marketRouters,
           trackId: 'global-market',
+          // Only apply custom tab press handler for non-mobile platforms
+          ...(platformEnv.isDesktop ||
+          platformEnv.isWeb ||
+          platformEnv.isExtension
+            ? { onPressWhenSelected: handleMarketTabPress }
+            : {}),
         },
         {
           name: ETabRoutes.Swap,
@@ -108,13 +143,40 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           children: swapRouters,
           trackId: 'global-trade',
         },
+        // platformEnv.isDesktop || platformEnv.isNative
+        platformEnv.isDesktop
+          ? {
+              name: ETabRoutes.WebviewPerpTrade,
+              tabBarIcon: (focused?: boolean) =>
+                focused
+                  ? 'TradingViewCandlesSolid'
+                  : 'TradingViewCandlesOutline',
+              translationId: ETranslations.global_perp,
+              freezeOnBlur: Boolean(params?.freezeOnBlur),
+              rewrite: '/perp',
+              exact: true,
+              tabbarOnPress: platformEnv.isExtension
+                ? async () => {
+                    if (platformEnv.isExtension) {
+                      await backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
+                    }
+                  }
+                : undefined,
+              children: platformEnv.isExtension
+                ? // small screen error: Cannot read properties of null (reading 'filter')
+                  // null
+                  perpTradeRouters
+                : perpTradeRouters,
+              trackId: 'global-perp',
+            }
+          : null,
         {
           name: ETabRoutes.Earn,
           tabBarIcon: (focused?: boolean) =>
             focused ? 'CoinsSolid' : 'CoinsOutline',
           translationId: ETranslations.global_earn,
           freezeOnBlur: Boolean(params?.freezeOnBlur),
-          rewrite: '/earn',
+          rewrite: '/defi',
           exact: true,
           children: earnRouters,
           trackId: 'global-earn',
@@ -181,6 +243,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       params,
       toMyOneKeyModal,
       toReferFriendsPage,
+      handleMarketTabPress,
     ],
   );
 };

@@ -1,5 +1,7 @@
 import { type ComponentProps, useEffect } from 'react';
 
+import { noop } from 'lodash';
+
 import { useIntl } from 'react-intl';
 import { Pressable } from 'react-native';
 
@@ -16,7 +18,11 @@ import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { ISettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useAccountSelectorStatusAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -30,6 +36,9 @@ type IWalletListItemProps = {
   wallet: IDBWallet | undefined;
   onWalletPress: (focusedWallet: IAccountSelectorFocusedWallet) => void;
   onWalletLongPress?: (focusedWallet: IAccountSelectorFocusedWallet) => void;
+  shouldShowCreateHiddenWalletButtonFn?: (params: {
+    wallet: IDBWallet | undefined;
+  }) => boolean;
 } & IStackProps &
   Partial<IWalletAvatarProps>;
 
@@ -180,6 +189,7 @@ export function WalletListItem({
   isOthers,
   badge,
   isEditMode,
+  shouldShowCreateHiddenWalletButtonFn,
   ...rest
 }: IWalletListItemProps) {
   let walletAvatarProps: IWalletAvatarProps = {
@@ -187,6 +197,8 @@ export function WalletListItem({
     status: 'default', // 'default' | 'connected';
     badge,
   };
+  const [accountSelectorStatus] = useAccountSelectorStatusAtom();
+  noop(accountSelectorStatus?.passphraseProtectionChangedAt);
   const media = useMedia();
   let walletName = wallet?.name;
   let selected = focusedWallet === wallet?.id;
@@ -240,10 +252,14 @@ export function WalletListItem({
   );
 
   if (isHwOrQrWallet && !isHiddenWallet) {
-    let shouldShowBorder = true;
-    if (!settings.showAddHiddenInWalletSidebar && !hiddenWallets?.length) {
-      shouldShowBorder = false;
-    }
+    const shouldShowCreateHiddenWalletButton =
+      shouldShowCreateHiddenWalletButtonFn?.({
+        wallet,
+      });
+
+    const shouldShowBorder =
+      hiddenWallets?.length || shouldShowCreateHiddenWalletButton;
+
     return (
       <Stack
         borderRadius="$3"
@@ -266,7 +282,7 @@ export function WalletListItem({
             })}
           />
         ))}
-        {!isHiddenWallet ? (
+        {!isHiddenWallet && shouldShowCreateHiddenWalletButton ? (
           <HiddenWalletAddButton wallet={wallet} isEditMode={isEditMode} />
         ) : null}
       </Stack>

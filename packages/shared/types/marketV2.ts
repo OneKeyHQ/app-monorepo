@@ -8,6 +8,7 @@ export interface IMarketTokenDetail {
   marketCap?: string;
   fdv?: string;
   tvl?: string;
+  liquidity?: string;
   holders?: number;
   extraData?: {
     website?: string;
@@ -173,6 +174,9 @@ export interface IMarketTokenListItem {
   volume4hChangePercent?: string;
   volume8hChangePercent?: string;
   volume24hChangePercent?: string;
+  networkId?: string;
+  liquidity?: string;
+  chainId?: string;
 }
 
 export interface IMarketTokenListResponse {
@@ -308,4 +312,33 @@ export type IMarketTokenSecurityData =
 
 export interface IMarketTokenSecurityBatchResponse {
   [tokenAddress: string]: IMarketTokenSecurityData;
+}
+
+export interface IMarketBasicConfigNetwork {
+  networkId: string;
+  index: number;
+  name: string;
+  logoUrl: string;
+  explorerUrl: string;
+  chainId: string;
+}
+
+export interface IMarketBasicConfigToken {
+  contractAddress: string;
+  chainId: string;
+  isNative: boolean;
+  name: string;
+}
+
+export interface IMarketBasicConfigData {
+  networkList: IMarketBasicConfigNetwork[];
+  recommendTokens: IMarketBasicConfigToken[];
+  refreshInterval: number;
+  minLiquidity: number;
+}
+
+export interface IMarketBasicConfigResponse {
+  code: number;
+  message: string;
+  data: IMarketBasicConfigData;
 }

@@ -120,7 +120,7 @@ function DAppAccountListItem({
   handleAccountChanged,
   readonly,
   networkReadonly,
-  compressionUiMode,
+  // compressionUiMode,
   initFromHome,
   beforeShowTrigger,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -130,7 +130,7 @@ function DAppAccountListItem({
   handleAccountChanged?: IHandleAccountChanged;
   readonly?: boolean;
   networkReadonly?: boolean;
-  compressionUiMode?: boolean;
+  // compressionUiMode?: boolean;
   initFromHome?: boolean;
   beforeShowTrigger?: () => Promise<void>;
   skeletonRenderDuration?: number;
@@ -169,7 +169,7 @@ function DAppAccountListItem({
         <YGroup.Item>
           <AccountSelectorTriggerDappConnection
             num={num}
-            compressionUiMode={compressionUiMode}
+            // compressionUiMode={compressionUiMode}
             beforeShowTrigger={beforeShowTrigger}
             loadingDuration={loadingDuration}
           />

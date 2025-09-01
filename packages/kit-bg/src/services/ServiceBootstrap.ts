@@ -37,9 +37,6 @@ class ServiceBootstrap extends ServiceBase {
       console.error(error);
     }
 
-    // Perform non-blocking endpoint check after core services are initialized
-    void this.backgroundApi.serviceApp.checkDynamicEndpoint();
-
     // wait for local messages to be loaded
     void this.backgroundApi.serviceContextMenu.init();
     if (platformEnv.isExtension) {
@@ -50,13 +47,11 @@ class ServiceBootstrap extends ServiceBase {
       }
     }
     void this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage();
-    void this.backgroundApi.serviceHardware.init();
     void this.backgroundApi.simpleDb.customTokens.migrateFromV1LegacyData();
     void this.backgroundApi.serviceAccount.migrateHdWalletsBackedUpStatus();
     void this.backgroundApi.serviceHistory.migrateFilterScamHistorySetting();
     void this.backgroundApi.serviceAccount.migrateHardwareLtcXPub();
     void systemTimeUtils.startServerTimeInterval();
-    await this.backgroundApi.serviceApp.setBootstrapComplete();
   }
 }
 

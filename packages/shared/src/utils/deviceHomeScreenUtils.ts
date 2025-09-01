@@ -1,11 +1,11 @@
-/* eslint-disable spellcheck/spell-checker */
-
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '../errors/errors/localError';
+import { defaultLogger } from '../logger/logger';
 
 import imageUtils from './imageUtils';
 
+import type { IResizeImageResult } from './imageUtils';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const HAS_MONOCHROME_SCREEN: Partial<Record<IDeviceType, boolean>> = {
@@ -161,7 +161,91 @@ async function imagePathToHex(
   });
 }
 
+type IDeviceHomeScreenSizeInfo = {
+  width: number;
+  height: number;
+  radius?: number;
+};
+type IDeviceHomeScreenConfig = {
+  names: string[];
+  size?: IDeviceHomeScreenSizeInfo;
+  thumbnailSize?: IDeviceHomeScreenSizeInfo;
+};
+
+async function buildCustomScreenHex(
+  dbDeviceId: string,
+  url: string | undefined,
+  deviceType: IDeviceType,
+  isUserUpload?: boolean,
+  config?: IDeviceHomeScreenConfig,
+) {
+  const imgUri =
+    (await imageUtils.getBase64FromRequiredImageSource(url, (...args) => {
+      defaultLogger.hardware.homescreen.getBase64FromRequiredImageSource(
+        ...args,
+      );
+    })) || '';
+  if (!imgUri) {
+    throw new OneKeyLocalError('Error imgUri not defined');
+  }
+
+  if (isMonochromeScreen(deviceType)) {
+    const customHex = await imagePathToHex(imgUri, deviceType);
+    return {
+      screenHex: customHex,
+      thumbnailHex: undefined,
+    };
+  }
+
+  if (!config || !config.size) {
+    return {
+      screenHex: '',
+      thumbnailHex: undefined,
+    };
+  }
+
+  let imgThumb: IResizeImageResult | undefined;
+  if (config.thumbnailSize) {
+    imgThumb = await imageUtils.resizeImage({
+      uri: imgUri,
+
+      width: config.thumbnailSize?.width ?? config.size?.width,
+      height: config.thumbnailSize?.height ?? config.size?.height,
+
+      originW: config.size?.width,
+      originH: config.size?.height,
+      isMonochrome: false,
+    });
+  }
+
+  let screenHex = '';
+  if (!isUserUpload) {
+    const imgScreen = await imageUtils.resizeImage({
+      uri: imgUri,
+
+      width: config.size?.width,
+      height: config.size?.height,
+
+      originW: config.size?.width,
+      originH: config.size?.height,
+      isMonochrome: false,
+    });
+    screenHex = imgScreen.hex;
+  } else {
+    screenHex = Buffer.from(
+      imageUtils.stripBase64UriPrefix(imgUri),
+      'base64',
+    ).toString('hex');
+  }
+
+  return {
+    screenHex,
+    thumbnailHex: imgThumb?.hex,
+  };
+}
+
 export default {
   imagePathToHex,
   isMonochromeScreen,
+  buildCustomScreenHex,
 };

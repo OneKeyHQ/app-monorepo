@@ -181,7 +181,8 @@ function TxConfirmAlert(props: IProps) {
       networkUtils.isTronNetworkByNetworkId(networkId) &&
       tronResourceRentalInfo.isResourceRentalNeeded &&
       tronResourceRentalInfo.isResourceRentalEnabled &&
-      accountUtils.isHwAccount({ accountId })
+      (accountUtils.isHwAccount({ accountId }) ||
+        accountUtils.isQrAccount({ accountId }))
     ) {
       return (
         <Alert

@@ -7,7 +7,9 @@ __generated__
 .idea/
 .vscode/
 .chat/
-.claude/
+.claude/PRPs
+.claude/settings.local.json
+.tmp/
 
 dist
 build-electron
@@ -88,3 +90,5 @@ test-report.html
 
 # Claude code local memory
 CLAUDE.local.md
+
+apps/mobile/android/.kotlin/

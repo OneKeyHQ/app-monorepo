@@ -113,9 +113,7 @@ const DemoConfigLockedViewModal = () => {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.setOptions({
-                  disableClose: false,
-                });
+                navigation.setOptions({});
               }}
             >
               取消锁定
@@ -187,9 +185,7 @@ const DemoManualLockedViewModal = () => {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.setOptions({
-                  disableClose: true,
-                });
+                navigation.setOptions({});
               }}
             >
               锁定
@@ -202,9 +198,7 @@ const DemoManualLockedViewModal = () => {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.setOptions({
-                  disableClose: false,
-                });
+                navigation.setOptions({});
               }}
             >
               取消锁定
@@ -238,7 +232,6 @@ const DemoRepeatManualLockedViewModal = () => {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: headerRightCall,
-      disableClose: locked,
     });
   }, [navigation, headerRightCall, locked]);
 
@@ -366,20 +359,16 @@ export const LockedModalStack: IModalFlowNavigatorConfig<
     name: EDemoLockedModalRoutes.DemoConfigLockedModal,
     component: DemoConfigLockedViewModal,
     translationId: 'Config Locked Modal',
-    allowDisableClose: true,
-    disableClose: true,
   },
   {
     name: EDemoLockedModalRoutes.DemoManualLockedViewModal,
     component: DemoManualLockedViewModal,
     translationId: 'Manual Locked Modal',
-    allowDisableClose: true,
   },
   {
     name: EDemoLockedModalRoutes.DemoRepeatManualLockedViewModal,
     component: DemoRepeatManualLockedViewModal,
     translationId: 'Repeat Manual Locked Modal',
-    allowDisableClose: true,
   },
   {
     name: EDemoLockedModalRoutes.DemoShouldPopOnClickBackdropViewModal,

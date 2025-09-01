@@ -4,6 +4,7 @@ import type { IAlertProps, IStackStyle } from '@onekeyhq/components';
 import { Alert, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSpotlightPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IEarnAlert, IEarnText } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from './EarnText';
@@ -37,6 +38,18 @@ function EarnAlertItem({
           />
         );
       }}
+      action={
+        alertItem.button
+          ? {
+              primary: alertItem.button.text.text,
+              onPrimaryPress: () => {
+                if (alertItem.button?.data?.link) {
+                  openUrlExternal(alertItem.button.data.link);
+                }
+              },
+            }
+          : undefined
+      }
     />
   );
 }

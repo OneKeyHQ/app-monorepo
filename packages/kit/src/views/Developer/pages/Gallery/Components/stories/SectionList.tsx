@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import type { ISectionListRef } from '@onekeyhq/components';
 import {
@@ -200,6 +200,70 @@ const StickySectionListDemo = () => {
   );
 };
 
+const OnEndReachedSectionListDemo = () => {
+  const [sections, setSections] = useState([
+    {
+      title: 'Section 1',
+      data: Array.from({ length: 10 }, (_, i) => `Item ${i + 1}`),
+    },
+  ]);
+  const [loading, setLoading] = useState(false);
+  const [loadCount, setLoadCount] = useState(1);
+
+  const handleEndReached = useCallback(async () => {
+    if (loading) return;
+
+    setLoading(true);
+    console.log('onEndReached triggered');
+
+    // Simulate API call delay
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    const newSectionIndex = loadCount + 1;
+    const newSection = {
+      title: `Section ${newSectionIndex}`,
+      data: Array.from({ length: 10 }, (_, i) => `Item ${i + 1}`),
+    };
+
+    setSections((prev) => [...prev, newSection]);
+    setLoadCount(newSectionIndex);
+    setLoading(false);
+  }, [loading, loadCount]);
+
+  return (
+    <SectionList
+      h={400}
+      sections={sections}
+      renderSectionHeader={({ section: { title } }) => (
+        <Stack bg="$bgSubtle" p="$2">
+          <SizableText size="$headingXs" color="$textSubdued">
+            {title}
+          </SizableText>
+        </Stack>
+      )}
+      renderItem={({ item }) => (
+        <Stack
+          p="$3"
+          borderBottomWidth="$px"
+          borderBottomColor="$borderSubdued"
+        >
+          <SizableText>{item}</SizableText>
+        </Stack>
+      )}
+      onEndReached={handleEndReached}
+      onEndReachedThreshold={0.5}
+      ListFooterComponent={
+        loading ? (
+          <Stack p="$4" alignItems="center">
+            <SizableText color="$textSubdued">Loading more...</SizableText>
+          </Stack>
+        ) : null
+      }
+      estimatedItemSize="$10"
+    />
+  );
+};
+
 const SectionListGallery = () => (
   <Layout
     filePath={__CURRENT_FILE_PATH__}
@@ -212,6 +276,10 @@ const SectionListGallery = () => (
       {
         title: 'Sticky SectionHeader SectionList',
         element: <StickySectionListDemo />,
+      },
+      {
+        title: 'SectionList with onEndReached Example',
+        element: <OnEndReachedSectionListDemo />,
       },
     ]}
   />

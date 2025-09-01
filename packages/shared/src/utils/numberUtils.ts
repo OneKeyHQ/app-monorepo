@@ -62,6 +62,7 @@ export type IFormatterOptions = {
   tokenSymbol?: string;
   showPlusMinusSigns?: boolean;
   disableThousandSeparator?: boolean;
+  capAtMaxT?: boolean;
 };
 
 export interface IDisplayNumber {
@@ -75,6 +76,7 @@ export interface IDisplayNumber {
     symbol?: string;
     roundValue?: string;
     isZero?: boolean;
+    isCapped?: boolean;
   } & IFormatterOptions;
 }
 
@@ -317,6 +319,18 @@ export const formatPrice: IFormatNumberFunc = (value, options) => {
   };
 };
 
+/** Clamp percentage value between -999.99 and 999.99 */
+export const clampPercentage = (value: string | number): number => {
+  const bigValue = new BigNumber(value);
+  if (bigValue.isNaN()) {
+    return 0;
+  }
+  const min = new BigNumber(-999.99);
+  const max = new BigNumber(999.99);
+  const clampedValue = BigNumber.max(min, BigNumber.min(max, bigValue));
+  return clampedValue.decimalPlaces(2, BigNumber.ROUND_HALF_UP).toNumber();
+};
+
 /** PriceChange */
 export const formatPriceChange: IFormatNumberFunc = (value, options) => {
   const val = new BigNumber(value);
@@ -345,6 +359,64 @@ export const formatPriceChange: IFormatNumberFunc = (value, options) => {
   return {
     formattedValue,
     meta: { value, symbol: '%', decimalSymbol, ...options },
+  };
+};
+
+/** PriceChange with capping and > symbol support */
+export const formatPriceChangeCapped: IFormatNumberFunc = (value, options) => {
+  const val = new BigNumber(value);
+  if (val.isNaN()) {
+    return { formattedValue: value, meta: { value, invalid: true } };
+  }
+
+  // Check if value exceeds the clamp range
+  const isOverMax = val.gt(999.99);
+  const isUnderMin = val.lt(-999.99);
+  const isCapped = isOverMax || isUnderMin;
+
+  // Apply clamping (same logic as clampPercentage)
+  const min = new BigNumber(-999.99);
+  const max = new BigNumber(999.99);
+  const clampedValue = BigNumber.max(min, BigNumber.min(max, val));
+  const finalValue = clampedValue.decimalPlaces(2, BigNumber.ROUND_HALF_UP);
+
+  if (finalValue.eq(0)) {
+    const { value: formattedValue, decimalSymbol } = formatLocalNumber('0', {
+      digits: 2,
+      removeTrailingZeros: false,
+      disableThousandSeparator: options?.disableThousandSeparator,
+    });
+    return {
+      formattedValue,
+      meta: {
+        value,
+        isZero: true,
+        symbol: '%',
+        decimalSymbol,
+        isCapped,
+        ...options,
+      },
+    };
+  }
+
+  const { value: formattedValue, decimalSymbol } = formatLocalNumber(
+    finalValue.toFixed(2),
+    {
+      digits: 2,
+      removeTrailingZeros: false,
+      disableThousandSeparator: options?.disableThousandSeparator,
+    },
+  );
+
+  return {
+    formattedValue,
+    meta: {
+      value,
+      symbol: '%',
+      decimalSymbol,
+      isCapped,
+      ...options,
+    },
   };
 };
 
@@ -410,17 +482,33 @@ export const formatMarketCap: IFormatNumberFunc = (value, options) => {
   }
 
   if (val.gte(ENumberUnitValue.T)) {
+    const dividedValue = val.div(ENumberUnitValue.T);
+
+    // Cap at 999T max only if capAtMaxT option is enabled
+    const isOverMax = options?.capAtMaxT && dividedValue.gt(999);
+    const cappedValue = isOverMax ? new BigNumber(999) : dividedValue;
+
     const { value: formattedValue, decimalSymbol } = formatLocalNumber(
-      val.div(ENumberUnitValue.T),
+      cappedValue,
       {
         digits: 2,
         removeTrailingZeros: true,
         disableThousandSeparator: options?.disableThousandSeparator,
       },
     );
+
+    // Use formatted value directly (999 when capped)
+    const finalFormattedValue = formattedValue;
+
     return {
-      formattedValue,
-      meta: { value, unit: ENumberUnit.T, decimalSymbol, ...options },
+      formattedValue: finalFormattedValue,
+      meta: {
+        value,
+        unit: ENumberUnit.T,
+        decimalSymbol,
+        isCapped: isOverMax,
+        ...options,
+      },
     };
   }
   if (val.gte(ENumberUnitValue.B)) {
@@ -545,6 +633,12 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
   if (leading) {
     strings.push(leading);
   }
+
+  // Add ">" prefix for capped values
+  if (value.meta.isCapped) {
+    strings.push('>');
+  }
+
   if (isNegativeNumber && !isZero) {
     strings.push('-');
   } else if (showPlusMinusSigns) {
@@ -588,6 +682,8 @@ export const NUMBER_FORMATTER = {
   price: formatPrice,
   /** PriceChange */
   priceChange: formatPriceChange,
+  /** PriceChange with capping and > symbol support */
+  priceChangeCapped: formatPriceChangeCapped,
   /** DeFi */
   value: formatValue,
   /** FDV / MarketCap / Volume / Liquidty / TVL / TokenSupply */

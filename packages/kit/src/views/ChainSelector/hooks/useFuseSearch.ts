@@ -26,7 +26,10 @@ export const useFuseSearch = (networks: IServerNetwork[]) => {
       const lowerSearchText = searchText.toLowerCase();
       const { fuse, symbolSet, shortnameSet } = context;
       const exp: IFuseExpression = {
-        '$or': [{ name: `^${searchText}` }, { name: `'${searchText}` }],
+        '$or': [
+          { name: `^${searchText}` }, // Starts with
+          { name: `'${searchText}` }, // Contains
+        ],
       };
       if (implArr.includes(lowerSearchText)) {
         exp.$or?.push({ impl: `=${lowerSearchText}` });

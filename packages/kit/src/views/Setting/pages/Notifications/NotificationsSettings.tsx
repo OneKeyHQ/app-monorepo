@@ -24,7 +24,6 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -45,7 +44,7 @@ export default function NotificationsSettings() {
   const [appSettings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
 
-  const prevSettings = useRef<INotificationPushSettings | undefined>();
+  const prevSettings = useRef<INotificationPushSettings>(undefined);
   const [shouldShowDevPanel, setShouldShowDevPanel] = useState(false);
 
   const { result: pushClient } = usePromiseResult(() => {
@@ -116,7 +115,7 @@ export default function NotificationsSettings() {
   }, [reloadSettings]);
 
   return (
-    <Page scrollEnabled skipLoading>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_notifications })}
       />

@@ -1,3 +1,8 @@
+import { useMemo } from 'react';
+
+import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
+
 import { YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
@@ -15,6 +20,7 @@ type IEnhancedToken = IToken & {
   price?: string;
   networkImageSrc?: string;
   valueProps?: { value: string; currency: string };
+  error?: string;
 };
 
 interface ITokenListProps {
@@ -35,19 +41,25 @@ export function TokenList({
 
   // get network account
   const networkAccount = usePromiseResult(async () => {
-    if (!activeAccount?.indexedAccount?.id || !currentNetworkId) {
+    if (
+      (!activeAccount?.indexedAccount?.id && !activeAccount?.account?.id) ||
+      !currentNetworkId
+    ) {
       return null;
     }
 
     return backgroundApiProxy.serviceAccount.getNetworkAccount({
-      accountId: undefined,
-      indexedAccountId: activeAccount.indexedAccount.id,
+      accountId: activeAccount?.indexedAccount?.id
+        ? undefined
+        : activeAccount?.account?.id,
+      indexedAccountId: activeAccount?.indexedAccount?.id ?? '',
       networkId: currentNetworkId,
       deriveType: activeAccount.deriveType ?? 'default',
     });
   }, [
     activeAccount?.indexedAccount?.id,
-    activeAccount?.deriveType,
+    activeAccount?.account?.id,
+    activeAccount.deriveType,
     currentNetworkId,
   ]);
 
@@ -56,7 +68,10 @@ export function TokenList({
     IEnhancedToken[]
   > => {
     if (!tokens.length || !networkAccount.result) {
-      return tokens.map((token) => ({ ...token }));
+      return tokens.map((token) => ({
+        ...token,
+        error: 'Failed to fetch details',
+      }));
     }
 
     const promises = tokens.map(async (token): Promise<IEnhancedToken> => {
@@ -73,41 +88,54 @@ export function TokenList({
         const networkConfig = Object.values(presetNetworksMap).find(
           (n) => n.id === token.networkId,
         );
-
+        const priceBN = new BigNumber(swapTokenDetail?.price || 0);
+        const balanceBN = new BigNumber(swapTokenDetail?.balanceParsed || 0);
+        const valueProps =
+          swapTokenDetail?.price && parseFloat(swapTokenDetail.price) > 0
+            ? {
+                value: priceBN.multipliedBy(balanceBN).toFixed(2),
+                currency: currencySymbol,
+              }
+            : undefined;
         return {
           ...token,
-          balance: swapTokenDetail?.balanceParsed,
+          balance: swapTokenDetail?.balanceParsed ?? '0',
           price: swapTokenDetail?.price,
           networkImageSrc: networkConfig?.logoURI,
-          valueProps:
-            swapTokenDetail?.price && parseFloat(swapTokenDetail.price) > 0
-              ? { value: swapTokenDetail.price, currency: currencySymbol }
-              : undefined,
+          valueProps,
         };
       } catch (error) {
         console.error(`Failed to fetch details for ${token.symbol}:`, error);
-        return { ...token };
+        return { ...token, error: 'Failed to fetch details' };
       }
     });
 
     return Promise.all(promises);
   }, [tokens, networkAccount.result, currencySymbol]);
 
-  const displayTokens = tokens.map((token) => {
-    const tokenWithDetail = tokensWithDetails.result?.find(
-      (detailToken) =>
-        detailToken.networkId === token.networkId &&
-        detailToken.contractAddress === token.contractAddress,
-    );
-    return { ...token, ...tokenWithDetail };
-  });
+  const displayTokens = useMemo(() => {
+    return tokens
+      .map((token) => {
+        const tokenWithDetail = tokensWithDetails?.result?.find(
+          (detailToken) =>
+            detailToken.networkId === token.networkId &&
+            detailToken.contractAddress === token.contractAddress,
+        );
+        return { ...token, ...(tokenWithDetail ?? {}) };
+      })
+      .sort((a, b) => {
+        const valueA = parseFloat(a.valueProps?.value || '0');
+        const valueB = parseFloat(b.valueProps?.value || '0');
+        return valueB - valueA;
+      });
+  }, [tokensWithDetails?.result, tokens]);
 
   return (
     <YStack gap="$1">
       <YStack gap="$1" px="$1" py="$1">
-        {displayTokens.map((token: IEnhancedToken) => (
+        {displayTokens?.map((token: IEnhancedToken) => (
           <TokenListItem
-            isLoading={!token.balance}
+            isLoading={Boolean(isNil(token.balance) && !token.error)}
             key={`${token.networkId}-${token.contractAddress}`}
             tokenImageSrc={token.logoURI}
             networkImageSrc={token.networkImageSrc}

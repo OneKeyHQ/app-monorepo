@@ -137,7 +137,11 @@ function AddHiddenWalletDialogContent() {
               <Icon name="PlusSmallOutline" size="$4" color="$iconSubdued" />
             </YStack>
             <YStack flex={1}>
-              <SizableText size="$bodyMd" color="$textSubdued">
+              <SizableText
+                userSelect="none"
+                size="$bodyMd"
+                color="$textSubdued"
+              >
                 {intl.formatMessage({
                   id: ETranslations.add_hidden_wallet_dialog_add_button_display,
                 })}

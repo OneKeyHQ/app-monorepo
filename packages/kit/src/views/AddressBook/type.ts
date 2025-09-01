@@ -9,6 +9,8 @@ export type IAddressItem = {
   isAllowListed?: boolean;
   createdAt?: number;
   updatedAt?: number;
+  memo?: string;
+  note?: string;
 };
 
 export type IAddressNetworkItem = IAddressItem & {

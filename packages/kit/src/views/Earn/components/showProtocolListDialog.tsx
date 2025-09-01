@@ -18,10 +18,28 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EStakeProtocolGroupEnum } from '@onekeyhq/shared/types/staking';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import { capitalizeString } from '../../Staking/utils/utils';
+
+import { AprText } from './AprText';
+
+// Adapter function to convert IStakeProtocolListItem to IEarnAvailableAsset format
+const createAssetFromProtocol = (
+  item: IStakeProtocolListItem,
+): IEarnAvailableAsset => ({
+  name: item.provider.name,
+  symbol: '', // Not used in this context
+  logoURI: item.provider.logoURI,
+  apr: `${BigNumber(item.provider.aprWithoutFee || 0).toFixed(2)}%`,
+  aprWithoutFee: `${BigNumber(item.provider.aprWithoutFee || 0).toFixed(2)}%`,
+  tags: [],
+  rewardUnit: item.provider.rewardUnit,
+  protocols: [],
+  aprInfo: item.aprInfo,
+});
 
 // Section data structure for SectionList
 interface IProtocolSection {
@@ -103,15 +121,15 @@ const groupProtocolsByGroup = (
 
 function ProtocolListDialogContent({
   symbol,
-  networkId,
   accountId,
   indexedAccountId,
+  filterNetworkId,
   onProtocolSelect,
 }: {
   symbol: string;
-  networkId: string;
   accountId: string;
   indexedAccountId?: string;
+  filterNetworkId?: string;
   onProtocolSelect: (protocol: IStakeProtocolListItem) => Promise<void>;
 }) {
   const [protocolData, setProtocolData] = useState<IProtocolSection[]>([]);
@@ -125,7 +143,7 @@ function ProtocolListDialogContent({
         symbol,
         accountId,
         indexedAccountId,
-        networkId,
+        filterNetworkId,
       });
 
       const groupedData = groupProtocolsByGroup(data);
@@ -136,7 +154,7 @@ function ProtocolListDialogContent({
     } finally {
       setIsLoading(false);
     }
-  }, [symbol, accountId, indexedAccountId, networkId]);
+  }, [symbol, accountId, indexedAccountId, filterNetworkId]);
 
   useEffect(() => {
     void fetchProtocolData();
@@ -205,14 +223,7 @@ function ProtocolListDialogContent({
         />
         <ListItem.Text
           alignSelf="flex-start"
-          primary={
-            item.provider.aprWithoutFee &&
-            Number(item.provider.aprWithoutFee) > 0
-              ? `${BigNumber(item.provider.aprWithoutFee).toFixed(2)}% ${
-                  item.provider.rewardUnit || 'APY'
-                }`
-              : null
-          }
+          primary={<AprText asset={createAssetFromProtocol(item)} />}
         />
       </ListItem>
     ),
@@ -286,13 +297,13 @@ export function showProtocolListDialog({
   symbol,
   accountId,
   indexedAccountId,
-  networkId,
+  filterNetworkId,
   onProtocolSelect,
 }: {
   symbol: string;
   accountId: string;
   indexedAccountId?: string;
-  networkId: string;
+  filterNetworkId?: string;
   onProtocolSelect: (params: {
     networkId: string;
     accountId: string;
@@ -319,9 +330,9 @@ export function showProtocolListDialog({
     renderContent: (
       <ProtocolListDialogContent
         symbol={symbol}
-        networkId={networkId}
         accountId={accountId}
         indexedAccountId={indexedAccountId}
+        filterNetworkId={filterNetworkId}
         onProtocolSelect={async (protocol: IStakeProtocolListItem) => {
           try {
             defaultLogger.staking.page.selectProvider({
@@ -343,7 +354,7 @@ export function showProtocolListDialog({
                 earnAccount?.account.indexedAccountId || indexedAccountId,
               symbol,
               provider: protocol.provider.name,
-              vault: earnUtils.isMorphoProvider({
+              vault: earnUtils.useVaultProvider({
                 providerName: protocol.provider.name,
               })
                 ? protocol.provider.vault

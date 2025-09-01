@@ -21,7 +21,10 @@ export function AddressInputHyperlinkText({
   const contentValues = useContext(AddressInputContext);
   const onAction = useCallback(
     async (actionId: string) => {
-      if (actionId === 'to_edit_address_book_page') {
+      if (
+        actionId === 'to_edit_address_book_page' ||
+        actionId === 'to_add_address_page'
+      ) {
         const values = form.getValues() || {};
         const to = contentValues.name ? values[contentValues.name] : '';
         const accountId = values.accountId || contentValues.accountId;

@@ -76,6 +76,7 @@ import type {
   IServerFetchAccountHistoryDetailResp,
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type {
@@ -359,6 +360,12 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   ): Promise<IFetchServerTokenDetailResponse> {
     throw new NotImplemented();
   }
+
+  async verifyMessage(params: IVerifyMessageParams) {
+    return Promise.resolve({
+      valid: false,
+    });
+  }
 }
 
 // **** more VaultBase: VaultBaseEvmLike, VaultBaseUtxo, VaultBaseVariant
@@ -449,8 +456,15 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async preActionsBeforeSending(params: {
     unsignedTxs: IUnsignedTxPro[];
     tronResourceRentalInfo?: ITronResourceRentalInfo;
-  }): Promise<any> {
-    return Promise.resolve();
+  }): Promise<
+    | {
+        preSendTx?: {
+          txid: string;
+        };
+      }
+    | undefined
+  > {
+    return Promise.resolve({});
   }
 
   async buildEstimateFeeParams({

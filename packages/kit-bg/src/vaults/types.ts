@@ -80,7 +80,7 @@ export enum EVaultKeyringTypes {
 
 // AccountNameInfo
 export type IAccountDeriveInfoItems = {
-  value: string; // IAccountDeriveTypes
+  value: string; // should as IAccountDeriveTypes
   label: string;
   item: IAccountDeriveInfo;
   description: string | undefined;
@@ -280,6 +280,8 @@ export type IVaultSettings = {
 
   maxRetryBroadcastTxCount?: number;
   minRetryBroadcastTxInterval?: number;
+
+  enabledInternalSignAndVerify?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -513,6 +515,7 @@ export type ITransferPayload = {
   paymentId?: string;
   note?: string;
   tokenInfo?: IToken;
+  isCustomHexData?: boolean;
 };
 
 export type IWrappedInfo = {

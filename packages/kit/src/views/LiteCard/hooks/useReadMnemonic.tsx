@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ELiteCardRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
@@ -32,6 +33,7 @@ export default function useReadMnemonic() {
       const { password } =
         await backgroundApiProxy.servicePassword.promptPasswordVerifyByWallet({
           walletId,
+          hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
         });
 
       const { mnemonic } =

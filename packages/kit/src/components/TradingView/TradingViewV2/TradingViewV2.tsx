@@ -1,24 +1,34 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
+
+import { useCalendars } from 'expo-localization';
 
 import { Stack, useOrientation } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { TRADING_VIEW_URL } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
+import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
+import { getTradingViewTimezone } from '../utils/tradingViewTimezone';
 
-import { useAutoKLineUpdate } from './useAutoKLineUpdate';
-import { fetchTradingViewV2DataWithSlicing } from './useTradingViewV2';
+import {
+  useAutoKLineUpdate,
+  useAutoTokenDetailUpdate,
+  useNavigationHandler,
+} from './hooks';
+import { useTradingViewMessageHandler } from './messageHandlers';
 
-// import { useTradingViewV2WebSocket } from './useTradingViewV2WebSocket';
-
+import type { ICustomReceiveHandlerData } from './types';
 import type { IWebViewRef } from '../../WebView/types';
 import type { WebViewProps } from 'react-native-webview';
+import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 interface IBaseTradingViewV2Props {
   mode: 'overview' | 'realtime';
   identifier: string;
-  baseToken: string;
+  symbol: string;
   targetToken: string;
   onLoadEnd: () => void;
   tradingViewUrl?: string;
@@ -27,6 +37,8 @@ interface IBaseTradingViewV2Props {
   interval?: string;
   timeFrom?: number;
   timeTo?: number;
+  decimal: number;
+  onPanesCountChange?: (count: number) => void;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -35,72 +47,69 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
   const isLandscape = useOrientation();
   const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
   const webRef = useRef<IWebViewRef | null>(null);
+  const calendars = useCalendars();
+  const systemLocale = useLocaleVariant();
+  const theme = useThemeVariant();
+  const [devSettings] = useDevSettingsPersistAtom();
 
   const {
     mode,
     onLoadEnd,
-    tradingViewUrl = TRADING_VIEW_URL,
+    tradingViewUrl,
     tokenAddress = '',
     networkId = '',
+    symbol,
+    decimal,
+    onPanesCountChange,
   } = props;
 
-  const customReceiveHandler = useCallback(
-    async ({ data }: ICustomReceiveHandlerData) => {
-      console.log('customReceiveHandler', data);
-      // {
-      //     "scope": "$private",
-      //     "method": "tradingview_getKLineData",
-      //     "origin": "tradingview.onekey.so",
-      //     "data": {
-      //         "method": "tradingview_getHistoryData",
-      //         "resolution": "1D",
-      //         "from": 1724803200,
-      //         "to": 1750809600,
-      //         "firstDataRequest": true
-      //     }
-      // }
+  const { handleNavigation } = useNavigationHandler();
+  const { customReceiveHandler } = useTradingViewMessageHandler({
+    tokenAddress,
+    networkId,
+    webRef,
+    onPanesCountChange,
+  });
 
-      // Handle TradingView private API requests
-      if (
-        data.scope === '$private' &&
-        data.method === 'tradingview_getKLineData'
-      ) {
-        console.log('TradingView request received:', {
-          method: data.data.method,
-          resolution: data.data.resolution,
-          from: data.data.from,
-          to: data.data.to,
-          firstDataRequest: data.data.firstDataRequest,
-          origin: data.origin,
-        });
+  // Determine the URL to use based on dev settings
+  const finalTradingViewUrl = useMemo(() => {
+    if (tradingViewUrl) {
+      return tradingViewUrl;
+    }
 
-        // Use combined function to get sliced data
-        try {
-          const kLineData = await fetchTradingViewV2DataWithSlicing({
-            tokenAddress,
-            networkId,
-            interval: data.data.resolution,
-            timeFrom: data.data.from,
-            timeTo: data.data.to,
-          });
+    return devSettings.enabled && devSettings.settings?.useLocalTradingViewUrl
+      ? 'http://localhost:5173/'
+      : TRADING_VIEW_URL;
+  }, [
+    tradingViewUrl,
+    devSettings.enabled,
+    devSettings.settings?.useLocalTradingViewUrl,
+  ]);
 
-          if (webRef.current && kLineData) {
-            webRef.current.sendMessageViaInjectedScript({
-              type: 'kLineData',
-              payload: {
-                type: 'history',
-                kLineData,
-                requestData: data.data,
-              },
-            });
-          }
-        } catch (error) {
-          console.error('Failed to fetch and send kline data:', error);
-        }
-      }
-    },
-    [tokenAddress, networkId],
-  );
+  const tradingViewUrlWithParams = useMemo(() => {
+    const timezone = getTradingViewTimezone(calendars);
+    const locale = systemLocale;
+
+    const url = new URL(finalTradingViewUrl);
+    url.searchParams.set('timezone', timezone);
+    url.searchParams.set('locale', locale);
+    url.searchParams.set('platform', platformEnv.appPlatform ?? 'web');
+    url.searchParams.set('theme', theme);
+    url.searchParams.set('symbol', symbol);
+    url.searchParams.set('decimal', decimal?.toString());
+    url.searchParams.set('networkId', networkId);
+    url.searchParams.set('address', tokenAddress);
+    return url.toString();
+  }, [
+    finalTradingViewUrl,
+    calendars,
+    systemLocale,
+    theme,
+    symbol,
+    decimal,
+    networkId,
+    tokenAddress,
+  ]);
 
   useAutoKLineUpdate({
     tokenAddress,
@@ -108,6 +117,18 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     webRef,
     enabled: mode === 'realtime',
   });
+
+  useAutoTokenDetailUpdate({
+    tokenAddress,
+    networkId,
+    webRef,
+    enabled: mode === 'realtime',
+  });
+
+  const onShouldStartLoadWithRequest = useCallback(
+    (event: WebViewNavigation) => handleNavigation(event),
+    [handleNavigation],
+  );
 
   return (
     <Stack position="relative" flex={1}>
@@ -119,8 +140,16 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
         onWebViewRef={(ref) => {
           webRef.current = ref;
         }}
+        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         displayProgressBar={false}
-        src={tradingViewUrl}
+        pullToRefreshEnabled={false}
+        scrollEnabled={false}
+        bounces={false}
+        overScrollMode="never"
+        showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
+        decelerationRate="normal"
+        src={tradingViewUrlWithParams}
       />
 
       {platformEnv.isNativeIOS || isIPadPortrait ? (
@@ -129,7 +158,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
           left={0}
           top={0}
           bottom={0}
-          width={isIPadPortrait ? 50 : 40}
+          width={12}
           zIndex={1}
           pointerEvents="auto"
         />

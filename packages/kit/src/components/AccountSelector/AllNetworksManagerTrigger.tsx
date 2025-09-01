@@ -24,14 +24,16 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../hooks/useAllNetwork';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
-import { NetworkAvatar } from '../NetworkAvatar';
+import { NetworkAvatarBase } from '../NetworkAvatar';
 
 function AllNetworksManagerTrigger({
   num,
   containerProps,
+  showSkeleton,
 }: {
   num: number;
   containerProps?: ComponentProps<typeof Stack>;
+  showSkeleton?: boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -39,16 +41,26 @@ function AllNetworksManagerTrigger({
     activeAccount: { network, wallet, account, indexedAccount },
   } = useActiveAccount({ num });
 
-  const { enabledNetworksCompatibleWithWalletId, run } =
-    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
-      walletId: wallet?.id ?? '',
-      networkId: network?.id,
-    });
+  const {
+    enabledNetworksCompatibleWithWalletId,
+    enabledNetworksWithoutAccount,
+    run,
+  } = useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+    walletId: wallet?.id ?? '',
+    networkId: network?.id,
+    indexedAccountId: indexedAccount?.id,
+    filterNetworksWithoutAccount: true,
+  });
 
   useEffect(() => {
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, run);
+    const refresh = async () => {
+      await run({ alwaysSetState: true });
+    };
+    appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
     return () => {
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, run);
+      appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
     };
   }, [run]);
 
@@ -80,20 +92,25 @@ function AllNetworksManagerTrigger({
   }
 
   if (
+    showSkeleton ||
     !enabledNetworksCompatibleWithWalletId ||
     enabledNetworksCompatibleWithWalletId.length === 0
   ) {
-    return <Skeleton h={20} w={120} />;
+    return (
+      <Stack py="$1">
+        <Skeleton.BodyMd />
+      </Stack>
+    );
   }
 
   return (
-    <YStack m="$-1" alignSelf="flex-start">
+    <YStack alignSelf="flex-start" ml="$-1">
       <XStack
         borderRadius="$2"
-        p="$1"
         hoverStyle={{
           bg: '$bgHover',
         }}
+        p="$1"
         pressStyle={{
           bg: '$bgActive',
         }}
@@ -121,7 +138,7 @@ function AllNetworksManagerTrigger({
                   ml: '$-2',
                 })}
               >
-                <NetworkAvatar networkId={item?.id} size="$5" />
+                <NetworkAvatarBase logoURI={item?.logoURI} size="$5" />
               </Stack>
             ))}
           {enabledNetworksCompatibleWithWalletId.length > 3 ? (
@@ -152,6 +169,33 @@ function AllNetworksManagerTrigger({
           </SizableText>
           <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
         </XStack>
+        {enabledNetworksWithoutAccount.length > 0 ? (
+          <Stack
+            position="absolute"
+            right="$0"
+            top="$0"
+            alignItems="flex-end"
+            w="$3"
+            pointerEvents="none"
+          >
+            <Stack
+              bg="$bgApp"
+              borderRadius="$full"
+              borderWidth={2}
+              borderColor="$transparent"
+            >
+              <Stack
+                px="$1"
+                borderRadius="$full"
+                bg="$caution10"
+                minWidth="$2"
+                height="$2"
+                alignItems="center"
+                justifyContent="center"
+              />
+            </Stack>
+          </Stack>
+        ) : null}
       </XStack>
     </YStack>
   );

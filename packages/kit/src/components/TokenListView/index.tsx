@@ -1,12 +1,13 @@
-import type { ComponentProps, ReactNode } from 'react';
+import type { ComponentProps, ReactElement, ReactNode } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
 
 import {
   ListView,
-  NestedScrollView,
   SizableText,
   Stack,
-  renderNestedScrollView,
+  Tabs,
+  YStack,
+  useStyle,
 } from '@onekeyhq/components';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
@@ -25,7 +26,6 @@ import {
   type IAccountToken,
 } from '@onekeyhq/shared/types/token';
 
-import { useTabListScroll } from '../../hooks/useTabListScroll';
 import {
   useActiveAccountTokenListAtom,
   useActiveAccountTokenListStateAtom,
@@ -39,6 +39,7 @@ import {
   useTokenListStateAtom,
 } from '../../states/jotai/contexts/tokenList';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
+import { PullToRefresh } from '../../views/Home/components/PullToRefresh';
 import { EmptySearch } from '../Empty';
 import { EmptyToken } from '../Empty/EmptyToken';
 import { ListLoading } from '../Loading';
@@ -50,7 +51,6 @@ import { TokenListItem } from './TokenListItem';
 
 type IProps = {
   tableLayout?: boolean;
-  onRefresh?: () => void;
   onPressToken?: (token: IAccountToken) => void;
   withHeader?: boolean;
   withFooter?: boolean;
@@ -79,6 +79,7 @@ type IProps = {
   };
   emptyAccountView?: ReactNode;
   showActiveAccountTokenList?: boolean;
+  onRefresh?: () => void;
   listViewStyleProps?: Pick<
     ComponentProps<typeof ListView>,
     | 'ListHeaderComponentStyle'
@@ -114,6 +115,7 @@ function TokenListViewCmp(props: IProps) {
     emptyAccountView,
     showActiveAccountTokenList = false,
     listViewStyleProps,
+    onRefresh,
   } = props;
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
@@ -201,11 +203,6 @@ function TokenListViewCmp(props: IProps) {
     tokenListMap,
   ]);
 
-  const { listViewProps, listViewRef, onLayout } =
-    useTabListScroll<IAccountToken>({
-      inTabList,
-    });
-
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
   const addPaddingOnListFooter = useMemo(
     () => !!extensionActiveTabDAppInfo?.showFloatingPanel,
@@ -280,26 +277,83 @@ function TokenListViewCmp(props: IProps) {
     }
   }, [tokenListState.isRefreshing]);
 
-  if (showSkeleton) {
-    return (
-      <NestedScrollView style={{ flex: 1 }}>
-        <ListLoading isTokenSelectorView={!tableLayout} />
-      </NestedScrollView>
-    );
-  }
+  const {
+    ListHeaderComponentStyle,
+    ListFooterComponentStyle,
+    contentContainerStyle,
+  } = listViewStyleProps || {};
 
-  if (emptyAccountView) {
-    return emptyAccountView;
-  }
+  const resolvedContentContainerStyle = useStyle(contentContainerStyle || {}, {
+    resolveValues: 'auto',
+  });
+
+  const resolvedListHeaderComponentStyle = useStyle(
+    ListHeaderComponentStyle || {},
+    {
+      resolveValues: 'auto',
+    },
+  );
+
+  const resolvedListFooterComponentStyle = useStyle(
+    ListFooterComponentStyle || {},
+    {
+      resolveValues: 'auto',
+    },
+  );
+
+  const ListComponent = useMemo(() => {
+    return inTabList ? Tabs.FlatList : ListView;
+  }, [inTabList]);
+
+  const EmptyComponentElement = useMemo(() => {
+    if (showSkeleton) {
+      return (
+        <YStack style={{ flex: 1 }}>
+          <ListLoading isTokenSelectorView={!tableLayout} />
+        </YStack>
+      );
+    }
+    if (emptyAccountView) {
+      return emptyAccountView as ReactElement;
+    }
+    return searchKey ? (
+      <EmptySearch
+        onManageToken={onManageToken}
+        manageTokenEnabled={manageTokenEnabled}
+      />
+    ) : (
+      <EmptyToken
+        withBuyAndReceive={withBuyAndReceive}
+        isBuyTokenSupported={isBuyTokenSupported}
+        onBuy={onBuyToken}
+        onReceive={onReceiveToken}
+      />
+    );
+  }, [
+    emptyAccountView,
+    isBuyTokenSupported,
+    manageTokenEnabled,
+    onBuyToken,
+    onManageToken,
+    onReceiveToken,
+    searchKey,
+    showSkeleton,
+    tableLayout,
+    withBuyAndReceive,
+  ]);
 
   return (
-    <ListView
-      {...listViewProps}
-      renderScrollComponent={renderNestedScrollView}
-      estimatedItemSize={tableLayout ? 48 : 60}
-      ref={listViewRef}
-      onLayout={onLayout}
+    <ListComponent
+      // @ts-ignore
+      estimatedItemSize={tableLayout ? undefined : 60}
+      refreshControl={
+        onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
+      }
+      extraData={filteredTokens.length}
       data={filteredTokens}
+      contentContainerStyle={resolvedContentContainerStyle as any}
+      ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
+      ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       ListHeaderComponent={
         withHeader ? (
           <TokenListHeader
@@ -312,21 +366,7 @@ function TokenListViewCmp(props: IProps) {
           />
         ) : null
       }
-      ListEmptyComponent={
-        searchKey ? (
-          <EmptySearch
-            onManageToken={onManageToken}
-            manageTokenEnabled={manageTokenEnabled}
-          />
-        ) : (
-          <EmptyToken
-            withBuyAndReceive={withBuyAndReceive}
-            isBuyTokenSupported={isBuyTokenSupported}
-            onBuy={onBuyToken}
-            onReceive={onReceiveToken}
-          />
-        )
-      }
+      ListEmptyComponent={EmptyComponentElement}
       renderItem={({ item }) => (
         <TokenListItem
           hideValue={hideValue}
@@ -354,7 +394,6 @@ function TokenListViewCmp(props: IProps) {
           {addPaddingOnListFooter ? <Stack h="$16" /> : null}
         </Stack>
       }
-      {...listViewStyleProps}
     />
   );
 }

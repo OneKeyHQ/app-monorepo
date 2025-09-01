@@ -1,29 +1,53 @@
-import { useCallback } from 'react';
-
 import {
   Divider,
   Icon,
-  IconButton,
   SizableText,
+  Stack,
   XStack,
   YStack,
-  useClipboard,
 } from '@onekeyhq/components';
+import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
+import { NATIVE_HIT_SLOP } from '@onekeyhq/components/src/utils';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
+
+import { useTokenDetailHeaderLeftActions } from './hooks/useTokenDetailHeaderLeftActions';
+
+function InteractiveIcon({
+  icon,
+  onPress,
+  size = '$4',
+}: {
+  icon: IKeyOfIcons;
+  onPress: () => void;
+  size?: IIconProps['size'];
+}) {
+  return (
+    <Stack
+      w={size}
+      h={size}
+      cursor="pointer"
+      onPress={onPress}
+      hitSlop={NATIVE_HIT_SLOP}
+      group
+    >
+      <Icon
+        name={icon}
+        size={size}
+        color="$iconSubdued"
+        $group-hover={{ color: '$iconHover' }}
+      />
+    </Stack>
+  );
+}
 
 interface ITokenDetailHeaderLeftProps {
   tokenDetail?: IMarketTokenDetail;
   networkId?: string;
   networkLogoUri?: string;
-  /**
-   * Controls whether to show social media links (website/twitter) and security alert.
-   * Defaults to true. Set to false on views (e.g. mobile) where we want a simplified header.
-   */
   showMediaAndSecurity?: boolean;
 }
 
@@ -33,7 +57,16 @@ export function TokenDetailHeaderLeft({
   networkLogoUri,
   showMediaAndSecurity = true,
 }: ITokenDetailHeaderLeftProps) {
-  const { copyText } = useClipboard();
+  const {
+    handleCopyAddress,
+    handleOpenContractAddress,
+    handleOpenWebsite,
+    handleOpenTwitter,
+    handleOpenXSearch,
+  } = useTokenDetailHeaderLeftActions({
+    tokenDetail,
+    networkId,
+  });
 
   const {
     symbol = '',
@@ -44,27 +77,10 @@ export function TokenDetailHeaderLeft({
 
   const { website, twitter } = extraData || {};
 
-  const handleCopyAddress = useCallback(() => {
-    if (address) {
-      copyText(address);
-    }
-  }, [address, copyText]);
-
-  const handleOpenWebsite = useCallback(() => {
-    if (website) {
-      openUrlExternal(website);
-    }
-  }, [website]);
-
-  const handleOpenTwitter = useCallback(() => {
-    if (twitter) {
-      openUrlExternal(twitter);
-    }
-  }, [twitter]);
-
   return (
     <XStack ai="center" gap="$2">
       <Token
+        size="md"
         tokenImageUri={logoUrl}
         networkImageUri={networkLogoUri}
         fallbackIcon="CryptoCoinOutline"
@@ -77,16 +93,15 @@ export function TokenDetailHeaderLeft({
 
         <XStack gap="$2" ai="center">
           {address ? (
-            <XStack
-              borderRadius="$1"
-              ai="center"
-              gap="$1"
-              onPress={handleCopyAddress}
-              cursor="pointer"
-              hoverStyle={{ bg: '$bgHover' }}
-              pressStyle={{ bg: '$bgActive' }}
-            >
-              <SizableText size="$bodySm" color="$textSubdued">
+            <XStack borderRadius="$1" ai="center" gap="$1">
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                cursor="pointer"
+                hoverStyle={{ color: '$text' }}
+                pressStyle={{ color: '$textActive' }}
+                onPress={handleOpenContractAddress}
+              >
                 {accountUtils.shortenAddress({
                   address,
                   leadingLength: 6,
@@ -94,42 +109,56 @@ export function TokenDetailHeaderLeft({
                 })}
               </SizableText>
 
-              <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
+              <InteractiveIcon
+                icon="Copy3Outline"
+                onPress={handleCopyAddress}
+                size="$4"
+              />
             </XStack>
           ) : null}
 
           {/* Social Links & Security */}
           {showMediaAndSecurity ? (
             <>
-              <Divider vertical backgroundColor="$borderSubdued" h="$3" />
-
-              {tokenDetail?.address && networkId ? (
+              {address && networkId ? (
                 <>
+                  <Divider vertical backgroundColor="$borderSubdued" h="$3" />
+
                   <TokenSecurityAlert />
                 </>
               ) : null}
 
-              <Divider vertical backgroundColor="$borderSubdued" h="$3" />
+              {website || twitter || address ? (
+                <>
+                  <Divider vertical backgroundColor="$borderSubdued" h="$3" />
 
-              <XStack gap="$1" ai="center">
-                {website ? (
-                  <IconButton
-                    icon="GlobusOutline"
-                    onPress={handleOpenWebsite}
-                    variant="tertiary"
-                    iconProps={{ width: 16, height: 16 }}
-                  />
-                ) : null}
+                  <XStack gap="$1" ai="center">
+                    {website ? (
+                      <InteractiveIcon
+                        icon="GlobusOutline"
+                        onPress={handleOpenWebsite}
+                        size="$4"
+                      />
+                    ) : null}
 
-                {twitter ? (
-                  <IconButton
-                    icon="Xbrand"
-                    onPress={handleOpenTwitter}
-                    variant="tertiary"
-                    iconProps={{ width: 16, height: 16 }}
-                  />
-                ) : null}
-              </XStack>
+                    {twitter ? (
+                      <InteractiveIcon
+                        icon="Xbrand"
+                        onPress={handleOpenTwitter}
+                        size="$4"
+                      />
+                    ) : null}
+
+                    {address ? (
+                      <InteractiveIcon
+                        icon="SearchOutline"
+                        onPress={handleOpenXSearch}
+                        size="$4"
+                      />
+                    ) : null}
+                  </XStack>
+                </>
+              ) : null}
             </>
           ) : null}
         </XStack>

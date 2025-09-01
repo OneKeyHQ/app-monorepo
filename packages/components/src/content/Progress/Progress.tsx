@@ -8,6 +8,7 @@ import { ThemeableStack } from '@tamagui/stacks';
 
 import type { GetProps } from '@tamagui/core';
 import type { Scope } from '@tamagui/create-context';
+import type { LayoutChangeEvent } from 'react-native';
 
 const PROGRESS_NAME = 'Progress';
 
@@ -72,8 +73,15 @@ export const ProgressIndicatorFrame = styled(ThemeableStack, {
 
 export type IProgressIndicatorProps = GetProps<typeof ProgressIndicatorFrame>;
 
-const ProgressIndicator = ProgressIndicatorFrame.styleable(
-  (props: IScopedProps<IProgressIndicatorProps>, forwardedRef) => {
+const ProgressIndicator = ProgressIndicatorFrame.styleable<
+  IProgressIndicatorProps,
+  any,
+  any
+>(
+  (
+    props: IProgressIndicatorProps & { __scopeProgress?: any },
+    forwardedRef: any,
+  ) => {
     const { __scopeProgress, animation, ...indicatorProps } = props;
     const context = useProgressContext(INDICATOR_NAME, __scopeProgress);
     const pct = context.max - (context.value ?? 0);
@@ -155,53 +163,64 @@ export type IProgressProps = GetProps<typeof ProgressFrame> &
   IProgressExtraProps;
 
 const Progress = withStaticProperties(
-  ProgressFrame.styleable<IProgressExtraProps>((props, forwardedRef) => {
-    const {
-      // @ts-expect-error
-      __scopeProgress,
-      value: valueProp,
-      max: maxProp,
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      getValueLabel = defaultGetValueLabel,
-      size = '$true',
-      ...IProgressProps
-    } = props;
+  ProgressFrame.styleable<IProgressExtraProps, any, any>(
+    (
+      props: IProgressExtraProps & {
+        __scopeProgress?: any;
+        size?: any;
+        unstyled?: any;
+        onLayout?: (event: LayoutChangeEvent) => void;
+      },
+      forwardedRef: any,
+    ) => {
+      const {
+        __scopeProgress,
+        value: valueProp,
+        max: maxProp,
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        getValueLabel = defaultGetValueLabel,
+        size = '$true',
+        ...IProgressProps
+      } = props;
 
-    const max = isValidMaxNumber(maxProp) ? maxProp : DEFAULT_MAX;
-    const value = isValidValueNumber(valueProp, max) ? valueProp : null;
-    const valueLabel = isNumber(value) ? getValueLabel(value, max) : undefined;
-    const [width, setWidth] = useState(0);
+      const max = isValidMaxNumber(maxProp) ? maxProp : DEFAULT_MAX;
+      const value = isValidValueNumber(valueProp, max) ? valueProp : null;
+      const valueLabel = isNumber(value)
+        ? getValueLabel(value, max)
+        : undefined;
+      const [width, setWidth] = useState(0);
 
-    return (
-      <ProgressProvider
-        scope={__scopeProgress}
-        value={value}
-        max={max}
-        width={width}
-      >
-        <ProgressFrame
-          aria-valuemax={max}
-          aria-valuemin={0}
-          aria-valuenow={isNumber(value) ? value : undefined}
-          aria-valuetext={valueLabel}
-          // @ts-ignore
-          role="progressbar"
-          data-state={getProgressState(value, max)}
-          data-value={value ?? undefined}
-          data-max={max}
-          {...(IProgressProps.unstyled !== true && {
-            size,
-          })}
-          {...IProgressProps}
-          onLayout={(e) => {
-            setWidth(e.nativeEvent.layout.width);
-            IProgressProps.onLayout?.(e);
-          }}
-          ref={forwardedRef}
-        />
-      </ProgressProvider>
-    );
-  }),
+      return (
+        <ProgressProvider
+          scope={__scopeProgress}
+          value={value}
+          max={max}
+          width={width}
+        >
+          <ProgressFrame
+            aria-valuemax={max}
+            aria-valuemin={0}
+            aria-valuenow={isNumber(value) ? value : undefined}
+            aria-valuetext={valueLabel}
+            // @ts-ignore
+            role="progressbar"
+            data-state={getProgressState(value, max)}
+            data-value={value ?? undefined}
+            data-max={max}
+            {...(IProgressProps.unstyled !== true && {
+              size,
+            })}
+            {...IProgressProps}
+            onLayout={(e) => {
+              setWidth(e.nativeEvent.layout.width);
+              IProgressProps.onLayout?.(e);
+            }}
+            ref={forwardedRef}
+          />
+        </ProgressProvider>
+      );
+    },
+  ),
   {
     Indicator: ProgressIndicator,
   },

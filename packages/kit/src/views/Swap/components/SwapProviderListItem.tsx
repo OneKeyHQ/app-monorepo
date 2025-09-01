@@ -427,10 +427,12 @@ const SwapProviderListItem = ({
                         rotate: '0deg',
                       },
                     })}
-                transition={{
-                  type: 'timing',
-                  duration: 150,
-                }}
+                transition={
+                  {
+                    type: 'timing',
+                    duration: 150,
+                  } as any
+                }
               >
                 <Icon
                   name={

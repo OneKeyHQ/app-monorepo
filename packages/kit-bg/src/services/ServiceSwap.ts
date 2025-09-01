@@ -20,7 +20,6 @@ import {
 import EventSource from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -63,6 +62,7 @@ import type {
   ISwapApproveAllowanceResponse,
   ISwapApproveTransaction,
   ISwapCheckSupportResponse,
+  ISwapNativeTokenConfig,
   ISwapNetwork,
   ISwapNetworkBase,
   ISwapTips,
@@ -82,11 +82,7 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
-import {
-  inAppNotificationAtom,
-  settingsAtom,
-  settingsPersistAtom,
-} from '../states/jotai/atoms';
+import { inAppNotificationAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -355,6 +351,8 @@ export default class ServiceSwap extends ServiceBase {
               )
             ).id
           : otherWalletTypeAccountId ?? '';
+        console.log('getSupportSwapAllAccounts');
+        // const accountsInfo: IAllNetworkAccountInfo[] = [];
         const { accountsInfo } =
           await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
             accountId: allNetAccountId,
@@ -430,61 +428,68 @@ export default class ServiceSwap extends ServiceBase {
     contractAddress: string;
     direction?: ESwapDirectionType;
   }): Promise<ISwapToken[] | undefined> {
-    await this.cancelFetchTokenDetail(direction);
-    const params: IFetchTokenDetailParams = {
-      protocol: EProtocolOfExchange.SWAP,
-      networkId,
-      accountAddress,
-      contractAddress,
-    };
-    if (direction) {
-      if (direction === ESwapDirectionType.FROM) {
-        this._tokenDetailAbortControllerMap.from = new AbortController();
-      } else if (direction === ESwapDirectionType.TO) {
-        this._tokenDetailAbortControllerMap.to = new AbortController();
+    try {
+      await this.cancelFetchTokenDetail(direction);
+      const params: IFetchTokenDetailParams = {
+        protocol: EProtocolOfExchange.SWAP,
+        networkId,
+        accountAddress,
+        contractAddress,
+      };
+      if (direction) {
+        if (direction === ESwapDirectionType.FROM) {
+          this._tokenDetailAbortControllerMap.from = new AbortController();
+        } else if (direction === ESwapDirectionType.TO) {
+          this._tokenDetailAbortControllerMap.to = new AbortController();
+        }
       }
-    }
-    const client = await this.getClient(EServiceEndpointEnum.Swap);
-    if (accountId && accountAddress && networkId) {
-      const accountAddressForAccountId =
-        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-          accountId,
-          networkId,
-        });
-      if (accountAddressForAccountId === accountAddress) {
-        params.xpub = await this.backgroundApi.serviceAccount.getAccountXpub({
-          accountId,
-          networkId,
-        });
-      }
-      const inscriptionProtection =
-        await this.backgroundApi.serviceSetting.getInscriptionProtection();
-      const checkInscriptionProtectionEnabled =
-        await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
-          {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      if (accountId && accountAddress && networkId) {
+        const accountAddressForAccountId =
+          await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+            accountId,
             networkId,
+          });
+        if (accountAddressForAccountId === accountAddress) {
+          params.xpub = await this.backgroundApi.serviceAccount.getAccountXpub({
             accountId,
-          },
-        );
-      const withCheckInscription =
-        checkInscriptionProtectionEnabled && inscriptionProtection;
-      params.withCheckInscription = withCheckInscription;
+            networkId,
+          });
+        }
+        const inscriptionProtection =
+          await this.backgroundApi.serviceSetting.getInscriptionProtection();
+        const checkInscriptionProtectionEnabled =
+          await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
+            {
+              networkId,
+              accountId,
+            },
+          );
+        const withCheckInscription =
+          checkInscriptionProtectionEnabled && inscriptionProtection;
+        params.withCheckInscription = withCheckInscription;
+      }
+      const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
+        '/swap/v1/token/detail',
+        {
+          params,
+          signal:
+            direction === ESwapDirectionType.FROM
+              ? this._tokenDetailAbortControllerMap.from?.signal
+              : this._tokenDetailAbortControllerMap.to?.signal,
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId,
+              },
+            ),
+        },
+      );
+      return data?.data;
+    } catch (e) {
+      console.error(e);
+      return [];
     }
-    const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
-      '/swap/v1/token/detail',
-      {
-        params,
-        signal:
-          direction === ESwapDirectionType.FROM
-            ? this._tokenDetailAbortControllerMap.from?.signal
-            : this._tokenDetailAbortControllerMap.to?.signal,
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-      },
-    );
-    return data?.data;
   }
 
   @backgroundMethod()
@@ -796,19 +801,6 @@ export default class ServiceSwap extends ServiceBase {
         });
       });
     }
-    const { swapEnableRecipientAddress } = await settingsAtom.get();
-    const { swapBatchApproveAndSwap } = await settingsPersistAtom.get();
-    defaultLogger.swap.swapQuote.swapQuote({
-      walletType,
-      quoteType: protocol,
-      slippageSetting: autoSlippage ? 'auto' : 'custom',
-      sourceChain: fromToken.networkId,
-      receivedChain: toToken.networkId,
-      sourceTokenSymbol: fromToken.symbol,
-      receivedTokenSymbol: toToken.symbol,
-      isAddReceiveAddress: swapEnableRecipientAddress,
-      isSmartMode: swapBatchApproveAndSwap,
-    });
   }
 
   async getDenyCrossChainProvider(fromNetworkId: string, toNetworkId: string) {
@@ -920,6 +912,7 @@ export default class ServiceSwap extends ServiceBase {
         title: error?.message,
         message: error?.requestId,
       });
+      throw e;
     }
   }
 
@@ -1022,6 +1015,25 @@ export default class ServiceSwap extends ServiceBase {
         });
       }
       throw e;
+    }
+  }
+
+  @backgroundMethod()
+  async fetchSwapNativeTokenConfig({ networkId }: { networkId: string }) {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const resp = await client.get<{
+        data: ISwapNativeTokenConfig;
+      }>(`/swap/v1/native-token-config`, {
+        params: { networkId },
+      });
+      return resp.data.data;
+    } catch (e) {
+      console.error(e);
+      return {
+        networkId,
+        reserveGas: 0,
+      };
     }
   }
 

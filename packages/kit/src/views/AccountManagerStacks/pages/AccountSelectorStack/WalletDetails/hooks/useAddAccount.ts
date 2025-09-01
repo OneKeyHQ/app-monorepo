@@ -57,7 +57,7 @@ export function useAddAccount({
 }) {
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
-  const { createQrWalletByAccount } = useCreateQrWallet();
+  const { createQrWalletAccount } = useCreateQrWallet();
   const { activeAccount } = useActiveAccount({ num });
   const { serviceAccount } = backgroundApiProxy;
 
@@ -75,7 +75,9 @@ export function useAddAccount({
           });
         } else if (walletId === WALLET_TYPE_EXTERNAL) {
           navigation.pushModal(EModalRoutes.OnboardingModal, {
-            screen: EOnboardingPages.ConnectWalletSelectNetworks,
+            screen: platformEnv.isWebDappMode
+              ? EOnboardingPages.ConnectWalletOptions
+              : EOnboardingPages.ConnectWalletSelectNetworks,
           });
         }
         return;
@@ -142,7 +144,7 @@ export function useAddAccount({
                   )
                 : result?.failedAccounts?.length)
             ) {
-              await createQrWalletByAccount({
+              await createQrWalletAccount({
                 walletId: focusedWalletId,
                 networkId:
                   activeAccount?.network?.id || getNetworkIdsMap().onekeyall,

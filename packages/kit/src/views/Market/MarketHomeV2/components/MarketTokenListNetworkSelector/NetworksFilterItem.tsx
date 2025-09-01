@@ -1,13 +1,10 @@
-import { StyleSheet } from 'react-native';
-
-import { Image, SizableText, Tooltip, XStack } from '@onekeyhq/components';
+import { Image, SizableText, XStack, useMedia } from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
 
 export type INetworksFilterItemProps = {
   networkImageUri?: string;
   networkName?: string;
   isSelected?: boolean;
-  tooltipContent?: string;
   disabled?: boolean;
 } & IXStackProps;
 
@@ -15,20 +12,20 @@ export function NetworksFilterItem({
   networkImageUri,
   networkName,
   isSelected,
-  tooltipContent,
   disabled,
   ...rest
 }: INetworksFilterItemProps) {
-  const BaseComponent = (
+  const { md } = useMedia();
+  return (
     <XStack
+      alignItems="center"
       justifyContent="center"
-      px="$3"
+      px="$2.5"
       py="$1.5"
-      gap="$2"
-      borderRadius="$2"
+      gap={md ? '$1' : '$2'}
+      borderRadius={md ? '$full' : '$2.5'}
       userSelect="none"
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor={isSelected ? '$borderActive' : '$transparent'}
+      backgroundColor={isSelected ? '$bgActive' : '$transparent'}
       {...(!isSelected &&
         !disabled && {
           focusable: true,
@@ -49,45 +46,25 @@ export function NetworksFilterItem({
       })}
       {...rest}
     >
-      {networkImageUri ? (
+      {networkImageUri && (!md || isSelected) ? (
         <Image
-          height="$6"
-          width="$6"
+          size="$4.5"
+          width="$4.5"
           borderRadius="$full"
-          $gtMd={{
-            height: '$5',
-            width: '$5',
+          source={{
+            uri: networkImageUri,
           }}
-        >
-          <Image.Source
-            source={{
-              uri: networkImageUri,
-            }}
-          />
-        </Image>
+        />
       ) : null}
       {networkName ? (
         <SizableText
           numberOfLines={1}
           color={isSelected ? '$text' : '$textSubdued'}
-          size="$bodyLgMedium"
-          $gtMd={{
-            size: '$bodyMdMedium',
-          }}
+          size="$bodyMdMedium"
         >
           {networkName}
         </SizableText>
       ) : null}
     </XStack>
-  );
-
-  if (!tooltipContent) return BaseComponent;
-
-  return (
-    <Tooltip
-      renderContent={tooltipContent}
-      placement="top"
-      renderTrigger={BaseComponent}
-    />
   );
 }

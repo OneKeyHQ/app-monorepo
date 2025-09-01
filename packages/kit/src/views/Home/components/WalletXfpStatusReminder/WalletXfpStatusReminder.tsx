@@ -4,7 +4,7 @@ import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IStackProps } from '@onekeyhq/components';
+import type { IStackProps, IXStackProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -48,7 +48,7 @@ export function WalletXfpReminderAlert({
       borderRadius="$2"
       borderCurve="continuous"
       flex={1}
-      {...containerProps}
+      {...(containerProps as IXStackProps)}
     >
       <Icon size="$5" name="CubeOutline" color="$iconInfo" />
       <SizableText

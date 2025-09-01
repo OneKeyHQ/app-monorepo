@@ -19,7 +19,11 @@ import type {
   IRenderItemParams,
   ISortableListViewProps,
 } from '../../layouts/SortableListView';
-import type { ISizableTextProps, IStackProps } from '../../primitives';
+import type {
+  ISizableTextProps,
+  IStackProps,
+  IXStackProps,
+} from '../../primitives';
 import type {
   ListRenderItemInfo,
   NativeScrollEvent,
@@ -45,7 +49,7 @@ function Column<T>({
     order?: 'asc' | 'desc' | undefined;
     align?: ITableColumn<T>['align'];
     onPress?: () => void;
-  } & Omit<IStackProps, 'onPress'>
+  } & Omit<IXStackProps, 'onPress'>
 >) {
   const jc = useMemo(() => {
     if (align === 'left') {
@@ -198,7 +202,7 @@ function TableRow<T>({
     }
   }, [drag, draggable, getTimeDiff, scrollAtRef, onRowEvents]);
 
-  const nativeScaleAnimationProps: IStackProps = platformEnv.isNativeIOS
+  const nativeScaleAnimationProps: IXStackProps = platformEnv.isNativeIOS
     ? {
         scale: isDragging ? 0.9 : 1,
         animateOnly: ['transform'],
@@ -216,8 +220,8 @@ function TableRow<T>({
       onPress={handlePress}
       onLongPress={md ? handleLongPress : undefined}
       {...nativeScaleAnimationProps}
-      {...itemPressStyle}
-      {...rowProps}
+      {...(itemPressStyle as IXStackProps)}
+      {...(rowProps as IXStackProps)}
     >
       {columns.map((column) => {
         if (!column) {
@@ -237,7 +241,7 @@ function TableRow<T>({
             name={dataIndex}
             align={align}
             width={columnWidth}
-            {...columnProps}
+            {...(columnProps as any)}
           >
             {showSkeleton
               ? renderSkeleton?.()
@@ -276,8 +280,12 @@ function TableSkeletonRow<T = any>({
   );
 }
 export interface ITableProps<T> {
+  useFlashList?: boolean;
+  scrollEnabled?: boolean;
   showHeader?: boolean;
   showBackToTopButton?: boolean;
+  showSkeleton?: boolean;
+  skeletonCount?: number;
   dataSource: T[];
   columns: ITableColumn<T>[];
   contentContainerStyle?: IListViewProps<T>['contentContainerStyle'];
@@ -315,6 +323,9 @@ export interface ITableProps<T> {
         onLongPress?: () => void;
       }
     | undefined;
+  // Infinite scroll support
+  onEndReached?: IListViewProps<T>['onEndReached'];
+  onEndReachedThreshold?: IListViewProps<T>['onEndReachedThreshold'];
 }
 
 function HeaderColumn<T>({
@@ -352,15 +363,24 @@ function HeaderColumn<T>({
     if (!enableSortType) {
       return;
     }
-    setTimeout(() => {
-      onChangeSelectedName(dataIndex);
-    });
     let order: 'asc' | 'desc' | undefined = 'desc';
     if (sortOrder === 'desc') {
       order = 'asc';
     } else if (sortOrder === 'asc') {
       order = undefined;
     }
+
+    // When resetting to undefined, clear the selected column to allow default sorting
+    if (order === undefined) {
+      setTimeout(() => {
+        onChangeSelectedName('');
+      });
+    } else {
+      setTimeout(() => {
+        onChangeSelectedName(dataIndex);
+      });
+    }
+
     setSortOrder(order);
     setTimeout(() => {
       events?.onSortTypeChange?.(order);
@@ -386,9 +406,9 @@ function HeaderColumn<T>({
       name={dataIndex}
       width={columnWidth}
       order={currentSortOrder}
-      onPress={handleColumnPress}
+      onPress={handleColumnPress as any}
       cursor={cursor}
-      {...columnProps}
+      {...(columnProps as IXStackProps)}
     >
       <SizableText
         color="$textSubdued"
@@ -417,7 +437,10 @@ function TableHeaderRow<T>({
 }) {
   const [selectedColumnName, setSelectedColumnName] = useState('');
   return (
-    <XStack {...rowProps} {...headerRowProps}>
+    <XStack
+      {...(rowProps as IXStackProps)}
+      {...(headerRowProps as IXStackProps)}
+    >
       {columns.map((column, index) =>
         column ? (
           <MemoHeaderColumn
@@ -435,7 +458,7 @@ function TableHeaderRow<T>({
 }
 
 function BasicTable<T>({
-  dataSource,
+  dataSource: dataSourceOriginal,
   columns,
   extraData,
   TableHeaderComponent,
@@ -457,6 +480,12 @@ function BasicTable<T>({
   stickyHeaderHiddenOnScroll = false,
   showBackToTopButton = false,
   draggable = false,
+  onEndReached,
+  onEndReachedThreshold,
+  scrollEnabled = true,
+  useFlashList = false,
+  showSkeleton = false,
+  skeletonCount = 3,
 }: ITableProps<T>) {
   const { gtMd } = useMedia();
   const [isShowBackToTopButton, setIsShowBackToTopButton] = useState(false);
@@ -464,6 +493,13 @@ function BasicTable<T>({
   const isShowBackToTopButtonRef = useRef(isShowBackToTopButton);
   isShowBackToTopButtonRef.current = isShowBackToTopButton;
   const scrollAtRef = useRef(0);
+
+  const dataSource = useMemo(() => {
+    if (showSkeleton) {
+      return new Array(skeletonCount).fill({} as T) as T[];
+    }
+    return dataSourceOriginal;
+  }, [dataSourceOriginal, showSkeleton, skeletonCount]);
 
   const handleScrollOffsetChange = useCallback((offset: number) => {
     const isShow = offset > 0;
@@ -489,16 +525,17 @@ function BasicTable<T>({
   const handleRenderItem = useCallback(
     ({ item, index }: ListRenderItemInfo<T>) => (
       <TableRow
-        pressStyle
+        pressStyle={!showSkeleton}
+        showSkeleton={showSkeleton}
         scrollAtRef={scrollAtRef}
         item={item}
         index={index}
         columns={columns}
-        onRow={onRow}
+        onRow={showSkeleton ? undefined : onRow}
         rowProps={rowProps}
       />
     ),
-    [columns, onRow, rowProps],
+    [columns, onRow, rowProps, showSkeleton],
   );
 
   const enableBackToTopButton = showBackToTopButton && isShowBackToTopButton;
@@ -541,26 +578,29 @@ function BasicTable<T>({
   const renderSortableItem = useCallback(
     ({ item, drag, dragProps, index, isActive }: IRenderItemParams<T>) => (
       <TableRow
-        pressStyle
+        pressStyle={!showSkeleton}
         isActive={isActive}
         draggable={draggable}
         dataSet={dragProps}
+        showSkeleton={showSkeleton}
         drag={drag}
         scrollAtRef={scrollAtRef}
         item={item}
         index={index}
         columns={columns}
-        onRow={onRow}
+        onRow={showSkeleton ? undefined : onRow}
         rowProps={rowProps}
       />
     ),
-    [columns, draggable, onRow, rowProps],
+    [columns, draggable, onRow, rowProps, showSkeleton],
   );
   const list = useMemo(
     () =>
       draggable ? (
         <SortableListView
           enabled
+          useFlashList={useFlashList}
+          scrollEnabled={scrollEnabled}
           ref={listViewRef as any}
           contentContainerStyle={contentContainerStyle}
           stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
@@ -590,10 +630,14 @@ function BasicTable<T>({
           ListEmptyComponent={TableEmptyComponent}
           extraData={extraData}
           renderScrollComponent={renderScrollComponent}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={onEndReachedThreshold}
         />
       ) : (
         <ListView
-          ref={listViewRef}
+          useFlashList={useFlashList}
+          scrollEnabled={scrollEnabled}
+          ref={listViewRef as any}
           contentContainerStyle={contentContainerStyle}
           stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
           estimatedItemSize={estimatedItemSize}
@@ -613,10 +657,13 @@ function BasicTable<T>({
           ListEmptyComponent={TableEmptyComponent}
           extraData={extraData}
           renderScrollComponent={renderScrollComponent}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={onEndReachedThreshold}
         />
       ),
     [
       draggable,
+      scrollEnabled,
       contentContainerStyle,
       stickyHeaderHiddenOnScroll,
       estimatedListSize,
@@ -635,6 +682,9 @@ function BasicTable<T>({
       TableEmptyComponent,
       extraData,
       renderScrollComponent,
+      onEndReached,
+      onEndReachedThreshold,
+      useFlashList,
       estimatedItemSize,
       handleRenderItem,
       itemSize,

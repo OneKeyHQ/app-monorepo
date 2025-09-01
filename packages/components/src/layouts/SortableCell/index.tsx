@@ -12,7 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IconButton } from '../../actions/IconButton';
 import { Stack, XStack } from '../../primitives/Stack';
 
-import type { StackProps } from '@tamagui/web/types/types';
+import type { StackProps } from '@tamagui/web';
 import type { PressableProps, View } from 'react-native';
 import type { GetProps, TamaguiElement } from 'tamagui';
 

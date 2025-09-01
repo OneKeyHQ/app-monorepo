@@ -30,6 +30,13 @@ export const useToOnBoardingPage = () => {
         isFullModal?: boolean;
         params?: IOnboardingParamList[EOnboardingPages.GetStarted];
       } = {}) => {
+        if (platformEnv.isWebDappMode) {
+          navigation.pushModal(EModalRoutes.OnboardingModal, {
+            screen: EOnboardingPages.ConnectWalletOptions,
+          });
+          return;
+        }
+
         if (
           platformEnv.isExtensionUiPopup ||
           platformEnv.isExtensionUiSidePanel

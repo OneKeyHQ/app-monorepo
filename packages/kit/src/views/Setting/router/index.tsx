@@ -7,12 +7,12 @@ import type {
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
+
 // WARNING:
 // If global jotai data is modified, this page will re-render when using lazy loading, so it must be statically imported.
 // Static import to avoid React Native re-rendering issues when jotai global data is modified
-import SettingListSubModal from '../pages/Tab/SettingListSubModal';
-
 import { BasicModalSettingStack } from './basicModalSettingRouter';
+import { SettingListSubModal } from './settingListSubModalRoute';
 
 const SettingTabModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/Tab'),

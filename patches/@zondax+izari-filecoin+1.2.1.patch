@@ -1,0 +1,68 @@
+diff --git a/node_modules/@zondax/izari-filecoin/package.json b/node_modules/@zondax/izari-filecoin/package.json
+index b5b2968..ce10f4d 100644
+--- a/node_modules/@zondax/izari-filecoin/package.json
++++ b/node_modules/@zondax/izari-filecoin/package.json
+@@ -21,43 +21,53 @@
+   "exports": {
+     ".": {
+       "import": "./dist/mjs/index.js",
+-      "require": "./dist/cjs/index.js"
++      "require": "./dist/cjs/index.js",
++      "types": "./dist/types/index.d.ts"
+     },
+     "./rpc": {
+       "import": "./dist/mjs/rpc/index.js",
+-      "require": "./dist/cjs/rpc/index.js"
++      "require": "./dist/cjs/rpc/index.js",
++      "types": "./dist/types/rpc/index.d.ts"
+     },
+     "./address": {
+       "import": "./dist/mjs/address/index.js",
+-      "require": "./dist/cjs/address/index.js"
++      "require": "./dist/cjs/address/index.js",
++      "types": "./dist/types/address/index.d.ts"
+     },
+     "./transaction": {
+       "import": "./dist/mjs/transaction/index.js",
+-      "require": "./dist/cjs/transaction/index.js"
++      "require": "./dist/cjs/transaction/index.js",
++      "types": "./dist/types/transaction/index.d.ts"
+     },
+     "./wallet": {
+       "import": "./dist/mjs/wallet/index.js",
+-      "require": "./dist/cjs/wallet/index.js"
++      "require": "./dist/cjs/wallet/index.js",
++      "types": "./dist/types/wallet/index.d.ts"
+     },
+     "./token": {
+       "import": "./dist/mjs/token/index.js",
+-      "require": "./dist/cjs/token/index.js"
++      "require": "./dist/cjs/token/index.js",
++      "types": "./dist/types/token/index.d.ts"
+     },
+     "./account": {
+       "import": "./dist/mjs/account/index.js",
+-      "require": "./dist/cjs/account/index.js"
++      "require": "./dist/cjs/account/index.js",
++      "types": "./dist/types/account/index.d.ts"
+     },
+     "./artifacts": {
+       "import": "./dist/mjs/artifacts/index.js",
+-      "require": "./dist/cjs/artifacts/index.js"
++      "require": "./dist/cjs/artifacts/index.js",
++      "types": "./dist/types/artifacts/index.d.ts"
+     },
+     "./payment": {
+       "import": "./dist/mjs/payment/index.js",
+-      "require": "./dist/cjs/payment/index.js"
++      "require": "./dist/cjs/payment/index.js",
++      "types": "./dist/types/payment/index.d.ts"
+     },
+     "./actors": {
+       "import": "./dist/mjs/actors/index.js",
+-      "require": "./dist/cjs/actors/index.js"
++      "require": "./dist/cjs/actors/index.js",
++      "types": "./dist/types/actors/index.d.ts"
+     }
+   },
+   "scripts": {

@@ -2,7 +2,7 @@ import { cloneElement, useCallback, useMemo } from 'react';
 
 import { StyleSheet } from 'react-native';
 
-import { Badge, SizableText, Stack, YStack } from '@onekeyhq/components';
+import { Badge, Stack, YStack } from '@onekeyhq/components';
 import type {
   IBadgeProps,
   IIconProps,
@@ -10,6 +10,7 @@ import type {
   ISizableTextProps,
   IStackProps,
   IStackStyle,
+  IYStackProps,
 } from '@onekeyhq/components';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem as BaseListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -28,7 +29,7 @@ export function TabSettingsSection(props: IStackProps & IStackStyle) {
       borderRadius="$2.5"
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$neutral3"
-      {...props}
+      {...(props as IYStackProps)}
     />
   );
 }
@@ -77,6 +78,7 @@ export function TabSettingsListGrid({
     cloneElement(item.renderElement, {
       titleMatch,
       title: item.title,
+      subtitle: item?.subtitle,
       icon: item.icon as IKeyOfIcons,
       onPress: item?.onPress,
       badgeProps: item?.badgeProps,
@@ -96,6 +98,7 @@ export function TabSettingsListGrid({
       icon={item?.icon as IKeyOfIcons}
       iconProps={iconProps}
       title={item?.title}
+      subtitle={item?.subtitle}
       drillIn
     >
       {item?.badgeProps ? (

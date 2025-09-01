@@ -15,7 +15,7 @@ export const LottieView = forwardRef<
   typeof AnimatedLottieView,
   ILottieViewProps
 >(({ source, loop = true, resizeMode, autoPlay = true, ...props }, ref) => {
-  const animationRef = useRef<AnimatedLottieView | null>();
+  const animationRef = useRef<AnimatedLottieView | null>(null);
 
   const appStateRef = useRef(AppState.currentState);
   const [restProps, style] = usePropsAndStyle(props, {
@@ -59,7 +59,7 @@ export const LottieView = forwardRef<
       source={source as LottieNativeProps['source']}
       loop={loop}
       style={style as any}
-      {...restProps}
+      {...(restProps as any)}
       ref={animationRef as LegacyRef<AnimatedLottieView>}
       renderMode={platformEnv.isNativeIOS ? 'SOFTWARE' : undefined}
     />

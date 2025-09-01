@@ -37,6 +37,7 @@ export enum EAtomNames {
   galleryPersistAtom = 'galleryPersistAtom',
   activeAccountValueAtom = 'activeAccountValueAtom',
   settingsValuePersistAtom = 'settingsValuePersistAtom',
+  settingsTronRentalPersistAtom = 'settingsTronRentalPersistAtom',
   // notificationsAtom, notificationsPersistAtom is reserved for notificationsPersistAtom
   notificationsAtom = 'notificationsAtom', // persist
   notificationsReadedAtom = 'notificationsReadedAtom',
@@ -47,8 +48,12 @@ export enum EAtomNames {
   primeMasterPasswordPersistAtom = 'primeMasterPasswordPersistAtom',
   primeInitAtom = 'primeInitAtom',
   primeLoginDialogAtom = 'primeLoginDialogAtom',
+  primeTransferAtom = 'primeTransferAtom',
   accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',
+  accountSelectorStatusAtom = 'accountSelectorStatusAtom',
   allNetworksPersistAtom = 'allNetworksPersistAtom',
+  desktopBluetoothAtom = 'desktopBluetoothAtom',
+  hardwareForceTransportAtom = 'hardwareForceTransportAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<

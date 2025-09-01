@@ -317,10 +317,10 @@ const SwitchGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Switch'
     ),
 );
-const TabViewGallery = LazyLoadPage(
+const NewTabsGallery = LazyLoadPage(
   () =>
     import(
-      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TabView'
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NewTabsGallery'
     ),
 );
 const TextAreaGallery = LazyLoadPage(
@@ -465,6 +465,13 @@ const PasswordKeyboardGallery = LazyLoadPage(
     ),
 );
 
+const PerpGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PerpGallery'
+    ),
+);
+
 const TradingViewGallery = LazyLoadPage(
   () =>
     import(
@@ -562,6 +569,20 @@ const TriggerGallery = LazyLoadPage(
     ),
 );
 
+const TutorialsListGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TutorialsList'
+    ),
+);
+
+const OrderedListGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/OrderedList'
+    ),
+);
+
 const RestartGallery = LazyLoadPage(
   () =>
     import(
@@ -585,6 +606,13 @@ const CryptoGallery = LazyLoadPage(
 
 const UnOrderedListGallery = LazyLoadPage(
   () => import('./Components/stories/UnOrderedListGallery'),
+);
+
+const CarouselGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Carousel'
+    ),
 );
 
 export const galleryScreenList: {
@@ -614,6 +642,11 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentSelect, component: SelectGallery },
   { name: EGalleryRoutes.ComponentTooltip, component: TooltipGallery },
   { name: EGalleryRoutes.ComponentTrigger, component: TriggerGallery },
+  {
+    name: EGalleryRoutes.ComponentTutorialsList,
+    component: TutorialsListGallery,
+  },
+  { name: EGalleryRoutes.ComponentOrderedList, component: OrderedListGallery },
   { name: EGalleryRoutes.ComponentBadge, component: BadgeGallery },
   { name: EGalleryRoutes.ComponentInput, component: InputGallery },
   { name: EGalleryRoutes.ComponentDialog, component: DialogGallery },
@@ -705,8 +738,8 @@ export const galleryScreenList: {
     component: FormGallery,
   },
   {
-    name: EGalleryRoutes.ComponentTabview,
-    component: TabViewGallery,
+    name: EGalleryRoutes.ComponentNewTabs,
+    component: NewTabsGallery,
   },
   {
     name: EGalleryRoutes.ComponentQRCode,
@@ -793,6 +826,10 @@ export const galleryScreenList: {
     component: PasswordKeyboardGallery,
   },
   {
+    name: EGalleryRoutes.ComponentPerp,
+    component: PerpGallery,
+  },
+  {
     name: EGalleryRoutes.ComponentTradingViewGallery,
     component: TradingViewGallery,
   },
@@ -860,5 +897,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentUnOrderedList,
     component: UnOrderedListGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentCarousel,
+    component: CarouselGallery,
   },
 ];

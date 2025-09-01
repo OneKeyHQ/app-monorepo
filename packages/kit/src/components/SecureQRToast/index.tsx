@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import type { IQRCodeProps, IShowToasterProps } from '@onekeyhq/components';
 import {
@@ -17,6 +18,7 @@ import {
 import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyRequestDeviceQR } from '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 interface ISecureQRToastBaseProps {
   title?: string;
@@ -54,13 +56,21 @@ const SecureQRToastBase = ({
   const handleConfirm = useCallback(async () => {
     onConfirm?.();
   }, [onConfirm]);
+
+  const { width } = useWindowDimensions();
   return (
     <YStack
       p="$5"
       tabIndex={-1}
-      $gtMd={{
-        maxWidth: '$96',
-      }}
+      // Web platform needs specified width, but native can inherit parent width
+      w={platformEnv.isNative ? '100%' : width - 40}
+      $gtMd={
+        platformEnv.isNative
+          ? undefined
+          : {
+              maxWidth: '$96',
+            }
+      }
     >
       <XStack ai="center" pb="$3">
         <SizableText size="$headingLg" flex={1}>
@@ -68,7 +78,11 @@ const SecureQRToastBase = ({
             intl.formatMessage({ id: ETranslations.global_confirm_on_device })}
         </SizableText>
         <IconButton
-          title={show ? 'Collapse' : 'Expand'}
+          title={
+            show
+              ? intl.formatMessage({ id: ETranslations.global_collapse })
+              : intl.formatMessage({ id: ETranslations.global_expand })
+          }
           variant="tertiary"
           size="small"
           onPressIn={toggleShowState}

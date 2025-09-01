@@ -1,3 +1,4 @@
+import { clampPercentage } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 export type IPriceChangeKey =
@@ -13,13 +14,25 @@ export function createTimeRangeOption(
   value: string,
 ) {
   const priceChangePercent = tokenDetail?.[priceChangeKey];
-  if (priceChangePercent) {
-    const percentage = parseFloat(priceChangePercent);
+  if (priceChangePercent && typeof priceChangePercent === 'string') {
+    const formattedValue = clampPercentage(priceChangePercent);
+
+    // Check if formatted value is zero (e.g., 0.001% becomes 0.00%)
+    const isZero = formattedValue === 0;
+    const isPositive = formattedValue > 0;
+
+    // Format percentage with + sign for positive values
+    let formattedPercentage = `${formattedValue.toFixed(2)}%`;
+    if (isPositive) {
+      formattedPercentage = `+${formattedPercentage}`;
+    }
+
     return {
       label,
       value,
-      percentageChange: `${percentage.toFixed(2)}%`,
-      isPositive: percentage > 0,
+      percentageChange: formattedPercentage,
+      isPositive,
+      isZero,
     };
   }
   return null;

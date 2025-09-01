@@ -29,7 +29,7 @@ function PagePortal({ pagePortalId }: { pagePortalId: string }) {
 
 function PageProvider({
   children,
-  skipLoading = false,
+  lazyLoad = false,
   scrollEnabled = false,
   scrollProps = { showsVerticalScrollIndicator: false },
   safeAreaEnabled = true,
@@ -63,7 +63,7 @@ function PageProvider({
     <>
       <PageContext.Provider value={value}>
         <>
-          <PageContainer skipLoading={skipLoading} fullPage={fullPage}>
+          <PageContainer lazyLoad={lazyLoad} fullPage={fullPage}>
             {children}
           </PageContainer>
           <PagePortal pagePortalId={pagePortalId} />

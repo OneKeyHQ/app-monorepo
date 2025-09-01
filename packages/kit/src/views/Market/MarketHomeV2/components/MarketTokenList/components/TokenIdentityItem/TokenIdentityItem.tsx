@@ -4,12 +4,16 @@ import { memo, useMemo } from 'react';
 import {
   Icon,
   NATIVE_HIT_SLOP,
+  NumberSizeableText,
   SizableText,
   Stack,
   XStack,
   useClipboard,
+  useMedia,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import type { GestureResponderEvent } from 'react-native';
@@ -47,6 +51,14 @@ interface ITokenIdentityItemProps {
    * Whether to show the copy button. Defaults to false.
    */
   showCopyButton?: boolean;
+  /**
+   * Whether to show volume instead of address. Defaults to false.
+   */
+  showVolume?: boolean;
+  /**
+   * Volume value to display when showVolume is true.
+   */
+  volume?: number;
 }
 
 const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
@@ -56,8 +68,13 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   networkLogoURI,
   onCopied,
   showCopyButton = false,
+  showVolume = false,
+  volume,
 }) => {
+  const { gtMd } = useMedia();
   const { copyText } = useClipboard();
+  const [settings] = useSettingsPersistAtom();
+  const currency = settings.currencyInfo.symbol;
 
   const shortened = useMemo(
     () =>
@@ -69,47 +86,85 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     [address],
   );
 
+  const shouldShowVolume = showVolume && volume !== undefined;
+  const shouldShowAddress = !showVolume && Boolean(address);
+  const shouldShowCopyButton = showCopyButton && Boolean(address);
+  const shouldShowSecondRow = shouldShowVolume || shouldShowAddress;
+
   const handleCopy = (e: GestureResponderEvent) => {
     e.stopPropagation();
     copyText(address);
     onCopied?.(address);
   };
 
+  const getTokenImageUri = () => {
+    if (!platformEnv.isNative || !tokenLogoURI) {
+      return tokenLogoURI;
+    }
+
+    if (tokenLogoURI.toLowerCase().includes('svg')) {
+      return undefined;
+    }
+
+    return tokenLogoURI;
+  };
+
   return (
     <XStack alignItems="center" gap="$3" userSelect="none">
       <Token
-        tokenImageUri={tokenLogoURI}
-        networkImageUri={networkLogoURI}
+        tokenImageUri={getTokenImageUri()}
+        networkImageUri={address ? networkLogoURI : undefined}
         fallbackIcon="CryptoCoinOutline"
+        size="md"
       />
 
       <Stack flex={1} minWidth={0}>
-        <SizableText size="$bodyLgMedium" numberOfLines={1}>
+        <SizableText
+          width={100}
+          size="$bodyLgMedium"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
           {symbol}
         </SizableText>
-        <SizableText
-          fontFamily="$monoRegular"
-          size="$bodyMd"
-          color="$textSubdued"
-          numberOfLines={1}
-        >
-          {shortened}
-        </SizableText>
+        {shouldShowSecondRow ? (
+          <XStack alignItems="center" gap="$1" height="$4">
+            {shouldShowVolume ? (
+              <NumberSizeableText
+                size={gtMd ? '$bodySm' : '$bodyMd'}
+                color="$textSubdued"
+                numberOfLines={1}
+                formatter="marketCap"
+                formatterOptions={{ currency }}
+              >
+                {volume}
+              </NumberSizeableText>
+            ) : null}
+            {shouldShowAddress ? (
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {shortened}
+              </SizableText>
+            ) : null}
+            {shouldShowCopyButton ? (
+              <Stack
+                cursor="pointer"
+                p="$1"
+                borderRadius="$full"
+                hoverStyle={{ bg: '$bgHover' }}
+                pressStyle={{ bg: '$bgActive' }}
+                hitSlop={NATIVE_HIT_SLOP}
+                onPress={handleCopy}
+              >
+                <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
+              </Stack>
+            ) : null}
+          </XStack>
+        ) : null}
       </Stack>
-
-      {showCopyButton ? (
-        <Stack
-          cursor="pointer"
-          p="$1"
-          borderRadius="$full"
-          hoverStyle={{ bg: '$bgHover' }}
-          pressStyle={{ bg: '$bgActive' }}
-          hitSlop={NATIVE_HIT_SLOP}
-          onPress={handleCopy}
-        >
-          <Icon name="Copy2Outline" size="$5" color="$iconSubdued" />
-        </Stack>
-      ) : null}
     </XStack>
   );
 };

@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -20,6 +20,8 @@ import {
   ScrollView,
   SizableText,
   Skeleton,
+  Stack,
+  Tabs,
   XStack,
   YStack,
   useMedia,
@@ -32,7 +34,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
+// import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -63,12 +65,17 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
-import { AvailableAssetsTabViewList } from './components/AvailableAssetsTabViewList';
+import {
+  AvailableAssetsTabViewList,
+  AvailableAssetsTabViewListMobile,
+} from './components/AvailableAssetsTabViewList';
 import { FAQPanel } from './components/FAQPanel';
 import { showProtocolListDialog } from './components/showProtocolListDialog';
 import { EARN_PAGE_MAX_WIDTH, EARN_RIGHT_PANEL_WIDTH } from './EarnConfig';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 const BANNER_TITLE_OFFSET = {
   desktop: '$5',
@@ -130,7 +137,6 @@ const toTokenProviderListPage = async (
     symbol,
     accountId: earnAccount?.accountId || accountId,
     indexedAccountId: earnAccount?.account.indexedAccountId || indexedAccountId,
-    networkId: protocols[0].networkId,
     onProtocolSelect: async (params) => {
       navigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.ProtocolDetailsV2,
@@ -173,14 +179,14 @@ function RecommendedItem({
 }: { token?: IEarnAvailableAsset } & IYStackProps) {
   const accountInfo = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
-  const [decorationColor, setDecorationColor] = useState<string | null>(null);
 
-  useEffect(() => {
-    const url = token?.logoURI;
-    if (url) {
-      void getPrimaryColor(url, '$bgSubdued').then(setDecorationColor);
-    }
-  }, [token?.logoURI]);
+  // if you want to use the primary color, you can uncomment the following code
+  // useEffect(() => {
+  //   const url = token?.logoURI;
+  //   if (url) {
+  //     void getPrimaryColor(url, '$bgSubdued').then(setDecorationColor);
+  //   }
+  // }, [token?.logoURI]);
 
   const onPress = useCallback(async () => {
     const {
@@ -216,7 +222,7 @@ function RecommendedItem({
       py="$3.5"
       borderRadius="$3"
       borderCurve="continuous"
-      bg={decorationColor}
+      bg={token.bgColor}
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
       animation="quick"
@@ -235,21 +241,21 @@ function RecommendedItem({
       <YStack alignItems="flex-start">
         <XStack gap="$3" ai="center" width="100%">
           <YStack>
-            <Image size="$8">
-              <Image.Source
-                source={{
-                  uri: token.logoURI,
-                }}
-              />
-              <Image.Fallback
-                alignItems="center"
-                justifyContent="center"
-                bg="$bgStrong"
-                delayMs={1000}
-              >
-                <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
-              </Image.Fallback>
-            </Image>
+            <Image
+              size="$8"
+              source={{ uri: token.logoURI }}
+              fallback={
+                <Image.Fallback
+                  w="$8"
+                  h="$8"
+                  alignItems="center"
+                  justifyContent="center"
+                  bg="$bgStrong"
+                >
+                  <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
+                </Image.Fallback>
+              }
+            />
           </YStack>
           <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
         </XStack>
@@ -281,6 +287,7 @@ function RecommendedContainer({ children }: PropsWithChildren) {
       {/* since the children have been used negative margin, so we should use zIndex to make sure the trigger of popover is on top of the children */}
       <YStack
         gap="$1"
+        pointerEvents="box-none"
         zIndex={10}
         $md={
           platformEnv.isNative
@@ -290,7 +297,7 @@ function RecommendedContainer({ children }: PropsWithChildren) {
             : undefined
         }
       >
-        <SizableText size="$headingLg">
+        <SizableText size="$headingLg" pointerEvents="box-none">
           {intl.formatMessage({ id: ETranslations.market_trending })}
         </SizableText>
       </YStack>
@@ -519,6 +526,7 @@ function Overview({
           $gtLg={{
             pl: '$0.5',
           }}
+          pointerEvents="box-none"
         >
           {intl.formatMessage({ id: ETranslations.earn_total_staked_value })}
         </SizableText>
@@ -529,6 +537,7 @@ function Overview({
             color={getNumberColor(totalFiatValue, '$text')}
             formatterOptions={{ currency: settings.currencyInfo.symbol }}
             numberOfLines={1}
+            pointerEvents="box-none"
           >
             {totalFiatValue}
           </NumberSizeableText>
@@ -563,6 +572,7 @@ function Overview({
           $gtLg={{
             size: '$heading5xl',
           }}
+          pointerEvents="box-none"
         >
           {earnings24h}
         </NumberSizeableText>
@@ -575,6 +585,7 @@ function Overview({
               color: '$text',
               size: '$bodyLgMedium',
             }}
+            pointerEvents="box-none"
           >
             {intl.formatMessage({ id: ETranslations.earn_24h_earnings })}
           </SizableText>
@@ -804,7 +815,7 @@ function BasicEarnHome() {
       theme?: 'light' | 'dark';
     }) => {
       if (account || indexedAccount) {
-        if (href.includes('/earn/staking')) {
+        if (href.includes('/defi/staking')) {
           const [path, query] = href.split('?');
           const paths = path.split('/');
           const provider = paths.pop();
@@ -930,6 +941,160 @@ function BasicEarnHome() {
       </YStack>
     ) : null;
   }, [media.gtLg, isFaqLoading, faqList.length, faqPanel]);
+  const intl = useIntl();
+
+  const tabData = useMemo(
+    () => [
+      {
+        title: intl.formatMessage({ id: ETranslations.global_all }),
+        type: EAvailableAssetsTypeEnum.All,
+      },
+      {
+        // eslint-disable-next-line spellcheck/spell-checker
+        title: intl.formatMessage({ id: ETranslations.earn_stablecoins }),
+        type: EAvailableAssetsTypeEnum.StableCoins,
+      },
+      {
+        title: intl.formatMessage({ id: ETranslations.earn_native_tokens }),
+        type: EAvailableAssetsTypeEnum.NativeTokens,
+      },
+    ],
+    [intl],
+  );
+
+  const [tabPageHeight, setTabPageHeight] = useState(
+    platformEnv.isNativeIOS ? 143 : 92,
+  );
+  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
+    // Use the actual measured height without arbitrary adjustments
+    const height = e.nativeEvent.layout.height - 20;
+    setTabPageHeight(height);
+  }, []);
+
+  if (platformEnv.isNative && media.md) {
+    return (
+      <Page fullPage>
+        <Page.Body>
+          <Stack h={tabPageHeight} />
+          <Tabs.Container
+            allowHeaderOverscroll
+            renderHeader={() => (
+              <YStack
+                flex={1}
+                gap="$4"
+                pt="$5"
+                bg="$bgApp"
+                pointerEvents="box-none"
+              >
+                {/* overview and banner */}
+                <YStack gap="$8">
+                  <Overview
+                    onRefresh={refreshOverViewData}
+                    isLoading={isLoading}
+                  />
+                  {banners ? (
+                    <YStack
+                      px="$5"
+                      minHeight="$36"
+                      $md={{
+                        minHeight: '$28',
+                      }}
+                      borderRadius="$3"
+                      width="100%"
+                      borderCurve="continuous"
+                    >
+                      {banners}
+                    </YStack>
+                  ) : null}
+                </YStack>
+                {/* Recommended, available assets and introduction */}
+                <YStack px="$5" gap="$8">
+                  <YStack pt="$3.5" gap="$8">
+                    <Recommended />
+                  </YStack>
+                  {/* FAQ Panel */}
+                  {banners ? gtLgFaqPanel : null}
+                </YStack>
+                <SizableText
+                  mx="$5"
+                  pb="$4"
+                  size="$headingLg"
+                  pointerEvents="box-none"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.earn_available_assets,
+                  })}
+                </SizableText>
+              </YStack>
+            )}
+            renderTabBar={(props) => (
+              <Tabs.TabBar
+                {...props}
+                containerStyle={{
+                  px: '$5',
+                }}
+                divider={false}
+                renderItem={({ name, isFocused, onPress }) => (
+                  <XStack
+                    px="$2"
+                    py="$1.5"
+                    mr="$1"
+                    bg={isFocused ? '$bgActive' : '$bg'}
+                    borderRadius="$2"
+                    borderCurve="continuous"
+                    onPress={() => onPress(name)}
+                  >
+                    <SizableText
+                      size="$bodyMdMedium"
+                      color={isFocused ? '$text' : '$textSubdued'}
+                      letterSpacing={-0.15}
+                    >
+                      {name}
+                    </SizableText>
+                  </XStack>
+                )}
+              />
+            )}
+          >
+            {tabData.map((item) => (
+              <Tabs.Tab name={item.title} key={item.type}>
+                <Tabs.ScrollView
+                  refreshControl={
+                    <RefreshControl
+                      refreshing={isLoading}
+                      onRefresh={refreshOverViewData}
+                    />
+                  }
+                >
+                  <AvailableAssetsTabViewListMobile
+                    onTokenPress={handleTokenPress}
+                    assetType={item.type}
+                    faqList={faqList}
+                  />
+                </Tabs.ScrollView>
+              </Tabs.Tab>
+            ))}
+          </Tabs.Container>
+          {platformEnv.isNative ? (
+            <YStack
+              position="absolute"
+              top={-20}
+              left={0}
+              bg="$bgApp"
+              pt="$5"
+              width="100%"
+              onLayout={handleTabPageLayout}
+            >
+              <TabPageHeader
+                sceneName={EAccountSelectorSceneName.home}
+                tabRoute={ETabRoutes.Earn}
+              />
+            </YStack>
+          ) : null}
+        </Page.Body>
+      </Page>
+    );
+  }
 
   return (
     <Page fullPage>

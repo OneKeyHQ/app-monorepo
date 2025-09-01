@@ -27,6 +27,18 @@ const params = new URLSearchParams(globalThis.location.href.split('?').pop());
 const from = params.get('from') as EPassKeyWindowFrom;
 const type = params.get('type') as EPassKeyWindowType;
 
+const closeWindow = () => {
+  console.log('closeWindow');
+  if (
+    from === EPassKeyWindowFrom.popup ||
+    from === EPassKeyWindowFrom.sidebar
+  ) {
+    setTimeout(() => {
+      window.close();
+    }, 50);
+  }
+};
+
 const usePassKeyOperations = () => {
   const { setWebAuthEnable, verifiedPasswordWebAuth, checkWebAuth } =
     useWebAuthActions();
@@ -42,8 +54,19 @@ const usePassKeyOperations = () => {
     async (checked: boolean) => {
       const res = await setWebAuthEnable(checked);
       if (res) {
-        await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(checked);
+        try {
+          await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(
+            checked,
+          );
+        } catch (error) {
+          console.log(error);
+        } finally {
+          console.log('close on switchWebAuth');
+          closeWindow();
+        }
       }
+      console.log('close on switchWebAuth', res);
+      closeWindow();
     },
     [setWebAuthEnable],
   );
@@ -104,9 +127,8 @@ const usePassKeyOperations = () => {
         },
       }));
     } finally {
-      if (from === EPassKeyWindowFrom.sidebar) {
-        window.close();
-      }
+      console.log('close from renderPassKeyPage', from);
+      closeWindow();
     }
   }, [
     checkWebAuth,
@@ -142,9 +164,6 @@ const usePassKeyOperations = () => {
 
 function PassKeyContainer() {
   useEffect(() => {
-    setTimeout(() => {
-      window.close();
-    }, 5 * 60 * 1000);
     setupExtUIEventOnPassKeyPage();
   }, []);
   usePassKeyOperations();

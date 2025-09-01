@@ -1,5 +1,5 @@
 /* eslint-disable spellcheck/spell-checker */
-import { isNil } from 'lodash';
+import { isNaN, isNil, isNumber } from 'lodash';
 
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type {
@@ -17,6 +17,10 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '../consts/addresses';
+import {
+  type EHyperLiquidAgentName,
+  HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
+} from '../consts/perp';
 import {
   COINTYPE_ALLNETWORKS,
   COINTYPE_BTC,
@@ -519,7 +523,7 @@ function buildLocalHistoryId(params: {
   return historyId;
 }
 
-export function buildAccountLocalAssetsKey({
+function buildAccountLocalAssetsKey({
   networkId,
   accountAddress,
   xpub,
@@ -769,6 +773,29 @@ function isTonMnemonicCredentialId(credentialId: string): boolean {
   return credentialId.endsWith('--ton_credential');
 }
 
+function getAccountIdFromTonMnemonicCredentialId({
+  credentialId,
+}: {
+  credentialId: string;
+}) {
+  return credentialId.replace(/--ton_credential$/, '');
+}
+
+function buildHyperLiquidAgentCredentialId({
+  userAddress,
+  agentName,
+}: {
+  userAddress: string;
+  agentName: EHyperLiquidAgentName;
+}) {
+  if (!userAddress) {
+    throw new OneKeyLocalError(
+      'buildHyperLiquidAgentCredentialId ERROR: userAddress is required',
+    );
+  }
+  return `${HYPERLIQUID_AGENT_CREDENTIAL_PREFIX}--${userAddress}--${agentName}`;
+}
+
 function buildCustomEvmNetworkId({ chainId }: { chainId: string }) {
   return `evm--${chainId}`;
 }
@@ -806,6 +833,22 @@ function buildFullXfp({
 
 function getShortXfp({ xfp }: { xfp: string }) {
   return xfp.split('--')[0];
+}
+
+function getHDAccountPathIndex({ account }: { account: IDBAccount }) {
+  let index = account.pathIndex;
+  if (isNil(index) && account.indexedAccountId) {
+    index = parseIndexedAccountId({
+      indexedAccountId: account.indexedAccountId,
+    }).index;
+  }
+  if (isNil(index) && account.template) {
+    index = findIndexFromTemplate({
+      template: account.template,
+      path: account.path,
+    });
+  }
+  return isNumber(index) && !isNaN(index) ? index : undefined;
 }
 
 export default {
@@ -863,11 +906,15 @@ export default {
   formatUtxoPath,
   buildPathFromTemplate,
   findIndexFromTemplate,
+  getHDAccountPathIndex,
   removePathLastSegment,
   buildHiddenWalletName,
   buildAccountLocalAssetsKey,
   buildTonMnemonicCredentialId,
   isTonMnemonicCredentialId,
+  getAccountIdFromTonMnemonicCredentialId,
+  buildHyperLiquidAgentCredentialId,
+  HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
   buildCustomEvmNetworkId,
   isValidWalletXfp,
   buildFullXfp,

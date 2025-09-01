@@ -260,7 +260,6 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       symbol: normalizedSymbol,
       accountId: networkAccount.id,
       indexedAccountId: networkAccount.indexedAccountId,
-      networkId,
       onProtocolSelect: async (params) => {
         navigation.pushModal(EModalRoutes.StakingModal, {
           screen: EModalStakingRoutes.ProtocolDetailsV2,

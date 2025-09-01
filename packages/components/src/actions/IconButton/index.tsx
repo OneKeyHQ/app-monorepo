@@ -46,7 +46,7 @@ const sizes = {
 const getSizeStyles = (size: IButtonProps['size']) =>
   sizes[size || 'medium'] || sizes.medium;
 
-export const IconButton = (props: IIconButtonProps) => {
+export function IconButton(props: IIconButtonProps) {
   const {
     iconSize,
     disabled,
@@ -125,4 +125,4 @@ export const IconButton = (props: IIconButtonProps) => {
   }
 
   return renderIconButton();
-};
+}

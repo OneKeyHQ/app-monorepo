@@ -57,19 +57,21 @@ export function DAppRequestedDappList({
                   bg: '$bgHover',
                 }}
               >
-                <Image w="$5" h="$5">
-                  <Image.Source
-                    source={{
-                      uri: item.logo,
-                    }}
-                  />
-                  <Image.Fallback>
-                    <Icon size="$5" name="GlobusOutline" color="$iconSubdued" />
-                  </Image.Fallback>
-                  <Image.Loading>
-                    <Skeleton width="100%" height="100%" />
-                  </Image.Loading>
-                </Image>
+                <Image
+                  size="$5"
+                  source={{
+                    uri: item.logo,
+                  }}
+                  fallback={
+                    <Image.Fallback>
+                      <Icon
+                        size="$5"
+                        name="GlobusOutline"
+                        color="$iconSubdued"
+                      />
+                    </Image.Fallback>
+                  }
+                />
               </XStack>
             }
           />

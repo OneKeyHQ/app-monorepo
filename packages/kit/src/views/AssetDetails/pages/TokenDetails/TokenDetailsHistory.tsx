@@ -5,7 +5,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { ProviderJotaiContextHistoryList } from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
+import {
+  useHistoryListActions,
+  withHistoryListProvider,
+} from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
@@ -24,13 +27,23 @@ import type { IProps } from '.';
 function TokenDetailsHistory(props: IProps) {
   const navigation = useAppNavigation();
 
-  const { accountId, networkId, tokenInfo, ListHeaderComponent, isTabView } =
-    props;
+  const {
+    accountId,
+    networkId,
+    walletId,
+    indexedAccountId,
+    tokenInfo,
+    ListHeaderComponent,
+    isTabView,
+    inTabList,
+  } = props;
 
   const [historyInit, setHistoryInit] = useState(false);
   const { isFocused } = useTabIsRefreshingFocused();
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
+  const { updateAddressesInfo, setHasMoreOnChainHistory } =
+    useHistoryListActions().current;
 
   /**
    * since some tokens are slow to load history,
@@ -53,6 +66,10 @@ function TokenDetailsHistory(props: IProps) {
         currencyMap,
       });
       setHistoryInit(true);
+      updateAddressesInfo({
+        data: r.addressMap ?? {},
+      });
+      setHasMoreOnChainHistory(!!r.hasMoreOnChainHistory);
       return r.txs;
     },
     [
@@ -63,6 +80,8 @@ function TokenDetailsHistory(props: IProps) {
       settings.isFilterLowValueHistoryEnabled,
       settings.currencyInfo.id,
       currencyMap,
+      updateAddressesInfo,
+      setHasMoreOnChainHistory,
     ],
     {
       watchLoading: true,
@@ -118,17 +137,26 @@ function TokenDetailsHistory(props: IProps) {
   }, [run]);
 
   return (
-    <ProviderJotaiContextHistoryList>
-      <TxHistoryListView
-        hideValue
-        initialized={historyInit}
-        isLoading={isLoadingTokenHistory}
-        data={tokenHistory ?? []}
-        onPressHistory={handleHistoryItemPress}
-        ListHeaderComponent={ListHeaderComponent as React.ReactElement}
-      />
-    </ProviderJotaiContextHistoryList>
+    <TxHistoryListView
+      hideValue
+      showFooter
+      walletId={walletId}
+      accountId={accountId}
+      networkId={networkId}
+      indexedAccountId={indexedAccountId}
+      inTabList={inTabList}
+      initialized={historyInit}
+      isLoading={isLoadingTokenHistory}
+      data={tokenHistory ?? []}
+      onPressHistory={handleHistoryItemPress}
+      ListHeaderComponent={ListHeaderComponent as React.ReactElement}
+      isSingleAccount
+    />
   );
 }
 
-export default memo(TokenDetailsHistory);
+const TokenDetailsHistoryWithProvider = memo(
+  withHistoryListProvider(TokenDetailsHistory),
+);
+
+export default memo(TokenDetailsHistoryWithProvider);

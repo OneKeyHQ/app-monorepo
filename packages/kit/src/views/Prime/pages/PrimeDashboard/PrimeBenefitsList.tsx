@@ -14,8 +14,11 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IPrimeServerUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
@@ -68,11 +71,16 @@ function PrimeBenefitsItem({
 
 export function PrimeBenefitsList({
   selectedSubscriptionPeriod,
+  networkId,
+  serverUserInfo,
 }: {
   selectedSubscriptionPeriod: ISubscriptionPeriod;
+  networkId?: string;
+  serverUserInfo?: IPrimeServerUserInfo;
 }) {
   const navigation = useAppNavigation();
   const intl = useIntl();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { ensureOneKeyIDLoggedIn } = usePrimeRequirements();
   const { isPrimeSubscriptionActive } = usePrimeAuthV2();
 
@@ -88,18 +96,44 @@ export function PrimeBenefitsList({
         })}
         onPress={() => {
           if (isPrimeSubscriptionActive) {
-            navigation.navigate(EPrimePages.PrimeCloudSync);
+            navigation.navigate(EPrimePages.PrimeCloudSync, {
+              serverUserInfo,
+            });
           } else {
             navigation.navigate(EPrimePages.PrimeFeatures, {
               showAllFeatures: true,
               selectedFeature: EPrimeFeatures.OneKeyCloud,
               selectedSubscriptionPeriod,
+              serverUserInfo,
             });
           }
         }}
       />
+      {/* <PrimeBenefitsItem
+        icon="MultipleDevicesOutline"
+        title={intl.formatMessage({
+          id: ETranslations.global_prime_device_management,
+        })}
+        subtitle={intl.formatMessage({
+          id: ETranslations.prime_device_management_desc,
+        })}
+        onPress={async () => {
+          if (isPrimeSubscriptionActive) {
+            await ensureOneKeyIDLoggedIn();
+            navigation.pushFullModal(EModalRoutes.PrimeModal, {
+              screen: EPrimePages.PrimeDeviceLimit,
+            });
+          } else {
+            navigation.navigate(EPrimePages.PrimeFeatures, {
+              showAllFeatures: true,
+              selectedFeature: EPrimeFeatures.DeviceManagement,
+              selectedSubscriptionPeriod,
+              serverUserInfo,
+            });
+          }
+        }}
+      /> */}
       <PrimeBenefitsItem
-        isComingSoon
         icon="Copy3Outline"
         title={intl.formatMessage({
           id: ETranslations.global_bulk_copy_addresses,
@@ -108,11 +142,25 @@ export function PrimeBenefitsList({
           id: ETranslations.prime_bulk_copy_addresses_desc,
         })}
         onPress={() => {
-          navigation.navigate(EPrimePages.PrimeFeatures, {
-            showAllFeatures: true,
-            selectedFeature: EPrimeFeatures.BulkCopyAddresses,
-            selectedSubscriptionPeriod,
-          });
+          if (isPrimeSubscriptionActive) {
+            const fallbackNetworkId = networkUtils.toNetworkIdFallback({
+              networkId,
+              allNetworkFallbackToBtc: true,
+            });
+            navigation.navigate(EModalRoutes.BulkCopyAddressesModal, {
+              screen: EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal,
+              params: {
+                networkId: fallbackNetworkId,
+              },
+            });
+          } else {
+            navigation.navigate(EPrimePages.PrimeFeatures, {
+              showAllFeatures: true,
+              selectedFeature: EPrimeFeatures.BulkCopyAddresses,
+              selectedSubscriptionPeriod,
+              serverUserInfo,
+            });
+          }
         }}
       />
       <PrimeBenefitsItem
@@ -129,6 +177,7 @@ export function PrimeBenefitsList({
             showAllFeatures: true,
             selectedFeature: EPrimeFeatures.BulkRevoke,
             selectedSubscriptionPeriod,
+            serverUserInfo,
           });
         }}
       />

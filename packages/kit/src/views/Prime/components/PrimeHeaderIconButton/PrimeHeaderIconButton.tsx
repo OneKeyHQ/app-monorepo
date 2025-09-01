@@ -10,8 +10,10 @@ import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 
 export function PrimeHeaderIconButton({
   onPress,
+  networkId,
 }: {
   onPress?: () => void | Promise<void>;
+  networkId?: string;
 }) {
   const { isReady, user } = usePrimeAuthV2();
   const isPrime = user?.primeSubscription?.isActive;
@@ -36,10 +38,13 @@ export function PrimeHeaderIconButton({
 
     navigation.pushFullModal(EModalRoutes.PrimeModal, {
       screen: EPrimePages.PrimeDashboard,
+      params: {
+        networkId,
+      },
     });
 
     setIsHover(false);
-  }, [onPress, navigation]);
+  }, [onPress, navigation, networkId]);
 
   return (
     <Stack testID="headerRightPrimeButton">

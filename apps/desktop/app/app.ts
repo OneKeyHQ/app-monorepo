@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import * as path from 'path';
 import { format as formatUrl } from 'url';
 
+import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
 import {
   attachTitlebarToWindow,
   setupTitlebar,
@@ -757,6 +758,8 @@ function createMainWindow() {
     }
   });
 
+  void initNobleBleSupport(browserWindow.webContents);
+
   return browserWindow;
 }
 
@@ -791,6 +794,7 @@ if (!singleInstance && !process.mas) {
     const locale = await initLocale();
     logger.info('locale >>>> ', locale);
     startServices();
+
     if (!mainWindow) {
       mainWindow = createMainWindow();
       initMenu();

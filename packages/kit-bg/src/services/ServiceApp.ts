@@ -1,7 +1,5 @@
-import axios from 'axios';
 import RNRestart from 'react-native-restart';
 
-import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   backgroundClass,
@@ -11,21 +9,18 @@ import {
   isAvailable,
   logoutFromGoogleDrive,
 } from '@onekeyhq/shared/src/cloudfs';
-import { ONEKEY_API_HOST } from '@onekeyhq/shared/src/config/appConfig';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import {
   ERootRoutes,
   ETabHomeRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
@@ -48,156 +43,13 @@ import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppS
 class ServiceApp extends ServiceBase {
   unlockJobIds: string[] = [];
 
-  // Flag to track if bootstrap initialization is complete
-  private isBootstrapComplete = false;
-
-  // Memoized endpoint check function (replaces original memoizee behavior)
-  private checkDynamicEndpointMemoized = memoizee(
-    async () => {
-      return this.performEndpointCheck();
-    },
-    {
-      promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
-      max: 1,
-    },
-  );
-
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
-
-    // Listen to endpoint check events (similar to ServiceAccount pattern)
-    appEventBus.on(EAppEventBusNames.CheckEndpointPrefix, (data: unknown) => {
-      // Only respond to events after bootstrap is complete to avoid extension environment issues
-      if (!this.isBootstrapComplete) {
-        console.log(
-          'ServiceApp: Ignoring endpoint check event before bootstrap completion',
-        );
-        return;
-      }
-
-      const { cleanAppClientCache } =
-        (data as { cleanAppClientCache?: boolean }) || {};
-
-      if (cleanAppClientCache) {
-        appApiClient.clearClientCache();
-      }
-
-      // Trigger the check (with or without cache)
-      void this.checkDynamicEndpoint();
-    });
-  }
-
-  // Method to be called by ServiceBootstrap when initialization is complete
-  @backgroundMethod()
-  async setBootstrapComplete() {
-    this.isBootstrapComplete = true;
   }
 
   @backgroundMethod()
   async getEndpointInfo({ name }: { name: EServiceEndpointEnum }) {
     return this.getClientEndpointInfo(name);
-  }
-
-  // Public memoized endpoint check method
-  @backgroundMethod()
-  async checkDynamicEndpoint() {
-    return this.checkDynamicEndpointMemoized();
-  }
-
-  // Private raw implementation without memoizee
-  private async performEndpointCheck() {
-    try {
-      const requestUrl = `https://by-wallet.${ONEKEY_API_HOST}/wallet/v1/endpoint`;
-
-      // Create clean axios instance without interceptors
-      const cleanAxios = axios.create({
-        timeout: 2000,
-        baseURL: undefined,
-      });
-
-      // Clear interceptors to avoid side effects
-      cleanAxios.interceptors.request.clear();
-      cleanAxios.interceptors.response.clear();
-
-      const requiredHeaders = await getRequestHeaders();
-
-      // Create API request with timeout
-      const result = await Promise.race([
-        cleanAxios.get<{
-          code: number;
-          message: string;
-          data: { withByPrefix: boolean };
-        }>(requestUrl, { headers: requiredHeaders }),
-        new Promise<'timeout'>((resolve) =>
-          setTimeout(() => resolve('timeout'), 2000),
-        ),
-      ]);
-
-      // Handle timeout - set to not use prefix
-      if (result === 'timeout') {
-        console.warn(
-          'Endpoint prefix check timed out after 2s, switching to default endpoints',
-        );
-
-        // Get current stored prefix to check if it changed
-        const currentStoredPrefix = await appStorage.getItem(
-          'ONEKEY_ENDPOINT_USE_PREFIX',
-        );
-        const newPrefixValue = 'false';
-
-        // Store false to disable prefix usage
-        await appStorage.setItem('ONEKEY_ENDPOINT_USE_PREFIX', newPrefixValue);
-
-        // Only clear cache if the prefix setting actually changed
-        if (currentStoredPrefix !== newPrefixValue) {
-          // Clear HTTP client cache to use new endpoints
-          appApiClient.clearClientCache();
-          console.log(
-            'Dynamic endpoint check: timeout - switched to default endpoints',
-          );
-        }
-        return;
-      }
-
-      // Check if we need to switch to prefixed endpoints
-      const shouldUsePrefix =
-        result.data?.code === 0 && result.data?.data?.withByPrefix === true;
-
-      // Get current stored prefix to check if it changed
-      const currentStoredPrefix = await appStorage.getItem(
-        'ONEKEY_ENDPOINT_USE_PREFIX',
-      );
-      const newPrefixValue = shouldUsePrefix.toString();
-
-      // Store the result in persistent storage for shared layer to access
-      await appStorage.setItem('ONEKEY_ENDPOINT_USE_PREFIX', newPrefixValue);
-
-      // Only clear cache if the prefix setting actually changed
-      if (currentStoredPrefix !== newPrefixValue) {
-        // Clear HTTP client cache to use new endpoints
-        appApiClient.clearClientCache();
-
-        if (shouldUsePrefix) {
-          console.log('Dynamic endpoint check: switched to prefixed endpoints');
-        } else {
-          console.log('Dynamic endpoint check: switched to default endpoints');
-        }
-      }
-    } catch (error) {
-      // Silently handle errors and continue with default endpoints
-      console.warn(
-        'Dynamic endpoint check failed, using default endpoints:',
-        error,
-      );
-      // Store false as fallback only if no value exists
-      const currentValue = await appStorage.getItem(
-        'ONEKEY_ENDPOINT_USE_PREFIX',
-      );
-      if (currentValue === null) {
-        await appStorage.setItem('ONEKEY_ENDPOINT_USE_PREFIX', 'false');
-      }
-    }
   }
 
   @backgroundMethod()

@@ -5,6 +5,7 @@ import { useMedia } from 'tamagui';
 import { XStack } from '../../../primitives';
 import { SearchBar } from '../../SearchBar';
 
+import type { IInputAddOnProps } from '../../../forms/Input/InputAddOnItem';
 import type {
   NativeSyntheticEvent,
   TargetedEvent,
@@ -44,6 +45,9 @@ type IHeaderSearchBarProps = {
    * Test ID for e2e testing purposes.For different search bars.
    */
   testID?: string;
+
+  addOns?: IInputAddOnProps[];
+  searchBarInputValue?: string;
 };
 
 function HeaderSearchBar({
@@ -55,6 +59,8 @@ function HeaderSearchBar({
   onChangeText,
   onSearchButtonPress,
   placeholder,
+  addOns,
+  searchBarInputValue,
 }: IHeaderSearchBarProps) {
   const media = useMedia();
 
@@ -115,6 +121,8 @@ function HeaderSearchBar({
         onChangeText={handleChangeCallback}
         onSubmitEditing={onSubmitEditingCallback}
         placeholder={placeholder}
+        addOns={addOns}
+        value={searchBarInputValue}
       />
     </XStack>
   );

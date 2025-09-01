@@ -23,32 +23,35 @@ describe('Crypto Functions', () => {
     it('should match snapshot with normal password and salt', async () => {
       const password = 'test-password';
       const salt = Buffer.alloc(PBKDF2_SALT_LENGTH, 'a');
-      const result = await keyFromPasswordAndSaltAsync(password, salt);
+      const result = await keyFromPasswordAndSaltAsync({
+        password,
+        salt,
+      });
       expect(result.toString('hex')).toMatchSnapshot();
     });
 
     it('should throw error with empty password', async () => {
       const password = '';
       const salt = Buffer.alloc(PBKDF2_SALT_LENGTH, 'a');
-      await expect(keyFromPasswordAndSaltAsync(password, salt)).rejects.toThrow(
-        'Zero-length password is not supported',
-      );
+      await expect(
+        keyFromPasswordAndSaltAsync({ password, salt }),
+      ).rejects.toThrow('Zero-length password is not supported');
     });
 
     it('should throw error with empty salt', async () => {
       const password = 'test-password';
       const salt = Buffer.from('');
-      await expect(keyFromPasswordAndSaltAsync(password, salt)).rejects.toThrow(
-        'Zero-length salt is not supported',
-      );
+      await expect(
+        keyFromPasswordAndSaltAsync({ password, salt }),
+      ).rejects.toThrow('Zero-length salt is not supported');
     });
 
     it('should throw error with empty password and salt', async () => {
       const password = '';
       const salt = Buffer.from('');
-      await expect(keyFromPasswordAndSaltAsync(password, salt)).rejects.toThrow(
-        'Zero-length password is not supported',
-      );
+      await expect(
+        keyFromPasswordAndSaltAsync({ password, salt }),
+      ).rejects.toThrow('Zero-length password is not supported');
     });
 
     it('should handle null or undefined parameters', async () => {
@@ -56,22 +59,31 @@ describe('Crypto Functions', () => {
       const validSalt = Buffer.alloc(PBKDF2_SALT_LENGTH, 'a');
 
       await expect(
-        keyFromPasswordAndSaltAsync(null as any, validSalt),
+        keyFromPasswordAndSaltAsync({ password: null as any, salt: validSalt }),
       ).rejects.toThrow();
       await expect(
-        keyFromPasswordAndSaltAsync(undefined as any, validSalt),
+        keyFromPasswordAndSaltAsync({
+          password: undefined as any,
+          salt: validSalt,
+        }),
       ).rejects.toThrow();
       await expect(
-        keyFromPasswordAndSaltAsync(validPassword, null as any),
+        keyFromPasswordAndSaltAsync({
+          password: validPassword,
+          salt: null as any,
+        }),
       ).rejects.toThrow();
       await expect(
-        keyFromPasswordAndSaltAsync(validPassword, undefined as any),
+        keyFromPasswordAndSaltAsync({
+          password: validPassword,
+          salt: undefined as any,
+        }),
       ).rejects.toThrow();
       await expect(
-        keyFromPasswordAndSaltAsync(null as any, null as any),
-      ).rejects.toThrow();
-      await expect(
-        keyFromPasswordAndSaltAsync(undefined as any, undefined as any),
+        keyFromPasswordAndSaltAsync({
+          password: null as any,
+          salt: null as any,
+        }),
       ).rejects.toThrow();
     });
 
@@ -80,40 +92,49 @@ describe('Crypto Functions', () => {
       const emptyBuffer = Buffer.alloc(0);
 
       await expect(
-        keyFromPasswordAndSaltAsync(validPassword, emptyBuffer),
+        keyFromPasswordAndSaltAsync({
+          password: validPassword,
+          salt: emptyBuffer,
+        }),
       ).rejects.toThrow('Zero-length salt is not supported');
 
       await expect(
-        keyFromPasswordAndSaltAsync(validPassword, Buffer.from('')),
+        keyFromPasswordAndSaltAsync({
+          password: validPassword,
+          salt: Buffer.from(''),
+        }),
       ).rejects.toThrow('Zero-length salt is not supported');
     });
 
     it('should match snapshot with special characters in password', async () => {
       const password = '!@#$%^&*()_+-=[]{}|;:,.<>?';
       const salt = Buffer.alloc(PBKDF2_SALT_LENGTH, 'a');
-      const result = await keyFromPasswordAndSaltAsync(password, salt);
+      const result = await keyFromPasswordAndSaltAsync({ password, salt });
       expect(result.toString('hex')).toMatchSnapshot();
     });
 
     it('keyFromPasswordAndSalt and keyFromPasswordAndSaltSync must be equal', async () => {
       const password = 'test-password';
       const salt = Buffer.alloc(PBKDF2_SALT_LENGTH, 'a');
-      const result = await keyFromPasswordAndSaltAsync(password, salt);
-      const resultSync = keyFromPasswordAndSaltSync(password, salt);
+      const result = await keyFromPasswordAndSaltAsync({ password, salt });
+      const resultSync = keyFromPasswordAndSaltSync({ password, salt });
       expect(result.toString('hex')).toBe(resultSync.toString('hex'));
     });
 
     it('should match snapshot with UTF-8 characters in password', async () => {
       const password = '你好世界🌍';
       const salt = Buffer.alloc(PBKDF2_SALT_LENGTH, 'a');
-      const result = await keyFromPasswordAndSaltAsync(password, salt);
+      const result = await keyFromPasswordAndSaltAsync({ password, salt });
       expect(result.toString('hex')).toMatchSnapshot();
     });
 
     it('should handle large password input', async () => {
       const largePassword = 'a'.repeat(1024 * 1024); // 1MB password
       const salt = Buffer.alloc(PBKDF2_SALT_LENGTH, 'a');
-      const result = await keyFromPasswordAndSaltAsync(largePassword, salt);
+      const result = await keyFromPasswordAndSaltAsync({
+        password: largePassword,
+        salt,
+      });
       expect(result).toBeInstanceOf(Buffer);
       expect(result.length).toBe(PBKDF2_KEY_LENGTH);
     });

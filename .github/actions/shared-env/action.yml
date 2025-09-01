@@ -178,8 +178,9 @@ runs:
         echo "GITHUB_TAG=${{ env.GITHUB_TAG }}" >> ${TARGET_ENV_FILE}
         echo "CI_BUILD_APP_VERSION=${{ env.BUILD_APP_VERSION }}" >> ${TARGET_ENV_FILE}
         echo "CI_BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> ${TARGET_ENV_FILE}
-        echo "ENABLE_ANALYZER=1" >> ${TARGET_ENV_FILE}
-        echo "ENABLE_ANALYZER_HTML_REPORT=1" >> ${TARGET_ENV_FILE}
+        # Disable bundle analyzer in CI environment to improve build performance
+        # echo "ENABLE_ANALYZER=1" >> ${TARGET_ENV_FILE}
+        # echo "ENABLE_ANALYZER_HTML_REPORT=1" >> ${TARGET_ENV_FILE}
         echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> ${TARGET_ENV_FILE}
         echo "SPLIT_BUNDLE=${{ inputs.is-split-bundle }}" >> ${TARGET_ENV_FILE}
         echo "SENTRY_AUTH_TOKEN=${{ env.SENTRY_TOKEN }}" >> ${TARGET_ENV_FILE}

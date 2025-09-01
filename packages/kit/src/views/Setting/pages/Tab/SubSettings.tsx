@@ -8,25 +8,16 @@ import { BasicModalSettingStack } from '../../router/basicModalSettingRouter';
 import { SearchViewPage } from './SearchView';
 import { SubSettingsPage } from './SubSettingsPage';
 
-import type { ISettingsConfig } from './config';
+import type { RouteProp } from '@react-navigation/native';
 
-function BasicSubSettings({
-  name,
-  settingsConfig,
-}: {
-  name: string;
-  settingsConfig: ISettingsConfig;
-}) {
+function BasicSubSettings({ route }: { route: RouteProp<any, any> }) {
+  const { name } = route;
   return (
     <TabSubStackNavigator
-      // eslint-disable-next-line react/no-unstable-nested-components
       config={[
         {
           name,
-          // eslint-disable-next-line react/no-unstable-nested-components
-          component: () => (
-            <SubSettingsPage name={name} settingsConfig={settingsConfig} />
-          ),
+          component: SubSettingsPage,
         },
         ...(BasicModalSettingStack as unknown as ITabSubNavigatorConfig<
           any,
@@ -38,14 +29,15 @@ function BasicSubSettings({
 }
 export const SubSettings = memo(BasicSubSettings);
 
-function BasicSubSearchSettings({ name }: { name: string }) {
+function BasicSubSearchSettings({ route }: { route: RouteProp<any, any> }) {
+  const { name } = route;
   return (
     <TabSubStackNavigator
       config={[
         {
           name,
           // eslint-disable-next-line react/no-unstable-nested-components
-          component: () => <SearchViewPage />,
+          component: SearchViewPage,
         },
         ...(BasicModalSettingStack as unknown as ITabSubNavigatorConfig<
           any,

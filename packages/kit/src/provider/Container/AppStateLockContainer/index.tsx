@@ -14,7 +14,7 @@ import { AppStateUpdater } from './components/AppStateUpdater';
 import type { LayoutChangeEvent } from 'react-native';
 
 const useWebLockCheck = (isLocked: boolean) => {
-  const lockContainerRef = useRef<HTMLElement | null>();
+  const lockContainerRef = useRef<HTMLElement | null>(null);
   const lockedRef = useRef(isLocked);
   if (lockedRef.current !== isLocked) {
     lockedRef.current = isLocked;

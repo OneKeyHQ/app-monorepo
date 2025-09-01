@@ -1,7 +1,7 @@
-import axios from 'axios';
 import { isNaN, isNil, isNumber, throttle } from 'lodash';
 
 import { EServiceEndpointEnum } from '../../types/endpoint';
+import { appApiClient } from '../appApiClient/appApiClient';
 import { ONEKEY_HEALTH_CHECK_URL } from '../config/appConfig';
 import { getEndpointByServiceName } from '../config/endpointsMap';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
@@ -103,27 +103,30 @@ class SystemTimeUtils {
     }
   }
 
-  _serverTimeInterval: NodeJS.Timeout | undefined;
+  _serverTimeInterval: ReturnType<typeof setInterval> | undefined;
 
   startServerTimeInterval() {
     if (this._serverTimeInterval) {
       return;
     }
     this._serverTimeInterval = setInterval(async () => {
-      const endpoint = await getEndpointByServiceName(
-        EServiceEndpointEnum.Wallet,
-      );
-      const url = `${endpoint}${ONEKEY_HEALTH_CHECK_URL}`;
-      axios
-        .get(url, {
+      try {
+        const endpoint = await getEndpointByServiceName(
+          EServiceEndpointEnum.Wallet,
+        );
+        const client = await appApiClient.getClient({
+          endpoint,
+          name: EServiceEndpointEnum.Wallet,
+        });
+        await client.get(ONEKEY_HEALTH_CHECK_URL, {
           params: {
             _: 'system_time_utils',
             timestamp: Date.now(),
           },
-        })
-        .catch(() => {
-          this.systemTimeStatus = ELocalSystemTimeStatus.UNKNOWN;
         });
+      } catch (error) {
+        this.systemTimeStatus = ELocalSystemTimeStatus.UNKNOWN;
+      }
     }, intervalTimeout);
   }
 

@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react';
 import { useCallback } from 'react';
 
+import type { IXStackProps } from '@onekeyhq/components';
 import {
   Icon,
   SizableText,
@@ -107,40 +108,56 @@ export const NetworkSelectorTriggerDappConnectionCmp = ({
   </XStack>
 );
 
-export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
+export interface INetworkSelectorTriggerDappConnectionProps
+  extends IXStackProps {
   num: number;
   beforeShowTrigger?: () => Promise<void>;
   loadingDuration?: number;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-}>(({ num, disabled, beforeShowTrigger, loadingDuration, ...rest }, _: any) => {
-  const { isLoading: mockIsLoading } =
-    useMockAccountSelectorLoading(loadingDuration);
-  const [syncLoading] = useAccountSelectorSyncLoadingAtom();
-  const isLoading = syncLoading?.[num]?.isLoading || mockIsLoading;
+}
+export const NetworkSelectorTriggerDappConnection = XStack.styleable<
+  INetworkSelectorTriggerDappConnectionProps,
+  any,
+  any
+>(
+  (
+    {
+      num,
+      disabled,
+      beforeShowTrigger,
+      loadingDuration,
+      ...rest
+    }: INetworkSelectorTriggerDappConnectionProps,
+    _: any,
+  ) => {
+    const { isLoading: mockIsLoading } =
+      useMockAccountSelectorLoading(loadingDuration);
+    const [syncLoading] = useAccountSelectorSyncLoadingAtom();
+    const isLoading = syncLoading?.[num]?.isLoading || mockIsLoading;
 
-  const {
-    activeAccount: { network },
-    showChainSelector,
-    networkIds,
-  } = useNetworkSelectorTrigger({ num });
+    const {
+      activeAccount: { network },
+      showChainSelector,
+      networkIds,
+    } = useNetworkSelectorTrigger({ num });
 
-  const triggerDisabled =
-    isLoading || disabled || (networkIds ?? []).length <= 1;
+    const triggerDisabled =
+      isLoading || disabled || (networkIds ?? []).length <= 1;
 
-  const handlePress = useCallback(async () => {
-    await beforeShowTrigger?.();
-    showChainSelector();
-  }, [beforeShowTrigger, showChainSelector]);
+    const handlePress = useCallback(async () => {
+      await beforeShowTrigger?.();
+      showChainSelector();
+    }, [beforeShowTrigger, showChainSelector]);
 
-  return (
-    <NetworkSelectorTriggerDappConnectionCmp
-      handlePress={handlePress}
-      network={network}
-      isLoading={isLoading}
-      triggerDisabled={triggerDisabled}
-    />
-  );
-});
+    return (
+      <NetworkSelectorTriggerDappConnectionCmp
+        handlePress={handlePress}
+        network={network}
+        isLoading={isLoading}
+        triggerDisabled={triggerDisabled}
+      />
+    );
+  },
+);
 
 export function NetworkSelectorTriggerBrowserSingle({
   num,

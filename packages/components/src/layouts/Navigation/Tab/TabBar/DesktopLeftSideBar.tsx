@@ -27,8 +27,9 @@ import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
 import type {
   BottomTabBarProps,
   BottomTabNavigationOptions,
-} from '@react-navigation/bottom-tabs/src/types';
-import type { NavigationState } from '@react-navigation/routers/src/types';
+} from '@react-navigation/bottom-tabs';
+import type { NavigationState } from '@react-navigation/routers';
+import type { MotiTransition } from 'moti';
 
 function TabItemView({
   isActive,
@@ -43,6 +44,7 @@ function TabItemView({
     actionList?: IActionListSection[];
     shortcutKey?: EShortcutEvents;
     tabbarOnPress?: () => void;
+    onPressWhenSelected?: () => void;
     trackId?: string;
   };
   isCollapse?: boolean;
@@ -60,6 +62,7 @@ function TabItemView({
     () => (
       <DesktopTabItem
         onPress={options.tabbarOnPress ?? onPress}
+        onPressWhenSelected={options.onPressWhenSelected}
         trackId={options.trackId}
         aria-current={isActive ? 'page' : undefined}
         selected={isActive}
@@ -168,10 +171,12 @@ export function DesktopLeftSideBar({
     <MotiView
       testID="Desktop-AppSideBar-Container"
       animate={{ width: isCollapse ? 0 : sidebarWidth }}
-      transition={{
-        duration: 200,
-        type: 'timing',
-      }}
+      transition={
+        {
+          duration: 200,
+          type: 'timing',
+        } as MotiTransition
+      }
       style={{
         backgroundColor: theme.bgSidebar.val,
         paddingTop: top,
@@ -208,10 +213,12 @@ export function DesktopLeftSideBar({
             width: sidebarWidth,
             bottom: 0,
           }}
-          transition={{
-            duration: 120,
-            type: 'timing',
-          }}
+          transition={
+            {
+              duration: 120,
+              type: 'timing',
+            } as MotiTransition
+          }
         >
           <YStack flex={1}>
             {!platformEnv.isDesktopMac && !platformEnv.isNativeIOSPad ? (

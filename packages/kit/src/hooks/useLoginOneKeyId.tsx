@@ -45,8 +45,9 @@ export function EmailOTPDialog(props: {
   description: string;
   sendCode: () => Promise<unknown>;
   onConfirm: (code: string) => void | Promise<void>;
+  hideResendButton?: boolean;
 }) {
-  const { sendCode, onConfirm, title, description } = props;
+  const { sendCode, onConfirm, title, description, hideResendButton } = props;
   const [isSubmittingVerificationCode, setIsSubmittingVerificationCode] =
     useState(false);
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
@@ -122,17 +123,19 @@ export function EmailOTPDialog(props: {
       </Dialog.Header>
 
       <YStack gap="$2">
-        <XStack>
-          <Button
-            width="auto"
-            size="small"
-            variant="tertiary"
-            disabled={countdown > 0 || isResending}
-            onPress={sendEmailVerificationCode}
-          >
-            {buttonText}
-          </Button>
-        </XStack>
+        {!hideResendButton ? (
+          <XStack>
+            <Button
+              width="auto"
+              size="small"
+              variant="tertiary"
+              disabled={countdown > 0 || isResending}
+              onPress={sendEmailVerificationCode}
+            >
+              {buttonText}
+            </Button>
+          </XStack>
+        ) : null}
 
         <OTPInput
           autoFocus

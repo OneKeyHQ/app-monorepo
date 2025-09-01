@@ -27,6 +27,7 @@ type ISelectorPluginProps = IAddressPluginProps & {
 const AddressBookPlugin: FC<ISelectorPluginProps> = ({
   onChange,
   onInputTypeChange,
+  onExtraDataChange,
   networkId,
   testID,
   disabled,
@@ -38,9 +39,13 @@ const AddressBookPlugin: FC<ISelectorPluginProps> = ({
       onPick: (item: IAddressItem) => {
         onChange?.(item.address);
         onInputTypeChange?.(EInputAddressChangeType.AddressBook);
+        onExtraDataChange?.({
+          memo: item.memo,
+          note: item.note,
+        });
       },
     });
-  }, [pick, networkId, onChange, onInputTypeChange]);
+  }, [pick, networkId, onChange, onInputTypeChange, onExtraDataChange]);
   const intl = useIntl();
 
   return (
@@ -74,6 +79,7 @@ const AddressBookPlugin: FC<ISelectorPluginProps> = ({
 const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
   onChange,
   onInputTypeChange,
+  onExtraDataChange,
   networkId,
   accountId,
   testID,
@@ -103,7 +109,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
       onChange?.(account?.address);
       onInputTypeChange?.(EInputAddressChangeType.AccountSelector);
     }
-  }, [account, onChange, onInputTypeChange]);
+  }, [account, onChange, onInputTypeChange, onExtraDataChange]);
 
   const onContacts = useCallback(() => {
     void showAddressBook({
@@ -111,9 +117,19 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
       onPick: (item: IAddressItem) => {
         onChange?.(item.address);
         onInputTypeChange?.(EInputAddressChangeType.AddressBook);
+        onExtraDataChange?.({
+          memo: item.memo,
+          note: item.note,
+        });
       },
     });
-  }, [showAddressBook, networkId, onChange, onInputTypeChange]);
+  }, [
+    showAddressBook,
+    networkId,
+    onChange,
+    onInputTypeChange,
+    onExtraDataChange,
+  ]);
 
   const onShowAccountSelector = useCallback(async () => {
     accountSelectorOpen.current = true;
@@ -209,6 +225,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
 export const SelectorPlugin: FC<ISelectorPluginProps> = ({
   onChange,
   onInputTypeChange,
+  onExtraDataChange,
   networkId,
   accountId,
   testID,
@@ -230,6 +247,7 @@ export const SelectorPlugin: FC<ISelectorPluginProps> = ({
         currentAddress={currentAddress}
         clearNotMatch={clearNotMatch}
         onInputTypeChange={onInputTypeChange}
+        onExtraDataChange={onExtraDataChange}
         disabled={disabled}
       />
     );
@@ -241,6 +259,7 @@ export const SelectorPlugin: FC<ISelectorPluginProps> = ({
       networkId={networkId}
       testID={testID}
       disabled={disabled}
+      onExtraDataChange={onExtraDataChange}
     />
   );
 };

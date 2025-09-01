@@ -5,6 +5,7 @@ import {
   IMPL_COSMOS,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
@@ -23,6 +24,7 @@ export type IAccountDeriveTypesCosmos = keyof IAccountDeriveInfoMapCosmos;
 const accountDeriveInfo: IAccountDeriveInfoMapCosmos = {
   default: {
     namePrefix: 'COSMOS',
+    labelKey: ETranslations.bip44__standard,
     template: `m/44'/${COINTYPE_COSMOS}'/0'/0/${INDEX_PLACEHOLDER}`,
     coinType: COINTYPE_COSMOS,
   },

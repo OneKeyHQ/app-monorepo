@@ -1,13 +1,22 @@
-import { Suspense, useCallback, useEffect, useRef } from 'react';
+import {
+  PropsWithChildren,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+} from 'react';
 
 import { isNil } from 'lodash';
+import { createPortal } from 'react-dom';
 import { useIntl } from 'react-intl';
 
-import { Dialog, Spinner } from '@onekeyhq/components';
+import { Dialog, Portal, Spinner } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePasswordPromptPromiseTriggerAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { PASSWORD_VERIFY_CONTAINER_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 import { EPasswordPromptType } from '@onekeyhq/shared/types/password';
 
 import PasswordSetupContainer from './PasswordSetupContainer';
@@ -57,6 +66,14 @@ const PasswordVerifyPromptMount = () => {
         title: intl.formatMessage({
           id: ETranslations.enter_passcode,
         }),
+        floatingPanelProps: platformEnv.isNative
+          ? undefined
+          : {
+              zIndex: PASSWORD_VERIFY_CONTAINER_Z_INDEX,
+            },
+        portalContainer: platformEnv.isNative
+          ? undefined
+          : Portal.Constant.PASSWORD_VERIFY_CONTAINER_PORTAL,
         onClose() {
           onClose(id);
         },

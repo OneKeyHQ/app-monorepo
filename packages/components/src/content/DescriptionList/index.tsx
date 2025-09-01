@@ -1,6 +1,13 @@
 import { styled, withStaticProperties } from 'tamagui';
 
-import { Icon, Image, SizableText, Stack, XStack } from '../../primitives';
+import {
+  Icon,
+  Image,
+  SizableText,
+  Stack,
+  StyledSizableText,
+  XStack,
+} from '../../primitives';
 import { NATIVE_HIT_SLOP } from '../../utils';
 
 import type {
@@ -21,16 +28,18 @@ const DescriptionListItem = styled(XStack, {
   justifyContent: 'space-between',
 });
 
-const DescriptionListItemKey = styled(SizableText, {
+const DescriptionListItemKey = styled(StyledSizableText, {
   name: 'DescriptionListItemKey',
   size: '$bodyMd',
   color: '$textSubdued',
+  allowFontScaling: false,
 });
 
-// const DescriptionListItemValue = styled(SizableText, {
+// const DescriptionListItemValue = styled(StyledSizableText, {
 //   name: 'DescriptionListItemValue',
 //   size: '$bodyMdMedium',
 //   textAlign: 'right',
+//   allowFontScaling: false,
 // });
 
 // const DescriptionListItemIcon = styled(Icon, {

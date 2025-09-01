@@ -6,15 +6,15 @@
     "base": {
       "node": "20.0.0",
       "android": {
-        "image": "ubuntu-22.04-jdk-17-ndk-r25b",
-        "ndk": "25.1.8937393",
+        "image": "ubuntu-22.04-jdk-17-ndk-r26b",
+        "ndk": "26.1.10909125",
         "env": {
           "PLATFORM": "android"
         }
       },
       "ios": {
-        "image": "macos-sonoma-14.6-xcode-16.0",
-        "resourceClass": "large",
+        "image": "macos-sequoia-15.6-xcode-16.4",
+        "resourceClass": "medium",
         "env": { 
           "PLATFORM": "ios"
         }

@@ -115,8 +115,8 @@ export const buildBasicOptions = ({
   ({
     enabled: true,
     maxBreadcrumbs: 100,
-    tracesSampleRate: 1.0,
-    profilesSampleRate: 1.0,
+    tracesSampleRate: 0.1,
+    profilesSampleRate: 0.1,
     beforeSend: (event) => {
       if (Array.isArray(event.exception?.values)) {
         for (let index = 0; index < event.exception.values.length; index += 1) {

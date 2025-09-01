@@ -26,6 +26,22 @@ export function truncateDecimalPlaces(str?: string, decimal?: number) {
   return str;
 }
 
+export function truncateMiddle(
+  str?: string,
+  prefixLength = 4,
+  suffixLength = 4,
+  separator = '...',
+): string {
+  if (!str || str.length <= prefixLength + suffixLength) {
+    return str || '';
+  }
+
+  const prefix = str.substring(0, prefixLength);
+  const suffix = str.substring(str.length - suffixLength);
+
+  return `${prefix}${separator}${suffix}`;
+}
+
 export function moveNetworkToFirst(arr: ISwapNetwork[], networkId: string) {
   const networks = [...arr];
   const index = networks.findIndex((item) => item.networkId === networkId);

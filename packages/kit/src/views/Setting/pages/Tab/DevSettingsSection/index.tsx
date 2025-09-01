@@ -64,12 +64,12 @@ import { AutoJumpSetting } from './AutoJumpSetting';
 import { AutoUpdateSection } from './AutoUpdateSection';
 import { CrashDevSettings } from './CrashDevSettings';
 import { HapticsPanel } from './HapticsPanel';
+import { ImagePanel } from './ImagePanel';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
-import { StartTimePanel } from './StartTimePanel';
 
 let correctDevOnlyPwd = '';
 
@@ -171,17 +171,20 @@ export const DevSettingsSection = () => {
       titleProps={{ color: '$textCritical' }}
     >
       <SectionPressItem
+        icon="PowerOutline"
         title="关闭开发者模式"
         onPress={handleDevModeOnChange}
       />
       {platformEnv.isDesktop ? (
         <>
           <SectionPressItem
+            icon="ChromeBrand"
             title="Open Chrome DevTools in Desktop"
             subtitle="启用后可以使用快捷键 Cmd/Ctrl + Shift + I 开启调试工具"
             onPress={handleOpenDevTools}
           />
           <SectionPressItem
+            icon="FolderOutline"
             title="Print Env Path in Desktop"
             subtitle="getEnvPath()"
             onPress={async () => {
@@ -198,18 +201,21 @@ export const DevSettingsSection = () => {
       ) : null}
 
       <SectionPressItem
+        icon="InfoCircleOutline"
         copyable
         title={settings.instanceId}
         subtitle="InstanceId"
       />
       {platformEnv.githubSHA ? (
         <SectionPressItem
+          icon="CodeOutline"
           copyable
           title={platformEnv.githubSHA}
           subtitle="BuildHash"
         />
       ) : null}
       <SectionFieldItem
+        icon="ServerOutline"
         name="enableTestEndpoint"
         title="启用 OneKey 测试网络节点"
         subtitle={
@@ -237,7 +243,21 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+      {platformEnv.isWeb ? (
+        <ListItem
+          icon="SwitchHorOutline"
+          drillIn
+          onPress={() => {
+            switchWebDappMode();
+            globalThis.location.reload();
+          }}
+          title="Switch web mode"
+          subtitle={`Current: ${isWebInDappMode() ? 'dapp' : 'wallet'} mode`}
+          titleProps={{ color: '$textCritical' }}
+        />
+      ) : null}
       <SectionFieldItem
+        icon="ChartTrendingOutline"
         name="enableAnalyticsRequest"
         title="测试环境下发送 Analytics 请求"
         subtitle={
@@ -248,6 +268,7 @@ export const DevSettingsSection = () => {
       </SectionFieldItem>
       {platformEnv.isNative ? (
         <SectionFieldItem
+          icon="BrowserOutline"
           name="webviewDebuggingEnabled"
           title="Enable WebviewDebugging"
           onValueChange={() => {
@@ -260,6 +281,7 @@ export const DevSettingsSection = () => {
         </SectionFieldItem>
       ) : null}
       <SectionFieldItem
+        icon="SolanaIllus"
         name="disableSolanaPriorityFee"
         title="禁用 Solana 交易优先费"
         subtitle={
@@ -278,6 +300,7 @@ export const DevSettingsSection = () => {
         />
       </SectionFieldItem>
       <SectionPressItem
+        icon="SwapHorOutline"
         title="force RTL"
         subtitle="强制启用 RTL 布局"
         drillIn={false}
@@ -289,6 +312,7 @@ export const DevSettingsSection = () => {
         />
       </SectionPressItem>
       <SectionFieldItem
+        icon="KeyboardUpOutline"
         name="disableAllShortcuts"
         title="禁止桌面快捷键"
         onValueChange={(value: boolean) => {
@@ -303,6 +327,7 @@ export const DevSettingsSection = () => {
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
       <SectionFieldItem
+        icon="ApiConnectionOutline"
         name="disableWebEmbedApi"
         title="禁止 WebEmbedApi"
         subtitle="禁止 WebEmbedApi 渲染内置 Webview 网页"
@@ -310,6 +335,7 @@ export const DevSettingsSection = () => {
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
       <SectionFieldItem
+        icon="LayoutWindowOutline"
         name="showDevOverlayWindow"
         title="开发者悬浮窗"
         subtitle="始终悬浮于全局的开发调试工具栏"
@@ -318,6 +344,7 @@ export const DevSettingsSection = () => {
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
       <SectionFieldItem
+        icon="SignatureOutline"
         name="alwaysSignOnlySendTx"
         title="始终只签名不广播"
         testID="always-sign-only-send-tx"
@@ -325,6 +352,7 @@ export const DevSettingsSection = () => {
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
       <SectionFieldItem
+        icon="KeyOutline"
         name="showDevExportPrivateKey"
         title="首页导出私钥临时入口"
         subtitle=""
@@ -332,10 +360,24 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
-      <SectionFieldItem name="showPrimeTest" title="开启 Prime" subtitle="">
+      <SectionFieldItem
+        icon="ChromeBrand"
+        name="showWebviewDevTools"
+        title="开启 Webview 调试工具"
+        subtitle=""
+      >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
       <SectionFieldItem
+        icon="PrimeOutline"
+        name="showPrimeTest"
+        title="开启 Prime"
+        subtitle=""
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+      <SectionFieldItem
+        icon="CreditCardOutline"
         name="usePrimeSandboxPayment"
         title="开启 Prime Sandbox 付款"
         subtitle="需同时在服务器添加到 Sandbox 白名单后支付生效"
@@ -343,14 +385,43 @@ export const DevSettingsSection = () => {
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
       <SectionFieldItem
+        icon="ShieldExclamationOutline"
         name="strictSignatureAlert"
         title="严格的签名 Alert 展示"
         subtitle="signTypedData 签名，红色 Alert"
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
-
+      <SectionFieldItem
+        name="useLocalTradingViewUrl"
+        title="使用本地 TradingView URL"
+        subtitle={
+          devSettings.settings?.useLocalTradingViewUrl
+            ? 'http://localhost:5173/'
+            : 'https://tradingview.onekeytest.com/'
+        }
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+      <SectionFieldItem
+        icon="Layers2Outline"
+        name="enableMarketV2"
+        title="启用市场模块 V2 版本"
+        subtitle={
+          devSettings.settings?.enableMarketV2
+            ? '使用新版本市场模块 (V2)'
+            : '使用旧版本市场模块 (V1)'
+        }
+        onValueChange={() => {
+          setTimeout(() => {
+            void backgroundApiProxy.serviceApp.restartApp();
+          }, 300);
+        }}
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
       <ListItem
+        icon="LabOutline"
         title="Bg Api 可序列化检测"
         subtitle="启用后会影响性能, 仅在开发环境生效, 关闭 1 天后重新开启"
       >
@@ -365,6 +436,7 @@ export const DevSettingsSection = () => {
       </ListItem>
 
       <ListItem
+        icon="LightBulbOutline"
         title="DebugRenderTracker 组件渲染高亮"
         subtitle="启用后会导致 FlatList 无法滚动，仅供测试"
       >
@@ -388,6 +460,7 @@ export const DevSettingsSection = () => {
       <AutoUpdateSection />
 
       <SectionFieldItem
+        icon="WalletOutline"
         name="allowAddSameHDWallet"
         title="允许添加相同助记词 HD 钱包"
         subtitle=""
@@ -396,23 +469,7 @@ export const DevSettingsSection = () => {
       </SectionFieldItem>
 
       <SectionPressItem
-        title="重置 App 为初次更新状态"
-        testID="reset-app-to-fresh-state"
-        onPress={() => {
-          Dialog.show({
-            title: '重置 App 为初次更新状态',
-            description: '重置后 App 将恢复到初次更新状态',
-            onConfirm: async () => {
-              await appUpdatePersistAtom.set((prev) => ({
-                ...prev,
-                latestVersion: APP_VERSION,
-                status: EAppUpdateStatus.ready,
-              }));
-            },
-          });
-        }}
-      />
-      <SectionPressItem
+        icon="UploadOutline"
         title="Export Accounts Data"
         onPress={() => {
           showDevOnlyPasswordDialog({
@@ -442,6 +499,7 @@ export const DevSettingsSection = () => {
       />
 
       <SectionPressItem
+        icon="OnekeyDeviceCustom"
         title="FirmwareUpdateDevSettings"
         testID="firmware-update-dev-settings-menu"
         onPress={() => {
@@ -454,6 +512,7 @@ export const DevSettingsSection = () => {
       />
 
       <SectionPressItem
+        icon="Lab2Outline"
         title="Dev Unit Tests"
         testID="dev-unit-tests-menu"
         onPress={() => {
@@ -462,6 +521,7 @@ export const DevSettingsSection = () => {
       />
 
       <SectionPressItem
+        icon="BellOutline"
         title="NotificationDevSettings"
         onPress={() => {
           Dialog.cancel({
@@ -472,6 +532,7 @@ export const DevSettingsSection = () => {
       />
 
       <SectionPressItem
+        icon="StorageOutline"
         title="AsyncStorageDevSettings"
         onPress={() => {
           Dialog.cancel({
@@ -483,6 +544,7 @@ export const DevSettingsSection = () => {
 
       {platformEnv.isNative ? (
         <SectionPressItem
+          icon="BagOutline"
           title="AppNotificationBadge"
           testID="app-notification-badge-menu"
           onPress={async () => {
@@ -497,6 +559,7 @@ export const DevSettingsSection = () => {
         />
       ) : null}
       <SectionPressItem
+        icon="AnimationOutline"
         title="V4MigrationDevSettings"
         testID="v4-migration-dev-settings-menu"
         onPress={() => {
@@ -514,6 +577,7 @@ export const DevSettingsSection = () => {
         }}
       />
       <SectionPressItem
+        icon="DeleteOutline"
         title="Clear App Data (E2E release only)"
         testID="clear-data-menu"
         onPress={() => {
@@ -543,6 +607,7 @@ export const DevSettingsSection = () => {
                       }}
                     />
                     <SectionPressItem
+                      icon="Notebook3Outline"
                       title="Clear Address Book Data"
                       testID="clear-address-book-data"
                       onPress={async () => {
@@ -626,15 +691,7 @@ export const DevSettingsSection = () => {
         }}
       />
       <SectionPressItem
-        title="Startup Time(ms)"
-        onPress={() => {
-          Dialog.cancel({
-            title: 'Startup Time(ms)',
-            renderContent: <StartTimePanel />,
-          });
-        }}
-      />
-      <SectionPressItem
+        icon="TouchIdOutline"
         title="Haptics"
         onPress={() => {
           Dialog.cancel({
@@ -644,6 +701,17 @@ export const DevSettingsSection = () => {
         }}
       />
       <SectionPressItem
+        icon="AiImagesOutline"
+        title="Image"
+        onPress={() => {
+          Dialog.cancel({
+            title: 'Image',
+            renderContent: <ImagePanel />,
+          });
+        }}
+      />
+      <SectionPressItem
+        icon="ServerOutline"
         title="Add ServerNetwork Test Data"
         subtitle="添加 ServerNetwork 测试数据"
         onPress={async () => {
@@ -665,6 +733,7 @@ export const DevSettingsSection = () => {
       />
 
       <SectionPressItem
+        icon="WalletOutline"
         title="Clear HD Wallet Hash and XFP"
         subtitle="清除所有钱包 hash 和 xfp"
         onPress={async () => {
@@ -676,6 +745,7 @@ export const DevSettingsSection = () => {
       />
 
       <SectionPressItem
+        icon="CalendarOutline"
         title="Clear Last DB Backup Timestamp"
         subtitle="清除最后一次 DB 备份时间戳"
         onPress={async () => {
@@ -687,6 +757,7 @@ export const DevSettingsSection = () => {
       />
 
       <SectionPressItem
+        icon="LockOutline"
         title="Clear Cached Password"
         subtitle="清除缓存密码"
         onPress={async () => {
@@ -697,24 +768,28 @@ export const DevSettingsSection = () => {
         }}
       />
       <SectionPressItem
+        icon="SearchOutline"
         title="Reset Spotlight"
         onPress={() => {
           void backgroundApiProxy.serviceSpotlight.reset();
         }}
       />
       <SectionPressItem
+        icon="PeopleOutline"
         title="Reset Invite Code"
         onPress={() => {
           void backgroundApiProxy.serviceReferralCode.reset();
         }}
       />
       <SectionPressItem
+        icon="EyeOffOutline"
         title="Reset Hidden Sites in Floating icon"
         onPress={() => {
           void backgroundApiProxy.serviceSetting.clearFloatingIconHiddenSites();
         }}
       />
       <SectionPressItem
+        icon="ForkOutline"
         title="Check Network info"
         onPress={() => {
           Dialog.confirm({
@@ -724,6 +799,7 @@ export const DevSettingsSection = () => {
       />
       {platformEnv.isNativeAndroid ? (
         <SectionPressItem
+          icon="PhoneOutline"
           copyable
           title={`Android Channel: ${process.env.ANDROID_CHANNEL || ''}`}
         />
@@ -731,30 +807,18 @@ export const DevSettingsSection = () => {
       {platformEnv.isDesktop ? (
         <>
           <SectionPressItem
+            icon="ComputerOutline"
             copyable
             title={`Desktop Channel:${process.env.DESK_CHANNEL || ''} ${
               globalThis?.desktopApi?.channel || ''
             } ${globalThis?.desktopApi?.isMas ? 'mas' : ''}`}
           />
           <SectionPressItem
+            icon="ProcessorOutline"
             copyable
             title={`Desktop arch: ${globalThis?.desktopApi?.arch || ''}`}
           />
         </>
-      ) : null}
-
-      {platformEnv.isWeb ? (
-        <ListItem
-          drillIn
-          onPress={() => {
-            switchWebDappMode();
-            globalThis.location.reload();
-          }}
-          title={`Switch web mode: ${
-            isWebInDappMode() ? 'dapp' : 'wallet'
-          } mode`}
-          titleProps={{ color: '$textCritical' }}
-        />
       ) : null}
 
       <AddressBookDevSetting />
@@ -762,6 +826,7 @@ export const DevSettingsSection = () => {
       <CrashDevSettings />
 
       <SectionPressItem
+        icon="BrowserOutline"
         title="WebEmbedDevConfig"
         onPress={() => {
           Dialog.cancel({
@@ -770,9 +835,17 @@ export const DevSettingsSection = () => {
           });
         }}
       />
+      <SectionPressItem
+        icon="ChartTrendingOutline"
+        title="PerpGallery"
+        onPress={() => {
+          navigation.push(EModalSettingRoutes.SettingDevPerpGalleryModal);
+        }}
+      />
       <AutoJumpSetting />
 
       <SectionPressItem
+        icon="InfoCircleOutline"
         title="Device Info"
         subtitle="设备信息"
         onPress={async () => {
@@ -788,7 +861,29 @@ export const DevSettingsSection = () => {
         }}
       />
 
+      <ListItem
+        icon="PerformanceOutline"
+        title="Performance Monitor(UI FPS/JS FPS)"
+        subtitle="性能监控"
+      >
+        <Switch
+          isUncontrolled
+          size={ESwitchSize.small}
+          defaultChecked={!!devSettings.settings?.showPerformanceMonitor}
+          onChange={(v) => {
+            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+              'showPerformanceMonitor',
+              v,
+            );
+            setTimeout(() => {
+              void backgroundApiProxy.serviceApp.restartApp();
+            }, 10);
+          }}
+        />
+      </ListItem>
+
       <SectionPressItem
+        icon="AppleBrand"
         title="In-App-Purchase(Mac)"
         subtitle="设备信息"
         onPress={async () => {
@@ -804,7 +899,8 @@ export const DevSettingsSection = () => {
 
       {platformEnv.isNativeAndroid ? (
         <SectionPressItem
-          title="chekc webview version"
+          icon="BrowserOutline"
+          title="check webview version"
           onPress={async () => {
             const webviewPackageInfo = await getCurrentWebViewPackageInfo();
             const googlePlayServicesStatus =
@@ -825,6 +921,7 @@ export const DevSettingsSection = () => {
 
       {platformEnv.isDesktop ? (
         <SectionPressItem
+          icon="LaptopOutline"
           title="DesktopApiProxy Test"
           subtitle="Test all DesktopApiProxy modules and methods"
           testID="desktop-api-proxy-test-menu"

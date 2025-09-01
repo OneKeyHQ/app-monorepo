@@ -5,6 +5,8 @@ interface IMarketTradingViewProps {
   networkId: string;
   tokenSymbol?: string;
   identifier?: string;
+  decimal?: number;
+  onPanesCountChange?: (count: number) => void;
 }
 
 export function MarketTradingView({
@@ -12,6 +14,8 @@ export function MarketTradingView({
   networkId,
   tokenSymbol = '',
   identifier = 'OneKey',
+  decimal = 8,
+  onPanesCountChange,
 }: IMarketTradingViewProps) {
   return (
     <TradingView
@@ -20,9 +24,15 @@ export function MarketTradingView({
       identifier={identifier}
       baseToken={tokenSymbol}
       targetToken="USDT"
+      symbol={tokenSymbol}
       tokenAddress={tokenAddress}
       networkId={networkId}
+      decimal={decimal}
       onLoadEnd={() => {}}
+      onPanesCountChange={(count) => {
+        console.log('📊 MarketDetailV2 - Panels count:', count);
+        onPanesCountChange?.(count);
+      }}
     />
   );
 }
