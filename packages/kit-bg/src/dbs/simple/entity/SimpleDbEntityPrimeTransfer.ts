@@ -1,4 +1,7 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
@@ -41,6 +44,18 @@ export class SimpleDbEntityPrimeTransfer extends SimpleDbEntityBase<ISimpleDBPri
   async getServerConfig(): Promise<IPrimeTransferServerConfig> {
     const config = await this.getRawConfig();
     return config.serverConfig;
+  }
+
+  @backgroundMethod()
+  async getServerFormattedName(
+    config: IPrimeTransferServerConfig,
+  ): Promise<string> {
+    return config.customServerUrl &&
+      config.serverType === EPrimeTransferServerType.CUSTOM
+      ? uriUtils.getHostNameFromUrl({ url: config.customServerUrl || '' })
+      : appLocale.intl.formatMessage({
+          id: ETranslations.transfer_transfer_server_server_official,
+        });
   }
 
   @backgroundMethod()

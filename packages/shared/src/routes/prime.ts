@@ -2,6 +2,10 @@ import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/us
 
 // eslint-disable-next-line import/order
 import type {
+  EOneKeyDeepLinkPath,
+  IEOneKeyDeepLinkParams,
+} from '../consts/deeplinkConsts';
+import type {
   IE2EESocketUserInfo,
   IPrimeTransferData,
 } from '../../types/prime/primeTransferTypes';
@@ -47,7 +51,7 @@ export type IPrimeParamList = {
     serverUserInfo?: IPrimeServerUserInfo;
   };
   [EPrimePages.PrimeDeleteAccount]: undefined;
-  [EPrimePages.PrimeTransfer]: undefined;
+  [EPrimePages.PrimeTransfer]: IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.cross_device_transfer];
   [EPrimePages.PrimeTransferPreview]: {
     directionUserInfo:
       | {
