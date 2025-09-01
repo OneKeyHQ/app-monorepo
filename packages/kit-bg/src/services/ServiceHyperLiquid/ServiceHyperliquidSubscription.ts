@@ -2,7 +2,7 @@ import {
   SubscriptionClient,
   WebSocketTransport,
 } from '@nktkas/hyperliquid';
-import type { IHLSubscriptionClient } from '@onekeyhq/shared/types/hyperliquid/sdk';
+
 import {
   backgroundClass,
   backgroundMethod,
@@ -52,7 +52,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     super({ backgroundApi });
   }
 
-  private _client: IHLSubscriptionClient | null = null;
+  private _client: SubscriptionClient | null = null;
   private _currentState: SubscriptionState = {
     currentUser: null,
     currentSymbol: '',
@@ -200,7 +200,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     return subscribePromises;
   }
 
-  private async _ensureClient(): Promise<IHLSubscriptionClient> {
+  private async _ensureClient(): Promise<SubscriptionClient> {
     if (!this._client) {
       const transport = new WebSocketTransport({
         url: 'wss://api.hyperliquid.xyz/ws',

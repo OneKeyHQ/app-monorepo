@@ -3,7 +3,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type * as HL from '@nktkas/hyperliquid';
-import type { IHLActiveAssetData } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { ActiveAssetData } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import type { SubscriptionType, SubscriptionConfig } from './SubscriptionConfig';
 
@@ -112,8 +112,8 @@ export class BBOProcessor extends BaseDataProcessor<HL.WsBbo> {
   }
 }
 
-export class ActiveAssetDataProcessor extends BaseDataProcessor<IHLActiveAssetData> {
-  process(key: string, data: IHLActiveAssetData, config: SubscriptionConfig): void {
+export class ActiveAssetDataProcessor extends BaseDataProcessor<ActiveAssetData> {
+  process(key: string, data: ActiveAssetData, config: SubscriptionConfig): void {
     const { params } = this.parseKey(key);
     const [, userAddress, coin] = params;
     this.processWithBasicMetadata(key, data, config, { userId: userAddress, coin });

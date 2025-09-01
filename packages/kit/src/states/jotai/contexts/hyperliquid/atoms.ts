@@ -4,8 +4,11 @@ import {
   atom,
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
-import type { IHLTokenListItem } from '@onekeyhq/shared/types/hyperliquid/market';
-import type { IHLHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { Hex } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  ConnectionState,
+  TokenListItem,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import type * as HL from '@nktkas/hyperliquid';
 
@@ -15,12 +18,6 @@ const {
   contextAtomMethod,
 } = createJotaiContext();
 export { ProviderJotaiContextHyperliquid, contextAtomMethod };
-
-export interface IHLConnectionState {
-  readonly isConnected: boolean;
-  readonly lastConnected: number | null;
-  readonly reconnectCount: number;
-}
 
 export const { atom: allMidsAtom, use: useAllMidsAtom } =
   contextAtom<HL.WsAllMids | null>(null);
@@ -35,7 +32,7 @@ export const { atom: activeAssetDataAtom, use: useActiveAssetDataAtom } =
   contextAtom<HL.ActiveAssetData | null>(null);
 
 export const { atom: connectionStateAtom, use: useConnectionStateAtom } =
-  contextAtom<IHLConnectionState>({
+  contextAtom<ConnectionState>({
     isConnected: false,
     lastConnected: null,
     reconnectCount: 0,
@@ -45,7 +42,7 @@ export const { atom: currentTokenAtom, use: useCurrentTokenAtom } =
   contextAtom<string>('ETH');
 
 export const { atom: currentUserAtom, use: useCurrentUserAtom } =
-  contextAtom<IHLHex | null>(null);
+  contextAtom<Hex | null>(null);
 
 export const { atom: currentAccountAtom, use: useCurrentAccountAtom } =
   contextAtom<string | null>(null);
@@ -54,7 +51,7 @@ export const { atom: subscriptionActiveAtom, use: useSubscriptionActiveAtom } =
   contextAtom<boolean>(false);
 
 export const tokenListAtom = () =>
-  atom((get): IHLTokenListItem[] => {
+  atom((get): TokenListItem[] => {
     const allMids = get(allMidsAtom());
     const webData2 = get(webData2Atom());
     const currentToken = get(currentTokenAtom());
@@ -127,7 +124,7 @@ export const tokenListAtom = () =>
 export const useTokenListAtom = () => tokenListAtom();
 
 export const currentTokenInfoAtom = memoizee(() =>
-  atom((get): IHLTokenListItem | null => {
+  atom((get): TokenListItem | null => {
     const currentToken = get(currentTokenAtom());
     const tokenList = get(tokenListAtom());
 

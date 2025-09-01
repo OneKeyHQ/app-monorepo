@@ -10,8 +10,7 @@ import {
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
-  IHLExtraAgent,
-  IHLInfoClient,
+  ExtraAgent,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import ServiceBase from '../ServiceBase';
@@ -22,22 +21,22 @@ export default class ServiceHyperliquidInfo extends ServiceBase {
     super({ backgroundApi });
   }
 
-  private _infoClient: IHLInfoClient | null = null;
+  private _infoClient: InfoClient | null = null;
 
-  private async _ensureInfoClient(): Promise<IHLInfoClient> {
+  private async _ensureInfoClient(): Promise<InfoClient> {
     if (!this._infoClient) {
       const transport = new HttpTransport();
 
       this._infoClient = new InfoClient({
         transport,
-      }) as IHLInfoClient;
+      }) as InfoClient;
     }
 
     return this._infoClient;
   }
 
   @backgroundMethod()
-  async getExtraAgents(params: { user: `0x${string}` }): Promise<IHLExtraAgent[]> {
+  async getExtraAgents(params: { user: `0x${string}` }): Promise<ExtraAgent[]> {
     try {
       const infoClient = await this._ensureInfoClient();
       return await infoClient.extraAgents(params);
