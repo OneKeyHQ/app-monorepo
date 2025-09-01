@@ -11,6 +11,7 @@ import {
   Popover,
   SizableText,
   Spinner,
+  Stack,
   View,
   XStack,
   YStack,
@@ -20,6 +21,8 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
+import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import {
   ERevokeTxStatus,
   type IRevokeTxStatus,
@@ -32,6 +35,7 @@ import type { IntlShape } from 'react-intl';
 type IProps = {
   unsignedTx: IUnsignedTxPro;
   revokeTxsStatusMap: Record<string, IRevokeTxStatus>;
+  contractMap: Record<string, IAddressInfo>;
 };
 
 function getRevokeStatusLabel({
@@ -87,13 +91,27 @@ function RevokeStatusIcon(props: { status: IRevokeTxStatus }) {
     iconColor = '$iconInfo';
   }
 
-  return <Icon name="CheckRadioSolid" color={iconColor} />;
+  return <Stack width="$2" height="$2" bg={iconColor} borderRadius="$full" />;
 }
 
 function BulkRevokeItem(props: IProps) {
-  const { unsignedTx, revokeTxsStatusMap } = props;
+  const { unsignedTx, revokeTxsStatusMap, contractMap } = props;
+
+  const intl = useIntl();
 
   const { copyText } = useClipboard();
+
+  const approveInfo = unsignedTx.approveInfo;
+
+  const contract = contractMap[
+    approvalUtils.buildContractMapKey({
+      networkId: unsignedTx?.networkId ?? '',
+      contractAddress: approveInfo?.spender ?? '',
+    })
+  ] ?? {
+    label: intl.formatMessage({ id: ETranslations.global_unknown }),
+    icon: 'Document2Outline',
+  };
 
   const status = useMemo(() => {
     return (
@@ -103,15 +121,11 @@ function BulkRevokeItem(props: IProps) {
     );
   }, [revokeTxsStatusMap, unsignedTx.uuid]);
 
-  const approveInfo = unsignedTx.approveInfo;
-
-  const intl = useIntl();
-
   const [settings] = useSettingsPersistAtom();
 
   const renderRevokeStatus = useCallback(() => {
     return (
-      <YStack flex={1}>
+      <YStack flex={1} justifyContent="flex-end">
         {status.status === ERevokeTxStatus.Succeeded ? (
           <XStack alignItems="center" gap="$1" justifyContent="flex-end">
             <NumberSizeableText
@@ -145,27 +159,29 @@ function BulkRevokeItem(props: IProps) {
               intl,
               status: status.status,
             })}
-            {status.skippedReason ? (
-              <Popover
-                title={intl.formatMessage({
-                  id: ETranslations.approval_bulk_revoke_status_paused_reason_description,
-                })}
-                renderTrigger={
-                  <IconButton
-                    size="small"
-                    color="$iconSubdued"
-                    icon="InfoCircleOutline"
-                    variant="tertiary"
-                  />
-                }
-                renderContent={
+          </SizableText>
+          {status.skippedReason ? (
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.approval_bulk_revoke_status_paused_reason_description,
+              })}
+              renderTrigger={
+                <IconButton
+                  size="small"
+                  color="$iconSubdued"
+                  icon="InfoCircleOutline"
+                  variant="tertiary"
+                />
+              }
+              renderContent={
+                <Stack p="$5">
                   <SizableText size="$bodyLg">
                     {status.skippedReason}
                   </SizableText>
-                }
-              />
-            ) : null}
-          </SizableText>
+                </Stack>
+              }
+            />
+          ) : null}
         </XStack>
       </YStack>
     );
@@ -177,9 +193,17 @@ function BulkRevokeItem(props: IProps) {
 
   return (
     <Accordion.Item value={unsignedTx.uuid ?? ''}>
-      <Accordion.Trigger flexDirection="row" justifyContent="space-between">
+      <Accordion.Trigger
+        flexDirection="row"
+        justifyContent="space-between"
+        borderTopWidth={0}
+        borderLeftWidth={0}
+        borderRightWidth={0}
+        minHeight="108"
+        px="$5"
+      >
         {({ open }: { open: boolean }) => (
-          <XStack alignItems="center" gap="$3">
+          <XStack alignItems="center" gap="$3" flex={1}>
             <View
               animation="quick"
               rotate={open ? '180deg' : '0deg'}
@@ -200,13 +224,29 @@ function BulkRevokeItem(props: IProps) {
                   approveInfo.tokenInfo?.networkId ?? unsignedTx.networkId
                 }
               />
-              <XStack alignItems="center" gap="$3" flex={1}>
+              <XStack
+                alignItems="center"
+                gap="$3"
+                flex={1}
+                justifyContent="space-between"
+              >
                 <YStack flex={1}>
-                  <SizableText size="$bodyLgMedium" numberOfLines={1}>
+                  <SizableText
+                    size="$bodyLgMedium"
+                    numberOfLines={1}
+                    flex={1}
+                    textAlign="left"
+                  >
                     {approveInfo.tokenInfo?.symbol}
                   </SizableText>
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {approveInfo.tokenInfo?.networkId}
+                  <SizableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    numberOfLines={1}
+                    flex={1}
+                    textAlign="left"
+                  >
+                    {contract.label}
                   </SizableText>
                 </YStack>
                 {renderRevokeStatus()}
@@ -221,7 +261,7 @@ function BulkRevokeItem(props: IProps) {
           exitStyle={{ opacity: 0 }}
           backgroundColor="$bgSubdued"
         >
-          <YStack gap="$4">
+          <YStack gap="$4" px="$5">
             <XStack alignItems="center" justifyContent="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
                 {intl.formatMessage({
@@ -231,11 +271,11 @@ function BulkRevokeItem(props: IProps) {
               <XStack alignItems="center" gap="$2">
                 <YStack>
                   <SizableText size="$bodyMdMedium">
-                    {approveInfo.owner}
+                    {contract.label}
                   </SizableText>
                   <SizableText size="$bodyMd" color="$textSubdued">
                     {accountUtils.shortenAddress({
-                      address: approveInfo.owner,
+                      address: approveInfo.spender,
                       leadingLength: 8,
                       trailingLength: 6,
                     })}
@@ -246,7 +286,7 @@ function BulkRevokeItem(props: IProps) {
                   variant="tertiary"
                   size="small"
                   color="$iconSubdued"
-                  onPress={() => copyText(approveInfo.owner)}
+                  onPress={() => copyText(approveInfo.spender)}
                 />
               </XStack>
             </XStack>

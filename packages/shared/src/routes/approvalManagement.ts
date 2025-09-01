@@ -43,5 +43,6 @@ export type IModalApprovalManagementParamList = {
   };
   [EModalApprovalManagementRoutes.BulkRevoke]: {
     unsignedTxs: IUnsignedTxPro[];
+    contractMap: Record<string, IAddressInfo>;
   };
 };

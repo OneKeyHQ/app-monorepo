@@ -23,6 +23,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   ProviderJotaiContextApprovalList,
   useApprovalListActions,
+  useContractMapAtom,
   useSelectedTokensAtom,
 } from '../../../states/jotai/contexts/approvalList';
 import ApprovalActions from '../components/ApprovalActions';
@@ -56,7 +57,6 @@ function RevokeSuggestion() {
     useBulkRevoke();
 
   const [{ selectedTokens }] = useSelectedTokensAtom();
-
   const { isSelectAllTokens, selectedCount } = useMemo(() => {
     return approvalUtils.checkIsSelectAllTokens({
       approvals,
@@ -211,8 +211,9 @@ function RevokeSuggestion() {
     void navigationToBulkRevokeProcess({
       selectedTokens,
       tokenMap,
+      contractMap,
     });
-  }, [navigationToBulkRevokeProcess, selectedTokens, tokenMap]);
+  }, [navigationToBulkRevokeProcess, selectedTokens, tokenMap, contractMap]);
   const handleOnCancel = useCallback(() => {
     navigation.popStack();
   }, [navigation]);

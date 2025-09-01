@@ -73,7 +73,8 @@ function BulkRevoke() {
         EModalApprovalManagementRoutes.BulkRevoke
       >
     >();
-  const { unsignedTxs } = route.params;
+
+  const { unsignedTxs, contractMap } = route.params;
 
   const navigation = useAppNavigation();
 
@@ -124,7 +125,7 @@ function BulkRevoke() {
   }, [revokeTxsStatusMap]);
 
   usePromiseResult(async () => {
-    for (let i = 0; i < unsignedTxs.length; i += 1) {
+    for (let i = 0; i < unsignedTxs?.length; i += 1) {
       const tx = unsignedTxs[i];
       if (isAborted.current) {
         break;
@@ -158,6 +159,7 @@ function BulkRevoke() {
         if (isAborted.current) {
           break;
         }
+        await waitUntilInProgress();
 
         const { encodedTx, estimateFeeParams } =
           await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
@@ -176,6 +178,7 @@ function BulkRevoke() {
         if (isAborted.current) {
           break;
         }
+        await waitUntilInProgress();
 
         const feeInfo: IFeeInfoUnit = {
           common: {
@@ -217,6 +220,7 @@ function BulkRevoke() {
         if (isAborted.current) {
           break;
         }
+        await waitUntilInProgress();
 
         const sendSelectedFeeInfo: ISendSelectedFeeInfo = {
           feeInfo,
@@ -239,6 +243,7 @@ function BulkRevoke() {
         if (isAborted.current) {
           break;
         }
+        await waitUntilInProgress();
 
         setRevokeTxsStatusMap((prev) => ({
           ...prev,
@@ -263,9 +268,8 @@ function BulkRevoke() {
           },
         }));
       }
-
-      setProgressState(ERevokeProgressState.Finished);
     }
+    setProgressState(ERevokeProgressState.Finished);
   }, [unsignedTxs, waitUntilInProgress]);
 
   const renderBulkRevokeAlert = useCallback(() => {
@@ -284,22 +288,25 @@ function BulkRevoke() {
 
   const renderBulkRevokeList = useCallback(() => {
     return (
-      <Accordion
-        overflow="hidden"
-        width="100%"
-        type="multiple"
-        defaultValue={[]}
-      >
-        {unsignedTxs.map((tx) => (
-          <BulkRevokeItem
-            key={tx.uuid ?? ''}
-            unsignedTx={tx}
-            revokeTxsStatusMap={revokeTxsStatusMap}
-          />
-        ))}
-      </Accordion>
+      <Stack flex={1} pb="$5">
+        <Accordion
+          overflow="hidden"
+          width="100%"
+          type="multiple"
+          defaultValue={[]}
+        >
+          {unsignedTxs?.map((tx) => (
+            <BulkRevokeItem
+              key={tx.uuid ?? ''}
+              unsignedTx={tx}
+              revokeTxsStatusMap={revokeTxsStatusMap}
+              contractMap={contractMap}
+            />
+          ))}
+        </Accordion>
+      </Stack>
     );
-  }, [unsignedTxs, revokeTxsStatusMap]);
+  }, [unsignedTxs, revokeTxsStatusMap, contractMap]);
 
   useEffect(() => {
     progressStateRef.current = progressState;
@@ -313,13 +320,26 @@ function BulkRevoke() {
 
     if (progressState === ERevokeProgressState.InProgress) {
       setProgressState(ERevokeProgressState.Paused);
+      setRevokeTxsStatusMap((prev) => ({
+        ...prev,
+        [unsignedTxs[currentProcessIndex].uuid ?? '']: {
+          status: ERevokeTxStatus.Paused,
+        },
+      }));
     } else {
-      setProgressState(ERevokeProgressState.Finished);
+      setProgressState(ERevokeProgressState.InProgress);
+      setRevokeTxsStatusMap((prev) => ({
+        ...prev,
+        [unsignedTxs[currentProcessIndex].uuid ?? '']: {
+          status: ERevokeTxStatus.Processing,
+        },
+      }));
     }
-  }, [progressState, navigation]);
+  }, [progressState, navigation, currentProcessIndex, unsignedTxs]);
 
   return (
     <Page
+      scrollEnabled
       onClose={() => {
         if (progressState !== ERevokeProgressState.Finished) {
           isAborted.current = true;
@@ -353,8 +373,14 @@ function BulkRevoke() {
             progressState,
           })}
         >
-          <YStack gap="$1">
-            <XStack alignItems="center" justifyContent="space-between">
+          <YStack
+            gap="$1"
+            $md={{
+              flex: 1,
+              pb: '$2.5',
+            }}
+          >
+            <XStack alignItems="center" justifyContent="space-between" gap="$2">
               <SizableText size="$bodyMd" color="$textSubdued">
                 {intl.formatMessage({
                   id: ETranslations.global_process,
@@ -362,7 +388,7 @@ function BulkRevoke() {
               </SizableText>
               <SizableText size="$bodyMdMedium">
                 {`${currentProcessIndex + 1}/${
-                  unsignedTxs.length
+                  unsignedTxs?.length ?? 0
                 } (${succeededTxCount} ${intl.formatMessage({
                   id: ETranslations.wallet_approval_bulk_revoke_status_succeeded,
                 })}, ${skippedTxCount} ${intl.formatMessage({
@@ -371,7 +397,11 @@ function BulkRevoke() {
               </SizableText>
             </XStack>
             {progressState === ERevokeProgressState.Finished ? (
-              <XStack alignItems="center" justifyContent="space-between">
+              <XStack
+                alignItems="center"
+                justifyContent="space-between"
+                gap="$2"
+              >
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {intl.formatMessage({
                     id: ETranslations.wallet_approval_bulk_revoke_total_gas,

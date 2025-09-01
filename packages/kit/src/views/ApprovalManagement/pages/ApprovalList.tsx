@@ -21,6 +21,7 @@ import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../../
 import {
   useApprovalListActions,
   useApprovalListAtom,
+  useContractMapAtom,
   useIsBulkRevokeModeAtom,
   useSearchNetworkAtom,
   useSelectedTokensAtom,
@@ -59,7 +60,7 @@ function ApprovalList() {
   const [{ selectedTokens }] = useSelectedTokensAtom();
   const [{ approvals }] = useApprovalListAtom();
   const [{ tokenMap }] = useTokenMapAtom();
-
+  const [{ contractMap }] = useContractMapAtom();
   const { enabledNetworksCompatibleWithWalletId } =
     useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       walletId,
@@ -159,8 +160,9 @@ function ApprovalList() {
     void navigationToBulkRevokeProcess({
       selectedTokens,
       tokenMap,
+      contractMap,
     });
-  }, [navigationToBulkRevokeProcess, selectedTokens, tokenMap]);
+  }, [navigationToBulkRevokeProcess, selectedTokens, tokenMap, contractMap]);
   const handleOnCancel = useCallback(() => {
     updateIsBulkRevokeMode(false);
   }, [updateIsBulkRevokeMode]);

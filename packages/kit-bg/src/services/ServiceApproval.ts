@@ -77,6 +77,14 @@ class ServiceApproval extends ServiceBase {
       });
     }
 
+    if (queries.length === 0) {
+      return {
+        contractApprovals: [],
+        tokenMap: {},
+        contractMap: {},
+      };
+    }
+
     const controller = new AbortController();
     this._fetchAccountApprovalsControllers.push(controller);
 

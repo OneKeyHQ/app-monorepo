@@ -13,6 +13,7 @@ import {
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
+import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -33,11 +34,16 @@ function useBulkRevoke() {
   const navigation = useAppNavigation();
 
   const navigationToBulkRevoke = useCallback(
-    async ({ unsignedTxs }: { unsignedTxs: (IUnsignedTxPro & IHasId)[] }) => {
+    async ({
+      unsignedTxs,
+      contractMap,
+    }: {
+      unsignedTxs: (IUnsignedTxPro & IHasId)[];
+      contractMap: Record<string, IAddressInfo>;
+    }) => {
       navigation.push(EModalApprovalManagementRoutes.BulkRevoke, {
-        params: {
-          unsignedTxs,
-        },
+        unsignedTxs,
+        contractMap,
       });
     },
     [navigation],
@@ -51,8 +57,11 @@ function useBulkRevoke() {
           accountId: unsignedTxs[0].accountId as string,
           networkId: unsignedTxs[0].networkId as string,
           unsignedTxs: [unsignedTxs[0]],
-          isQueueMode: true,
-          unsignedTxQueue: new LinkedDeck<IUnsignedTxPro & IHasId>(unsignedTxs),
+          isQueueMode: unsignedTxs.length > 1,
+          unsignedTxQueue:
+            unsignedTxs.length > 1
+              ? new LinkedDeck<IUnsignedTxPro & IHasId>(unsignedTxs)
+              : undefined,
         },
       });
     },
@@ -63,6 +72,7 @@ function useBulkRevoke() {
     async ({
       selectedTokens,
       tokenMap,
+      contractMap,
     }: {
       selectedTokens: Record<string, boolean>;
       tokenMap: Record<
@@ -72,9 +82,9 @@ function useBulkRevoke() {
           info: IToken;
         }
       >;
+      contractMap: Record<string, IAddressInfo>;
     }) => {
       setIsBuildingRevokeTxs(true);
-
       const selectedTokensArray = Object.entries(selectedTokens)
         .map(([key, value]) => {
           const { accountId, networkId, contractAddress, tokenAddress } =
@@ -141,6 +151,13 @@ function useBulkRevoke() {
 
       setIsBuildingRevokeTxs(false);
 
+      if (unsignedTxs.length === 1) {
+        void navigationToOneByOneRevoke({
+          unsignedTxs,
+        });
+        return;
+      }
+
       const dialog = Dialog.show({
         title: intl.formatMessage({
           id: ETranslations.wallet_approval_bulk_revoke,
@@ -156,11 +173,14 @@ function useBulkRevoke() {
         confirmButtonProps: {
           icon: isPrimeAvailable ? 'PrimeOutline' : undefined,
         },
-        onConfirm: () => {
+        onConfirm: async () => {
+          await dialog.close();
+
           if (isPrimeAvailable) {
             if (isPrimeUser) {
               void navigationToBulkRevoke({
                 unsignedTxs,
+                contractMap,
               });
             } else {
               navigation.pushFullModal(EModalRoutes.PrimeModal, {
@@ -175,17 +195,30 @@ function useBulkRevoke() {
           } else {
             void navigationToBulkRevoke({
               unsignedTxs,
+              contractMap,
             });
           }
-
-          void dialog.close();
         },
-        onCancel: () => {
-          void dialog.close();
+        onCancelText: intl.formatMessage({
+          id: ETranslations.wallet_approval_bulk_revoke_one_by_one,
+        }),
+        onCancel: async () => {
+          await dialog.close();
+
+          void navigationToOneByOneRevoke({
+            unsignedTxs,
+          });
         },
       });
     },
-    [intl, isPrimeAvailable, isPrimeUser, navigation, navigationToBulkRevoke],
+    [
+      intl,
+      isPrimeAvailable,
+      isPrimeUser,
+      navigation,
+      navigationToBulkRevoke,
+      navigationToOneByOneRevoke,
+    ],
   );
 
   return {

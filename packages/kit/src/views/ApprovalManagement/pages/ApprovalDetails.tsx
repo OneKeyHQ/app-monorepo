@@ -70,8 +70,6 @@ function ApprovalDetails() {
 
   const { copyText } = useClipboard();
 
-  const { navigationToBulkRevokeProcess } = useBulkRevoke();
-
   const navigation = useAppNavigation();
 
   const [isBulkRevokeMode, setIsBulkRevokeMode] = useState(false);
@@ -93,6 +91,9 @@ function ApprovalDetails() {
   }, [approval, selectedTokens]);
 
   const [{ contractMap }] = useContractMapAtom();
+
+  const { navigationToBulkRevokeProcess } = useBulkRevoke();
+
   const contract = contractMap[
     approvalUtils.buildContractMapKey({
       networkId: approval.networkId,
@@ -132,23 +133,20 @@ function ApprovalDetails() {
   );
 
   const handleSelectAll = useCallback(
-    (isSelectAll: ICheckedState) => {
-      if (isSelectAll === true) {
-        const selectedAllTokens = approval.approvals.reduce((acc, item) => {
-          acc[
-            approvalUtils.buildSelectedTokenKey({
-              accountId: approval.accountId,
-              networkId: approval.networkId,
-              contractAddress: approval.contractAddress,
-              tokenAddress: item.tokenAddress,
-            })
-          ] = true;
-          return acc;
-        }, {} as Record<string, boolean>);
-        setSelectedTokens(selectedAllTokens);
-      } else {
-        setSelectedTokens({});
-      }
+    (_isSelectAll: ICheckedState) => {
+      const isSelectAll = _isSelectAll === true;
+      const selectedAllTokens = approval.approvals.reduce((acc, item) => {
+        acc[
+          approvalUtils.buildSelectedTokenKey({
+            accountId: approval.accountId,
+            networkId: approval.networkId,
+            contractAddress: approval.contractAddress,
+            tokenAddress: item.tokenAddress,
+          })
+        ] = isSelectAll;
+        return acc;
+      }, {} as Record<string, boolean>);
+      setSelectedTokens(selectedAllTokens);
     },
     [
       approval.accountId,
@@ -171,6 +169,7 @@ function ApprovalDetails() {
     await navigationToBulkRevokeProcess({
       selectedTokens,
       tokenMap,
+      contractMap,
     });
   }, [
     isSelectMode,
@@ -179,6 +178,7 @@ function ApprovalDetails() {
     onSelected,
     selectedTokens,
     tokenMap,
+    contractMap,
   ]);
 
   const handleOnCancel = useCallback(() => {
