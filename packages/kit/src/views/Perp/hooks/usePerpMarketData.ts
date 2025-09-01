@@ -7,6 +7,7 @@ import {
   useCurrentTokenAtom,
   useCurrentUserAtom,
   useWebData2Atom,
+  useTradingPanelDataAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { formatAssetCtx } from '../utils/formatData';
 import { WsActiveAssetCtx, ActiveAssetData } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -40,12 +41,18 @@ export interface ICurrentTokenData {
   name: string;
   assetId: number;
   weiDecimals: number;
+  szDecimals: number;
   markPx?: string;
   oraclePx?: string;
   dayNtlVlm?: string;
   openInterest?: string;
   funding?: string;
   prevDayPx?: string;
+  leverage?: {
+    value: number;
+  };
+  maxLeverage?: number;
+  maxTradeSzs?: number[];
 }
 
 export function usePerpMarketData(): IPerpMarketDataReturn {
@@ -55,7 +62,7 @@ export function usePerpMarketData(): IPerpMarketDataReturn {
 
   const currentTokenData = useMemo(() => {
     if (!currentToken) return null;
-    return activeAssets; // 直接返回activeAssets，它现在就是WsActiveAssetCtx对象
+    return activeAssets;
   }, [activeAssets, currentToken]);
 
   const marketPrices = useMemo(() => {
@@ -140,42 +147,13 @@ export function usePerpMarketData(): IPerpMarketDataReturn {
 }
 
 export function useCurrentTokenData(): ICurrentTokenData | null {
-  const [currentToken] = useCurrentTokenAtom();
-  const { getTokenInfo } = useTokenList();
-  const tokenInfo = getTokenInfo(currentToken);
-  const [activeAssets] = useActiveAssetCtxAtom();
-  const [activeAssetData] = useActiveAssetDataAtom();
+  const [tradingData] = useTradingPanelDataAtom();
 
-  const {
-    markPrice,
-    oraclePrice,
-    prevDayPrice,
-    fundingRate,
-    openInterest,
-    volume24h,
-    change24hPercent,
-  } = useMemo(() => {
-    return formatAssetCtx(activeAssets?.ctx || null);
-  }, [activeAssets]);
-
-  if (!currentToken || !tokenInfo) {
+  if (!tradingData) {
     return null;
   }
 
-  const data = {
-    ...tokenInfo,
-    ...activeAssetData,
-    name: currentToken,
-    markPrice,
-    oraclePrice,
-    prevDayPrice,
-    fundingRate,
-    openInterest,
-    volume24h,
-    change24hPercent,
-  } as unknown as ICurrentTokenData;
-
-  return data;
+  return tradingData as unknown as ICurrentTokenData;
 }
 
 export function useTokenList() {

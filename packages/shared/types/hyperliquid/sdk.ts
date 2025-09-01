@@ -49,6 +49,7 @@ export type Portfolio = HL.Portfolio;
 export type Referral = HL.Referral;
 export type ExtraAgent = HL.ExtraAgent;
 
+export type UserFillsByTimeParameters = HL.UserFillsByTimeParameters;
 // Request types (define manually as SDK may not export these)
 export interface OrderRequest {
   action: {

@@ -6,11 +6,13 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+
+
 import { useCurrentTokenData, usePerpSession } from '../../hooks';
 
 import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
-import { formatAssetCtx, formatLargeNumber } from '../../utils/formatData';
-import { useActiveAssetCtxAtom } from '../../../../states/jotai/contexts/hyperliquid/atoms';
+import { formatLargeNumber } from '../../utils/formatData';
+import { useCurrentTokenPriceAtom } from '../../../../states/jotai/contexts/hyperliquid';
 
 // Countdown timer hook for funding rate countdown (every hour)
 function useFundingCountdown() {
@@ -53,18 +55,16 @@ function formatFundingRate(rate: string | number): string {
 function PerpTickerBar() {
   const countdown = useFundingCountdown();
   const { isReady, hasError } = usePerpSession();
-  const [activeAssets] = useActiveAssetCtxAtom();
+  const [priceData] = useCurrentTokenPriceAtom();
+
   const {
     markPrice,
     oraclePrice,
-    fundingRate,
+    funding: fundingRate,
     openInterest,
     volume24h,
     change24hPercent,
-  } = useMemo(() => {
-    return formatAssetCtx(activeAssets?.ctx || null);
-  }, [activeAssets]);
-
+  } = priceData;
 
   const formattedMarkPrice = markPrice;
   const formattedOraclePrice = oraclePrice;

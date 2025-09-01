@@ -11,6 +11,8 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   ExtraAgent,
+  UserFillsByTimeParameters,
+  Fill,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import ServiceBase from '../ServiceBase';
@@ -55,6 +57,16 @@ export default class ServiceHyperliquidInfo extends ServiceBase {
       return await infoClient.maxBuilderFee(params);
     } catch (error) {
       throw new OneKeyLocalError(`Failed to get max builder fee: ${error}`);
+    }
+  }
+
+  @backgroundMethod()
+  async getUserFillsByTime(params: UserFillsByTimeParameters): Promise<Fill[]> {
+    try {
+      const infoClient = await this._ensureInfoClient();
+      return await infoClient.userFillsByTime(params);
+    } catch (error) {
+      throw new OneKeyLocalError(`Failed to get user fills by time: ${error}`);
     }
   }
 

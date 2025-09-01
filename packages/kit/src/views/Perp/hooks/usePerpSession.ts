@@ -49,22 +49,22 @@ export function usePerpSession(): IPerpSessionReturn {
 
   // Simplified actions for demo - in real app would use proper actions
   const connect = async () => {
-    console.log('Connect to Hyperliquid...');
+
     // TODO: Implement proper connection
   };
 
   const disconnect = async () => {
-    console.log('Disconnect from Hyperliquid...');
+
     // TODO: Implement proper disconnection
   };
 
   const switchToken = async (token: string) => {
-    console.log('Switch to token:', token);
+
     // TODO: Implement proper token switching
   };
 
   const setUser = async (user: string | null) => {
-    console.log('Set user:', user);
+
     // TODO: Implement proper user setting
   };
 

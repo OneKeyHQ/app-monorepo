@@ -109,7 +109,7 @@ const PerpOrdersRow = memo(({ order }: { order: WsWebData2['openOrders'][number]
 
 function PerpOpenOrders() {
   const orders = usePerpOrders();
-  console.log('orders', orders);
+
   const totalWidth = Object.values(COLUMN_WIDTHS).reduce(
     (sum, width) => sum + width,
     0,
