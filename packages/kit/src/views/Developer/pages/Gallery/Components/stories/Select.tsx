@@ -126,12 +126,14 @@ const sections: ISelectSection[] = [
         label: 'Apple🍎',
         value: 'Apple',
         leading: <SizableText size="$bodyMdMedium">😀</SizableText>,
+        description: 'Apple description',
       },
 
       {
         label: 'Pear🌰',
         value: 'Pear',
         leading: <SizableText size="$bodyMdMedium">🚅</SizableText>,
+        description: 'Pear description',
       },
 
       {

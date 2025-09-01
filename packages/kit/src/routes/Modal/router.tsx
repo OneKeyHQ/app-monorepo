@@ -28,6 +28,7 @@ import { ReferFriendsRouter } from '../../views/ReferFriends/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
 import { ModalSendStack } from '../../views/Send/router';
 import { ShortcutsModalRouter } from '../../views/Shortcuts/router';
+import { ModalSignAndVerifyRouter } from '../../views/SignAndVerifyMessage/router';
 import { ModalSignatureConfirmStack } from '../../views/SignatureConfirm/router';
 import { StakingModalRouter } from '../../views/Staking/router';
 import { ModalSwapStack } from '../../views/Swap/router';
@@ -192,6 +193,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.BulkCopyAddressesModal,
     children: BulkCopyAddressesModalRouter,
+  },
+  {
+    name: EModalRoutes.SignAndVerifyModal,
+    children: ModalSignAndVerifyRouter,
   },
 ];
 
