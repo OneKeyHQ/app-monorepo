@@ -18,12 +18,13 @@ import { WalletActionCopy } from './WalletActionCopy';
 import { WalletActionExport } from './WalletActionExport';
 import { WalletActionRewardCenter } from './WalletActionRewardCenter';
 import { WalletActionSell } from './WalletActionSell';
+import { WalletActionSignAndVerify } from './WalletActionSignAndVerify';
 import { WalletActionViewInExplorer } from './WalletActionViewInExplorer';
 
 export function WalletActionMore() {
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const { account, network } = activeAccount;
+  const { account, network, indexedAccount, isOthersWallet } = activeAccount;
 
   const show = useReviewControl();
 
@@ -38,6 +39,26 @@ export function WalletActionMore() {
     });
     return settings;
   }, [network?.id]).result;
+
+  const displaySignAndVerify = usePromiseResult(async () => {
+    if (!vaultSettings?.enabledInternalSignAndVerify) {
+      return false;
+    }
+    const signAccounts =
+      await backgroundApiProxy.serviceInternalSignAndVerify.getSignAccounts({
+        networkId: network?.id ?? '',
+        accountId: account?.id ?? '',
+        indexedAccountId: indexedAccount?.id ?? '',
+        isOthersWallet,
+      });
+    return signAccounts.length > 0;
+  }, [
+    account?.id,
+    indexedAccount?.id,
+    isOthersWallet,
+    network?.id,
+    vaultSettings,
+  ]);
 
   const renderItemsAsync = useCallback(
     async ({
@@ -72,6 +93,9 @@ export function WalletActionMore() {
             {!vaultSettings?.copyAddressDisabled ? (
               <WalletActionCopy onClose={handleActionListClose} />
             ) : null}
+            {displaySignAndVerify.result ? (
+              <WalletActionSignAndVerify onClose={handleActionListClose} />
+            ) : null}
             {rewardCenterConfig ? (
               <WalletActionRewardCenter
                 onClose={handleActionListClose}
@@ -95,6 +119,7 @@ export function WalletActionMore() {
       show,
       vaultSettings?.copyAddressDisabled,
       vaultSettings?.hideBlockExplorer,
+      displaySignAndVerify,
     ],
   );
 

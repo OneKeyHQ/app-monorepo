@@ -277,6 +277,7 @@ module.exports = [
   'eip712',
   'ejs',
   'electron',
+  'electrum',
   'emmc',
   'Encodings',
   'encryptor',
