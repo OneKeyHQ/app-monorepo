@@ -7,6 +7,7 @@ import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 import { PerpChartsSection } from '../components/Charts/PerpChartsSection';
 import { PerpProtfolioPanel } from '../components/PerpProtfolioPanel';
 import { PerpAccountPanel } from '../components/TradingPanel/PerpAccountPanel';
+import { PerpOrderBook } from '../components/PerpOrderBook';
 
 function PerpDesktopLayout() {
   return (
@@ -21,14 +22,27 @@ function PerpDesktopLayout() {
           minWidth={800}
         >
           {/* Charts Section - Takes 60% of left side height */}
-          <YStack
+          <XStack
             flex={0.6}
             borderBottomWidth="$px"
             borderBottomColor="$borderSubdued"
             minHeight={400}
           >
-            <PerpChartsSection />
-          </YStack>
+            {/* Charts - 70% width */}
+            <YStack flex={0.7}>
+              <PerpChartsSection />
+            </YStack>
+            
+            {/* Order Book - 30% width */}
+            <YStack 
+              flex={0.3} 
+              borderLeftWidth="$px" 
+              borderLeftColor="$borderSubdued"
+              minWidth={300}
+            >
+              <PerpOrderBook />
+            </YStack>
+          </XStack>
 
           {/* Positions Section - Takes 40% of left side height */}
           <YStack flex={0.4} minHeight={300}>
