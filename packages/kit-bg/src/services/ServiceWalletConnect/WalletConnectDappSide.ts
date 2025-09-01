@@ -4,6 +4,7 @@ import { Linking } from 'react-native';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -485,9 +486,15 @@ export class WalletConnectDappSide {
           'WalletConnect ERROR: Connect to wallet failed',
         );
       }
+      appEventBus.emit(EAppEventBusNames.WalletConnectConnectSuccess, {
+        session: provider.session,
+      });
       return provider.session;
     } catch (error) {
       console.error('connectToWallet error: ', error);
+      appEventBus.emit(EAppEventBusNames.WalletConnectConnectError, {
+        error: errorUtils.toPlainErrorObject(error),
+      });
       throw error;
     } finally {
       this.closeModal();

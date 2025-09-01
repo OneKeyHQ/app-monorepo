@@ -95,8 +95,12 @@ async function getStorageSessions({
 }): Promise<IWalletConnectSession[]> {
   const storage = getSharedStorage();
   const keys = await storage.getKeys();
-  const endWith = `${storagePrefix}:${SESSION_CONTEXT}`;
-  const sessionKey = keys.find((key) => key.endsWith(endWith));
+  const endWith1 = `${storagePrefix}:${SESSION_CONTEXT}`; // web saved key
+  const endWith2 = `${storagePrefix}//${SESSION_CONTEXT}`; // native saved key
+  // console.log('getStorageSessionsKeys======', endWith1, endWith2, keys);
+  const sessionKey = keys.find(
+    (key) => key.endsWith(endWith1) || key.endsWith(endWith2),
+  );
   if (!sessionKey) {
     return [];
   }

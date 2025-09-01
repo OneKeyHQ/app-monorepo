@@ -54,7 +54,7 @@ export function createOneKeyAppKit(options: CreateAppKit) {
   const AppKitCls = AppKit;
   return new AppKitCls({
     ...options,
-    universalProvider: undefined,
+    universalProvider: {} as any, // undefined,
     sdkVersion: CoreHelperUtil.generateSdkVersion(
       options.adapters ?? [],
       'html',

@@ -7,6 +7,7 @@ import { useCallback, useRef } from 'react';
 import { mainnet, solana } from '@reown/appkit/networks';
 import { EventsController } from '@reown/appkit-controllers';
 
+import { tamaguiWebFontFamily } from '@onekeyhq/components/tamagui.config';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -20,7 +21,6 @@ import { createOneKeyAppKit } from './AppKitClient';
 
 import type { IWalletConnectModalShared } from './types';
 import type { AppKit, PublicStateControllerState } from '@reown/appkit/core';
-import { tamaguiWebFontFamily } from '@onekeyhq/components/tamagui.config';
 
 if (process.env.NODE_ENV !== 'production') {
   EventsController.subscribe((state) => {

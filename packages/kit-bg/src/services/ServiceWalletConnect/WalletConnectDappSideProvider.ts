@@ -5,8 +5,9 @@ import UniversalProvider from '@walletconnect/universal-provider';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
-import type { IEngineEvents } from '@walletconnect/types';
+import type { IEngineEvents, SessionTypes } from '@walletconnect/types';
 import type {
+  ConnectParams,
   NamespaceConfig,
   RequestArguments,
   UniversalProviderOpts,
@@ -22,6 +23,12 @@ export type IWalletConnectDappProviderOpts = UniversalProviderOpts & {
 export class WalletConnectDappSideProvider extends UniversalProvider {
   // use shared events, as it may be setGlobal() and getGlobal() at universal-provider
   // public events: EventEmitter = new EventEmitter();
+
+  override async connect(
+    opts: ConnectParams,
+  ): Promise<SessionTypes.Struct | undefined> {
+    return super.connect(opts);
+  }
 
   async abortConnectPairing() {
     // @ts-ignore

@@ -336,11 +336,15 @@ function WalletItem({
         await backgroundApiProxy.serviceDappSide.connectExternalWallet({
           connectionInfo,
         });
-      if (!loadingRef.current) {
+      if (
+        !loadingRef.current &&
+        Object.keys(connectResult?.accountInfo?.addresses || {}).length === 0
+      ) {
+        console.log(connectResult, 'connectResult');
         Toast.error({
-          title: intl.formatMessage({
+          title: `448811--${intl.formatMessage({
             id: ETranslations.feedback_connection_request_denied,
-          }),
+          })}`,
         });
         return;
       }

@@ -119,9 +119,9 @@ export function useConnectExternalWallet() {
           });
         if (!loadingRef.current) {
           Toast.error({
-            title: intl.formatMessage({
+            title: `337914--${intl.formatMessage({
               id: ETranslations.feedback_connection_request_denied,
-            }),
+            })}`,
           });
           return;
         }
