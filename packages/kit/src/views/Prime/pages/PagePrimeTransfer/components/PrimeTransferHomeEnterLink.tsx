@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
+  Dialog,
   Form,
   Input,
   Skeleton,
@@ -21,9 +22,16 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { TRANSFER_DEEPLINK_URL } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+
+import { usePrimeTransferExit } from './hooks/usePrimeTransferExit';
+import { usePrimeTransferSaveCustomServer } from './hooks/usePrimeTransferSaveCustomServer';
 
 interface IPrimeTransferForm {
   pairingCode: string;
@@ -32,9 +40,13 @@ interface IPrimeTransferForm {
 export function PrimeTransferHomeEnterLink({
   remotePairingCode,
   setRemotePairingCode,
+  autoConnect,
+  autoConnectCustomServer,
 }: {
   remotePairingCode: string;
   setRemotePairingCode: (code: string) => void;
+  autoConnect?: boolean;
+  autoConnectCustomServer?: string;
 }) {
   // Initialize form
   const form = useForm<IPrimeTransferForm>({
@@ -43,6 +55,7 @@ export function PrimeTransferHomeEnterLink({
     defaultValues: { pairingCode: remotePairingCode || '' },
   });
 
+  const { exitTransferFlow } = usePrimeTransferExit();
   const { gtSm } = useMedia();
 
   // Watch form value and sync with existing state
@@ -76,10 +89,10 @@ export function PrimeTransferHomeEnterLink({
         pairingCode,
       );
 
-    await backgroundApiProxy.servicePrimeTransfer.joinRoom({
+    const r1 = await backgroundApiProxy.servicePrimeTransfer.joinRoom({
       roomId: remoteRoomId,
     });
-    await backgroundApiProxy.servicePrimeTransfer.verifyPairingCode({
+    const r2 = await backgroundApiProxy.servicePrimeTransfer.verifyPairingCode({
       pairingCode: pairingCode.toUpperCase(),
     });
     return undefined;
@@ -195,6 +208,66 @@ export function PrimeTransferHomeEnterLink({
     [connectRemoteDevice],
   );
 
+  const saveCustomServerConfig = usePrimeTransferSaveCustomServer();
+
+  const [autoConnectLoading, setAutoConnectLoading] = useState(false);
+  const isAutoConnectedRef = useRef(false);
+  useEffect(() => {
+    void (async () => {
+      const doAutoConnect = async ({ delay }: { delay: number }) => {
+        try {
+          setAutoConnectLoading(true);
+          await timerUtils.wait(delay);
+          onSubmit(form.getValues());
+        } finally {
+          setAutoConnectLoading(false);
+        }
+      };
+      if (autoConnect && remotePairingCode && websocketConnected) {
+        if (!isAutoConnectedRef.current) {
+          isAutoConnectedRef.current = true;
+          if (autoConnectCustomServer) {
+            Dialog.show({
+              description: intl.formatMessage(
+                {
+                  id: ETranslations.transfer_transfer_server_custom_confirm,
+                },
+                {
+                  serverName: autoConnectCustomServer,
+                },
+              ),
+              title: intl.formatMessage({
+                id: ETranslations.transfer_transfer,
+              }),
+              onCancel: () => {
+                exitTransferFlow();
+              },
+              onConfirm: async () => {
+                await saveCustomServerConfig({
+                  customServerTrimmed: autoConnectCustomServer,
+                  serverType: EPrimeTransferServerType.CUSTOM,
+                });
+                void doAutoConnect({ delay: 4000 });
+              },
+            });
+          } else {
+            await doAutoConnect({ delay: 2000 });
+          }
+        }
+      }
+    })();
+  }, [
+    saveCustomServerConfig,
+    autoConnect,
+    remotePairingCode,
+    form,
+    onSubmit,
+    websocketConnected,
+    autoConnectCustomServer,
+    intl,
+    exitTransferFlow,
+  ]);
+
   const addOns: IInputAddOnProps[] = [
     // platformEnv.isExtension
     //   ? null
@@ -218,7 +291,15 @@ export function PrimeTransferHomeEnterLink({
           handlers: [],
           autoHandleResult: false,
         });
-        handlePairingCodeChange(result?.raw || '', true);
+        let text = result?.raw || '';
+        if (text.startsWith(TRANSFER_DEEPLINK_URL)) {
+          const parsedUrl = uriUtils.parseUrl(text);
+          const code = parsedUrl?.urlParamList?.code;
+          if (code) {
+            text = code;
+          }
+        }
+        handlePairingCodeChange(text, true);
       },
     },
   ].filter(Boolean);
@@ -324,11 +405,14 @@ export function PrimeTransferHomeEnterLink({
           mt="$4"
           onPress={form.handleSubmit(onSubmit)}
           variant="primary"
-          loading={isConnecting}
+          loading={isConnecting || autoConnectLoading}
           size={gtSm ? 'medium' : 'large'}
           width={gtSm ? 'auto' : '100%'}
           disabled={
-            !form.formState.isValid || isConnecting || !websocketConnected
+            !form.formState.isValid ||
+            isConnecting ||
+            !websocketConnected ||
+            autoConnectLoading
           }
         >
           {intl.formatMessage({ id: ETranslations.global_connect })}
