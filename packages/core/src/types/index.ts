@@ -5,6 +5,7 @@ import type {
   ISecretPublicKeyInfo,
 } from '@onekeyhq/core/src/secret';
 import type { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
+import type { IHardwareGetPubOrAddressExtraInfo } from '@onekeyhq/shared/types/device';
 
 import type { EAddressEncodings } from './coreEnums';
 import type { ICurveName } from './coreTypesBase';
@@ -92,6 +93,7 @@ export type ICoreApiGetAddressItem = {
   xpub?: string;
   xpubSegwit?: string;
   addresses?: { [relPathOrNetworkId: string]: string };
+  __hwExtraInfo__: IHardwareGetPubOrAddressExtraInfo | undefined;
 };
 export type ICoreApiGetAddressesResult = {
   addresses: ICoreApiGetAddressItem[];
