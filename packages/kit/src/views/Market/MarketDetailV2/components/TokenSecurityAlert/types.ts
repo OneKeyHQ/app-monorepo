@@ -7,6 +7,7 @@ export type ISecurityKeyValue = {
   label: string;
   value: string;
   isWarning: boolean;
+  riskType: 'safe' | 'caution' | 'normal' | 'risk';
 };
 
 export type IUseTokenSecurityParams = {

@@ -1,44 +1,13 @@
-import { isBoolean, isNumber, isString } from 'lodash';
+import { isBoolean } from 'lodash';
 
 import type {
   IMarketTokenSecurityData,
   IMarketTokenSecurityItem,
 } from '@onekeyhq/shared/types/marketV2';
 
-import { getSecurityConfig } from '../config/securityConfig';
-
 import type { ISecurityKeyValue, ISecurityStatus } from '../types';
 
-// Helper function to check if a key is a warning
-const isWarningKey = (key: string, value: any): boolean => {
-  const config = getSecurityConfig();
-  const allWarningKeys = [
-    ...config.warningKeys.common,
-    ...config.warningKeys.solana,
-    ...config.warningKeys.sui,
-  ];
-
-  // Check each warning key
-  if (allWarningKeys.includes(key)) {
-    if (isBoolean(value) && value) return true;
-    if (isString(value) && value === 'true') return true;
-  }
-
-  // Check for trusted/open source items (warning if false)
-  if (config.trustKeys.includes(key)) {
-    if (isBoolean(value) && !value) return true;
-    if (isString(value) && value === 'false') return true;
-  }
-
-  // Check tax values
-  if (config.taxKeys.includes(key) && isNumber(value) && value > 0) {
-    return true;
-  }
-
-  return false;
-};
-
-// Helper function to format new security data structure into key-value pairs
+// Simplified function to format security data - directly use API structure
 export const formatSecurityData = (
   data: IMarketTokenSecurityData | null,
 ): ISecurityKeyValue[] => {
@@ -49,7 +18,7 @@ export const formatSecurityData = (
   // Iterate through all security items and format them
   Object.entries(data).forEach(
     ([key, item]: [string, IMarketTokenSecurityItem]) => {
-      const { value, content } = item;
+      const { value, content, riskType } = item;
 
       let displayValue: string;
       if (isBoolean(value)) {
@@ -62,7 +31,8 @@ export const formatSecurityData = (
         key,
         label: content,
         value: displayValue,
-        isWarning: isWarningKey(key, value),
+        isWarning: riskType === 'caution' || riskType === 'risk', // Both caution and risk are warnings
+        riskType, // Pass through the risk type for color handling
       });
     },
   );
@@ -70,7 +40,7 @@ export const formatSecurityData = (
   return items;
 };
 
-// Helper function to determine security status from new data structure
+// Simplified function to analyze security data - directly use riskType
 export const analyzeSecurityData = (
   data: IMarketTokenSecurityData | null,
 ): { status: ISecurityStatus | null; count: number } => {
@@ -78,14 +48,12 @@ export const analyzeSecurityData = (
 
   let warningCount = 0;
 
-  // Count warnings for all keys
-  Object.entries(data).forEach(
-    ([key, item]: [string, IMarketTokenSecurityItem]) => {
-      if (isWarningKey(key, item.value)) {
-        warningCount += 1;
-      }
-    },
-  );
+  // Count warnings based on riskType
+  Object.values(data).forEach((item: IMarketTokenSecurityItem) => {
+    if (item.riskType === 'caution' || item.riskType === 'risk') {
+      warningCount += 1;
+    }
+  });
 
   const status = warningCount > 0 ? 'warning' : 'safe';
   return { status, count: warningCount };

@@ -8,12 +8,30 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { TokenSecurityAlertDialogContentIcon } from './TokenSecurityAlertDialogContentIcon';
 
+// Helper function to get text color based on risk type
+const getTextColorByRiskType = (
+  riskType: 'safe' | 'caution' | 'normal' | 'risk',
+) => {
+  switch (riskType) {
+    case 'safe':
+      return '$textSuccess';
+    case 'caution':
+      return '$textCaution';
+    case 'risk':
+      return '$textCritical';
+    case 'normal':
+    default:
+      return '$text';
+  }
+};
+
 type ITokenSecurityAlertDialogContentItemProps = {
   item: {
     key: string;
     label: string;
     value?: string;
     isWarning: boolean;
+    riskType: 'safe' | 'caution' | 'normal' | 'risk';
   };
 };
 
@@ -48,7 +66,7 @@ function TokenSecurityAlertDialogContentItem({
     >
       <SizableText
         size="$bodyMdMedium"
-        color={item.isWarning ? '$textCaution' : '$text'}
+        color={getTextColorByRiskType(item.riskType)}
         flex={1}
       >
         {item.label}
@@ -59,7 +77,7 @@ function TokenSecurityAlertDialogContentItem({
           <Button variant="tertiary" size="small" onPress={handleCopyValue}>
             <SizableText
               size="$bodyMdMedium"
-              color={item.isWarning ? '$textCaution' : '$textSuccess'}
+              color={getTextColorByRiskType(item.riskType)}
               textAlign="right"
             >
               {formatValue(item.value)}
@@ -67,8 +85,12 @@ function TokenSecurityAlertDialogContentItem({
           </Button>
         ) : null}
 
-        {typeof item.value === 'string' && item.value.length > 0 ? null : (
-          <TokenSecurityAlertDialogContentIcon isWarning={item.isWarning} />
+        {typeof item.value === 'string' &&
+        item.value.length > 0 ? null : item.riskType === 'normal' ? null : (
+          <TokenSecurityAlertDialogContentIcon
+            isWarning={item.isWarning}
+            riskType={item.riskType}
+          />
         )}
       </XStack>
     </XStack>
