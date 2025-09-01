@@ -9,7 +9,7 @@ import {
   EAppEventBusNames,
   appEventBus
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { ActiveAssetData, Hex, WsActiveAssetCtx, WsAllMids, WsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { ActiveAssetData, Book, Hex, WsActiveAssetCtx, WsAllMids, WsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
   allMidsAtom,
@@ -66,6 +66,7 @@ export function useHyperliquidEventBusListener() {
             break;
 
           case 'l2Book':
+            void actions.current.updateL2Book(data as Book);
             break;
 
           case 'bbo':

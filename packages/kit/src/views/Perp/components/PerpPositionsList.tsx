@@ -36,12 +36,6 @@ const PerpPositionRow = memo(({ pos, mid, actions }: {
 }) => {
   const { getTokenInfo } = useTokenList();
 
-  console.log('PerpPositionRow props:', {
-    coin: pos.coin,
-    mid,
-    midType: typeof mid,
-    midLength: mid?.length
-  });
   const side = parseFloat(pos.szi || '0') >= 0 ? 'long' : 'short';
   const size = Math.abs(parseFloat(pos.szi || '0'));
   const entryPrice = parseFloat(pos.entryPx || '0');
@@ -65,11 +59,6 @@ const PerpPositionRow = memo(({ pos, mid, actions }: {
 
   const handleMarketClose = () => {
     if (tokenInfo) {
-      console.log('PerpPositionRow handleMarketClose:', {
-        coin: pos.coin,
-        mid,
-        tokenInfo
-      });
       showClosePositionDialog({
         position: pos,
         assetId: tokenInfo.assetId,

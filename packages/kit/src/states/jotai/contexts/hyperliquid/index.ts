@@ -6,6 +6,7 @@ export {
   useWebData2Atom,
   useActiveAssetCtxAtom,
   useActiveAssetDataAtom,
+  useL2BookAtom,
   useConnectionStateAtom,
 } from './atoms';
 

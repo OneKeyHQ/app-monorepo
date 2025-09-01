@@ -4,7 +4,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 import type { Hex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { ConnectionState, TokenListItem } from '@onekeyhq/shared/types/hyperliquid/types';
-import type * as HL from '@nktkas/hyperliquid';
+import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ZeroAddress } from 'ethersV6';
 
 const {
@@ -27,6 +27,9 @@ export const { atom: activeAssetCtxAtom, use: useActiveAssetCtxAtom } =
 
 export const { atom: activeAssetDataAtom, use: useActiveAssetDataAtom } =
   contextAtom<HL.ActiveAssetData | null>(null);
+
+export const { atom: l2BookAtom, use: useL2BookAtom } =
+  contextAtom<HL.Book | null>(null);
 
 export const { atom: connectionStateAtom, use: useConnectionStateAtom } =
   contextAtom<ConnectionState>({

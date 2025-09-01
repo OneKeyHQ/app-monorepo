@@ -1,4 +1,4 @@
-import type * as HL from '@nktkas/hyperliquid';
+import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ZeroAddress } from 'ethersV6';
 
 export type SubscriptionType = 
@@ -207,6 +207,13 @@ export function calculateRequiredSubscriptions(state: SubscriptionState): Subscr
       key: generateSubscriptionKey('activeAssetCtx', { coin: state.currentSymbol }),
       params: { coin: state.currentSymbol },
       priority: SUBSCRIPTION_CONFIGS.activeAssetCtx.priority,
+    });
+
+    specs.push({
+      type: 'l2Book',
+      key: generateSubscriptionKey('l2Book', { coin: state.currentSymbol }),
+      params: { coin: state.currentSymbol },
+      priority: SUBSCRIPTION_CONFIGS.l2Book.priority,
     });
   }
 

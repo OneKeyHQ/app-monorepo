@@ -19,6 +19,7 @@ import {
   currentAccountAtom,
   tradingFormAtom,
   tradingLoadingAtom,
+  l2BookAtom,
   ITradingFormData,
 } from './atoms';
 
@@ -45,6 +46,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   updateActiveAssetData = contextAtomMethod(
     (_, set, data: HL.ActiveAssetData) => {
       set(activeAssetDataAtom(), data);
+    },
+  );
+
+  updateL2Book = contextAtomMethod(
+    (_, set, data: HL.Book) => {
+      set(l2BookAtom(), data);
     },
   );
 
@@ -233,6 +240,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set(webData2Atom(), null);
       set(activeAssetCtxAtom(), null);
       set(activeAssetDataAtom(), null);
+      set(l2BookAtom(), null);
       set(currentTokenAtom(), 'ETH');
       set(currentUserAtom(), null);
       set(subscriptionActiveAtom(), false);
@@ -406,6 +414,7 @@ export function useHyperliquidActions() {
   const updateWebData2 = actions.updateWebData2.use();
   const updateActiveAssetCtx = actions.updateActiveAssetCtx.use();
   const updateActiveAssetData = actions.updateActiveAssetData.use();
+  const updateL2Book = actions.updateL2Book.use();
   const updateConnectionState = actions.updateConnectionState.use();
 
   const setCurrentToken = actions.setCurrentToken.use();
@@ -437,6 +446,7 @@ export function useHyperliquidActions() {
     updateWebData2,
     updateActiveAssetCtx,
     updateActiveAssetData,
+    updateL2Book,
     updateConnectionState,
     setCurrentToken,
     setCurrentUser,
