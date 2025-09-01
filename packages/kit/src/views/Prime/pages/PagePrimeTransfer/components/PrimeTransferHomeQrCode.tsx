@@ -15,9 +15,12 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { TRANSFER_DEEPLINK_URL } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 export function PrimeTransferHomeQrCode() {
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
@@ -27,10 +30,33 @@ export function PrimeTransferHomeQrCode() {
   const { gtMd } = useMedia();
 
   const [pairingCode, setPairingCode] = useState<string | undefined>(undefined);
+  const { result: pairingCodeQRCode } = usePromiseResult(async () => {
+    if (!pairingCode) {
+      return '';
+    }
+    const config =
+      await backgroundApiProxy.simpleDb.primeTransfer.getServerConfig();
+    // const serverName =
+    //   await backgroundApiProxy.simpleDb.primeTransfer.getServerFormattedName(
+    //     config,
+    //   );
+    let url = `${TRANSFER_DEEPLINK_URL}code=${pairingCode}`;
+    if (
+      config.customServerUrl &&
+      config.serverType === EPrimeTransferServerType.CUSTOM
+    ) {
+      url += `&server=${config.customServerUrl}`;
+    }
+    return url;
+  }, [pairingCode]);
   const intl = useIntl();
   const { copyText } = useClipboard();
 
-  const shouldShowSkeleton = !websocketConnected || isGeneratingCode;
+  const shouldShowSkeleton =
+    !websocketConnected ||
+    isGeneratingCode ||
+    !pairingCode ||
+    !pairingCodeQRCode;
 
   const copyLink = useCallback(() => {
     if (!pairingCode) {
@@ -41,6 +67,16 @@ export function PrimeTransferHomeQrCode() {
     }
     copyText(pairingCode);
   }, [copyText, pairingCode, shouldShowSkeleton]);
+
+  const copyQrCode = useCallback(() => {
+    if (!pairingCodeQRCode) {
+      return;
+    }
+    if (shouldShowSkeleton) {
+      return;
+    }
+    copyText(pairingCodeQRCode);
+  }, [copyText, pairingCodeQRCode, shouldShowSkeleton]);
 
   const buildPairingCode = useCallback(async () => {
     if (!primeTransferAtom.websocketConnected) {
@@ -84,7 +120,11 @@ export function PrimeTransferHomeQrCode() {
     >
       <YStack gap="$3" w="100%" py="$4">
         <YStack gap="$2" ai="center">
-          <SizableText color="$textDisabled" size="$bodyMd">
+          <SizableText
+            onPress={copyQrCode}
+            color="$textDisabled"
+            size="$bodyMd"
+          >
             {intl.formatMessage({
               id: ETranslations.transfer_transfer_scan_tips,
             })}
@@ -99,7 +139,7 @@ export function PrimeTransferHomeQrCode() {
               borderWidth={1}
               borderColor="$neutral2"
             >
-              <QRCode value={pairingCode} size={208} />
+              <QRCode value={pairingCodeQRCode} size={208} />
             </Stack>
           )}
         </YStack>
