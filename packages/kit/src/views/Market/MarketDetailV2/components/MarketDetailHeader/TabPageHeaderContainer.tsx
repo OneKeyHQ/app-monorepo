@@ -20,7 +20,7 @@ export function TabPageHeaderContainer({
         alignItems="center"
         justifyContent="space-between"
         px="$5"
-        h="$11"
+        h="$12"
         {...(top || platformEnv.isNativeAndroid ? { mt: top || '$2' } : {})}
       >
         {children}
