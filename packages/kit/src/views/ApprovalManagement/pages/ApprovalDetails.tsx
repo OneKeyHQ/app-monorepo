@@ -18,7 +18,6 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -36,7 +35,6 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { type IHasId, LinkedDeck } from '../../../hooks/useLinkedList';
 import {
   useContractMapAtom,
   useTokenMapAtom,
@@ -49,7 +47,7 @@ import {
   useApprovalManagementContext,
 } from '../components/ApprovalManagementContext';
 import ApprovedTokenItem from '../components/ApprovedTokenItem';
-import { buildSelectedTokenKey, checkIsSelectAllTokens } from '../utils';
+import { useBulkRevoke } from '../hooks/useBulkRevoke';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -72,6 +70,8 @@ function ApprovalDetails() {
 
   const { copyText } = useClipboard();
 
+  const { navigationToBulkRevokeProcess } = useBulkRevoke();
+
   const navigation = useAppNavigation();
 
   const [isBulkRevokeMode, setIsBulkRevokeMode] = useState(false);
@@ -86,7 +86,7 @@ function ApprovalDetails() {
   } = useApprovalManagementContext();
 
   const { isSelectAllTokens, selectedCount } = useMemo(() => {
-    return checkIsSelectAllTokens({
+    return approvalUtils.checkIsSelectAllTokens({
       approvals: [approval],
       selectedTokens,
     });
@@ -115,14 +115,20 @@ function ApprovalDetails() {
     }) => {
       setSelectedTokens((prev) => ({
         ...prev,
-        [buildSelectedTokenKey({
+        [approvalUtils.buildSelectedTokenKey({
+          accountId: approval.accountId,
           networkId: approval.networkId,
           contractAddress: approval.contractAddress,
           tokenAddress: tokenInfo.address,
         })]: isSelected,
       }));
     },
-    [approval.contractAddress, approval.networkId, setSelectedTokens],
+    [
+      approval.accountId,
+      approval.contractAddress,
+      approval.networkId,
+      setSelectedTokens,
+    ],
   );
 
   const handleSelectAll = useCallback(
@@ -130,7 +136,8 @@ function ApprovalDetails() {
       if (isSelectAll === true) {
         const selectedAllTokens = approval.approvals.reduce((acc, item) => {
           acc[
-            buildSelectedTokenKey({
+            approvalUtils.buildSelectedTokenKey({
+              accountId: approval.accountId,
               networkId: approval.networkId,
               contractAddress: approval.contractAddress,
               tokenAddress: item.tokenAddress,
@@ -144,6 +151,7 @@ function ApprovalDetails() {
       }
     },
     [
+      approval.accountId,
       approval.approvals,
       approval.contractAddress,
       approval.networkId,
@@ -160,55 +168,14 @@ function ApprovalDetails() {
       return;
     }
 
-    const revokeInfos: IApproveInfo[] = approval.approvals.map((item) => ({
-      owner: approval.owner,
-      spender: approval.contractAddress,
-      amount: '0',
-      tokenInfo:
-        tokenMap[
-          approvalUtils.buildTokenMapKey({
-            networkId: approval.networkId,
-            tokenAddress: item.tokenAddress,
-          })
-        ].info,
-    }));
-
-    const unsignedTxs: (IUnsignedTxPro & IHasId)[] = [];
-
-    for (const revokeInfo of revokeInfos) {
-      const unsignedTx =
-        (await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
-          networkId: approval.networkId,
-          accountId: approval.accountId,
-          approveInfo: revokeInfo,
-          withoutNonce: true,
-          withUuid: true,
-        })) as IUnsignedTxPro & IHasId;
-      unsignedTxs.push(unsignedTx);
-    }
-
-    const unsignedTxQueue = new LinkedDeck<IUnsignedTxPro & IHasId>(
-      unsignedTxs,
-    );
-
-    navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
-      screen: EModalSignatureConfirmRoutes.TxConfirm,
-      params: {
-        accountId: approval.accountId,
-        networkId: approval.networkId,
-        unsignedTxs: [unsignedTxs[0]],
-        isQueueMode: true,
-        unsignedTxQueue,
-      },
+    await navigationToBulkRevokeProcess({
+      selectedTokens,
+      tokenMap,
     });
   }, [
-    approval.accountId,
-    approval.approvals,
-    approval.contractAddress,
-    approval.networkId,
-    approval.owner,
     isSelectMode,
     navigation,
+    navigationToBulkRevokeProcess,
     onSelected,
     selectedTokens,
     tokenMap,
@@ -222,7 +189,8 @@ function ApprovalDetails() {
     async ({ tokenInfo }: { tokenInfo: IToken }) => {
       setIsBuildingRevokeTxs(true);
       setSelectedTokens({
-        [buildSelectedTokenKey({
+        [approvalUtils.buildSelectedTokenKey({
+          accountId: approval.accountId,
           networkId: approval.networkId,
           contractAddress: approval.contractAddress,
           tokenAddress: tokenInfo.address,
@@ -426,6 +394,7 @@ function ApprovalDetails() {
           <ApprovedTokenItem
             key={item.tokenAddress}
             networkId={approval.networkId}
+            accountId={approval.accountId}
             approval={item}
             isSelectMode={!!(isSelectMode || isBulkRevokeMode)}
             onSelect={handleTokenOnSelect}

@@ -16,11 +16,11 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { ListItem } from '../../../components/ListItem';
 import { useTokenMapAtom } from '../../../states/jotai/contexts/approvalList';
-import { buildSelectedTokenKey } from '../utils';
 
 import { useApprovalManagementContext } from './ApprovalManagementContext';
 
 type IProps = {
+  accountId: string;
   networkId: string;
   approval: IApproval;
   isSelectMode: boolean;
@@ -35,7 +35,8 @@ type IProps = {
 };
 
 function ApprovedTokenItem(props: IProps) {
-  const { networkId, approval, isSelectMode, onRevoke, onSelect } = props;
+  const { accountId, networkId, approval, isSelectMode, onRevoke, onSelect } =
+    props;
 
   const [{ tokenMap }] = useTokenMapAtom();
   const { isBuildingRevokeTxs, selectedTokens } =
@@ -44,7 +45,8 @@ function ApprovedTokenItem(props: IProps) {
 
   const isSelected =
     !!selectedTokens[
-      buildSelectedTokenKey({
+      approvalUtils.buildSelectedTokenKey({
+        accountId,
         networkId,
         contractAddress: approval.spenderAddress,
         tokenAddress: approval.tokenAddress,

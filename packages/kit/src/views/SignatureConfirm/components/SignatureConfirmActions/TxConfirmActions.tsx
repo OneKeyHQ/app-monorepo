@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { isNil, isUndefined } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -212,6 +212,18 @@ function TxConfirmActions(props: IProps) {
     }
 
     let newUnsignedTxs: IUnsignedTxPro[];
+    let nonceInfo: undefined | { nonce: number };
+
+    if (isUndefined(unsignedTxs[0].nonce) && vaultSettings?.nonceRequired) {
+      nonceInfo = {
+        nonce: await serviceSend.getNextNonce({
+          accountId,
+          networkId,
+          accountAddress,
+        }),
+      };
+    }
+
     try {
       newUnsignedTxs = await serviceSend.updateUnSignedTxBeforeSending({
         accountId,
@@ -220,7 +232,7 @@ function TxConfirmActions(props: IProps) {
         feeInfos: sendSelectedFeeInfo?.feeInfos,
         nonceInfo: txAdvancedSettings.nonce
           ? { nonce: Number(txAdvancedSettings.nonce) }
-          : undefined,
+          : nonceInfo,
         nativeAmountInfo: nativeTokenTransferAmountToUpdate.isMaxSend
           ? {
               maxSendAmount: nativeTokenTransferAmountToUpdate.amountToUpdate,
@@ -413,27 +425,28 @@ function TxConfirmActions(props: IProps) {
     updateSendTxStatus,
     accountId,
     networkId,
+    unsignedTxs,
+    vaultSettings?.nonceRequired,
+    vaultSettings?.replaceTxEnabled,
+    vaultSettings?.afterSendTxActionEnabled,
     sendSelectedFeeInfo,
     unsignedTx?.isInternalTransfer,
     toAddress,
-    unsignedTxs,
     nativeTokenTransferAmountToUpdate.isMaxSend,
     nativeTokenTransferAmountToUpdate.amountToUpdate,
     onFail,
     dappApprove,
+    tronResourceRentalInfo,
+    navigation,
     txAdvancedSettings.nonce,
     feeInfoEditable,
-    tronResourceRentalInfo,
     checkFeeInfoIsOverflow,
     showFeeInfoOverflowConfirm,
-    vaultSettings?.replaceTxEnabled,
-    vaultSettings?.afterSendTxActionEnabled,
     signOnly,
     transferPayload,
     intl,
     popStack,
     onSuccess,
-    navigation,
     shouldRejectDappAction,
   ]);
 

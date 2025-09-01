@@ -671,6 +671,9 @@ class ServiceSend extends ServiceBase {
       newUnsignedTx.uuid = generateUUID();
     }
 
+    newUnsignedTx.accountId = accountId;
+    newUnsignedTx.networkId = networkId;
+
     return newUnsignedTx;
   }
 

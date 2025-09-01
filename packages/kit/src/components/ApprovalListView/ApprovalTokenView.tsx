@@ -1,13 +1,13 @@
 import { memo, useMemo } from 'react';
 
 import { SizableText, Stack } from '@onekeyhq/components';
+import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 
 import {
   useIsBulkRevokeModeAtom,
   useSelectedTokensAtom,
 } from '../../states/jotai/contexts/approvalList';
-import { checkIsSelectAllTokens } from '../../views/ApprovalManagement/utils';
 
 import { useApprovalListViewContext } from './ApprovalListViewContext';
 
@@ -25,7 +25,7 @@ function ApprovalTokenView(props: IProps) {
   const [{ selectedTokens }] = useSelectedTokensAtom();
 
   const { selectedCount } = useMemo(() => {
-    return checkIsSelectAllTokens({
+    return approvalUtils.checkIsSelectAllTokens({
       approvals: [approval],
       selectedTokens,
     });

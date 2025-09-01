@@ -14,6 +14,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalApprovalManagementParamList } from '@onekeyhq/shared/src/routes/approvalManagement';
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
+import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 import { EContractApprovalAlertType } from '@onekeyhq/shared/types/approval';
 
@@ -22,14 +23,10 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   ProviderJotaiContextApprovalList,
   useApprovalListActions,
-  useRevokeTxsStateAtom,
   useSelectedTokensAtom,
 } from '../../../states/jotai/contexts/approvalList';
 import ApprovalActions from '../components/ApprovalActions';
-import {
-  buildToggleSelectAllTokensMap,
-  checkIsSelectAllTokens,
-} from '../utils';
+import { useBulkRevoke } from '../hooks/useBulkRevoke';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -55,11 +52,13 @@ function RevokeSuggestion() {
 
   const navigation = useAppNavigation();
 
+  const { navigationToBulkRevokeProcess, isBuildingRevokeTxs } =
+    useBulkRevoke();
+
   const [{ selectedTokens }] = useSelectedTokensAtom();
-  const [{ isBuildingRevokeTxs }] = useRevokeTxsStateAtom();
 
   const { isSelectAllTokens, selectedCount } = useMemo(() => {
-    return checkIsSelectAllTokens({
+    return approvalUtils.checkIsSelectAllTokens({
       approvals,
       selectedTokens,
     });
@@ -67,7 +66,7 @@ function RevokeSuggestion() {
 
   useEffect(() => {
     // select all tokens by default
-    const selectedTokensTemp = buildToggleSelectAllTokensMap({
+    const selectedTokensTemp = approvalUtils.buildToggleSelectAllTokensMap({
       approvals,
       toggle: true,
     });
@@ -198,7 +197,7 @@ function RevokeSuggestion() {
   }, [accountId, handleApprovalItemOnPress, networkId]);
 
   const handleSelectAll = useCallback(() => {
-    const selectedTokensTemp = buildToggleSelectAllTokensMap({
+    const selectedTokensTemp = approvalUtils.buildToggleSelectAllTokensMap({
       approvals,
       toggle: !(isSelectAllTokens === true),
     });
@@ -209,8 +208,11 @@ function RevokeSuggestion() {
   }, [approvals, isSelectAllTokens, updateSelectedTokens]);
 
   const handleOnConfirm = useCallback(() => {
-    console.log('handleOnConfirm');
-  }, []);
+    void navigationToBulkRevokeProcess({
+      selectedTokens,
+      tokenMap,
+    });
+  }, [navigationToBulkRevokeProcess, selectedTokens, tokenMap]);
   const handleOnCancel = useCallback(() => {
     navigation.popStack();
   }, [navigation]);

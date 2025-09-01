@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,16 +6,20 @@ import type { ColorTokens } from '@onekeyhq/components';
 import {
   Accordion,
   Icon,
+  IconButton,
   NumberSizeableText,
+  Popover,
   SizableText,
   Spinner,
   View,
   XStack,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   ERevokeTxStatus,
   type IRevokeTxStatus,
@@ -89,6 +93,16 @@ function RevokeStatusIcon(props: { status: IRevokeTxStatus }) {
 function BulkRevokeItem(props: IProps) {
   const { unsignedTx, revokeTxsStatusMap } = props;
 
+  const { copyText } = useClipboard();
+
+  const status = useMemo(() => {
+    return (
+      revokeTxsStatusMap[unsignedTx.uuid ?? ''] ?? {
+        status: ERevokeTxStatus.Pending,
+      }
+    );
+  }, [revokeTxsStatusMap, unsignedTx.uuid]);
+
   const approveInfo = unsignedTx.approveInfo;
 
   const intl = useIntl();
@@ -96,18 +110,6 @@ function BulkRevokeItem(props: IProps) {
   const [settings] = useSettingsPersistAtom();
 
   const renderRevokeStatus = useCallback(() => {
-    let status = revokeTxsStatusMap[unsignedTx.uuid ?? ''];
-
-    if (!status) {
-      status = {
-        status: ERevokeTxStatus.Pending,
-      };
-    }
-
-    if (!status) {
-      return null;
-    }
-
     return (
       <YStack flex={1}>
         {status.status === ERevokeTxStatus.Succeeded ? (
@@ -143,11 +145,31 @@ function BulkRevokeItem(props: IProps) {
               intl,
               status: status.status,
             })}
+            {status.skippedReason ? (
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.approval_bulk_revoke_status_paused_reason_description,
+                })}
+                renderTrigger={
+                  <IconButton
+                    size="small"
+                    color="$iconSubdued"
+                    icon="InfoCircleOutline"
+                    variant="tertiary"
+                  />
+                }
+                renderContent={
+                  <SizableText size="$bodyLg">
+                    {status.skippedReason}
+                  </SizableText>
+                }
+              />
+            ) : null}
           </SizableText>
         </XStack>
       </YStack>
     );
-  }, [revokeTxsStatusMap, unsignedTx.uuid, settings.currencyInfo.symbol, intl]);
+  }, [status, settings.currencyInfo.symbol, intl]);
 
   if (!approveInfo) {
     return null;
@@ -194,23 +216,72 @@ function BulkRevokeItem(props: IProps) {
         )}
       </Accordion.Trigger>
       <Accordion.HeightAnimator animation="quick">
-        <Accordion.Content animation="quick" exitStyle={{ opacity: 0 }}>
+        <Accordion.Content
+          animation="quick"
+          exitStyle={{ opacity: 0 }}
+          backgroundColor="$bgSubdued"
+        >
           <YStack gap="$4">
-            <XStack>
+            <XStack alignItems="center" justifyContent="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
                 {intl.formatMessage({
                   id: ETranslations.wallet_approval_bulk_revoke_approved_spender,
                 })}
               </SizableText>
-              <SizableText>{approveInfo.owner}</SizableText>
+              <XStack alignItems="center" gap="$2">
+                <YStack>
+                  <SizableText size="$bodyMdMedium">
+                    {approveInfo.owner}
+                  </SizableText>
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {accountUtils.shortenAddress({
+                      address: approveInfo.owner,
+                      leadingLength: 8,
+                      trailingLength: 6,
+                    })}
+                  </SizableText>
+                </YStack>
+                <IconButton
+                  icon="Copy3Outline"
+                  variant="tertiary"
+                  size="small"
+                  color="$iconSubdued"
+                  onPress={() => copyText(approveInfo.owner)}
+                />
+              </XStack>
             </XStack>
-            <XStack>
+            <XStack alignItems="center" justifyContent="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
                 {intl.formatMessage({
                   id: ETranslations.global_transaction_id,
                 })}
               </SizableText>
-              <SizableText>{approveInfo.owner}</SizableText>
+              {status.txId ? (
+                <XStack alignItems="center" gap="$2" justifyContent="flex-end">
+                  <SizableText size="$bodyMdMedium">
+                    {accountUtils.shortenAddress({
+                      address: status.txId,
+                      leadingLength: 8,
+                      trailingLength: 6,
+                    })}
+                  </SizableText>
+                  <IconButton
+                    icon="Copy3Outline"
+                    variant="tertiary"
+                    size="small"
+                    color="$iconSubdued"
+                    onPress={() => copyText(status.txId ?? '')}
+                  />
+                </XStack>
+              ) : (
+                <SizableText
+                  size="$bodyMdMedium"
+                  color="$textSubdued"
+                  textAlign="right"
+                >
+                  -
+                </SizableText>
+              )}
             </XStack>
           </YStack>
         </Accordion.Content>

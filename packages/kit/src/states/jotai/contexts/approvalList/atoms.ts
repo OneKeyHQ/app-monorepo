@@ -62,13 +62,6 @@ export const { atom: selectedTokensAtom, use: useSelectedTokensAtom } =
 export const { atom: isBulkRevokeModeAtom, use: useIsBulkRevokeModeAtom } =
   contextAtom<boolean>(false);
 
-export const { atom: revokeTxsStateAtom, use: useRevokeTxsStateAtom } =
-  contextAtom<{
-    isBuildingRevokeTxs: boolean;
-  }>({
-    isBuildingRevokeTxs: false,
-  });
-
 export const { atom: searchKeyAtom, use: useSearchKeyAtom } =
   contextAtom<string>('');
 

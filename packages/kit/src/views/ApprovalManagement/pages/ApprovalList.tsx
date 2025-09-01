@@ -11,6 +11,7 @@ import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/confi
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import type { IModalApprovalManagementParamList } from '@onekeyhq/shared/src/routes/approvalManagement';
+import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 
@@ -21,16 +22,13 @@ import {
   useApprovalListActions,
   useApprovalListAtom,
   useIsBulkRevokeModeAtom,
-  useRevokeTxsStateAtom,
   useSearchNetworkAtom,
   useSelectedTokensAtom,
+  useTokenMapAtom,
 } from '../../../states/jotai/contexts/approvalList';
 import { HomeApprovalListProviderMirror } from '../../Home/components/HomeApprovalListProvider/HomeApprovalListProviderMirror';
 import ApprovalActions from '../components/ApprovalActions';
-import {
-  buildToggleSelectAllTokensMap,
-  checkIsSelectAllTokens,
-} from '../utils';
+import { useBulkRevoke } from '../hooks/useBulkRevoke';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -53,11 +51,14 @@ function ApprovalList() {
     updateIsBulkRevokeMode,
   } = useApprovalListActions().current;
 
+  const { navigationToBulkRevokeProcess, isBuildingRevokeTxs } =
+    useBulkRevoke();
+
   const [{ networkId: searchNetworkId }] = useSearchNetworkAtom();
   const [isBulkRevokeMode] = useIsBulkRevokeModeAtom();
   const [{ selectedTokens }] = useSelectedTokensAtom();
-  const [{ isBuildingRevokeTxs }] = useRevokeTxsStateAtom();
   const [{ approvals }] = useApprovalListAtom();
+  const [{ tokenMap }] = useTokenMapAtom();
 
   const { enabledNetworksCompatibleWithWalletId } =
     useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
@@ -66,7 +67,7 @@ function ApprovalList() {
     });
 
   const { isSelectAllTokens, selectedCount } = useMemo(() => {
-    return checkIsSelectAllTokens({
+    return approvalUtils.checkIsSelectAllTokens({
       approvals,
       selectedTokens,
     });
@@ -144,7 +145,7 @@ function ApprovalList() {
     [navigation, isBulkRevokeMode, updateSelectedTokens, selectedTokens],
   );
   const handleSelectAll = useCallback(() => {
-    const selectedTokensTemp = buildToggleSelectAllTokensMap({
+    const selectedTokensTemp = approvalUtils.buildToggleSelectAllTokensMap({
       approvals,
       toggle: !(isSelectAllTokens === true),
     });
@@ -155,8 +156,11 @@ function ApprovalList() {
   }, [updateSelectedTokens, approvals, isSelectAllTokens]);
 
   const handleOnConfirm = useCallback(() => {
-    console.log('handleOnConfirm');
-  }, []);
+    void navigationToBulkRevokeProcess({
+      selectedTokens,
+      tokenMap,
+    });
+  }, [navigationToBulkRevokeProcess, selectedTokens, tokenMap]);
   const handleOnCancel = useCallback(() => {
     updateIsBulkRevokeMode(false);
   }, [updateIsBulkRevokeMode]);

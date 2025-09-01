@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import { Checkbox, Stack } from '@onekeyhq/components';
+import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 
 import {
@@ -8,10 +9,6 @@ import {
   useIsBulkRevokeModeAtom,
   useSelectedTokensAtom,
 } from '../../states/jotai/contexts/approvalList';
-import {
-  buildToggleSelectAllTokensMap,
-  checkIsSelectAllTokens,
-} from '../../views/ApprovalManagement/utils';
 
 import { useApprovalListViewContext } from './ApprovalListViewContext';
 
@@ -29,14 +26,14 @@ function ApprovalCheckMark(props: IProps) {
   const { selectDisabled } = useApprovalListViewContext();
 
   const { isSelectAllTokens } = useMemo(() => {
-    return checkIsSelectAllTokens({
+    return approvalUtils.checkIsSelectAllTokens({
       approvals: [approval],
       selectedTokens,
     });
   }, [approval, selectedTokens]);
 
   const handleOnChange = useCallback(() => {
-    const selectedTokensTemp = buildToggleSelectAllTokensMap({
+    const selectedTokensTemp = approvalUtils.buildToggleSelectAllTokensMap({
       approvals: [approval],
       toggle: !(isSelectAllTokens === true),
     });

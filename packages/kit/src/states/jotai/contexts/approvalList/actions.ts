@@ -13,7 +13,6 @@ import {
   contextAtomMethod,
   contractMapAtom,
   isBulkRevokeModeAtom,
-  revokeTxsStateAtom,
   searchKeyAtom,
   searchNetworkAtom,
   selectedTokensAtom,
@@ -74,14 +73,6 @@ class ContextJotaiActionsApprovalList extends ContextJotaiActionsBase {
     },
   );
 
-  updateRevokeTxsState = contextAtomMethod(
-    (get, set, value: { isBuildingRevokeTxs: boolean }) => {
-      set(revokeTxsStateAtom(), {
-        isBuildingRevokeTxs: value.isBuildingRevokeTxs,
-      });
-    },
-  );
-
   updateSelectedTokens = contextAtomMethod(
     (
       get,
@@ -130,7 +121,6 @@ export function useApprovalListActions() {
   const updateTokenMap = actions.updateTokenMap.use();
   const updateContractMap = actions.updateContractMap.use();
   const updateApprovalListState = actions.updateApprovalListState.use();
-  const updateRevokeTxsState = actions.updateRevokeTxsState.use();
   const updateSelectedTokens = actions.updateSelectedTokens.use();
   const updateIsBulkRevokeMode = actions.updateIsBulkRevokeMode.use();
   const toggleIsBulkRevokeMode = actions.toggleIsBulkRevokeMode.use();
@@ -141,7 +131,6 @@ export function useApprovalListActions() {
     updateTokenMap,
     updateContractMap,
     updateApprovalListState,
-    updateRevokeTxsState,
     updateSelectedTokens,
     updateIsBulkRevokeMode,
     toggleIsBulkRevokeMode,
