@@ -185,7 +185,7 @@ export const useColumnsDesktop = (
           columnProps: { flex: 1 },
           render: (text: number) => (
             <NumberSizeableText size="$bodyMd" formatter="marketCap">
-              {text}
+              {text === 0 ? '--' : text}
             </NumberSizeableText>
           ),
           renderSkeleton: () => <Skeleton width={60} height={16} />,
@@ -198,7 +198,7 @@ export const useColumnsDesktop = (
           columnProps: { flex: 1 },
           render: (text: number) => (
             <NumberSizeableText size="$bodyMd" formatter="marketCap">
-              {text}
+              {text === 0 ? '--' : text}
             </NumberSizeableText>
           ),
           renderSkeleton: () => <Skeleton width={60} height={16} />,
