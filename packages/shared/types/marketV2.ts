@@ -8,6 +8,7 @@ export interface IMarketTokenDetail {
   marketCap?: string;
   fdv?: string;
   tvl?: string;
+  liquidity?: string;
   holders?: number;
   extraData?: {
     website?: string;

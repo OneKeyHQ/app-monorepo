@@ -115,7 +115,7 @@ PODS:
     - ExpoModulesCore
   - ExpoHaptics (14.1.4):
     - ExpoModulesCore
-  - ExpoImage (2.3.2):
+  - ExpoImage (2.4.0):
     - ExpoModulesCore
     - libavif/libdav1d
     - SDWebImage (~> 5.21.0)
@@ -1735,7 +1735,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-mmkv (3.2.0):
+  - react-native-mmkv (3.3.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1759,7 +1759,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-pager-view (6.8.1):
+  - react-native-pager-view (7.0.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1883,7 +1883,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-slider (4.5.7):
+  - react-native-slider (5.0.1):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1898,7 +1898,7 @@ PODS:
     - React-hermes
     - React-ImageManager
     - React-jsi
-    - react-native-slider/common (= 4.5.7)
+    - react-native-slider/common (= 5.0.1)
     - React-NativeModulesApple
     - React-RCTFabric
     - React-renderercss
@@ -1908,7 +1908,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-slider/common (4.5.7):
+  - react-native-slider/common (5.0.1):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2433,7 +2433,7 @@ PODS:
     - ExpoModulesCore
   - RealmJS (20.2.0):
     - React
-  - RestartNewArch (1.0.75):
+  - RestartNewArch (1.0.80):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2482,8 +2482,8 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - RNFileLogger (0.6.1):
-    - CocoaLumberjack (~> 3.8.5)
+  - RNFileLogger (0.7.1):
+    - CocoaLumberjack (~> 3)
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2506,7 +2506,7 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - SSZipArchive (~> 2.5.5)
+    - SSZipArchive (~> 2)
     - Yoga
   - RNGestureHandler (2.27.1):
     - DoubleConversion
@@ -2818,7 +2818,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - Sentry/HybridSDK (= 8.53.1)
     - Yoga
-  - RNSVG (15.12.0):
+  - RNSVG (15.12.1):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2841,9 +2841,9 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - RNSVG/common (= 15.12.0)
+    - RNSVG/common (= 15.12.1)
     - Yoga
-  - RNSVG/common (15.12.0):
+  - RNSVG/common (15.12.1):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -3380,7 +3380,7 @@ SPEC CHECKSUMS:
   ExpoFileSystem: 7f92f7be2f5c5ed40a7c9efc8fa30821181d9d63
   ExpoFont: abbb91a911eb961652c2b0a22eef801860425ed6
   ExpoHaptics: 0ff6e0d83cd891178a306e548da1450249d54500
-  ExpoImage: 785f7673cfecd97045cf333fd6486b57ccab4b71
+  ExpoImage: e4102c93d1dbe99ff54b075452d1bc9d6ec21b7c
   ExpoImageManipulator: 1e06e7a1e56f454e75d01b7032c1e44963bfc865
   ExpoImagePicker: 0963da31800c906e01c03e25d7c849f16ebf02a2
   ExpoKeepAwake: bf0811570c8da182bfb879169437d4de298376e7
@@ -3450,11 +3450,11 @@ SPEC CHECKSUMS:
   react-native-get-random-values: 419569b6ed3d15bfb9b6781b2f2e058f8e8d2698
   react-native-keyboard-controller: 9c9a77993f7449e8b7d8c5989289f65e08c7ab74
   react-native-lite-card: da6e268aa346e8ab6b80e272364637f228fe09cd
-  react-native-mmkv: c8da06f2c3ed40726ac6b51ed4e3653d099f0b6a
-  react-native-pager-view: 38d37b9c7dcddfacf97ad4a0a1ee7a6db7b85b76
+  react-native-mmkv: 69af18f435f8978ed3e7b8c1b23bba35350ddcd8
+  react-native-pager-view: e52266cedb6b1312af2f17b1620e045238495a30
   react-native-performance-stats: 088634dc35ead1dfcd371be67bd94dd0f2f104ac
   react-native-safe-area-context: 8cf8caf5fc0f5a5d3581b650579af9c85c16be04
-  react-native-slider: 0c0125010b5299e647eb5d955b58133fb4eb34e4
+  react-native-slider: 12778ca3d8719cfc13035a8b56853e45b6cc9862
   react-native-tcp-socket: 120072c8020262032773f80f0daaf3964aaa08a1
   react-native-video: f906920a39ad30208bb789bdda7404f510ab422a
   react-native-view-shot: aacb5b315b442a2326b1212c9de49b78c0e91cf9
@@ -3495,10 +3495,10 @@ SPEC CHECKSUMS:
   ReactNativeFs: 7beedb868bb83ad29623acc9effb517554b34bd3
   ReactNativePasskeys: 9e950e8cbf0e7d6aad9df4dcd21cee0efeb4e5cd
   RealmJS: 1c37c6bdfe060f4caa0f9175aa0eedb962622ee1
-  RestartNewArch: 448d52741003a4918f8abe3dfc89ed32fc0c7a9d
+  RestartNewArch: 890641aebac8e2857f69faf016285030b111e045
   RevenueCat: 7e1d0768fb287c9983173c9b28e39ccbeeb828a9
   RNCAsyncStorage: c1dca434eda758348a549efb46822b4091d76804
-  RNFileLogger: 52442d388d36b29b1e7884b5ffbfa916ecfbc06b
+  RNFileLogger: bf2de384fca1484f291f361ad8d820e11f1cc4ad
   RNGestureHandler: 6b48571964d1b4302f531bb07f8360399a02200a
   RNImageCropPicker: de6a16085ad4e4c67850b0c662d1d333d367cc59
   RNNotifee: 3978eab0eb24f9c2ee6ee0440ee7c50748803559
@@ -3507,7 +3507,7 @@ SPEC CHECKSUMS:
   RNReanimated: 24c64a050426b2e5b27d3435f1dcd89651207ff3
   RNScreens: 6eccc6175d442f4d9142f9e0396f17fd8e3d26ec
   RNSentry: 857855d887a12dd8f049e7b72bf38d09f92ea7dc
-  RNSVG: 45e3c3210465e75ab6374c9f746179e75d76ce48
+  RNSVG: 680e961f640e381aab730a04b2371969686ed9f7
   RNZipArchive: 4304f5100eab004eeb7349adc51997b3a28deb76
   SDWebImage: f29024626962457f3470184232766516dee8dfea
   SDWebImageAVIFCoder: 00310d246aab3232ce77f1d8f0076f8c4b021d90

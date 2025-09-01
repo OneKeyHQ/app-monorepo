@@ -307,6 +307,103 @@ function MacBluetoothIllustrationViews({
   );
 }
 
+
+function WindowsBluetoothIllustrationViews({
+  view,
+}: {
+  view: 'paring' | 'system-authorized' | 'user-authorized';
+}) {
+  const themeVariant = useThemeVariant();
+
+  // As per design: only two layers inside the illustration area
+  // 1) Base container (blank board)
+  // 2) Bottom-right pairing toast
+  const paringView = useMemo(() => {
+    return (
+      <YStack
+        alignSelf="stretch"
+        alignItems="flex-end"
+        justifyContent="flex-end"
+        pt={12}
+        pr={12}
+        pb={12}
+        pl={32}
+        w={360}
+        h={144}
+        bg={themeVariant === 'dark' ? '#101112' : '#F9F9F9'}
+        borderRadius={12}
+        borderWidth={1}
+        borderColor={themeVariant === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.055)'}
+        overflow="visible"
+        $platform-web={{
+          boxShadow:
+            themeVariant === 'dark'
+              ? 'inset 0 0 2px rgba(255,255,255,0.08)'
+              : 'inset 0 0 2px rgba(0,0,0,0.10)',
+        }}
+      >
+        <LinearGradient
+          colors={[
+            'rgba(0,0,0,0.70)',
+            'rgba(0,0,0,0.80)'
+          ]}
+          start={[0, 0]}
+          end={[0, 1]}
+          w={117}
+          h={48}
+          borderRadius={8}
+          borderWidth={1}
+          borderColor={'rgba(0, 0, 0, 0.95)'}
+          $platform-web={{
+            boxShadow:
+              '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px rgba(0, 0, 0, 0.10), 0 1px 2px rgba(0, 0, 0, 0.10), inset 0 1px 2px rgba(255, 255, 255, 0.25)'
+          }}
+          overflow="hidden"
+          p={8}
+          gap={12}
+        >
+          <XStack alignItems="center" gap={4} w={101} h={4}>
+            <XStack gap={4} alignItems="center" w={85} h={4}>
+              <YStack w={4} h={4} bg="rgba(255,255,255,0.5)" borderRadius={1} />
+              <YStack w={16} h={4} bg="rgba(255,255,255,0.8)" borderRadius={1} />
+            </XStack>
+            <XStack gap={4} alignItems="center" w={12} h={4}>
+              <YStack w={4} h={4} bg="rgba(255,255,255,0.5)" borderRadius={1} />
+              <YStack w={4} h={4} bg="rgba(255,255,255,0.5)" borderRadius={1} />
+            </XStack>
+          </XStack>
+          <YStack gap={4}>
+            <YStack w={24} h={6} bg="rgba(255,255,255,0.95)" borderRadius={2} />
+            <YStack w={56} h={6} bg="rgba(255,255,255,0.7)" borderRadius={2} />
+          </YStack>
+        </LinearGradient>
+      </YStack>
+    );
+  }, [themeVariant]);
+
+  const systemAuthorizedView = useMemo(() => paringView, [paringView]);
+  const userAuthorizedView = useMemo(
+    () => <SizableText>user-authorized</SizableText>,
+    [],
+  );
+
+  const getView = useMemo(() => {
+    switch (view) {
+      case 'paring':
+        return paringView;
+      case 'system-authorized':
+        return systemAuthorizedView;
+      case 'user-authorized':
+        return userAuthorizedView;
+      default:
+        return null;
+    }
+  }, [view, paringView, systemAuthorizedView, userAuthorizedView]);
+
+  // Return only the two-layer illustration as required
+  return <>{getView}</>;
+}
+
 export interface IConfirmOnDeviceToastContentProps {
   deviceType: IDeviceType;
 }
@@ -1162,7 +1259,11 @@ export function DesktopBluetoothPermissionContent({
 
   return (
     <YStack gap="$5">
-      <MacBluetoothIllustrationViews view="system-authorized" />
+      {platformEnv.isDesktopWin ? (
+        <WindowsBluetoothIllustrationViews view="system-authorized" />
+      ) : (
+        <MacBluetoothIllustrationViews view="system-authorized" />
+      )}
       <SizableText size="$bodyMdMedium">
         {intl.formatMessage({
           id: ETranslations.communication_not_detected_bluetooth_fallback,
@@ -1234,7 +1335,11 @@ export function BluetoothDevicePairingContent({
 
   return (
     <YStack gap="$5">
-      <MacBluetoothIllustrationViews view="paring" />
+      {platformEnv.isDesktopWin ? (
+        <WindowsBluetoothIllustrationViews view="paring" />
+      ) : (
+        <MacBluetoothIllustrationViews view="paring" />
+      )}
       <SizableText size="$bodyMdMedium">
         {intl.formatMessage({
           id: ETranslations.communication_not_detected_bluetooth_not_paired,
@@ -1247,7 +1352,9 @@ export function BluetoothDevicePairingContent({
           </YStack>
           <SizableText>
             {intl.formatMessage({
-              id: ETranslations.bluetooth_paring_guides_unlock,
+              id: platformEnv.isDesktopWin
+                ? ETranslations.bluetooth_paring_guides_unlock_win
+                : ETranslations.bluetooth_paring_guides_unlock,
             })}
           </SizableText>
         </XStack>
@@ -1257,7 +1364,9 @@ export function BluetoothDevicePairingContent({
           </YStack>
           <SizableText>
             {intl.formatMessage({
-              id: ETranslations.bluetooth_paring_guides_pair,
+              id: platformEnv.isDesktopWin
+                ? ETranslations.bluetooth_paring_guides_pair_win
+                : ETranslations.bluetooth_paring_guides_pair,
             })}
           </SizableText>
         </XStack>
@@ -1267,7 +1376,9 @@ export function BluetoothDevicePairingContent({
           </YStack>
           <SizableText>
             {intl.formatMessage({
-              id: ETranslations.bluetooth_paring_guides_wait_for_confirmation,
+              id: platformEnv.isDesktopWin
+                ? ETranslations.bluetooth_paring_guides_wait_for_confirmation_win
+                : ETranslations.bluetooth_paring_guides_wait_for_confirmation,
             })}
           </SizableText>
         </XStack>
