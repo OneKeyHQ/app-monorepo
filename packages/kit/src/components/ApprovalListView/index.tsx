@@ -19,7 +19,7 @@ import {
 } from '../../states/jotai/contexts/approvalList';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { PullToRefresh } from '../../views/Home/components/PullToRefresh';
-import { EmptyToken } from '../Empty';
+import { EmptyApproval } from '../Empty';
 import { ListLoading } from '../Loading/ListLoading';
 
 import ApprovalListHeader from './ApprovalListHeader';
@@ -114,7 +114,7 @@ function ApprovalListViewCmp(props: IProps) {
       );
     }
 
-    return <EmptyToken />;
+    return <EmptyApproval />;
   }, [showSkeleton, tableLayout]);
 
   const filteredApprovals = useMemo(() => {
