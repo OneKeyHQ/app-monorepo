@@ -87,7 +87,10 @@ function TokenSecurityAlertDialogContentItem({
 
         {(() => {
           // Don't show icon if there's a value or if risk type is normal
-          if ((typeof item.value === 'string' && item.value.length > 0) || item.riskType === 'normal') {
+          if (
+            (typeof item.value === 'string' && item.value.length > 0) ||
+            item.riskType === 'normal'
+          ) {
             return null;
           }
           return (

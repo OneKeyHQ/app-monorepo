@@ -27,7 +27,7 @@ function SecurityStatusItem({
   backgroundColor: ColorTokens;
 }) {
   return (
-    <XStack width="50%" alignItems="center">
+    <XStack width="50%" alignItems="center" gap="$3">
       <Stack
         width={56}
         height={56}
@@ -36,16 +36,16 @@ function SecurityStatusItem({
         alignItems="center"
         justifyContent="center"
       >
-        <Icon name={iconName} size="$5" color={iconColor} />
+        <Icon name={iconName} size="$8" color={iconColor} />
       </Stack>
 
-      <Stack gap="$1" ml="$2">
+      <Stack>
         <SizableText size="$headingXl" color="$text">
           {count}
         </SizableText>
 
         <SizableText size="$bodyLg" color="$textSubdued">
-          {label}
+          {label.includes('{number} ') ? label.replace('{number} ', '') : label}
         </SizableText>
       </Stack>
     </XStack>

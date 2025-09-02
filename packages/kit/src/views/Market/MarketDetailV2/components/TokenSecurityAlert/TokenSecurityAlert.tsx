@@ -38,7 +38,18 @@ function TokenSecurityAlert() {
     return null;
   }
 
-  const color = securityStatus === 'warning' ? '$iconCaution' : '$iconSuccess';
+  // Determine color based on three-tier security status
+  const getSecurityColor = () => {
+    if (securityStatus === 'risk') {
+      return '$iconCritical'; // Red for risk
+    }
+    if (securityStatus === 'caution') {
+      return '$iconCaution'; // Yellow for caution
+    }
+    return '$iconSuccess'; // Green for safe
+  };
+
+  const color = getSecurityColor();
 
   return (
     <XStack
@@ -50,7 +61,15 @@ function TokenSecurityAlert() {
     >
       <Icon name="BugOutline" size="$4" color={color} />
       <SizableText size="$bodySmMedium" color={color}>
-        {cautionCount}
+        {(() => {
+          if (securityStatus === 'risk') {
+            return riskCount;
+          }
+          if (securityStatus === 'caution') {
+            return cautionCount;
+          }
+          return 0;
+        })()}
       </SizableText>
     </XStack>
   );

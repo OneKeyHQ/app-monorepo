@@ -62,8 +62,15 @@ export const analyzeSecurityData = (
     }
   });
 
-  const totalWarningCount = riskCount + cautionCount;
-  const status = totalWarningCount > 0 ? 'warning' : 'safe';
+  // Determine status based on priority: risk > caution > safe
+  let status: ISecurityStatus;
+  if (riskCount > 0) {
+    status = 'risk'; // Highest priority: show red if any risk items
+  } else if (cautionCount > 0) {
+    status = 'caution'; // Medium priority: show yellow if any caution items
+  } else {
+    status = 'safe'; // Lowest priority: show green if no issues
+  }
 
   return {
     status,

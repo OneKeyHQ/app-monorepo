@@ -1,6 +1,6 @@
 import type { IMarketTokenSecurityData } from '@onekeyhq/shared/types/marketV2';
 
-export type ISecurityStatus = 'safe' | 'warning';
+export type ISecurityStatus = 'safe' | 'caution' | 'risk';
 
 export type ISecurityKeyValue = {
   key: string;
