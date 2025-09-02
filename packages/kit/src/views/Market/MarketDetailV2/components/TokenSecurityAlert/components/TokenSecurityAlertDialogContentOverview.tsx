@@ -1,9 +1,6 @@
 import { memo } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type ITokenSecurityAlertDialogContentOverviewProps = {
   riskCount: number;
@@ -27,21 +24,35 @@ function SecurityStatusItem({
   backgroundColor: string;
 }) {
   return (
-    <XStack gap="$3" alignItems="center">
+    <XStack gap="$2" alignItems="center">
       <Stack
-        width="$10"
-        height="$10"
+        width={56}
+        height={56}
         borderRadius="$full"
         backgroundColor={backgroundColor}
         alignItems="center"
         justifyContent="center"
       >
-        <Icon name={iconName as any} size="$6" color={iconColor as any} />
+        <Icon name={iconName as any} size="$5" color={iconColor as any} />
       </Stack>
 
-      <SizableText size="$bodyMdMedium" color={textColor as any}>
-        {count} {label}
-      </SizableText>
+      <Stack gap="$1" alignItems="center">
+        <SizableText
+          size="$bodyLgMedium"
+          fontWeight="600"
+          color={textColor as any}
+        >
+          {count}
+        </SizableText>
+
+        <SizableText
+          size="$bodyMdMedium"
+          color={textColor as any}
+          textAlign="center"
+        >
+          {label}
+        </SizableText>
+      </Stack>
     </XStack>
   );
 }
@@ -50,18 +61,16 @@ function TokenSecurityAlertDialogContentOverviewBase({
   riskCount,
   cautionCount,
 }: ITokenSecurityAlertDialogContentOverviewProps) {
-  const intl = useIntl();
-
   const isSafe = riskCount === 0 && cautionCount === 0;
 
   return (
-    <Stack py="$3" gap="$2">
+    <XStack py="$3" gap="$4" flexWrap="wrap">
       {/* Show risks if any */}
       {riskCount > 0 ? (
         <SecurityStatusItem
           count={riskCount}
           label="High risks"
-          iconName="ErrorSolid"
+          iconName="BugOutline"
           iconColor="$iconCritical"
           textColor="$textCritical"
           backgroundColor="$bgCritical"
@@ -73,7 +82,7 @@ function TokenSecurityAlertDialogContentOverviewBase({
         <SecurityStatusItem
           count={cautionCount}
           label="Cautions"
-          iconName="InfoCircleSolid"
+          iconName="BugOutline"
           iconColor="$iconCaution"
           textColor="$textCaution"
           backgroundColor="$bgCaution"
@@ -91,7 +100,7 @@ function TokenSecurityAlertDialogContentOverviewBase({
           backgroundColor="$bgSuccess"
         />
       ) : null}
-    </Stack>
+    </XStack>
   );
 }
 
