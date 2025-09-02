@@ -168,6 +168,8 @@ export function Container({
                   listContainerRef.current as HTMLElement
                 ).style.maxHeight = `${entry.contentRect.height}px`;
               } else {
+                // When quickly removing and adding observer nodes, ResizeObserver API has a delay
+                // and there's a chance it won't get the current node height, so we need delayed retries
                 retryNext();
               }
             });
