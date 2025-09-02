@@ -11,6 +11,7 @@ import {
   YStack,
   rootNavigationRef,
   useClipboard,
+  useMedia,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
@@ -18,6 +19,7 @@ import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contex
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
   ETabMarketRoutes,
@@ -67,13 +69,14 @@ function MarketTokenLiquidity({
   volume24h: string;
 }) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const displayLiquidity = useMemo(
     () => BigNumber(liquidity).gt(0),
     [liquidity],
   );
   const displayVolume24h = useMemo(
-    () => BigNumber(volume24h).gt(0),
-    [volume24h],
+    () => gtMd && BigNumber(volume24h).gt(0),
+    [volume24h, gtMd],
   );
   return (
     <XStack>
@@ -84,12 +87,16 @@ function MarketTokenLiquidity({
               id: ETranslations.dexmarket_search_result_liq,
             })}
           </SizableText>
-          <NumberSizeableText color="$textSubdued" formatter="marketCap">
+          <NumberSizeableText
+            color="$textSubdued"
+            formatter="marketCap"
+            formatterOptions={{ capAtMaxT: true }}
+          >
             {liquidity}
           </NumberSizeableText>
         </XStack>
       ) : null}
-      {displayLiquidity ? (
+      {displayLiquidity && displayVolume24h ? (
         <SizableText color="$textSubdued" px="$1">
           •
         </SizableText>
@@ -101,7 +108,11 @@ function MarketTokenLiquidity({
               id: ETranslations.dexmarket_search_result_vol,
             })}
           </SizableText>
-          <NumberSizeableText color="$textSubdued" formatter="marketCap">
+          <NumberSizeableText
+            color="$textSubdued"
+            formatter="marketCap"
+            formatterOptions={{ capAtMaxT: true }}
+          >
             {volume24h}
           </NumberSizeableText>
         </XStack>
