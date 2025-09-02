@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { isNil } from 'lodash';
 import { StyleSheet } from 'react-native';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Carousel,
@@ -27,7 +28,6 @@ import { EarnNavigation } from '../../../Earn/earnUtils';
 import useParseQRCode from '../../../ScanQrCode/hooks/useParseQRCode';
 
 import type { GestureResponderEvent } from 'react-native';
-import { useDebouncedCallback } from 'use-debounce';
 
 const closedBanners: Record<string, boolean> = {};
 
@@ -182,7 +182,7 @@ function WalletBanner() {
         bannerId: filteredBanners[index].id,
       });
     }
-  }, 50);
+  }, 180);
 
   if (filteredBanners.length === 0) {
     return null;
