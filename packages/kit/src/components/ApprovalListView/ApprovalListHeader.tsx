@@ -1,3 +1,4 @@
+import type { RefObject } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -29,7 +30,13 @@ function HeaderItem({ label }: { label: string }) {
   );
 }
 
-function ApprovalListHeader() {
+function ApprovalListHeader({
+  listComponentRef,
+}: {
+  listComponentRef: RefObject<{
+    recomputeLayout?: () => void;
+  }>;
+}) {
   const intl = useIntl();
 
   const navigation = useAppNavigation();
@@ -208,6 +215,10 @@ function ApprovalListHeader() {
                   alertType: EContractApprovalAlertType.Warning,
                   approvals: warningApprovals,
                 });
+                // update tab list header height after alert dismissed
+                setTimeout(() => {
+                  listComponentRef.current?.recomputeLayout?.();
+                }, 350);
               },
             }}
           />
@@ -218,6 +229,7 @@ function ApprovalListHeader() {
     handleCloseInactiveApprovalsAlert,
     handleViewRiskApprovals,
     intl,
+    listComponentRef,
     riskApprovals,
     shouldShowInactiveApprovalsAlert,
     warningApprovals,
