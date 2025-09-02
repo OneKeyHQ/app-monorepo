@@ -251,7 +251,7 @@ function BulkRevoke() {
             status: ERevokeTxStatus.Succeeded,
             txId: result[0].signedTx.txid,
             feeBalance: feeResult.totalNativeForDisplay,
-            feeSymbol: resp.common.feeSymbol,
+            feeSymbol: resp.common.nativeSymbol,
             feeFiat: feeResult.totalFiatForDisplay,
           },
         }));

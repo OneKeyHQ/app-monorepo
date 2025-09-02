@@ -8,6 +8,7 @@ import type { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressB
 import type { SimpleDbEntityAddressInfo } from '../entity/SimpleDbEntityAddressInfo';
 import type { SimpleDbEntityAllNetworks } from '../entity/SimpleDbEntityAllNetworks';
 import type { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanup';
+import type { SimpleDbEntityApproval } from '../entity/SimpleDbEntityApproval';
 import type { SimpleDbEntityAppStatus } from '../entity/SimpleDbEntityAppStatus';
 import type { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
 import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
@@ -247,4 +248,6 @@ export class SimpleDbProxy
   primeTransfer = this._createProxyService(
     'primeTransfer',
   ) as SimpleDbEntityPrimeTransfer;
+
+  approval = this._createProxyService('approval') as SimpleDbEntityApproval;
 }

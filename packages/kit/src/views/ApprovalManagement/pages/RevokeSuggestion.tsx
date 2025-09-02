@@ -18,6 +18,7 @@ import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 import { EContractApprovalAlertType } from '@onekeyhq/shared/types/approval';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import ApprovalListView from '../../../components/ApprovalListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
@@ -39,8 +40,15 @@ function RevokeSuggestion() {
         EModalApprovalManagementRoutes.RevokeSuggestion
       >
     >();
-  const { accountId, networkId, approvals, alertType, tokenMap, contractMap } =
-    route.params;
+  const {
+    accountId,
+    networkId,
+    approvals,
+    alertType,
+    tokenMap,
+    contractMap,
+    autoShow,
+  } = route.params;
   const {
     updateApprovalList,
     updateTokenMap,
@@ -106,6 +114,7 @@ function RevokeSuggestion() {
       navigation.push(EModalApprovalManagementRoutes.ApprovalDetails, {
         approval,
         isSelectMode: true,
+
         onSelected: ({
           selectedTokens: _selectedTokens,
         }: {
@@ -117,9 +126,11 @@ function RevokeSuggestion() {
           });
         },
         selectedTokens,
+        tokenMap,
+        contractMap,
       });
     },
-    [navigation, updateSelectedTokens, selectedTokens],
+    [navigation, updateSelectedTokens, selectedTokens, tokenMap, contractMap],
   );
 
   const renderRevokeSuggestionOverview = useCallback(() => {
@@ -213,9 +224,17 @@ function RevokeSuggestion() {
       contractMap,
     });
   }, [navigationToBulkRevokeProcess, selectedTokens, tokenMap, contractMap]);
-  const handleOnCancel = useCallback(() => {
+  const handleOnCancel = useCallback(async () => {
+    if (autoShow) {
+      await backgroundApiProxy.serviceApproval.updateRiskApprovalsRevokeSuggestionConfig(
+        {
+          networkId,
+          accountId,
+        },
+      );
+    }
     navigation.popStack();
-  }, [navigation]);
+  }, [navigation, networkId, accountId, autoShow]);
 
   const renderBulkRevokeActions = () => {
     return (
@@ -225,7 +244,9 @@ function RevokeSuggestion() {
         onConfirm={handleOnConfirm}
         onCancel={handleOnCancel}
         onCancelText={intl.formatMessage({
-          id: ETranslations.global_cancel,
+          id: autoShow
+            ? ETranslations.global_skip
+            : ETranslations.global_cancel,
         })}
         isBulkRevokeMode
         selectedCount={selectedCount}

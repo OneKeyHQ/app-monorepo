@@ -153,6 +153,90 @@ class ServiceApproval extends ServiceBase {
       ],
     };
   }
+
+  @backgroundMethod()
+  async shouldShowRiskApprovalsRevokeSuggestion({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    const config =
+      await this.backgroundApi.simpleDb.approval.getRiskApprovalsRevokeSuggestionConfig(
+        {
+          networkId,
+          accountId,
+        },
+      );
+    if (config && config.lastShowTime) {
+      const interval = Date.now() - config.lastShowTime;
+      if (interval > timerUtils.getTimeDurationMs({ day: 14 })) {
+        return true;
+      }
+      return false;
+    }
+
+    return true;
+  }
+
+  @backgroundMethod()
+  async shouldShowInactiveApprovalsAlert({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    const config =
+      await this.backgroundApi.simpleDb.approval.getInactiveApprovalsAlertConfig(
+        {
+          networkId,
+          accountId,
+        },
+      );
+    if (config && config.lastShowTime) {
+      const interval = Date.now() - config.lastShowTime;
+      if (interval > timerUtils.getTimeDurationMs({ day: 30 })) {
+        return true;
+      }
+      return false;
+    }
+
+    return true;
+  }
+
+  @backgroundMethod()
+  async updateRiskApprovalsRevokeSuggestionConfig({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    await this.backgroundApi.simpleDb.approval.updateRiskApprovalsRevokeSuggestionConfig(
+      {
+        networkId,
+        accountId,
+      },
+    );
+  }
+
+  @backgroundMethod()
+  async updateInactiveApprovalsAlertConfig({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    await this.backgroundApi.simpleDb.approval.updateInactiveApprovalsAlertConfig(
+      {
+        networkId,
+        accountId,
+      },
+    );
+  }
 }
 
 export default ServiceApproval;
