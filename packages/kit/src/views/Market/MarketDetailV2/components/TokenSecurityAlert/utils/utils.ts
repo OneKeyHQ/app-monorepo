@@ -1,5 +1,3 @@
-import { isBoolean } from 'lodash';
-
 import type {
   IMarketTokenSecurityData,
   IMarketTokenSecurityItem,
@@ -20,18 +18,10 @@ export const formatSecurityData = (
     ([key, item]: [string, IMarketTokenSecurityItem]) => {
       const { value, content, riskType } = item;
 
-      let displayValue: string;
-      if (isBoolean(value)) {
-        displayValue = ''; // Don't show yes/no text for boolean values
-      } else {
-        displayValue = String(value);
-      }
-
       items.push({
         key,
         label: content,
-        value: displayValue,
-        isWarning: riskType === 'caution' || riskType === 'risk', // Both caution and risk are warnings
+        value,
         riskType, // Pass through the risk type for color handling
       });
     },

@@ -1,5 +1,6 @@
 import {
   Button,
+  ButtonFrame,
   SizableText,
   XStack,
   useClipboard,
@@ -29,8 +30,7 @@ type ITokenSecurityAlertDialogContentItemProps = {
   item: {
     key: string;
     label: string;
-    value?: string;
-    isWarning: boolean;
+    value?: string | number | boolean;
     riskType: 'safe' | 'caution' | 'normal' | 'risk';
   };
 };
@@ -40,20 +40,27 @@ function TokenSecurityAlertDialogContentItem({
 }: ITokenSecurityAlertDialogContentItemProps) {
   const { copyText } = useClipboard();
 
-  const formatValue = (value: string) => {
-    if (value.length > 20) {
+  const formatValue = (value: string | number | boolean) => {
+    console.log('value', value);
+
+    if (typeof value === 'string' && value.length > 20) {
       return accountUtils.shortenAddress({
         address: value,
         leadingLength: 8,
         trailingLength: 6,
       });
     }
+
+    if (typeof value === 'boolean') {
+      return value ? 'Yes' : 'No';
+    }
+
     return value;
   };
 
   const handleCopyValue = () => {
     if (item.value) {
-      copyText(item.value);
+      copyText(String(item.value));
     }
   };
 
@@ -75,22 +82,17 @@ function TokenSecurityAlertDialogContentItem({
             return null;
           }
           return (
-            <TokenSecurityAlertDialogContentIcon
-              isWarning={item.isWarning}
-              riskType={item.riskType}
-            />
+            <TokenSecurityAlertDialogContentIcon riskType={item.riskType} />
           );
         })()}
 
-        {item.value ? (
-          <SizableText
-            size="$bodyMdMedium"
-            color={getTextColorByRiskType(item.riskType)}
-            textAlign="right"
-          >
-            {formatValue(item.value)}
-          </SizableText>
-        ) : null}
+        <SizableText
+          size="$bodyMdMedium"
+          color={getTextColorByRiskType(item.riskType)}
+          textAlign="right"
+        >
+          {formatValue(item.value || '')}
+        </SizableText>
       </XStack>
     </XStack>
   );

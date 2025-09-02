@@ -5,8 +5,7 @@ export type ISecurityStatus = 'safe' | 'caution' | 'risk';
 export type ISecurityKeyValue = {
   key: string;
   label: string;
-  value: string;
-  isWarning: boolean;
+  value: string | number | boolean;
   riskType: 'safe' | 'caution' | 'normal' | 'risk';
 };
 
