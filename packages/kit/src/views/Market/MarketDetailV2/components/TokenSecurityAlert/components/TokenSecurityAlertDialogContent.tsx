@@ -1,4 +1,5 @@
 import {
+  Divider,
   Icon,
   ScrollView,
   SizableText,
@@ -12,6 +13,7 @@ import { formatSecurityData } from '../utils';
 
 import { TokenSecurityAlertDialogContentItem } from './TokenSecurityAlertDialogContentItem';
 import { TokenSecurityAlertDialogContentOverview } from './TokenSecurityAlertDialogContentOverview';
+import { TokenSecurityDisclaimer } from './TokenSecurityDisclaimer';
 
 type ITokenSecurityAlertDialogContentProps = {
   securityData: IMarketTokenSecurityData | null;
@@ -57,6 +59,11 @@ function TokenSecurityAlertDialogContent({
             </SizableText>
           </XStack>
         ) : null}
+
+        <Divider />
+
+        {/* Disclaimer */}
+        <TokenSecurityDisclaimer />
       </Stack>
     </ScrollView>
   );
