@@ -5,6 +5,7 @@ import { StyleSheet } from 'react-native';
 
 import {
   Dialog,
+  EInPageDialogType,
   Form,
   Input,
   SizableText,
@@ -12,8 +13,7 @@ import {
   XStack,
   YStack,
   useForm,
-  useInModalDialog,
-  useInTabDialog,
+  useInPageDialog,
 } from '@onekeyhq/components';
 import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
 import { EMnemonicType } from '@onekeyhq/core/src/secret';
@@ -447,9 +447,11 @@ export function useWalletBoundReferralCode({
     [mnemonicType, getReferralCodeWalletInfo],
   );
 
-  const inModalDialog = useInModalDialog();
-  const inTabDialog = useInTabDialog();
-  const dialog = entry === 'modal' ? inModalDialog : inTabDialog;
+  const dialog = useInPageDialog(
+    entry === 'modal'
+      ? EInPageDialogType.inModalPage
+      : EInPageDialogType.inTabPages,
+  );
   const bindWalletInviteCode = useCallback(
     ({ wallet, onSuccess }: { wallet?: IDBWallet; onSuccess?: () => void }) => {
       dialog.show({
