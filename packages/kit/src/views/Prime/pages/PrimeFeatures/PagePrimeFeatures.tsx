@@ -475,6 +475,7 @@ export default function PagePrimeFeatures() {
     ensurePrimeSubscriptionActive,
     isPackagesLoading,
     navigation,
+    selectedFeature,
     selectedSubscriptionPeriod,
     showAllFeatures,
   ]);
