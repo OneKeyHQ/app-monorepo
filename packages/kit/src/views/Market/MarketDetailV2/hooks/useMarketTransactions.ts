@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
@@ -43,6 +44,10 @@ export function useMarketTransactions({
     setAccumulatedTransactions([]);
   }, [tokenAddress, networkId]);
 
+  const accumulatedTransactionsLengthRef = useRef(
+    accumulatedTransactions.length,
+  );
+  accumulatedTransactionsLengthRef.current = accumulatedTransactions.length;
   // Merge new and old data, add new data at the front, and deduplicate
   useEffect(() => {
     const newTransactions = transactionsData?.list;
@@ -66,6 +71,16 @@ export function useMarketTransactions({
         seenHashes.add(tx.hash);
         return true;
       });
+
+      if (
+        platformEnv.isNativeAndroid &&
+        accumulatedTransactionsLengthRef.current > 0
+      ) {
+        return uniqueTransactions.slice(
+          0,
+          accumulatedTransactionsLengthRef.current,
+        );
+      }
 
       return uniqueTransactions;
     });
