@@ -3,9 +3,11 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   Divider,
   Form,
-  Input,
+  Icon,
+  Popover,
   Radio,
   Select,
   SizableText,
@@ -13,6 +15,7 @@ import {
   Switch,
   TextAreaInput,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import type { ISelectSection, UseFormReturn } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -202,7 +205,11 @@ export const SignForm = ({
     }
     if (currentSignAccount?.deriveType === 'BIP86') {
       return [
-        { label: 'Electrum', value: 'electrum', disabled: true },
+        {
+          label: intl.formatMessage({ id: ETranslations.global_standard }),
+          value: 'electrum',
+          disabled: true,
+        },
         { label: 'BIP137', value: 'bip137', disabled: true },
         { label: 'BIP322', value: 'bip322', disabled: false },
       ];
@@ -210,45 +217,31 @@ export const SignForm = ({
 
     if (currentSignAccount?.deriveType === 'BIP84') {
       return [
-        { label: 'Electrum', value: 'electrum', disabled: false },
+        {
+          label: intl.formatMessage({ id: ETranslations.global_standard }),
+          value: 'electrum',
+          disabled: false,
+        },
         { label: 'BIP137', value: 'bip137', disabled: false },
         { label: 'BIP322', value: 'bip322', disabled: isHwAccount },
       ];
     }
 
     return [
-      { label: 'Electrum', value: 'electrum', disabled: false },
+      {
+        label: intl.formatMessage({ id: ETranslations.global_standard }),
+        value: 'electrum',
+        disabled: false,
+      },
       { label: 'BIP137', value: 'bip137', disabled: false },
       { label: 'BIP322', value: 'bip322', disabled: true },
     ];
   }, [
+    currentSignAccount?.account.id,
     currentSignAccount?.network.id,
     currentSignAccount?.deriveType,
-    currentSignAccount?.account.id,
+    intl,
   ]);
-
-  const networkAvatarContent = useMemo(
-    () => (
-      <XStack alignItems="center" px="$1" mr="$-3">
-        {currentSignAccount?.network.id ? (
-          <NetworkAvatar networkId={currentSignAccount.network.id} size="$6" />
-        ) : (
-          <Skeleton w="$6" h="$6" borderRadius="$full" />
-        )}
-      </XStack>
-    ),
-    [currentSignAccount?.network.id],
-  );
-
-  const selectTriggerInputProps = useMemo(
-    () => ({
-      leftAddOnProps: {
-        size: 'large' as const,
-        renderContent: networkAvatarContent,
-      },
-    }),
-    [networkAvatarContent],
-  );
 
   const currentFormat = form.watch('format');
   const currentMessage = form.watch('message');
@@ -294,6 +287,14 @@ export const SignForm = ({
     }
   }, [form, messageAccountKey, previousMessageAccountKey]);
 
+  const getAddressDescription = useCallback(() => {
+    if (currentSignAccount?.network.id === getNetworkIdsMap().eth) {
+      return intl.formatMessage({
+        id: ETranslations.message_signing_address_desc,
+      });
+    }
+  }, [currentSignAccount?.network.id, intl]);
+
   return (
     <Form form={form}>
       <Form.Field
@@ -307,7 +308,10 @@ export const SignForm = ({
           }),
           maxLength: {
             value: 1024,
-            message: `Maximum length is 1024 characters`,
+            message: intl.formatMessage(
+              { id: ETranslations.send_memo_up_to_length },
+              { number: '1024' },
+            ),
           },
           validate: (value: string) => {
             const hexFormat = form.getValues('hexFormat');
@@ -321,11 +325,71 @@ export const SignForm = ({
         }}
         labelAddon={
           <XStack alignItems="center" gap="$2">
-            <SizableText color="$text" size="$bodyMd">
-              {intl.formatMessage({
+            <Popover
+              title={intl.formatMessage({
                 id: ETranslations.message_signing_address_hex_format,
               })}
-            </SizableText>
+              renderTrigger={
+                <Button
+                  size="small"
+                  variant="tertiary"
+                  iconAfter="QuestionmarkOutline"
+                  px="$1.5"
+                  mx="$-1.5"
+                  gap="$-1"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.message_signing_address_hex_format,
+                  })}
+                </Button>
+              }
+              renderContent={() => (
+                <YStack
+                  p="$5"
+                  pt="$0"
+                  $gtMd={{
+                    px: '$4',
+                    py: '$3',
+                  }}
+                  gap="$4"
+                >
+                  <SizableText>
+                    {intl.formatMessage({
+                      id: ETranslations.sign_message_hex_format_description,
+                    })}
+                  </SizableText>
+
+                  <YStack>
+                    <SizableText size="$headingXs" color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.sign_message_hex_format_example_title,
+                      })}
+                    </SizableText>
+                    <SizableText size="$headingSm">
+                      {intl.formatMessage({
+                        id: ETranslations.sign_message_hex_format_example_input,
+                      })}
+                    </SizableText>
+                    <XStack>
+                      <SizableText pr="$2">-</SizableText>
+                      <SizableText>
+                        {intl.formatMessage({
+                          id: ETranslations.sign_message_hex_format_example_off,
+                        })}
+                      </SizableText>
+                    </XStack>
+                    <XStack>
+                      <SizableText pr="$2">-</SizableText>
+                      <SizableText>
+                        {intl.formatMessage({
+                          id: ETranslations.sign_message_hex_format_example_on,
+                        })}
+                      </SizableText>
+                    </XStack>
+                  </YStack>
+                </YStack>
+              )}
+            />
             <Form.Field name="hexFormat">
               <Switch size="small" />
             </Form.Field>
@@ -333,10 +397,9 @@ export const SignForm = ({
         }
       >
         <TextAreaInput
-          size="large"
-          placeholder={intl.formatMessage({
-            id: ETranslations.message_signing_address_placeholder,
-          })}
+        // placeholder={intl.formatMessage({
+        //   id: ETranslations.message_signing_address_placeholder,
+        // })}
         />
       </Form.Field>
 
@@ -345,9 +408,7 @@ export const SignForm = ({
           id: ETranslations.global_address,
         })}
         name="address"
-        description={intl.formatMessage({
-          id: ETranslations.message_signing_address_desc,
-        })}
+        description={getAddressDescription()}
         rules={{
           required: intl.formatMessage({
             id: ETranslations.address_book_add_address_name_required,
@@ -362,14 +423,122 @@ export const SignForm = ({
             id: ETranslations.global_address,
           })}
           sections={selectOptions}
-          defaultTriggerInputProps={selectTriggerInputProps}
+          offset={8}
+          floatingPanelProps={{
+            width: '$72',
+            maxHeight: '$80',
+          }}
+          renderTrigger={({ label }) => {
+            return (
+              <XStack
+                alignItems="center"
+                gap="$3"
+                py="$1.5"
+                px="$3"
+                borderWidth="$px"
+                borderColor="$borderStrong"
+                borderRadius="$2"
+                borderCurve="continuous"
+                hoverStyle={{
+                  bg: '$bgHover',
+                }}
+                focusable
+                focusVisibleStyle={{
+                  outlineColor: '$focusRing',
+                  outlineWidth: 2,
+                  outlineOffset: 0,
+                  outlineStyle: 'solid',
+                }}
+                userSelect="none"
+                onPress={() => {}}
+              >
+                <>
+                  {currentSignAccount?.network.id ? (
+                    <NetworkAvatar
+                      networkId={currentSignAccount.network.id}
+                      size="$6"
+                    />
+                  ) : (
+                    <Skeleton w="$6" h="$6" radius="round" />
+                  )}
+                </>
+                <SizableText color="$text" size="$bodyLg" flex={1}>
+                  {label}
+                </SizableText>
+                <Icon name="ChevronDownSmallOutline" color="$iconSubdued" />
+              </XStack>
+            );
+          }}
         />
       </Form.Field>
 
-      <Divider />
-
       {displayFormatForm ? (
-        <Form.Field label="Format" name="format">
+        <Form.Field
+          label={intl.formatMessage({
+            id: ETranslations.signature_format_title,
+          })}
+          labelAddon={
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.signature_format_title,
+              })}
+              renderTrigger={
+                <Button
+                  iconAfter="QuestionmarkOutline"
+                  size="small"
+                  variant="tertiary"
+                >
+                  {intl.formatMessage({ id: ETranslations.global_learn_more })}
+                </Button>
+              }
+              renderContent={() => (
+                <YStack
+                  p="$5"
+                  pt="$0"
+                  $gtMd={{
+                    px: '$4',
+                    py: '$3',
+                  }}
+                  gap="$4"
+                >
+                  <SizableText>
+                    {intl.formatMessage({
+                      id: ETranslations.signature_format_description,
+                    })}
+                  </SizableText>
+
+                  <YStack>
+                    <XStack>
+                      <SizableText pr="$2">-</SizableText>
+                      <SizableText>
+                        {intl.formatMessage({
+                          id: ETranslations.signature_format_standard,
+                        })}
+                      </SizableText>
+                    </XStack>
+                    <XStack>
+                      <SizableText pr="$2">-</SizableText>
+                      <SizableText>
+                        {intl.formatMessage({
+                          id: ETranslations.signature_format_bip137,
+                        })}
+                      </SizableText>
+                    </XStack>
+                    <XStack>
+                      <SizableText pr="$2">-</SizableText>
+                      <SizableText>
+                        {intl.formatMessage({
+                          id: ETranslations.signature_format_322,
+                        })}
+                      </SizableText>
+                    </XStack>
+                  </YStack>
+                </YStack>
+              )}
+            />
+          }
+          name="format"
+        >
           <Radio
             orientation="horizontal"
             gap="$5"
@@ -378,27 +547,29 @@ export const SignForm = ({
         </Form.Field>
       ) : null}
 
+      <Divider />
+
       <Form.Field
         label={intl.formatMessage({
           id: ETranslations.message_signing_signature_label,
         })}
         name="signature"
+        {...(currentSignature && {
+          labelAddon: (
+            <Button onPress={onCopySignature} size="small" variant="tertiary">
+              {intl.formatMessage({ id: ETranslations.global_copy })}
+            </Button>
+          ),
+        })}
       >
-        <Input
+        <TextAreaInput
           placeholder={intl.formatMessage({
             id: ETranslations.message_signing_signature_desc,
           })}
           editable={false}
-          addOns={
-            currentSignature
-              ? [
-                  {
-                    iconName: 'Copy3Outline',
-                    onPress: onCopySignature,
-                  },
-                ]
-              : []
-          }
+          containerProps={{
+            borderStyle: 'dashed',
+          }}
         />
       </Form.Field>
     </Form>

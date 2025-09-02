@@ -57,10 +57,11 @@ export function Radio({
             return (
               <ItemContainer
                 key={index}
-                py={orientation === 'horizontal' ? '$0' : '$2'}
+                py="$2"
                 alignItems="center"
                 gap="$2"
                 flex={orientation === 'horizontal' ? undefined : 1}
+                opacity={optionDisabled ? 0.5 : 1}
               >
                 <RadioGroup.Item
                   value={v}
@@ -95,11 +96,7 @@ export function Radio({
                   my={orientation === 'horizontal' ? '$0' : '$-2'}
                   flex={orientation === 'horizontal' ? undefined : 1}
                 >
-                  <Label
-                    htmlFor={v}
-                    variant="$bodyLgMedium"
-                    color={optionDisabled ? '$textDisabled' : undefined}
-                  >
+                  <Label htmlFor={v} variant="$bodyLgMedium">
                     {label}
                   </Label>
                   {description ? (

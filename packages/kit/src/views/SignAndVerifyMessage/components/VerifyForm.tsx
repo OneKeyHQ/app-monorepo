@@ -4,14 +4,17 @@ import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
 
 import {
+  Button,
   Divider,
   Form,
   Input,
+  Popover,
   Radio,
   SizableText,
   Switch,
   TextAreaInput,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import type { UseFormReturn } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -101,10 +104,14 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
       return [];
     }
     return [
-      { label: 'Standard or BIP137', value: 'bip137', disabled: false },
+      {
+        label: intl.formatMessage({ id: ETranslations.standard_or_BIP137 }),
+        value: 'bip137',
+        disabled: false,
+      },
       { label: 'BIP322', value: 'bip322', disabled: false },
     ];
-  }, [detectedNetworkId]);
+  }, [detectedNetworkId, intl]);
 
   // Set default format when displayFormatForm changes
   useEffect(() => {
@@ -131,7 +138,10 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
           }),
           maxLength: {
             value: 1024,
-            message: 'Maximum length is 1024 characters',
+            message: intl.formatMessage(
+              { id: ETranslations.send_memo_up_to_length },
+              { number: '1024' },
+            ),
           },
           validate: (value: string) => {
             const hexFormat = form.getValues('hexFormat');
@@ -145,11 +155,71 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
         }}
         labelAddon={
           <XStack alignItems="center" gap="$2">
-            <SizableText color="$text" size="$bodyMd">
-              {intl.formatMessage({
+            <Popover
+              title={intl.formatMessage({
                 id: ETranslations.message_signing_address_hex_format,
               })}
-            </SizableText>
+              renderTrigger={
+                <Button
+                  size="small"
+                  variant="tertiary"
+                  iconAfter="QuestionmarkOutline"
+                  px="$1.5"
+                  mx="$-1.5"
+                  gap="$-1"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.message_signing_address_hex_format,
+                  })}
+                </Button>
+              }
+              renderContent={() => (
+                <YStack
+                  p="$5"
+                  pt="$0"
+                  $gtMd={{
+                    px: '$4',
+                    py: '$3',
+                  }}
+                  gap="$4"
+                >
+                  <SizableText>
+                    {intl.formatMessage({
+                      id: ETranslations.sign_message_hex_format_description,
+                    })}
+                  </SizableText>
+
+                  <YStack>
+                    <SizableText size="$headingXs" color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.sign_message_hex_format_example_title,
+                      })}
+                    </SizableText>
+                    <SizableText size="$headingSm">
+                      {intl.formatMessage({
+                        id: ETranslations.sign_message_hex_format_example_input,
+                      })}
+                    </SizableText>
+                    <XStack>
+                      <SizableText pr="$2">-</SizableText>
+                      <SizableText>
+                        {intl.formatMessage({
+                          id: ETranslations.sign_message_hex_format_example_off,
+                        })}
+                      </SizableText>
+                    </XStack>
+                    <XStack>
+                      <SizableText pr="$2">-</SizableText>
+                      <SizableText>
+                        {intl.formatMessage({
+                          id: ETranslations.sign_message_hex_format_example_on,
+                        })}
+                      </SizableText>
+                    </XStack>
+                  </YStack>
+                </YStack>
+              )}
+            />
             <Form.Field name="hexFormat">
               <Switch size="small" />
             </Form.Field>
@@ -157,10 +227,10 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
         }
       >
         <TextAreaInput
-          size="large"
-          placeholder={intl.formatMessage({
-            id: ETranslations.message_signing_address_placeholder,
-          })}
+        // size="large"
+        // placeholder={intl.formatMessage({
+        //   id: ETranslations.message_signing_address_placeholder,
+        // })}
         />
       </Form.Field>
 
@@ -169,7 +239,14 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
           id: ETranslations.global_address,
         })}
         name="address"
-        description="Supports: Bitcoin, Ethereum, Solana"
+        description={intl.formatMessage(
+          {
+            id: ETranslations.verify_message_address_form_description,
+          },
+          {
+            networks: 'Bitcoin, Ethereum, Solana',
+          },
+        )}
         rules={{
           required: intl.formatMessage({
             id: ETranslations.address_book_add_address_name_required,
@@ -183,22 +260,87 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
               onNetworkDetected?.(detectedNetwork);
 
               if (!detectedNetwork) {
-                return 'Invalid address or unsupported network';
+                return intl.formatMessage({
+                  id: ETranslations.message_signing_address_invalid_text,
+                });
               }
 
               return true;
             },
-            [detectNetworkByAddress, onNetworkDetected],
+            [detectNetworkByAddress, intl, onNetworkDetected],
           ),
         }}
       >
-        <Input placeholder="Enter Address" />
+        <Input />
       </Form.Field>
 
-      <Divider />
-
       {displayFormatForm ? (
-        <Form.Field label="Signature format" name="format">
+        <Form.Field
+          label={intl.formatMessage({
+            id: ETranslations.signature_format_title,
+          })}
+          labelAddon={
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.signature_format_title,
+              })}
+              renderTrigger={
+                <Button
+                  iconAfter="QuestionmarkOutline"
+                  size="small"
+                  variant="tertiary"
+                >
+                  {intl.formatMessage({ id: ETranslations.global_learn_more })}
+                </Button>
+              }
+              renderContent={() => (
+                <YStack
+                  p="$5"
+                  pt="$0"
+                  $gtMd={{
+                    px: '$4',
+                    py: '$3',
+                  }}
+                  gap="$4"
+                >
+                  <SizableText>
+                    {intl.formatMessage({
+                      id: ETranslations.signature_format_description,
+                    })}
+                  </SizableText>
+
+                  <YStack>
+                    <XStack>
+                      <SizableText pr="$2">-</SizableText>
+                      <SizableText>
+                        {intl.formatMessage({
+                          id: ETranslations.signature_format_standard,
+                        })}
+                      </SizableText>
+                    </XStack>
+                    <XStack>
+                      <SizableText pr="$2">-</SizableText>
+                      <SizableText>
+                        {intl.formatMessage({
+                          id: ETranslations.signature_format_bip137,
+                        })}
+                      </SizableText>
+                    </XStack>
+                    <XStack>
+                      <SizableText pr="$2">-</SizableText>
+                      <SizableText>
+                        {intl.formatMessage({
+                          id: ETranslations.signature_format_322,
+                        })}
+                      </SizableText>
+                    </XStack>
+                  </YStack>
+                </YStack>
+              )}
+            />
+          }
+          name="format"
+        >
           <Radio
             orientation="horizontal"
             gap="$5"
@@ -218,7 +360,7 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
           }),
         }}
       >
-        <Input placeholder="Enter Signature" />
+        <TextAreaInput />
       </Form.Field>
     </Form>
   );
