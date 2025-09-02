@@ -14,7 +14,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { showPrimeTransferServerConfigDialog } from './PrimeTransferServerConfigDialog';
@@ -59,17 +58,16 @@ export function PrimeTransferServerStatusBar() {
   const getStatusInfo = useCallback(async () => {
     const config =
       await backgroundApiProxy.simpleDb.primeTransfer.getServerConfig();
+    const serverName =
+      await backgroundApiProxy.simpleDb.primeTransfer.getServerFormattedName(
+        config,
+      );
+    const isUsingCustomServer =
+      config.customServerUrl &&
+      config.serverType === EPrimeTransferServerType.CUSTOM;
 
     switch (connectionState) {
       case 'connected': {
-        const serverName =
-          config?.customServerUrl &&
-          config?.serverType === EPrimeTransferServerType.CUSTOM
-            ? uriUtils.getHostNameFromUrl({ url: config.customServerUrl || '' })
-            : intl.formatMessage({
-                id: ETranslations.transfer_transfer_server_server_official,
-              });
-
         return {
           iconColor: '$iconSuccess',
           bgColor: '$bgSuccess',
@@ -95,9 +93,14 @@ export function PrimeTransferServerStatusBar() {
         return {
           iconColor: '$iconCritical',
           bgColor: '$bgCritical',
-          text: intl.formatMessage({
-            id: ETranslations.transfer_transfer_server_status_connect_failed,
-          }),
+          text: intl.formatMessage(
+            {
+              id: isUsingCustomServer
+                ? ETranslations.transfer_connection_failed_check_network_or_server_configuration
+                : ETranslations.transfer_transfer_server_status_connect_failed,
+            },
+            { serverName },
+          ),
           isCustomServer: false,
         };
       default:
@@ -110,18 +113,8 @@ export function PrimeTransferServerStatusBar() {
     }
   }, [connectionState, intl]);
 
-  const handleServerConfig = (
-    serverType: EPrimeTransferServerType,
-    customServer?: string,
-  ) => {
-    // TODO: Implement server configuration logic
-    console.log('Server config:', { serverType, customServer });
-  };
-
   const handleManagePress = () => {
-    showPrimeTransferServerConfigDialog({
-      onConfirm: handleServerConfig,
-    });
+    showPrimeTransferServerConfigDialog();
   };
 
   const { result: statusInfo } = usePromiseResult(
@@ -154,7 +147,7 @@ export function PrimeTransferServerStatusBar() {
         <SizableText
           size="$bodyMd"
           color="$text"
-          numberOfLines={2}
+          numberOfLines={3}
           {...(statusInfo?.isCustomServer && {
             onPress: handleTextPress,
             hoverStyle: { opacity: 0.8, cursor: 'pointer' },

@@ -2,6 +2,8 @@ import { isArray, isEmpty, isFunction, isNil, isPlainObject } from 'lodash';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import type { IOneKeyError } from '../errors/types/errorTypes';
+
 export const createDelayPromise = <T>(
   delay: number,
   value?: T,
@@ -150,9 +152,10 @@ export async function promiseAllSettledEnhanced<T>(
   );
 }
 
-class PromiseTarget<T> {
-  ready = new Promise<T>((resolve) => {
+export class PromiseTarget<T> {
+  ready = new Promise<T>((resolve, reject) => {
     this._resolveFn = resolve;
+    this._rejectFn = reject;
   });
 
   _resolveFn: ((value: T) => void) | undefined;
@@ -161,6 +164,14 @@ class PromiseTarget<T> {
     setTimeout(() => {
       this._resolveFn?.(value);
     }, delay);
+  }
+
+  _rejectFn: ((error: Error | IOneKeyError) => void) | undefined;
+
+  rejectTarget(error: Error | IOneKeyError) {
+    setTimeout(() => {
+      this._rejectFn?.(error);
+    }, 0);
   }
 }
 export function createPromiseTarget<T>() {

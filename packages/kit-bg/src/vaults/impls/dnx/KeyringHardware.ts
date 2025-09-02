@@ -73,6 +73,7 @@ export class KeyringHardware extends KeyringHardwareBase {
                 path: account.path,
                 address: account.payload?.address || '',
                 pub: account.payload?.pub || '',
+                __hwExtraInfo__: undefined,
               }),
               hwSdkNetwork: this.hwSdkNetwork,
             });
@@ -102,7 +103,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         const addressRelPath = ''; // dnx don't have relPath 0/0
         for (let i = 0; i < dnxAddresses.length; i += 1) {
           const item = dnxAddresses[i];
-          const { path, address } = item;
+          const { path, address, __hwExtraInfo__ } = item;
           const addressInfo: ICoreApiGetAddressItem = {
             address: address ?? '',
             publicKey: '',
@@ -110,6 +111,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             relPath: addressRelPath,
             xpub: '',
             addresses: {},
+            __hwExtraInfo__,
           };
           ret.push(addressInfo);
         }

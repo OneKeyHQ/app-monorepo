@@ -218,6 +218,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         ),
       },
       publicKey,
+      __hwExtraInfo__: undefined,
     });
   }
 

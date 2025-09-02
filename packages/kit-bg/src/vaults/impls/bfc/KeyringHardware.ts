@@ -75,6 +75,7 @@ export class KeyringHardware extends KeyringHardwareBase {
                 path: account.path,
                 address: account.payload?.address || '',
                 publicKey: account.payload?.pub || '',
+                __hwExtraInfo__: undefined,
               }),
             });
             if (allNetworkAccounts) {
@@ -100,7 +101,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
         const ret: ICoreApiGetAddressItem[] = [];
         for (const addressInfo of addressesInfo) {
-          const { address, path, publicKey } = addressInfo;
+          const { address, path, publicKey, __hwExtraInfo__ } = addressInfo;
           if (!address) {
             throw new OneKeyHardwareError('Address is empty');
           }
@@ -108,6 +109,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             address,
             path,
             publicKey: publicKey || '',
+            __hwExtraInfo__,
           };
           ret.push(item);
         }
