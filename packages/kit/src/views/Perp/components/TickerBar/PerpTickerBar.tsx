@@ -1,18 +1,11 @@
-import React, { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 
-import {
-  SizableText,
-  Skeleton,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { SizableText, Skeleton, XStack, YStack } from '@onekeyhq/components';
+import { useCurrentTokenPriceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 
-
-import { useCurrentTokenData, usePerpSession } from '../../hooks';
-
-import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
+import { usePerpSession } from '../../hooks';
 import { formatLargeNumber } from '../../utils/formatData';
-import { useCurrentTokenPriceAtom } from '../../../../states/jotai/contexts/hyperliquid';
+import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
 
 // Countdown timer hook for funding rate countdown (every hour)
 function useFundingCountdown() {
@@ -112,7 +105,12 @@ function PerpTickerBar() {
       </XStack>
 
       {/* Right: Market Data */}
-      <XStack space="$6" alignItems="center" flex={1} justifyContent="flex-start">
+      <XStack
+        space="$6"
+        alignItems="center"
+        flex={1}
+        justifyContent="flex-start"
+      >
         {/* Oracle Price */}
         <YStack space="$1" alignItems="flex-start" minWidth={120}>
           <SizableText size="$bodySm" color="$textSubdued">

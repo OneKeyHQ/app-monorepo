@@ -16,13 +16,11 @@ export function usePerpNetworkLock() {
 
   const switchToArbitrum = useCallback(async () => {
     if (currentNetworkId !== arbitrumNetworkId) {
-      console.log('🔄 Switching to Arbitrum network for Perp trading');
       try {
         await updateSelectedAccountNetwork({
           num: 0,
           networkId: arbitrumNetworkId,
         });
-        console.log('✅ Successfully switched to Arbitrum network');
       } catch (error) {
         console.error('❌ Failed to switch to Arbitrum network:', error);
       }

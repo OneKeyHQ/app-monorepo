@@ -1,7 +1,8 @@
-import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ZeroAddress } from 'ethersV6';
 
-export type SubscriptionType = 
+import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
+
+export type ISubscriptionType =
   | 'allMids'
   | 'activeAssetCtx'
   | 'webData2'
@@ -13,8 +14,8 @@ export type SubscriptionType =
   | 'userEvents'
   | 'userNotifications';
 
-export interface SubscriptionParams {
-  allMids: {};
+export interface ISubscriptionParams {
+  allMids: Record<string, never>;
   activeAssetCtx: { coin: string };
   webData2: { user: `0x${string}` };
   l2Book: { coin: string };
@@ -26,16 +27,21 @@ export interface SubscriptionParams {
   userNotifications: { user: `0x${string}` };
 }
 
-export interface SubscriptionConfig<T extends SubscriptionType = SubscriptionType> {
+export interface ISubscriptionConfig<
+  T extends ISubscriptionType = ISubscriptionType,
+> {
   readonly type: T;
-  readonly method: keyof HL.SubscriptionClient;
+  readonly method: keyof HL.ISubscriptionClient;
   readonly eventType: 'market' | 'account';
-  readonly eventSubType: SubscriptionType;
-  readonly keyGenerator: (params: any) => string;
+  readonly eventSubType: ISubscriptionType;
+  readonly keyGenerator: (params: ISubscriptionParams[T]) => string;
   readonly priority: number;
 }
 
-export const SUBSCRIPTION_CONFIGS: Record<SubscriptionType, SubscriptionConfig> = {
+export const SUBSCRIPTION_CONFIGS: Record<
+  ISubscriptionType,
+  ISubscriptionConfig<any>
+> = {
   allMids: {
     type: 'allMids',
     method: 'allMids',
@@ -50,7 +56,8 @@ export const SUBSCRIPTION_CONFIGS: Record<SubscriptionType, SubscriptionConfig> 
     method: 'activeAssetCtx',
     eventType: 'market',
     eventSubType: 'activeAssetCtx',
-    keyGenerator: (params) => `market:activeAssetCtx:${params.coin}`,
+    keyGenerator: (params: { coin: string }) =>
+      `market:activeAssetCtx:${params.coin}`,
     priority: 2,
   },
 
@@ -59,7 +66,8 @@ export const SUBSCRIPTION_CONFIGS: Record<SubscriptionType, SubscriptionConfig> 
     method: 'webData2',
     eventType: 'account',
     eventSubType: 'webData2',
-    keyGenerator: (params) => `account:webData2:${params.user}`,
+    keyGenerator: (params: { user: `0x${string}` }) =>
+      `account:webData2:${params.user}`,
     priority: 2,
   },
 
@@ -68,7 +76,7 @@ export const SUBSCRIPTION_CONFIGS: Record<SubscriptionType, SubscriptionConfig> 
     method: 'l2Book',
     eventType: 'market',
     eventSubType: 'l2Book',
-    keyGenerator: (params) => `market:l2Book:${params.coin}`,
+    keyGenerator: (params: { coin: string }) => `market:l2Book:${params.coin}`,
     priority: 3,
   },
 
@@ -77,7 +85,8 @@ export const SUBSCRIPTION_CONFIGS: Record<SubscriptionType, SubscriptionConfig> 
     method: 'candle',
     eventType: 'market',
     eventSubType: 'candles',
-    keyGenerator: (params) => `market:candles:${params.coin}:${params.interval}`,
+    keyGenerator: (params: { coin: string; interval: string }) =>
+      `market:candles:${params.coin}:${params.interval}`,
     priority: 4,
   },
 
@@ -86,7 +95,7 @@ export const SUBSCRIPTION_CONFIGS: Record<SubscriptionType, SubscriptionConfig> 
     method: 'trades',
     eventType: 'market',
     eventSubType: 'trades',
-    keyGenerator: (params) => `market:trades:${params.coin}`,
+    keyGenerator: (params: { coin: string }) => `market:trades:${params.coin}`,
     priority: 4,
   },
 
@@ -95,7 +104,7 @@ export const SUBSCRIPTION_CONFIGS: Record<SubscriptionType, SubscriptionConfig> 
     method: 'bbo',
     eventType: 'market',
     eventSubType: 'bbo',
-    keyGenerator: (params) => `market:bbo:${params.coin}`,
+    keyGenerator: (params: { coin: string }) => `market:bbo:${params.coin}`,
     priority: 3,
   },
 
@@ -104,7 +113,8 @@ export const SUBSCRIPTION_CONFIGS: Record<SubscriptionType, SubscriptionConfig> 
     method: 'activeAssetData',
     eventType: 'account',
     eventSubType: 'activeAssetData',
-    keyGenerator: (params) => `account:activeAssetData:${params.user}:${params.coin}`,
+    keyGenerator: (params: { user: `0x${string}`; coin: string }) =>
+      `account:activeAssetData:${params.user}:${params.coin}`,
     priority: 3,
   },
 
@@ -113,7 +123,8 @@ export const SUBSCRIPTION_CONFIGS: Record<SubscriptionType, SubscriptionConfig> 
     method: 'userEvents',
     eventType: 'account',
     eventSubType: 'userEvents',
-    keyGenerator: (params) => `account:userEvents:${params.user}`,
+    keyGenerator: (params: { user: `0x${string}` }) =>
+      `account:userEvents:${params.user}`,
     priority: 2,
   },
 
@@ -122,47 +133,57 @@ export const SUBSCRIPTION_CONFIGS: Record<SubscriptionType, SubscriptionConfig> 
     method: 'notification',
     eventType: 'account',
     eventSubType: 'userNotifications',
-    keyGenerator: (params) => `account:userNotifications:${params.user}`,
+    keyGenerator: (params: { user: `0x${string}` }) =>
+      `account:userNotifications:${params.user}`,
     priority: 3,
   },
 };
 
-export interface SubscriptionSpec<T extends SubscriptionType = SubscriptionType> {
+export interface ISubscriptionSpec<
+  T extends ISubscriptionType = ISubscriptionType,
+> {
   readonly type: T;
   readonly key: string;
-  readonly params: SubscriptionParams[T];
+  readonly params: ISubscriptionParams[T];
   readonly priority: number;
 }
 
-export interface SubscriptionState {
+export interface ISubscriptionState {
   currentUser: `0x${string}` | null;
   currentSymbol: string;
+  currentCandleInterval: string;
   isConnected: boolean;
 }
 
-export interface SubscriptionDiff {
-  toSubscribe: SubscriptionSpec[];
-  toUnsubscribe: SubscriptionSpec[];
+export interface ISubscriptionDiff {
+  toSubscribe: ISubscriptionSpec[];
+  toUnsubscribe: ISubscriptionSpec[];
 }
 
-export function getSubscriptionConfig<T extends SubscriptionType>(type: T): SubscriptionConfig {
-  return SUBSCRIPTION_CONFIGS[type];
-}
-
-export function generateSubscriptionKey<T extends SubscriptionType>(
+export function getSubscriptionConfig<T extends ISubscriptionType>(
   type: T,
-  params: SubscriptionParams[T]
+): ISubscriptionConfig<T> {
+  return SUBSCRIPTION_CONFIGS[type] as ISubscriptionConfig<T>;
+}
+
+export function generateSubscriptionKey<T extends ISubscriptionType>(
+  type: T,
+  params: ISubscriptionParams[T],
 ): string {
   const config = getSubscriptionConfig(type);
   return config.keyGenerator(params);
 }
 
-export function validateSubscriptionParams<T extends SubscriptionType>(
+export function validateSubscriptionParams<T extends ISubscriptionType>(
   type: T,
-  params: any
-): params is SubscriptionParams[T] {
-  const config = getSubscriptionConfig(type);
-  
+  params: unknown,
+): params is ISubscriptionParams[T] {
+  if (typeof params !== 'object' || params === null) {
+    return false;
+  }
+
+  const obj = params as Record<string, unknown>;
+
   switch (type) {
     case 'allMids':
       return typeof params === 'object';
@@ -170,41 +191,53 @@ export function validateSubscriptionParams<T extends SubscriptionType>(
     case 'l2Book':
     case 'trades':
     case 'bbo':
-      return typeof params === 'object' && typeof params.coin === 'string';
+      return 'coin' in obj && typeof obj.coin === 'string';
     case 'candles':
-      return typeof params === 'object' && 
-             typeof params.coin === 'string' && 
-             typeof params.interval === 'string';
+      return (
+        'coin' in obj &&
+        'interval' in obj &&
+        typeof obj.coin === 'string' &&
+        typeof obj.interval === 'string'
+      );
     case 'webData2':
     case 'userEvents':
     case 'userNotifications':
-      return typeof params === 'object' && 
-             typeof params.user === 'string' && 
-             params.user.startsWith('0x');
+      return (
+        'user' in obj &&
+        typeof obj.user === 'string' &&
+        obj.user.startsWith('0x')
+      );
     case 'activeAssetData':
-      return typeof params === 'object' && 
-             typeof params.user === 'string' && 
-             params.user.startsWith('0x') && 
-             typeof params.coin === 'string';
+      return (
+        'user' in obj &&
+        'coin' in obj &&
+        typeof obj.user === 'string' &&
+        obj.user.startsWith('0x') &&
+        typeof obj.coin === 'string'
+      );
     default:
       return false;
   }
 }
 
-export function calculateRequiredSubscriptions(state: SubscriptionState): SubscriptionSpec[] {
-  const specs: SubscriptionSpec[] = [];
+export function calculateRequiredSubscriptions(
+  state: ISubscriptionState,
+): ISubscriptionSpec[] {
+  const specs: ISubscriptionSpec[] = [];
 
   specs.push({
     type: 'allMids',
-    key: generateSubscriptionKey('allMids', {}),
-    params: {},
+    key: generateSubscriptionKey('allMids', {} as Record<string, never>),
+    params: {} as Record<string, never>,
     priority: SUBSCRIPTION_CONFIGS.allMids.priority,
   });
 
   if (state.currentSymbol) {
     specs.push({
       type: 'activeAssetCtx',
-      key: generateSubscriptionKey('activeAssetCtx', { coin: state.currentSymbol }),
+      key: generateSubscriptionKey('activeAssetCtx', {
+        coin: state.currentSymbol,
+      }),
       params: { coin: state.currentSymbol },
       priority: SUBSCRIPTION_CONFIGS.activeAssetCtx.priority,
     });
@@ -215,10 +248,25 @@ export function calculateRequiredSubscriptions(state: SubscriptionState): Subscr
       params: { coin: state.currentSymbol },
       priority: SUBSCRIPTION_CONFIGS.l2Book.priority,
     });
+
+    if (state.currentCandleInterval) {
+      specs.push({
+        type: 'candles',
+        key: generateSubscriptionKey('candles', {
+          coin: state.currentSymbol,
+          interval: state.currentCandleInterval,
+        }),
+        params: {
+          coin: state.currentSymbol,
+          interval: state.currentCandleInterval,
+        },
+        priority: SUBSCRIPTION_CONFIGS.candles.priority,
+      });
+    }
   }
 
-  const effectiveUser = state.currentUser || ZeroAddress as `0x${string}`;
-  
+  const effectiveUser = state.currentUser || (ZeroAddress as `0x${string}`);
+
   specs.push({
     type: 'webData2',
     key: generateSubscriptionKey('webData2', { user: effectiveUser }),
@@ -230,9 +278,9 @@ export function calculateRequiredSubscriptions(state: SubscriptionState): Subscr
     if (state.currentSymbol) {
       specs.push({
         type: 'activeAssetData',
-        key: generateSubscriptionKey('activeAssetData', { 
-          user: state.currentUser, 
-          coin: state.currentSymbol 
+        key: generateSubscriptionKey('activeAssetData', {
+          user: state.currentUser,
+          coin: state.currentSymbol,
         }),
         params: { user: state.currentUser, coin: state.currentSymbol },
         priority: SUBSCRIPTION_CONFIGS.activeAssetData.priority,
@@ -243,19 +291,23 @@ export function calculateRequiredSubscriptions(state: SubscriptionState): Subscr
   return specs.sort((a, b) => a.priority - b.priority);
 }
 
-export function sortSubscriptionsByPriority(specs: SubscriptionSpec[]): SubscriptionSpec[] {
+export function sortSubscriptionsByPriority(
+  specs: ISubscriptionSpec[],
+): ISubscriptionSpec[] {
   return [...specs].sort((a, b) => a.priority - b.priority);
 }
 
 export function calculateSubscriptionDiff(
-  currentSpecs: SubscriptionSpec[],
-  newSpecs: SubscriptionSpec[]
-): SubscriptionDiff {
-  const currentKeys = new Set(currentSpecs.map(spec => spec.key));
-  const newKeys = new Set(newSpecs.map(spec => spec.key));
+  currentSpecs: ISubscriptionSpec[],
+  newSpecs: ISubscriptionSpec[],
+): ISubscriptionDiff {
+  const currentKeys = new Set(currentSpecs.map((spec) => spec.key));
+  const newKeys = new Set(newSpecs.map((spec) => spec.key));
 
   return {
-    toUnsubscribe: currentSpecs.filter(spec => !newKeys.has(spec.key)),
-    toSubscribe: sortSubscriptionsByPriority(newSpecs.filter(spec => !currentKeys.has(spec.key))),
+    toUnsubscribe: currentSpecs.filter((spec) => !newKeys.has(spec.key)),
+    toSubscribe: sortSubscriptionsByPriority(
+      newSpecs.filter((spec) => !currentKeys.has(spec.key)),
+    ),
   };
 }

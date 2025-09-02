@@ -5,14 +5,14 @@ import {
   NumberSizeableText,
   SizableText,
   Spinner,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useHyperliquidAccount } from '../../hooks';
-import { useActiveAccount } from '../../../../states/jotai/contexts/accountSelector';
-import { showDepositWithdrawModal } from './DepositWithdrawModal';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 
+import { useHyperliquidAccount } from '../../hooks';
+
+import { showDepositWithdrawModal } from './DepositWithdrawModal';
 
 function PerpAccountPanel() {
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -21,11 +21,26 @@ function PerpAccountPanel() {
   const availableBalance = accountSummary.withdrawable;
   let currentPositionValue = 0;
   if (userWebData2) {
-    currentPositionValue = userWebData2.clearinghouseState.assetPositions.reduce((acc, curr) => acc + Number(curr.position.positionValue), 0);
+    currentPositionValue =
+      userWebData2.clearinghouseState.assetPositions.reduce(
+        (acc, curr) => acc + Number(curr.position.positionValue),
+        0,
+      );
   }
 
   const handleDepositOrWithdraw = useCallback(() => {
-    showDepositWithdrawModal(activeAccount);
+    if (!activeAccount?.account?.id || !activeAccount?.account?.address) {
+      return;
+    }
+
+    const accountData = {
+      account: {
+        id: activeAccount.account.id,
+        address: activeAccount.account.address,
+      },
+    };
+
+    showDepositWithdrawModal(accountData);
   }, [activeAccount]);
 
   if (!userWebData2) {
@@ -42,12 +57,7 @@ function PerpAccountPanel() {
   return (
     <YStack flex={1} space="$3">
       {/* Header */}
-      <XStack
-        p="$4"
-
-        justifyContent="space-between"
-        alignItems="center"
-      >
+      <XStack p="$4" justifyContent="space-between" alignItems="center">
         <SizableText size="$headingLg" fontWeight="600">
           ACCOUNT OVERVIEW
         </SizableText>
@@ -83,10 +93,20 @@ function PerpAccountPanel() {
 
       {/* Action Buttons */}
       <XStack px="$4" pb="$4" space="$2" mt="$4">
-        <Button flex={1} size="medium" variant="secondary" onPress={handleDepositOrWithdraw}>
+        <Button
+          flex={1}
+          size="medium"
+          variant="secondary"
+          onPress={handleDepositOrWithdraw}
+        >
           <SizableText size="$bodySm">Withdraw</SizableText>
         </Button>
-        <Button flex={1} size="medium" variant="secondary" onPress={handleDepositOrWithdraw}>
+        <Button
+          flex={1}
+          size="medium"
+          variant="secondary"
+          onPress={handleDepositOrWithdraw}
+        >
           <SizableText size="$bodySm">Deposit</SizableText>
         </Button>
       </XStack>

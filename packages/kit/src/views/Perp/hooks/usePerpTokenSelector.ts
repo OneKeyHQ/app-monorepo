@@ -4,8 +4,10 @@ import {
   useCurrentTokenAtom,
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { useTokenList } from './usePerpMarketData';
+
 import { getPriceDecimals } from '../utils/tokenUtils';
+
+import { useTokenList } from './usePerpMarketData';
 
 export interface ITokenItem {
   coin: string;
@@ -16,13 +18,15 @@ export interface ITokenItem {
 }
 
 export interface IPerpTokenSelectorReturn {
-  tokens: Array<ITokenItem & {
-    displayPrice: string;
-    displayChange: string;
-    displayVolume: string;
-    changeColor: 'green' | 'red' | 'gray';
-    isPopular: boolean;
-  }>;
+  tokens: Array<
+    ITokenItem & {
+      displayPrice: string;
+      displayChange: string;
+      displayVolume: string;
+      changeColor: 'green' | 'red' | 'gray';
+      isPopular: boolean;
+    }
+  >;
   currentToken: string;
   searchQuery: string;
   filteredTokens: ITokenItem[];
@@ -33,7 +37,6 @@ export interface IPerpTokenSelectorReturn {
   isLoading: boolean;
 }
 
-
 export function usePerpTokenSelector() {
   const [currentToken] = useCurrentTokenAtom();
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,14 +46,18 @@ export function usePerpTokenSelector() {
   const { data: tokenList } = useTokenList();
 
   const enhancedTokens = useMemo(() => {
-    
     return tokenList.map((token) => {
       const priceDecimals = getPriceDecimals(token.szDecimals);
       return {
         ...token,
-        change24h: (parseFloat(token.markPrice) - parseFloat(token.prevDayPrice)).toFixed(priceDecimals),
-        change24hPercent: (parseFloat(token.markPrice) - parseFloat(token.prevDayPrice)) / parseFloat(token.prevDayPrice) * 100
-      }
+        change24h: (
+          parseFloat(token.markPrice) - parseFloat(token.prevDayPrice)
+        ).toFixed(priceDecimals),
+        change24hPercent:
+          ((parseFloat(token.markPrice) - parseFloat(token.prevDayPrice)) /
+            parseFloat(token.prevDayPrice)) *
+          100,
+      };
     });
   }, [tokenList]);
 
@@ -58,10 +65,10 @@ export function usePerpTokenSelector() {
     if (!searchQuery.trim()) {
       return enhancedTokens;
     }
-    
+
     const query = searchQuery.toLowerCase();
     return enhancedTokens.filter((token) =>
-      token.name?.toLowerCase().includes(query)
+      token.name?.toLowerCase().includes(query),
     );
   }, [enhancedTokens, searchQuery]);
 
@@ -72,7 +79,6 @@ export function usePerpTokenSelector() {
       setIsLoading(true);
       try {
         await actions.current.setCurrentToken(symbol);
-
       } catch (error) {
         console.error('[PerpTokenSelector] Failed to select token:', error);
       } finally {

@@ -1,7 +1,6 @@
-import React, { memo, useState } from 'react';
+import { useState } from 'react';
 
 import {
-  Badge,
   Button,
   Icon,
   Image,
@@ -14,7 +13,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 
-import { usePerpTokenSelector } from '../../hooks/usePerpTokenSelector';
+import { usePerpTokenSelector } from '../../hooks';
 
 function AssetIcon({ symbol }: { symbol: string }) {
   // Use Hyperliquid's icon URL pattern
@@ -32,9 +31,14 @@ function AssetIcon({ symbol }: { symbol: string }) {
 
 function PerpTokenSelector() {
   const [isOpen, setIsOpen] = useState(false);
-  const { tokens, currentToken, searchQuery, setSearchQuery, filteredTokens, selectToken, isLoading } = usePerpTokenSelector();
-  // console.log('tokenList', tokens);
-
+  const {
+    currentToken,
+    searchQuery,
+    setSearchQuery,
+    filteredTokens,
+    selectToken,
+    isLoading,
+  } = usePerpTokenSelector();
 
   const handleSelectToken = async (symbol: string) => {
     try {
@@ -66,14 +70,18 @@ function PerpTokenSelector() {
               {currentToken || 'ETH'}-USD
             </SizableText>
 
-            {isLoading && <Spinner size="small" />}
+            {isLoading ? <Spinner size="small" /> : null}
           </XStack>
         </Button>
       }
       renderContent={
         <YStack width={800} maxHeight={500}>
           {/* Search Input */}
-          <XStack p="$3" borderBottomWidth="$px" borderBottomColor="$borderSubdued">
+          <XStack
+            p="$3"
+            borderBottomWidth="$px"
+            borderBottomColor="$borderSubdued"
+          >
             <Input
               placeholder="Search tokens..."
               value={searchQuery}
@@ -115,7 +123,9 @@ function PerpTokenSelector() {
               {filteredTokens.length === 0 ? (
                 <XStack p="$4" justifyContent="center">
                   <SizableText size="$bodySm" color="$textSubdued">
-                    {searchQuery ? 'No matching tokens found' : 'Loading tokens...'}
+                    {searchQuery
+                      ? 'No matching tokens found'
+                      : 'Loading tokens...'}
                   </SizableText>
                 </XStack>
               ) : (
@@ -139,11 +149,6 @@ function PerpTokenSelector() {
                             <SizableText size="$bodyMd" fontWeight="600">
                               {token.name}-USD
                             </SizableText>
-                            {POPULAR_TOKENS.includes(token.name) && (
-                              <Badge size="small" bg="$yellow5">
-                                Popular
-                              </Badge>
-                            )}
                           </XStack>
                           <SizableText size="$bodySm" color="$textSubdued">
                             {token.name}
@@ -159,8 +164,16 @@ function PerpTokenSelector() {
 
                       {/* Change - Placeholder for now */}
                       <XStack width={80} justifyContent="center">
-                        <SizableText size="$bodySm" color={token.change24hPercent > 0 ? '$green8' : '$red8'}>
-                          {token.change24hPercent > 0 ? '+' : ''}{token.change24h} / {token.change24hPercent > 0 ? '+' : ''}{token.change24hPercent.toFixed(2)}%
+                        <SizableText
+                          size="$bodySm"
+                          color={
+                            token.change24hPercent > 0 ? '$green8' : '$red8'
+                          }
+                        >
+                          {token.change24hPercent > 0 ? '+' : ''}
+                          {token.change24h} /{' '}
+                          {token.change24hPercent > 0 ? '+' : ''}
+                          {token.change24hPercent.toFixed(2)}%
                         </SizableText>
                       </XStack>
                     </XStack>
@@ -175,8 +188,4 @@ function PerpTokenSelector() {
   );
 }
 
-// Popular tokens constant - shared with hook
-const POPULAR_TOKENS = ['BTC', 'ETH', 'SOL', 'ARB', 'DOGE', 'AVAX', 'MATIC', 'ADA'];
-
-const PerpTokenSelectorMemo = memo(PerpTokenSelector);
-export { PerpTokenSelectorMemo as PerpTokenSelector };
+export { PerpTokenSelector };

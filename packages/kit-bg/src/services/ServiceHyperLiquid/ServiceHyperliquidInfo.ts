@@ -1,18 +1,16 @@
-import {
-  InfoClient,
-  HttpTransport,
-} from '@nktkas/hyperliquid';
+import { HttpTransport, InfoClient } from '@nktkas/hyperliquid';
 
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
-  ExtraAgent,
-  UserFillsByTimeParameters,
-  Fill,
+  ICandle,
+  ICandleSnapshotParameters,
+  IExtraAgent,
+  IFill,
+  IUserFillsByTimeParameters,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import ServiceBase from '../ServiceBase';
@@ -38,12 +36,16 @@ export default class ServiceHyperliquidInfo extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getExtraAgents(params: { user: `0x${string}` }): Promise<ExtraAgent[]> {
+  async getExtraAgents(params: {
+    user: `0x${string}`;
+  }): Promise<IExtraAgent[]> {
+    const infoClient = await this._ensureInfoClient();
     try {
-      const infoClient = await this._ensureInfoClient();
       return await infoClient.extraAgents(params);
     } catch (error) {
-      throw new OneKeyLocalError(`Failed to get extra agents: ${error}`);
+      throw new OneKeyLocalError(
+        `Failed to get extra agents: ${(error as Error).message ?? error}`,
+      );
     }
   }
 
@@ -52,21 +54,43 @@ export default class ServiceHyperliquidInfo extends ServiceBase {
     user: `0x${string}`;
     builder: `0x${string}`;
   }): Promise<number> {
+    const infoClient = await this._ensureInfoClient();
     try {
-      const infoClient = await this._ensureInfoClient();
       return await infoClient.maxBuilderFee(params);
     } catch (error) {
-      throw new OneKeyLocalError(`Failed to get max builder fee: ${error}`);
+      throw new OneKeyLocalError(
+        `Failed to get max builder fee: ${(error as Error).message ?? error}`,
+      );
     }
   }
 
   @backgroundMethod()
-  async getUserFillsByTime(params: UserFillsByTimeParameters): Promise<Fill[]> {
+  async getUserFillsByTime(
+    params: IUserFillsByTimeParameters,
+  ): Promise<IFill[]> {
+    const infoClient = await this._ensureInfoClient();
     try {
-      const infoClient = await this._ensureInfoClient();
       return await infoClient.userFillsByTime(params);
     } catch (error) {
-      throw new OneKeyLocalError(`Failed to get user fills by time: ${error}`);
+      throw new OneKeyLocalError(
+        `Failed to get user fills by time: ${
+          (error as Error).message ?? error
+        }`,
+      );
+    }
+  }
+
+  @backgroundMethod()
+  async getCandleSnapshot(
+    params: ICandleSnapshotParameters,
+  ): Promise<ICandle[]> {
+    const infoClient = await this._ensureInfoClient();
+    try {
+      return await infoClient.candleSnapshot(params);
+    } catch (error) {
+      throw new OneKeyLocalError(
+        `Failed to get candles by time: ${(error as Error).message ?? error}`,
+      );
     }
   }
 

@@ -1,36 +1,31 @@
 import { memo, useCallback } from 'react';
 
+import { Button, SizableText, Spinner, YStack } from '@onekeyhq/components';
 import {
-  Button,
-  SizableText,
-  Spinner,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
-
-import { useCurrentTokenData } from '../../hooks';
-import { PerpTradingForm } from './PerpTradingForm';
-import { showOrderConfirmDialog } from './OrderConfirmModal';
-
-import {
+  useHyperliquidActions,
   useTradingFormAtom,
   useTradingLoadingAtom,
-  useHyperliquidActions,
-} from '../../../../states/jotai/contexts/hyperliquid';
-import { useHyperliquidTrading } from '../../hooks';
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+
+import { useCurrentTokenData, useHyperliquidTrading } from '../../hooks';
+
+import { showOrderConfirmDialog } from './OrderConfirmModal';
+import { PerpTradingForm } from './PerpTradingForm';
 
 function PerpTradingPanel() {
-  const { canTrade, loading, currentUser, checkAndApproveWallet } = useHyperliquidTrading();
+  const { canTrade, loading, currentUser, checkAndApproveWallet } =
+    useHyperliquidTrading();
   const tokenInfo = useCurrentTokenData();
   const [formData] = useTradingFormAtom();
   const [isSubmitting] = useTradingLoadingAtom();
   const actions = useHyperliquidActions();
   const handleShowConfirm = useCallback(() => {
     if (!tokenInfo) {
-      console.error('[PerpTradingPanel.handleShowConfirm] No token info available');
+      console.error(
+        '[PerpTradingPanel.handleShowConfirm] No token info available',
+      );
       return;
     }
-
 
     showOrderConfirmDialog({
       formData,
@@ -55,7 +50,10 @@ function PerpTradingPanel() {
           // Reset form after successful order
           actions.current.resetTradingForm();
         } catch (error) {
-          console.error('[PerpTradingPanel.handleConfirm] Failed to place order:', error);
+          console.error(
+            '[PerpTradingPanel.handleConfirm] Failed to place order:',
+            error,
+          );
           throw error;
         }
       },
@@ -72,25 +70,25 @@ function PerpTradingPanel() {
         </Button>
       ) : (
         <>
-          {!currentUser && (
+          {!currentUser ? (
             <Button size="large" borderRadius="$3" onPress={() => {}}>
               <SizableText>Connect wallet</SizableText>
             </Button>
-          )}
+          ) : null}
 
-          {!canTrade && (
+          {!canTrade ? (
             <Button
               size="large"
               borderRadius="$3"
               onPress={() => {
-                checkAndApproveWallet();
+                void checkAndApproveWallet();
               }}
             >
               <SizableText>Enable trading</SizableText>
             </Button>
-          )}
-          
-          {canTrade && (
+          ) : null}
+
+          {canTrade ? (
             <Button
               bg={(() => {
                 if (!canTrade || isSubmitting) return '$gray7';
@@ -112,7 +110,7 @@ function PerpTradingPanel() {
               }}
               onPress={() => {
                 if (!canTrade) {
-                  checkAndApproveWallet();
+                  void checkAndApproveWallet();
                 } else {
                   handleShowConfirm();
                 }
@@ -132,7 +130,7 @@ function PerpTradingPanel() {
                 {isSubmitting ? 'Placing...' : 'Place order'}
               </SizableText>
             </Button>
-          )}
+          ) : null}
         </>
       )}
     </YStack>

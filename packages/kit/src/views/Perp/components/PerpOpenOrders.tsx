@@ -1,7 +1,3 @@
-import React, { memo } from 'react';
-
-import type { WsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
-
 import {
   Button,
   ScrollView,
@@ -9,6 +5,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpOrders } from '../hooks/usePerpPortfolio';
 
@@ -23,7 +20,11 @@ const COLUMN_WIDTHS = {
   actions: 140,
 };
 
-const PerpOrdersRow = memo(({ order }: { order: WsWebData2['openOrders'][number] }) => {
+const PerpOrdersRow = ({
+  order,
+}: {
+  order: IWsWebData2['openOrders'][number];
+}) => {
   const {
     triggerCondition,
     orderType,
@@ -37,7 +38,7 @@ const PerpOrdersRow = memo(({ order }: { order: WsWebData2['openOrders'][number]
     cloid,
     reduceOnly,
     oid,
-  } = order
+  } = order;
   return (
     <XStack
       py="$2"
@@ -47,7 +48,10 @@ const PerpOrdersRow = memo(({ order }: { order: WsWebData2['openOrders'][number]
       bg="$bg"
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
-      minWidth={Object.values(COLUMN_WIDTHS).reduce((sum, width) => sum + width, 0)}
+      minWidth={Object.values(COLUMN_WIDTHS).reduce(
+        (sum, width) => sum + width,
+        0,
+      )}
     >
       <XStack width={COLUMN_WIDTHS.side} justifyContent="flex-start">
         <XStack
@@ -56,7 +60,7 @@ const PerpOrdersRow = memo(({ order }: { order: WsWebData2['openOrders'][number]
           bg={side === 'B' ? '$green7' : '$red7'}
         />
       </XStack>
-      
+
       <XStack width={COLUMN_WIDTHS.coin} alignItems="center" space="$2">
         <SizableText size="$bodyMd" fontWeight="600">
           {coin}
@@ -74,39 +78,29 @@ const PerpOrdersRow = memo(({ order }: { order: WsWebData2['openOrders'][number]
       </XStack>
 
       <XStack width={COLUMN_WIDTHS.limitPrice} justifyContent="flex-start">
-        <SizableText size="$bodyMd">
-          {sz}
-        </SizableText>
+        <SizableText size="$bodyMd">{sz}</SizableText>
       </XStack>
 
       <XStack width={COLUMN_WIDTHS.size} justifyContent="flex-start">
-        <SizableText size="$bodyMd">
-          ${limitPx}
-        </SizableText>
+        <SizableText size="$bodyMd">${limitPx}</SizableText>
       </XStack>
 
       <XStack width={COLUMN_WIDTHS.time} justifyContent="flex-start">
-        <SizableText size="$bodyMd">
-          ${limitPx}
-        </SizableText>
+        <SizableText size="$bodyMd">${limitPx}</SizableText>
       </XStack>
 
-      <XStack width={COLUMN_WIDTHS.actions} space="$2" justifyContent="flex-start">
+      <XStack
+        width={COLUMN_WIDTHS.actions}
+        space="$2"
+        justifyContent="flex-start"
+      >
         <Button size="small" variant="secondary" disabled>
           <SizableText size="$bodySm">Cancel</SizableText>
         </Button>
       </XStack>
     </XStack>
   );
-}, (prevProps, nextProps) => {
-  const prev = prevProps.order;
-  const next = nextProps.order;
-  
-  return (
-    prev.coin === next.coin
-  );
-});
-
+};
 function PerpOpenOrders() {
   const orders = usePerpOrders();
 
@@ -121,7 +115,12 @@ function PerpOpenOrders() {
         <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
           No open orders
         </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued" textAlign="center" mt="$2">
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          textAlign="center"
+          mt="$2"
+        >
           Your orders will appear here after opening trades
         </SizableText>
       </YStack>
@@ -131,9 +130,9 @@ function PerpOpenOrders() {
   return (
     <YStack flex={1} overflow="hidden">
       {/* Column Headers */}
-      <XStack 
-        py="$2" 
-        px="$3" 
+      <XStack
+        py="$2"
+        px="$3"
         minWidth={totalWidth}
         borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
@@ -187,7 +186,7 @@ function PerpOpenOrders() {
         <YStack>
           {orders.map((order) => (
             <PerpOrdersRow
-              key={`${order.oid}-${order.cloid}`}
+              key={`${order.oid}-${order.cloid || ''}`}
               order={order}
             />
           ))}

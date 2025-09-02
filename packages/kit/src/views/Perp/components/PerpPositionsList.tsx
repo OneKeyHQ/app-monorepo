@@ -1,6 +1,4 @@
-import React, { memo, useMemo } from 'react';
-
-import type { WsWebData2, WsAllMids } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import { useMemo } from 'react';
 
 import {
   Button,
@@ -9,12 +7,17 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { getPriceDecimals, formatPriceToSignificantDigits } from '../utils/tokenUtils';
+import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import { usePerpPositions } from '../hooks/usePerpPortfolio';
-import { showClosePositionDialog } from './ClosePositionModal';
-import { useWebData2Atom, useAllMidsAtom, useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
+import {
+  useAllMidsAtom,
+  useHyperliquidActions,
+} from '../../../states/jotai/contexts/hyperliquid';
 import { useTokenList } from '../hooks';
+import { usePerpPositions } from '../hooks/usePerpPortfolio';
+import { formatPriceToSignificantDigits } from '../utils/tokenUtils';
+
+import { showClosePositionDialog } from './ClosePositionModal';
 
 // Fixed column widths for consistent table layout
 const COLUMN_WIDTHS = {
@@ -29,8 +32,12 @@ const COLUMN_WIDTHS = {
   actions: 140,
 };
 
-const PerpPositionRow = memo(({ pos, mid, actions }: {
-  pos: WsWebData2['clearinghouseState']['assetPositions'][number]['position'];
+const PerpPositionRow = ({
+  pos,
+  mid,
+  actions,
+}: {
+  pos: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
   mid?: string;
   actions: any;
 }) => {
@@ -50,7 +57,14 @@ const PerpPositionRow = memo(({ pos, mid, actions }: {
   const roiPercent = marginUsed > 0 ? (unrealizedPnl / marginUsed) * 100 : 0;
 
   const isProfit = unrealizedPnl >= 0;
-  const displayLiqPrice = liquidationPrice === '0' ? 'N/A' : `$${parseFloat(liquidationPrice) > 0 ? formatPriceToSignificantDigits(parseFloat(liquidationPrice), 5) : '0'}`;
+  const displayLiqPrice =
+    liquidationPrice === '0'
+      ? 'N/A'
+      : `$${
+          parseFloat(liquidationPrice) > 0
+            ? formatPriceToSignificantDigits(parseFloat(liquidationPrice), 5)
+            : '0'
+        }`;
   const formattedSize = `${size.toFixed(4)} ${pos.coin}`;
 
   const tokenInfo = useMemo(() => {
@@ -78,7 +92,10 @@ const PerpPositionRow = memo(({ pos, mid, actions }: {
       bg="$bg"
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
-      minWidth={Object.values(COLUMN_WIDTHS).reduce((sum, width) => sum + width, 0)}
+      minWidth={Object.values(COLUMN_WIDTHS).reduce(
+        (sum, width) => sum + width,
+        0,
+      )}
     >
       {/* Side Indicator */}
       <XStack width={COLUMN_WIDTHS.side} justifyContent="flex-start">
@@ -108,22 +125,24 @@ const PerpPositionRow = memo(({ pos, mid, actions }: {
 
       {/* Size */}
       <XStack width={COLUMN_WIDTHS.size} justifyContent="flex-start">
-        <SizableText size="$bodyMd">
-          {formattedSize}
-        </SizableText>
+        <SizableText size="$bodyMd">{formattedSize}</SizableText>
       </XStack>
 
       {/* Entry Price */}
       <XStack width={COLUMN_WIDTHS.entryPrice} justifyContent="flex-start">
         <SizableText size="$bodyMd">
-          ${entryPrice > 0 ? formatPriceToSignificantDigits(entryPrice, 5) : '0'}
+          $
+          {entryPrice > 0 ? formatPriceToSignificantDigits(entryPrice, 5) : '0'}
         </SizableText>
       </XStack>
 
       {/* Mark Price */}
       <XStack width={COLUMN_WIDTHS.markPrice} justifyContent="flex-start">
         <SizableText size="$bodyMd">
-          ${markPrice !== '0' ? formatPriceToSignificantDigits(Number(markPrice), 5) : '0'}
+          $
+          {markPrice !== '0'
+            ? formatPriceToSignificantDigits(Number(markPrice), 5)
+            : '0'}
         </SizableText>
       </XStack>
 
@@ -140,15 +159,14 @@ const PerpPositionRow = memo(({ pos, mid, actions }: {
           size="$bodySm"
           color={isProfit ? '$textSuccess' : '$textCritical'}
         >
-          ({isProfit ? '+' : ''}{roiPercent.toFixed(2)}%)
+          ({isProfit ? '+' : ''}
+          {roiPercent.toFixed(2)}%)
         </SizableText>
       </YStack>
 
       {/* Margin */}
       <XStack width={COLUMN_WIDTHS.margin} justifyContent="flex-start">
-        <SizableText size="$bodyMd">
-          ${marginUsed.toFixed(2)}
-        </SizableText>
+        <SizableText size="$bodyMd">${marginUsed.toFixed(2)}</SizableText>
       </XStack>
 
       {/* Liquidation Price */}
@@ -162,23 +180,21 @@ const PerpPositionRow = memo(({ pos, mid, actions }: {
       </XStack>
 
       {/* Actions */}
-      <XStack width={COLUMN_WIDTHS.actions} space="$2" justifyContent="flex-start">
+      <XStack
+        width={COLUMN_WIDTHS.actions}
+        space="$2"
+        justifyContent="flex-start"
+      >
         <Button size="small" variant="secondary" disabled>
           <SizableText size="$bodySm">Limit</SizableText>
         </Button>
-        <Button
-          size="small"
-          variant="secondary"
-          onPress={handleMarketClose}
-        >
+        <Button size="small" variant="secondary" onPress={handleMarketClose}>
           <SizableText size="$bodySm">Market</SizableText>
         </Button>
       </XStack>
     </XStack>
   );
-}, (prevProps, nextProps) => {
-  return false;
-});
+};
 
 function PerpPositionsList() {
   const positions = usePerpPositions();
@@ -195,7 +211,12 @@ function PerpPositionsList() {
         <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
           No open positions
         </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued" textAlign="center" mt="$2">
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          textAlign="center"
+          mt="$2"
+        >
           Your positions will appear here after opening trades
         </SizableText>
       </YStack>

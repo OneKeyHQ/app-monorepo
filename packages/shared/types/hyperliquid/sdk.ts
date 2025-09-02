@@ -1,70 +1,72 @@
 import type * as HL from '@nktkas/hyperliquid';
 
 // WebSocket data types
-export type WsWebData2 = HL.WsWebData2;
-export type WsAllMids = HL.WsAllMids;
-export type WsActiveAssetCtx = HL.WsActiveAssetCtx;
-export type WsUserEvent = HL.WsUserEvent;
-export type WsUserFills = HL.WsUserFills;
-export type WsBbo = HL.WsBbo;
-export type WsNotification = HL.WsNotification;
-export type WsTrade = HL.WsTrade;
+export type IWsWebData2 = HL.WsWebData2;
+export type IWsAllMids = HL.WsAllMids;
+export type IWsActiveAssetCtx = HL.WsActiveAssetCtx;
+export type IWsUserEvent = HL.WsUserEvent;
+export type IWsUserFills = HL.WsUserFills;
+export type IWsBbo = HL.WsBbo;
+export type IWsNotification = HL.WsNotification;
+export type IWsTrade = HL.WsTrade;
 
 // Core trading types
-export type Order = HL.Order;
-export type FrontendOrder = HL.FrontendOrder;
-export type OrderParams = HL.OrderParams;
-export type OrderResponse = HL.OrderResponse;
-export type CancelResponse = HL.CancelResponse;
-export type OrderStatus<T extends HL.Order | HL.FrontendOrder = HL.Order> = HL.OrderStatus<T>;
-export type OrderProcessingStatus = HL.OrderProcessingStatus;
-export type OrderType = HL.OrderType;
-export type TIF = HL.TIF;
+export type IOrder = HL.Order;
+export type IFrontendOrder = HL.FrontendOrder;
+export type IOrderParams = HL.OrderParams;
+export type IOrderResponse = HL.OrderResponse;
+export type ICancelResponse = HL.CancelResponse;
+export type IOrderStatus<T extends HL.Order | HL.FrontendOrder = HL.Order> =
+  HL.OrderStatus<T>;
+export type IOrderProcessingStatus = HL.OrderProcessingStatus;
+export type IOrderType = HL.OrderType;
+export type ITIF = HL.TIF;
 
 // Account and asset types
-export type AssetPosition = HL.AssetPosition;
-export type ActiveAssetData = HL.ActiveAssetData;
-export type PerpsClearinghouseState = HL.PerpsClearinghouseState;
-export type SpotClearinghouseState = HL.SpotClearinghouseState;
-export type SpotBalance = HL.SpotBalance;
+export type IAssetPosition = HL.AssetPosition;
+export type IActiveAssetData = HL.ActiveAssetData;
+export type IPerpsClearinghouseState = HL.PerpsClearinghouseState;
+export type ISpotClearinghouseState = HL.SpotClearinghouseState;
+export type ISpotBalance = HL.SpotBalance;
 
 // Client types
-export type InfoClient = HL.InfoClient;
-export type ExchangeClient = HL.ExchangeClient;
-export type SubscriptionClient = HL.SubscriptionClient;
-export type HttpTransport = HL.HttpTransport;
-export type WebSocketTransport = HL.WebSocketTransport;
+export type IInfoClient = HL.InfoClient;
+export type IExchangeClient = HL.ExchangeClient;
+export type ISubscriptionClient = HL.SubscriptionClient;
+export type IHttpTransport = HL.HttpTransport;
+export type IWebSocketTransport = HL.WebSocketTransport;
 
 // Market data types
-export type AllMids = HL.AllMids;
-export type Candle = HL.Candle;
-export type Book = HL.Book;
-export type BookLevel = HL.BookLevel;
-export type Fill = HL.Fill;
+export type IAllMids = HL.AllMids;
+export type ICandle = HL.Candle;
+export type IBook = HL.Book;
+export type IBookLevel = HL.BookLevel;
+export type IFill = HL.Fill;
 
 // User and account types
-export type UserFees = HL.UserFees;
-export type UserRole = HL.UserRole;
-export type Portfolio = HL.Portfolio;
-export type Referral = HL.Referral;
-export type ExtraAgent = HL.ExtraAgent;
+export type IUserFees = HL.UserFees;
+export type IUserRole = HL.UserRole;
+export type IPortfolio = HL.Portfolio;
+export type IReferral = HL.Referral;
+export type IExtraAgent = HL.ExtraAgent;
 
-export type UserFillsByTimeParameters = HL.UserFillsByTimeParameters;
+export type IUserFillsByTimeParameters = HL.UserFillsByTimeParameters;
+export type ICandleSnapshotParameters = HL.CandleSnapshotParameters;
 // Request types (define manually as SDK may not export these)
-export interface OrderRequest {
+export interface IOrderRequest {
   action: {
     type: 'order';
-    orders: OrderParams[];
+    orders: IOrderParams[];
     grouping: 'na' | 'normalTpsl' | 'positionTpsl';
   };
   nonce: number;
-  signature: Signature;
+  signature: ISignature;
 }
 
-// Response types  
-export type SuccessResponse = HL.SuccessResponse;
-export type ErrorResponse = HL.ErrorResponse;
+// Response types
+export type ISuccessResponse = HL.SuccessResponse;
+export type IErrorResponse = HL.ErrorResponse;
 
 // Basic types
-export type Hex = `0x${string}`;
-export type Signature = HL.Signature;
+export type IHex = `0x${string}`;
+export type ISignature = HL.Signature;

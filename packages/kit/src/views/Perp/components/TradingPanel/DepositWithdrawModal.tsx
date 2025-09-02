@@ -1,23 +1,22 @@
-import { useCallback, useMemo, useState, useEffect } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
+import type { ISegmentControlProps } from '@onekeyhq/components';
 import {
-  YStack,
-  XStack,
-  SizableText,
-  Input,
+  Badge,
   Button,
   Dialog,
-  Toast,
-  Badge,
-  Spinner,
+  Input,
   NumberSizeableText,
   SegmentControl,
-  ISegmentControlProps,
+  SizableText,
   Skeleton,
+  Toast,
+  XStack,
+  YStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useSignatureConfirm } from '../../../../hooks/useSignatureConfirm';
-import { usePromiseResult } from '../../../../hooks/usePromiseResult';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 
 const USDC_TOKEN_INFO = {
   address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
@@ -27,55 +26,74 @@ const USDC_TOKEN_INFO = {
   isNative: false,
 };
 
-const HYPERLIQUID_DEPOSIT_ADDRESS = '0x2df1c51e09aecf9cacb7bc98cb1742757f163df7';
+const HYPERLIQUID_DEPOSIT_ADDRESS =
+  '0x2df1c51e09aecf9cacb7bc98cb1742757f163df7';
 const MIN_DEPOSIT_AMOUNT = 5;
 
-type ActionType = 'deposit' | 'withdraw';
+type IActionType = 'deposit' | 'withdraw';
+
+interface IActiveAccount {
+  account: {
+    id: string;
+    address: string;
+  };
+}
 
 interface IDepositWithdrawContentProps {
-  activeAccount: any;
+  activeAccount: IActiveAccount;
   onClose?: () => void;
 }
 
-function DepositWithdrawContent({ activeAccount, onClose }: IDepositWithdrawContentProps) {
-  const [selectedAction, setSelectedAction] = useState<ActionType>('deposit');
+function DepositWithdrawContent({
+  activeAccount,
+  onClose,
+}: IDepositWithdrawContentProps) {
+  const [selectedAction, setSelectedAction] = useState<IActionType>('deposit');
   const [amount, setAmount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showMinDepositError, setShowMinDepositError] = useState(false);
 
   const { normalizeTxConfirm } = useSignatureConfirm({
     networkId: 'evm--42161',
-    accountId: activeAccount!.account!.id,
+    accountId: activeAccount.account.id,
   });
 
-  const { result: usdcBalance, isLoading: balanceLoading } = usePromiseResult(async () => {
-    if (!activeAccount?.account?.id || !activeAccount?.account?.address) {
-      return '0';
-    }
+  const { result: usdcBalance, isLoading: balanceLoading } =
+    usePromiseResult(async () => {
+      if (!activeAccount?.account?.id || !activeAccount?.account?.address) {
+        return '0';
+      }
 
-    try {
-      const tokenDetails = await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-        networkId: 'evm--42161',
-        contractAddress: USDC_TOKEN_INFO.address,
-        accountId: activeAccount.account.id,
-        accountAddress: activeAccount.account.address,
-      });
+      try {
+        const tokenDetails =
+          await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+            networkId: 'evm--42161',
+            contractAddress: USDC_TOKEN_INFO.address,
+            accountId: activeAccount.account.id,
+            accountAddress: activeAccount.account.address,
+          });
 
-      return tokenDetails?.[0]?.balanceParsed || '0';
-    } catch (error) {
-      console.error('[DepositWithdrawModal] Failed to fetch USDC balance:', error);
-      return '0';
-    }
-  }, [activeAccount?.account?.id, activeAccount?.account?.address]);
+        return tokenDetails?.[0]?.balanceParsed || '0';
+      } catch (error) {
+        console.error(
+          '[DepositWithdrawModal] Failed to fetch USDC balance:',
+          error,
+        );
+        return '0';
+      }
+    }, [activeAccount?.account?.id, activeAccount?.account?.address]);
 
   const numAmount = parseFloat(amount || '0');
   const numBalance = parseFloat(usdcBalance || '0');
 
   const isValidAmount = useMemo(() => {
-    if (isNaN(numAmount) || numAmount <= 0) return false;
+    if (Number.isNaN(numAmount) || numAmount <= 0) return false;
 
     if (selectedAction === 'deposit') {
-      return numAmount <= numBalance && (!showMinDepositError || numAmount >= MIN_DEPOSIT_AMOUNT);
+      return (
+        numAmount <= numBalance &&
+        (!showMinDepositError || numAmount >= MIN_DEPOSIT_AMOUNT)
+      );
     }
 
     return true;
@@ -84,7 +102,7 @@ function DepositWithdrawContent({ activeAccount, onClose }: IDepositWithdrawCont
   const errorMessage = useMemo(() => {
     if (!amount) return '';
 
-    if (isNaN(numAmount) || numAmount <= 0) {
+    if (Number.isNaN(numAmount) || numAmount <= 0) {
       return '';
     }
 
@@ -95,17 +113,20 @@ function DepositWithdrawContent({ activeAccount, onClose }: IDepositWithdrawCont
     }
 
     return '';
-  }, [amount, numAmount, selectedAction, numBalance, showMinDepositError]);
+  }, [amount, numAmount, selectedAction, showMinDepositError]);
 
-  const handleAmountChange = useCallback((value: string) => {
-    if (value === '' || /^\d*\.?\d*$/.test(value)) {
-      setAmount(value);
-      // Clear minimum deposit error when user changes amount
-      if (showMinDepositError) {
-        setShowMinDepositError(false);
+  const handleAmountChange = useCallback(
+    (value: string) => {
+      if (value === '' || /^\d*\.?\d*$/.test(value)) {
+        setAmount(value);
+        // Clear minimum deposit error when user changes amount
+        if (showMinDepositError) {
+          setShowMinDepositError(false);
+        }
       }
-    }
-  }, [showMinDepositError]);
+    },
+    [showMinDepositError],
+  );
 
   const handleMaxPress = useCallback(() => {
     if (selectedAction === 'deposit' && usdcBalance) {
@@ -152,20 +173,51 @@ function DepositWithdrawContent({ activeAccount, onClose }: IDepositWithdrawCont
     } catch (error) {
       console.error(`[DepositWithdrawModal.${selectedAction}] Failed:`, error);
       Toast.error({
-        title: `${selectedAction === 'deposit' ? 'Deposit' : 'Withdraw'} Failed`,
+        title: `${
+          selectedAction === 'deposit' ? 'Deposit' : 'Withdraw'
+        } Failed`,
         message: error instanceof Error ? error.message : 'Transaction failed',
       });
     } finally {
       setIsSubmitting(false);
     }
-  }, [isValidAmount, activeAccount, amount, selectedAction, normalizeTxConfirm, onClose]);
+  }, [
+    isValidAmount,
+    activeAccount,
+    amount,
+    selectedAction,
+    numAmount,
+    normalizeTxConfirm,
+    onClose,
+  ]);
 
-  const isInsufficientBalance = selectedAction === 'deposit' && numAmount > numBalance && numAmount > 0;
+  const isInsufficientBalance =
+    selectedAction === 'deposit' && numAmount > numBalance && numAmount > 0;
+
+  const getButtonBackground = () => {
+    if (isInsufficientBalance) return '$neutral7';
+    if (!isValidAmount || isSubmitting || balanceLoading) return '$neutral7';
+    return selectedAction === 'deposit' ? '$green9' : '$blue9';
+  };
+
+  const getButtonText = () => {
+    if (isSubmitting) {
+      return `${
+        selectedAction === 'deposit' ? 'Depositing' : 'Withdrawing'
+      }...`;
+    }
+    if (isInsufficientBalance) return 'Insufficient balance';
+    return selectedAction === 'deposit' ? 'Deposit' : 'Withdraw';
+  };
 
   return (
-    <YStack gap="$4" p="$1" style={{
-      marginTop: -22
-    }}>
+    <YStack
+      gap="$4"
+      p="$1"
+      style={{
+        marginTop: -22,
+      }}
+    >
       {/* Tab Switch */}
       <SegmentControl
         value={selectedAction}
@@ -220,7 +272,7 @@ function DepositWithdrawContent({ activeAccount, onClose }: IDepositWithdrawCont
               p: 0,
               bg: 'transparent',
             }}
-            alignContent='flex-end'
+            alignContent="flex-end"
           />
           <XStack alignItems="center" gap="$1">
             <SizableText size="$bodyMd" color="$textSubdued">
@@ -229,11 +281,11 @@ function DepositWithdrawContent({ activeAccount, onClose }: IDepositWithdrawCont
           </XStack>
         </XStack>
 
-        {errorMessage && (
+        {errorMessage ? (
           <SizableText size="$bodySm" color="$red10">
             {errorMessage}
           </SizableText>
-        )}
+        ) : null}
       </YStack>
       {/* Available Balance & You Will Get */}
       <YStack gap="$3">
@@ -264,7 +316,8 @@ function DepositWithdrawContent({ activeAccount, onClose }: IDepositWithdrawCont
             You will get
           </SizableText>
           <SizableText color="$textSubdued" size="$bodySm" fontWeight="500">
-            ${amount || '0'} on {selectedAction === 'deposit' ? 'Hyperliquid' : 'Arbitrum One'}
+            ${amount || '0'} on{' '}
+            {selectedAction === 'deposit' ? 'Hyperliquid' : 'Arbitrum One'}
           </SizableText>
         </XStack>
       </YStack>
@@ -274,48 +327,38 @@ function DepositWithdrawContent({ activeAccount, onClose }: IDepositWithdrawCont
         size="medium"
         disabled={!isValidAmount || isSubmitting || balanceLoading}
         onPress={handleConfirm}
-        backgroundColor={
-          isInsufficientBalance ? '$neutral7' :
-            (!isValidAmount || isSubmitting || balanceLoading) ? '$neutral7' :
-              selectedAction === 'deposit' ? '$green9' : '$blue9'
-        }
+        backgroundColor={getButtonBackground()}
       >
-        <SizableText color={isInsufficientBalance ? "$blackA10" : "$white"} fontWeight="600">
-          {isSubmitting ? (
-            `${selectedAction === 'deposit' ? 'Depositing' : 'Withdrawing'}...`
-          ) : isInsufficientBalance ? (
-            'Insufficient balance'
-          ) : (
-            selectedAction === 'deposit' ? 'Deposit' : 'Withdraw'
-          )}
+        <SizableText
+          color={isInsufficientBalance ? '$blackA10' : '$white'}
+          fontWeight="600"
+        >
+          {getButtonText()}
         </SizableText>
       </Button>
     </YStack>
   );
 }
 
-export function showDepositWithdrawModal(activeAccount: any) {
+export function showDepositWithdrawModal(activeAccount: IActiveAccount) {
   if (!activeAccount?.account?.id) {
     console.error('[DepositWithdrawModal] No active account available');
     return;
   }
 
-  let dialogInstance: any;
-
-  const handleClose = () => {
-    dialogInstance?.close();
-  };
-
-  dialogInstance = Dialog.show({
-    // title: 'Account 1',
+  const dialogInstance = Dialog.show({
     renderContent: (
       <DepositWithdrawContent
         activeAccount={activeAccount}
-        onClose={handleClose}
+        onClose={() => {
+          void dialogInstance.close();
+        }}
       />
     ),
     showFooter: false,
-    onClose: handleClose,
+    onClose: () => {
+      void dialogInstance.close();
+    },
   });
 
   return dialogInstance;

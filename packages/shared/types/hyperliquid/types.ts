@@ -1,10 +1,10 @@
-export interface ConnectionState {
+export interface IConnectionState {
   readonly isConnected: boolean;
   readonly lastConnected: number | null;
   readonly reconnectCount: number;
 }
 
-export interface TradingFormData {
+export interface ITradingFormData {
   side: 'buy' | 'sell';
   type: 'market' | 'limit';
   size: string;
@@ -14,12 +14,12 @@ export interface TradingFormData {
   stopLossPrice: string;
 }
 
-export interface EnhancedPosition {
+export interface IEnhancedPosition {
   displayPnl: string;
   riskLevel: 'low' | 'medium' | 'high';
 }
 
-export interface TokenDisplayData {
+export interface ITokenDisplayData {
   coin: string;
   lastPrice: string;
   change24h: string;
@@ -29,7 +29,7 @@ export interface TokenDisplayData {
   maxLeverage: number;
 }
 
-export interface TokenListItem {
+export interface ITokenListItem {
   readonly coin: string;
   readonly lastPrice: string;
   readonly change24h: string;
