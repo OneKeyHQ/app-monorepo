@@ -85,13 +85,18 @@ function TokenSecurityAlertDialogContentItem({
           </Button>
         ) : null}
 
-        {typeof item.value === 'string' &&
-        item.value.length > 0 ? null : item.riskType === 'normal' ? null : (
-          <TokenSecurityAlertDialogContentIcon
-            isWarning={item.isWarning}
-            riskType={item.riskType}
-          />
-        )}
+        {(() => {
+          // Don't show icon if there's a value or if risk type is normal
+          if ((typeof item.value === 'string' && item.value.length > 0) || item.riskType === 'normal') {
+            return null;
+          }
+          return (
+            <TokenSecurityAlertDialogContentIcon
+              isWarning={item.isWarning}
+              riskType={item.riskType}
+            />
+          );
+        })()}
       </XStack>
     </XStack>
   );
