@@ -191,7 +191,9 @@ function SignAndVerifyMessage() {
       if (!verifyDetectedNetworkId) {
         console.error('No network detected for address:', address);
         Toast.error({
-          title: 'Verification failed',
+          title: intl.formatMessage({
+            id: ETranslations.message_signing_verification_failed,
+          }),
         });
         return;
       }
@@ -212,23 +214,29 @@ function SignAndVerifyMessage() {
 
         if (result) {
           Toast.success({
-            title: 'Verification successful',
+            title: intl.formatMessage({
+              id: ETranslations.message_signing_verification_success,
+            }),
           });
         } else {
           Toast.error({
-            title: 'Verification failed',
+            title: intl.formatMessage({
+              id: ETranslations.message_signing_verification_failed,
+            }),
           });
         }
       } catch (error) {
         console.error('Verify error:', error);
         Toast.error({
-          title: 'Verification failed',
+          title: intl.formatMessage({
+            id: ETranslations.message_signing_verification_failed,
+          }),
         });
       } finally {
         setIsSigning(false);
       }
     }
-  }, [verifyDetectedNetworkId, verifyForm]);
+  }, [intl, verifyDetectedNetworkId, verifyForm]);
 
   const renderContent = useCallback(() => {
     if (action === ESignAndVerifyAction.Sign) {
@@ -271,7 +279,7 @@ function SignAndVerifyMessage() {
         })}
       />
       <Page.Body>
-        <YStack p="$5" gap="$5">
+        <YStack p="$5" pt="$2" gap="$5">
           <SegmentControl
             value={action}
             fullWidth

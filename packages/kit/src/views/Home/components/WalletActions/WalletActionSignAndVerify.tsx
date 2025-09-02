@@ -1,16 +1,13 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { ActionList } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSignAndVerifyRoutes } from '@onekeyhq/shared/src/routes/signAndVerify';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 export function WalletActionSignAndVerify({
   onClose,
@@ -63,7 +60,7 @@ export function WalletActionSignAndVerify({
   return (
     <ActionList.Item
       trackID="wallet-action-sign-and-verify"
-      icon="HighlightOutline"
+      icon="SignatureOutline"
       label={intl.formatMessage({
         id: ETranslations.message_signing_main_title,
       })}
