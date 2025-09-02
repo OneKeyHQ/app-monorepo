@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import { ListView, Stack, Tabs, YStack, useStyle } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
@@ -169,9 +170,11 @@ function ApprovalListViewCmp(props: IProps) {
   const ListComponentRef = useRef<typeof ListComponent>(null);
 
   const recomputeLayout = useCallback(() => {
-    // update tab list header height after alert dismissed
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    (ListComponentRef.current as any)?.recomputeLayout?.();
+    if (!platformEnv.isNative) {
+      // update tab list header height after alert dismissed
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      (ListComponentRef.current as any)?.recomputeLayout?.();
+    }
   }, []);
 
   return (
