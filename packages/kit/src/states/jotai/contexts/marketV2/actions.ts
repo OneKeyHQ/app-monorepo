@@ -72,7 +72,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   });
 
   fetchTokenDetail = contextAtomMethod(
-    async (_, set, tokenAddress: string, networkId: string) => {
+    async (get, set, tokenAddress: string, networkId: string) => {
       try {
         set(tokenDetailLoadingAtom(), true);
 
@@ -87,8 +87,24 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           return;
         }
 
-        set(tokenDetailAtom(), response);
-        return response;
+        // Always preserve K-line updated price if it exists, fallback to API price
+        const currentTokenDetail = get(tokenDetailAtom());
+        const hasKLinePrice = currentTokenDetail?.lastUpdated;
+
+        const finalResponse = hasKLinePrice
+          ? {
+              ...response,
+              price: currentTokenDetail.price, // Always use K-line price
+              lastUpdated: currentTokenDetail.lastUpdated,
+            }
+          : {
+              ...response,
+              // Use API price as fallback when no K-line price available
+            };
+
+        set(tokenDetailAtom(), finalResponse);
+
+        return finalResponse;
       } catch (error) {
         console.error('Failed to fetch token detail:', error);
         set(tokenDetailAtom(), undefined);

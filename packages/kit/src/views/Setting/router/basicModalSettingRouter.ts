@@ -74,6 +74,13 @@ const PerpGallery = LazyLoadPage(
     ),
 );
 
+const CryptoGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CryptoGallery'
+    ),
+);
+
 const ExportCustomNetworkConfig = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/ExportCustomNetworkConfig'),
@@ -161,6 +168,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevPerpGalleryModal,
     component: PerpGallery,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevCryptoGalleryModal,
+    component: CryptoGallery,
   },
   {
     name: EModalSettingRoutes.SettingExportCustomNetworkConfig,

@@ -1,5 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import type { PropsWithChildren } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -18,9 +17,11 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 
 import { ListItem } from '../../../components/ListItem';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useManageToken } from '../../../hooks/useManageToken';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
@@ -166,6 +167,35 @@ function TxHistorySettings() {
   );
 }
 
+function ApprovalSettings() {
+  const navigation = useAppNavigation();
+  const {
+    activeAccount: { wallet, account, network },
+  } = useActiveAccount({ num: 0 });
+  const handleOnOpenApprovalList = useCallback(() => {
+    navigation.pushModal(EModalRoutes.ApprovalManagementModal, {
+      screen: EModalApprovalManagementRoutes.ApprovalList,
+      params: {
+        walletId: wallet?.id ?? '',
+        accountId: account?.id ?? '',
+        networkId: network?.id ?? '',
+      },
+    });
+  }, [account?.id, navigation, network?.id, wallet?.id]);
+
+  const intl = useIntl();
+  return (
+    <IconButton
+      title={intl.formatMessage({
+        id: ETranslations.global_approvals,
+      })}
+      variant="tertiary"
+      icon="Document2Outline"
+      onPress={handleOnOpenApprovalList}
+    />
+  );
+}
+
 function BasicTabHeaderSettings({ focusedTab }: { focusedTab: string }) {
   const intl = useIntl();
   const historyName = useMemo(
@@ -182,16 +212,26 @@ function BasicTabHeaderSettings({ focusedTab }: { focusedTab: string }) {
       }),
     [intl],
   );
+
+  const approvalName = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.global_approval,
+      }),
+    [intl],
+  );
   const content = useMemo(() => {
     switch (focusedTab) {
       case cryptoName:
         return <TokenListSettings />;
       case historyName:
         return <TxHistorySettings />;
+      case approvalName:
+        return <ApprovalSettings />;
       default:
         return null;
     }
-  }, [cryptoName, focusedTab, historyName]);
+  }, [approvalName, cryptoName, focusedTab, historyName]);
   return <XStack pr="$5">{content}</XStack>;
 }
 
