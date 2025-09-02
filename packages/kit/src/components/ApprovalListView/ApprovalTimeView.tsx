@@ -3,6 +3,7 @@ import { memo, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { SizableText, Stack } from '@onekeyhq/components';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { formatDistanceStrict } from '@onekeyhq/shared/src/utils/dateUtils';
 
 type IProps = {
@@ -13,13 +14,12 @@ function ApprovalTimeView(props: IProps) {
   const { approvalTime } = props;
 
   const formattedApprovalTime = useMemo(() => {
-    const now = new Date();
     const timestamp = new BigNumber(approvalTime ?? 0);
-
-    const timestampInMs =
-      timestamp.toFixed().length <= 10 ? timestamp.times(1000) : timestamp;
-
-    return formatDistanceStrict(new Date(timestampInMs.toNumber()), now, true);
+    if (timestamp.toFixed().length <= 10) {
+      throw new OneKeyLocalError('approvalTime must be in milliseconds');
+    }
+    const now = new Date();
+    return formatDistanceStrict(new Date(timestamp.toNumber()), now, true);
   }, [approvalTime]);
 
   return (

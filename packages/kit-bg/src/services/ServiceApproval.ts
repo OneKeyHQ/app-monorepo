@@ -13,6 +13,7 @@ import type {
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceBase from './ServiceBase';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 @backgroundClass()
 class ServiceApproval extends ServiceBase {
@@ -112,7 +113,7 @@ class ServiceApproval extends ServiceBase {
     const normalApprovals: IContractApproval[] = [];
 
     // 90 days
-    const inactiveApprovalTime = 90 * 24 * 60 * 60 * 1000;
+    const inactiveApprovalTime = timerUtils.getTimeDurationMs({ day: 90 });
     const now = Date.now();
 
     for (const item of contractApprovals) {

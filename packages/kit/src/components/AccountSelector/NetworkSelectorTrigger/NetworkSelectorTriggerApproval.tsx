@@ -27,11 +27,16 @@ function NetworkSelectorTriggerApproval({
 }) {
   const { result: selectorNetworks } = usePromiseResult(
     async () => {
+      if (networkIds) {
+        const { networks } =
+          await backgroundApiProxy.serviceNetwork.getNetworksByIds({
+            networkIds,
+          });
+        return networks;
+      }
+
       const { networks } =
         await backgroundApiProxy.serviceNetwork.getAllNetworks();
-      if (networkIds && networkIds.length > 0) {
-        return networks.filter((o) => networkIds.includes(o.id));
-      }
       return networks;
     },
     [networkIds],
