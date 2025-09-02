@@ -1,6 +1,11 @@
 import { memo } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import type { ColorTokens } from '@onekeyhq/components/src/primitives';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
 type ITokenSecurityAlertDialogContentOverviewProps = {
   riskCount: number;
@@ -13,18 +18,16 @@ function SecurityStatusItem({
   label,
   iconName,
   iconColor,
-  textColor,
   backgroundColor,
 }: {
   count: number;
   label: string;
-  iconName: string;
-  iconColor: string;
-  textColor: string;
-  backgroundColor: string;
+  iconName: IKeyOfIcons;
+  iconColor: ColorTokens;
+  backgroundColor: ColorTokens;
 }) {
   return (
-    <XStack gap="$2" alignItems="center">
+    <XStack width="50%" alignItems="center">
       <Stack
         width={56}
         height={56}
@@ -33,23 +36,15 @@ function SecurityStatusItem({
         alignItems="center"
         justifyContent="center"
       >
-        <Icon name={iconName as any} size="$5" color={iconColor as any} />
+        <Icon name={iconName} size="$5" color={iconColor} />
       </Stack>
 
-      <Stack gap="$1" alignItems="center">
-        <SizableText
-          size="$bodyLgMedium"
-          fontWeight="600"
-          color={textColor as any}
-        >
+      <Stack gap="$1" ml="$2">
+        <SizableText size="$headingXl" color="$text">
           {count}
         </SizableText>
 
-        <SizableText
-          size="$bodyMdMedium"
-          color={textColor as any}
-          textAlign="center"
-        >
+        <SizableText size="$bodyLg" color="$textSubdued">
           {label}
         </SizableText>
       </Stack>
@@ -61,18 +56,20 @@ function TokenSecurityAlertDialogContentOverviewBase({
   riskCount,
   cautionCount,
 }: ITokenSecurityAlertDialogContentOverviewProps) {
+  const intl = useIntl();
   const isSafe = riskCount === 0 && cautionCount === 0;
 
   return (
-    <XStack py="$3" gap="$4" flexWrap="wrap">
+    <XStack py="$3" flexWrap="wrap" justifyContent="space-between">
       {/* Show risks if any */}
       {riskCount > 0 ? (
         <SecurityStatusItem
           count={riskCount}
-          label="High risks"
+          label={intl.formatMessage({
+            id: ETranslations.dexmarket_security_result_high,
+          })}
           iconName="BugOutline"
           iconColor="$iconCritical"
-          textColor="$textCritical"
           backgroundColor="$bgCritical"
         />
       ) : null}
@@ -81,10 +78,11 @@ function TokenSecurityAlertDialogContentOverviewBase({
       {cautionCount > 0 ? (
         <SecurityStatusItem
           count={cautionCount}
-          label="Cautions"
+          label={intl.formatMessage({
+            id: ETranslations.dexmarket_security_result_cautions,
+          })}
           iconName="BugOutline"
           iconColor="$iconCaution"
-          textColor="$textCaution"
           backgroundColor="$bgCaution"
         />
       ) : null}
@@ -93,10 +91,11 @@ function TokenSecurityAlertDialogContentOverviewBase({
       {isSafe ? (
         <SecurityStatusItem
           count={0}
-          label="Safe"
+          label={intl.formatMessage({
+            id: ETranslations.dexmarket_audit_safe,
+          })}
           iconName="CheckRadioSolid"
           iconColor="$iconSuccess"
-          textColor="$textSuccess"
           backgroundColor="$bgSuccess"
         />
       ) : null}
