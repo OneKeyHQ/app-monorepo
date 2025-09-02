@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -31,11 +31,9 @@ function HeaderItem({ label }: { label: string }) {
 }
 
 function ApprovalListHeader({
-  listComponentRef,
+  recomputeLayout,
 }: {
-  listComponentRef: RefObject<{
-    recomputeLayout?: () => void;
-  }>;
+  recomputeLayout: () => void;
 }) {
   const intl = useIntl();
 
@@ -141,13 +139,16 @@ function ApprovalListHeader({
         networkId,
       },
     );
-  }, [accountId, networkId]);
+    setTimeout(() => {
+      recomputeLayout();
+    }, 350);
+  }, [accountId, networkId, recomputeLayout]);
+
+  const [showInactiveApprovalsAlert, setShowInactiveApprovalsAlert] =
+    useState(true);
 
   const renderRiskOverview = useCallback(() => {
-    if (
-      riskApprovals.length === 0 &&
-      (warningApprovals.length === 0 || !shouldShowInactiveApprovalsAlert)
-    ) {
+    if (!showInactiveApprovalsAlert) {
       return null;
     }
 
@@ -185,7 +186,7 @@ function ApprovalListHeader({
             }}
           />
         ) : null}
-        {shouldShowInactiveApprovalsAlert && warningApprovals.length > 0 ? (
+        {showInactiveApprovalsAlert ? (
           <Alert
             onClose={handleCloseInactiveApprovalsAlert}
             icon="ShieldExclamationOutline"
@@ -215,10 +216,8 @@ function ApprovalListHeader({
                   alertType: EContractApprovalAlertType.Warning,
                   approvals: warningApprovals,
                 });
+                setShowInactiveApprovalsAlert(false);
                 // update tab list header height after alert dismissed
-                setTimeout(() => {
-                  listComponentRef.current?.recomputeLayout?.();
-                }, 350);
               },
             }}
           />
@@ -229,9 +228,8 @@ function ApprovalListHeader({
     handleCloseInactiveApprovalsAlert,
     handleViewRiskApprovals,
     intl,
-    listComponentRef,
     riskApprovals,
-    shouldShowInactiveApprovalsAlert,
+    showInactiveApprovalsAlert,
     warningApprovals,
   ]);
 
