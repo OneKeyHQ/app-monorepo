@@ -26,6 +26,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EOnboardingPages,
   IOnboardingParamList,
@@ -402,31 +403,40 @@ function WalletItem({
     isSoftwareWalletOnlyUser,
   ]);
 
+  const isWalletConnect = !!connectionInfo.walletConnect;
+
   const connectToWalletWithDialog = useCallback(async () => {
     console.log('WalletItem onPress');
     if (loading || loadingRef.current) {
       return;
     }
+    let shouldShowDialogLoading = true;
+    if (platformEnv.isNative && isWalletConnect) {
+      shouldShowDialogLoading = false;
+    }
     await dialogRef.current?.close();
-    dialogRef.current = Dialog.show({
-      // title: `Connect to ${name || 'Wallet'}`,
-      title: intl.formatMessage(
-        { id: ETranslations.global_connect_to_wallet },
-        {
-          wallet: `32355 ${name || 'Wallet'}`, //  name || 'Wallet',
+    if (shouldShowDialogLoading) {
+      dialogRef.current = Dialog.show({
+        // title: `Connect to ${name || 'Wallet'}`,
+        title: intl.formatMessage(
+          { id: ETranslations.global_connect_to_wallet },
+          {
+            wallet: `32355 ${name || 'Wallet'}`, //  name || 'Wallet',
+          },
+        ),
+        showFooter: false,
+        dismissOnOverlayPress: false,
+        onClose() {
+          setLoadingRef.current?.(false);
         },
-      ),
-      showFooter: false,
-      dismissOnOverlayPress: false,
-      onClose() {
-        setLoadingRef.current?.(false);
-      },
-      renderContent: (
-        <ConnectToWalletDialogContent onRetryPress={connectToWallet} />
-      ),
-    });
+        renderContent: (
+          <ConnectToWalletDialogContent onRetryPress={connectToWallet} />
+        ),
+      });
+    }
+
     await connectToWallet();
-  }, [connectToWallet, intl, loading, name]);
+  }, [connectToWallet, intl, loading, name, isWalletConnect]);
 
   return (
     <WalletItemView

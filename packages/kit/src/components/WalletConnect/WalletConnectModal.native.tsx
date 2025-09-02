@@ -80,13 +80,13 @@ async function resetAppKit() {
   // ClientCtrl.resetSession();
   // AccountCtrl.resetAccount();
   // WcConnectionCtrl.resetConnection();
-  void StorageUtilCore.removeWalletConnectDeepLink();
 
   // void StorageUtil.setItem(
   //   EthersConstantsUtil.WALLET_ID,
   //   ConstantsUtil.WALLET_CONNECT_CONNECTOR_ID,
   // );
   void StorageUtil.removeItem(EthersConstantsUtil.WALLET_ID);
+  // void StorageUtilCore.removeWalletConnectDeepLink();
 
   EthersStoreUtil.reset();
   // @ts-ignore
@@ -190,14 +190,11 @@ const modal: IWalletConnectModalShared = {
 
     console.log('isNativeModalOpen', isNativeModalOpen);
 
-    const resetAppRef = useRef(resetAppKit);
-    resetAppRef.current = resetAppKit;
-
     const [shouldRenderNativeModal, setShouldRenderNativeModal] =
       useState(false);
 
     const openModal = useCallback(async ({ uri }: { uri: string }) => {
-      await resetAppRef.current();
+      await resetAppKit();
       pairingUri = uri;
       updateConnectModalUri(uri);
 
@@ -237,7 +234,7 @@ const modal: IWalletConnectModalShared = {
       void (async () => {
         if (platformEnv.isNative) {
           if (!isNativeModalOpen) {
-            await resetAppRef.current();
+            await resetAppKit();
             console.log('setShouldRenderNativeModal false');
             // setShouldRenderNativeModal(false);
           }
