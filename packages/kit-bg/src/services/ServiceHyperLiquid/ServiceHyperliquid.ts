@@ -22,20 +22,27 @@ interface IEnableTradingParams {
   approveBuilderFee?: boolean;
 }
 
-
 const FALLBACK_BUILDER_ADDRESS = '0x9b12E858dA780a96876E3018780CF0D83359b0bb';
 const FALLBACK_MAX_BUILDER_FEE = 40;
 @backgroundClass()
 export default class ServiceHyperliquid extends ServiceBase {
   public builderAddress: string = FALLBACK_BUILDER_ADDRESS;
+
   public maxBuilderFee: number = FALLBACK_MAX_BUILDER_FEE;
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
-    this.backgroundApi.simpleDb.perp.getPerpConfig().then((config) => {
-      this.builderAddress = config.hyperliquidBuilderAddress || FALLBACK_BUILDER_ADDRESS;
-      this.maxBuilderFee = config.hyperliquidMaxBuilderFee || FALLBACK_MAX_BUILDER_FEE;
-    });
+    void this.backgroundApi.simpleDb.perp
+      .getPerpConfig()
+      .then((config) => {
+        this.builderAddress =
+          config.hyperliquidBuilderAddress || FALLBACK_BUILDER_ADDRESS;
+        this.maxBuilderFee =
+          config.hyperliquidMaxBuilderFee || FALLBACK_MAX_BUILDER_FEE;
+      })
+      .catch((error) => {
+        console.error('Failed to load perp config:', error);
+      });
   }
 
   private get infoService(): ServiceHyperliquidInfo {
@@ -51,13 +58,17 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
-  async checkWalletStatus(params: { userAddress: string }): Promise<IWalletStatus> {
+  async checkWalletStatus(params: {
+    userAddress: string;
+  }): Promise<IWalletStatus> {
     try {
       const [extraAgents, maxBuilderFee] = await Promise.all([
-        this.infoService.getExtraAgents({ user: params.userAddress as `0x${string}` }),
+        this.infoService.getExtraAgents({
+          user: params.userAddress as `0x${string}`,
+        }),
         this.infoService.getMaxBuilderFee({
           user: params.userAddress as `0x${string}`,
-          builder: this.builderAddress as `0x${string}`
+          builder: this.builderAddress as `0x${string}`,
         }),
       ]);
 
@@ -66,7 +77,9 @@ export default class ServiceHyperliquid extends ServiceBase {
         maxBuilderFee: !!(maxBuilderFee >= this.maxBuilderFee),
       };
     } catch (error) {
-      throw new OneKeyLocalError(`Failed to check wallet status: ${error}`);
+      throw new OneKeyLocalError(
+        `Failed to check wallet status: ${String(error)}`,
+      );
     }
   }
 
@@ -76,7 +89,6 @@ export default class ServiceHyperliquid extends ServiceBase {
     agentApproved?: boolean;
     builderFeeApproved?: boolean;
   }> {
-
     try {
       const result = {
         success: true,
@@ -90,25 +102,30 @@ export default class ServiceHyperliquid extends ServiceBase {
         userAccountId: params.userAccountId,
       });
       if (params.approveBuilderFee) {
-        tasks.push(this.exchangeService.approveBuilderFee({
-          builder: this.builderAddress as `0x${string}`,
-          maxFeeRate: `${this.maxBuilderFee / 100}%`, // maxBuilderFee=40, maxFeeRate=0.04%
-        }));
+        tasks.push(
+          this.exchangeService.approveBuilderFee({
+            builder: this.builderAddress as `0x${string}`,
+            maxFeeRate: `${this.maxBuilderFee / 100}%`, // maxBuilderFee=40, maxFeeRate=0.04%
+          }),
+        );
         result.builderFeeApproved = true;
       }
 
-      const proxyWalletAddress = await this.walletService.getProxyWalletAddress({
-        userAddress: params.userAddress
-      });
+      const proxyWalletAddress = await this.walletService.getProxyWalletAddress(
+        {
+          userAddress: params.userAddress,
+        },
+      );
       if (params.approveAgent) {
-        tasks.push(this.exchangeService.approveAgent({
-          agent: proxyWalletAddress as `0x${string}`,
-          authorize: true,
-        }));
+        tasks.push(
+          this.exchangeService.approveAgent({
+            agent: proxyWalletAddress as `0x${string}`,
+            authorize: true,
+          }),
+        );
 
         result.agentApproved = true;
       }
-
 
       await Promise.all(tasks);
 
@@ -118,10 +135,11 @@ export default class ServiceHyperliquid extends ServiceBase {
 
       return result;
     } catch (error) {
-      throw new OneKeyLocalError(`Failed to enable trading: ${error}`);
+      throw new OneKeyLocalError(`Failed to enable trading: ${String(error)}`);
     }
   }
 
   async dispose(): Promise<void> {
+    // Cleanup resources if needed
   }
 }

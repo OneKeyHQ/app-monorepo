@@ -1,25 +1,17 @@
-import React from 'react';
-
-import { 
-  Stack, 
-  YStack, 
-  XStack, 
-  SizableText, 
-  ScrollView 
-} from '@onekeyhq/components';
+import { ScrollView, SizableText, XStack, YStack } from '@onekeyhq/components';
 
 import { useL2Book } from '../hooks/usePerpMarketData';
 
-interface OrderBookRowProps {
+interface IOrderBookRowProps {
   px: string;
   sz: string;
   side: 'bid' | 'ask';
   index: number;
 }
 
-function OrderBookRow({ px, sz, side, index }: OrderBookRowProps) {
+function OrderBookRow({ px, sz, side, index }: IOrderBookRowProps) {
   const isBid = side === 'bid';
-  
+
   return (
     <XStack
       py="$1"
@@ -63,7 +55,9 @@ export function PerpOrderBook() {
   if (!hasOrderBook || !l2Book) {
     return (
       <YStack flex={1} p="$4" justifyContent="center" alignItems="center">
-        <SizableText size="$bodyMd" color="$textSubdued">Loading order book...</SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          Loading order book...
+        </SizableText>
       </YStack>
     );
   }
@@ -97,17 +91,28 @@ export function PerpOrderBook() {
       </XStack>
 
       {/* Column Headers */}
-      <XStack 
-        px="$2" 
-        py="$1" 
-        borderBottomWidth="$px" 
+      <XStack
+        px="$2"
+        py="$1"
+        borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
         justifyContent="space-between"
       >
-        <SizableText size="$bodySm" color="$textSubdued" flex={1} textAlign="right" pr="$2">
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          flex={1}
+          textAlign="right"
+          pr="$2"
+        >
           Price
         </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued" flex={1} textAlign="right">
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          flex={1}
+          textAlign="right"
+        >
           Size
         </SizableText>
       </XStack>
@@ -115,15 +120,18 @@ export function PerpOrderBook() {
       <ScrollView flex={1}>
         <YStack>
           {/* Asks (sell orders) - reverse order, price from low to high */}
-          {l2Book.asks.slice(0, 15).reverse().map((level, index) => (
-            <OrderBookRow
-              key={`ask-${level.px}-${index}`}
-              px={level.px}
-              sz={level.sz}
-              side="ask"
-              index={index}
-            />
-          ))}
+          {l2Book.asks
+            .slice(0, 15)
+            .reverse()
+            .map((level, index) => (
+              <OrderBookRow
+                key={`ask-${level.px}-${index}`}
+                px={level.px}
+                sz={level.sz}
+                side="ask"
+                index={index}
+              />
+            ))}
 
           {/* Spread Indicator */}
           <XStack

@@ -1,6 +1,8 @@
-import { memo, useCallback, useMemo } from 'react';
+/* eslint-disable react/prop-types */
+import { memo, useCallback } from 'react';
 
 import { Input, SizableText, XStack, YStack } from '@onekeyhq/components';
+
 import { validatePriceInput } from '../../utils/tokenUtils';
 
 interface IPriceInputProps {
@@ -14,14 +16,7 @@ interface IPriceInputProps {
 }
 
 export const PriceInput = memo<IPriceInputProps>(
-  ({
-    value,
-    onChange,
-    error,
-    disabled = false,
-    onUseMarketPrice,
-    szDecimals = 2,
-  }) => {
+  ({ value, onChange, error, disabled = false, onUseMarketPrice }) => {
     const handleInputChange = useCallback(
       (text: string) => {
         const isValid = validatePriceInput(text);
@@ -30,16 +25,8 @@ export const PriceInput = memo<IPriceInputProps>(
         }
         onChange(text);
       },
-      [onChange, value],
+      [onChange],
     );
-
-    const formatPrice = useCallback((price: string) => {
-      try {
-        return `$${parseFloat(price).toFixed(2)}`;
-      } catch {
-        return `$${price}`;
-      }
-    }, []);
 
     return (
       <YStack flex={1}>

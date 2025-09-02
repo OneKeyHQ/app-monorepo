@@ -1,12 +1,11 @@
 import {
-  YStack,
-  XStack,
-  SizableText,
   Dialog,
+  SizableText,
   Toast,
+  XStack,
+  YStack,
 } from '@onekeyhq/components';
-
-import type { ITradingFormData } from '../../../../states/jotai/contexts/hyperliquid';
+import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 
 interface IShowOrderConfirmParams {
   formData: ITradingFormData;
@@ -22,20 +21,29 @@ export function showOrderConfirmDialog({
   onConfirm,
 }: IShowOrderConfirmParams) {
   const actionColor = formData.side === 'long' ? '$green10' : '$red10';
-  const buttonColor = formData.side === 'long' ? '$green9' : '$red9';
   const actionText = formData.side === 'long' ? 'Long' : 'Short';
 
-  const priceDisplay = formData.type === 'market' 
-    ? 'Market' 
-    : formData.price ? `$${parseFloat(formData.price).toLocaleString()}` : 'Market';
+  const getPriceDisplay = () => {
+    if (formData.type === 'market') return 'Market';
+    if (formData.price)
+      return `$${parseFloat(formData.price).toLocaleString()}`;
+    return 'Market';
+  };
 
-  const sizeDisplay = formData.size && tokenName 
-    ? `${formData.size} ${tokenName}` 
-    : '0';
+  const getSizeDisplay = () => {
+    if (formData.size && tokenName) return `${formData.size} ${tokenName}`;
+    return '0';
+  };
 
-  const liquidationDisplay = liquidationPrice 
-    ? `$${parseFloat(liquidationPrice).toLocaleString()}` 
-    : 'N/A';
+  const getLiquidationDisplay = () => {
+    if (liquidationPrice)
+      return `$${parseFloat(liquidationPrice).toLocaleString()}`;
+    return 'N/A';
+  };
+
+  const priceDisplay = getPriceDisplay();
+  const sizeDisplay = getSizeDisplay();
+  const liquidationDisplay = getLiquidationDisplay();
 
   const OrderContent = () => (
     <YStack gap="$4">
@@ -86,12 +94,13 @@ export function showOrderConfirmDialog({
 
   Dialog.confirm({
     title: 'Confirm Order',
-    description: 'You pay no gas. The order will be confirmed within a few seconds.',
+    description:
+      'You pay no gas. The order will be confirmed within a few seconds.',
     renderContent: <OrderContent />,
     onConfirm: async () => {
       try {
         await onConfirm();
-        
+
         // Show success notification
         Toast.success({
           title: 'Order Placed Successfully',
@@ -101,7 +110,8 @@ export function showOrderConfirmDialog({
         // Show error notification
         Toast.error({
           title: 'Order Failed',
-          message: error instanceof Error ? error.message : 'Failed to place order',
+          message:
+            error instanceof Error ? error.message : 'Failed to place order',
         });
         throw error; // Re-throw to let Dialog handle it
       }

@@ -1,31 +1,34 @@
 import { useCallback, useEffect, useState } from 'react';
+
 import { useAtom } from 'jotai';
 
-import { useActiveAccount, useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  EAppEventBusNames,
-  appEventBus
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { ActiveAssetData, Book, Hex, WsActiveAssetCtx, WsAllMids, WsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
-
-import {
-  allMidsAtom,
   activeAssetCtxAtom,
-  activeAssetDataAtom,
+  allMidsAtom,
   connectionStateAtom,
   currentTokenAtom,
-  currentUserAtom,
   subscriptionActiveAtom,
-  useWebData2Atom,
-  currentAccountAtom,
   useAccountPanelDataAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/index';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { ZeroAddress } from 'ethersV6';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
+import type {
+  IActiveAssetData,
+  IBook,
+  IHex,
+  IWsActiveAssetCtx,
+  IWsAllMids,
+  IWsWebData2,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 export function useHyperliquidEventBusListener() {
   const actions = useHyperliquidActions();
@@ -45,41 +48,45 @@ export function useHyperliquidEventBusListener() {
           interval?: string;
         };
       };
-      const { type, subType, data, metadata } = eventPayload;
+      const { subType, data, metadata } = eventPayload;
 
       try {
         switch (subType) {
           case 'allMids':
-            void actions.current.updateAllMids(data as WsAllMids);
+            void actions.current.updateAllMids(data as IWsAllMids);
             break;
 
           case 'activeAssetCtx':
-            void actions.current.updateActiveAssetCtx(data as WsActiveAssetCtx);
+            void actions.current.updateActiveAssetCtx(
+              data as IWsActiveAssetCtx,
+            );
             break;
 
           case 'webData2':
-            void actions.current.updateWebData2(data as WsWebData2);
+            void actions.current.updateWebData2(data as IWsWebData2);
             break;
 
           case 'activeAssetData':
-            void actions.current.updateActiveAssetData(data as ActiveAssetData);
+            void actions.current.updateActiveAssetData(
+              data as IActiveAssetData,
+            );
             break;
 
           case 'l2Book':
-            void actions.current.updateL2Book(data as Book);
+            void actions.current.updateL2Book(data as IBook);
             break;
 
           case 'bbo':
             break;
 
           case 'candles':
-            break;
-
-          case 'trades':
-
-            break;
-
-          case 'userEvents':
+            if (metadata.coin && metadata.interval) {
+              void actions.current.updateCandles({
+                coin: metadata.coin,
+                interval: metadata.interval,
+                candle: data,
+              });
+            }
             break;
 
           default:
@@ -116,11 +123,20 @@ export function useHyperliquidEventBusListener() {
     };
 
     appEventBus.on(EAppEventBusNames.HyperliquidDataUpdate, handleDataUpdate);
-    appEventBus.on(EAppEventBusNames.HyperliquidConnectionChange, handleConnectionChange);
+    appEventBus.on(
+      EAppEventBusNames.HyperliquidConnectionChange,
+      handleConnectionChange,
+    );
 
     return () => {
-      appEventBus.off(EAppEventBusNames.HyperliquidDataUpdate, handleDataUpdate);
-      appEventBus.off(EAppEventBusNames.HyperliquidConnectionChange, handleConnectionChange);
+      appEventBus.off(
+        EAppEventBusNames.HyperliquidDataUpdate,
+        handleDataUpdate,
+      );
+      appEventBus.off(
+        EAppEventBusNames.HyperliquidConnectionChange,
+        handleConnectionChange,
+      );
     };
   }, [actions]);
 }
@@ -133,27 +149,24 @@ export function useHyperliquidSession() {
 
   useHyperliquidEventBusListener();
 
-  const { result: ethAccountData } = usePromiseResult(
-    async () => {
-      if (!activeAccount?.account?.id) return null;
+  const { result: ethAccountData } = usePromiseResult(async () => {
+    if (!activeAccount?.account?.id) return null;
 
-      const ethNetworkId = 'evm--1';
-      const account = await backgroundApiProxy.serviceAccount.getAccount({
-        accountId: activeAccount.account.id,
-        networkId: ethNetworkId,
-      });
+    const ethNetworkId = 'evm--1';
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId: activeAccount.account.id,
+      networkId: ethNetworkId,
+    });
 
-      return account;
-    },
-    [activeAccount?.account?.id],
-  );
-  let userAddress = ethAccountData?.address as Hex | undefined;
+    return account;
+  }, [activeAccount?.account?.id]);
+  const userAddress = ethAccountData?.address as IHex | undefined;
   useEffect(() => {
-    if (userAddress?.startsWith('0x')) {
+    if (typeof userAddress === 'string' && userAddress.startsWith('0x')) {
       void actions.current.setCurrentUser(userAddress);
       void actions.current.setCurrentAccount(activeAccount.account!.id);
     }
-  }, [userAddress, actions]);
+  }, [userAddress, actions, activeAccount.account]);
 
   useEffect(() => {
     if (!subscriptionActive) {
@@ -165,19 +178,22 @@ export function useHyperliquidSession() {
     ETabRoutes.Perp,
     (isFocus: boolean, isHiddenByModal: boolean) => {
       if (isFocus && !isHiddenByModal) {
+        // Handle tab focus
       } else {
+        // Handle tab unfocus
       }
-    }
+    },
   );
 
   useEffect(() => {
+    const actionsRef = actions.current;
     return () => {
-      void actions.current.clearAllData();
+      void actionsRef.clearAllData();
     };
   }, [actions]);
 
   return {
-    userAddress: activeAccount?.account?.address as Hex | undefined,
+    userAddress: activeAccount?.account?.address as IHex | undefined,
     isConnected: connectionState.isConnected,
     isActive: subscriptionActive,
   };
@@ -215,11 +231,13 @@ export function useHyperliquidTrading() {
 
   const checkWalletStatus = useCallback(async () => {
     if (!currentUser) {
-      throw new Error('No user address available');
+      throw new OneKeyLocalError({
+        message: 'No user address available',
+      });
     }
 
-    return await backgroundApiProxy.serviceHyperliquid.checkWalletStatus({
-      userAddress: currentUser as Hex,
+    return backgroundApiProxy.serviceHyperliquid.checkWalletStatus({
+      userAddress: currentUser,
     });
   }, [currentUser]);
 
@@ -228,28 +246,44 @@ export function useHyperliquidTrading() {
     const { maxBuilderFee, extraAgents } = await checkWalletStatus();
     let needApproveAgent = true;
 
-    const proxyWalletAddress = await backgroundApiProxy.serviceHyperliquidWallet.getProxyWalletAddress({
-      userAddress: currentUser as Hex,
-    });
+    const proxyWalletAddress =
+      await backgroundApiProxy.serviceHyperliquidWallet.getProxyWalletAddress({
+        userAddress: currentUser as IHex,
+      });
     if (extraAgents.length > 0) {
-      extraAgents.forEach(agent => {
-        if (agent.address.toLowerCase() === proxyWalletAddress.toLowerCase()) needApproveAgent = false;
+      extraAgents.forEach((agent: any) => {
+        try {
+          const agentObj = agent as { address?: string };
+          if (
+            agentObj &&
+            typeof agentObj === 'object' &&
+            'address' in agentObj &&
+            typeof agentObj.address === 'string'
+          ) {
+            const agentAddress = agentObj.address.toLowerCase();
+            if (agentAddress === proxyWalletAddress.toLowerCase()) {
+              needApproveAgent = false;
+            }
+          }
+        } catch (error) {
+          // Ignore invalid agent objects
+        }
       });
     }
     if (!maxBuilderFee || needApproveAgent) {
       await backgroundApiProxy.serviceHyperliquid.enableTrading({
         userAccountId: currentAccount,
-        userAddress: currentUser as Hex,
+        userAddress: currentUser as IHex,
         approveAgent: needApproveAgent,
         approveBuilderFee: !maxBuilderFee,
       });
     } else {
       await backgroundApiProxy.serviceHyperliquidExchange.setup({
-        userAddress: currentUser as Hex,
+        userAddress: currentUser as IHex,
         userAccountId: currentAccount,
       });
     }
-  }, [currentUser, currentAccount]);
+  }, [currentUser, currentAccount, checkWalletStatus]);
 
   useEffect(() => {
     if (currentUser && !canTrade) {
@@ -259,9 +293,7 @@ export function useHyperliquidTrading() {
       });
       setCanTrade(true);
     }
-
-  }, [currentUser]);
-
+  }, [currentUser, canTrade, checkAndApproveWallet]);
 
   return {
     loading,

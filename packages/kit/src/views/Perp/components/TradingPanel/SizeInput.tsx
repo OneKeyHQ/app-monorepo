@@ -1,14 +1,12 @@
+/* eslint-disable react/prop-types */
 import { memo, useCallback, useMemo } from 'react';
 
-import {
-  Input,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
-import { ICurrentTokenData } from '../../hooks/usePerpMarketData';
-import { ISide } from './TradeSideToggle';
+import { Input, SizableText, XStack, YStack } from '@onekeyhq/components';
+
 import { validateSizeInput } from '../../utils/tokenUtils';
+
+import type { ISide } from './TradeSideToggle';
+import type { ICurrentTokenData } from '../../hooks/usePerpMarketData';
 
 interface ISizeInputProps {
   value: string;
@@ -20,29 +18,25 @@ interface ISizeInputProps {
 }
 
 export const SizeInput = memo<ISizeInputProps>(
-  ({
-    value,
-    onChange,
-    tokenInfo,
-    error,
-    disabled = false,
-    side
-  }) => {
+  ({ value, onChange, tokenInfo, error, disabled = false, side }) => {
     const szDecimals = tokenInfo?.szDecimals || 4;
     const isDisabled = disabled || !tokenInfo;
     const maxSzs = tokenInfo?.maxTradeSzs || [0, 0];
     const maxSize = maxSzs[side === 'long' ? 0 : 1];
 
-    const handleInputChange = useCallback((text: string) => {
-      if (!validateSizeInput(text, szDecimals)) return;
-      onChange(text);
-    }, [szDecimals, onChange]);
+    const handleInputChange = useCallback(
+      (text: string) => {
+        if (!validateSizeInput(text, szDecimals)) return;
+        onChange(text);
+      },
+      [szDecimals, onChange],
+    );
 
     const handleBlur = useCallback(() => {
       if (value) {
         const maxSizeNum = parseFloat(maxSize.toString());
         const currentValue = parseFloat(value);
-        
+
         if (currentValue > maxSizeNum) {
           onChange(maxSize.toString());
         }
@@ -90,16 +84,21 @@ export const SizeInput = memo<ISizeInputProps>(
               },
             ]}
           />
-          {error && (
+          {error ? (
             <SizableText size="$bodySm" color="$red10" mt="$1">
               {error}
             </SizableText>
-          )}
-          {Number(maxSize) > 0 && (
-            <SizableText size="$bodySm" color="$textSubdued" mt="$1" alignSelf="flex-end">
+          ) : null}
+          {Number(maxSize) > 0 ? (
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              mt="$1"
+              alignSelf="flex-end"
+            >
               Max: {Number(maxSize).toFixed(szDecimals)}
             </SizableText>
-          )}
+          ) : null}
         </YStack>
       </YStack>
     );

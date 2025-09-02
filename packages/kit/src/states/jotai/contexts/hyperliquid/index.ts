@@ -1,4 +1,3 @@
-
 export { ProviderJotaiContextHyperliquid } from './atoms';
 
 export {
@@ -7,6 +6,8 @@ export {
   useActiveAssetCtxAtom,
   useActiveAssetDataAtom,
   useL2BookAtom,
+  useCandlesMapAtom,
+  useCurrentCandleIntervalAtom,
   useConnectionStateAtom,
 } from './atoms';
 
@@ -31,11 +32,9 @@ export {
 
 export { useHyperliquidActions } from './actions';
 
-export type {
-  ITradingFormData,
-} from './atoms';
+export type { ITradingFormData, ICandleInterval, ICandlesData } from './atoms';
 
 export type {
-  ConnectionState,
-  TokenListItem,
+  IConnectionState,
+  ITokenListItem,
 } from '@onekeyhq/shared/types/hyperliquid/types';

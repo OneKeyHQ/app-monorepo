@@ -3,60 +3,197 @@ import { useRef } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
-import type { Hex } from '@onekeyhq/shared/types/hyperliquid/sdk';
-import type * as HL from '@nktkas/hyperliquid';
+import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
-  contextAtomMethod,
-  allMidsAtom,
-  webData2Atom,
   activeAssetCtxAtom,
   activeAssetDataAtom,
+  allMidsAtom,
+  candlesMapAtom,
   connectionStateAtom,
+  contextAtomMethod,
+  currentAccountAtom,
+  currentCandleIntervalAtom,
   currentTokenAtom,
   currentUserAtom,
+  l2BookAtom,
   subscriptionActiveAtom,
-  currentAccountAtom,
   tradingFormAtom,
   tradingLoadingAtom,
-  l2BookAtom,
-  ITradingFormData,
+  webData2Atom,
 } from './atoms';
 
+import type { ICandleInterval, ITradingFormData } from './atoms';
+
 class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
-  updateAllMids = contextAtomMethod(
-    (_, set, data: HL.WsAllMids) => {
+  updateAllMids = contextAtomMethod((_, set, data: HL.IWsAllMids) => {
+    set(allMidsAtom(), data);
+  });
 
-      set(allMidsAtom(), data);
-    },
-  );
-
-  updateWebData2 = contextAtomMethod(
-    (_, set, data: HL.WsWebData2) => {
-      set(webData2Atom(), data);
-    },
-  );
+  updateWebData2 = contextAtomMethod((_, set, data: HL.IWsWebData2) => {
+    set(webData2Atom(), data);
+  });
 
   updateActiveAssetCtx = contextAtomMethod(
-    (_, set, data: HL.WsActiveAssetCtx) => {
+    (_, set, data: HL.IWsActiveAssetCtx) => {
       set(activeAssetCtxAtom(), data);
     },
   );
 
   updateActiveAssetData = contextAtomMethod(
-    (_, set, data: HL.ActiveAssetData) => {
+    (_, set, data: HL.IActiveAssetData) => {
       set(activeAssetDataAtom(), data);
     },
   );
 
-  updateL2Book = contextAtomMethod(
-    (_, set, data: HL.Book) => {
-      set(l2BookAtom(), data);
+  updateL2Book = contextAtomMethod((_, set, data: HL.IBook) => {
+    set(l2BookAtom(), data);
+  });
+
+  updateCandles = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: { coin: string; interval: string; candle: HL.ICandle },
+    ) => {
+      const { coin, interval, candle } = payload;
+      const key = `${coin}-${interval}`;
+      const candlesMap = get(candlesMapAtom());
+      const newMap = new Map(candlesMap);
+
+      const existingData = newMap.get(key);
+      if (!existingData) {
+        newMap.set(key, {
+          candles: [candle],
+          isLoading: false,
+          error: null,
+          lastHistoryLoad: 0,
+          lastUpdate: Date.now(),
+        });
+      } else {
+        const updatedCandles = this._mergeRealtimeCandle(
+          existingData.candles,
+          candle,
+        );
+        newMap.set(key, {
+          ...existingData,
+          candles: updatedCandles,
+          lastUpdate: Date.now(),
+        });
+      }
+
+      set(candlesMapAtom(), newMap);
     },
   );
 
+  loadHistoryCandles = contextAtomMethod(
+    async (
+      get,
+      set,
+      payload: {
+        coin: string;
+        interval: string;
+        startTime: number;
+        endTime?: number;
+      },
+    ) => {
+      const { coin, interval, startTime, endTime } = payload;
+      const key = `${coin}-${interval}`;
+      const candlesMap = get(candlesMapAtom());
+      const existingData = candlesMap.get(key);
+
+      if (existingData?.isLoading) {
+        return;
+      }
+
+      const newMap = new Map(candlesMap);
+      newMap.set(key, {
+        candles: existingData?.candles || [],
+        isLoading: true,
+        error: null,
+        lastHistoryLoad: Date.now(),
+        lastUpdate: Date.now(),
+      });
+      set(candlesMapAtom(), newMap);
+
+      try {
+        const historyCandles =
+          await backgroundApiProxy.serviceHyperliquidInfo.getCandleSnapshot({
+            coin,
+            interval: interval as any,
+            startTime,
+            endTime,
+          });
+
+        const updatedMap = new Map(get(candlesMapAtom()));
+        updatedMap.set(key, {
+          candles: historyCandles,
+          isLoading: false,
+          error: null,
+          lastHistoryLoad: Date.now(),
+          lastUpdate: Date.now(),
+        });
+        set(candlesMapAtom(), updatedMap);
+      } catch (error) {
+        const errorMap = new Map(get(candlesMapAtom()));
+        errorMap.set(key, {
+          candles: existingData?.candles || [],
+          isLoading: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Failed to load history candles',
+          lastHistoryLoad: existingData?.lastHistoryLoad || 0,
+          lastUpdate: Date.now(),
+        });
+        set(candlesMapAtom(), errorMap);
+      }
+    },
+  );
+
+  changeCandleInterval = contextAtomMethod(
+    async (get, set, newInterval: ICandleInterval) => {
+      const currentInterval = get(currentCandleIntervalAtom());
+
+      if (currentInterval.value === newInterval.value) {
+        return;
+      }
+
+      set(currentCandleIntervalAtom(), newInterval);
+      await this.updateSubscriptions.call(set);
+    },
+  );
+
+  private _mergeRealtimeCandle(
+    existingCandles: HL.ICandle[],
+    newCandle: HL.ICandle,
+  ): HL.ICandle[] {
+    if (existingCandles.length === 0) {
+      return [newCandle];
+    }
+
+    const lastCandle = existingCandles[existingCandles.length - 1];
+
+    if (newCandle.t === lastCandle.t) {
+      const updated = [...existingCandles];
+      updated[updated.length - 1] = newCandle;
+      return updated;
+    }
+
+    if (newCandle.t > lastCandle.t) {
+      const updated = [...existingCandles, newCandle];
+      return updated.length > 1000 ? updated.slice(-1000) : updated;
+    }
+
+    return existingCandles;
+  }
+
   updateConnectionState = contextAtomMethod(
-    (get, set, payload: Partial<{ isConnected: boolean; reconnectCount: number }>) => {
+    (
+      get,
+      set,
+      payload: Partial<{ isConnected: boolean; reconnectCount: number }>,
+    ) => {
       const current = get(connectionStateAtom());
       set(connectionStateAtom(), {
         ...current,
@@ -66,121 +203,127 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  setCurrentToken = contextAtomMethod(
-    async (get, set, coin: string) => {
-      const currentToken = get(currentTokenAtom());
-      if (currentToken === coin) return;
+  setCurrentToken = contextAtomMethod(async (get, set, coin: string) => {
+    const currentToken = get(currentTokenAtom());
+    if (currentToken === coin) return;
 
-      set(currentTokenAtom(), coin);
-      await this.updateSubscriptions.call(set);
-    },
-  );
+    set(currentTokenAtom(), coin);
+    await this.updateSubscriptions.call(set);
+  });
 
-  setCurrentUser = contextAtomMethod(
-    async (get, set, user: Hex | null) => {
-      const currentUser = get(currentUserAtom());
-      if (currentUser === user) return;
+  setCurrentUser = contextAtomMethod(async (get, set, user: HL.IHex | null) => {
+    const currentUser = get(currentUserAtom());
+    if (currentUser === user) return;
 
-      set(currentUserAtom(), user);
+    set(currentUserAtom(), user);
 
-      if (user !== currentUser) {
-        set(webData2Atom(), null);
-        set(activeAssetDataAtom(), null);
-      }
-      await this.updateSubscriptions.call(set);
-    },
-  );
+    if (user !== currentUser) {
+      set(webData2Atom(), null);
+      set(activeAssetDataAtom(), null);
+    }
+    await this.updateSubscriptions.call(set);
+  });
 
-  setCurrentAccount = contextAtomMethod(
-    async (get, set, accountId: string) => {
-      set(currentAccountAtom(), accountId);
-    },
-  );
+  setCurrentAccount = contextAtomMethod(async (get, set, accountId: string) => {
+    set(currentAccountAtom(), accountId);
+  });
 
-  updateSubscriptions = contextAtomMethod(
-    async (get, set) => {
-      const currentToken = get(currentTokenAtom());
-      const currentUser = get(currentUserAtom());
-      const isActive = get(subscriptionActiveAtom());
+  updateSubscriptions = contextAtomMethod(async (get, set) => {
+    const currentToken = get(currentTokenAtom());
+    const currentUser = get(currentUserAtom());
+    const currentInterval = get(currentCandleIntervalAtom());
+    const isActive = get(subscriptionActiveAtom());
 
-      if (!isActive) {
-        await backgroundApiProxy.serviceHyperliquidSubscription.connect();
-      }
+    if (!isActive) {
+      await backgroundApiProxy.serviceHyperliquidSubscription.connect();
+    }
 
-      try {
-        await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions({
+    try {
+      await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions(
+        {
           currentSymbol: currentToken,
-          currentUser: currentUser,
-        });
-      } catch (error) {
-        console.error('[HyperliquidActions.updateSubscriptions] Failed to update subscriptions:', error);
-      }
-    },
-  );
+          currentUser,
+          currentCandleInterval: currentInterval.value,
+        },
+      );
+    } catch (error) {
+      console.error(
+        '[HyperliquidActions.updateSubscriptions] Failed to update subscriptions:',
+        error,
+      );
+    }
+  });
 
-  startSubscriptions = contextAtomMethod(
-    async (get, set) => {
-      set(subscriptionActiveAtom(), true);
+  startSubscriptions = contextAtomMethod(async (get, set) => {
+    set(subscriptionActiveAtom(), true);
 
-      try {
-        await backgroundApiProxy.serviceHyperliquidSubscription.connect();
-        await this.updateSubscriptions.call(set);
-
-        this.updateConnectionState.call(set, {
-          isConnected: true,
-          reconnectCount: 0,
-        });
-      } catch (error) {
-        console.error('[HyperliquidActions.startSubscriptions] Failed to start subscriptions:', error);
-        this.updateConnectionState.call(set, {
-          isConnected: false,
-        });
-      }
-    },
-  );
-
-  stopSubscriptions = contextAtomMethod(
-    async (get, set) => {
-      set(subscriptionActiveAtom(), false);
-
-      try {
-        await backgroundApiProxy.serviceHyperliquidSubscription.disconnect();
-
-        this.updateConnectionState.call(set, {
-          isConnected: false,
-        });
-      } catch (error) {
-        console.error('[HyperliquidActions.stopSubscriptions] Failed to stop subscriptions:', error);
-      }
-    },
-  );
-
-  reconnectSubscriptions = contextAtomMethod(
-    async (get, set) => {
-      const current = get(connectionStateAtom());
+    try {
+      await backgroundApiProxy.serviceHyperliquidSubscription.connect();
+      await this.updateSubscriptions.call(set);
 
       this.updateConnectionState.call(set, {
-        reconnectCount: current.reconnectCount + 1,
+        isConnected: true,
+        reconnectCount: 0,
       });
+    } catch (error) {
+      console.error(
+        '[HyperliquidActions.startSubscriptions] Failed to start subscriptions:',
+        error,
+      );
+      this.updateConnectionState.call(set, {
+        isConnected: false,
+      });
+    }
+  });
 
-      try {
-        await backgroundApiProxy.serviceHyperliquidSubscription.reconnect();
-        await this.updateSubscriptions.call(set);
+  stopSubscriptions = contextAtomMethod(async (get, set) => {
+    set(subscriptionActiveAtom(), false);
 
-        this.updateConnectionState.call(set, {
-          isConnected: true,
-        });
-      } catch (error) {
-        console.error('[HyperliquidActions.reconnectSubscriptions] Failed to reconnect subscriptions:', error);
-        this.updateConnectionState.call(set, {
-          isConnected: false,
-        });
-      }
-    },
-  );
+    try {
+      await backgroundApiProxy.serviceHyperliquidSubscription.disconnect();
+
+      this.updateConnectionState.call(set, {
+        isConnected: false,
+      });
+    } catch (error) {
+      console.error(
+        '[HyperliquidActions.stopSubscriptions] Failed to stop subscriptions:',
+        error,
+      );
+    }
+  });
+
+  reconnectSubscriptions = contextAtomMethod(async (get, set) => {
+    const current = get(connectionStateAtom());
+
+    this.updateConnectionState.call(set, {
+      reconnectCount: current.reconnectCount + 1,
+    });
+
+    try {
+      await backgroundApiProxy.serviceHyperliquidSubscription.reconnect();
+      await this.updateSubscriptions.call(set);
+
+      this.updateConnectionState.call(set, {
+        isConnected: true,
+      });
+    } catch (error) {
+      console.error(
+        '[HyperliquidActions.reconnectSubscriptions] Failed to reconnect subscriptions:',
+        error,
+      );
+      this.updateConnectionState.call(set, {
+        isConnected: false,
+      });
+    }
+  });
 
   setupTradingSession = contextAtomMethod(
-    async (get, set, payload: { userAddress: Hex; userAccountId: string }) => {
+    async (
+      get,
+      set,
+      payload: { userAddress: HL.IHex; userAccountId: string },
+    ) => {
       try {
         await this.setCurrentUser.call(set, payload.userAddress);
 
@@ -198,7 +341,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   );
 
   checkWalletStatus = contextAtomMethod(
-    async (get, set, userAddress: Hex) => {
+    async (get, set, userAddress: HL.IHex) => {
       try {
         return await backgroundApiProxy.serviceHyperliquid.checkWalletStatus({
           userAddress,
@@ -211,14 +354,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   );
 
   enableTrading = contextAtomMethod(
-    async (get, set, payload: {
-      userAddress: Hex;
-      userAccountId: string;
-      approveAgent?: boolean;
-      approveBuilderFee?: boolean;
-    }) => {
+    async (
+      get,
+      set,
+      payload: {
+        userAddress: HL.IHex;
+        userAccountId: string;
+        approveAgent?: boolean;
+        approveBuilderFee?: boolean;
+      },
+    ) => {
       try {
-        return await backgroundApiProxy.serviceHyperliquid.enableTrading(payload);
+        return await backgroundApiProxy.serviceHyperliquid.enableTrading(
+          payload,
+        );
       } catch (error) {
         console.error('Failed to enable trading:', error);
         return { success: false };
@@ -226,31 +375,27 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  clearUserData = contextAtomMethod(
-    (get, set) => {
-      set(currentUserAtom(), null);
-      set(webData2Atom(), null);
-      set(activeAssetDataAtom(), null);
-    },
-  );
+  clearUserData = contextAtomMethod((get, set) => {
+    set(currentUserAtom(), null);
+    set(webData2Atom(), null);
+    set(activeAssetDataAtom(), null);
+  });
 
-  clearAllData = contextAtomMethod(
-    (get, set) => {
-      set(allMidsAtom(), null);
-      set(webData2Atom(), null);
-      set(activeAssetCtxAtom(), null);
-      set(activeAssetDataAtom(), null);
-      set(l2BookAtom(), null);
-      set(currentTokenAtom(), 'ETH');
-      set(currentUserAtom(), null);
-      set(subscriptionActiveAtom(), false);
-      set(connectionStateAtom(), {
-        isConnected: false,
-        lastConnected: null,
-        reconnectCount: 0,
-      });
-    },
-  );
+  clearAllData = contextAtomMethod((get, set) => {
+    set(allMidsAtom(), null);
+    set(webData2Atom(), null);
+    set(activeAssetCtxAtom(), null);
+    set(activeAssetDataAtom(), null);
+    set(l2BookAtom(), null);
+    set(currentTokenAtom(), 'ETH');
+    set(currentUserAtom(), null);
+    set(subscriptionActiveAtom(), false);
+    set(connectionStateAtom(), {
+      isConnected: false,
+      lastConnected: null,
+      reconnectCount: 0,
+    });
+  });
 
   updateTradingForm = contextAtomMethod(
     (get, set, updates: Partial<ITradingFormData>) => {
@@ -259,90 +404,102 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  resetTradingForm = contextAtomMethod(
-    (get, set) => {
-      set(tradingFormAtom(), {
-        side: 'long',
-        type: 'market',
-        price: '',
-        size: '',
-        leverage: 1,
-        hasTpsl: false,
-        tpTriggerPx: '',
-        tpGainPercent: '',
-        slTriggerPx: '',
-        slLossPercent: '',
-      });
-    },
-  );
+  resetTradingForm = contextAtomMethod((get, set) => {
+    set(tradingFormAtom(), {
+      side: 'long',
+      type: 'market',
+      price: '',
+      size: '',
+      leverage: 1,
+      hasTpsl: false,
+      tpTriggerPx: '',
+      tpGainPercent: '',
+      slTriggerPx: '',
+      slLossPercent: '',
+    });
+  });
 
-  setTradingLoading = contextAtomMethod(
-    (get, set, loading: boolean) => {
-      set(tradingLoadingAtom(), loading);
-    },
-  );
+  setTradingLoading = contextAtomMethod((get, set, loading: boolean) => {
+    set(tradingLoadingAtom(), loading);
+  });
 
   placeOrder = contextAtomMethod(
-    async (get, set, params: { 
-      assetId: number;
-      formData?: ITradingFormData;
-      slippage?: number;
-    }) => {
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        formData?: ITradingFormData;
+        slippage?: number;
+      },
+    ) => {
       const formData = params.formData || get(tradingFormAtom());
       const slippage = params.slippage || 0.08;
 
       try {
         set(tradingLoadingAtom(), true);
 
-        const result = await backgroundApiProxy.serviceHyperliquidExchange.placeOrder({
-          assetId: params.assetId,
-          isBuy: formData.side === 'long',
-          sz: formData.size,
-          limitPx: formData.price,
-          orderType: formData.type === 'limit' ? 
-            { limit: { tif: 'Gtc' } } : 
-            { market: {} },
-          slippage,
-        });
+        const result =
+          await backgroundApiProxy.serviceHyperliquidExchange.placeOrder({
+            assetId: params.assetId,
+            isBuy: formData.side === 'long',
+            sz: formData.size,
+            limitPx: formData.price,
+            orderType:
+              formData.type === 'limit'
+                ? { limit: { tif: 'Gtc' } }
+                : { market: {} },
+            slippage,
+          });
 
         return result;
       } catch (error) {
-        console.error('[HyperliquidActions.placeOrder] Failed to place order:', error);
+        console.error(
+          '[HyperliquidActions.placeOrder] Failed to place order:',
+          error,
+        );
         throw error;
       } finally {
         set(tradingLoadingAtom(), false);
       }
     },
   );
-
 
   marketOrderOpen = contextAtomMethod(
-    async (get, set, params: {
-      assetId: number;
-      formData?: ITradingFormData;
-      slippage?: number;
-      midPx: string;
-    }) => {
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        formData?: ITradingFormData;
+        slippage?: number;
+        midPx: string;
+      },
+    ) => {
       const formData = params.formData || get(tradingFormAtom());
       const slippage = params.slippage || 0.08;
 
       try {
         set(tradingLoadingAtom(), true);
 
-        const result = await backgroundApiProxy.serviceHyperliquidExchange.marketOrderOpen({
-          assetId: params.assetId,
-          isBuy: formData.side === 'long',
-          size: formData.size,
-          midPx: params.midPx,
-          type: formData.type,
-          tpTriggerPx: formData.hasTpsl ? formData.tpTriggerPx : undefined,
-          slTriggerPx: formData.hasTpsl ? formData.slTriggerPx : undefined,
-          slippage,
-        });
+        const result =
+          await backgroundApiProxy.serviceHyperliquidExchange.marketOrderOpen({
+            assetId: params.assetId,
+            isBuy: formData.side === 'long',
+            size: formData.size,
+            midPx: params.midPx,
+            type: formData.type,
+            tpTriggerPx: formData.hasTpsl ? formData.tpTriggerPx : undefined,
+            slTriggerPx: formData.hasTpsl ? formData.slTriggerPx : undefined,
+            slippage,
+          });
 
         return result;
       } catch (error) {
-        console.error('[HyperliquidActions.marketOrderOpen] Failed to place market order:', error);
+        console.error(
+          '[HyperliquidActions.marketOrderOpen] Failed to place market order:',
+          error,
+        );
         throw error;
       } finally {
         set(tradingLoadingAtom(), false);
@@ -350,53 +507,67 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-
   updateLeverage = contextAtomMethod(
-    async (get, set, params: {
-      assetId: number;
-      leverage: number;
-      isCross?: boolean;
-    }) => {
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        leverage: number;
+        isCross?: boolean;
+      },
+    ) => {
       try {
-        const result = await backgroundApiProxy.serviceHyperliquidExchange.updateLeverageByAssetId({
-          assetId: params.assetId,
-          leverage: params.leverage,
-          isCross: params.isCross ?? true,
-        });
+        void (await backgroundApiProxy.serviceHyperliquidExchange.updateLeverageByAssetId(
+          {
+            assetId: params.assetId,
+            leverage: params.leverage,
+            isCross: params.isCross ?? true,
+          },
+        ));
 
         const formData = get(tradingFormAtom());
         set(tradingFormAtom(), { ...formData, leverage: params.leverage });
-
-        return result;
       } catch (error) {
-        console.error('[HyperliquidActions.updateLeverage] Failed to update leverage:', error);
+        console.error(
+          '[HyperliquidActions.updateLeverage] Failed to update leverage:',
+          error,
+        );
         throw error;
       }
     },
   );
 
   marketOrderClose = contextAtomMethod(
-    async (get, set, params: {
-      assetId: number;
-      isBuy: boolean;
-      size: string;
-      midPx: string;
-      slippage?: number;
-    }) => {
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        isBuy: boolean;
+        size: string;
+        midPx: string;
+        slippage?: number;
+      },
+    ) => {
       try {
         set(tradingLoadingAtom(), true);
 
-        const result = await backgroundApiProxy.serviceHyperliquidExchange.marketOrderClose({
-          assetId: params.assetId,
-          isBuy: params.isBuy,
-          size: params.size,
-          midPx: params.midPx,
-          slippage: params.slippage || 0.08,
-        });
+        const result =
+          await backgroundApiProxy.serviceHyperliquidExchange.marketOrderClose({
+            assetId: params.assetId,
+            isBuy: params.isBuy,
+            size: params.size,
+            midPx: params.midPx,
+            slippage: params.slippage || 0.08,
+          });
 
         return result;
       } catch (error) {
-        console.error('[HyperliquidActions.marketOrderClose] Failed to close position:', error);
+        console.error(
+          '[HyperliquidActions.marketOrderClose] Failed to close position:',
+          error,
+        );
         throw error;
       } finally {
         set(tradingLoadingAtom(), false);
@@ -415,6 +586,9 @@ export function useHyperliquidActions() {
   const updateActiveAssetCtx = actions.updateActiveAssetCtx.use();
   const updateActiveAssetData = actions.updateActiveAssetData.use();
   const updateL2Book = actions.updateL2Book.use();
+  const updateCandles = actions.updateCandles.use();
+  const loadHistoryCandles = actions.loadHistoryCandles.use();
+  const changeCandleInterval = actions.changeCandleInterval.use();
   const updateConnectionState = actions.updateConnectionState.use();
 
   const setCurrentToken = actions.setCurrentToken.use();
@@ -435,7 +609,7 @@ export function useHyperliquidActions() {
   const updateTradingForm = actions.updateTradingForm.use();
   const resetTradingForm = actions.resetTradingForm.use();
   const setTradingLoading = actions.setTradingLoading.use();
-  
+
   const placeOrder = actions.placeOrder.use();
   const marketOrderOpen = actions.marketOrderOpen.use();
   const updateLeverage = actions.updateLeverage.use();
@@ -447,6 +621,9 @@ export function useHyperliquidActions() {
     updateActiveAssetCtx,
     updateActiveAssetData,
     updateL2Book,
+    updateCandles,
+    loadHistoryCandles,
+    changeCandleInterval,
     updateConnectionState,
     setCurrentToken,
     setCurrentUser,

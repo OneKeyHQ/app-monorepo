@@ -1,13 +1,11 @@
-import React from 'react';
-
 import { XStack, YStack } from '@onekeyhq/components';
 
-import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
-import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
-import { PerpChartsSection } from '../components/Charts/PerpChartsSection';
-import { PerpProtfolioPanel } from '../components/PerpProtfolioPanel';
-import { PerpAccountPanel } from '../components/TradingPanel/PerpAccountPanel';
+import { PerpCandles } from '../components/PerpCandles';
 import { PerpOrderBook } from '../components/PerpOrderBook';
+import { PerpPortfolioPanel } from '../components/PerpPortfolioPanel';
+import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
+import { PerpAccountPanel } from '../components/TradingPanel/PerpAccountPanel';
+import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 
 function PerpDesktopLayout() {
   return (
@@ -30,13 +28,13 @@ function PerpDesktopLayout() {
           >
             {/* Charts - 70% width */}
             <YStack flex={0.7}>
-              <PerpChartsSection />
+              <PerpCandles />
             </YStack>
-            
+
             {/* Order Book - 30% width */}
-            <YStack 
-              flex={0.3} 
-              borderLeftWidth="$px" 
+            <YStack
+              flex={0.3}
+              borderLeftWidth="$px"
               borderLeftColor="$borderSubdued"
               minWidth={300}
             >
@@ -46,7 +44,7 @@ function PerpDesktopLayout() {
 
           {/* Positions Section - Takes 40% of left side height */}
           <YStack flex={0.4} minHeight={300}>
-            <PerpProtfolioPanel />
+            <PerpPortfolioPanel />
           </YStack>
         </YStack>
 

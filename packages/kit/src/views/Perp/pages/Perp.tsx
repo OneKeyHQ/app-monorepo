@@ -1,17 +1,16 @@
-import React from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { Page } from '@onekeyhq/components';
 import { ProviderJotaiContextHyperliquid } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { useHyperliquidSession } from '../hooks';
-
-import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
-import { TabPageHeader } from '../../../components/TabPageHeader';
-import { usePerpNetworkLock } from '../hooks/usePerpNetworkLock';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useFocusEffect } from '@react-navigation/native';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
+import { TabPageHeader } from '../../../components/TabPageHeader';
+import { useHyperliquidSession } from '../hooks';
+import { usePerpNetworkLock } from '../hooks/usePerpNetworkLock';
+import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
 
 function PerpContent() {
   usePerpNetworkLock();

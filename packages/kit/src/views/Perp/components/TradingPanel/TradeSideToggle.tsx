@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { memo, useCallback } from 'react';
 
 import {

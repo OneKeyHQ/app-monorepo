@@ -11,38 +11,34 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useActiveAssetCtxAtom, useActiveAssetDataAtom, useCurrentTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  useActiveAssetDataAtom,
+  useCurrentTokenAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+
 import { useTokenList } from '../../hooks/usePerpMarketData';
 
-export const LeverageAdjustModal = memo(() => {
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const userAccountId = activeAccount?.dbAccount?.id;
+interface ILeverageContentProps {
+  initialValue: number;
+  maxLeverage: number;
+  onValueChange: (value: number) => void;
+}
 
-  const [currentToken] = useCurrentTokenAtom();
-  const { getTokenInfo } = useTokenList();
-  const [activeAssetData] = useActiveAssetDataAtom();
+const LeverageContent = memo(
+  ({ initialValue, maxLeverage, onValueChange }: ILeverageContentProps) => {
+    const [value, setValue] = useState(initialValue);
 
-  const tokenInfo = getTokenInfo(currentToken);
-
-
-  const showLeverageDialog = useCallback(() => {
-    if (!userAccountId || !tokenInfo || !activeAssetData) return;
-
-    const initialValue =
-      activeAssetData?.leverage?.value || tokenInfo.maxLeverage || 1;
-    const maxLeverage = tokenInfo.maxLeverage || 25;
-    let currentValue = initialValue;
-
-    const LeverageContent = () => {
-      const [value, setValue] = useState(initialValue);
-
-      const handleSliderChange = useCallback((newValue: number) => {
+    const handleSliderChange = useCallback(
+      (newValue: number) => {
         const roundedValue = Math.round(newValue);
         setValue(roundedValue);
-        currentValue = roundedValue;
-      }, []);
+        onValueChange(roundedValue);
+      },
+      [onValueChange],
+    );
 
-      const handleInputChange = useCallback((text: string) => {
+    const handleInputChange = useCallback(
+      (text: string) => {
         let newValue = 0;
         if (text !== '') {
           const numValue = parseInt(text, 10);
@@ -57,46 +53,78 @@ export const LeverageAdjustModal = memo(() => {
           }
         }
         setValue(newValue);
-        currentValue = newValue;
-      }, []);
+        onValueChange(newValue);
+      },
+      [maxLeverage, onValueChange],
+    );
 
-      return (
-        <YStack space="$4">
-          <XStack justifyContent="space-between" alignItems="center">
-            <SizableText size="$bodyMd" color="$color11">
-              Leverage
-            </SizableText>
-            <Input
-              size="small"
-              value={value ? value.toString() : ''}
-              onChangeText={handleInputChange}
-              keyboardType="numeric"
-              width={60}
-              textAlign="center"
-              addOns={[{ label: 'x' }]}
-            />
-          </XStack>
-
-          <Slider
-            value={value || 1}
-            onChange={handleSliderChange}
-            min={1}
-            max={maxLeverage}
-            step={1}
-          />
-
-          <SizableText size="$bodySm" color="$textSubdued">
-            The maximum leverage is {maxLeverage}x. Max position size decreases
-            the higher your leverage.
+    return (
+      <YStack space="$4">
+        <XStack justifyContent="space-between" alignItems="center">
+          <SizableText size="$bodyMd" color="$color11">
+            Leverage
           </SizableText>
-        </YStack>
-      );
+          <Input
+            size="small"
+            value={value ? value.toString() : ''}
+            onChangeText={handleInputChange}
+            keyboardType="numeric"
+            width={60}
+            textAlign="center"
+            addOns={[{ label: 'x' }]}
+          />
+        </XStack>
+
+        <Slider
+          value={value || 1}
+          onChange={handleSliderChange}
+          min={1}
+          max={maxLeverage}
+          step={1}
+        />
+
+        <SizableText size="$bodySm" color="$textSubdued">
+          The maximum leverage is {maxLeverage}x. Max position size decreases
+          the higher your leverage.
+        </SizableText>
+      </YStack>
+    );
+  },
+);
+LeverageContent.displayName = 'LeverageContent';
+
+export const LeverageAdjustModal = memo(() => {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const userAccountId = activeAccount?.dbAccount?.id;
+
+  const [currentToken] = useCurrentTokenAtom();
+  const { getTokenInfo } = useTokenList();
+  const [activeAssetData] = useActiveAssetDataAtom();
+
+  const tokenInfo = getTokenInfo(currentToken);
+
+  const showLeverageDialog = useCallback(() => {
+    if (!userAccountId || !tokenInfo || !activeAssetData) return;
+
+    const initialValue =
+      activeAssetData?.leverage?.value || tokenInfo.maxLeverage || 1;
+    const maxLeverage = tokenInfo.maxLeverage || 25;
+    let currentValue = initialValue;
+
+    const handleValueChange = (value: number) => {
+      currentValue = value;
     };
 
     Dialog.confirm({
       title: 'Adjust Leverage',
       description: `Control the leverage used for ${tokenInfo.name} positions.`,
-      renderContent: <LeverageContent />,
+      renderContent: (
+        <LeverageContent
+          initialValue={initialValue}
+          maxLeverage={maxLeverage}
+          onValueChange={handleValueChange}
+        />
+      ),
       onConfirm: async () => {
         await backgroundApiProxy.serviceHyperliquidExchange.updateLeverage({
           asset: tokenInfo.assetId,
@@ -105,7 +133,7 @@ export const LeverageAdjustModal = memo(() => {
         });
       },
     });
-  }, [tokenInfo, userAccountId]);
+  }, [tokenInfo, userAccountId, activeAssetData]);
 
   if (!userAccountId || !tokenInfo) {
     return null;

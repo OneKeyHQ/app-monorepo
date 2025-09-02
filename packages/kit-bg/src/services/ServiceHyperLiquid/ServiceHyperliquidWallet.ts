@@ -1,20 +1,23 @@
-import { Wallet } from 'ethers';
+/* eslint-disable max-classes-per-file */
 import * as crypto from 'crypto';
 
+import { Wallet } from 'ethers';
+
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
-import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import ServiceBase from '../ServiceBase';
-import { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+
+import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 const CHAIN_ID = 'evm--42161'; // Arbitrum hex chainId
 
@@ -32,7 +35,7 @@ interface IAbstractEthersV6Signer {
         type: string;
       }[];
     },
-    value: Record<string, unknown>
+    value: Record<string, unknown>,
   ): Promise<string>;
   getAddress(): Promise<string>;
   provider: any;
@@ -58,7 +61,7 @@ export class WalletHyperliquidProxy implements IAbstractEthersV6Signer {
         type: string;
       }[];
     },
-    value: Record<string, unknown>
+    value: Record<string, unknown>,
   ): Promise<string> {
     return this.wallet._signTypedData(domain, types, value);
   }
@@ -73,7 +76,10 @@ export class WalletHyperliquidProxy implements IAbstractEthersV6Signer {
 export class WalletHyperliquidOnekey implements IAbstractEthersV6Signer {
   private instanceId: string;
 
-  constructor(private accountId: string, private backgroundApi: any) {
+  constructor(
+    private accountId: string,
+    private backgroundApi: IBackgroundApi,
+  ) {
     this.instanceId = `onekey-${Date.now()}-${Math.random()
       .toString(36)
       .substr(2, 9)}`;
@@ -92,50 +98,46 @@ export class WalletHyperliquidOnekey implements IAbstractEthersV6Signer {
         type: string;
       }[];
     },
-    value: Record<string, unknown>
+    value: Record<string, unknown>,
   ): Promise<string> {
-    try {
-      const primaryType = Object.keys(types)[0];
-      const typedDataPayload = {
-        types: {
-          'EIP712Domain': [
-            { name: 'name', type: 'string' },
-            { name: 'version', type: 'string' },
-            { name: 'chainId', type: 'uint256' },
-            { name: 'verifyingContract', type: 'address' },
-          ],
-          ...types,
-        },
-        primaryType,
-        domain,
-        message: value,
-      };
+    const primaryType = Object.keys(types)[0];
+    const typedDataPayload = {
+      types: {
+        'EIP712Domain': [
+          { name: 'name', type: 'string' },
+          { name: 'version', type: 'string' },
+          { name: 'chainId', type: 'uint256' },
+          { name: 'verifyingContract', type: 'address' },
+        ],
+        ...types,
+      },
+      primaryType,
+      domain,
+      message: value,
+    };
 
-      const address = await this.getAddress();
-      const unsignedMessage: IUnsignedMessage = {
-        type: EMessageTypesEth.TYPED_DATA_V4,
-        message: JSON.stringify(typedDataPayload),
-        payload: [address, JSON.stringify(typedDataPayload)],
-      };
+    const address = await this.getAddress();
+    const unsignedMessage: IUnsignedMessage = {
+      type: EMessageTypesEth.TYPED_DATA_V4,
+      message: JSON.stringify(typedDataPayload),
+      payload: [address, JSON.stringify(typedDataPayload)],
+    };
 
-      const result = await this.backgroundApi.serviceSend.signMessage({
-        unsignedMessage,
-        accountId: this.accountId,
-        networkId: CHAIN_ID,
+    const result = await this.backgroundApi.serviceSend.signMessage({
+      unsignedMessage,
+      accountId: this.accountId,
+      networkId: CHAIN_ID,
+    });
+
+    if (!result || typeof result !== 'string') {
+      throw new OneKeyLocalError({
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.global_unknown_error,
+        }),
       });
-
-      if (!result || typeof result !== 'string') {
-        throw new OneKeyLocalError({
-          message: appLocale.intl.formatMessage({
-            id: ETranslations.global_unknown_error,
-          }),
-        });
-      }
-
-      return result;
-    } catch (error) {
-      throw error;
     }
+
+    return result;
   }
 
   async getAddress(): Promise<string> {
@@ -151,7 +153,7 @@ export class WalletHyperliquidOnekey implements IAbstractEthersV6Signer {
 
 @backgroundClass()
 export default class ServiceHyperliquidWallet extends ServiceBase {
-  constructor({ backgroundApi }: { backgroundApi: any }) {
+  constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
     super({ backgroundApi });
   }
 
@@ -173,7 +175,7 @@ export default class ServiceHyperliquidWallet extends ServiceBase {
       const privateKeyHex = bufferUtils.bytesToHex(privateKeyBytes);
 
       const encodedPrivateKey =
-        await backgroundApiProxy.servicePassword.encodeSensitiveText({
+        await this.backgroundApi.servicePassword.encodeSensitiveText({
           text: privateKeyHex,
         });
 
@@ -192,18 +194,22 @@ export default class ServiceHyperliquidWallet extends ServiceBase {
     const address = await wallet.getAddress();
     return {
       address,
-      wallet
+      wallet,
     };
   }
 
   @backgroundMethod()
-  async getProxyWalletAddress(params: { userAddress: string }): Promise<string> {
+  async getProxyWalletAddress(params: {
+    userAddress: string;
+  }): Promise<string> {
     const proxyWallet = await this.getProxyWallet(params);
     return proxyWallet.address;
   }
 
   @backgroundMethod()
-  async getOnekeyWallet(params: { userAccountId: string }): Promise<WalletHyperliquidOnekey> {
+  async getOnekeyWallet(params: {
+    userAccountId: string;
+  }): Promise<WalletHyperliquidOnekey> {
     if (!this.onekeyWalletCache.has(params.userAccountId)) {
       const wallet = new WalletHyperliquidOnekey(
         params.userAccountId,
@@ -211,7 +217,13 @@ export default class ServiceHyperliquidWallet extends ServiceBase {
       );
       this.onekeyWalletCache.set(params.userAccountId, wallet);
     }
-    return this.onekeyWalletCache.get(params.userAccountId)!;
+    const wallet = this.onekeyWalletCache.get(params.userAccountId);
+    if (!wallet) {
+      throw new OneKeyLocalError({
+        message: `Failed to get wallet for account ${params.userAccountId}`,
+      });
+    }
+    return wallet;
   }
 
   async dispose(): Promise<void> {

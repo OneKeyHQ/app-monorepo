@@ -1,4 +1,7 @@
-import { usePositionListAtom, useOpenOrdersListAtom } from '../../../states/jotai/contexts/hyperliquid';
+import {
+  useOpenOrdersListAtom,
+  usePositionListAtom,
+} from '../../../states/jotai/contexts/hyperliquid';
 
 export function usePerpPositions() {
   const [positions] = usePositionListAtom();

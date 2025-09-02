@@ -12,6 +12,7 @@ interface IOrderTypeSelectorProps {
 }
 
 export const OrderTypeSelector = memo<IOrderTypeSelectorProps>(
+  // eslint-disable-next-line react/prop-types
   ({ value, onChange, disabled = false }) => {
     return (
       <SegmentControl
