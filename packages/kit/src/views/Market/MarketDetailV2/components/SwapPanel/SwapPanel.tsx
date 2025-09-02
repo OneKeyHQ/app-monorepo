@@ -5,10 +5,12 @@ import { useIntl } from 'react-intl';
 import type { IDialogInstance } from '@onekeyhq/components';
 import {
   Button,
+  EInPageDialogType,
   Spinner,
   Stack,
   View,
-  useInModalDialog,
+  useInPageDialog,
+  useIsModalPage,
   useMedia,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -34,7 +36,10 @@ export function SwapPanel({
 }) {
   const intl = useIntl();
   const media = useMedia();
-  const inModalDialog = useInModalDialog();
+  const isModalPage = useIsModalPage();
+  const inPageDialog = useInPageDialog(
+    isModalPage ? EInPageDialogType.inModalPage : EInPageDialogType.inTabPages,
+  );
   const dialogRef = useRef<IDialogInstance>(null);
 
   if (!networkId || !tokenAddress) {
@@ -52,7 +57,7 @@ export function SwapPanel({
 
   const showSwapDialog = () => {
     if (networkId && tokenAddress) {
-      dialogRef.current = inModalDialog.show({
+      dialogRef.current = inPageDialog.show({
         onClose: () => {
           appEventBus.emit(
             EAppEventBusNames.SwapPanelDismissKeyboard,
