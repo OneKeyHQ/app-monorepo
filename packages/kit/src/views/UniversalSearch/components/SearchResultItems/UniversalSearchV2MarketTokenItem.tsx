@@ -1,15 +1,21 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
+
+import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   IconButton,
+  NumberSizeableText,
   SizableText,
   XStack,
+  YStack,
   rootNavigationRef,
   useClipboard,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import {
@@ -53,6 +59,57 @@ function ContractAddress({ address }: { address: string }) {
   );
 }
 
+function MarketTokenLiquidity({
+  liquidity,
+  volume24h,
+}: {
+  liquidity: string;
+  volume24h: string;
+}) {
+  const intl = useIntl();
+  const displayLiquidity = useMemo(
+    () => BigNumber(liquidity).gt(0),
+    [liquidity],
+  );
+  const displayVolume24h = useMemo(
+    () => BigNumber(volume24h).gt(0),
+    [volume24h],
+  );
+  return (
+    <XStack>
+      {displayLiquidity ? (
+        <XStack ai="center" gap="$1">
+          <SizableText color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.dexmarket_search_result_liq,
+            })}
+          </SizableText>
+          <NumberSizeableText color="$textSubdued" formatter="marketCap">
+            {liquidity}
+          </NumberSizeableText>
+        </XStack>
+      ) : null}
+      {displayLiquidity ? (
+        <SizableText color="$textSubdued" px="$1">
+          •
+        </SizableText>
+      ) : null}
+      {displayVolume24h ? (
+        <XStack ai="center" gap="$1">
+          <SizableText color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.dexmarket_search_result_vol,
+            })}
+          </SizableText>
+          <NumberSizeableText color="$textSubdued" formatter="marketCap">
+            {volume24h}
+          </NumberSizeableText>
+        </XStack>
+      ) : null}
+    </XStack>
+  );
+}
+
 interface IUniversalSearchMarketTokenItemProps {
   item: IUniversalSearchV2MarketToken;
   searchStatus: ESearchStatus;
@@ -65,7 +122,16 @@ export function UniversalSearchV2MarketTokenItem({
   // Ensure market watch list atom is initialized
   const [{ isMounted }] = useMarketWatchListV2Atom();
   const universalSearchActions = useUniversalSearchActions();
-  const { logoUrl, price, symbol, name, address, network } = item.payload;
+  const {
+    logoUrl,
+    price,
+    symbol,
+    name,
+    address,
+    network,
+    liquidity,
+    volume_24h: volume24h,
+  } = item.payload;
 
   const handlePress = useCallback(() => {
     rootNavigationRef.current?.goBack();
@@ -125,13 +191,16 @@ export function UniversalSearchV2MarketTokenItem({
         numberOfLines: 1,
       }}
     >
-      <XStack>
-        <MarketTokenPrice
-          price={String(price)}
-          size="$bodyLgMedium"
-          tokenName={name}
-          tokenSymbol={symbol}
-        />
+      <XStack alignItems="center">
+        <YStack alignItems="flex-end">
+          <MarketTokenPrice
+            price={String(price)}
+            size="$bodyLgMedium"
+            tokenName={name}
+            tokenSymbol={symbol}
+          />
+          <MarketTokenLiquidity liquidity={liquidity} volume24h={volume24h} />
+        </YStack>
         <MarketStarV2
           chainId={network}
           contractAddress={address}
