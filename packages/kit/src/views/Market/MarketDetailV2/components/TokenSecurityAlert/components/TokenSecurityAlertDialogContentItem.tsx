@@ -64,33 +64,14 @@ function TokenSecurityAlertDialogContentItem({
       alignItems="center"
       py="$2"
     >
-      <SizableText
-        size="$bodyMdMedium"
-        color={getTextColorByRiskType(item.riskType)}
-        flex={1}
-      >
+      <SizableText size="$bodyMdMedium" color="$text" flex={1}>
         {item.label}
       </SizableText>
 
-      <XStack gap="$2" alignItems="center">
-        {item.value ? (
-          <Button variant="tertiary" size="small" onPress={handleCopyValue}>
-            <SizableText
-              size="$bodyMdMedium"
-              color={getTextColorByRiskType(item.riskType)}
-              textAlign="right"
-            >
-              {formatValue(item.value)}
-            </SizableText>
-          </Button>
-        ) : null}
-
+      <XStack gap="$1.5" alignItems="center">
         {(() => {
           // Don't show icon if there's a value or if risk type is normal
-          if (
-            (typeof item.value === 'string' && item.value.length > 0) ||
-            item.riskType === 'normal'
-          ) {
+          if (item.riskType === 'normal') {
             return null;
           }
           return (
@@ -100,6 +81,16 @@ function TokenSecurityAlertDialogContentItem({
             />
           );
         })()}
+
+        {item.value ? (
+          <SizableText
+            size="$bodyMdMedium"
+            color={getTextColorByRiskType(item.riskType)}
+            textAlign="right"
+          >
+            {formatValue(item.value)}
+          </SizableText>
+        ) : null}
       </XStack>
     </XStack>
   );
