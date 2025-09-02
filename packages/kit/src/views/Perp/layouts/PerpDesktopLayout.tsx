@@ -1,8 +1,8 @@
 import { XStack, YStack } from '@onekeyhq/components';
 
+import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
 import { PerpCandles } from '../components/PerpCandles';
 import { PerpOrderBook } from '../components/PerpOrderBook';
-import { PerpPortfolioPanel } from '../components/PerpPortfolioPanel';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import { PerpAccountPanel } from '../components/TradingPanel/PerpAccountPanel';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
@@ -44,7 +44,7 @@ function PerpDesktopLayout() {
 
           {/* Positions Section - Takes 40% of left side height */}
           <YStack flex={0.4} minHeight={300}>
-            <PerpPortfolioPanel />
+            <PerpOrderInfoPanel />
           </YStack>
         </YStack>
 
