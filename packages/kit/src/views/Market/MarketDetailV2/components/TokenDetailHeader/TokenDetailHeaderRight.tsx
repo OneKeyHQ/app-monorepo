@@ -91,6 +91,7 @@ export function TokenDetailHeaderRight({
           price={currentPrice}
           tokenName={name}
           tokenSymbol={symbol}
+          lastUpdated={tokenDetail?.lastUpdated?.toString()}
         />
         <PriceChangePercentage size="$bodySm">
           {clampPercentage(priceChange24hPercent)}
