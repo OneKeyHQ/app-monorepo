@@ -1,10 +1,9 @@
 import { Tabs, YStack } from '@onekeyhq/components';
 
-import { PerpOpenOrders } from './PerpOpenOrders';
-import { PerpPositionsList } from './PerpPositionsList';
-// import { PerpTradeHistory } from './PerpTradeHistory';
+import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
+import { PerpPositionsList } from './List/PerpPositionsList';
 
-function PerpPortfolioPanel() {
+function PerpOrderInfoPanel() {
   return (
     <YStack flex={1} minHeight={300} overflow="hidden">
       <Tabs.Container
@@ -25,7 +24,7 @@ function PerpPortfolioPanel() {
           <PerpPositionsList />
         </Tabs.Tab>
         <Tabs.Tab name="Open Orders">
-          <PerpOpenOrders />
+          <PerpOpenOrdersList />
         </Tabs.Tab>
         {/* <Tabs.Tab name="Trades"> */}
         {/* <PerpTradeHistory /> */}
@@ -35,4 +34,4 @@ function PerpPortfolioPanel() {
   );
 }
 
-export { PerpPortfolioPanel };
+export { PerpOrderInfoPanel };
