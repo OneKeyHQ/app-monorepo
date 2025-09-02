@@ -6,10 +6,7 @@ import { Dialog } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EModalRoutes,
-  EModalSignatureConfirmRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
@@ -51,18 +48,15 @@ function useBulkRevoke() {
 
   const navigationToOneByOneRevoke = useCallback(
     async ({ unsignedTxs }: { unsignedTxs: (IUnsignedTxPro & IHasId)[] }) => {
-      navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
-        screen: EModalSignatureConfirmRoutes.TxConfirm,
-        params: {
-          accountId: unsignedTxs[0].accountId as string,
-          networkId: unsignedTxs[0].networkId as string,
-          unsignedTxs: [unsignedTxs[0]],
-          isQueueMode: unsignedTxs.length > 1,
-          unsignedTxQueue:
-            unsignedTxs.length > 1
-              ? new LinkedDeck<IUnsignedTxPro & IHasId>(unsignedTxs)
-              : undefined,
-        },
+      navigation.push(EModalApprovalManagementRoutes.TxConfirm, {
+        accountId: unsignedTxs[0].accountId as string,
+        networkId: unsignedTxs[0].networkId as string,
+        unsignedTxs: [unsignedTxs[0]],
+        isQueueMode: unsignedTxs.length > 1,
+        unsignedTxQueue:
+          unsignedTxs.length > 1
+            ? new LinkedDeck<IUnsignedTxPro & IHasId>(unsignedTxs)
+            : undefined,
       });
     },
     [navigation],

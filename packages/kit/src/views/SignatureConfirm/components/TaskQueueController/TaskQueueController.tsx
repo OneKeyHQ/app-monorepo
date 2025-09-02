@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { StyleSheet } from 'react-native';
+
 import { useIntl } from 'react-intl';
 
 import { IconButton, SizableText, XStack } from '@onekeyhq/components';
@@ -46,6 +48,12 @@ function TaskQueueController<T>(props: IProps<T>) {
       w="full"
       px="$5"
       py="$3.5"
+      mx="$-5"
+      borderTopWidth={StyleSheet.hairlineWidth}
+      borderBottomWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderSubdued"
+      backgroundColor="$bgSubdued"
+      mb="$4"
     >
       <IconButton
         icon="ChevronLeftSmallSolid"

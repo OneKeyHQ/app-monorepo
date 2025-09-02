@@ -23,7 +23,6 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   ProviderJotaiContextApprovalList,
   useApprovalListActions,
-  useContractMapAtom,
   useSelectedTokensAtom,
 } from '../../../states/jotai/contexts/approvalList';
 import ApprovalActions from '../components/ApprovalActions';

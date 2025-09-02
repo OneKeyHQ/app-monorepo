@@ -371,12 +371,6 @@ function TxConfirmActions(props: IProps) {
         navigation.popStack();
       }
 
-      if (popStack) {
-        navigation.popStack();
-      } else {
-        navigation.pop();
-      }
-
       updateSendTxStatus({ isSubmitting: false });
       onSuccess?.(result);
 
@@ -403,6 +397,20 @@ function TxConfirmActions(props: IProps) {
             },
           );
         }
+      }
+
+      if (isQueueMode && unsignedTxQueue && unsignedTxQueue.size > 1) {
+        unsignedTxQueue.removeCurrent();
+        if (unsignedTxQueue.current) {
+          updateUnsignedTxs([unsignedTxQueue.current]);
+        }
+        return;
+      }
+
+      if (popStack) {
+        navigation.popStack();
+      } else {
+        navigation.pop();
       }
     } catch (e: any) {
       if (accountUtils.isQrAccount({ accountId })) {
@@ -445,8 +453,11 @@ function TxConfirmActions(props: IProps) {
     signOnly,
     transferPayload,
     intl,
-    popStack,
     onSuccess,
+    isQueueMode,
+    unsignedTxQueue,
+    popStack,
+    updateUnsignedTxs,
     shouldRejectDappAction,
   ]);
 

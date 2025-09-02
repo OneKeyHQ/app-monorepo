@@ -11,6 +11,13 @@ const RevokeSuggestion = LazyLoadPage(
 const ApprovalList = LazyLoadPage(() => import('../pages/ApprovalList'));
 const BulkRevoke = LazyLoadPage(() => import('../pages/BulkRevoke'));
 
+const TxConfirm = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/SignatureConfirm/pages/TxConfirm/TxConfirm'
+    ),
+);
+
 export const ModalApprovalManagementStack: IModalFlowNavigatorConfig<
   EModalApprovalManagementRoutes,
   IModalApprovalManagementParamList
@@ -30,5 +37,9 @@ export const ModalApprovalManagementStack: IModalFlowNavigatorConfig<
   {
     name: EModalApprovalManagementRoutes.BulkRevoke,
     component: BulkRevoke,
+  },
+  {
+    name: EModalApprovalManagementRoutes.TxConfirm,
+    component: TxConfirm,
   },
 ];

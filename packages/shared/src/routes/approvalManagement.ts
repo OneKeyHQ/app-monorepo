@@ -12,6 +12,7 @@ export enum EModalApprovalManagementRoutes {
   RevokeSuggestion = 'RevokeSuggestion',
   ApprovalList = 'ApprovalList',
   BulkRevoke = 'BulkRevoke',
+  TxConfirm = 'TxConfirm',
 }
 
 export type IModalApprovalManagementParamList = {

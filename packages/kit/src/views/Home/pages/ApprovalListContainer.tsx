@@ -4,6 +4,10 @@ import { CanceledError } from 'axios';
 
 import { useMedia, useTabIsRefreshingFocused } from '@onekeyhq/components';
 import {
+  POLLING_DEBOUNCE_INTERVAL,
+  POLLING_INTERVAL_FOR_APPROVAL,
+} from '@onekeyhq/shared/src/consts/walletConsts';
+import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -95,7 +99,8 @@ function ApprovalListContainer() {
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
-      revalidateOnFocus: true,
+      debounced: POLLING_DEBOUNCE_INTERVAL,
+      pollingInterval: POLLING_INTERVAL_FOR_APPROVAL,
     },
   );
 

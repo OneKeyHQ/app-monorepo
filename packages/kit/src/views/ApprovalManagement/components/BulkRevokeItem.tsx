@@ -261,7 +261,7 @@ function BulkRevokeItem(props: IProps) {
           exitStyle={{ opacity: 0 }}
           backgroundColor="$bgSubdued"
         >
-          <YStack gap="$4" px="$5">
+          <YStack gap="$4" px="$5" py="$4">
             <XStack alignItems="center" justifyContent="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
                 {intl.formatMessage({
