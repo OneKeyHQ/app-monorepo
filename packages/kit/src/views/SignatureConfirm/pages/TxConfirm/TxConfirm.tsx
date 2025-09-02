@@ -41,6 +41,7 @@ import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoadin
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 import StakingInfo from '../../components/StakingInfo';
 import SwapInfo from '../../components/SwapInfo';
+import TaskQueueController from '../../components/TaskQueueController/TaskQueueController';
 import { usePreCheckTokenBalance } from '../../hooks/usePreCheckTokenBalance';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -56,8 +57,16 @@ function TxConfirm() {
 
   const intl = useIntl();
 
-  const { accountId, networkId, transferPayload, sourceInfo, unsignedTxs } =
-    route.params;
+  const {
+    transferPayload,
+    sourceInfo,
+    unsignedTxs,
+    isQueueMode,
+    unsignedTxQueue,
+  } = route.params;
+
+  const accountId = unsignedTxs?.[0]?.accountId ?? route.params.accountId;
+  const networkId = unsignedTxs?.[0]?.networkId ?? route.params.networkId;
 
   const {
     updateDecodedTxs,
@@ -233,7 +242,13 @@ function TxConfirm() {
     return () => {
       updateSendFeeStatus({ status: ESendFeeStatus.Idle, errMessage: '' });
     };
-  }, [unsignedTxs, updateSendFeeStatus, updateUnsignedTxs]);
+  }, [
+    isQueueMode,
+    unsignedTxQueue,
+    unsignedTxs,
+    updateSendFeeStatus,
+    updateUnsignedTxs,
+  ]);
 
   useEffect(() => {
     if (sourceInfo) {
@@ -288,6 +303,13 @@ function TxConfirm() {
     stakingInfo,
   ]);
 
+  const renderTxQueueController = useCallback(() => {
+    if (!isQueueMode) {
+      return null;
+    }
+    return <TaskQueueController taskQueue={unsignedTxQueue} />;
+  }, [isQueueMode, unsignedTxQueue]);
+
   const renderHeaderRight = useCallback(
     () => (
       <TxConfirmHeaderRight decodedTxs={decodedTxs} unsignedTxs={unsignedTxs} />
@@ -299,6 +321,7 @@ function TxConfirm() {
     <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
       <Page.Header title={txConfirmTitle} headerRight={renderHeaderRight} />
       <Page.Body testID="tx-confirmation-body" px="$5">
+        {renderTxQueueController()}
         {renderTxConfirmContent()}
       </Page.Body>
       <TxConfirmActions {...route.params} />

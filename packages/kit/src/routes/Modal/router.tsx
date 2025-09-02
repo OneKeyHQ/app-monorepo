@@ -7,6 +7,7 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
 import { ModalAddressBookRouter } from '../../views/AddressBook/router';
+import { ModalApprovalManagementStack } from '../../views/ApprovalManagement/router';
 import { AppUpdateRouter } from '../../views/AppUpdate/router';
 import { AssetSelectorRouter } from '../../views/AssetSelector/router';
 import { BulkCopyAddressesModalRouter } from '../../views/BulkCopyAddresses/router';
@@ -193,6 +194,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.BulkCopyAddressesModal,
     children: BulkCopyAddressesModalRouter,
+  },
+  {
+    name: EModalRoutes.ApprovalManagementModal,
+    children: ModalApprovalManagementStack,
   },
   {
     name: EModalRoutes.SignAndVerifyModal,

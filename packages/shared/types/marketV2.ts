@@ -83,6 +83,7 @@ export interface IMarketTokenDetail {
   vSell4h?: string;
   vSell8h?: string;
   vSell24h?: string;
+  lastUpdated?: number;
   [key: string]: unknown;
 }
 
@@ -268,6 +269,7 @@ export interface IMarketBasicConfigToken {
   chainId: string;
   isNative: boolean;
   name: string;
+  logo?: string;
 }
 
 export interface IMarketBasicConfigData {
