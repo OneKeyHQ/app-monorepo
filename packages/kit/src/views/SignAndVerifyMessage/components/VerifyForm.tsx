@@ -111,7 +111,7 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
       },
       { label: 'BIP322', value: 'bip322', disabled: false },
     ];
-  }, [detectedNetworkId]);
+  }, [detectedNetworkId, intl]);
 
   // Set default format when displayFormatForm changes
   useEffect(() => {

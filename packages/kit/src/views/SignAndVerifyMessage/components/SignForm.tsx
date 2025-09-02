@@ -237,9 +237,10 @@ export const SignForm = ({
       { label: 'BIP322', value: 'bip322', disabled: true },
     ];
   }, [
+    currentSignAccount?.account.id,
     currentSignAccount?.network.id,
     currentSignAccount?.deriveType,
-    currentSignAccount?.account.id,
+    intl,
   ]);
 
   const currentFormat = form.watch('format');
