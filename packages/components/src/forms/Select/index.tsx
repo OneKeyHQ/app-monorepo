@@ -105,6 +105,7 @@ function SelectItemView({
   return (
     <>
       <SizableText
+        size="$bodyLg"
         $gtMd={{
           size: '$bodyMd',
         }}
@@ -307,6 +308,7 @@ function SelectContent() {
         <SectionList
           sections={sections}
           renderSectionHeader={renderSectionHeader}
+          SectionSeparatorComponent={<Stack h="$2" />}
           {...(listProps as any)}
         />
       ) : (
