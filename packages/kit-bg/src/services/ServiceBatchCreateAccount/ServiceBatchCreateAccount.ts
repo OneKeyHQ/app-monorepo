@@ -724,11 +724,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
                           onLoopItemResponse: (data) => {
                             if (hideCheckingDeviceLoading) {
                               // TODO close PIN dialog or passphrase dialog
-                              void this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog(
-                                {
-                                  connectId: compatibleConnectId,
-                                },
-                              );
+                              // void this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog(
+                              //   {
+                              //     connectId: compatibleConnectId,
+                              //   },
+                              // );
                             }
                             console.log(
                               'sdk.allNetworkGetAddressByLoop__onLoopItemResponse',
