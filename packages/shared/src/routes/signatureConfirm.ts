@@ -3,6 +3,7 @@ import type {
   IUnsignedMessage,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import type { IHasId, LinkedDeck } from '@onekeyhq/kit/src/hooks/useLinkedList';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
@@ -74,6 +75,8 @@ export type IModalSignatureConfirmParamList = {
     onCancel?: () => void;
     transferPayload?: ITransferPayload;
     popStack?: boolean;
+    isQueueMode?: boolean;
+    unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
   };
   [EModalSignatureConfirmRoutes.MessageConfirm]: {
     accountId: string;
