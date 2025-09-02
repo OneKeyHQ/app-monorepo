@@ -141,6 +141,13 @@ export function Container({
       if (times > 100) {
         return;
       }
+
+      const retryNext = () => {
+        updateListContainerHeightTimerId.current = setTimeout(() => {
+          updateListContainerHeight(times + 1);
+        }, 250);
+      };
+
       if (listContainerRef.current) {
         if (resizeObserverRef.current) {
           resizeObserverRef.current.disconnect();
@@ -160,6 +167,8 @@ export function Container({
                 (
                   listContainerRef.current as HTMLElement
                 ).style.maxHeight = `${entry.contentRect.height}px`;
+              } else {
+                retryNext();
               }
             });
             const element =
@@ -174,9 +183,7 @@ export function Container({
               height || 0
             }`,
           );
-          updateListContainerHeightTimerId.current = setTimeout(() => {
-            updateListContainerHeight(times + 1);
-          }, 250);
+          retryNext();
         }
       }
     },
