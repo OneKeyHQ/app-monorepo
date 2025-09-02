@@ -15,7 +15,7 @@ import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   formatPriceToSignificantDigits,
   validatePriceInput,
-} from '../utils/tokenUtils';
+} from '../../utils/tokenUtils';
 
 interface IShowClosePositionParams {
   position: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];

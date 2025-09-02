@@ -1,5 +1,5 @@
 export { usePerpTokenSelector } from './usePerpTokenSelector';
-export { usePerpPositions } from './usePerpPortfolio';
+export { usePerpPositions } from './usePerpOrderInfoPanel';
 export { usePerpSession } from './usePerpSession';
 export {
   usePerpMarketData,
