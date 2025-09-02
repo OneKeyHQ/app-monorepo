@@ -90,7 +90,6 @@ export function useMarketTransactions({
     await fetchTransactions();
   }, [fetchTransactions]);
 
-  console.log('accumulatedTransactions', accumulatedTransactions.length);
   return {
     transactions: accumulatedTransactions,
     transactionsData,
