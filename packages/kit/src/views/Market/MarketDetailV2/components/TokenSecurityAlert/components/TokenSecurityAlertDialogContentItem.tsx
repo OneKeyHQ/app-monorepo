@@ -1,10 +1,11 @@
 import {
-  Button,
-  ButtonFrame,
+  Icon,
   SizableText,
+  Stack,
   XStack,
   useClipboard,
 } from '@onekeyhq/components';
+import { NATIVE_HIT_SLOP } from '@onekeyhq/components/src/utils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { TokenSecurityAlertDialogContentIcon } from './TokenSecurityAlertDialogContentIcon';
@@ -40,10 +41,14 @@ function TokenSecurityAlertDialogContentItem({
 }: ITokenSecurityAlertDialogContentItemProps) {
   const { copyText } = useClipboard();
 
+  const isLongString = (value: string | number | boolean | undefined) => {
+    return typeof value === 'string' && value.length > 20;
+  };
+
   const formatValue = (value: string | number | boolean) => {
-    if (typeof value === 'string' && value.length > 20) {
+    if (isLongString(value)) {
       return accountUtils.shortenAddress({
-        address: value,
+        address: value as string,
         leadingLength: 8,
         trailingLength: 6,
       });
@@ -91,6 +96,24 @@ function TokenSecurityAlertDialogContentItem({
         >
           {formatValue(item.value ?? '')}
         </SizableText>
+
+        {isLongString(item.value) ? (
+          <Stack
+            w="$4"
+            h="$4"
+            cursor="pointer"
+            onPress={handleCopyValue}
+            hitSlop={NATIVE_HIT_SLOP}
+            group
+          >
+            <Icon
+              name="Copy3Outline"
+              size="$4"
+              color="$iconSubdued"
+              $group-hover={{ color: '$iconHover' }}
+            />
+          </Stack>
+        ) : null}
       </XStack>
     </XStack>
   );
