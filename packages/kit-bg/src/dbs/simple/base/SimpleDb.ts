@@ -4,6 +4,7 @@ import { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
 import { SimpleDbEntityAddressInfo } from '../entity/SimpleDbEntityAddressInfo';
 import { SimpleDbEntityAllNetworks } from '../entity/SimpleDbEntityAllNetworks';
 import { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanup';
+import { SimpleDbEntityApproval } from '../entity/SimpleDbEntityApproval';
 import { SimpleDbEntityAppStatus } from '../entity/SimpleDbEntityAppStatus';
 import { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
 import { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
@@ -146,4 +147,6 @@ export class SimpleDb {
   walletBanner = new SimpleDbEntityWalletBanner();
 
   perp = new SimpleDbEntityPerp();
+
+  approval = new SimpleDbEntityApproval();
 }

@@ -36,6 +36,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
+  useApprovalListActions,
   useContractMapAtom,
   useTokenMapAtom,
 } from '../../../states/jotai/contexts/approvalList';
@@ -64,6 +65,8 @@ function ApprovalDetails() {
     isSelectMode,
     onSelected,
     selectedTokens: selectedTokensProp,
+    tokenMap: tokenMapProp,
+    contractMap: contractMapProp,
   } = route.params;
 
   const intl = useIntl();
@@ -73,6 +76,9 @@ function ApprovalDetails() {
   const navigation = useAppNavigation();
 
   const [isBulkRevokeMode, setIsBulkRevokeMode] = useState(false);
+
+  const { updateTokenMap, updateContractMap } =
+    useApprovalListActions().current;
 
   const [{ tokenMap }] = useTokenMapAtom();
 
@@ -361,6 +367,8 @@ function ApprovalDetails() {
   }, [approval.approvals, approval.networkId, searchText, tokenMap]);
 
   const renderApprovedTokens = () => {
+    console.log(filteredApprovals);
+
     return (
       <ListView
         ListHeaderComponent={
@@ -433,6 +441,15 @@ function ApprovalDetails() {
       setSelectedTokens(selectedTokensProp);
     }
   }, [selectedTokensProp, setSelectedTokens]);
+
+  useEffect(() => {
+    if (tokenMapProp) {
+      updateTokenMap({ data: tokenMapProp });
+    }
+    if (contractMapProp) {
+      updateContractMap({ data: contractMapProp });
+    }
+  }, [tokenMapProp, contractMapProp, updateTokenMap, updateContractMap]);
 
   return (
     <Page scrollEnabled>

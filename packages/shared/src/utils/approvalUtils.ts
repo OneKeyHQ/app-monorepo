@@ -114,6 +114,14 @@ function buildTokenMapKey({
   return `${networkId}_${tokenAddress}`;
 }
 
+function checkIsExistRiskApprovals({
+  contractApprovals,
+}: {
+  contractApprovals: IContractApproval[];
+}) {
+  return contractApprovals.some((item) => item.isRiskContract);
+}
+
 export default {
   buildContractMapKey,
   buildTokenMapKey,
@@ -121,4 +129,5 @@ export default {
   parseSelectedTokenKey,
   buildToggleSelectAllTokensMap,
   checkIsSelectAllTokens,
+  checkIsExistRiskApprovals,
 };
