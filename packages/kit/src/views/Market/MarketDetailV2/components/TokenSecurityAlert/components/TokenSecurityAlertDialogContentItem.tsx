@@ -41,8 +41,6 @@ function TokenSecurityAlertDialogContentItem({
   const { copyText } = useClipboard();
 
   const formatValue = (value: string | number | boolean) => {
-    console.log('value', value);
-
     if (typeof value === 'string' && value.length > 20) {
       return accountUtils.shortenAddress({
         address: value,
@@ -91,7 +89,7 @@ function TokenSecurityAlertDialogContentItem({
           color={getTextColorByRiskType(item.riskType)}
           textAlign="right"
         >
-          {formatValue(item.value || '')}
+          {formatValue(item.value ?? '')}
         </SizableText>
       </XStack>
     </XStack>
