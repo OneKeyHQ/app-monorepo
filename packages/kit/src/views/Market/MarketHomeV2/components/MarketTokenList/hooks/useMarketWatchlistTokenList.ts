@@ -55,11 +55,13 @@ export function useMarketWatchlistTokenList({
         }
         return { list: [] } as const;
       }
-      const tokenAddressList = watchlist.map((item) => ({
-        chainId: item.chainId,
-        contractAddress: item.contractAddress,
-        isNative: !item.contractAddress,
-      }));
+      const tokenAddressList = watchlist
+        .filter((item) => item.chainId)
+        .map((item) => ({
+          chainId: item.chainId,
+          contractAddress: item.contractAddress,
+          isNative: !item.contractAddress,
+        }));
       const response =
         await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
           tokenAddressList,
