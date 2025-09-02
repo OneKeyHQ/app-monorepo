@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useRef } from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -166,10 +166,13 @@ function ApprovalListViewCmp(props: IProps) {
     intl,
   ]);
 
+  const ListComponentRef = useRef<typeof ListComponent>(null);
+
   return (
     <ListComponent
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
+      ref={ListComponentRef as any}
       refreshControl={
         onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }
