@@ -8,6 +8,7 @@ import { useTokenDetail } from '../../hooks/useTokenDetail';
 
 import { TokenSecurityAlertDialogContent } from './components';
 import { useTokenSecurity } from './hooks';
+import { getTotalSecurityDisplayInfo } from './utils/utils';
 
 function TokenSecurityAlert() {
   const intl = useIntl();
@@ -38,18 +39,11 @@ function TokenSecurityAlert() {
     return null;
   }
 
-  // Determine color based on three-tier security status
-  const getSecurityColor = () => {
-    if (securityStatus === 'risk') {
-      return '$iconCritical'; // Red for risk
-    }
-    if (securityStatus === 'caution') {
-      return '$iconCaution'; // Yellow for caution
-    }
-    return '$iconSuccess'; // Green for safe
-  };
-
-  const color = getSecurityColor();
+  const { count, color } = getTotalSecurityDisplayInfo(
+    securityStatus,
+    riskCount,
+    cautionCount,
+  );
 
   return (
     <XStack
@@ -61,15 +55,7 @@ function TokenSecurityAlert() {
     >
       <Icon name="BugOutline" size="$4" color={color} />
       <SizableText size="$bodySmMedium" color={color}>
-        {(() => {
-          if (securityStatus === 'risk') {
-            return riskCount;
-          }
-          if (securityStatus === 'caution') {
-            return cautionCount;
-          }
-          return 0;
-        })()}
+        {count}
       </SizableText>
     </XStack>
   );

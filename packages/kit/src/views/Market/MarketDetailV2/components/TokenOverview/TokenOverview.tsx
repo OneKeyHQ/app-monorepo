@@ -13,6 +13,7 @@ import {
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import { TokenSecurityAlertDialogContent } from '../TokenSecurityAlert/components';
 import { useTokenSecurity } from '../TokenSecurityAlert/hooks/useTokenSecurity';
+import { getTotalSecurityDisplayInfo } from '../TokenSecurityAlert/utils/utils';
 
 import { StatCard } from './components/StatCard';
 import { TokenOverviewSkeleton } from './TokenOverviewSkeleton';
@@ -75,19 +76,31 @@ export function TokenOverview() {
   }, [intl, securityData, riskCount, cautionCount]);
 
   // Optimized stat builders
-  const auditStat = useMemo<IStatItem>(
-    () => ({
+  const auditStat = useMemo<IStatItem>(() => {
+    const { count, color } = getTotalSecurityDisplayInfo(
+      securityStatus,
+      riskCount,
+      cautionCount,
+    );
+
+    return {
       label: intl.formatMessage({ id: ETranslations.dexmarket_audit }),
       value: intl.formatMessage(
         { id: ETranslations.dexmarket_details_audit_issue },
-        { amount: cautionCount },
+        { amount: count },
       ),
-      icon: securityStatus === 'safe' ? 'ShieldCheckDoneSolid' : 'BugOutline',
-      iconColor: securityStatus === 'safe' ? '$iconSuccess' : '$iconCaution',
+      icon: 'BugOutline',
+      iconColor: color,
       onPress: securityData ? handleAuditPress : undefined,
-    }),
-    [intl, cautionCount, securityStatus, handleAuditPress, securityData],
-  );
+    };
+  }, [
+    intl,
+    riskCount,
+    cautionCount,
+    securityStatus,
+    handleAuditPress,
+    securityData,
+  ]);
 
   const holdersStat = useMemo<IStatItem>(
     () => ({

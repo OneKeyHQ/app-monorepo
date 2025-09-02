@@ -1,3 +1,4 @@
+import type { ColorTokens } from '@onekeyhq/components/src/primitives';
 import type {
   IMarketTokenSecurityData,
   IMarketTokenSecurityItem,
@@ -66,5 +67,61 @@ export const analyzeSecurityData = (
     status,
     riskCount,
     cautionCount,
+  };
+};
+
+// Shared function for getting security display information (count and color)
+export const getSecurityDisplayInfo = (
+  securityStatus: ISecurityStatus | null,
+  riskCount: number,
+  cautionCount: number,
+): {
+  count: number;
+  color: ColorTokens;
+} => {
+  if (securityStatus === 'risk') {
+    return {
+      count: riskCount,
+      color: '$iconCritical',
+    };
+  }
+  if (securityStatus === 'caution') {
+    return {
+      count: cautionCount,
+      color: '$iconCaution',
+    };
+  }
+  return {
+    count: 0,
+    color: '$iconSuccess',
+  };
+};
+
+// Function for getting total security display information (total count with priority color)
+export const getTotalSecurityDisplayInfo = (
+  securityStatus: ISecurityStatus | null,
+  riskCount: number,
+  cautionCount: number,
+): {
+  count: number;
+  color: ColorTokens;
+} => {
+  const totalCount = riskCount + cautionCount;
+
+  if (securityStatus === 'risk') {
+    return {
+      count: totalCount,
+      color: '$iconCritical',
+    };
+  }
+  if (securityStatus === 'caution') {
+    return {
+      count: totalCount,
+      color: '$iconCaution',
+    };
+  }
+  return {
+    count: 0,
+    color: '$iconSuccess',
   };
 };
