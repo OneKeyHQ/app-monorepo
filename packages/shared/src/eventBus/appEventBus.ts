@@ -220,6 +220,7 @@ export interface IAppEventBusPayload {
         }[];
       };
   [EAppEventBusNames.RefreshHistoryList]: undefined;
+  [EAppEventBusNames.RefreshApprovalList]: undefined;
   [EAppEventBusNames.RefreshBookmarkList]: undefined;
   [EAppEventBusNames.TabListStateUpdate]: {
     isRefreshing: boolean;

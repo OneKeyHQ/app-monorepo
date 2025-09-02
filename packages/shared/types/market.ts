@@ -258,4 +258,6 @@ export interface IMarketSearchV2Token {
   logoUrl: string;
   isNative: boolean;
   decimals: number;
+  liquidity: string;
+  volume_24h: string;
 }
