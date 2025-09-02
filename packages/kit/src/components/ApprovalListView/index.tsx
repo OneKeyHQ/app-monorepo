@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { memo, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -168,6 +168,11 @@ function ApprovalListViewCmp(props: IProps) {
 
   const ListComponentRef = useRef<typeof ListComponent>(null);
 
+  const recomputeLayout = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+    (ListComponentRef.current as any)?.recomputeLayout?.();
+  }, []);
+
   return (
     <ListComponent
       // @ts-ignore
@@ -183,7 +188,9 @@ function ApprovalListViewCmp(props: IProps) {
       ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       ListEmptyComponent={EmptyComponentElement}
       ListHeaderComponent={
-        withHeader && !showSkeleton ? <ApprovalListHeader /> : null
+        withHeader && !showSkeleton ? (
+          <ApprovalListHeader recomputeLayout={recomputeLayout} />
+        ) : null
       }
       renderItem={({ item }) => (
         <ApproveListItem
