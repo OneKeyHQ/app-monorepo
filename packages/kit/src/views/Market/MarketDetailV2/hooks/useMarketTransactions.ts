@@ -56,13 +56,6 @@ export function useMarketTransactions({
       return;
     }
 
-    if (
-      platformEnv.isNativeAndroid &&
-      accumulatedTransactionsLengthRef.current > 0
-    ) {
-      return;
-    }
-
     setAccumulatedTransactions((prev) => {
       // Merge new data at the front with existing data
       const mergedTransactions = [...newTransactions, ...prev].sort(
