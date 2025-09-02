@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
+import { noop } from 'lodash';
+
 import { useUpdateEffect } from '@onekeyhq/components';
 import type { IPrimeInitAtomData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -207,6 +209,20 @@ function PrimeGlobalEffectView() {
       );
     }
   }, [isActive]);
+
+  const { isLoggedInOnServer } = primePersistAtom;
+
+  useUpdateEffect(() => {
+    void (async () => {
+      noop(isLoggedInOnServer);
+      noop(isActive);
+      /*
+      (await $$appGlobals.$$allAtoms.notificationsAtom.get()).maxAccountCount
+      */
+      await backgroundApiProxy.serviceNotification.clearServerSettingsCache();
+      await backgroundApiProxy.serviceNotification.registerClientWithOverrideAllAccounts();
+    })();
+  }, [isActive, isLoggedInOnServer]);
 
   return null;
 }

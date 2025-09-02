@@ -22,13 +22,8 @@ export function useAutoTokenDetailUpdate({
 
   const pushLatestTokenDetailData = useCallback(() => {
     // Skip if disabled or missing required params
-    if (
-      !enabled ||
-      !tokenAddress ||
-      !networkId ||
-      !webRef.current ||
-      !tokenDetail
-    ) {
+    // For native tokens, tokenAddress might be empty, but networkId is required
+    if (!enabled || !networkId || !webRef.current || !tokenDetail) {
       return;
     }
 
@@ -36,11 +31,10 @@ export function useAutoTokenDetailUpdate({
       const now = Math.floor(Date.now() / 1000);
 
       // Skip if we just updated recently (avoid duplicate calls)
-      if (now - lastUpdateTime.current < 1) {
+      if (now - lastUpdateTime.current < 0.1) {
         return;
       }
 
-      console.log('🔍 Pushing token detail update from atom:', tokenDetail);
       webRef.current.sendMessageViaInjectedScript({
         type: 'tokenDetailUpdate',
         payload: {

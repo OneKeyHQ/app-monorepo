@@ -279,10 +279,16 @@ function AccountAccordionItemContainer({
   account,
   wallet,
   isOthersWallet,
+  onAccountEnabledChange,
 }: {
   account: IDBAccount | IDBIndexedAccount;
   wallet: IDBWallet;
   isOthersWallet: boolean;
+  onAccountEnabledChange: (params: {
+    wallet: IDBWallet;
+    account: IDBAccount | IDBIndexedAccount;
+    enabled: boolean;
+  }) => void;
 }) {
   const intl = useIntl();
   const {
@@ -333,19 +339,31 @@ function AccountAccordionItemContainer({
           }
         }
 
+        const newValueFormatted = formatSavedEnabledValue(newValue);
         newSettings[wallet.id] = {
           ...newSettings?.[wallet.id],
           accounts: {
             ...newSettings?.[wallet.id]?.accounts,
             [dbAccount.id]: {
-              enabled: formatSavedEnabledValue(newValue),
+              enabled: newValueFormatted,
             },
           },
         };
+        onAccountEnabledChange({
+          wallet,
+          account: dbAccount,
+          enabled: newValueFormatted,
+        });
         return newSettings;
       });
     },
-    [intl, maxAccountCount, saveAccountNotificationSettings, wallet.id],
+    [
+      intl,
+      maxAccountCount,
+      onAccountEnabledChange,
+      saveAccountNotificationSettings,
+      wallet,
+    ],
   );
 
   return (
@@ -365,6 +383,7 @@ function WalletAccordionItem({
   enabledAccountsCount,
   totalAccountsCount,
   toggleWalletSwitch,
+  onAccountEnabledChange,
 }: {
   wallet: IDBWallet;
   isOthersWallet: boolean;
@@ -372,6 +391,11 @@ function WalletAccordionItem({
   enabledAccountsCount: number;
   totalAccountsCount: number;
   toggleWalletSwitch: (value: boolean) => void;
+  onAccountEnabledChange: (params: {
+    wallet: IDBWallet;
+    account: IDBAccount | IDBIndexedAccount;
+    enabled: boolean;
+  }) => void;
 }) {
   if (totalAccountsCount === 1) {
     // debugger;
@@ -479,6 +503,7 @@ function WalletAccordionItem({
               account={account}
               wallet={wallet}
               isOthersWallet={isOthersWallet}
+              onAccountEnabledChange={onAccountEnabledChange}
             />
           ))}
         </Accordion.Content>
@@ -492,10 +517,16 @@ const WalletAccordionItemMemo = memo(WalletAccordionItem);
 function WalletAccordionItemContainer({
   wallet,
   onWalletEnabledChange,
+  onAccountEnabledChange,
 }: {
   wallet: IDBWallet;
   onWalletEnabledChange: (params: {
     wallet: IDBWallet;
+    enabled: boolean;
+  }) => void;
+  onAccountEnabledChange: (params: {
+    wallet: IDBWallet;
+    account: IDBAccount | IDBIndexedAccount;
     enabled: boolean;
   }) => void;
 }) {
@@ -597,6 +628,7 @@ function WalletAccordionItemContainer({
       enabledAccountsCount={enabledAccountsCount}
       totalAccountsCount={totalAccountsCount}
       toggleWalletSwitch={toggleWalletSwitch}
+      onAccountEnabledChange={onAccountEnabledChange}
     />
   );
 }
@@ -652,6 +684,30 @@ function WalletAccordionList({
       if (params.enabled) {
         setExpandValue(params.wallet.id);
       }
+      void backgroundApiProxy.simpleDb.notificationSettings.updateBackupPrimeAccountActivityNotificationSettings(
+        {
+          enabled: params.enabled,
+          walletId: params.wallet?.id,
+          accountId: null,
+        },
+      );
+    },
+    [],
+  );
+
+  const onAccountEnabledChange = useCallback(
+    (params: {
+      wallet: IDBWallet;
+      account: IDBAccount | IDBIndexedAccount;
+      enabled: boolean;
+    }) => {
+      void backgroundApiProxy.simpleDb.notificationSettings.updateBackupPrimeAccountActivityNotificationSettings(
+        {
+          enabled: params.enabled,
+          walletId: params.wallet?.id,
+          accountId: params.account?.id,
+        },
+      );
     },
     [],
   );
@@ -678,6 +734,7 @@ function WalletAccordionList({
           <WalletAccordionItemContainer
             wallet={wallet}
             onWalletEnabledChange={onWalletEnabledChange}
+            onAccountEnabledChange={onAccountEnabledChange}
           />
           {/* render items for */}
           {wallet.hiddenWallets?.map((hiddenWallet) => (
@@ -685,6 +742,7 @@ function WalletAccordionList({
               key={hiddenWallet.id}
               wallet={hiddenWallet}
               onWalletEnabledChange={onWalletEnabledChange}
+              onAccountEnabledChange={onAccountEnabledChange}
             />
           ))}
         </YStack>

@@ -29,7 +29,7 @@ function MarketWatchlistTokenList({
   const [watchlistState] = useMarketWatchListV2Atom();
   const [selectedNetworkId] = useSelectedNetworkIdAtom();
   const { recommendedTokens } = useMarketBasicConfig();
-  
+
   const internalWatchlist = useMemo(
     () => watchlistState.data || [],
     [watchlistState.data],
