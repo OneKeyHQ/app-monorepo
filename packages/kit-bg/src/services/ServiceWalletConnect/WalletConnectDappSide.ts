@@ -278,6 +278,7 @@ export class WalletConnectDappSide {
 
     if (!provider) {
       const client = await this.getSharedClient();
+
       provider = await WalletConnectDappSideProvider.initPro({
         ...walletConnectClient.sharedOptions,
         logger: WALLET_CONNECT_LOGGER_LEVEL,
@@ -286,6 +287,7 @@ export class WalletConnectDappSide {
         // TODO client include storage, remove walletConnectStorage here
         // storage: walletConnectStorage.dappSideStorage,
         sessionTopic: topic,
+        backgroundApi: this.backgroundApi,
       });
     }
 
@@ -325,9 +327,11 @@ export class WalletConnectDappSide {
 
   openNativeWalletAppByDeepLink({
     account,
+    fallbackSdkSavedDeeplink,
     delay = 1000,
   }: {
     account: IDBExternalAccount;
+    fallbackSdkSavedDeeplink?: { href: string; name: string };
     delay?: number; // wait provider.request() send done
   }) {
     console.log('call openWalletNativeAppByDeepLink');
@@ -347,9 +351,12 @@ export class WalletConnectDappSide {
         }
         return false;
       };
-      const r = await openApp(redirect?.universal);
+      let r = await openApp(redirect?.universal);
       if (!r) {
-        await openApp(redirect?.native);
+        r = await openApp(redirect?.native);
+      }
+      if (!r) {
+        r = await openApp(fallbackSdkSavedDeeplink?.href);
       }
     }, delay);
   }

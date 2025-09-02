@@ -1,10 +1,20 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
+import { StorageUtil as StorageUtilCore } from '@reown/appkit-core-react-native';
 import UniversalProvider from '@walletconnect/universal-provider';
 
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import {
+  ALGO_SIGNING_METHODS,
+  COSMOS_SIGNING_METHODS,
+  EIP155_SIGNING_METHODS,
+  WC_DAPP_SIDE_METHODS_EVM,
+} from '@onekeyhq/shared/src/walletConnect/constant';
 
+import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { IDBExternalAccount } from '../../dbs/local/types';
 import type { IEngineEvents, SessionTypes } from '@walletconnect/types';
 import type {
   ConnectParams,
@@ -15,6 +25,7 @@ import type {
 
 export type IWalletConnectDappProviderOpts = UniversalProviderOpts & {
   sessionTopic: string | undefined;
+  backgroundApi: IBackgroundApi;
 };
 
 // TODO check UniversalProvider.registerEventListeners for topic specified events
@@ -23,6 +34,13 @@ export type IWalletConnectDappProviderOpts = UniversalProviderOpts & {
 export class WalletConnectDappSideProvider extends UniversalProvider {
   // use shared events, as it may be setGlobal() and getGlobal() at universal-provider
   // public events: EventEmitter = new EventEmitter();
+
+  constructor(opts: IWalletConnectDappProviderOpts) {
+    super(opts);
+    this.backgroundApi = opts.backgroundApi;
+  }
+
+  backgroundApi: IBackgroundApi;
 
   override async connect(
     opts: ConnectParams,
@@ -45,18 +63,62 @@ export class WalletConnectDappSideProvider extends UniversalProvider {
   }
 
   // @ts-ignore
-  override async request(
-    args: RequestArguments,
-    wcChain: string,
-    expiry?: number | undefined,
-  ): Promise<unknown> {
+  override async request<T = unknown>({
+    args,
+    wcChain,
+    expiry,
+    account,
+  }: {
+    args: RequestArguments;
+    wcChain: string;
+    expiry?: number | undefined;
+    account: IDBExternalAccount | undefined;
+  }): Promise<T> {
     if (!wcChain) {
       throw new OneKeyLocalError(
         'WalletConnectDappSideProvider.request ERROR: wcChain is required',
       );
     }
-    const result = await super.request(args, wcChain, expiry);
-    return result;
+    const shouldCallDeepLinkMethod = [
+      ...WC_DAPP_SIDE_METHODS_EVM,
+      ...Object.values(EIP155_SIGNING_METHODS),
+      ...Object.values(COSMOS_SIGNING_METHODS),
+      ...Object.values(ALGO_SIGNING_METHODS),
+    ];
+    let fallbackSdkSavedDeeplink: { href: string; name: string } | undefined;
+    if (
+      platformEnv.isNative &&
+      account &&
+      shouldCallDeepLinkMethod.includes(args.method)
+    ) {
+      fallbackSdkSavedDeeplink =
+        await StorageUtilCore.getWalletConnectDeepLink();
+
+      if (fallbackSdkSavedDeeplink) {
+        // disable sdk default deeplink handler by remove storage
+        await StorageUtilCore.removeWalletConnectDeepLink();
+
+        this.backgroundApi.serviceWalletConnect.dappSide.openNativeWalletAppByDeepLink(
+          {
+            account,
+            fallbackSdkSavedDeeplink,
+            delay: 2000, // wait request message send done by websocket
+          },
+        );
+      }
+    }
+    try {
+      const result = await super.request<T>(args, wcChain, expiry);
+      return result;
+    } finally {
+      if (fallbackSdkSavedDeeplink) {
+        console.log(
+          'StorageUtilCore.setWalletConnectDeepLink',
+          fallbackSdkSavedDeeplink,
+        );
+        StorageUtilCore.setWalletConnectDeepLink(fallbackSdkSavedDeeplink);
+      }
+    }
   }
 
   getFromStorePro(key: string): Promise<NamespaceConfig | undefined> {
@@ -126,5 +188,3 @@ export class WalletConnectDappSideProvider extends UniversalProvider {
 
   // TODO cleanup, remove event listeners
 }
-
-// TODO replace native node_modules/@walletconnect/modal-react-native/src/utils/ProviderUtil.ts

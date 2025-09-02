@@ -302,7 +302,7 @@ export class ExternalControllerEvm extends ExternalControllerBase {
   override async signMessageByWalletConnect(
     payload: IExternalSignMessageByWalletConnectPayload,
   ): Promise<ISignedMessagePro> {
-    const { params, networkId, connector } = payload;
+    const { params, networkId, connector, account } = payload;
 
     const wcChain = await this.getWcChain({ networkId });
     const { method, callParams } = evmConnectorUtils.parseSignMessageParams({
@@ -314,13 +314,14 @@ export class ExternalControllerEvm extends ExternalControllerBase {
         'evmWalletConnect signMessage ERROR: wcChain not found',
       );
     }
-    const result = (await provider.request(
-      {
+    const result = await provider.request<string>({
+      args: {
         method,
         params: callParams,
       },
       wcChain,
-    )) as string;
+      account,
+    });
 
     return [result];
   }
@@ -328,7 +329,7 @@ export class ExternalControllerEvm extends ExternalControllerBase {
   override async sendTransactionByWalletConnect(
     payload: IExternalSendTransactionByWalletConnectPayload,
   ): Promise<ISignedTxPro> {
-    const { params, networkId, connector } = payload;
+    const { params, networkId, connector, account } = payload;
 
     const wcChain = await this.getWcChain({ networkId });
     const { method, callParams } = evmConnectorUtils.parseSendTransactionParams(
@@ -342,13 +343,14 @@ export class ExternalControllerEvm extends ExternalControllerBase {
         'evmWalletConnect sendTransaction ERROR: wcChain not found',
       );
     }
-    const txid = (await provider.request(
-      {
+    const txid = await provider.request<string>({
+      args: {
         method,
         params: callParams,
       },
       wcChain,
-    )) as string;
+      account,
+    });
 
     if (!txid) {
       throw new OneKeyLocalError(
@@ -552,13 +554,14 @@ export class ExternalControllerEvm extends ExternalControllerBase {
 
     if (walletConnectProvider) {
       const wcChain = await this.getWcChain({ networkId });
-      const chainIdNumOrHexString = (await walletConnectProvider.request(
-        {
+      const chainIdNumOrHexString = await walletConnectProvider.request({
+        args: {
           method: 'eth_chainId',
         },
         wcChain,
-      )) as string;
-      return new BigNumber(chainIdNumOrHexString).toNumber();
+        account: undefined,
+      });
+      return new BigNumber(chainIdNumOrHexString as string).toNumber();
     }
 
     const chainIdNumOrHexString = await provider.request({
@@ -581,12 +584,13 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     let addresses: `0x${string}`[] = [];
     if (walletConnectProvider) {
       const wcChain = await this.getWcChain({ networkId });
-      addresses = (await walletConnectProvider.request(
-        {
+      addresses = await walletConnectProvider.request({
+        args: {
           method: 'eth_accounts',
         },
         wcChain,
-      )) as `0x${string}`[];
+        account: undefined,
+      });
     } else {
       addresses = await provider.request({
         method: 'eth_accounts',

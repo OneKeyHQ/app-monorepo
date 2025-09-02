@@ -16,6 +16,8 @@ module.exports = [
   '10xxxxxx',
   'reown',
   'wui',
+  'deeplinks',
+  'appkit',
   'wcm',
   'perp',
   'hyperliquid',

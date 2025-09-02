@@ -3,7 +3,8 @@ import '@walletconnect/react-native-compat'; // polyfill for react-native
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
-import { StorageUtil as StorageUtilCore } from '@reown/appkit-core-react-native';
+import { ConstantsUtil } from '@reown/appkit-common-react-native';
+
 import {
   AppKit as AppKitModalNative,
   createAppKit,
@@ -30,6 +31,34 @@ import {
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IWalletConnectSession } from '@onekeyhq/shared/src/walletConnect/types';
 import type { IWalletConnectModalShared } from './types';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { ConstantsUtil as ConstantsUtilCore } from '@reown/appkit/core';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { StorageUtil as StorageUtilCore } from '@reown/appkit-core-react-native';
+
+/*
+WalletConnect SDK Deeplink Auto-Handling Mechanism:
+
+This system automatically manages deeplinks for external wallet apps in two key scenarios:
+
+1. 🔗 Wallet Connection Phase (reown-appkit-react-native):
+   • When user clicks a wallet icon in the connection modal
+   • The wallet's deeplink is automatically stored for future use
+   • Implementation:
+     - File: packages/scaffold/src/utils/UiUtil.ts
+     - Method: StorageUtil.setWalletConnectDeepLink(wcLinking)
+     - Storage: AsyncStorage.setItem('WALLETCONNECT_DEEPLINK_CHOICE', wcLinking)
+
+2. 🚀 Transaction/Signing Phase (walletconnect-monorepo):
+   • When sending transactions or signing messages
+   • Previously stored deeplink is retrieved and used to launch the wallet app
+   • Implementation:
+     - Provider: providers/ethereum-provider/src/EthereumProvider.ts (request method)
+     - Engine: packages/sign-client/src/controllers/engine.ts
+     - Retrieval: getDeepLink(storage, 'WALLETCONNECT_DEEPLINK_CHOICE')
+
+This ensures seamless user experience by automatically launching the correct wallet app.
+*/
 
 const appKit = createAppKit({
   projectId: WALLET_CONNECT_V2_PROJECT_ID,
@@ -94,6 +123,7 @@ async function resetAppKit() {
   appKit.setAddress(undefined);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function setMockedProviderConnected() {
   void StorageUtil.removeItem(EthersConstantsUtil.WALLET_ID);
 
@@ -103,11 +133,21 @@ async function setMockedProviderConnected() {
   appKit.setAddress(undefined);
 }
 
+async function setMockedProviderConnectedV2() {
+  void StorageUtil.setItem(
+    EthersConstantsUtil.WALLET_ID,
+    ConstantsUtil.WALLET_CONNECT_CONNECTOR_ID,
+  );
+
+  EthersStoreUtil.setIsConnected(true);
+}
+
 // @ts-ignore
 appKit.setWalletConnectProvider = async () => {
   console.log('setWalletConnectProvider mocked');
 
-  void setMockedProviderConnected();
+  // void setMockedProviderConnected();
+  void setMockedProviderConnectedV2();
 };
 
 appEventBus.on(
@@ -198,7 +238,6 @@ const modal: IWalletConnectModalShared = {
       pairingUri = uri;
       updateConnectModalUri(uri);
 
-      // import { ClientCtrl } from '@walletconnect/modal-react-native/lib/module/controllers/ClientCtrl';
       // TODO use custom provider from bg make QRCode Modal not open automatically
       // ClientCtrl.setProvider({} as any);
       // // resetApp(); // onSessionDelete

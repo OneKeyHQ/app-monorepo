@@ -7558,7 +7558,6 @@ __metadata:
     "@ungap/structured-clone": "npm:^1.2.0"
     "@vespaiach/axios-fetch-adapter": "npm:^0.3.1"
     "@wagmi/core": "npm:2.6.9"
-    "@walletconnect/modal-react-native": "npm:1.1.0"
     "@walletconnect/sign-client": "npm:2.21.7"
     "@walletconnect/universal-provider": "npm:2.21.7"
     axios: "npm:^1.7.4"
@@ -7891,7 +7890,6 @@ __metadata:
     "@sentry/react-native": "npm:6.16.1"
     "@shopify/flash-list": "npm:2.0.3"
     "@types/react-native-canvas": "npm:^0.1.13"
-    "@walletconnect/modal-react-native": "npm:1.1.0"
     "@walletconnect/react-native-compat": "npm:2.11.2"
     burnt: "npm:0.12.2"
     expo: "npm:53.0.19"
@@ -16686,27 +16684,6 @@ __metadata:
   dependencies:
     valtio: "npm:1.11.2"
   checksum: 10/1549f9ba5c98dfed2f97fbfccfcd2e342550c7ba7a85970bff224258dd397bad0a29721b90fef408dcc6cdfa65c52253476a04c16fece9b4d48792f03c3a4b4f
-  languageName: node
-  linkType: hard
-
-"@walletconnect/modal-react-native@npm:1.1.0":
-  version: 1.1.0
-  resolution: "@walletconnect/modal-react-native@npm:1.1.0"
-  dependencies:
-    "@walletconnect/core": "npm:2.11.0"
-    "@walletconnect/universal-provider": "npm:2.11.0"
-    qrcode: "npm:1.5.3"
-    valtio: "npm:1.10.5"
-  peerDependencies:
-    "@react-native-async-storage/async-storage": ">=1.17.0"
-    "@react-native-community/netinfo": ">=9.0.0"
-    "@walletconnect/react-native-compat": ">=2.10.5"
-    react: "*"
-    react-native: "*"
-    react-native-get-random-values: ">=1.8.0"
-    react-native-modal: ">=13"
-    react-native-svg: ">=13"
-  checksum: 10/f6dfda2f6d47d070b185f5503e838654aef05f0b89c443d3490995d6fc8707988481e272a937e3cbf4a9337df3021c9f4e1498f39978416d317ed77be98e92a5
   languageName: node
   linkType: hard
 
@@ -40670,21 +40647,6 @@ __metadata:
   version: 13.11.0
   resolution: "validator@npm:13.11.0"
   checksum: 10/4bf094641eb71729c06a42d669840e7189597ba655a8264adabac9bf03f95cd6fde5fbc894b0a13ee861bd4a852f56d2afdc9391aeaeb3fc0f9633a974140e12
-  languageName: node
-  linkType: hard
-
-"valtio@npm:1.10.5":
-  version: 1.10.5
-  resolution: "valtio@npm:1.10.5"
-  dependencies:
-    proxy-compare: "npm:2.5.1"
-    use-sync-external-store: "npm:1.2.0"
-  peerDependencies:
-    react: ">=16.8"
-  peerDependenciesMeta:
-    react:
-      optional: true
-  checksum: 10/f86c2b1b9afd3b9a22bafc1cd72e796c439f5fb6f9f9c06766985fbbff5b22746c396974353577a6c7279a7ef39040c4d18eb8ff0d34224c299bc52309cf0a8e
   languageName: node
   linkType: hard
 

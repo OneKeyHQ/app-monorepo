@@ -99,7 +99,6 @@
     "@ungap/structured-clone": "^1.2.0",
     "@vespaiach/axios-fetch-adapter": "^0.3.1",
     "@wagmi/core": "2.6.9",
-    "@walletconnect/modal-react-native": "1.1.0",
     "@walletconnect/sign-client": "2.21.7",
     "@walletconnect/universal-provider": "2.21.7",
     "bech32": "^2.0.0",

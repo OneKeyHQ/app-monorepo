@@ -5,6 +5,7 @@ import { StyleSheet } from 'react-native';
 
 import {
   Button,
+  Dialog,
   SizableText,
   Stack,
   Toast,
@@ -52,10 +53,20 @@ function ExternalAccountSign() {
     <PartContainer title="ExternalAccountSign">
       <Button
         onPress={async () => {
-          console.log(await StorageUtilCore.getWalletConnectDeepLink());
+          Dialog.debugMessage({
+            title: 'walletconnect deeplink',
+            debugMessage: await StorageUtilCore.getWalletConnectDeepLink(),
+          });
         }}
       >
         log walletconnect deeplink
+      </Button>
+      <Button
+        onPress={async () => {
+          await StorageUtilCore.removeWalletConnectDeepLink();
+        }}
+      >
+        remove walletconnect deeplink
       </Button>
       <Button
         onPress={async () => {

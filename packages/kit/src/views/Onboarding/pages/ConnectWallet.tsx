@@ -412,7 +412,8 @@ function WalletItem({
     }
     let shouldShowDialogLoading = true;
     if (platformEnv.isNative && isWalletConnect) {
-      shouldShowDialogLoading = false;
+      // shouldShowDialogLoading = false;
+      shouldShowDialogLoading = true;
     }
     await dialogRef.current?.close();
     if (shouldShowDialogLoading) {
@@ -437,6 +438,20 @@ function WalletItem({
 
     await connectToWallet();
   }, [connectToWallet, intl, loading, name, isWalletConnect]);
+
+  useEffect(() => {
+    const fn = async (state: { open: boolean }) => {
+      if (state.open === true && platformEnv.isNative && isWalletConnect) {
+        // Dialog component will cover the WalletConnectSDK modal, so we need to manually close the Dialog
+        // search: zIndex: 99993173
+        await dialogRef.current?.close();
+      }
+    };
+    appEventBus.on(EAppEventBusNames.WalletConnectModalState, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletConnectModalState, fn);
+    };
+  }, [isWalletConnect]);
 
   return (
     <WalletItemView

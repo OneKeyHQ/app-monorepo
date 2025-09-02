@@ -50,7 +50,6 @@
     "@sentry/react-native": "6.16.1",
     "@shopify/flash-list": "2.0.3",
     "@types/react-native-canvas": "^0.1.13",
-    "@walletconnect/modal-react-native": "1.1.0",
     "@walletconnect/react-native-compat": "2.11.2",
     "burnt": "0.12.2",
     "expo": "53.0.19",
