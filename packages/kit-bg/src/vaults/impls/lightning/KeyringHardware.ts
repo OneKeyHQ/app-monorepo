@@ -115,6 +115,7 @@ export class KeyringHardware extends KeyringHardwareBase {
                 path: account.path,
                 xpub: account.payload?.xpub || '',
                 xpubSegwit: account.payload?.xpubSegwit || '',
+                __hwExtraInfo__: undefined,
               }),
             });
             if (allNetworkAccounts) {
@@ -145,7 +146,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         const network = getBtcForkNetwork(btcImpl);
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];
-          const { path, xpub, xpubSegwit } = item;
+          const { path, xpub, xpubSegwit, __hwExtraInfo__ } = item;
           const addressRelPath = `0/0`;
           const addressFromXpub = await this.coreApi.getAddressFromXpub({
             network,
@@ -192,6 +193,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             relPath: addressRelPath,
             xpub,
             xpubSegwit,
+            __hwExtraInfo__,
             addresses: {
               [addressRelPath]: address,
             },

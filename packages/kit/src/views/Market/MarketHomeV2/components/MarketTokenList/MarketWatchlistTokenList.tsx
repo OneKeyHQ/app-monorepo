@@ -5,12 +5,10 @@ import {
   useMarketWatchListV2Atom,
   useSelectedNetworkIdAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
-import {
-  MarketRecommendList,
-  mockRecommendedTokens,
-} from '../MarketRecommendList';
+import { MarketRecommendList } from '../MarketRecommendList';
 
 import { useMarketWatchlistTokenList } from './hooks/useMarketWatchlistTokenList';
 import { type IMarketToken } from './MarketTokenData';
@@ -30,6 +28,8 @@ function MarketWatchlistTokenList({
   // Get watchlist from atom if not provided externally
   const [watchlistState] = useMarketWatchListV2Atom();
   const [selectedNetworkId] = useSelectedNetworkIdAtom();
+  const { recommendedTokens } = useMarketBasicConfig();
+  
   const internalWatchlist = useMemo(
     () => watchlistState.data || [],
     [watchlistState.data],
@@ -47,7 +47,7 @@ function MarketWatchlistTokenList({
   if (watchlist.length === 0) {
     return (
       <MarketRecommendList
-        recommendedTokens={mockRecommendedTokens}
+        recommendedTokens={recommendedTokens}
         networkId={selectedNetworkId}
       />
     );

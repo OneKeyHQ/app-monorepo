@@ -8,6 +8,7 @@ export enum EGalleryRoutes {
   ComponentAmountInput = 'component-AmountInput',
   ComponentAnchor = 'component-Anchor',
   ComponentBadge = 'component-Badge',
+  ComponentBreadcrumb = 'component-Breadcrumb',
   ComponentBanner = 'component-Banner',
   ComponentBlurView = 'component-BlurView',
   ComponentButton = 'component-Button',
