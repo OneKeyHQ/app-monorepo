@@ -27,6 +27,7 @@ import { EarnNavigation } from '../../../Earn/earnUtils';
 import useParseQRCode from '../../../ScanQrCode/hooks/useParseQRCode';
 
 import type { GestureResponderEvent } from 'react-native';
+import { useDebouncedCallback } from 'use-debounce';
 
 const closedBanners: Record<string, boolean> = {};
 
@@ -175,6 +176,14 @@ function WalletBanner() {
 
   const { gtMd } = useMedia();
 
+  const handlePageChanged = useDebouncedCallback((index: number) => {
+    if (filteredBanners[index]) {
+      defaultLogger.wallet.walletBanner.walletBannerViewed({
+        bannerId: filteredBanners[index].id,
+      });
+    }
+  }, 50);
+
   if (filteredBanners.length === 0) {
     return null;
   }
@@ -193,13 +202,7 @@ function WalletBanner() {
         paginationContainerStyle={{
           marginBottom: 0,
         }}
-        onPageChanged={(index) => {
-          if (filteredBanners[index]) {
-            defaultLogger.wallet.walletBanner.walletBannerViewed({
-              bannerId: filteredBanners[index].id,
-            });
-          }
-        }}
+        onPageChanged={handlePageChanged}
         renderItem={({ item }: { item: IWalletBanner }) => {
           return (
             <YStack
