@@ -169,6 +169,7 @@ function ApprovalListViewCmp(props: IProps) {
   const ListComponentRef = useRef<typeof ListComponent>(null);
 
   const recomputeLayout = useCallback(() => {
+    // update tab list header height after alert dismissed
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
     (ListComponentRef.current as any)?.recomputeLayout?.();
   }, []);
