@@ -47,19 +47,18 @@ module.exports = ({ platform, basePath }) => {
           // if not set - nothing will happen and error will be returned to the chunk loader.
           // lastResortScript: "window.location.href='/500.html';",
         }),
-      !isExt &&
-        sentryWebpackPlugin({
-          org: 'onekey-bb',
-          debug: false,
-          project: process.env.SENTRY_PROJECT,
-          authToken: process.env.SENTRY_TOKEN,
-          release: {
-            name: `${process.env.VERSION} (${process.env.BUILD_NUMBER})`,
-          },
-          sourcemaps: {
-            filesToDeleteAfterUpload,
-          },
-        }),
+      sentryWebpackPlugin({
+        org: 'onekey-bb',
+        debug: false,
+        project: process.env.SENTRY_PROJECT,
+        authToken: process.env.SENTRY_TOKEN,
+        release: {
+          name: `${process.env.VERSION} (${process.env.BUILD_NUMBER})`,
+        },
+        sourcemaps: {
+          filesToDeleteAfterUpload,
+        },
+      }),
     ].filter(Boolean),
     optimization: {
       minimizer: [
