@@ -250,6 +250,36 @@ export const DevSettingsSection = () => {
           titleProps={{ color: '$textCritical' }}
         />
       ) : null}
+
+      <SectionPressItem
+        icon="BookmarkOutline"
+        title="清空Market收藏数据"
+        subtitle="清空所有Market页面的收藏/WatchList数据"
+        onPress={() => {
+          Dialog.confirm({
+            title: '清空Market收藏数据',
+            description:
+              '确定要清空所有Market页面的收藏数据吗？此操作不可恢复。',
+            confirmButtonProps: { variant: 'destructive' },
+            onConfirm: async () => {
+              try {
+                await backgroundApiProxy.serviceMarketV2.clearAllMarketWatchListV2();
+                Toast.success({
+                  title: '成功清空Market收藏数据',
+                });
+                setTimeout(() => {
+                  void backgroundApiProxy.serviceApp.restartApp();
+                }, 1000);
+              } catch (error) {
+                Toast.error({
+                  title: '清空失败',
+                  message: String(error),
+                });
+              }
+            },
+          });
+        }}
+      />
       <SectionFieldItem
         icon="ChartTrendingOutline"
         name="enableAnalyticsRequest"
