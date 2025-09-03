@@ -1,0 +1,1 @@
+export { TradingViewPerpsV2 } from './TradingViewPerpsV2';
