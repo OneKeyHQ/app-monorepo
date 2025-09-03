@@ -14,6 +14,10 @@ export interface IMarketTokenDetail {
     website?: string;
     twitter?: string;
   };
+  supportSwap?: {
+    enable: boolean;
+    warningMessage?: string;
+  };
   price?: string;
   priceChange1mPercent?: string;
   priceChange5mPercent?: string;
