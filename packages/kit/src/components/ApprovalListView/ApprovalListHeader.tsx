@@ -1,5 +1,4 @@
-import type { RefObject } from 'react';
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -41,6 +40,13 @@ function ApprovalListHeader({
 
   const { tableLayout, accountId, networkId } = useApprovalListViewContext();
 
+  const [showInactiveApprovalsAlert, setShowInactiveApprovalsAlert] =
+    useState(false);
+
+  const [inactiveApprovalsAlertOpacity, setInactiveApprovalsAlertOpacity] =
+    useState(0);
+  const [tableHeaderOpacity, setTableHeaderOpacity] = useState(0);
+
   const { result: shouldShowInactiveApprovalsAlert } =
     usePromiseResult(async () => {
       return backgroundApiProxy.serviceApproval.shouldShowInactiveApprovalsAlert(
@@ -57,7 +63,10 @@ function ApprovalListHeader({
     }
 
     return (
-      <ListItem testID="Wallet-Approval-List-Header">
+      <ListItem
+        testID="Wallet-Approval-List-Header"
+        opacity={tableHeaderOpacity}
+      >
         <Stack flexGrow={1} flexBasis={0} alignItems="flex-start">
           <HeaderItem
             label={intl.formatMessage({ id: ETranslations.global_contract })}
@@ -86,7 +95,7 @@ function ApprovalListHeader({
         </Stack>
       </ListItem>
     );
-  }, [intl, tableLayout]);
+  }, [intl, tableLayout, tableHeaderOpacity]);
 
   const [{ approvals }] = useApprovalListAtom();
   const [{ tokenMap }] = useTokenMapAtom();
@@ -139,16 +148,17 @@ function ApprovalListHeader({
         networkId,
       },
     );
+    setShowInactiveApprovalsAlert(false);
     setTimeout(() => {
       recomputeLayout();
     }, 350);
   }, [accountId, networkId, recomputeLayout]);
 
-  const [showInactiveApprovalsAlert, setShowInactiveApprovalsAlert] =
-    useState(true);
-
   const renderRiskOverview = useCallback(() => {
-    if (!showInactiveApprovalsAlert) {
+    if (
+      riskApprovals.length === 0 &&
+      (warningApprovals.length === 0 || !showInactiveApprovalsAlert)
+    ) {
       return null;
     }
 
@@ -186,8 +196,9 @@ function ApprovalListHeader({
             }}
           />
         ) : null}
-        {showInactiveApprovalsAlert ? (
+        {shouldShowInactiveApprovalsAlert && warningApprovals.length > 0 ? (
           <Alert
+            opacity={inactiveApprovalsAlertOpacity}
             onClose={handleCloseInactiveApprovalsAlert}
             icon="ShieldExclamationOutline"
             title={intl.formatMessage({
@@ -216,8 +227,6 @@ function ApprovalListHeader({
                   alertType: EContractApprovalAlertType.Warning,
                   approvals: warningApprovals,
                 });
-                setShowInactiveApprovalsAlert(false);
-                // update tab list header height after alert dismissed
               },
             }}
           />
@@ -227,11 +236,25 @@ function ApprovalListHeader({
   }, [
     handleCloseInactiveApprovalsAlert,
     handleViewRiskApprovals,
+    inactiveApprovalsAlertOpacity,
     intl,
     riskApprovals,
+    shouldShowInactiveApprovalsAlert,
     showInactiveApprovalsAlert,
     warningApprovals,
   ]);
+
+  useEffect(() => {
+    setShowInactiveApprovalsAlert(!!shouldShowInactiveApprovalsAlert);
+
+    setTimeout(() => {
+      recomputeLayout();
+      if (shouldShowInactiveApprovalsAlert) {
+        setInactiveApprovalsAlertOpacity(1);
+      }
+      setTableHeaderOpacity(1);
+    }, 350);
+  }, [shouldShowInactiveApprovalsAlert, recomputeLayout]);
 
   return (
     <>
