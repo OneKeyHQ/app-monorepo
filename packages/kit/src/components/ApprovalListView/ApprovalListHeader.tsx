@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,7 +9,9 @@ import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/appr
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 import { EContractApprovalAlertType } from '@onekeyhq/shared/types/approval';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
   useApprovalListAtom,
   useContractMapAtom,
@@ -27,12 +29,33 @@ function HeaderItem({ label }: { label: string }) {
   );
 }
 
-function ApprovalListHeader() {
+function ApprovalListHeader({
+  recomputeLayout,
+}: {
+  recomputeLayout: () => void;
+}) {
   const intl = useIntl();
 
   const navigation = useAppNavigation();
 
   const { tableLayout, accountId, networkId } = useApprovalListViewContext();
+
+  const [showInactiveApprovalsAlert, setShowInactiveApprovalsAlert] =
+    useState(false);
+
+  const [inactiveApprovalsAlertOpacity, setInactiveApprovalsAlertOpacity] =
+    useState(0);
+  const [tableHeaderOpacity, setTableHeaderOpacity] = useState(0);
+
+  const { result: shouldShowInactiveApprovalsAlert } =
+    usePromiseResult(async () => {
+      return backgroundApiProxy.serviceApproval.shouldShowInactiveApprovalsAlert(
+        {
+          accountId,
+          networkId,
+        },
+      );
+    }, [accountId, networkId]);
 
   const renderTableHeader = useCallback(() => {
     if (!tableLayout) {
@@ -40,7 +63,10 @@ function ApprovalListHeader() {
     }
 
     return (
-      <ListItem testID="Wallet-Approval-List-Header">
+      <ListItem
+        testID="Wallet-Approval-List-Header"
+        opacity={tableHeaderOpacity}
+      >
         <Stack flexGrow={1} flexBasis={0} alignItems="flex-start">
           <HeaderItem
             label={intl.formatMessage({ id: ETranslations.global_contract })}
@@ -69,7 +95,7 @@ function ApprovalListHeader() {
         </Stack>
       </ListItem>
     );
-  }, [intl, tableLayout]);
+  }, [intl, tableLayout, tableHeaderOpacity]);
 
   const [{ approvals }] = useApprovalListAtom();
   const [{ tokenMap }] = useTokenMapAtom();
@@ -115,8 +141,24 @@ function ApprovalListHeader() {
     );
   }, [approvals]);
 
+  const handleCloseInactiveApprovalsAlert = useCallback(async () => {
+    await backgroundApiProxy.serviceApproval.updateInactiveApprovalsAlertConfig(
+      {
+        accountId,
+        networkId,
+      },
+    );
+    setShowInactiveApprovalsAlert(false);
+    setTimeout(() => {
+      recomputeLayout();
+    }, 350);
+  }, [accountId, networkId, recomputeLayout]);
+
   const renderRiskOverview = useCallback(() => {
-    if (riskApprovals.length === 0 && warningApprovals.length === 0) {
+    if (
+      riskApprovals.length === 0 &&
+      (warningApprovals.length === 0 || !showInactiveApprovalsAlert)
+    ) {
       return null;
     }
 
@@ -154,8 +196,10 @@ function ApprovalListHeader() {
             }}
           />
         ) : null}
-        {warningApprovals.length > 0 ? (
+        {shouldShowInactiveApprovalsAlert && warningApprovals.length > 0 ? (
           <Alert
+            opacity={inactiveApprovalsAlertOpacity}
+            onClose={handleCloseInactiveApprovalsAlert}
             icon="ShieldExclamationOutline"
             title={intl.formatMessage({
               id: ETranslations.wallet_revoke_suggestion,
@@ -189,7 +233,28 @@ function ApprovalListHeader() {
         ) : null}
       </YStack>
     );
-  }, [handleViewRiskApprovals, intl, riskApprovals, warningApprovals]);
+  }, [
+    handleCloseInactiveApprovalsAlert,
+    handleViewRiskApprovals,
+    inactiveApprovalsAlertOpacity,
+    intl,
+    riskApprovals,
+    shouldShowInactiveApprovalsAlert,
+    showInactiveApprovalsAlert,
+    warningApprovals,
+  ]);
+
+  useEffect(() => {
+    setShowInactiveApprovalsAlert(!!shouldShowInactiveApprovalsAlert);
+
+    setTimeout(() => {
+      recomputeLayout();
+      if (shouldShowInactiveApprovalsAlert) {
+        setInactiveApprovalsAlertOpacity(1);
+      }
+      setTableHeaderOpacity(1);
+    }, 350);
+  }, [shouldShowInactiveApprovalsAlert, recomputeLayout]);
 
   return (
     <>

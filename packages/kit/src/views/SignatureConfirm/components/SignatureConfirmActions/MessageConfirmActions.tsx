@@ -7,6 +7,7 @@ import { Checkbox, Page, Toast, usePageUnMounted } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -65,6 +66,8 @@ function MessageConfirmActions(props: IProps) {
   const { network } = useAccountData({
     networkId,
   });
+
+  const navigation = useAppNavigation();
 
   const isSubmitted = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -142,6 +145,11 @@ function MessageConfirmActions(props: IProps) {
         } catch {
           // noop
         }
+
+        if (accountUtils.isQrAccount({ accountId })) {
+          navigation.popStack();
+        }
+
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.feedback_sign_success,
@@ -153,16 +161,17 @@ function MessageConfirmActions(props: IProps) {
       }
     },
     [
+      sourceInfo,
+      accountId,
+      skipBackupCheck,
       unsignedMessage,
       network?.impl,
       networkId,
       onFail,
       dappApprove,
-      accountId,
       onSuccess,
       intl,
-      sourceInfo,
-      skipBackupCheck,
+      navigation,
     ],
   );
 

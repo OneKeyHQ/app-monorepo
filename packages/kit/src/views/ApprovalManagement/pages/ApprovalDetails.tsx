@@ -20,14 +20,8 @@ import {
 } from '@onekeyhq/components';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EModalRoutes,
-  EModalSignatureConfirmRoutes,
-} from '@onekeyhq/shared/src/routes';
-import type {
-  EModalApprovalManagementRoutes,
-  IModalApprovalManagementParamList,
-} from '@onekeyhq/shared/src/routes/approvalManagement';
+import type { IModalApprovalManagementParamList } from '@onekeyhq/shared/src/routes/approvalManagement';
+import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -36,6 +30,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
+  useApprovalListActions,
   useContractMapAtom,
   useTokenMapAtom,
 } from '../../../states/jotai/contexts/approvalList';
@@ -64,6 +59,8 @@ function ApprovalDetails() {
     isSelectMode,
     onSelected,
     selectedTokens: selectedTokensProp,
+    tokenMap: tokenMapProp,
+    contractMap: contractMapProp,
   } = route.params;
 
   const intl = useIntl();
@@ -73,6 +70,9 @@ function ApprovalDetails() {
   const navigation = useAppNavigation();
 
   const [isBulkRevokeMode, setIsBulkRevokeMode] = useState(false);
+
+  const { updateTokenMap, updateContractMap } =
+    useApprovalListActions().current;
 
   const [{ tokenMap }] = useTokenMapAtom();
 
@@ -211,13 +211,10 @@ function ApprovalDetails() {
           approveInfo: revokeInfo,
         });
 
-      navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
-        screen: EModalSignatureConfirmRoutes.TxConfirm,
-        params: {
-          accountId: approval.accountId,
-          networkId: approval.networkId,
-          unsignedTxs: [unsignedTx],
-        },
+      navigation.push(EModalApprovalManagementRoutes.TxConfirm, {
+        accountId: approval.accountId,
+        networkId: approval.networkId,
+        unsignedTxs: [unsignedTx],
       });
 
       await timerUtils.wait(1000);
@@ -361,6 +358,8 @@ function ApprovalDetails() {
   }, [approval.approvals, approval.networkId, searchText, tokenMap]);
 
   const renderApprovedTokens = () => {
+    console.log(filteredApprovals);
+
     return (
       <ListView
         ListHeaderComponent={
@@ -433,6 +432,15 @@ function ApprovalDetails() {
       setSelectedTokens(selectedTokensProp);
     }
   }, [selectedTokensProp, setSelectedTokens]);
+
+  useEffect(() => {
+    if (tokenMapProp) {
+      updateTokenMap({ data: tokenMapProp });
+    }
+    if (contractMapProp) {
+      updateContractMap({ data: contractMapProp });
+    }
+  }, [tokenMapProp, contractMapProp, updateTokenMap, updateContractMap]);
 
   return (
     <Page scrollEnabled>
