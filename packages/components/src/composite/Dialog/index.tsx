@@ -88,6 +88,13 @@ export const FIX_SHEET_PROPS: IYStackProps = {
 
 const MAX_CONTENT_WIDTH = 400;
 
+/**
+ * Renders a responsive dialog component that adapts between a sheet (for medium and larger screens) and a modal dialog (for smaller screens or web), supporting customizable content, footer actions, and platform-specific behaviors.
+ *
+ * Handles dialog open/close state, confirm and cancel actions (including async handlers), backdrop and back button interactions, and tracks dialog events. Supports custom header, footer, and content rendering, as well as various configuration options for appearance and interactivity.
+ *
+ * @returns The rendered dialog UI as a React element.
+ */
 function DialogFrame({
   title,
   open,
