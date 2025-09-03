@@ -219,6 +219,11 @@ const requestIdleCallback = (callback: () => void) => {
   setTimeout(callback, 150);
 };
 
+/**
+ * Renders the dropdown content for the select component, displaying a list or sectioned list of selectable items within a popover.
+ *
+ * The content adapts to the presence of sections or a flat item list, and configures popover behavior and layout based on the number of items. Selection changes are deferred until after the dropdown closes.
+ */
 function SelectContent() {
   const {
     changeOpenStatus,

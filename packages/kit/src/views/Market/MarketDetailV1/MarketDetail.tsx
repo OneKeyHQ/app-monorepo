@@ -47,6 +47,15 @@ import { TokenPriceChart } from '../components/TokenPriceChart';
 import { buildMarketFullUrl } from '../marketUtils';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
+/**
+ * Displays the header section for a market token detail view, including token name, price, price change, watchlist star, and trade button.
+ *
+ * Fetches and updates token details at regular intervals, and conditionally renders a market overview for larger screens.
+ *
+ * @param coinGeckoId - The CoinGecko identifier for the token.
+ * @param token - The initial token detail data to display before fetching updates.
+ * @returns The rendered header UI for the token detail screen.
+ */
 function TokenDetailHeader({
   coinGeckoId,
   token: responseToken,
@@ -139,6 +148,11 @@ function SkeletonHeaderOverItemItem() {
   );
 }
 
+/**
+ * Displays the detailed market information screen for a specific token.
+ *
+ * Fetches and presents token details, price chart, and related tabs. Adapts layout for modal and responsive contexts, supports pull-to-refresh, and provides sharing and navigation actions.
+ */
 function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>) {
