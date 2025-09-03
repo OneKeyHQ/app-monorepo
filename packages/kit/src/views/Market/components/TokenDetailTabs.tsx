@@ -19,6 +19,19 @@ import { MarketDetailOverview } from './MarketDetailOverview';
 import { MarketDetailPools } from './MarketDetailPools';
 import { TokenPriceChart } from './TokenPriceChart';
 
+/**
+ * Renders a tabbed interface displaying detailed information about a market token, including price chart, overview, pools, and related links.
+ *
+ * Tabs and their content are dynamically configured based on the presence of token data and the current layout mode. Supports pull-to-refresh, deferred mounting, and adapts layout for modal and non-modal contexts.
+ *
+ * @param token - Market token detail object to display information for
+ * @param listHeaderComponent - Optional React element rendered above the tab content
+ * @param isRefreshing - Indicates if a refresh operation is in progress
+ * @param onRefresh - Callback triggered when a refresh is requested
+ * @param defer - Deferred promise resolved after initial mount for asynchronous control
+ * @param coinGeckoId - CoinGecko API identifier for the token
+ * @returns A React element rendering the token detail tabs
+ */
 function BasicTokenDetailTabs({
   token,
   listHeaderComponent,

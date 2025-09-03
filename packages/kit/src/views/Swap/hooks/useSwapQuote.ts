@@ -52,6 +52,11 @@ import { truncateDecimalPlaces } from '../utils/utils';
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 
+/**
+ * React hook that manages fetching, updating, and synchronizing swap quotes for a decentralized exchange interface.
+ *
+ * This hook coordinates state and side effects related to swap quote retrieval, token and amount changes, slippage settings, and user interactions. It integrates with Jotai atoms, event bus listeners, and debounced input handling to ensure accurate and efficient quote updates. The hook also manages cleanup and event subscriptions based on tab focus and modal state.
+ */
 export function useSwapQuote() {
   const {
     quoteAction,
