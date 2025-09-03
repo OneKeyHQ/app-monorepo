@@ -34,14 +34,12 @@ function WhatsNew() {
             <ViewUpdateHistory />
           </ScrollView>
         ) : null}
-        <Page.Footer>
-          <Page.Footer
-            onConfirmText={intl.formatMessage({
-              id: ETranslations.global_done,
-            })}
-            onConfirm={navigation.pop}
-          />
-        </Page.Footer>
+        <Page.Footer
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.global_done,
+          })}
+          onConfirm={navigation.pop}
+        />
       </Page.Body>
     </Page>
   );
