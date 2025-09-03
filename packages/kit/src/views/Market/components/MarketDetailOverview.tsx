@@ -346,6 +346,11 @@ function OverviewMarketVOL({
   );
 }
 
+/**
+ * Displays a comprehensive market overview for a cryptocurrency token, including price changes, 24-hour price range, market statistics, and descriptive information.
+ *
+ * Renders sections for recent price performance, price range visualization, market volume and supply details, and an "about" description for the token.
+ */
 export function MarketDetailOverview({
   token: {
     name,

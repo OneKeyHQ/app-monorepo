@@ -34,6 +34,7 @@ export enum EScopeName {
   reward = 'reward',
   dex = 'dex',
   perp = 'perp',
+  prime = 'prime',
 }
 export interface IScope {
   getName: () => EScopeName;

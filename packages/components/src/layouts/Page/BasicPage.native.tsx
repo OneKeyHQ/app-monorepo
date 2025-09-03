@@ -56,6 +56,11 @@ const useMinHeight = (isFullPage: boolean) => {
   }, [isFullPage, isIpadLandscape, isModalPage, tabHeight]);
 };
 
+/**
+ * Renders a status bar with the appropriate style based on the current theme and whether the page is a modal.
+ *
+ * Uses a light content style for dark themes or modal pages, and a dark content style otherwise.
+ */
 function PageStatusBar() {
   const isModalPage = useIsModalPage();
   const themeName: 'light' | 'dark' = useThemeName();

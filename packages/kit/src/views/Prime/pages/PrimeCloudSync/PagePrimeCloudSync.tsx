@@ -4,9 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
-  Button,
   Dialog,
-  Divider,
   ESwitchSize,
   Page,
   ScrollView,
@@ -26,6 +24,7 @@ import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -239,11 +238,17 @@ function EnableOneKeyCloudSwitchListItem() {
                 });
               }
               await runEnableCloudSync();
+              defaultLogger.prime.usage.onekeyCloudToggle({
+                status: 'on',
+              });
             } else {
               // disable cloud sync
               await backgroundApiProxy.servicePrimeCloudSync.setCloudSyncEnabled(
                 false,
               );
+              defaultLogger.prime.usage.onekeyCloudToggle({
+                status: 'off',
+              });
             }
           } catch (error) {
             // disable cloud sync
