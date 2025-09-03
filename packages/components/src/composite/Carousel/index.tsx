@@ -38,6 +38,13 @@ const defaultRenderPaginationItem = <T,>(
   );
 };
 
+/**
+ * A generic React carousel component with autoplay, looping, pagination, and imperative navigation controls.
+ *
+ * Renders a swipeable carousel of items with optional autoplay and looping behavior. Supports custom item rendering, pagination dot customization, and exposes imperative methods for navigation. Pagination dots are interactive and reflect the current page. The carousel adapts to container layout and pauses autoplay on user interaction.
+ *
+ * @returns The rendered carousel component.
+ */
 const CarouselContext = createContext<{
   pageIndex: number;
 }>({
