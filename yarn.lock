@@ -7612,6 +7612,7 @@ __metadata:
     html-webpack-plugin: "npm:^5.5.3"
     http-proxy-middleware: "npm:^2.0.3"
     ip: "npm:^1.1.9"
+    isomorphic-ws: "npm:^4.0.1"
     jest: "npm:^29.7.0"
     jest-expo: "npm:~53.0.8"
     jest-html-reporter: "npm:^3.10.2"
