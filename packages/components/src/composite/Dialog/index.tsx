@@ -695,11 +695,11 @@ export const Dialog = {
   debugMessage: dialogDebugMessage,
 };
 
-enum EInPageDialogType {
+export enum EInPageDialogType {
   inTabPages = 'inTabPages',
   inModalPage = 'inModalPage',
 }
-const useInPageDialog = (type: EInPageDialogType) => {
+export const useInPageDialog = (type: EInPageDialogType) => {
   const navigatorPortalId = useModalNavigatorContextPortalId();
   const { pagePortalId } = usePageContext();
 
