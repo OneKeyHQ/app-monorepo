@@ -1,85 +1,130 @@
 import { memo, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import { useTokenList } from '../../../hooks';
-import { formatPriceToSignificantDigits } from '../../../utils/tokenUtils';
-import { showClosePositionDialog } from '../ClosePositionModal';
+import { calcCellAlign } from '../utils';
 
-const COLUMN_WIDTHS = {
-  side: 10,
-  symbol: 140,
-  size: 120,
-  entryPrice: 100,
-  markPrice: 100,
-  pnl: 140,
-  margin: 100,
-  liqPrice: 100,
-  actions: 140,
-};
+import type { IColumnConfig } from '../List/CommonTableListView';
+
+interface IPositionRowProps {
+  pos: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
+  mid?: string;
+  handleMarketClose: ({
+    position,
+  }: {
+    position: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
+  }) => void;
+  handleLimitClose: ({
+    position,
+  }: {
+    position: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
+  }) => void;
+  cellMinWidth: number;
+  columnConfigs: IColumnConfig[];
+}
 
 const PositionRow = memo(
   ({
     pos,
     mid,
-    actions,
-  }: {
-    pos: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
-    mid?: string;
-    actions: any;
-  }) => {
-    const { getTokenInfo } = useTokenList();
+    cellMinWidth,
+    columnConfigs,
+    handleMarketClose,
+    handleLimitClose,
+  }: IPositionRowProps) => {
+    const side = useMemo(() => {
+      return parseFloat(pos.szi || '0') >= 0 ? 'long' : 'short';
+    }, [pos.szi]);
+    const assetInfo = useMemo(() => {
+      return {
+        assetSymbol: pos.coin,
+        leverage: pos.leverage?.value ?? '',
+        assetColor: side === 'long' ? '$textSuccess' : '$textCritical',
+      };
+    }, [pos.coin, side, pos.leverage?.value]);
 
-    console.log('PerpPositionRow props:', {
-      coin: pos.coin,
-      mid,
-      midType: typeof mid,
-      midLength: mid?.length,
-    });
-    const side = parseFloat(pos.szi || '0') >= 0 ? 'long' : 'short';
-    const size = Math.abs(parseFloat(pos.szi || '0'));
-    const entryPrice = parseFloat(pos.entryPx || '0');
-    const unrealizedPnl = parseFloat(pos.unrealizedPnl || '0');
-    const marginUsed = parseFloat(pos.marginUsed || '0');
-    const liquidationPrice = pos.liquidationPx || '0';
+    const priceInfo = useMemo(() => {
+      const entryPrice = new BigNumber(pos.entryPx || '0').toFixed();
+      const markPrice = new BigNumber(mid || '0').toFixed();
+      const liquidationPrice = new BigNumber(
+        pos.liquidationPx || '0',
+      ).toFixed();
+      return {
+        entryPrice,
+        markPrice,
+        liquidationPrice,
+      };
+    }, [pos.entryPx, mid, pos.liquidationPx]);
 
-    // Calculate mark price from position value and size
-    const markPrice = mid || '0';
+    const sizeInfo = useMemo(() => {
+      const sizeBN = new BigNumber(pos.szi || '0');
+      const sizeAbs = sizeBN.abs().toFixed();
+      const sizeValue = new BigNumber(pos.positionValue || '0').toFixed();
+      return {
+        sizeAbs,
+        sizeValue,
+      };
+    }, [pos.szi, pos.positionValue]);
+
+    const otherInfo = useMemo(() => {
+      const pnlBn = new BigNumber(pos.unrealizedPnl || '0');
+      const pnlAbs = pnlBn.abs().toFixed();
+      let pnlColor = '$textSuccess';
+      let pnlPlusOrMinus = '+';
+      if (pnlBn.lt(0)) {
+        pnlColor = '$textCritical';
+        pnlPlusOrMinus = '-';
+      }
+      const marginUsedBN = new BigNumber(pos.marginUsed || '0');
+      const roiPercent = marginUsedBN.gt(0)
+        ? pnlBn.div(marginUsedBN).times(100).abs().toFixed()
+        : '0';
+      return {
+        unrealizedPnl: pnlAbs,
+        marginUsed: new BigNumber(pos.marginUsed || '0').toFixed(),
+        funding: new BigNumber(pos.cumFunding.allTime || '0').toFixed(),
+        roiPercent,
+        pnlColor,
+        pnlPlusOrMinus,
+      };
+    }, [pos.unrealizedPnl, pos.marginUsed, pos.cumFunding]);
 
     // Calculate ROE percentage
-    const roiPercent = marginUsed > 0 ? (unrealizedPnl / marginUsed) * 100 : 0;
+    // const roiPercent = marginUsed > 0 ? (unrealizedPnl / marginUsed) * 100 : 0;
 
-    const isProfit = unrealizedPnl >= 0;
-    const displayLiqPrice =
-      liquidationPrice === '0'
-        ? 'N/A'
-        : `$${
-            parseFloat(liquidationPrice) > 0
-              ? formatPriceToSignificantDigits(parseFloat(liquidationPrice), 5)
-              : '0'
-          }`;
-    const formattedSize = `${size.toFixed(4)} ${pos.coin}`;
+    // const isProfit = unrealizedPnl >= 0;
+    // const displayLiqPrice =
+    //   liquidationPrice === '0'
+    //     ? 'N/A'
+    //     : `$${
+    //         parseFloat(liquidationPrice) > 0
+    //           ? formatPriceToSignificantDigits(parseFloat(liquidationPrice), 5)
+    //           : '0'
+    //       }`;
+    // const formattedSize = `${size.toFixed(4)} ${pos.coin}`;
 
-    const tokenInfo = useMemo(() => {
-      return getTokenInfo(pos.coin);
-    }, [pos.coin, getTokenInfo]);
+    // const tokenInfo = useMemo(() => {
+    //   return getTokenInfo(pos.coin);
+    // }, [pos.coin, getTokenInfo]);
 
-    const handleMarketClose = () => {
-      if (tokenInfo) {
-        console.log('PerpPositionRow handleMarketClose:', {
-          coin: pos.coin,
-          mid,
-          tokenInfo,
-        });
-        showClosePositionDialog({
-          position: pos,
-          assetId: tokenInfo.assetId,
-          mid,
-          hyperliquidActions: actions,
-        });
-      }
-    };
+    // const handleMarketClose = () => {
+    //   if (tokenInfo) {
+    //     console.log('PerpPositionRow handleMarketClose:', {
+    //       coin: pos.coin,
+    //       mid,
+    //       tokenInfo,
+    //     });
+    //     showClosePositionDialog({
+    //       position: pos,
+    //       assetId: tokenInfo.assetId,
+    //       mid,
+    //       hyperliquidActions: actions,
+    //     });
+    //   }
+    // };
 
     return (
       <XStack
@@ -91,106 +136,138 @@ const PositionRow = memo(
         bg="$bg"
         borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
-        minWidth={Object.values(COLUMN_WIDTHS).reduce(
-          (sum, width) => sum + width,
-          0,
-        )}
+        minWidth={cellMinWidth}
       >
-        {/* Side Indicator */}
-        <XStack width={COLUMN_WIDTHS.side} justifyContent="flex-start">
-          <XStack
-            width="$1"
-            height={20}
-            bg={side === 'long' ? '$green7' : '$red7'}
-          />
-        </XStack>
-
         {/* Symbol & Leverage */}
-        <XStack width={COLUMN_WIDTHS.symbol} alignItems="center" space="$2">
-          <SizableText size="$bodyMd" fontWeight="600">
-            {pos.coin}
+        <XStack
+          width={columnConfigs[0].width}
+          minWidth={columnConfigs[0].minWidth}
+          flex={columnConfigs[0].flex}
+          alignItems="center"
+          justifyContent={calcCellAlign(columnConfigs[0].align)}
+          gap="$2"
+        >
+          <SizableText size="$bodySmMedium" color={assetInfo.assetColor}>
+            {assetInfo.assetSymbol}
           </SizableText>
-          <SizableText
-            size="$bodySm"
-            color={side === 'long' ? '$textSuccess' : '$textCritical'}
-            bg={side === 'long' ? '$green3' : '$red3'}
-            px="$2"
-            py="$1"
-            borderRadius="$2"
-          >
-            {pos.leverage?.value ?? ''}X
-          </SizableText>
-        </XStack>
-
-        {/* Size */}
-        <XStack width={COLUMN_WIDTHS.size} justifyContent="flex-start">
-          <SizableText size="$bodyMd">{formattedSize}</SizableText>
-        </XStack>
-
-        {/* Entry Price */}
-        <XStack width={COLUMN_WIDTHS.entryPrice} justifyContent="flex-start">
-          <SizableText size="$bodyMd">
-            $
-            {entryPrice > 0
-              ? formatPriceToSignificantDigits(entryPrice, 5)
-              : '0'}
+          <SizableText size="$bodySm" color={assetInfo.assetColor}>
+            {assetInfo.leverage}X
           </SizableText>
         </XStack>
 
-        {/* Mark Price */}
-        <XStack width={COLUMN_WIDTHS.markPrice} justifyContent="flex-start">
-          <SizableText size="$bodyMd">
-            $
-            {markPrice !== '0'
-              ? formatPriceToSignificantDigits(Number(markPrice), 5)
-              : '0'}
+        {/* Position Size */}
+        <YStack
+          width={columnConfigs[1].width}
+          minWidth={columnConfigs[1].minWidth}
+          flex={columnConfigs[1].flex}
+          justifyContent="center"
+          alignItems={calcCellAlign(columnConfigs[1].align)}
+        >
+          <SizableText size="$bodySm">
+            {`${sizeInfo.sizeAbs} ${assetInfo.assetSymbol}`}
           </SizableText>
-        </XStack>
-
-        {/* Unrealized PnL */}
-        <YStack width={COLUMN_WIDTHS.pnl} alignItems="flex-start">
-          <SizableText
-            size="$bodyMd"
-            color={isProfit ? '$textSuccess' : '$textCritical'}
-            fontWeight="600"
-          >
-            {isProfit ? '+' : '-'}${Math.abs(unrealizedPnl).toFixed(2)}
-          </SizableText>
-          <SizableText
-            size="$bodySm"
-            color={isProfit ? '$textSuccess' : '$textCritical'}
-          >
-            ({isProfit ? '+' : ''}
-            {roiPercent.toFixed(2)}%)
+          <SizableText size="$bodySm" color="$textSubdued">
+            {`$${sizeInfo.sizeValue}`}
           </SizableText>
         </YStack>
 
-        {/* Margin */}
-        <XStack width={COLUMN_WIDTHS.margin} justifyContent="flex-start">
-          <SizableText size="$bodyMd">${marginUsed.toFixed(2)}</SizableText>
+        {/* Entry Price */}
+        <XStack
+          width={columnConfigs[2].width}
+          minWidth={columnConfigs[2].minWidth}
+          flex={columnConfigs[2].flex}
+          justifyContent={calcCellAlign(columnConfigs[2].align)}
+          alignItems="center"
+        >
+          <SizableText size="$bodySm">{`$${priceInfo.entryPrice}`}</SizableText>
         </XStack>
 
-        {/* Liquidation Price */}
-        <XStack width={COLUMN_WIDTHS.liqPrice} justifyContent="flex-start">
+        {/* Mark Price */}
+        <XStack
+          width={columnConfigs[3].width}
+          minWidth={columnConfigs[3].minWidth}
+          flex={columnConfigs[3].flex}
+          justifyContent={calcCellAlign(columnConfigs[3].align)}
+          alignItems="center"
+        >
+          <SizableText size="$bodySm">{`$${priceInfo.markPrice}`}</SizableText>
+        </XStack>
+        {/* Liq. Price */}
+        <XStack
+          width={columnConfigs[4].width}
+          minWidth={columnConfigs[4].minWidth}
+          flex={columnConfigs[4].flex}
+          justifyContent={calcCellAlign(columnConfigs[4].align)}
+          alignItems="center"
+        >
+          <SizableText size="$bodySm">{`$${priceInfo.liquidationPrice}`}</SizableText>
+        </XStack>
+        {/* Unrealized PnL */}
+        <XStack
+          width={columnConfigs[5].width}
+          minWidth={columnConfigs[5].minWidth}
+          flex={columnConfigs[5].flex}
+          justifyContent={calcCellAlign(columnConfigs[5].align)}
+          alignItems="center"
+        >
           <SizableText
-            size="$bodyMd"
-            color={displayLiqPrice === 'N/A' ? '$textSubdued' : '$textCritical'}
-          >
-            {displayLiqPrice}
-          </SizableText>
+            size="$bodySm"
+            color={otherInfo.pnlColor}
+          >{`${otherInfo.pnlPlusOrMinus}$${otherInfo.unrealizedPnl}(${otherInfo.pnlPlusOrMinus}${otherInfo.roiPercent}%)`}</SizableText>
+        </XStack>
+
+        {/* Margin */}
+        <XStack
+          width={columnConfigs[6].width}
+          minWidth={columnConfigs[6].minWidth}
+          flex={columnConfigs[6].flex}
+          justifyContent={calcCellAlign(columnConfigs[6].align)}
+          alignItems="center"
+        >
+          <SizableText size="$bodySm">{`$${otherInfo.marginUsed}`}</SizableText>
+        </XStack>
+
+        {/* Funding */}
+        <XStack
+          width={columnConfigs[7].width}
+          minWidth={columnConfigs[7].minWidth}
+          flex={columnConfigs[7].flex}
+          justifyContent={calcCellAlign(columnConfigs[7].align)}
+          alignItems="center"
+        >
+          <SizableText size="$bodySm">{`$${otherInfo.funding}`}</SizableText>
+        </XStack>
+
+        {/* TPSL */}
+        <XStack
+          width={columnConfigs[8].width}
+          minWidth={columnConfigs[8].minWidth}
+          flex={columnConfigs[8].flex}
+          justifyContent={calcCellAlign(columnConfigs[8].align)}
+          alignItems="center"
+        >
+          <SizableText size="$bodySm">--/--</SizableText>
         </XStack>
 
         {/* Actions */}
         <XStack
-          width={COLUMN_WIDTHS.actions}
-          space="$2"
-          justifyContent="flex-start"
+          width={columnConfigs[9].width}
+          minWidth={columnConfigs[9].minWidth}
+          flex={columnConfigs[9].flex}
+          justifyContent={calcCellAlign(columnConfigs[9].align)}
+          alignItems="center"
+          gap="$2"
         >
-          <Button size="small" variant="secondary" disabled>
-            <SizableText size="$bodySm">Limit</SizableText>
-          </Button>
-          <Button size="small" variant="secondary" onPress={handleMarketClose}>
+          <Button size="small" variant="tertiary" onPress={handleMarketClose}>
             <SizableText size="$bodySm">Market</SizableText>
+          </Button>
+          <Button
+            size="small"
+            variant="tertiary"
+            disabled
+            onPress={handleLimitClose}
+          >
+            <SizableText size="$bodySm">Limit</SizableText>
           </Button>
         </XStack>
       </XStack>

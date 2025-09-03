@@ -4,7 +4,6 @@ import { useAtom } from 'jotai';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -29,6 +28,8 @@ import type {
   IWsAllMids,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+
+import { usePerpUseChainAccount } from './usePerpUseChainAccount';
 
 export function useHyperliquidEventBusListener() {
   const actions = useHyperliquidActions();
@@ -142,38 +143,12 @@ export function useHyperliquidEventBusListener() {
 }
 
 export function useHyperliquidSession() {
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const actions = useHyperliquidActions();
   const [subscriptionActive] = useAtom(subscriptionActiveAtom());
   const [connectionState] = useAtom(connectionStateAtom());
+  const actions = useHyperliquidActions();
 
   useHyperliquidEventBusListener();
-
-  const { result: ethAccountData } = usePromiseResult(async () => {
-    if (!activeAccount?.account?.id) return null;
-
-    const ethNetworkId = 'evm--1';
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      accountId: activeAccount.account.id,
-      networkId: ethNetworkId,
-    });
-
-    return account;
-  }, [activeAccount?.account?.id]);
-  const userAddress = ethAccountData?.address as IHex | undefined;
-  useEffect(() => {
-    if (typeof userAddress === 'string' && userAddress.startsWith('0x')) {
-      void actions.current.setCurrentUser(userAddress);
-      void actions.current.setCurrentAccount(activeAccount.account!.id);
-    }
-  }, [userAddress, actions, activeAccount.account]);
-
-  useEffect(() => {
-    if (!subscriptionActive) {
-      void actions.current.setCurrentToken('ETH');
-    }
-  }, [subscriptionActive, actions]);
-
+  const { userAddress } = usePerpUseChainAccount();
   useListenTabFocusState(
     ETabRoutes.Perp,
     (isFocus: boolean, isHiddenByModal: boolean) => {
@@ -193,7 +168,7 @@ export function useHyperliquidSession() {
   }, [actions]);
 
   return {
-    userAddress: activeAccount?.account?.address as IHex | undefined,
+    userAddress,
     isConnected: connectionState.isConnected,
     isActive: subscriptionActive,
   };
