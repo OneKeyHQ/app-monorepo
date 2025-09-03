@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { isNil } from 'lodash';
 import { StyleSheet } from 'react-native';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Carousel,
@@ -175,6 +176,14 @@ function WalletBanner() {
 
   const { gtMd } = useMedia();
 
+  const handlePageChanged = useDebouncedCallback((index: number) => {
+    if (filteredBanners[index]) {
+      defaultLogger.wallet.walletBanner.walletBannerViewed({
+        bannerId: filteredBanners[index].id,
+      });
+    }
+  }, 180);
+
   if (filteredBanners.length === 0) {
     return null;
   }
@@ -193,13 +202,7 @@ function WalletBanner() {
         paginationContainerStyle={{
           marginBottom: 0,
         }}
-        onPageChanged={(index) => {
-          if (filteredBanners[index]) {
-            defaultLogger.wallet.walletBanner.walletBannerViewed({
-              bannerId: filteredBanners[index].id,
-            });
-          }
-        }}
+        onPageChanged={handlePageChanged}
         renderItem={({ item }: { item: IWalletBanner }) => {
           return (
             <YStack
