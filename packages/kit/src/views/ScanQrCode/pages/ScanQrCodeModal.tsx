@@ -15,6 +15,7 @@ import {
   Toast,
   XStack,
   YStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
@@ -39,6 +40,7 @@ import type { RouteProp } from '@react-navigation/core';
 appGlobals.$$scanNavigation = undefined;
 function DebugInput({ onText }: { onText: (text: string) => void }) {
   const navigation = useAppNavigation();
+  const { bottom } = useSafeAreaInsets();
   appGlobals.$$scanNavigation = navigation;
 
   const [inputText, setInputText] = useState<string>(
@@ -50,7 +52,7 @@ function DebugInput({ onText }: { onText: (text: string) => void }) {
 
   if (visible) {
     return (
-      <YStack>
+      <YStack pb={bottom}>
         <XStack>
           <IconButton
             onPress={() => navigation.popStack()}
@@ -79,13 +81,15 @@ function DebugInput({ onText }: { onText: (text: string) => void }) {
     );
   }
   return (
-    <MultipleClickStack
-      triggerAt={process.env.NODE_ENV === 'production' ? 10 : 1}
-      showDevBgColor
-      w="$8"
-      h="$8"
-      onPress={() => setVisible(true)}
-    />
+    <YStack pb={bottom}>
+      <MultipleClickStack
+        triggerAt={process.env.NODE_ENV === 'production' ? 10 : 1}
+        showDevBgColor
+        w="$8"
+        h="$8"
+        onPress={() => setVisible(true)}
+      />
+    </YStack>
   );
 }
 
