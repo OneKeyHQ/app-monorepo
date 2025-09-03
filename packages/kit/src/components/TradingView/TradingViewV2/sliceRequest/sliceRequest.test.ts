@@ -167,16 +167,16 @@ describe('sliceRequest', () => {
     });
 
     it('should return single slice when data points exactly 2000', () => {
-      // 1 day interval, 2000 days total = 2000 data points
+      // 1 hour interval, 2000 hours total = 2000 data points (about 83 days)
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 2000 * SECONDS_IN_DAY;
-      const result = sliceRequest('1D', timeFrom, timeTo);
+      const timeTo = mockTimeFrom + 2000 * SECONDS_IN_HOUR;
+      const result = sliceRequest('1H', timeFrom, timeTo);
 
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
         from: timeFrom,
         to: timeTo,
-        interval: '1D',
+        interval: '1H',
       });
     });
 
@@ -215,10 +215,10 @@ describe('sliceRequest', () => {
 
   describe('slicing required', () => {
     it('should slice when data points > 2000', () => {
-      // 1 day interval, 3000 days total = 3000 data points
+      // 1 minute interval, 3000 minutes total = 3000 data points (about 2 days)
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 3000 * SECONDS_IN_DAY;
-      const result = sliceRequest('1D', timeFrom, timeTo);
+      const timeTo = mockTimeFrom + 3000 * SECONDS_IN_MINUTE;
+      const result = sliceRequest('1m', timeFrom, timeTo);
 
       expect(result.length).toBeGreaterThan(1);
       expect(result.length).toBe(2); // Math.ceil(3000 / 2000) = 2
@@ -310,48 +310,96 @@ describe('sliceRequest', () => {
     });
 
     it('should handle week intervals correctly', () => {
-      // 1 week interval, 3000 weeks = 3000 data points
+      // 1 week interval, 150 weeks = 150 data points (about 3 years)
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 3000 * SECONDS_IN_WEEK;
+      const timeTo = mockTimeFrom + 150 * SECONDS_IN_WEEK;
       const result = sliceRequest('1W', timeFrom, timeTo);
 
-      expect(result.length).toBe(2); // Math.ceil(3000 / 2000) = 2
+      expect(result.length).toBe(1); // Math.ceil(150 / 2000) = 1, no slicing needed
 
       // Verify continuity and bounds
       expect(result[0].from).toBe(timeFrom);
-      expect(result[1].from).toBe(result[0].to);
-      expect(result[1].to).toBe(timeTo);
+      expect(result[0].to).toBe(timeTo);
     });
 
     it('should handle month intervals correctly', () => {
-      // 1 month interval, 3000 months = 3000 data points
+      // 1 month interval, 36 months = 36 data points (3 years)
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 3000 * SECONDS_IN_MONTH;
+      const timeTo = mockTimeFrom + 36 * SECONDS_IN_MONTH;
       const result = sliceRequest('1M', timeFrom, timeTo);
 
-      expect(result.length).toBe(2); // Math.ceil(3000 / 2000) = 2
+      expect(result.length).toBe(1); // Math.ceil(36 / 2000) = 1, no slicing needed
 
       // Verify all slices
       expect(result[0].from).toBe(timeFrom);
       expect(result[result.length - 1].to).toBe(timeTo);
+    });
 
+    it('should handle year intervals correctly', () => {
+      // 1 year interval, 4 years = 4 data points
+      const timeFrom = mockTimeFrom;
+      const timeTo = mockTimeFrom + 4 * SECONDS_IN_YEAR;
+      const result = sliceRequest('1y', timeFrom, timeTo);
+
+      expect(result.length).toBe(1); // Math.ceil(4 / 2000) = 1, no slicing needed
+
+      // Verify all slices
+      expect(result[0].from).toBe(timeFrom);
+      expect(result[result.length - 1].to).toBe(timeTo);
+    });
+  });
+
+  describe('time span limitation', () => {
+    it('should limit time span to maximum 5 years', () => {
+      // Create a scenario with time span longer than 5 years
+      // 10 years = 10 * 365 * 24 * 60 * 60 seconds
+      const timeFrom = mockTimeFrom;
+      const timeTo = mockTimeFrom + 10 * SECONDS_IN_YEAR;
+      const result = sliceRequest('1D', timeFrom, timeTo);
+
+      // The timeFrom should be adjusted to keep only the latest 5 years worth of data
+      const expectedAdjustedTimeFrom = timeTo - 5 * SECONDS_IN_YEAR;
+
+      expect(result[0].from).toBe(expectedAdjustedTimeFrom);
+      expect(result[result.length - 1].to).toBe(timeTo);
+
+      // Verify continuity
       for (let i = 1; i < result.length; i += 1) {
         expect(result[i].from).toBe(result[i - 1].to);
       }
     });
 
-    it('should handle year intervals correctly', () => {
-      // 1 year interval, 3000 years = 3000 data points
+    it('should handle exactly 5 years correctly', () => {
+      // Create a scenario with exactly 5 years
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 3000 * SECONDS_IN_YEAR;
-      const result = sliceRequest('1y', timeFrom, timeTo);
+      const timeTo = mockTimeFrom + 5 * SECONDS_IN_YEAR;
+      const result = sliceRequest('1D', timeFrom, timeTo);
 
-      expect(result.length).toBe(2); // Math.ceil(3000 / 2000) = 2
-
-      // Verify all slices
+      // No adjustment should be made
       expect(result[0].from).toBe(timeFrom);
       expect(result[result.length - 1].to).toBe(timeTo);
 
+      // Verify continuity
+      for (let i = 1; i < result.length; i += 1) {
+        expect(result[i].from).toBe(result[i - 1].to);
+      }
+    });
+
+    it('should apply time span limit for native tokens as well', () => {
+      // Create a scenario for native tokens with time span longer than 5 years
+      const timeFrom = mockTimeFrom;
+      const timeTo = mockTimeFrom + 8 * SECONDS_IN_YEAR;
+      const result = sliceRequest('1D', timeFrom, timeTo, {
+        isNativeToken: true,
+      });
+
+      // The timeFrom should be adjusted to keep only the latest 5 years worth of data
+      const expectedAdjustedTimeFrom = timeTo - 5 * SECONDS_IN_YEAR;
+
+      expect(result[0].from).toBe(expectedAdjustedTimeFrom);
+      expect(result[result.length - 1].to).toBe(timeTo);
+
+      // Verify continuity
       for (let i = 1; i < result.length; i += 1) {
         expect(result[i].from).toBe(result[i - 1].to);
       }
@@ -384,10 +432,10 @@ describe('sliceRequest', () => {
     });
 
     it('should handle exactly 2001 data points', () => {
-      // 1 day interval, 2001 days total = 2001 data points
+      // 1 minute interval, 2001 minutes total = 2001 data points (about 33 hours)
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 2001 * SECONDS_IN_DAY;
-      const result = sliceRequest('1D', timeFrom, timeTo);
+      const timeTo = mockTimeFrom + 2001 * SECONDS_IN_MINUTE;
+      const result = sliceRequest('1m', timeFrom, timeTo);
 
       expect(result.length).toBe(2); // Math.ceil(2001 / 2000) = 2
       expect(result[0].from).toBe(timeFrom);
@@ -447,23 +495,23 @@ describe('sliceRequest', () => {
     });
 
     it('should handle multi-year monthly data', () => {
-      // 1 month interval, 120 months (10 years) = 120 data points
+      // 1 month interval, 48 months (4 years) = 48 data points
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 120 * SECONDS_IN_MONTH;
+      const timeTo = mockTimeFrom + 48 * SECONDS_IN_MONTH;
       const result = sliceRequest('1M', timeFrom, timeTo);
 
-      expect(result.length).toBe(1); // Math.ceil(120 / 2000) = 1, no slicing needed
+      expect(result.length).toBe(1); // Math.ceil(48 / 2000) = 1, no slicing needed
       expect(result[0].from).toBe(timeFrom);
       expect(result[result.length - 1].to).toBe(timeTo);
     });
 
-    it('should handle multi-century yearly data', () => {
-      // 1 year interval, 200 years = 200 data points
+    it('should handle multi-year yearly data', () => {
+      // 1 year interval, 4 years = 4 data points
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 200 * SECONDS_IN_YEAR;
+      const timeTo = mockTimeFrom + 4 * SECONDS_IN_YEAR;
       const result = sliceRequest('1y', timeFrom, timeTo);
 
-      expect(result.length).toBe(1); // Math.ceil(200 / 2000) = 1, no slicing needed
+      expect(result.length).toBe(1); // Math.ceil(4 / 2000) = 1, no slicing needed
       expect(result[0].from).toBe(timeFrom);
       expect(result[result.length - 1].to).toBe(timeTo);
     });
