@@ -19,7 +19,6 @@ import {
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
-import { TRANSFER_DEEPLINK_URL } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -27,11 +26,8 @@ import type {
   EScanQrCodeModalPages,
   IScanQrCodeModalParamList,
 } from '@onekeyhq/shared/src/routes';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
-import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -227,36 +223,9 @@ export default function ScanQrCodeModal() {
         }
       }
 
-      // Check if the scanned QR code is OneKey transfer URL
-      if (value && value.startsWith(`${TRANSFER_DEEPLINK_URL}`)) {
-        try {
-          const parsedUrl = uriUtils.parseUrl(value);
-          const code = parsedUrl?.urlParamList?.code;
-          const server = parsedUrl?.urlParamList?.server;
-
-          if (code) {
-            // Close the QR code modal first
-            popNavigation();
-
-            // Navigate to Prime Transfer page
-            navigation.pushModal(EModalRoutes.PrimeModal, {
-              screen: EPrimePages.PrimeTransfer,
-              params: {
-                code,
-                server,
-              },
-            });
-
-            return;
-          }
-        } catch (error) {
-          // URL parsing failed, continue with normal flow
-        }
-      }
-
       return routeCallback({ value, popNavigation });
     },
-    [routeCallback, navigation],
+    [routeCallback],
   );
 
   const popNavigation = useCallback(() => {
