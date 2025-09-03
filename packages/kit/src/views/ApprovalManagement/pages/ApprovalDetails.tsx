@@ -20,14 +20,8 @@ import {
 } from '@onekeyhq/components';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EModalRoutes,
-  EModalSignatureConfirmRoutes,
-} from '@onekeyhq/shared/src/routes';
-import type {
-  EModalApprovalManagementRoutes,
-  IModalApprovalManagementParamList,
-} from '@onekeyhq/shared/src/routes/approvalManagement';
+import type { IModalApprovalManagementParamList } from '@onekeyhq/shared/src/routes/approvalManagement';
+import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -217,13 +211,10 @@ function ApprovalDetails() {
           approveInfo: revokeInfo,
         });
 
-      navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
-        screen: EModalSignatureConfirmRoutes.TxConfirm,
-        params: {
-          accountId: approval.accountId,
-          networkId: approval.networkId,
-          unsignedTxs: [unsignedTx],
-        },
+      navigation.push(EModalApprovalManagementRoutes.TxConfirm, {
+        accountId: approval.accountId,
+        networkId: approval.networkId,
+        unsignedTxs: [unsignedTx],
       });
 
       await timerUtils.wait(1000);

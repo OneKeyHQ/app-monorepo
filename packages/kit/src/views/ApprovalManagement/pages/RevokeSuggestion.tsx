@@ -245,7 +245,7 @@ function RevokeSuggestion() {
         onCancel={handleOnCancel}
         onCancelText={intl.formatMessage({
           id: autoShow
-            ? ETranslations.global_skip
+            ? ETranslations.global_skip_for_now
             : ETranslations.global_cancel,
         })}
         isBulkRevokeMode
