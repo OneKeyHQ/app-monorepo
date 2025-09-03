@@ -5,7 +5,7 @@ import { SizableText, Tabs, XStack, YStack } from '@onekeyhq/components';
 export function PerpMobileLayout() {
   const renderTabHeader = useCallback(() => {
     return (
-      <XStack gap="$3">
+      <XStack gap="$3" px="$5">
         <YStack>
           <SizableText>Long Or Short</SizableText>
         </YStack>
@@ -17,7 +17,7 @@ export function PerpMobileLayout() {
   }, []);
   return (
     <YStack>
-      <XStack>
+      <XStack px="$5">
         <SizableText>BTC</SizableText>
       </XStack>
       <Tabs.Container
@@ -26,12 +26,12 @@ export function PerpMobileLayout() {
         renderTabBar={(props) => <Tabs.TabBar {...props} />}
       >
         <Tabs.Tab name="Orders">
-          <Tabs.ScrollView>
+          <Tabs.ScrollView contentContainerStyle={{ paddingHorizontal: 20 }}>
             <SizableText>Orders</SizableText>
           </Tabs.ScrollView>
         </Tabs.Tab>
         <Tabs.Tab name="Positions">
-          <Tabs.ScrollView>
+          <Tabs.ScrollView contentContainerStyle={{ paddingHorizontal: 20 }}>
             <SizableText>Positions</SizableText>
           </Tabs.ScrollView>
         </Tabs.Tab>
