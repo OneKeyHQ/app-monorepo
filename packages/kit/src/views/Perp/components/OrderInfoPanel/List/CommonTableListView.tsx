@@ -1,6 +1,12 @@
 import type { ReactNode } from 'react';
 
-import { ScrollView, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  ScrollView,
+  SizableText,
+  Tabs,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 
 export interface IColumnConfig {
   key: string;
@@ -44,24 +50,6 @@ export function CommonTableListView({
   // 确定表格的最终宽度
   const finalTableWidth = minTableWidth || totalMinWidth;
 
-  if (!data.length) {
-    return (
-      <YStack flex={1} justifyContent="center" alignItems="center" p="$6">
-        <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-          {emptyMessage}
-        </SizableText>
-        <SizableText
-          size="$bodySm"
-          color="$textSubdued"
-          textAlign="center"
-          mt="$2"
-        >
-          {emptySubMessage}
-        </SizableText>
-      </YStack>
-    );
-  }
-
   const getJustifyContent = (align?: string) => {
     if (align === 'center') return 'center';
     if (align === 'right') return 'flex-end';
@@ -70,8 +58,10 @@ export function CommonTableListView({
 
   return (
     <YStack flex={1} overflow="hidden">
-      <ScrollView
-        flex={1}
+      <Tabs.ScrollView
+        style={{
+          flex: 1,
+        }}
         horizontal
         showsHorizontalScrollIndicator
         contentContainerStyle={{
@@ -80,45 +70,61 @@ export function CommonTableListView({
           width: '100%',
         }}
       >
-        <YStack flex={1} minWidth={finalTableWidth} width="100%">
-          <XStack
-            py="$2"
-            px="$3"
-            minWidth={finalTableWidth}
-            width="100%"
-            borderBottomWidth="$px"
-            borderBottomColor={borderColor}
-            bg={headerBgColor}
-          >
-            {columns.map((column) => {
-              const isFixedWidth = !!column.width;
+        {data.length ? (
+          <YStack flex={1} minWidth={finalTableWidth} width="100%">
+            <XStack
+              py="$2"
+              px="$3"
+              minWidth={finalTableWidth}
+              width="100%"
+              borderBottomWidth="$px"
+              borderBottomColor={borderColor}
+              bg={headerBgColor}
+            >
+              {columns.map((column) => {
+                const isFixedWidth = !!column.width;
 
-              return (
-                <XStack
-                  key={column.key}
-                  width={isFixedWidth ? column.width : undefined}
-                  minWidth={isFixedWidth ? undefined : column.minWidth}
-                  flex={isFixedWidth ? undefined : 1}
-                  justifyContent={getJustifyContent(column.align) as any}
-                >
-                  <SizableText
-                    size="$bodySm"
-                    color={headerTextColor}
-                    fontWeight="600"
-                    textAlign={column.align || 'left'}
+                return (
+                  <XStack
+                    key={column.key}
+                    width={isFixedWidth ? column.width : undefined}
+                    minWidth={isFixedWidth ? undefined : column.minWidth}
+                    flex={isFixedWidth ? undefined : 1}
+                    justifyContent={getJustifyContent(column.align) as any}
                   >
-                    {column.title}
-                  </SizableText>
-                </XStack>
-              );
-            })}
-          </XStack>
+                    <SizableText
+                      size="$bodySm"
+                      color={headerTextColor}
+                      fontWeight="600"
+                      textAlign={column.align || 'left'}
+                    >
+                      {column.title}
+                    </SizableText>
+                  </XStack>
+                );
+              })}
+            </XStack>
 
-          {data.map((item, index) => (
-            <XStack key={index}>{renderRow(item, index)}</XStack>
-          ))}
-        </YStack>
-      </ScrollView>
+            {data.map((item, index) => (
+              <XStack key={index}>{renderRow(item, index)}</XStack>
+            ))}
+          </YStack>
+        ) : (
+          <YStack flex={1} justifyContent="center" alignItems="center" p="$6">
+            <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+              {emptyMessage}
+            </SizableText>
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              textAlign="center"
+              mt="$2"
+            >
+              {emptySubMessage}
+            </SizableText>
+          </YStack>
+        )}
+      </Tabs.ScrollView>
     </YStack>
   );
 }
