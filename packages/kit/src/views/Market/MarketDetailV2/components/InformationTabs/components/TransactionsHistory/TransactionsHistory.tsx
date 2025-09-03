@@ -57,7 +57,7 @@ export function TransactionsHistory({
   onScrollEnd,
 }: ITransactionsHistoryProps) {
   const intl = useIntl();
-  const { gtLg } = useMedia();
+  const { gtXl } = useMedia();
   const [_leftColumnWidth] = useLeftColumnWidthAtom();
   const { transactions, isRefreshing } = useMarketTransactions({
     tokenAddress,
@@ -82,13 +82,13 @@ export function TransactionsHistory({
   const renderItem: FlatListProps<IMarketTokenTransaction>['renderItem'] =
     useCallback(
       ({ item }: { item: IMarketTokenTransaction }) => {
-        return gtLg ? (
+        return gtXl ? (
           <TransactionItemNormal item={item} networkId={networkId} />
         ) : (
           <TransactionItemSmall item={item} />
         );
       },
-      [networkId, gtLg],
+      [networkId, gtXl],
     );
 
   const keyExtractor = useCallback(

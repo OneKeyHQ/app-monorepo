@@ -13,12 +13,12 @@ import {
 } from '../components/TransactionsHistory';
 
 function BaseStickyHeader({ firstTabName }: { firstTabName: string }) {
-  const { gtLg } = useMedia();
+  const { gtLg, gtXl } = useMedia();
   const focusedTab = useFocusedTab();
 
   const transactionsHeader = useMemo(() => {
-    return gtLg ? <TransactionsHeaderNormal /> : <TransactionsHeaderSmall />;
-  }, [gtLg]);
+    return gtXl ? <TransactionsHeaderNormal /> : <TransactionsHeaderSmall />;
+  }, [gtXl]);
 
   const holdersHeader = useMemo(() => {
     return gtLg ? <HoldersHeaderNormal /> : <HoldersHeaderSmall />;

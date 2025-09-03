@@ -60,7 +60,7 @@ function TransactionItemNormalBase({
       {isSmallScreen ? (
         <YStack {...styles.priceValue} justifyContent="center">
           <NumberSizeableText
-            size="$bodySm"
+            size="$bodyMdMedium"
             color="$text"
             autoFormatter="price-marketCap"
             formatterOptions={{
