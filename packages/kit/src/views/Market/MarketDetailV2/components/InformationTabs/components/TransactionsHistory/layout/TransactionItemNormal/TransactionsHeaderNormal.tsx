@@ -14,13 +14,13 @@ const commonTextProps = {
 
 function TransactionsHeaderNormalBase() {
   const intl = useIntl();
-  const { styles } = useTransactionsLayoutNormal();
+  const { styles, isSmallScreen } = useTransactionsLayoutNormal();
 
   return (
     <XStack
       width="100%"
       height="$10"
-      px="$5"
+      px="$4"
       pt="$2"
       pb="$3"
       alignItems="center"
@@ -41,16 +41,32 @@ function TransactionsHeaderNormalBase() {
           id: ETranslations.dexmarket_details_history_amount,
         })}
       </SizableText>
-      <SizableText {...commonTextProps} {...styles.price}>
-        {intl.formatMessage({
-          id: ETranslations.global_price,
-        })}
-      </SizableText>
-      <SizableText {...commonTextProps} {...styles.value}>
-        {intl.formatMessage({
-          id: ETranslations.dexmarket_details_history_value,
-        })}
-      </SizableText>
+
+      {isSmallScreen ? (
+        <SizableText {...commonTextProps} {...styles.priceValue}>
+          {intl.formatMessage({
+            id: ETranslations.dexmarket_details_history_value,
+          })}{' '}
+          /{' '}
+          {intl.formatMessage({
+            id: ETranslations.global_price,
+          })}
+        </SizableText>
+      ) : (
+        <>
+          <SizableText {...commonTextProps} {...styles.price}>
+            {intl.formatMessage({
+              id: ETranslations.global_price,
+            })}
+          </SizableText>
+          <SizableText {...commonTextProps} {...styles.value}>
+            {intl.formatMessage({
+              id: ETranslations.dexmarket_details_history_value,
+            })}
+          </SizableText>
+        </>
+      )}
+
       <SizableText {...commonTextProps} {...styles.address}>
         {intl.formatMessage({
           id: ETranslations.global_address,

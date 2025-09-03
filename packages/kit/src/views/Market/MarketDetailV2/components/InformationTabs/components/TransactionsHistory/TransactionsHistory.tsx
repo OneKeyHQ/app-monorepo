@@ -13,7 +13,6 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { useTabsScrollContext } from '@onekeyhq/components/src/composite/Tabs/context';
-import { useLeftColumnWidthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketTransactions } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketTransactions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -57,8 +56,7 @@ export function TransactionsHistory({
   onScrollEnd,
 }: ITransactionsHistoryProps) {
   const intl = useIntl();
-  const { gtLg } = useMedia();
-  const [_leftColumnWidth] = useLeftColumnWidthAtom();
+  const { gtXl } = useMedia();
   const { transactions, isRefreshing } = useMarketTransactions({
     tokenAddress,
     networkId,
@@ -82,13 +80,13 @@ export function TransactionsHistory({
   const renderItem: FlatListProps<IMarketTokenTransaction>['renderItem'] =
     useCallback(
       ({ item }: { item: IMarketTokenTransaction }) => {
-        return gtLg ? (
+        return gtXl ? (
           <TransactionItemNormal item={item} networkId={networkId} />
         ) : (
           <TransactionItemSmall item={item} />
         );
       },
-      [networkId, gtLg],
+      [networkId, gtXl],
     );
 
   const keyExtractor = useCallback(
