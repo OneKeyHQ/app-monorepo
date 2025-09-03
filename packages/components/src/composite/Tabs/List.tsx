@@ -1,6 +1,13 @@
 /* eslint-disable react/prop-types */
 import type { CSSProperties, ComponentType, ReactNode } from 'react';
-import { isValidElement, useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  isValidElement,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { View } from 'react-native';
 import {
@@ -67,6 +74,7 @@ const renderElement = (Element: ReactNode | ComponentType<any>) => {
 };
 
 export function List<Item>({
+  ref: parentRef,
   renderItem,
   data,
   sections,
@@ -398,6 +406,12 @@ export function List<Item>({
       </>
     );
   }, [HeaderElement, ListEmptyComponent, FooterElement]);
+
+  useImperativeHandle(parentRef as any, () => ({
+    recomputeLayout: () => {
+      recompute({ numColumns, width });
+    },
+  }));
 
   const listProps = useMemo(() => {
     return {

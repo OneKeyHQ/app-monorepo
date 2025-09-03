@@ -1,11 +1,12 @@
 import type { ComponentProps } from 'react';
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { ListView, Stack, Tabs, YStack, useStyle } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
@@ -166,10 +167,21 @@ function ApprovalListViewCmp(props: IProps) {
     intl,
   ]);
 
+  const ListComponentRef = useRef<typeof ListComponent>(null);
+
+  const recomputeLayout = useCallback(() => {
+    if (!platformEnv.isNative) {
+      // update tab list header height after alert dismissed
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      (ListComponentRef.current as any)?.recomputeLayout?.();
+    }
+  }, []);
+
   return (
     <ListComponent
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
+      ref={ListComponentRef as any}
       refreshControl={
         onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }
@@ -180,7 +192,9 @@ function ApprovalListViewCmp(props: IProps) {
       ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       ListEmptyComponent={EmptyComponentElement}
       ListHeaderComponent={
-        withHeader && !showSkeleton ? <ApprovalListHeader /> : null
+        withHeader && !showSkeleton ? (
+          <ApprovalListHeader recomputeLayout={recomputeLayout} />
+        ) : null
       }
       renderItem={({ item }) => (
         <ApproveListItem

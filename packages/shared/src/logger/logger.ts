@@ -13,6 +13,7 @@ import { HardwareScope } from './scopes/hardware';
 import { MarketScope } from './scopes/market';
 import { NotificationScope } from './scopes/notification/notification';
 import { PerpScope } from './scopes/perp';
+import { PrimeScope } from './scopes/prime';
 import { ReferralScope } from './scopes/referral';
 import { RewardScope } from './scopes/reward';
 import { ScanQrCodeScope } from './scopes/scanQrCode';
@@ -76,6 +77,8 @@ export class DefaultLogger {
   reward = new RewardScope();
 
   dex = new DexScope();
+
+  prime = new PrimeScope();
 }
 
 const defaultLogger = new DefaultLogger();
