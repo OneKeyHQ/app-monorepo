@@ -60,6 +60,13 @@ const usePageHeaderReloadOptions = () => {
   return useMemo(() => ({ reload }), [reload]);
 };
 
+/**
+ * Renders a page header component that manages navigation header options and conditional UI elements based on platform and modal state.
+ *
+ * Applies navigation header options using a reload mechanism, conditionally renders a search bar on native iOS, and displays a divider unless on a modal page or iOS iPad.
+ *
+ * @returns The rendered page header UI, or `null` if the header is not shown.
+ */
 function PageHeader(props: IPageHeaderProps) {
   const pageHeaderReload = usePageHeaderReloadOptions();
   const reloadOptions = pageHeaderReload.reload(props);
