@@ -191,14 +191,23 @@ const ListFooterComponent = ({
   );
 };
 
-function TxHistoryListViewSectionHeader(props: IHistoryListSectionGroup) {
-  const { title, titleKey, data } = props;
+function TxHistoryListViewSectionHeader(
+  props: IHistoryListSectionGroup & { index: number },
+) {
+  const { title, titleKey, data, index } = props;
   const intl = useIntl();
   const titleText = title || intl.formatMessage({ id: titleKey }) || '';
 
   if (data[0] && data[0].decodedTx.status === EDecodedTxStatus.Pending) {
     return (
-      <XStack h="$9" px="$5" alignItems="center" bg="$bgApp" space="$2">
+      <XStack
+        h="$9"
+        px="$5"
+        alignItems="center"
+        bg="$bgApp"
+        gap="$2"
+        mt={index === 0 ? '$0' : '$5'}
+      >
         <Stack
           w="$2"
           height="$2"
@@ -212,7 +221,12 @@ function TxHistoryListViewSectionHeader(props: IHistoryListSectionGroup) {
     );
   }
 
-  return <SectionList.SectionHeader title={titleText} />;
+  return (
+    <SectionList.SectionHeader
+      title={titleText}
+      mt={index === 0 ? '$0' : '$5'}
+    />
+  );
 }
 
 function BaseTxHistoryListView(props: IProps) {
@@ -278,13 +292,16 @@ function BaseTxHistoryListView(props: IProps) {
   const renderSectionHeader = useCallback(
     ({
       section: { title, titleKey, data: tx },
+      index,
     }: {
       section: IHistoryListSectionGroup;
+      index: number;
     }) => (
       <TxHistoryListViewSectionHeader
         title={title}
         titleKey={titleKey}
         data={tx}
+        index={index}
       />
     ),
     [],
