@@ -2,36 +2,25 @@ import { memo, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
-import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { calcCellAlign } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
 
-interface IOpenOrdersRowProps {
-  order: IWsWebData2['openOrders'][number];
+export type ITradesHistoryRowProps = {
+  fill: IFill;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
-  handleCancelAll: () => void;
-}
+};
 
-const OpenOrdersRow = memo(
-  ({
-    order,
-    cellMinWidth,
-    handleCancelAll,
-    columnConfigs,
-  }: IOpenOrdersRowProps) => {
-    const assetInfo = useMemo(() => {
-      const assetSymbol = order.coin ?? '-';
-      const type = order.side === 'B' ? 'Buy' : 'Sell';
-      const typeColor = order.side === 'B' ? '$textSuccess' : '$textCritical';
-      return { assetSymbol, type, typeColor };
-    }, [order.coin, order.side]);
+const TradesHistoryRow = memo(
+  ({ fill, cellMinWidth, columnConfigs }: ITradesHistoryRowProps) => {
+    const assetSymbol = useMemo(() => fill.coin ?? '-', [fill.coin]);
     const dateInfo = useMemo(() => {
-      const timeDate = new Date(order.timestamp);
+      const timeDate = new Date(fill.time);
       const date = formatTime(timeDate, {
         formatTemplate: 'yyyy-LL-dd',
       });
@@ -39,16 +28,41 @@ const OpenOrdersRow = memo(
         formatTemplate: 'HH:mm:ss',
       });
       return { date, time };
-    }, [order.timestamp]);
-    const orderBaseInfo = useMemo(() => {
-      const price = order.limitPx;
-      const size = order.sz;
+    }, [fill.time]);
+
+    const directionInfo = useMemo(() => {
+      const directionStr = fill.dir;
+      const side = fill.side;
+      let directionColor = '#18794E';
+      if (side === 'A') {
+        directionColor = '#C62A2F';
+      }
+      return { directionStr, directionColor };
+    }, [fill.dir, fill.side]);
+
+    const tradeBaseInfo = useMemo(() => {
+      const price = fill.px;
+      const size = fill.sz;
+      const fee = fill.fee;
       const priceBN = new BigNumber(price);
       const sizeBN = new BigNumber(size);
-      const value = priceBN.times(sizeBN).toFixed();
-      const origSize = order.origSz;
-      return { price, size, value, origSize };
-    }, [order.limitPx, order.sz, order.origSz]);
+      const tradeValue = priceBN.times(sizeBN).toNumber();
+      return { price, size, fee, tradeValue };
+    }, [fill.fee, fill.px, fill.sz]);
+
+    const closePnlInfo = useMemo(() => {
+      const closePnl = fill.closedPnl;
+      const closePnlBN = new BigNumber(closePnl);
+      let closePnlPlusOrMinus = '';
+      let closePnlColor = '#18794E';
+      if (closePnlBN.lt(0)) {
+        closePnlColor = '#C62A2F';
+        closePnlPlusOrMinus = '-';
+      }
+      const closePnlStr = closePnlBN.abs().toFixed();
+      return { closePnlStr, closePnlColor, closePnlPlusOrMinus };
+    }, [fill.closedPnl]);
+
     return (
       <XStack
         flex={1}
@@ -62,18 +76,15 @@ const OpenOrdersRow = memo(
         minWidth={cellMinWidth}
       >
         {/* Asset symbol */}
-        <YStack
+        <XStack
           width={columnConfigs[0].width}
           minWidth={columnConfigs[0].minWidth}
           flex={columnConfigs[0].flex}
-          justifyContent="center"
-          alignItems={calcCellAlign(columnConfigs[0].align)}
+          justifyContent={calcCellAlign(columnConfigs[0].align)}
+          alignItems="center"
         >
-          <SizableText size="$bodySm">{assetInfo.assetSymbol}</SizableText>
-          <SizableText size="$bodySm" color={assetInfo.typeColor}>
-            {assetInfo.type}
-          </SizableText>
-        </YStack>
+          <SizableText size="$bodySmMedium">{assetSymbol}</SizableText>
+        </XStack>
 
         {/* Time */}
         <YStack
@@ -89,7 +100,7 @@ const OpenOrdersRow = memo(
           </SizableText>
         </YStack>
 
-        {/* Type */}
+        {/* Direction */}
         <XStack
           width={columnConfigs[2].width}
           minWidth={columnConfigs[2].minWidth}
@@ -97,32 +108,34 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[2].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">-</SizableText>
+          <SizableText size="$bodySm" color={directionInfo.directionColor}>
+            {directionInfo.directionStr}
+          </SizableText>
         </XStack>
 
-        {/*  size */}
+        {/* Price */}
         <XStack
           width={columnConfigs[3].width}
           minWidth={columnConfigs[3].minWidth}
           flex={columnConfigs[3].flex}
-          justifyContent={calcCellAlign(columnConfigs[4].align)}
+          justifyContent={calcCellAlign(columnConfigs[3].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`${orderBaseInfo.size}${assetInfo.assetSymbol}`}</SizableText>
+          <SizableText size="$bodyMd">{`${tradeBaseInfo.price}`}</SizableText>
         </XStack>
 
-        {/* Original size */}
+        {/* Position size */}
         <XStack
           width={columnConfigs[4].width}
           minWidth={columnConfigs[4].minWidth}
           flex={columnConfigs[4].flex}
-          justifyContent={calcCellAlign(columnConfigs[3].align)}
+          justifyContent={calcCellAlign(columnConfigs[4].align)}
           alignItems="center"
         >
-          <SizableText size="$bodyMd">{`${orderBaseInfo.origSize}${assetInfo.assetSymbol}`}</SizableText>
+          <SizableText size="$bodySm">{`${tradeBaseInfo.size}${assetSymbol}`}</SizableText>
         </XStack>
 
-        {/* value */}
+        {/* Trade value */}
         <XStack
           width={columnConfigs[5].width}
           minWidth={columnConfigs[5].minWidth}
@@ -130,10 +143,12 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[5].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`$${orderBaseInfo.value}`}</SizableText>
+          <SizableText size="$bodySm">
+            {`$${tradeBaseInfo.tradeValue}`}
+          </SizableText>
         </XStack>
 
-        {/* Execute price */}
+        {/* Fee */}
         <XStack
           width={columnConfigs[6].width}
           minWidth={columnConfigs[6].minWidth}
@@ -141,9 +156,10 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[6].align)}
           alignItems="center"
         >
-          <SizableText size="$bodyMd">-</SizableText>
+          <SizableText size="$bodyMd">${`$${tradeBaseInfo.fee}`}</SizableText>
         </XStack>
-        {/* Trigger Condition */}
+
+        {/* Close PnL */}
         <XStack
           width={columnConfigs[7].width}
           minWidth={columnConfigs[7].minWidth}
@@ -151,35 +167,17 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[6].align)}
           alignItems="center"
         >
-          <SizableText size="$bodyMd">-</SizableText>
-        </XStack>
-        {/* TPSL */}
-        <XStack
-          width={columnConfigs[8].width}
-          minWidth={columnConfigs[8].minWidth}
-          flex={columnConfigs[8].flex}
-          justifyContent={calcCellAlign(columnConfigs[6].align)}
-          alignItems="center"
-        >
-          <SizableText size="$bodyMd">-</SizableText>
-        </XStack>
-
-        {/* Cancel All */}
-        <XStack
-          width={columnConfigs[9].width}
-          minWidth={columnConfigs[9].minWidth}
-          flex={columnConfigs[9].flex}
-          justifyContent={calcCellAlign(columnConfigs[6].align)}
-          alignItems="center"
-        >
-          <Button size="small" variant="tertiary" onPress={handleCancelAll}>
-            <SizableText size="$bodyMd">Cancel</SizableText>
-          </Button>
+          <SizableText size="$bodyMd" color={closePnlInfo.closePnlColor}>
+            ${`${closePnlInfo.closePnlPlusOrMinus}$${closePnlInfo.closePnlStr}`}
+          </SizableText>
         </XStack>
       </XStack>
     );
   },
+  (_prevProps) => {
+    return false;
+  },
 );
 
-OpenOrdersRow.displayName = 'OpenOrdersRow';
-export { OpenOrdersRow };
+TradesHistoryRow.displayName = 'TradesHistoryRow';
+export { TradesHistoryRow };

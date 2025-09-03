@@ -10,7 +10,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IOrderResponse,
+  IWsWebData2,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
   formatPriceToSignificantDigits,
@@ -28,7 +31,7 @@ interface IShowClosePositionParams {
         isBuy: boolean;
         size: string;
         midPx: string;
-      }) => Promise<void>;
+      }) => Promise<IOrderResponse>;
       resetTradingForm: () => void;
     };
   };
