@@ -13,6 +13,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
@@ -100,6 +101,10 @@ export function PrimeBenefitsList({
               serverUserInfo,
             });
           } else {
+            defaultLogger.prime.subscription.primeEntryClick({
+              featureName: EPrimeFeatures.OneKeyCloud,
+              entryPoint: 'primePage',
+            });
             navigation.navigate(EPrimePages.PrimeFeatures, {
               showAllFeatures: true,
               selectedFeature: EPrimeFeatures.OneKeyCloud,
@@ -154,6 +159,10 @@ export function PrimeBenefitsList({
               },
             });
           } else {
+            defaultLogger.prime.subscription.primeEntryClick({
+              featureName: EPrimeFeatures.BulkCopyAddresses,
+              entryPoint: 'primePage',
+            });
             navigation.navigate(EPrimePages.PrimeFeatures, {
               showAllFeatures: true,
               selectedFeature: EPrimeFeatures.BulkCopyAddresses,
@@ -173,6 +182,10 @@ export function PrimeBenefitsList({
           id: ETranslations.global_bulk_revoke_desc,
         })}
         onPress={() => {
+          defaultLogger.prime.subscription.primeEntryClick({
+            featureName: EPrimeFeatures.BulkRevoke,
+            entryPoint: 'primePage',
+          });
           navigation.navigate(EPrimePages.PrimeFeatures, {
             showAllFeatures: true,
             selectedFeature: EPrimeFeatures.BulkRevoke,

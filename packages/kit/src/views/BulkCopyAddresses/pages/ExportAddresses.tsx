@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -17,6 +17,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalBulkCopyAddressesRoutes,
   IModalBulkCopyAddressesParamList,
@@ -142,6 +143,12 @@ function ExportAddresses({
       ETranslations.global_bulk_copy_addresses_addresses_copied,
     );
   }, [addressesData, copyText]);
+
+  useEffect(() => {
+    if (addressesData.length > 0) {
+      defaultLogger.prime.usage.bulkCopyAddressSuccess();
+    }
+  }, [addressesData]);
 
   const renderAddresses = useCallback(() => {
     return (

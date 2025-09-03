@@ -497,6 +497,8 @@ function MoreActionContentGrid() {
 
   const scanQrCode = useScanQrCode();
 
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.privyUserId;
+
   const handleScan = useCallback(async () => {
     await scanQrCode.start({
       handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
@@ -580,7 +582,15 @@ function MoreActionContentGrid() {
           id: ETranslations.global_bulk_copy_addresses,
         }),
         icon: 'Copy3Outline',
-        onPress: openBulkCopyAddressesModal,
+        onPress: () => {
+          if (!isPrimeUser) {
+            defaultLogger.prime.subscription.primeEntryClick({
+              featureName: EPrimeFeatures.BulkCopyAddresses,
+              entryPoint: 'moreActions',
+            });
+          }
+          void openBulkCopyAddressesModal();
+        },
         trackID: 'bulk-copy-addresses-in-more-action',
         isPrimeFeature: true,
       },
@@ -599,6 +609,7 @@ function MoreActionContentGrid() {
     openBulkCopyAddressesModal,
     themeVariant,
     toReferFriendsPage,
+    isPrimeUser,
   ]);
 
   return (

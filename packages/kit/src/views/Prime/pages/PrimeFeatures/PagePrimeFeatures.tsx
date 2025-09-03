@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { ScrollView, View, useWindowDimensions } from 'react-native';
@@ -30,6 +30,7 @@ import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -134,6 +135,14 @@ export default function PagePrimeFeatures() {
       serverUserInfo,
     });
   }, [serverUserInfo]);
+
+  useEffect(() => {
+    if (selectedFeature && !showAllFeatures) {
+      defaultLogger.prime.subscription.primeUpsellShow({
+        featureName: selectedFeature,
+      });
+    }
+  }, [selectedFeature, showAllFeatures]);
 
   const bannerHeight = useMemo(() => {
     if (gtMd) {
@@ -434,6 +443,11 @@ export default function PagePrimeFeatures() {
 
   const subscribe = useCallback(async () => {
     if (!showAllFeatures) {
+      if (selectedFeature) {
+        defaultLogger.prime.subscription.primeUpsellActionClick({
+          featureName: selectedFeature,
+        });
+      }
       navigation.pushModal(EModalRoutes.PrimeModal, {
         screen: EPrimePages.PrimeDashboard,
       });
@@ -461,6 +475,7 @@ export default function PagePrimeFeatures() {
     ensurePrimeSubscriptionActive,
     isPackagesLoading,
     navigation,
+    selectedFeature,
     selectedSubscriptionPeriod,
     showAllFeatures,
   ]);
