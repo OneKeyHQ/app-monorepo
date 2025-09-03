@@ -1,4 +1,4 @@
-import { ScrollView, XStack, YStack } from '@onekeyhq/components';
+import { ScrollView, XStack, YStack, useMedia } from '@onekeyhq/components';
 
 import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
 import { PerpCandles } from '../components/PerpCandles';
@@ -8,6 +8,7 @@ import { PerpAccountPanel } from '../components/TradingPanel/PerpAccountPanel';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 
 function PerpDesktopLayout() {
+  const { gtXl } = useMedia();
   return (
     <YStack flex={1} bg="$bgApp">
       <PerpTickerBar />
@@ -17,11 +18,11 @@ function PerpDesktopLayout() {
           flex={1}
           borderRightWidth="$px"
           borderRightColor="$borderSubdued"
-          minWidth={800}
+          minWidth={gtXl ? 800 : 400}
         >
           {/* Charts Section - Takes 60% of left side height */}
           <XStack
-            flex={0.6}
+            flex={gtXl ? 1 : 0.6}
             borderBottomWidth="$px"
             borderBottomColor="$borderSubdued"
             minHeight={400}
@@ -32,14 +33,16 @@ function PerpDesktopLayout() {
             </YStack>
 
             {/* Order Book - 30% width */}
-            <YStack
-              flex={0.3}
-              borderLeftWidth="$px"
-              borderLeftColor="$borderSubdued"
-              minWidth={300}
-            >
-              <PerpOrderBook />
-            </YStack>
+            {gtXl ? (
+              <YStack
+                flex={0.3}
+                borderLeftWidth="$px"
+                borderLeftColor="$borderSubdued"
+                minWidth={300}
+              >
+                <PerpOrderBook />
+              </YStack>
+            ) : null}
           </XStack>
 
           {/* Positions Section - Takes 40% of left side height */}
