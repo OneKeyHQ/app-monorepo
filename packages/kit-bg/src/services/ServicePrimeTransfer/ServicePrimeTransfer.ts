@@ -1067,6 +1067,9 @@ class ServicePrimeTransfer extends ServiceBase {
   }
 
   private startHeartbeatCheck() {
+    if (!platformEnv.isExtension) {
+      return;
+    }
     // Clear existing timer
     if (this.heartbeatCheckTimer) {
       clearInterval(this.heartbeatCheckTimer);
@@ -1100,7 +1103,7 @@ class ServicePrimeTransfer extends ServiceBase {
   async disconnectWebSocket() {
     // Stop heartbeat monitoring
     this.stopHeartbeatCheck();
-    
+
     try {
       if (this.socket) {
         try {
