@@ -1,4 +1,4 @@
-import { XStack, YStack } from '@onekeyhq/components';
+import { ScrollView, XStack, YStack } from '@onekeyhq/components';
 
 import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
 import { PerpCandles } from '../components/PerpCandles';
@@ -49,12 +49,12 @@ function PerpDesktopLayout() {
         </YStack>
 
         {/* Right Section: Trading Panel */}
-        <YStack width={400} maxWidth={400} minWidth={400}>
+        <ScrollView maxWidth={400} minWidth={200}>
           <PerpTradingPanel />
           <YStack borderTopWidth="$px" borderTopColor="$borderSubdued">
             <PerpAccountPanel />
           </YStack>
-        </YStack>
+        </ScrollView>
       </XStack>
     </YStack>
   );
