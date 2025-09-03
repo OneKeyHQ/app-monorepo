@@ -369,6 +369,24 @@ class ServiceMarketV2 extends ServiceBase {
     return this.getMarketWatchListV2();
   }
 
+  @backgroundMethod()
+  async clearAllMarketWatchListV2({
+    skipSaveLocalSyncItem,
+    skipEventEmit,
+  }: {
+    skipSaveLocalSyncItem?: boolean;
+    skipEventEmit?: boolean;
+  } = {}) {
+    return this.withMarketWatchListV2CloudSync({
+      watchList: [],
+      isDeleted: true,
+      skipSaveLocalSyncItem,
+      skipEventEmit,
+      fn: () =>
+        this.backgroundApi.simpleDb.marketWatchListV2.clearAllMarketWatchListV2(),
+    });
+  }
+
   /**
    * Fetch token security information for multiple tokens using batch API
    * @param tokenAddressList - Array of token addresses with their chain IDs
