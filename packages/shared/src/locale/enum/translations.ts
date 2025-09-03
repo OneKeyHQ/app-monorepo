@@ -2626,6 +2626,7 @@
   signature_format_description = 'signature_format_description',
   signature_format_standard = 'signature_format_standard',
   signature_format_title = 'signature_format_title',
+  signature_type_not_supported_on_model = 'signature_type_not_supported_on_model',
   skip_verify_text = 'skip_verify_text',
   slippage_tolerance_button_save = 'slippage_tolerance.button_save',
   slippage_tolerance_description = 'slippage_tolerance.description',
