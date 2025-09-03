@@ -20,9 +20,12 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EContractApprovalAlertType } from '@onekeyhq/shared/types/approval';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
@@ -30,7 +33,9 @@ import { NetworkAlert } from '../../../components/NetworkAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WalletBackupAlert } from '../../../components/WalletBackup';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 
@@ -67,6 +72,10 @@ export function HomePageView({
     },
   } = useActiveAccount({ num: 0 });
 
+  const navigation = useAppNavigation();
+
+  const { updateApprovalsInfo } = useAccountOverviewActions().current;
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addressType = deriveInfo?.labelKey
     ? intl.formatMessage({
@@ -100,6 +109,56 @@ export function HomePageView({
       networkAccounts: a,
     };
   }, [network, indexedAccount]);
+
+  usePromiseResult(async () => {
+    if (network?.id && account?.id) {
+      const resp =
+        await backgroundApiProxy.serviceApproval.fetchAccountApprovals({
+          networkId: network.id,
+          accountId: account.id,
+          indexedAccountId: indexedAccount?.id,
+          accountAddress: account.address,
+        });
+
+      if (
+        approvalUtils.checkIsExistRiskApprovals({
+          contractApprovals: resp.contractApprovals,
+        })
+      ) {
+        updateApprovalsInfo({ hasRiskApprovals: true });
+        const shouldShowRiskApprovalsRevokeSuggestion =
+          await backgroundApiProxy.serviceApproval.shouldShowRiskApprovalsRevokeSuggestion(
+            {
+              networkId: network.id,
+              accountId: account.id,
+            },
+          );
+
+        if (shouldShowRiskApprovalsRevokeSuggestion) {
+          navigation.pushModal(EModalRoutes.ApprovalManagementModal, {
+            screen: EModalApprovalManagementRoutes.RevokeSuggestion,
+            params: {
+              approvals: resp.contractApprovals.filter(
+                (item) => item.isRiskContract,
+              ),
+              contractMap: resp.contractMap,
+              tokenMap: resp.tokenMap,
+              alertType: EContractApprovalAlertType.Risk,
+              accountId: account.id,
+              networkId: network.id,
+              autoShow: true,
+            },
+          });
+        }
+      }
+    }
+  }, [
+    network?.id,
+    indexedAccount?.id,
+    navigation,
+    account,
+    updateApprovalsInfo,
+  ]);
 
   const { vaultSettings, networkAccounts } = result.result ?? {};
 

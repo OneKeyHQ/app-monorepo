@@ -21,6 +21,15 @@ export type IModalApprovalManagementParamList = {
     isSelectMode?: boolean;
     onSelected?: (params: { selectedTokens: Record<string, boolean> }) => void;
     selectedTokens?: Record<string, boolean>;
+    tokenMap?: Record<
+      string,
+      {
+        price: string;
+        price24h: string;
+        info: IToken;
+      }
+    >;
+    contractMap?: Record<string, IAddressInfo>;
   };
   [EModalApprovalManagementRoutes.RevokeSuggestion]: {
     accountId: string;
@@ -36,6 +45,7 @@ export type IModalApprovalManagementParamList = {
       }
     >;
     alertType: EContractApprovalAlertType;
+    autoShow?: boolean;
   };
   [EModalApprovalManagementRoutes.ApprovalList]: {
     walletId: string;

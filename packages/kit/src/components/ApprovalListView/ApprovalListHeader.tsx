@@ -9,7 +9,9 @@ import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/appr
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 import { EContractApprovalAlertType } from '@onekeyhq/shared/types/approval';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
   useApprovalListAtom,
   useContractMapAtom,
@@ -33,6 +35,16 @@ function ApprovalListHeader() {
   const navigation = useAppNavigation();
 
   const { tableLayout, accountId, networkId } = useApprovalListViewContext();
+
+  const { result: shouldShowInactiveApprovalsAlert } =
+    usePromiseResult(async () => {
+      return backgroundApiProxy.serviceApproval.shouldShowInactiveApprovalsAlert(
+        {
+          accountId,
+          networkId,
+        },
+      );
+    }, [accountId, networkId]);
 
   const renderTableHeader = useCallback(() => {
     if (!tableLayout) {
@@ -115,8 +127,20 @@ function ApprovalListHeader() {
     );
   }, [approvals]);
 
+  const handleCloseInactiveApprovalsAlert = useCallback(async () => {
+    await backgroundApiProxy.serviceApproval.updateInactiveApprovalsAlertConfig(
+      {
+        accountId,
+        networkId,
+      },
+    );
+  }, [accountId, networkId]);
+
   const renderRiskOverview = useCallback(() => {
-    if (riskApprovals.length === 0 && warningApprovals.length === 0) {
+    if (
+      riskApprovals.length === 0 &&
+      (warningApprovals.length === 0 || !shouldShowInactiveApprovalsAlert)
+    ) {
       return null;
     }
 
@@ -154,8 +178,9 @@ function ApprovalListHeader() {
             }}
           />
         ) : null}
-        {warningApprovals.length > 0 ? (
+        {shouldShowInactiveApprovalsAlert && warningApprovals.length > 0 ? (
           <Alert
+            onClose={handleCloseInactiveApprovalsAlert}
             icon="ShieldExclamationOutline"
             title={intl.formatMessage({
               id: ETranslations.wallet_revoke_suggestion,
@@ -189,7 +214,14 @@ function ApprovalListHeader() {
         ) : null}
       </YStack>
     );
-  }, [handleViewRiskApprovals, intl, riskApprovals, warningApprovals]);
+  }, [
+    handleCloseInactiveApprovalsAlert,
+    handleViewRiskApprovals,
+    intl,
+    riskApprovals,
+    shouldShowInactiveApprovalsAlert,
+    warningApprovals,
+  ]);
 
   return (
     <>
