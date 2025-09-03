@@ -64,4 +64,13 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
       return newData;
     });
   }
+
+  async clearAllMarketWatchListV2() {
+    await this.setRawData(() => {
+      const newData: IMarketWatchListDataV2 = {
+        data: [],
+      };
+      return newData;
+    });
+  }
 }

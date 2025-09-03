@@ -230,6 +230,19 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       void this.addIntoWatchListV2.call(set, payload);
     },
   );
+
+  clearAllWatchListV2 = contextAtomMethod(async (get, set) => {
+    const prev = get(marketWatchListV2Atom());
+    if (!prev.isMounted) {
+      return;
+    }
+
+    // Immediately update local state
+    set(marketWatchListV2Atom(), { ...prev, data: [] });
+
+    // Asynchronously call API without waiting for result
+    await backgroundApiProxy.serviceMarketV2.clearAllMarketWatchListV2();
+  });
 }
 
 const createActions = memoFn(() => new ContextJotaiActionsMarketV2());
@@ -242,6 +255,7 @@ export function useWatchListV2Actions() {
   const saveWatchListV2 = actions.saveWatchListV2.use();
   const refreshWatchListV2 = actions.refreshWatchListV2.use();
   const sortWatchListV2Items = actions.sortWatchListV2Items.use();
+  const clearAllWatchListV2 = actions.clearAllWatchListV2.use();
   return useRef({
     isInWatchListV2,
     addIntoWatchListV2,
@@ -249,6 +263,7 @@ export function useWatchListV2Actions() {
     saveWatchListV2,
     refreshWatchListV2,
     sortWatchListV2Items,
+    clearAllWatchListV2,
   });
 }
 
