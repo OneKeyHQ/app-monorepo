@@ -86,7 +86,16 @@ export default function PagePrimeTransfer() {
         console.log('health check error', err);
       });
 
+    // Start UI layer heartbeat - ping service immediately and then every 5 seconds
+    void backgroundApiProxy.servicePrimeTransfer.pingService();
+    const heartbeatInterval = setInterval(() => {
+      void backgroundApiProxy.servicePrimeTransfer.pingService();
+    }, 5000);
+
     return () => {
+      // Clear heartbeat interval
+      clearInterval(heartbeatInterval);
+      // Disconnect WebSocket
       void backgroundApiProxy.servicePrimeTransfer.disconnectWebSocket();
     };
   }, [result?.endpoint, result?.serverConfig?.serverType]);
