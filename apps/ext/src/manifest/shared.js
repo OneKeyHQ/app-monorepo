@@ -14,7 +14,7 @@ module.exports = {
   version,
   'name': 'OneKey',
   'description':
-    'Multi-Chain Support for BTC, ETH, BNB, NEAR & other Layer2 Networks',
+    'Anti-scam crypto wallet for every chain. Supports Bitcoin, Ethereum, Solana, Tron, Ripple (XRP), Cardano, Sui, Aptos, Polkadot, Cosmos, Kaspa, etc.',
   /*
   'options_page': 'ui-options.html',
   'chrome_url_overrides': {

@@ -36,6 +36,14 @@ import {
 
 import { useSwapAddressInfo } from './useSwapAccount';
 
+/**
+ * Initializes and manages state and side effects for the token swap feature, including networks, tokens, providers, and related UI state.
+ *
+ * This hook synchronizes swap networks, selected tokens, provider managers, MEV configuration, and swap tips by integrating with background APIs, local storage, and global state atoms. It handles data fetching, caching, and updates in response to parameter changes and app lifecycle events.
+ *
+ * @param params - Optional parameters for initializing swap state, such as imported tokens or network IDs
+ * @returns An object containing `fetchLoading`, indicating whether the swap network list is currently loading
+ */
 export function useSwapInit(params?: ISwapInitParams) {
   const [swapNetworks, setSwapNetworks] = useSwapNetworksAtom();
   const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
