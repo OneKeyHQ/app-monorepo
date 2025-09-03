@@ -68,18 +68,18 @@ function TransactionItemNormalBase({
               currency: settingsPersistAtom.currencyInfo.symbol,
             }}
           >
-            {price}
+            {value}
           </NumberSizeableText>
           <NumberSizeableText
+            color="$textSubdued"
             size="$bodySm"
-            color="$text"
             autoFormatter="price-marketCap"
             formatterOptions={{
               capAtMaxT: true,
               currency: settingsPersistAtom.currencyInfo.symbol,
             }}
           >
-            {value}
+            {price}
           </NumberSizeableText>
         </YStack>
       ) : (

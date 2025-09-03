@@ -45,11 +45,11 @@ function TransactionsHeaderNormalBase() {
       {isSmallScreen ? (
         <SizableText {...commonTextProps} {...styles.priceValue}>
           {intl.formatMessage({
-            id: ETranslations.global_price,
+            id: ETranslations.dexmarket_details_history_value,
           })}{' '}
           /{' '}
           {intl.formatMessage({
-            id: ETranslations.dexmarket_details_history_value,
+            id: ETranslations.global_price,
           })}
         </SizableText>
       ) : (
