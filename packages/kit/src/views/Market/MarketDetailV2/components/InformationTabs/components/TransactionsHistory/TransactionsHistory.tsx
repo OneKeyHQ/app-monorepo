@@ -13,7 +13,6 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { useTabsScrollContext } from '@onekeyhq/components/src/composite/Tabs/context';
-import { useLeftColumnWidthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketTransactions } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketTransactions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -58,7 +57,6 @@ export function TransactionsHistory({
 }: ITransactionsHistoryProps) {
   const intl = useIntl();
   const { gtXl } = useMedia();
-  const [_leftColumnWidth] = useLeftColumnWidthAtom();
   const { transactions, isRefreshing } = useMarketTransactions({
     tokenAddress,
     networkId,
