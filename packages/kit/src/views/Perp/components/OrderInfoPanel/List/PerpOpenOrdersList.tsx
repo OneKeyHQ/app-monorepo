@@ -7,7 +7,11 @@ import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
 import type { FrontendOrder } from '@nktkas/hyperliquid';
 
-function PerpOpenOrdersList() {
+interface IPerpOpenOrdersListProps {
+  isMobile?: boolean;
+}
+
+function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   const orders = usePerpOrders();
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
@@ -56,6 +60,7 @@ function PerpOpenOrdersList() {
     return (
       <OpenOrdersRow
         order={item}
+        isMobile={isMobile}
         cellMinWidth={totalMinWidth}
         columnConfigs={columnsConfig}
         handleCancelAll={handleCancelAll}
@@ -68,6 +73,7 @@ function PerpOpenOrdersList() {
       columns={columnsConfig}
       minTableWidth={totalMinWidth}
       data={orders}
+      isMobile={isMobile}
       renderRow={renderOrderRow}
       emptyMessage="No open orders"
       emptySubMessage="Your orders will appear here after opening trades"
