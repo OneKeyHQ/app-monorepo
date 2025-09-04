@@ -1853,6 +1853,7 @@
   "message_signing.address_invalid_text": "Endereço inválido ou rede não suportada",
   "message_signing.address_placeholder": "Digite uma mensagem para comprovar a propriedade deste endereço...",
   "message_signing.main_title": "Assinar e verificar mensagem",
+  "message_signing.message_invalid_hex": "String hexadecimal inválida",
   "message_signing.sign_action": "Assinar mensagem",
   "message_signing.signature_desc": "Gerado após a assinatura",
   "message_signing.signature_invalid_text": "Assinatura inválida",

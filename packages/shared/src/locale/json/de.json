@@ -1853,6 +1853,7 @@
   "message_signing.address_invalid_text": "Ungültige Adresse oder nicht unterstütztes Netzwerk",
   "message_signing.address_placeholder": "Geben Sie eine Nachricht ein, um den Besitz dieser Adresse zu bestätigen...",
   "message_signing.main_title": "Nachricht signieren & verifizieren",
+  "message_signing.message_invalid_hex": "Ungültige Hex-Zeichenkette",
   "message_signing.sign_action": "Nachricht signieren",
   "message_signing.signature_desc": "Nach der Unterzeichnung generiert",
   "message_signing.signature_invalid_text": "Ungültige Signatur",
