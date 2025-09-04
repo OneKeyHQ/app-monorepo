@@ -8,11 +8,14 @@ import {
   YStack,
 } from '@onekeyhq/components';
 
+import { calcCellAlign } from '../utils';
+
 export interface IColumnConfig {
   key: string;
   title: string;
   width?: number; // 固定宽度
-  minWidth?: number; // 最小宽度（可变宽度）
+  minWidth?: number;
+  flex?: number;
   align?: 'left' | 'center' | 'right';
 }
 
@@ -39,7 +42,6 @@ export function CommonTableListView({
   headerBgColor = '$bgSubtle',
   headerTextColor = '$textSubdued',
   borderColor = '$borderSubdued',
-  rowHoverColor = '$bgHover',
 }: ICommonTableListViewProps) {
   // 计算总的最小宽度
   const totalMinWidth = columns.reduce(
@@ -65,7 +67,7 @@ export function CommonTableListView({
         horizontal
         showsHorizontalScrollIndicator
         contentContainerStyle={{
-          minWidth: finalTableWidth,
+          minWidth: minTableWidth,
           flexGrow: 1,
           width: '100%',
         }}

@@ -5,6 +5,8 @@ import {
   usePositionListAtom,
 } from '../../../states/jotai/contexts/hyperliquid';
 
+import { usePerpUseChainAccount } from './usePerpUseChainAccount';
+
 export function usePerpPositions() {
   const [positions] = usePositionListAtom();
   return positions;
@@ -15,14 +17,14 @@ export function usePerpOrders() {
   return orders;
 }
 
-export function usePerpTradesHistory({ useAddress }: { useAddress?: string }) {
+export function usePerpTradesHistory() {
+  const { userAddress } = usePerpUseChainAccount();
   const { result, isLoading } = usePromiseResult(
     async () => {
-      if (useAddress) {
-        const addressHex = useAddress as `0x${string}`;
+      if (userAddress) {
         const trades =
           await backgroundApiProxy.serviceHyperliquidInfo.getUserFillsByTime({
-            user: addressHex,
+            user: userAddress,
             startTime: Date.now() - 1000 * 60 * 60 * 24 * 12, // 12 天前
             aggregateByTime: true,
           });
@@ -30,7 +32,7 @@ export function usePerpTradesHistory({ useAddress }: { useAddress?: string }) {
       }
       return [];
     },
-    [useAddress],
+    [userAddress],
     { watchLoading: true, initResult: [] },
   );
   return {

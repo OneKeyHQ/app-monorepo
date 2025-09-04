@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpOrders } from '../../../hooks/usePerpOrderInfoPanel';
@@ -5,36 +7,69 @@ import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
-// Column configuration for CommonTableListView
-const COLUMNS: IColumnConfig[] = [
-  { key: 'side', title: '', width: 10 },
-  { key: 'coin', title: 'Coin', width: 140 },
-  { key: 'limitPrice', title: 'Limit Price', width: 120 },
-  { key: 'size', title: 'Size', width: 100 },
-  { key: 'time', title: 'Time', width: 100 },
-  { key: 'type', title: 'Type', width: 140 },
-  { key: 'tif', title: 'TIF', width: 100 },
-  { key: 'actions', title: 'Actions', width: 140 },
-];
-
 function PerpOpenOrdersList() {
   const orders = usePerpOrders();
-  console.log('orders', orders);
-
+  const columnsConfig: IColumnConfig[] = useMemo(
+    () => [
+      { key: 'asset', title: 'Asset', width: 80, align: 'center' },
+      { key: 'time', title: 'Time', width: 100, align: 'left' },
+      { key: 'type', title: 'Type', width: 80, align: 'left' },
+      { key: 'size', title: 'Size', width: 80, align: 'left' },
+      {
+        key: 'originalSize',
+        title: 'Original Size',
+        width: 100,
+        align: 'left',
+      },
+      { key: 'value', title: 'Value', minWidth: 100, flex: 1, align: 'left' },
+      {
+        key: 'executePrice',
+        title: 'Execute Price',
+        minWidth: 100,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'triggerCondition',
+        title: 'Trigger Condition',
+        minWidth: 100,
+        flex: 1,
+        align: 'left',
+      },
+      { key: 'TPSL', title: 'TP/SL', minWidth: 100, flex: 1, align: 'left' },
+      { key: 'cancel', title: 'Cancel All', width: 100, align: 'right' },
+    ],
+    [],
+  );
+  const handleCancelAll = () => {
+    console.log('handleCancelAll');
+  };
+  const totalMinWidth = useMemo(
+    () =>
+      columnsConfig.reduce(
+        (sum, col) => sum + (col.width || col.minWidth || 0),
+        0,
+      ),
+    [columnsConfig],
+  );
   const renderOrderRow = (
     item: IWsWebData2['openOrders'][number],
     _index: number,
   ) => {
-    const oid = item.oid;
-    const cloid = item.cloid;
     return (
-      <OpenOrdersRow key={`${oid}-${cloid?.toString() ?? ''}`} order={item} />
+      <OpenOrdersRow
+        order={item}
+        cellMinWidth={totalMinWidth}
+        columnConfigs={columnsConfig}
+        handleCancelAll={handleCancelAll}
+      />
     );
   };
 
   return (
     <CommonTableListView
-      columns={COLUMNS}
+      columns={columnsConfig}
+      minTableWidth={totalMinWidth}
       data={orders}
       renderRow={renderOrderRow}
       emptyMessage="No open orders"

@@ -2,6 +2,7 @@ import { Tabs, YStack } from '@onekeyhq/components';
 
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
 import { PerpPositionsList } from './List/PerpPositionsList';
+import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
 
 function PerpOrderInfoPanel() {
   return (
@@ -26,9 +27,9 @@ function PerpOrderInfoPanel() {
         <Tabs.Tab name="Open Orders">
           <PerpOpenOrdersList />
         </Tabs.Tab>
-        {/* <Tabs.Tab name="Trades"> */}
-        {/* <PerpTradeHistory /> */}
-        {/* </Tabs.Tab> */}
+        <Tabs.Tab name="Trades History">
+          <PerpTradesHistoryList />
+        </Tabs.Tab>
       </Tabs.Container>
     </YStack>
   );
