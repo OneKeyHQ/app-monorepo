@@ -1853,6 +1853,7 @@
   "message_signing.address_invalid_text": "अमान्य पता या असमर्थित नेटवर्क",
   "message_signing.address_placeholder": "इस पते के स्वामित्व को साबित करने के लिए एक संदेश दर्ज करें...",
   "message_signing.main_title": "संदेश पर हस्ताक्षर करें और सत्यापित करें",
+  "message_signing.message_invalid_hex": "अमान्य हेक्स स्ट्रिंग",
   "message_signing.sign_action": "संदेश पर हस्ताक्षर करें",
   "message_signing.signature_desc": "हस्ताक्षर करने के बाद उत्पन्न किया गया",
   "message_signing.signature_invalid_text": "अमान्य हस्ताक्षर",

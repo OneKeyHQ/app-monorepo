@@ -1853,6 +1853,7 @@
   "message_signing.address_invalid_text": "Dirección no válida o red no compatible",
   "message_signing.address_placeholder": "Introduce un mensaje para demostrar la propiedad de esta dirección...",
   "message_signing.main_title": "Firmar y verificar mensaje",
+  "message_signing.message_invalid_hex": "Cadena hexadecimal no válida",
   "message_signing.sign_action": "Firmar mensaje",
   "message_signing.signature_desc": "Generado después de firmar",
   "message_signing.signature_invalid_text": "Firma no válida",

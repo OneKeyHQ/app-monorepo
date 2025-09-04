@@ -362,7 +362,9 @@ export const SignForm = ({
             const hexFormat = form.getValues('hexFormat');
             if (hexFormat && value) {
               if (!hexUtils.isHexString(value)) {
-                return 'Not a valid hex';
+                return intl.formatMessage({
+                  id: ETranslations.message_signing_message_invalid_hex,
+                });
               }
             }
             return true;
