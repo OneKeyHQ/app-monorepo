@@ -39,6 +39,7 @@ export function useMarketTokenList({
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isNetworkSwitching, setIsNetworkSwitching] = useState(false);
+  const [hasReachedEnd, setHasReachedEnd] = useState(false);
   const maxPages = 5;
 
   // Optimize network logo URI calculation
@@ -112,6 +113,7 @@ export function useMarketTokenList({
   useEffect(() => {
     setCurrentPage(1);
     setIsLoadingMore(false);
+    setHasReachedEnd(false);
     // Don't clear data immediately to avoid UI flicker
     // The data will be replaced when new API result arrives
   }, [networkId, sortBy, sortType]);
@@ -134,7 +136,12 @@ export function useMarketTokenList({
 
   const loadMore = useCallback(async () => {
     // Check if we can load more pages
-    if (isLoadingMore || currentPage >= maxPages || isLoading) {
+    if (
+      isLoadingMore ||
+      currentPage >= maxPages ||
+      isLoading ||
+      hasReachedEnd
+    ) {
       return;
     }
 
@@ -173,6 +180,9 @@ export function useMarketTokenList({
         // Append new data to existing data
         setTransformedData((prev) => [...prev, ...newTransformed]);
         setCurrentPage(nextPage);
+      } else {
+        // If API returns empty list, mark as reached end to stop further loading
+        setHasReachedEnd(true);
       }
     } catch (error) {
       console.error('Failed to load more market tokens:', error);
@@ -184,6 +194,7 @@ export function useMarketTokenList({
     currentPage,
     maxPages,
     isLoading,
+    hasReachedEnd,
     totalCount,
     pageSize,
     networkId,
@@ -194,7 +205,8 @@ export function useMarketTokenList({
     transformedData.length,
   ]);
 
-  const canLoadMore = currentPage < maxPages && !isLoading && !isLoadingMore;
+  const canLoadMore =
+    currentPage < maxPages && !isLoading && !isLoadingMore && !hasReachedEnd;
 
   return {
     data: transformedData,
