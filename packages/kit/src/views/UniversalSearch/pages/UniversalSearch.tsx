@@ -458,6 +458,32 @@ export function UniversalSearch({
     [activeAccount?.network?.id, searchStatus],
   );
 
+  const keyExtractor = useCallback(
+    (item: IUniversalSearchResultItem, index: number) => {
+      switch (item.type) {
+        case EUniversalSearchType.Address:
+          return `${item.type}-${
+            item.payload.account?.id || item.payload.wallet?.id || index
+          }`;
+        case EUniversalSearchType.MarketToken:
+          return `${item.type}-${item.payload.coingeckoId || index}`;
+        case EUniversalSearchType.V2MarketToken:
+          return `${item.type}-${
+            item.payload.address || item.payload.symbol
+          }-${index}`;
+        case EUniversalSearchType.AccountAssets:
+          return `${item.type}-${
+            item.payload.token.address || item.payload.token.symbol
+          }-${index}`;
+        case EUniversalSearchType.Dapp:
+          return `${item.type}-${item.payload.dappId || index}`;
+        default:
+          return `${index}`;
+      }
+    },
+    [],
+  );
+
   const filterSections = useMemo(() => {
     if (isInAllTab) {
       const sectionsWithSliceData = sections.map((i) => ({
@@ -495,6 +521,7 @@ export function UniversalSearch({
             renderSectionHeader={renderSectionHeader}
             sections={recommendSections}
             renderItem={renderItem}
+            keyExtractor={keyExtractor}
             ListHeaderComponent={
               <RecentSearched
                 filterTypes={filterTypes}
@@ -546,6 +573,7 @@ export function UniversalSearch({
                 />
               }
               renderItem={renderItem}
+              keyExtractor={keyExtractor}
               estimatedItemSize="$16"
               ListFooterComponent={<Stack h="$16" />}
               keyboardShouldPersistTaps="handled"
@@ -560,6 +588,7 @@ export function UniversalSearch({
     renderSectionHeader,
     recommendSections,
     renderItem,
+    keyExtractor,
     filterTypes,
     handleSearchTextFill,
     tabTitles,

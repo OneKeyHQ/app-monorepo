@@ -17,6 +17,7 @@ import type { IModalFiatCryptoParamList } from './fiatCrypto';
 import type { IModalFirmwareUpdateParamList } from './firmwareUpdate';
 import type { IModalKeyTagParamList } from './keyTag';
 import type { ILiteCardParamList } from './liteCard';
+import type { IManualBackupParamList } from './manualBackup';
 import type { IModalNotificationsParamList } from './notifications';
 import type { IOnboardingParamList } from './onboarding';
 import type { IPrimeParamList } from './prime';
@@ -54,6 +55,7 @@ export enum EModalRoutes {
   ReceiveModal = 'ReceiveModal',
   ScanQrCodeModal = 'ScanQrCodeModal',
   LiteCardModal = 'LiteCardModal',
+  ManualBackupModal = 'ManualBackupModal',
   CloudBackupModal = 'CloudBackupModal',
   WebViewModal = 'WebViewModal',
   AddressBookModal = 'AddressBookModal',
@@ -88,6 +90,7 @@ export type IModalParamList = {
   [EModalRoutes.FirmwareUpdateModal]: IModalFirmwareUpdateParamList;
   [EModalRoutes.KeyTagModal]: IModalKeyTagParamList;
   [EModalRoutes.LiteCardModal]: ILiteCardParamList;
+  [EModalRoutes.ManualBackupModal]: IManualBackupParamList;
   [EModalRoutes.MainModal]: IModalAssetListParamList &
     IModalAssetDetailsParamList &
     IModalRewardCenterParamList &

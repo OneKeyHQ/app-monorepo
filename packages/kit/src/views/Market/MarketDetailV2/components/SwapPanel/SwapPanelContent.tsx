@@ -26,7 +26,10 @@ export type ISwapPanelContentProps = {
   isLoading: boolean;
   balanceLoading: boolean;
   slippageAutoValue?: number;
-  supportSpeedSwap: boolean;
+  supportSpeedSwap: {
+    enabled: boolean;
+    warningMessage?: string;
+  };
   isApproved: boolean;
   defaultTokens: IToken[];
   balance: BigNumber;
@@ -158,13 +161,17 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       </YStack>
 
       {/* Unsupported swap warning */}
-      {!isLoading && !supportSpeedSwap ? <UnsupportedSwapWarning /> : null}
+      {!isLoading && !supportSpeedSwap.enabled ? (
+        <UnsupportedSwapWarning
+          customMessage={supportSpeedSwap.warningMessage}
+        />
+      ) : null}
 
       {!isApproved ? (
         <ApproveButton onApprove={onApprove} loading={isLoading} />
       ) : (
         <ActionButton
-          disabled={!supportSpeedSwap}
+          disabled={!supportSpeedSwap.enabled}
           loading={isLoading}
           tradeType={tradeType}
           onPress={isWrapped ? onWrappedSwap : onSwap}
