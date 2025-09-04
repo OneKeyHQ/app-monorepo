@@ -116,7 +116,7 @@ export type IQRCodeHandlerParseResult<T extends IBaseValue> =
   IQRCodeHandlerResult<T> & { raw: string };
 
 export type IQRCodeHandlerParseOutsideOptions = {
-  handlers: EQRCodeHandlerNames[];
+  handlers?: EQRCodeHandlerNames[];
   defaultHandler?: (value: string) => void;
   autoHandleResult?: boolean;
   popNavigation?: () => void;
