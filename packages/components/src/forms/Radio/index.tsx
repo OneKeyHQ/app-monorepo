@@ -1,4 +1,8 @@
+import { useCallback } from 'react';
+
 import { RadioGroup } from 'tamagui';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Label, SizableText, XStack, YStack } from '../../primitives';
 import { NATIVE_HIT_SLOP } from '../../utils';
@@ -33,11 +37,22 @@ export function Radio({
 }: IRadioProps) {
   const Container = orientation === 'horizontal' ? XStack : YStack;
 
+  const handleValueChange = useCallback(
+    (v: string) => {
+      const option = options.find((o) => o.value === v);
+      if (option?.disabled) {
+        return;
+      }
+      onChange?.(v);
+    },
+    [onChange, options],
+  );
+
   return (
     <RadioGroup
       value={value}
       defaultValue={defaultValue}
-      onValueChange={onChange}
+      onValueChange={handleValueChange}
       disabled={disabled}
     >
       <Container gap={gap} alignItems="flex-start" flexWrap="wrap">
