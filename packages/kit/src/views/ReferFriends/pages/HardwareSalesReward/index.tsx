@@ -24,6 +24,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHardwareSalesRecord } from '@onekeyhq/shared/src/referralCode/type';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { useDebouncedCallback } from 'use-debounce';
 
 type ISectionListItem = {
   title?: string;
@@ -132,6 +133,8 @@ export default function HardwareSalesReward() {
       setSections(formatSections(originalData.current));
     }
   }, [fetchSales]);
+
+  const debounceFetchMore = useDebouncedCallback(fetchMore, 250);
 
   const intl = useIntl();
   const renderItem = useCallback(
@@ -302,7 +305,8 @@ export default function HardwareSalesReward() {
             renderSectionHeader={renderSectionHeader}
             estimatedItemSize={60}
             renderItem={renderItem}
-            onEndReached={fetchMore}
+            onEndReached={debounceFetchMore}
+            keyExtractor={(item: IHardwareSalesRecord['items'][0]) => item._id}
           />
         )}
       </Page.Body>
