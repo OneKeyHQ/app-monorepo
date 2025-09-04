@@ -1853,6 +1853,7 @@
   "message_signing.address_invalid_text": "ที่อยู่ไม่ถูกต้องหรือเครือข่ายไม่รองรับ",
   "message_signing.address_placeholder": "กรุณากรอกข้อความเพื่อยืนยันความเป็นเจ้าของที่อยู่นี้...",
   "message_signing.main_title": "เซ็นและยืนยันข้อความ",
+  "message_signing.message_invalid_hex": "สตริงเลขฐานสิบหกไม่ถูกต้อง",
   "message_signing.sign_action": "เซ็นข้อความ",
   "message_signing.signature_desc": "สร้างขึ้นหลังจากเซ็นชื่อ",
   "message_signing.signature_invalid_text": "ลายเซ็นไม่ถูกต้อง",

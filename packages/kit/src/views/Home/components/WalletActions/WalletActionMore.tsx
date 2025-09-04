@@ -24,7 +24,7 @@ import { WalletActionViewInExplorer } from './WalletActionViewInExplorer';
 export function WalletActionMore() {
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const { account, network, indexedAccount, isOthersWallet } = activeAccount;
+  const { account, network } = activeAccount;
 
   const show = useReviewControl();
 
@@ -41,24 +41,8 @@ export function WalletActionMore() {
   }, [network?.id]).result;
 
   const displaySignAndVerify = usePromiseResult(async () => {
-    if (!vaultSettings?.enabledInternalSignAndVerify) {
-      return false;
-    }
-    const signAccounts =
-      await backgroundApiProxy.serviceInternalSignAndVerify.getSignAccounts({
-        networkId: network?.id ?? '',
-        accountId: account?.id ?? '',
-        indexedAccountId: indexedAccount?.id ?? '',
-        isOthersWallet,
-      });
-    return signAccounts.length > 0;
-  }, [
-    account?.id,
-    indexedAccount?.id,
-    isOthersWallet,
-    network?.id,
-    vaultSettings,
-  ]);
+    return vaultSettings?.enabledInternalSignAndVerify;
+  }, [vaultSettings]);
 
   const renderItemsAsync = useCallback(
     async ({

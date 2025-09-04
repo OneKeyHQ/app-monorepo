@@ -1853,6 +1853,7 @@
   "message_signing.address_invalid_text": "地址无效或网络不受支持",
   "message_signing.address_placeholder": "输入一条消息以证明您拥有此地址...",
   "message_signing.main_title": "签名与验证消息",
+  "message_signing.message_invalid_hex": "无效的十六进制字符串",
   "message_signing.sign_action": "签名消息",
   "message_signing.signature_desc": "签名后生成",
   "message_signing.signature_invalid_text": "无效签名",
