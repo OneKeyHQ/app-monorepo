@@ -96,11 +96,19 @@ export function Radio({
                   my={orientation === 'horizontal' ? '$0' : '$-2'}
                   flex={orientation === 'horizontal' ? undefined : 1}
                 >
-                  <Label htmlFor={v} variant="$bodyLgMedium">
+                  <Label
+                    htmlFor={v}
+                    variant="$bodyLgMedium"
+                    color={optionDisabled ? '$textDisabled' : '$text'}
+                  >
                     {label}
                   </Label>
                   {description ? (
-                    <SizableText size="$bodyMd" color="$textSubdued" pt="$0.5">
+                    <SizableText
+                      size="$bodyMd"
+                      color={optionDisabled ? '$textDisabled' : '$textSubdued'}
+                      pt="$0.5"
+                    >
                       {description}
                     </SizableText>
                   ) : null}
