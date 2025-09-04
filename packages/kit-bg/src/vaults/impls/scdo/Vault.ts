@@ -287,13 +287,15 @@ export default class Vault extends VaultBase {
       return { encodedTx };
     }
 
+    const newEncodedTx = { ...encodedTx };
+
     // try using value=0 to calculate native transfer gas limit to avoid maximum transfer failure.
     if (this._checkIsNativeTransfer(encodedTx)) {
-      encodedTx.Amount = 0;
+      newEncodedTx.Amount = 0;
     }
 
     return Promise.resolve({
-      encodedTx,
+      encodedTx: newEncodedTx,
     });
   }
 

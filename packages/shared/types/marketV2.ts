@@ -223,6 +223,8 @@ export interface IMarketTokenTransaction {
 
 export interface IMarketTokenTransactionsResponse {
   list: IMarketTokenTransaction[];
+  hasMore?: boolean;
+  total?: number;
 }
 
 export interface IMarketTokenHolder {
