@@ -7,6 +7,7 @@ import type { IStackStyle } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { TRADING_VIEW_URL } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
@@ -22,7 +23,7 @@ import type { WebViewProps } from 'react-native-webview';
 
 interface IBaseTradingViewPerpsV2Props {
   symbol: string;
-  userAddress?: string;
+  userAddress: IHex | null;
   onLoadEnd?: () => void;
   onTradeUpdate?: (trade: ITradeEvent) => void;
   tradingViewUrl?: string;

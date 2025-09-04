@@ -23,8 +23,11 @@ export interface IGetMarksRequest {
   symbol: string;
   from: number;
   to: number;
+  resolution?: string;
+  requestId?: string;
 }
 
 export interface IGetMarksResponse {
   marks: ITradingMark[];
+  requestId?: string;
 }
