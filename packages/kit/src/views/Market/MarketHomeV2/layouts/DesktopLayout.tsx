@@ -78,6 +78,7 @@ export function DesktopLayout({
       <Carousel
         pageWidth={pageWidth}
         defaultIndex={defaultIndex}
+        onPageChanged={handlePageChanged}
         disableAnimation
         containerStyle={{ height }}
         ref={carouselRef as any}
