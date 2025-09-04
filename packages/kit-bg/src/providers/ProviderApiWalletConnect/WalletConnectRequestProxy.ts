@@ -4,6 +4,7 @@ import type { WalletKitTypes } from '@reown/walletkit';
 
 export type IWalletConnectRequestOptions = {
   sessionRequest?: WalletKitTypes.SessionRequest;
+  wcChain?: string;
 };
 
 export abstract class WalletConnectRequestProxy {
@@ -31,6 +32,7 @@ export abstract class WalletConnectRequestProxy {
   ): Promise<T> {
     const resp = await this.client.backgroundApi.handleProviderMethods<T>({
       scope: this.providerName,
+      wcChain: options.wcChain,
       origin: this.client.getDAppOrigin(options),
       data,
       isWalletConnectRequest: true,
