@@ -1853,6 +1853,7 @@
   "message_signing.address_invalid_text": "Invalid address or unsupported network",
   "message_signing.address_placeholder": "Enter a message to prove ownership of this address...",
   "message_signing.main_title": "Sign & verify message",
+  "message_signing.message_invalid_hex": "Invalid hex string",
   "message_signing.sign_action": "Sign message",
   "message_signing.signature_desc": "Generated after signing",
   "message_signing.signature_invalid_text": "Invalid signature",
