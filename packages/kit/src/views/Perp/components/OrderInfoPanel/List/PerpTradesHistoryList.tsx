@@ -35,11 +35,19 @@ function PerpTradesHistoryList() {
     ],
     [],
   );
+  const totalMinWidth = useMemo(
+    () =>
+      columnsConfig.reduce(
+        (sum, col) => sum + (col.width || col.minWidth || 0),
+        0,
+      ),
+    [columnsConfig],
+  );
   const renderTradesHistoryRow = (item: IFill, _index: number) => {
     return (
       <TradesHistoryRow
         fill={item}
-        cellMinWidth={780}
+        cellMinWidth={totalMinWidth}
         columnConfigs={columnsConfig}
       />
     );
@@ -49,6 +57,7 @@ function PerpTradesHistoryList() {
     <CommonTableListView
       columns={columnsConfig}
       data={trades}
+      minTableWidth={totalMinWidth}
       renderRow={renderTradesHistoryRow}
       emptyMessage="No open positions"
       emptySubMessage="Your positions will appear here after opening trades"
