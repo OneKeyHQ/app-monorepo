@@ -453,22 +453,28 @@ const TabsWithInfiniteScrollDemo = () => {
             </Stack>
           )}
           keyExtractor={(item) => item.id.toString()}
-          ListFooterComponent={
-            loading1 ? (
-              <Stack p="$4" ai="center">
-                <Spinner />
-                <SizableText size="$bodySm" color="$textSubdued" mt="$2">
-                  Loading more transactions...
-                </SizableText>
-              </Stack>
-            ) : !hasMore1 ? (
-              <Stack p="$4" ai="center">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  No more transactions
-                </SizableText>
-              </Stack>
-            ) : null
-          }
+          ListFooterComponent={(() => {
+            if (loading1) {
+              return (
+                <Stack p="$4" ai="center">
+                  <Spinner />
+                  <SizableText size="$bodySm" color="$textSubdued" mt="$2">
+                    Loading more transactions...
+                  </SizableText>
+                </Stack>
+              );
+            }
+            if (!hasMore1) {
+              return (
+                <Stack p="$4" ai="center">
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    No more transactions
+                  </SizableText>
+                </Stack>
+              );
+            }
+            return null;
+          })()}
         />
       </Tabs.Tab>
       <Tabs.Tab name="Tokens">
@@ -491,22 +497,28 @@ const TabsWithInfiniteScrollDemo = () => {
             </Stack>
           )}
           keyExtractor={(item) => item.id.toString()}
-          ListFooterComponent={
-            loading2 ? (
-              <Stack p="$4" ai="center">
-                <Spinner />
-                <SizableText size="$bodySm" color="$textSubdued" mt="$2">
-                  Loading more tokens...
-                </SizableText>
-              </Stack>
-            ) : !hasMore2 ? (
-              <Stack p="$4" ai="center">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  No more tokens
-                </SizableText>
-              </Stack>
-            ) : null
-          }
+          ListFooterComponent={(() => {
+            if (loading2) {
+              return (
+                <Stack p="$4" ai="center">
+                  <Spinner />
+                  <SizableText size="$bodySm" color="$textSubdued" mt="$2">
+                    Loading more tokens...
+                  </SizableText>
+                </Stack>
+              );
+            }
+            if (!hasMore2) {
+              return (
+                <Stack p="$4" ai="center">
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    No more tokens
+                  </SizableText>
+                </Stack>
+              );
+            }
+            return null;
+          })()}
         />
       </Tabs.Tab>
     </Tabs.Container>
