@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   ListView,
   SizableText,
+  Spinner,
   Stack,
   Tabs,
   XStack,
@@ -363,6 +364,167 @@ const TabsWithOnIndexChangeDemo = () => {
   );
 };
 
+// Tabs with Infinite Scroll Demo
+const TabsWithInfiniteScrollDemo = () => {
+  const [data1, setData1] = useState<Array<{ id: number; title: string }>>(() =>
+    new Array(20).fill({}).map((_, index) => ({
+      id: index,
+      title: `Transaction ${index + 1}`,
+    })),
+  );
+  const [data2, setData2] = useState<Array<{ id: number; title: string }>>(() =>
+    new Array(15).fill({}).map((_, index) => ({
+      id: index,
+      title: `Token ${index + 1}`,
+    })),
+  );
+  const [loading1, setLoading1] = useState(false);
+  const [loading2, setLoading2] = useState(false);
+  const [hasMore1, setHasMore1] = useState(true);
+  const [hasMore2, setHasMore2] = useState(true);
+
+  const loadMoreData1 = useCallback(async () => {
+    if (loading1 || !hasMore1) return;
+
+    setLoading1(true);
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    setData1((prev) => {
+      const newItems = new Array(10).fill({}).map((_, index) => ({
+        id: prev.length + index,
+        title: `Transaction ${prev.length + index + 1}`,
+      }));
+      const updatedData = [...prev, ...newItems];
+
+      // Simulate end of data after 100 items
+      if (updatedData.length >= 100) {
+        setHasMore1(false);
+      }
+
+      return updatedData;
+    });
+    setLoading1(false);
+  }, [loading1, hasMore1]);
+
+  const loadMoreData2 = useCallback(async () => {
+    if (loading2 || !hasMore2) return;
+
+    setLoading2(true);
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    setData2((prev) => {
+      const newItems = new Array(8).fill({}).map((_, index) => ({
+        id: prev.length + index,
+        title: `Token ${prev.length + index + 1}`,
+      }));
+      const updatedData = [...prev, ...newItems];
+
+      // Simulate end of data after 80 items
+      if (updatedData.length >= 80) {
+        setHasMore2(false);
+      }
+
+      return updatedData;
+    });
+    setLoading2(false);
+  }, [loading2, hasMore2]);
+
+  return (
+    <Tabs.Container>
+      <Tabs.Tab name="Transactions">
+        <Tabs.FlatList
+          data={data1}
+          onEndReached={loadMoreData1}
+          onEndReachedThreshold={0.2}
+          renderItem={({ item }) => (
+            <Stack
+              p="$3"
+              borderBottomWidth="$px"
+              borderBottomColor="$borderSubdued"
+            >
+              <XStack ai="center" jc="space-between">
+                <SizableText>💸 {item.title}</SizableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  ${Math.floor(Math.random() * 1000)}
+                </SizableText>
+              </XStack>
+            </Stack>
+          )}
+          keyExtractor={(item) => item.id.toString()}
+          ListFooterComponent={(() => {
+            if (loading1) {
+              return (
+                <Stack p="$4" ai="center">
+                  <Spinner />
+                  <SizableText size="$bodySm" color="$textSubdued" mt="$2">
+                    Loading more transactions...
+                  </SizableText>
+                </Stack>
+              );
+            }
+            if (!hasMore1) {
+              return (
+                <Stack p="$4" ai="center">
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    No more transactions
+                  </SizableText>
+                </Stack>
+              );
+            }
+            return null;
+          })()}
+        />
+      </Tabs.Tab>
+      <Tabs.Tab name="Tokens">
+        <Tabs.FlatList
+          data={data2}
+          onEndReached={loadMoreData2}
+          onEndReachedThreshold={0.1}
+          renderItem={({ item }) => (
+            <Stack
+              p="$3"
+              borderBottomWidth="$px"
+              borderBottomColor="$borderSubdued"
+            >
+              <XStack ai="center" jc="space-between">
+                <SizableText>🪙 {item.title}</SizableText>
+                <SizableText size="$bodySm" color="$textSuccess">
+                  +{Math.floor(Math.random() * 10)}%
+                </SizableText>
+              </XStack>
+            </Stack>
+          )}
+          keyExtractor={(item) => item.id.toString()}
+          ListFooterComponent={(() => {
+            if (loading2) {
+              return (
+                <Stack p="$4" ai="center">
+                  <Spinner />
+                  <SizableText size="$bodySm" color="$textSubdued" mt="$2">
+                    Loading more tokens...
+                  </SizableText>
+                </Stack>
+              );
+            }
+            if (!hasMore2) {
+              return (
+                <Stack p="$4" ai="center">
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    No more tokens
+                  </SizableText>
+                </Stack>
+              );
+            }
+            return null;
+          })()}
+        />
+      </Tabs.Tab>
+    </Tabs.Container>
+  );
+};
+
 const NewTabsGallery = () => (
   <Layout
     filePath={__CURRENT_FILE_PATH__}
@@ -414,6 +576,14 @@ const NewTabsGallery = () => (
         element: (
           <Stack h={400}>
             <TabsWithOnIndexChangeDemo />
+          </Stack>
+        ),
+      },
+      {
+        title: 'Tabs with Infinite Scroll',
+        element: (
+          <Stack h={400}>
+            <TabsWithInfiniteScrollDemo />
           </Stack>
         ),
       },

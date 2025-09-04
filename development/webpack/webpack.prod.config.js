@@ -24,7 +24,7 @@ module.exports = ({ platform, basePath }) => {
   console.log('filesToDeleteAfterUpload', filesToDeleteAfterUpload);
   return {
     mode: 'production',
-    devtool: 'source-map',
+    devtool: isExt ? false : 'source-map',
     output: {
       clean: true,
     },

@@ -1853,6 +1853,7 @@
   "message_signing.address_invalid_text": "Địa chỉ không hợp lệ hoặc mạng không được hỗ trợ",
   "message_signing.address_placeholder": "Nhập một tin nhắn để chứng minh quyền sở hữu địa chỉ này...",
   "message_signing.main_title": "Ký & xác minh tin nhắn",
+  "message_signing.message_invalid_hex": "Chuỗi hex không hợp lệ",
   "message_signing.sign_action": "Ký thông điệp",
   "message_signing.signature_desc": "Được tạo ra sau khi ký",
   "message_signing.signature_invalid_text": "Chữ ký không hợp lệ",

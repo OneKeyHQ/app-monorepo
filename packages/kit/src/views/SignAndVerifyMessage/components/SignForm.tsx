@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Button,
   Divider,
   Form,
@@ -40,22 +42,26 @@ type ISignFormData = {
 
 interface ISignFormProps {
   form: UseFormReturn<ISignFormData>;
+  walletId: string;
   networkId: string;
   accountId: string | undefined;
   indexedAccountId: string | undefined;
   isOthersWallet: boolean | undefined;
   onCurrentSignAccountChange: (account: ISignAccount | undefined) => void;
   onCopySignature: () => void;
+  onDisabledChange: (disabled: boolean) => void;
 }
 
 export const SignForm = ({
   form,
+  walletId,
   networkId,
   accountId,
   indexedAccountId,
   isOthersWallet,
   onCurrentSignAccountChange,
   onCopySignature,
+  onDisabledChange,
 }: ISignFormProps) => {
   const intl = useIntl();
   const signAccountsRef = useRef<ISignAccount[]>([]);
@@ -295,6 +301,45 @@ export const SignForm = ({
     }
   }, [currentSignAccount?.network.id, intl]);
 
+  const { result: isClassicOrMiniDevice } = usePromiseResult(
+    async () => {
+      if (!accountUtils.isHwWallet({ walletId })) {
+        return false;
+      }
+      const wallet = await backgroundApiProxy.serviceAccount.getWalletSafe({
+        walletId: walletId ?? '',
+      });
+      const deviceType = wallet?.associatedDeviceInfo?.deviceType;
+      console.log('wallet?.associatedDevice: ', wallet?.associatedDevice);
+      if (
+        deviceType &&
+        (deviceType === EDeviceType.Classic || deviceType === EDeviceType.Mini)
+      ) {
+        return true;
+      }
+      return false;
+    },
+    [walletId],
+    {
+      initResult: false,
+    },
+  );
+
+  const previousSignDisabled = usePrevious(
+    isClassicOrMiniDevice && currentFormat === 'bip322',
+  );
+  useEffect(() => {
+    const signDisabled = isClassicOrMiniDevice && currentFormat === 'bip322';
+    if (previousSignDisabled !== signDisabled) {
+      onDisabledChange(signDisabled);
+    }
+  }, [
+    isClassicOrMiniDevice,
+    onDisabledChange,
+    currentFormat,
+    previousSignDisabled,
+  ]);
+
   return (
     <Form form={form}>
       <Form.Field
@@ -317,7 +362,9 @@ export const SignForm = ({
             const hexFormat = form.getValues('hexFormat');
             if (hexFormat && value) {
               if (!hexUtils.isHexString(value)) {
-                return 'Not a valid hex';
+                return intl.formatMessage({
+                  id: ETranslations.message_signing_message_invalid_hex,
+                });
               }
             }
             return true;
@@ -473,80 +520,97 @@ export const SignForm = ({
       </Form.Field>
 
       {displayFormatForm ? (
-        <Form.Field
-          label={intl.formatMessage({
-            id: ETranslations.signature_format_title,
-          })}
-          labelAddon={
-            <Popover
-              title={intl.formatMessage({
-                id: ETranslations.signature_format_title,
-              })}
-              renderTrigger={
-                <Button
-                  iconAfter="QuestionmarkOutline"
-                  size="small"
-                  variant="tertiary"
-                >
-                  {intl.formatMessage({ id: ETranslations.global_learn_more })}
-                </Button>
-              }
-              renderContent={() => (
-                <YStack
-                  p="$5"
-                  pt="$0"
-                  $gtMd={{
-                    px: '$4',
-                    py: '$3',
-                  }}
-                  gap="$4"
-                >
-                  <SizableText>
+        <YStack gap="$2">
+          <Form.Field
+            label={intl.formatMessage({
+              id: ETranslations.signature_format_title,
+            })}
+            labelAddon={
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.signature_format_title,
+                })}
+                renderTrigger={
+                  <Button
+                    iconAfter="QuestionmarkOutline"
+                    size="small"
+                    variant="tertiary"
+                  >
                     {intl.formatMessage({
-                      id: ETranslations.signature_format_description,
+                      id: ETranslations.global_learn_more,
                     })}
-                  </SizableText>
+                  </Button>
+                }
+                renderContent={() => (
+                  <YStack
+                    p="$5"
+                    pt="$0"
+                    $gtMd={{
+                      px: '$4',
+                      py: '$3',
+                    }}
+                    gap="$4"
+                  >
+                    <SizableText>
+                      {intl.formatMessage({
+                        id: ETranslations.signature_format_description,
+                      })}
+                    </SizableText>
 
-                  <YStack>
-                    <XStack>
-                      <SizableText pr="$2">-</SizableText>
-                      <SizableText>
-                        {intl.formatMessage({
-                          id: ETranslations.signature_format_standard,
-                        })}
-                      </SizableText>
-                    </XStack>
-                    <XStack>
-                      <SizableText pr="$2">-</SizableText>
-                      <SizableText>
-                        {intl.formatMessage({
-                          id: ETranslations.signature_format_bip137,
-                        })}
-                      </SizableText>
-                    </XStack>
-                    <XStack>
-                      <SizableText pr="$2">-</SizableText>
-                      <SizableText>
-                        {intl.formatMessage({
-                          id: ETranslations.signature_format_322,
-                        })}
-                      </SizableText>
-                    </XStack>
+                    <YStack>
+                      <XStack>
+                        <SizableText pr="$2">-</SizableText>
+                        <SizableText>
+                          {intl.formatMessage({
+                            id: ETranslations.signature_format_standard,
+                          })}
+                        </SizableText>
+                      </XStack>
+                      <XStack>
+                        <SizableText pr="$2">-</SizableText>
+                        <SizableText>
+                          {intl.formatMessage({
+                            id: ETranslations.signature_format_bip137,
+                          })}
+                        </SizableText>
+                      </XStack>
+                      <XStack>
+                        <SizableText pr="$2">-</SizableText>
+                        <SizableText>
+                          {intl.formatMessage({
+                            id: ETranslations.signature_format_322,
+                          })}
+                        </SizableText>
+                      </XStack>
+                    </YStack>
                   </YStack>
-                </YStack>
-              )}
+                )}
+              />
+            }
+            name="format"
+          >
+            <Radio
+              orientation="horizontal"
+              gap="$5"
+              options={formatRadioOptions}
             />
-          }
-          name="format"
-        >
-          <Radio
-            orientation="horizontal"
-            gap="$5"
-            options={formatRadioOptions}
-          />
-        </Form.Field>
+          </Form.Field>
+          {isClassicOrMiniDevice && currentFormat === 'bip322' ? (
+            <Alert
+              title={intl.formatMessage(
+                {
+                  id: ETranslations.signature_type_not_supported_on_model,
+                },
+                {
+                  sigType: 'BIP322',
+                  deviceModel: 'Classic, Mini',
+                },
+              )}
+              type="warning"
+            />
+          ) : null}
+        </YStack>
       ) : null}
-
       <Divider />
 
       <Form.Field
