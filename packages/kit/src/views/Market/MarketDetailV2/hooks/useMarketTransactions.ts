@@ -11,6 +11,8 @@ interface IUseMarketTransactionsProps {
   networkId: string;
 }
 
+const DEFAULT_PAGE_SIZE = 20;
+
 export function useMarketTransactions({
   tokenAddress,
   networkId,
@@ -18,6 +20,8 @@ export function useMarketTransactions({
   const [accumulatedTransactions, setAccumulatedTransactions] = useState<
     IMarketTokenTransaction[]
   >([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const {
     result: transactionsData,
@@ -42,12 +46,14 @@ export function useMarketTransactions({
   // Reset accumulated state when token address or network ID changes
   useEffect(() => {
     setAccumulatedTransactions([]);
+    setHasMore(true);
   }, [tokenAddress, networkId]);
 
   const accumulatedTransactionsLengthRef = useRef(
     accumulatedTransactions.length,
   );
   accumulatedTransactionsLengthRef.current = accumulatedTransactions.length;
+
   // Merge new and old data, add new data at the front, and deduplicate
   useEffect(() => {
     const newTransactions = transactionsData?.list;
@@ -84,7 +90,67 @@ export function useMarketTransactions({
 
       return uniqueTransactions;
     });
+
+    // Update hasMore based on response
+    if (transactionsData?.hasMore !== undefined) {
+      setHasMore(transactionsData.hasMore);
+    }
   }, [transactionsData]);
+
+  const loadMore = useCallback(async (): Promise<void> => {
+    if (!hasMore || isLoadingMore || isRefreshing) {
+      return;
+    }
+
+    setIsLoadingMore(true);
+    try {
+      const response =
+        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenTransactions({
+          tokenAddress,
+          networkId,
+          offset: accumulatedTransactions.length,
+          limit: DEFAULT_PAGE_SIZE,
+        });
+
+      if (response?.list) {
+        setAccumulatedTransactions((prev) => {
+          // Append new data at the end
+          const mergedTransactions = [...prev, ...response.list];
+
+          // Deduplicate by hash
+          const seenHashes = new Set<string>();
+          const uniqueTransactions = mergedTransactions.filter((tx) => {
+            if (seenHashes.has(tx.hash)) {
+              return false;
+            }
+            seenHashes.add(tx.hash);
+            return true;
+          });
+
+          return uniqueTransactions;
+        });
+
+        // Update hasMore
+        if (response.hasMore !== undefined) {
+          setHasMore(response.hasMore);
+        } else {
+          // If no hasMore field, assume no more data if we got less than requested
+          setHasMore(response.list.length >= DEFAULT_PAGE_SIZE);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load more transactions:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [
+    tokenAddress,
+    networkId,
+    accumulatedTransactions.length,
+    hasMore,
+    isLoadingMore,
+    isRefreshing,
+  ]);
 
   const onRefresh = useCallback(async () => {
     await fetchTransactions();
@@ -95,6 +161,9 @@ export function useMarketTransactions({
     transactionsData,
     fetchTransactions,
     isRefreshing,
+    isLoadingMore,
+    hasMore,
+    loadMore,
     onRefresh,
   };
 }
