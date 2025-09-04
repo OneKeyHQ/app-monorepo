@@ -100,7 +100,7 @@ export function MobileLayout({
         defaultIndex={defaultIndex}
         containerStyle={{ height }}
         ref={carouselRef as any}
-        onPageChanged={platformEnv.isNative ? onPageChanged : undefined}
+        onPageChanged={onPageChanged}
         loop={false}
         showPagination={false}
         data={tabNames}

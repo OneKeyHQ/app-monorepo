@@ -40,6 +40,7 @@ export function DesktopLayout({
     carouselRef,
     handleTabChange,
     defaultIndex,
+    handlePageChanged,
   } = useMarketTabsLogic(onTabChange);
 
   const height = useMemo(() => {
