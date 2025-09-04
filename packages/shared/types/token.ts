@@ -29,6 +29,7 @@ export type IToken = {
   // for aggregate token
   isAggregateToken?: boolean;
   commonSymbol?: string;
+  aggregateOrder?: number;
 };
 
 export type ITokenFiat = {
@@ -100,6 +101,13 @@ export type IFetchAccountTokensResp = {
   accountId?: string;
   networkId?: string;
   isSameAllNetworksAccountData?: boolean;
+  aggregateTokenListMap?: Record<
+    string,
+    {
+      tokens: IAccountToken[];
+    }
+  >;
+  aggregateTokenMap?: Record<string, ITokenFiat>;
 };
 
 export type IFetchTokenDetailParams = {
@@ -200,4 +208,5 @@ export interface IAggregateToken {
   address?: string;
   assetType?: string;
   commonSymbol?: string;
+  order?: number;
 }

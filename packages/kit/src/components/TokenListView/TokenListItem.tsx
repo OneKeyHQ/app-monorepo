@@ -51,7 +51,13 @@ function BasicTokenListItem(props: ITokenListItemProps) {
           />
           <YStack flex={1}>
             <TokenNameView
-              name={token.symbol}
+              withAggregateBadge
+              name={
+                token.isAggregateToken
+                  ? token.commonSymbol ?? token.symbol
+                  : token.symbol
+              }
+              isAggregateToken={token.isAggregateToken}
               isNative={token.isNative}
               isAllNetworks={isAllNetworks}
               networkId={token.networkId}
@@ -88,7 +94,13 @@ function BasicTokenListItem(props: ITokenListItemProps) {
         />
         <YStack flex={1}>
           <TokenNameView
-            name={token.symbol}
+            withAggregateBadge
+            name={
+              token.isAggregateToken
+                ? token.commonSymbol ?? token.symbol
+                : token.symbol
+            }
+            isAggregateToken={token.isAggregateToken}
             isNative={token.isNative}
             isAllNetworks={isAllNetworks}
             networkId={token.networkId}

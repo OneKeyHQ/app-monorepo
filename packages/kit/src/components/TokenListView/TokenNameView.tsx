@@ -17,20 +17,24 @@ import { useAccountData } from '../../hooks/useAccountData';
 type IProps = {
   name: string;
   isNative?: boolean;
+  isAggregateToken?: boolean;
   isAllNetworks?: boolean;
   withNetwork?: boolean;
   networkId: string | undefined;
   textProps?: ISizableTextProps;
+  withAggregateBadge?: boolean;
 } & IXStackProps;
 
 function TokenNameView(props: IProps) {
   const {
     name,
     isNative,
+    isAggregateToken,
     isAllNetworks,
     withNetwork,
     networkId,
     textProps,
+    withAggregateBadge,
     ...rest
   } = props;
   const intl = useIntl();
@@ -42,6 +46,11 @@ function TokenNameView(props: IProps) {
       <SizableText minWidth={0} numberOfLines={1} {...textProps}>
         {name}
       </SizableText>
+      {withAggregateBadge && isAggregateToken ? (
+        <Badge flexShrink={1}>
+          <Badge.Text numberOfLines={1}>Multichain</Badge.Text>
+        </Badge>
+      ) : null}
       {withNetwork && network ? (
         <Badge flexShrink={1}>
           <Badge.Text numberOfLines={1}>{network.name}</Badge.Text>

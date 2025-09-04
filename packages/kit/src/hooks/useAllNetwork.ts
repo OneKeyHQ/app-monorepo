@@ -276,7 +276,6 @@ function useAllNetworkRequests<T>(params: {
       //   'currentRequestsUUID set: =====>>>>>: ',
       //   currentRequestsUUID.current,
       // );
-
       if (allNetworkDataInit.current) {
         const allNetworks = accountsInfo;
         const requests = allNetworks.map((networkDataString) => {

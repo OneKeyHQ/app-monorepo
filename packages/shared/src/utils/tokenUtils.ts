@@ -80,6 +80,8 @@ export function getEmptyTokenData() {
       keys: '',
       map: {},
     },
+    aggregateTokenListMap: {},
+    aggregateTokenMap: {},
   };
 }
 
@@ -294,6 +296,100 @@ export function mergeDeriveTokenListMap({
   };
 }
 
+export function mergeAggregateTokenMap({
+  sourceMap,
+  targetMap,
+}: {
+  sourceMap: {
+    [key: string]: ITokenFiat;
+  };
+  targetMap: {
+    [key: string]: ITokenFiat;
+  };
+}) {
+  const newTargetMap = { ...targetMap };
+
+  forEach(sourceMap, (value, key) => {
+    const mergedToken = newTargetMap[key];
+    if (mergedToken) {
+      mergedToken.balance = new BigNumber(mergedToken.balance)
+        .plus(value.balance)
+        .toFixed();
+      mergedToken.balanceParsed = new BigNumber(mergedToken.balanceParsed ?? 0)
+        .plus(value.balanceParsed ?? 0)
+        .toFixed();
+      mergedToken.frozenBalance = new BigNumber(mergedToken.frozenBalance ?? 0)
+        .plus(value.frozenBalance ?? 0)
+        .toFixed();
+      mergedToken.frozenBalanceParsed = new BigNumber(
+        mergedToken.frozenBalanceParsed ?? 0,
+      )
+        .plus(value.frozenBalanceParsed ?? 0)
+        .toFixed();
+      mergedToken.totalBalance = new BigNumber(mergedToken.totalBalance ?? 0)
+        .plus(value.totalBalance ?? 0)
+        .toFixed();
+      mergedToken.totalBalanceParsed = new BigNumber(
+        mergedToken.totalBalanceParsed ?? 0,
+      )
+        .plus(value.totalBalanceParsed ?? 0)
+        .toFixed();
+      mergedToken.fiatValue = new BigNumber(mergedToken.fiatValue)
+        .plus(value.fiatValue)
+        .toFixed();
+      mergedToken.frozenBalanceFiatValue = new BigNumber(
+        mergedToken.frozenBalanceFiatValue ?? 0,
+      )
+        .plus(value.frozenBalanceFiatValue ?? 0)
+        .toFixed();
+      mergedToken.totalBalanceFiatValue = new BigNumber(
+        mergedToken.totalBalanceFiatValue ?? 0,
+      )
+        .plus(value.totalBalanceFiatValue ?? 0)
+        .toFixed();
+      newTargetMap[key] = mergedToken;
+    } else {
+      newTargetMap[key] = value;
+    }
+  });
+
+  return newTargetMap;
+}
+
+export function mergeAggregateTokenListMap({
+  sourceMap,
+  targetMap,
+}: {
+  sourceMap: {
+    [key: string]: {
+      tokens: IAccountToken[];
+    };
+  };
+  targetMap: {
+    [key: string]: {
+      tokens: IAccountToken[];
+    };
+  };
+}) {
+  const newTargetMap = { ...targetMap };
+
+  forEach(sourceMap, (value, key) => {
+    const mergedTokenList = newTargetMap[key];
+    if (mergedTokenList && mergedTokenList.tokens) {
+      mergedTokenList.tokens = uniqBy(
+        [...mergedTokenList.tokens, ...value.tokens],
+        (token) => token.$key,
+      );
+    } else {
+      newTargetMap[key] = {
+        tokens: value.tokens,
+      };
+    }
+  });
+
+  return newTargetMap;
+}
+
 export function mergeDeriveTokenList({
   sourceTokens,
   targetTokens,
@@ -387,6 +483,14 @@ export function getMergedDeriveTokenData(params: {
   mergeDeriveAssetsEnabled: boolean;
 }) {
   const { data, mergeDeriveAssetsEnabled } = params;
+
+  let aggregateTokenMap: Record<string, ITokenFiat> = {};
+  let aggregateTokenListMap: Record<
+    string,
+    {
+      tokens: IAccountToken[];
+    }
+  > = {};
 
   const tokenList: {
     tokens: IAccountToken[];
@@ -499,6 +603,20 @@ export function getMergedDeriveTokenData(params: {
       targetMap: riskyTokenListMap,
       mergeDeriveAssets: mergeDeriveAssetsEnabled,
     });
+
+    if (r.aggregateTokenMap) {
+      aggregateTokenMap = mergeAggregateTokenMap({
+        sourceMap: r.aggregateTokenMap,
+        targetMap: aggregateTokenMap,
+      });
+    }
+
+    if (r.aggregateTokenListMap) {
+      aggregateTokenListMap = mergeAggregateTokenListMap({
+        sourceMap: r.aggregateTokenListMap,
+        targetMap: aggregateTokenListMap,
+      });
+    }
   });
 
   allTokenList.tokens = [
@@ -518,6 +636,7 @@ export function getMergedDeriveTokenData(params: {
     ...tokenListMap,
     ...smallBalanceTokenListMap,
     ...riskyTokenListMap,
+    ...aggregateTokenMap,
   };
 
   return {
@@ -527,8 +646,10 @@ export function getMergedDeriveTokenData(params: {
     tokenListMap,
     smallBalanceTokenListMap,
     riskyTokenListMap,
+    aggregateTokenMap,
     allTokenList,
     allTokenListMap,
+    aggregateTokenListMap,
   };
 }
 
@@ -572,7 +693,13 @@ export function buildAggregateTokenListData(params: {
   networkId: string;
   token: IAccountToken;
   tokenMap: Record<string, ITokenFiat>;
-  aggregateTokenListMap: Record<string, IAccountToken>;
+  aggregateTokenListMap: Record<
+    string,
+    {
+      commonToken: IAccountToken;
+      tokens: IAccountToken[];
+    }
+  >;
   aggregateTokenMap: Record<string, ITokenFiat>;
   aggregateTokenMapRawData: Record<string, IAggregateToken>;
 }) {
@@ -605,70 +732,24 @@ export function buildAggregateTokenListData(params: {
 
     if (!newAggregateTokenListMap[aggregateTokenListMapKey]) {
       newAggregateTokenListMap[aggregateTokenListMapKey] = {
-        ...token,
-        $key: aggregateTokenListMapKey,
-        isAggregateToken: true,
-        commonSymbol: aggregateToken.commonSymbol,
-      };
-    }
-
-    if (newAggregateTokenMap[aggregateTokenListMapKey]) {
-      newAggregateTokenMap[aggregateTokenListMapKey] = {
-        balance: new BigNumber(
-          newAggregateTokenMap[aggregateTokenListMapKey].balance ?? '0',
-        )
-          .plus(tokenMap[token.address]?.balance ?? '0')
-          .toFixed(),
-        balanceParsed: new BigNumber(
-          newAggregateTokenMap[aggregateTokenListMapKey].balanceParsed ?? '0',
-        )
-          .plus(tokenMap[token.address]?.balanceParsed ?? '0')
-          .toFixed(),
-        frozenBalance: new BigNumber(
-          newAggregateTokenMap[aggregateTokenListMapKey].frozenBalance ?? '0',
-        )
-          .plus(tokenMap[token.address]?.frozenBalance ?? '0')
-          .toFixed(),
-        frozenBalanceParsed: new BigNumber(
-          newAggregateTokenMap[aggregateTokenListMapKey].frozenBalanceParsed ??
-            '0',
-        )
-          .plus(tokenMap[token.address]?.frozenBalanceParsed ?? '0')
-          .toFixed(),
-        totalBalance: new BigNumber(
-          newAggregateTokenMap[aggregateTokenListMapKey].totalBalance ?? '0',
-        )
-          .plus(tokenMap[token.address]?.totalBalance ?? '0')
-          .toFixed(),
-        totalBalanceParsed: new BigNumber(
-          newAggregateTokenMap[aggregateTokenListMapKey].totalBalanceParsed ??
-            '0',
-        )
-          .plus(tokenMap[token.address]?.totalBalanceParsed ?? '0')
-          .toFixed(),
-        frozenBalanceFiatValue: new BigNumber(
-          newAggregateTokenMap[aggregateTokenListMapKey]
-            .frozenBalanceFiatValue ?? '0',
-        )
-          .plus(tokenMap[token.address]?.frozenBalanceFiatValue ?? '0')
-          .toFixed(),
-        totalBalanceFiatValue: new BigNumber(
-          newAggregateTokenMap[aggregateTokenListMapKey]
-            .totalBalanceFiatValue ?? '0',
-        )
-          .plus(tokenMap[token.address]?.totalBalanceFiatValue ?? '0')
-          .toFixed(),
-        fiatValue: new BigNumber(
-          newAggregateTokenMap[aggregateTokenListMapKey].fiatValue ?? '0',
-        )
-          .plus(tokenMap[token.address]?.fiatValue ?? '0')
-          .toFixed(),
-        price: tokenMap[token.address]?.price,
-        price24h: tokenMap[token.address]?.price24h,
+        commonToken: {
+          ...token,
+          $key: aggregateTokenListMapKey,
+          isAggregateToken: true,
+          commonSymbol: aggregateToken.commonSymbol,
+        },
+        tokens: [
+          {
+            ...token,
+            aggregateOrder: aggregateToken.order,
+          },
+        ],
       };
     } else {
-      newAggregateTokenMap[aggregateTokenListMapKey] = tokenMap[token.address];
+      newAggregateTokenListMap[aggregateTokenListMapKey].tokens.push(token);
     }
+
+    newAggregateTokenMap[aggregateTokenListMapKey] = tokenMap[token.$key];
   }
 
   return {

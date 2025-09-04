@@ -234,7 +234,13 @@ class ServiceToken extends ServiceBase {
     });
     let allTokens: ITokenData | undefined;
 
-    let aggregateTokenListMap: Record<string, IAccountToken> = {};
+    let aggregateTokenListMap: Record<
+      string,
+      {
+        commonToken: IAccountToken;
+        tokens: IAccountToken[];
+      }
+    > = {};
     let aggregateTokenMap: Record<string, ITokenFiat> = {};
 
     resp.data.data.tokens.data = resp.data.data.tokens.data
@@ -314,16 +320,14 @@ class ServiceToken extends ServiceBase {
         })
         .filter(Boolean);
 
-    const aggregateTokenList = Object.values(aggregateTokenListMap);
+    const aggregateTokenList = Object.values(aggregateTokenListMap).map(
+      (item) => item.commonToken,
+    );
 
     resp.data.data.tokens.data = [
       ...resp.data.data.tokens.data,
       ...aggregateTokenList,
     ];
-    resp.data.data.tokens.map = {
-      ...resp.data.data.tokens.map,
-      ...aggregateTokenMap,
-    };
 
     if (mergeTokens) {
       const { tokens, riskTokens, smallBalanceTokens } = resp.data.data as any;
@@ -395,6 +399,9 @@ class ServiceToken extends ServiceBase {
 
     resp.data.data.accountId = accountId;
     resp.data.data.networkId = networkId;
+
+    resp.data.data.aggregateTokenListMap = aggregateTokenListMap;
+    resp.data.data.aggregateTokenMap = aggregateTokenMap;
 
     return resp.data.data;
   }

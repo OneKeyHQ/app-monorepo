@@ -45,6 +45,8 @@ import perfUtils, {
 import {
   getEmptyTokenData,
   getMergedDeriveTokenData,
+  mergeAggregateTokenListMap,
+  mergeAggregateTokenMap,
   mergeDeriveTokenList,
   mergeDeriveTokenListMap,
   sortTokensByFiatValue,
@@ -130,6 +132,10 @@ function TokenListContainer({
     map: {},
   });
 
+  const aggregateTokenMapRef = useRef<{
+    [key: string]: ITokenFiat;
+  }>({});
+
   const riskTokenManagementRawData = useRef<IRiskTokenManagementDBStruct>({
     unblockedTokens: {},
     blockedTokens: {},
@@ -202,6 +208,8 @@ function TokenListContainer({
     refreshSmallBalanceTokenList,
     refreshSmallBalanceTokenListMap,
     refreshSmallBalanceTokensFiatValue,
+    refreshAggregateTokensListMap,
+    refreshAggregateTokensMap,
     updateTokenListState,
     updateSearchKey,
   } = useTokenListActions().current;
@@ -472,7 +480,10 @@ function TokenListContainer({
       keys: tokenListRef.current.keys,
       tokens: tokenListRef.current.tokens,
       merge: true,
-      map: tokenListRef.current.map,
+      map: {
+        ...tokenListRef.current.map,
+        ...aggregateTokenMapRef.current,
+      },
       mergeDerive: true,
       split: true,
     });
@@ -492,6 +503,8 @@ function TokenListContainer({
     riskyTokenListRef.current.tokens = [];
     riskyTokenListRef.current.keys = '';
     riskyTokenListRef.current.map = {};
+
+    aggregateTokenMapRef.current = {};
   }, 1000);
 
   const handleAllNetworkRequests = useCallback(
@@ -598,6 +611,23 @@ function TokenListContainer({
           ...riskyTokenListRef.current.map,
         };
 
+        if (r.aggregateTokenListMap) {
+          refreshAggregateTokensListMap({
+            tokens: r.aggregateTokenListMap,
+            merge: true,
+          });
+        }
+
+        if (r.aggregateTokenMap) {
+          aggregateTokenMapRef.current = mergeAggregateTokenMap({
+            sourceMap: r.aggregateTokenMap,
+            targetMap: aggregateTokenMapRef.current,
+          });
+          refreshAggregateTokensMap({
+            tokens: aggregateTokenMapRef.current,
+          });
+        }
+
         refreshTokenListMap({
           tokens: mergedMap,
           merge: true,
@@ -643,6 +673,8 @@ function TokenListContainer({
       account?.createAtNetwork,
       account?.id,
       network?.id,
+      refreshAggregateTokensListMap,
+      refreshAggregateTokensMap,
       refreshAllTokenList,
       refreshAllTokenListMap,
       refreshRiskyTokenListMap,
@@ -1032,6 +1064,16 @@ function TokenListContainer({
     let createAtNetworkWorth = new BigNumber(0);
     let smallBalanceTokensFiatValue = new BigNumber(0);
 
+    let aggregateTokenListMap: {
+      [key: string]: {
+        tokens: IAccountToken[];
+      };
+    } = {};
+
+    let aggregateTokenMap: {
+      [key: string]: ITokenFiat;
+    } = {};
+
     if (allNetworksResult) {
       for (const r of allNetworksResult) {
         let mergeDeriveAssetsEnabled;
@@ -1046,6 +1088,20 @@ function TokenListContainer({
           }
         } catch (e) {
           mergeDeriveAssetsEnabled = false;
+        }
+
+        if (r.aggregateTokenListMap) {
+          aggregateTokenListMap = mergeAggregateTokenListMap({
+            sourceMap: r.aggregateTokenListMap,
+            targetMap: aggregateTokenListMap,
+          });
+        }
+
+        if (r.aggregateTokenMap) {
+          aggregateTokenMap = mergeAggregateTokenMap({
+            sourceMap: r.aggregateTokenMap,
+            targetMap: aggregateTokenMap,
+          });
         }
 
         tokenList.tokens = mergeDeriveTokenList({
@@ -1118,9 +1174,20 @@ function TokenListContainer({
         }
       }
 
+      tokenList.tokens = uniqBy(tokenList.tokens, (item) => item.$key);
+      smallBalanceTokenList.smallBalanceTokens = uniqBy(
+        smallBalanceTokenList.smallBalanceTokens,
+        (item) => item.$key,
+      );
+      riskyTokenList.riskyTokens = uniqBy(
+        riskyTokenList.riskyTokens,
+        (item) => item.$key,
+      );
+
       const mergeTokenListMap = {
         ...tokenListMap,
         ...smallBalanceTokenListMap,
+        ...aggregateTokenMap,
       };
 
       let mergedTokens = sortTokensByFiatValue({
@@ -1172,6 +1239,14 @@ function TokenListContainer({
         createAtNetworkWorth: createAtNetworkWorth.toFixed(),
       });
 
+      refreshAggregateTokensListMap({
+        tokens: aggregateTokenListMap,
+      });
+
+      refreshAggregateTokensMap({
+        tokens: aggregateTokenMap,
+      });
+
       refreshTokenList(tokenList);
 
       refreshTokenListMap({
@@ -1210,6 +1285,8 @@ function TokenListContainer({
     network?.id,
     refreshAllTokenList,
     refreshAllTokenListMap,
+    refreshAggregateTokensListMap,
+    refreshAggregateTokensMap,
     refreshRiskyTokenList,
     refreshRiskyTokenListMap,
     refreshSmallBalanceTokenList,
