@@ -126,6 +126,7 @@ function RawCheckbox({
               pointerEvents="none"
               variant="$bodyLgMedium"
               onPress={platformEnv.isNativeAndroid ? onPress : undefined}
+              color={checkboxProps.disabled ? '$textDisabled' : '$text'}
               userSelect="none"
               {...labelProps}
             >
@@ -133,7 +134,11 @@ function RawCheckbox({
             </Label>
           ) : null}
           {description ? (
-            <SizableText size="$bodyMd" color="$textSubdued" pt="$0.5">
+            <SizableText
+              size="$bodyMd"
+              color={checkboxProps.disabled ? '$textDisabled' : '$textSubdued'}
+              pt="$0.5"
+            >
               {description}
             </SizableText>
           ) : null}

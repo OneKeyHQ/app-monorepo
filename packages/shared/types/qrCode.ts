@@ -14,6 +14,7 @@ export enum EQRCodeHandlerType {
   MARKET_DETAIL = 'MARKET_DETAIL',
   SEND_PROTECTION = 'SEND_PROTECTION',
   REWARD_CENTER = 'REWARD_CENTER',
+  PRIME_TRANSFER = 'PRIME_TRANSFER',
   TOKEN_URI = 'TOKEN_URI',
 }
 
@@ -29,6 +30,7 @@ export enum EQRCodeHandlerNames {
   marketDetail = 'marketDetail',
   rewardCenter = 'rewardCenter',
   sendProtection = 'sendProtection',
+  primeTransfer = 'primeTransfer',
   sui = 'sui',
 }
 
@@ -44,6 +46,7 @@ export const PARSE_HANDLER_NAMES = {
     EQRCodeHandlerNames.marketDetail,
     EQRCodeHandlerNames.rewardCenter,
     EQRCodeHandlerNames.sendProtection,
+    EQRCodeHandlerNames.primeTransfer,
     EQRCodeHandlerNames.sui,
     EQRCodeHandlerNames.lightningNetwork,
   ],
