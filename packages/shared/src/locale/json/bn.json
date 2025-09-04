@@ -1853,6 +1853,7 @@
   "message_signing.address_invalid_text": "অবৈধ ঠিকানা বা সমর্থিত নয় এমন নেটওয়ার্ক",
   "message_signing.address_placeholder": "এই ঠিকানার মালিকানা প্রমাণের জন্য একটি বার্তা লিখুন...",
   "message_signing.main_title": "বার্তা স্বাক্ষর করুন ও যাচাই করুন",
+  "message_signing.message_invalid_hex": "অবৈধ হেক্স স্ট্রিং",
   "message_signing.sign_action": "বার্তা স্বাক্ষর করুন",
   "message_signing.signature_desc": "স্বাক্ষরের পর তৈরি হয়েছে",
   "message_signing.signature_invalid_text": "অবৈধ স্বাক্ষর",

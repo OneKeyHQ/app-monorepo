@@ -7,6 +7,7 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import {
   SizableText,
+  Spinner,
   Stack,
   Tabs,
   useCurrentTabScrollY,
@@ -57,10 +58,11 @@ export function TransactionsHistory({
 }: ITransactionsHistoryProps) {
   const intl = useIntl();
   const { gtXl } = useMedia();
-  const { transactions, isRefreshing } = useMarketTransactions({
-    tokenAddress,
-    networkId,
-  });
+  const { transactions, isRefreshing, isLoadingMore, hasMore, loadMore } =
+    useMarketTransactions({
+      tokenAddress,
+      networkId,
+    });
   const { scrollTop } = useTabsScrollContext() as {
     scrollTop: number;
   };
@@ -95,8 +97,10 @@ export function TransactionsHistory({
   );
 
   const handleEndReached = useCallback(() => {
-    // TODO: Implement pagination logic here
-  }, []);
+    if (hasMore && !isLoadingMore) {
+      void loadMore();
+    }
+  }, [hasMore, isLoadingMore, loadMore]);
 
   useScrollEnd(onScrollEnd ?? noop);
 
@@ -104,6 +108,7 @@ export function TransactionsHistory({
     <Tabs.FlatList<IMarketTokenTransaction>
       key={listKey}
       onEndReached={handleEndReached}
+      onEndReachedThreshold={0.2}
       data={transactions}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
@@ -120,6 +125,13 @@ export function TransactionsHistory({
             </SizableText>
           </Stack>
         )
+      }
+      ListFooterComponent={
+        isLoadingMore ? (
+          <Stack p="$4" alignItems="center" gap="$2">
+            <Spinner size="small" />
+          </Stack>
+        ) : null
       }
       contentContainerStyle={{
         paddingBottom: platformEnv.isNativeAndroid ? 48 : 16,

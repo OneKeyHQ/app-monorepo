@@ -1853,6 +1853,7 @@
   "message_signing.address_invalid_text": "잘못된 주소이거나 지원되지 않는 네트워크입니다.",
   "message_signing.address_placeholder": "이 주소의 소유권을 증명하기 위해 메시지를 입력하세요...",
   "message_signing.main_title": "메시지 서명 및 검증",
+  "message_signing.message_invalid_hex": "잘못된 16진수 문자열",
   "message_signing.sign_action": "메시지 서명",
   "message_signing.signature_desc": "서명 후 생성됨",
   "message_signing.signature_invalid_text": "잘못된 서명",
