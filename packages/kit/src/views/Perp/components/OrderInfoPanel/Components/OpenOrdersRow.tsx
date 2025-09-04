@@ -4,14 +4,15 @@ import BigNumber from 'bignumber.js';
 
 import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
-import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { calcCellAlign } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
+import type { FrontendOrder } from '@nktkas/hyperliquid';
 
 interface IOpenOrdersRowProps {
-  order: IWsWebData2['openOrders'][number];
+  order: FrontendOrder;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
   handleCancelAll: () => void;
@@ -26,10 +27,11 @@ const OpenOrdersRow = memo(
   }: IOpenOrdersRowProps) => {
     const assetInfo = useMemo(() => {
       const assetSymbol = order.coin ?? '-';
+      const orderType = order.orderType;
       const type = order.side === 'B' ? 'Buy' : 'Sell';
       const typeColor = order.side === 'B' ? '$textSuccess' : '$textCritical';
-      return { assetSymbol, type, typeColor };
-    }, [order.coin, order.side]);
+      return { assetSymbol, type, orderType, typeColor };
+    }, [order.coin, order.side, order.orderType]);
     const dateInfo = useMemo(() => {
       const timeDate = new Date(order.timestamp);
       const date = formatTime(timeDate, {
@@ -45,10 +47,83 @@ const OpenOrdersRow = memo(
       const size = order.sz;
       const priceBN = new BigNumber(price);
       const sizeBN = new BigNumber(size);
-      const value = priceBN.times(sizeBN).toFixed();
+      const executePrice = order.triggerPx;
       const origSize = order.origSz;
-      return { price, size, value, origSize };
-    }, [order.limitPx, order.sz, order.origSz]);
+      const triggerCondition = order.triggerCondition;
+      const origSizeFormatted = numberFormat(origSize, {
+        formatter: 'balance',
+      });
+      const executePriceFormatted = numberFormat(executePrice, {
+        formatter: 'price',
+        formatterOptions: {
+          currency: '$',
+        },
+      });
+      const priceFormatted = numberFormat(price, {
+        formatter: 'price',
+        formatterOptions: {
+          currency: '$',
+        },
+      });
+      const sizeFormatted = numberFormat(size, {
+        formatter: 'balance',
+      });
+      const value = priceBN.times(sizeBN).toFixed();
+      const valueFormatted = numberFormat(value, {
+        formatter: 'value',
+        formatterOptions: {
+          currency: '$',
+        },
+      });
+      return {
+        triggerCondition,
+        origSizeFormatted,
+        executePriceFormatted,
+        priceFormatted,
+        sizeFormatted,
+        valueFormatted,
+      };
+    }, [
+      order.limitPx,
+      order.sz,
+      order.origSz,
+      order.triggerCondition,
+      order.triggerPx,
+    ]);
+
+    const tpslInfo = useMemo(() => {
+      const tpslChildren = order.children;
+      let tpPrice = '--';
+      let slPrice = '--';
+      if (tpslChildren && tpslChildren.length > 0) {
+        const tpslOrders = tpslChildren.filter((child) => child.isPositionTpsl);
+        tpslOrders.forEach((child) => {
+          if (child.orderType.startsWith('Take')) {
+            tpPrice = `${
+              numberFormat(child.triggerPx, {
+                formatter: 'price',
+                formatterOptions: {
+                  currency: '$',
+                },
+              }) as string
+            }`;
+          } else if (child.orderType.startsWith('Stop')) {
+            slPrice = `${
+              numberFormat(child.triggerPx, {
+                formatter: 'price',
+                formatterOptions: {
+                  currency: '$',
+                },
+              }) as string
+            }`;
+          }
+        });
+      }
+      return {
+        tpsl: `${tpPrice}/${slPrice}`,
+      };
+    }, [order.children]);
+
     return (
       <XStack
         flex={1}
@@ -97,7 +172,7 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[2].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">-</SizableText>
+          <SizableText size="$bodySm">{assetInfo.orderType}</SizableText>
         </XStack>
 
         {/*  size */}
@@ -108,7 +183,9 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[4].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`${orderBaseInfo.size}${assetInfo.assetSymbol}`}</SizableText>
+          <SizableText size="$bodySm">{`${
+            orderBaseInfo.sizeFormatted as string
+          }${assetInfo.assetSymbol}`}</SizableText>
         </XStack>
 
         {/* Original size */}
@@ -119,7 +196,9 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[3].align)}
           alignItems="center"
         >
-          <SizableText size="$bodyMd">{`${orderBaseInfo.origSize}${assetInfo.assetSymbol}`}</SizableText>
+          <SizableText size="$bodyMd">{`${
+            orderBaseInfo.origSizeFormatted as string
+          }${assetInfo.assetSymbol}`}</SizableText>
         </XStack>
 
         {/* value */}
@@ -130,7 +209,9 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[5].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`$${orderBaseInfo.value}`}</SizableText>
+          <SizableText size="$bodySm">{`${
+            orderBaseInfo.valueFormatted as string
+          }`}</SizableText>
         </XStack>
 
         {/* Execute price */}
@@ -141,7 +222,9 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[6].align)}
           alignItems="center"
         >
-          <SizableText size="$bodyMd">-</SizableText>
+          <SizableText size="$bodyMd">
+            {orderBaseInfo.executePriceFormatted as string}
+          </SizableText>
         </XStack>
         {/* Trigger Condition */}
         <XStack
@@ -151,7 +234,9 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[6].align)}
           alignItems="center"
         >
-          <SizableText size="$bodyMd">-</SizableText>
+          <SizableText size="$bodyMd">
+            {orderBaseInfo.triggerCondition}
+          </SizableText>
         </XStack>
         {/* TPSL */}
         <XStack
@@ -161,7 +246,7 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[6].align)}
           alignItems="center"
         >
-          <SizableText size="$bodyMd">-</SizableText>
+          <SizableText size="$bodyMd">{tpslInfo.tpsl}</SizableText>
         </XStack>
 
         {/* Cancel All */}

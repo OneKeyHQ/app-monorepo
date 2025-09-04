@@ -7,46 +7,22 @@ import {
 import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useTokenList } from '../../../hooks';
-import { usePerpPositions } from '../../../hooks/usePerpOrderInfoPanel';
+import {
+  usePerpOrders,
+  usePerpPositions,
+} from '../../../hooks/usePerpOrderInfoPanel';
 import { showClosePositionDialog } from '../ClosePositionModal';
 import { PositionRow } from '../Components/PositionsRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
-// Column configuration for CommonTableListView
-const COLUMNS: IColumnConfig[] = [
-  { key: 'asset', title: 'Asset', width: 100 },
-  { key: 'size', title: 'Position Size', width: 100 },
-  {
-    key: 'entryPrice',
-    title: 'Entry Price',
-    minWidth: 80,
-    align: 'left',
-    flex: 1,
-  },
-  {
-    key: 'markPrice',
-    title: 'Mark Price',
-    minWidth: 80,
-    align: 'left',
-    flex: 1,
-  },
-  {
-    key: 'liqPrice',
-    title: 'Liq. Price',
-    minWidth: 80,
-    align: 'left',
-    flex: 1,
-  },
-  { key: 'pnl', title: 'PnL (ROE %)', minWidth: 100, align: 'left', flex: 1 },
-  { key: 'margin', title: 'Margin', minWidth: 100, align: 'left', flex: 1 },
-  { key: 'funding', title: 'Funding', minWidth: 100, align: 'left', flex: 1 },
-  { key: 'TPSL', title: 'TP/SL', minWidth: 100, align: 'left', flex: 1 },
-  { key: 'actions', title: 'Close', width: 100, align: 'center' },
-];
+interface IPerpPositionsListProps {
+  handleViewTpslOrders: () => void;
+}
 
-function PerpPositionsList() {
+function PerpPositionsList({ handleViewTpslOrders }: IPerpPositionsListProps) {
   const positions = usePerpPositions();
+  const openOrders = usePerpOrders();
   const [allMids] = useAllMidsAtom();
   const actions = useHyperliquidActions();
   const { getTokenInfo } = useTokenList();
@@ -133,22 +109,28 @@ function PerpPositionsList() {
     const coin = position?.coin;
     const szi = position?.szi;
     const midValue = allMids?.mids?.[coin];
+    const tpslOrders = openOrders.filter(
+      (order) => order.coin === coin && order.isPositionTpsl,
+    );
     return (
       <PositionRow
         key={`${coin}_${szi}`}
         pos={position}
         mid={midValue}
+        tpslOrders={tpslOrders}
         cellMinWidth={totalMinWidth}
         columnConfigs={columnsConfig}
         handleMarketClose={handleMarketClose}
         handleLimitClose={handleLimitClose}
+        handleViewTpslOrders={handleViewTpslOrders}
       />
     );
   };
 
   return (
     <CommonTableListView
-      columns={COLUMNS}
+      columns={columnsConfig}
+      minTableWidth={totalMinWidth}
       data={positions}
       renderRow={renderPositionRow}
       emptyMessage="No open positions"

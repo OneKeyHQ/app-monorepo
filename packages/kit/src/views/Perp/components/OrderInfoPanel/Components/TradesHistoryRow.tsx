@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { calcCellAlign } from '../utils';
@@ -46,8 +47,18 @@ const TradesHistoryRow = memo(
       const fee = fill.fee;
       const priceBN = new BigNumber(price);
       const sizeBN = new BigNumber(size);
-      const tradeValue = priceBN.times(sizeBN).toNumber();
-      return { price, size, fee, tradeValue };
+      const priceFormatted = numberFormat(price, {
+        formatter: 'price',
+      });
+      const feeFormatted = numberFormat(fee, {
+        formatter: 'value',
+      });
+
+      const tradeValue = priceBN.times(sizeBN).toFixed();
+      const tradeValueFormatted = numberFormat(tradeValue, {
+        formatter: 'value',
+      });
+      return { priceFormatted, size, feeFormatted, tradeValueFormatted };
     }, [fill.fee, fill.px, fill.sz]);
 
     const closePnlInfo = useMemo(() => {
@@ -60,7 +71,10 @@ const TradesHistoryRow = memo(
         closePnlPlusOrMinus = '-';
       }
       const closePnlStr = closePnlBN.abs().toFixed();
-      return { closePnlStr, closePnlColor, closePnlPlusOrMinus };
+      const closePnlFormatted = numberFormat(closePnlStr, {
+        formatter: 'value',
+      });
+      return { closePnlFormatted, closePnlColor, closePnlPlusOrMinus };
     }, [fill.closedPnl]);
 
     return (
@@ -121,7 +135,9 @@ const TradesHistoryRow = memo(
           justifyContent={calcCellAlign(columnConfigs[3].align)}
           alignItems="center"
         >
-          <SizableText size="$bodyMd">{`${tradeBaseInfo.price}`}</SizableText>
+          <SizableText size="$bodyMd">{`$${
+            tradeBaseInfo.priceFormatted as string
+          }`}</SizableText>
         </XStack>
 
         {/* Position size */}
@@ -144,7 +160,7 @@ const TradesHistoryRow = memo(
           alignItems="center"
         >
           <SizableText size="$bodySm">
-            {`$${tradeBaseInfo.tradeValue}`}
+            {`$${tradeBaseInfo.tradeValueFormatted as string}`}
           </SizableText>
         </XStack>
 
@@ -156,7 +172,9 @@ const TradesHistoryRow = memo(
           justifyContent={calcCellAlign(columnConfigs[6].align)}
           alignItems="center"
         >
-          <SizableText size="$bodyMd">${`$${tradeBaseInfo.fee}`}</SizableText>
+          <SizableText size="$bodyMd">
+            {`$${tradeBaseInfo.feeFormatted as string}`}
+          </SizableText>
         </XStack>
 
         {/* Close PnL */}
@@ -168,7 +186,9 @@ const TradesHistoryRow = memo(
           alignItems="center"
         >
           <SizableText size="$bodyMd" color={closePnlInfo.closePnlColor}>
-            ${`${closePnlInfo.closePnlPlusOrMinus}$${closePnlInfo.closePnlStr}`}
+            {`${closePnlInfo.closePnlPlusOrMinus}$${
+              closePnlInfo.closePnlFormatted as string
+            }`}
           </SizableText>
         </XStack>
       </XStack>
