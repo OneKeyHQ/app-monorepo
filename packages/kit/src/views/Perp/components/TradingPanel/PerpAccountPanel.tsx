@@ -55,7 +55,7 @@ function PerpAccountPanel() {
   }
 
   return (
-    <YStack flex={1} space="$3">
+    <YStack flex={1} gap="$3">
       {/* Header */}
       <XStack p="$4" justifyContent="space-between" alignItems="center">
         <SizableText size="$headingLg" fontWeight="600">

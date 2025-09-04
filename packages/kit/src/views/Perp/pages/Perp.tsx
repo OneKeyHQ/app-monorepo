@@ -1,6 +1,6 @@
 import { useFocusEffect } from '@react-navigation/native';
 
-import { Page } from '@onekeyhq/components';
+import { Page, useMedia } from '@onekeyhq/components';
 import { ProviderJotaiContextHyperliquid } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -11,6 +11,15 @@ import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useHyperliquidSession } from '../hooks';
 import { usePerpNetworkLock } from '../hooks/usePerpNetworkLock';
 import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
+import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
+
+function PerpLayout() {
+  const { gtMd } = useMedia();
+  if (gtMd) {
+    return <PerpDesktopLayout />;
+  }
+  return <PerpMobileLayout />;
+}
 
 function PerpContent() {
   usePerpNetworkLock();
@@ -23,7 +32,7 @@ function PerpContent() {
         tabRoute={ETabRoutes.Perp}
       />
       <Page.Body>
-        <PerpDesktopLayout />
+        <PerpLayout />
       </Page.Body>
     </Page>
   );
