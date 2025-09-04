@@ -17,6 +17,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { UseFormReturn } from '@onekeyhq/components';
+import { isTaprootAddress } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -107,23 +108,26 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
       {
         label: intl.formatMessage({ id: ETranslations.standard_or_BIP137 }),
         value: 'bip137',
-        disabled: false,
+        disabled: isTaprootAddress(watchedAddress),
       },
       { label: 'BIP322', value: 'bip322', disabled: false },
     ];
-  }, [detectedNetworkId, intl]);
+  }, [detectedNetworkId, intl, watchedAddress]);
 
   // Set default format when displayFormatForm changes
   useEffect(() => {
     if (displayFormatForm) {
       const currentFormat = form.getValues('format');
       if (!currentFormat) {
-        form.setValue('format', 'bip137');
+        form.setValue(
+          'format',
+          isTaprootAddress(watchedAddress) ? 'bip322' : 'bip137',
+        );
       }
     } else {
       form.setValue('format', '');
     }
-  }, [displayFormatForm, form]);
+  }, [displayFormatForm, form, watchedAddress]);
 
   return (
     <Form form={form}>
@@ -147,7 +151,9 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
             const hexFormat = form.getValues('hexFormat');
             if (hexFormat && value) {
               if (!hexUtils.isHexString(value)) {
-                return 'Not a valid hex';
+                return intl.formatMessage({
+                  id: ETranslations.message_signing_message_invalid_hex,
+                });
               }
             }
             return true;

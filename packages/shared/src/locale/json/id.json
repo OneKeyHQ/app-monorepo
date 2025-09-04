@@ -1853,6 +1853,7 @@
   "message_signing.address_invalid_text": "Alamat tidak valid atau jaringan tidak didukung",
   "message_signing.address_placeholder": "Masukkan pesan untuk membuktikan kepemilikan alamat ini...",
   "message_signing.main_title": "Tanda tangani & verifikasi pesan",
+  "message_signing.message_invalid_hex": "String heksadesimal tidak valid",
   "message_signing.sign_action": "Tandatangani pesan",
   "message_signing.signature_desc": "Dibuat setelah penandatanganan",
   "message_signing.signature_invalid_text": "Tanda tangan tidak valid",

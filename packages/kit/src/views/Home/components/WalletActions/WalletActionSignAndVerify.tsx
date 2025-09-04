@@ -3,7 +3,9 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ActionList } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -27,6 +29,17 @@ export function WalletActionSignAndVerify({
     deriveType,
     isOthersWallet,
   } = activeAccount;
+
+  const displaySignAndVerify = usePromiseResult(async () => {
+    const signAccounts =
+      await backgroundApiProxy.serviceInternalSignAndVerify.getSignAccounts({
+        networkId: network?.id ?? '',
+        accountId: account?.id ?? '',
+        indexedAccountId: indexedAccount?.id ?? '',
+        isOthersWallet,
+      });
+    return signAccounts.length > 0;
+  }, [account?.id, indexedAccount?.id, isOthersWallet, network?.id]);
 
   const handleSignAndVerify = useCallback(async () => {
     if (!network?.id || !wallet?.id) {
@@ -56,6 +69,10 @@ export function WalletActionSignAndVerify({
     network,
     wallet,
   ]);
+
+  if (!displaySignAndVerify.result) {
+    return null;
+  }
 
   return (
     <ActionList.Item
