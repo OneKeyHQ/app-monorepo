@@ -10,56 +10,57 @@ import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 function PerpDesktopLayout() {
   const { gtXl } = useMedia();
   return (
-    <YStack flex={1} bg="$bgApp">
-      <PerpTickerBar />
-
-      <XStack flex={1}>
-        <YStack
-          flex={1}
-          borderRightWidth="$px"
-          borderRightColor="$borderSubdued"
-          minWidth={gtXl ? 800 : 400}
-        >
-          {/* Charts Section - Takes 60% of left side height */}
-          <XStack
-            flex={gtXl ? 1 : 0.6}
-            borderBottomWidth="$px"
-            borderBottomColor="$borderSubdued"
-            minHeight={400}
+    <ScrollView>
+      <YStack flex={1} bg="$bgApp">
+        <PerpTickerBar />
+        <XStack flex={1}>
+          <YStack
+            flex={1}
+            borderRightWidth="$px"
+            borderRightColor="$borderSubdued"
+            minWidth={gtXl ? 800 : 400}
           >
-            {/* Charts - 70% width */}
-            <YStack flex={0.7}>
-              <PerpCandles />
-            </YStack>
-
-            {/* Order Book - 30% width */}
-            {gtXl ? (
-              <YStack
-                flex={0.3}
-                borderLeftWidth="$px"
-                borderLeftColor="$borderSubdued"
-                minWidth={300}
-              >
-                <PerpOrderBook />
+            {/* Charts Section - Takes 60% of left side height */}
+            <XStack
+              flex={gtXl ? 1 : 0.6}
+              borderBottomWidth="$px"
+              borderBottomColor="$borderSubdued"
+              minHeight={400}
+            >
+              {/* Charts - 70% width */}
+              <YStack flex={gtXl ? 0.7 : 1}>
+                <PerpCandles />
               </YStack>
-            ) : null}
-          </XStack>
 
-          {/* Positions Section - Takes 40% of left side height */}
-          <YStack flex={0.4} minHeight={300}>
-            <PerpOrderInfoPanel />
-          </YStack>
-        </YStack>
+              {/* Order Book - 30% width */}
+              {gtXl ? (
+                <YStack
+                  flex={0.3}
+                  borderLeftWidth="$px"
+                  borderLeftColor="$borderSubdued"
+                  minWidth={300}
+                >
+                  <PerpOrderBook />
+                </YStack>
+              ) : null}
+            </XStack>
 
-        {/* Right Section: Trading Panel */}
-        <ScrollView maxWidth={400} minWidth={200}>
-          <PerpTradingPanel />
-          <YStack borderTopWidth="$px" borderTopColor="$borderSubdued">
-            <PerpAccountPanel />
+            {/* Positions Section - Takes 40% of left side height */}
+            <YStack flex={0.4} minHeight={300}>
+              <PerpOrderInfoPanel />
+            </YStack>
           </YStack>
-        </ScrollView>
-      </XStack>
-    </YStack>
+
+          {/* Right Section: Trading Panel */}
+          <YStack maxWidth={400} minWidth={200}>
+            <PerpTradingPanel />
+            <YStack borderTopWidth="$px" borderTopColor="$borderSubdued">
+              <PerpAccountPanel />
+            </YStack>
+          </YStack>
+        </XStack>
+      </YStack>
+    </ScrollView>
   );
 }
 
