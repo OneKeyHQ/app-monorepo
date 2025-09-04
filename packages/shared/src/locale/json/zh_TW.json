@@ -1853,6 +1853,7 @@
   "message_signing.address_invalid_text": "無效地址或不支援的網路",
   "message_signing.address_placeholder": "輸入訊息以證明您擁有此地址...",
   "message_signing.main_title": "簽署與驗證訊息",
+  "message_signing.message_invalid_hex": "無效的十六進位字串",
   "message_signing.sign_action": "簽署訊息",
   "message_signing.signature_desc": "簽署後產生",
   "message_signing.signature_invalid_text": "無效的簽名",

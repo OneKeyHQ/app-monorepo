@@ -1858,6 +1858,7 @@
   message_signing_address_invalid_text = 'message_signing.address_invalid_text',
   message_signing_address_placeholder = 'message_signing.address_placeholder',
   message_signing_main_title = 'message_signing.main_title',
+  message_signing_message_invalid_hex = 'message_signing.message_invalid_hex',
   message_signing_sign_action = 'message_signing.sign_action',
   message_signing_signature_desc = 'message_signing.signature_desc',
   message_signing_signature_invalid_text = 'message_signing.signature_invalid_text',
