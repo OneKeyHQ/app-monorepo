@@ -192,6 +192,12 @@ export default function HardwareSalesReward() {
     },
     [],
   );
+
+  const keyExtractor = useCallback(
+    (item: IHardwareSalesRecord['items'][0]) => item._id,
+    [],
+  );
+
   return (
     <Page>
       <Page.Header
@@ -312,7 +318,7 @@ export default function HardwareSalesReward() {
             estimatedItemSize={60}
             renderItem={renderItem}
             onEndReached={debounceFetchMore}
-            keyExtractor={(item: IHardwareSalesRecord['items'][0]) => item._id}
+            keyExtractor={keyExtractor}
           />
         )}
       </Page.Body>
