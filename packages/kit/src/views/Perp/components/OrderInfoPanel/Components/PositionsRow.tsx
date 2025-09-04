@@ -58,26 +58,53 @@ const PositionRow = memo(
       const liquidationPrice = new BigNumber(
         pos.liquidationPx || '0',
       ).toFixed();
+      const entryPriceFormatted = numberFormat(entryPrice, {
+        formatter: 'price',
+        formatterOptions: {
+          currency: '$',
+        },
+      });
+      const markPriceFormatted = numberFormat(markPrice, {
+        formatter: 'price',
+        formatterOptions: {
+          currency: '$',
+        },
+      });
+      const liquidationPriceFormatted = numberFormat(liquidationPrice, {
+        formatter: 'price',
+        formatterOptions: {
+          currency: '$',
+        },
+      });
       return {
-        entryPrice,
-        markPrice,
-        liquidationPrice,
+        entryPriceFormatted,
+        markPriceFormatted,
+        liquidationPriceFormatted,
       };
     }, [pos.entryPx, mid, pos.liquidationPx]);
 
     const sizeInfo = useMemo(() => {
       const sizeBN = new BigNumber(pos.szi || '0');
       const sizeAbs = sizeBN.abs().toFixed();
+      const sizeAbsFormatted = numberFormat(sizeAbs, {
+        formatter: 'balance',
+        formatterOptions: {
+          tokenSymbol: assetInfo.assetSymbol || '',
+        },
+      });
       const sizeValue = new BigNumber(pos.positionValue || '0').toFixed();
       return {
-        sizeAbs,
+        sizeAbsFormatted,
         sizeValue,
       };
-    }, [pos.szi, pos.positionValue]);
+    }, [pos.szi, pos.positionValue, assetInfo.assetSymbol]);
 
     const otherInfo = useMemo(() => {
       const pnlBn = new BigNumber(pos.unrealizedPnl || '0');
       const pnlAbs = pnlBn.abs().toFixed();
+      const pnlFormatted = numberFormat(pnlAbs, {
+        formatter: 'value',
+      });
       let pnlColor = '$textSuccess';
       let pnlPlusOrMinus = '+';
       if (pnlBn.lt(0)) {
@@ -85,13 +112,25 @@ const PositionRow = memo(
         pnlPlusOrMinus = '-';
       }
       const marginUsedBN = new BigNumber(pos.marginUsed || '0');
+      const marginUsedFormatted = numberFormat(marginUsedBN.toFixed(), {
+        formatter: 'value',
+        formatterOptions: {
+          currency: '$',
+        },
+      });
+      const fundingFormatted = numberFormat(pos.cumFunding.allTime, {
+        formatter: 'value',
+        formatterOptions: {
+          currency: '$',
+        },
+      });
       const roiPercent = marginUsedBN.gt(0)
-        ? pnlBn.div(marginUsedBN).times(100).abs().toFixed()
+        ? pnlBn.div(marginUsedBN).times(100).abs().toFixed(2)
         : '0';
       return {
-        unrealizedPnl: pnlAbs,
-        marginUsed: new BigNumber(pos.marginUsed || '0').toFixed(),
-        funding: new BigNumber(pos.cumFunding.allTime || '0').toFixed(),
+        unrealizedPnl: pnlFormatted,
+        marginUsedFormatted,
+        fundingFormatted,
         roiPercent,
         pnlColor,
         pnlPlusOrMinus,
@@ -109,15 +148,21 @@ const PositionRow = memo(
         if (!showOrder) {
           tpslOrders.forEach((order) => {
             if (order.orderType.startsWith('Take')) {
-              tpPrice = `$${
+              tpPrice = `${
                 numberFormat(order.triggerPx, {
                   formatter: 'price',
+                  formatterOptions: {
+                    currency: '$',
+                  },
                 }) as string
               }`;
             } else if (order.orderType.startsWith('Stop')) {
-              slPrice = `$${
+              slPrice = `${
                 numberFormat(order.triggerPx, {
                   formatter: 'price',
+                  formatterOptions: {
+                    currency: '$',
+                  },
                 }) as string
               }`;
             }
@@ -165,7 +210,7 @@ const PositionRow = memo(
           alignItems={calcCellAlign(columnConfigs[1].align)}
         >
           <SizableText size="$bodySm">
-            {`${sizeInfo.sizeAbs} ${assetInfo.assetSymbol}`}
+            {`${sizeInfo.sizeAbsFormatted as string}`}
           </SizableText>
           <SizableText size="$bodySm" color="$textSubdued">
             {`$${sizeInfo.sizeValue}`}
@@ -180,7 +225,9 @@ const PositionRow = memo(
           justifyContent={calcCellAlign(columnConfigs[2].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`$${priceInfo.entryPrice}`}</SizableText>
+          <SizableText size="$bodySm">{`${
+            priceInfo.entryPriceFormatted as string
+          }`}</SizableText>
         </XStack>
 
         {/* Mark Price */}
@@ -191,7 +238,9 @@ const PositionRow = memo(
           justifyContent={calcCellAlign(columnConfigs[3].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`$${priceInfo.markPrice}`}</SizableText>
+          <SizableText size="$bodySm">{`${
+            priceInfo.markPriceFormatted as string
+          }`}</SizableText>
         </XStack>
         {/* Liq. Price */}
         <XStack
@@ -201,7 +250,9 @@ const PositionRow = memo(
           justifyContent={calcCellAlign(columnConfigs[4].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`$${priceInfo.liquidationPrice}`}</SizableText>
+          <SizableText size="$bodySm">{`${
+            priceInfo.liquidationPriceFormatted as string
+          }`}</SizableText>
         </XStack>
         {/* Unrealized PnL */}
         <XStack
@@ -211,10 +262,11 @@ const PositionRow = memo(
           justifyContent={calcCellAlign(columnConfigs[5].align)}
           alignItems="center"
         >
-          <SizableText
-            size="$bodySm"
-            color={otherInfo.pnlColor}
-          >{`${otherInfo.pnlPlusOrMinus}$${otherInfo.unrealizedPnl}(${otherInfo.pnlPlusOrMinus}${otherInfo.roiPercent}%)`}</SizableText>
+          <SizableText size="$bodySm" color={otherInfo.pnlColor}>{`${
+            otherInfo.pnlPlusOrMinus
+          }$${otherInfo.unrealizedPnl as string}(${otherInfo.pnlPlusOrMinus}${
+            otherInfo.roiPercent
+          }%)`}</SizableText>
         </XStack>
 
         {/* Margin */}
@@ -225,7 +277,9 @@ const PositionRow = memo(
           justifyContent={calcCellAlign(columnConfigs[6].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`$${otherInfo.marginUsed}`}</SizableText>
+          <SizableText size="$bodySm">{`${
+            otherInfo.marginUsedFormatted as string
+          }`}</SizableText>
         </XStack>
 
         {/* Funding */}
@@ -236,7 +290,9 @@ const PositionRow = memo(
           justifyContent={calcCellAlign(columnConfigs[7].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`$${otherInfo.funding}`}</SizableText>
+          <SizableText size="$bodySm">{`${
+            otherInfo.fundingFormatted as string
+          }`}</SizableText>
         </XStack>
 
         {/* TPSL */}

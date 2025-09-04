@@ -135,7 +135,7 @@ const TradesHistoryRow = memo(
           justifyContent={calcCellAlign(columnConfigs[3].align)}
           alignItems="center"
         >
-          <SizableText size="$bodyMd">{`${
+          <SizableText size="$bodyMd">{`$${
             tradeBaseInfo.priceFormatted as string
           }`}</SizableText>
         </XStack>
@@ -173,7 +173,7 @@ const TradesHistoryRow = memo(
           alignItems="center"
         >
           <SizableText size="$bodyMd">
-            ${`$${tradeBaseInfo.feeFormatted as string}`}
+            {`$${tradeBaseInfo.feeFormatted as string}`}
           </SizableText>
         </XStack>
 
@@ -186,7 +186,6 @@ const TradesHistoryRow = memo(
           alignItems="center"
         >
           <SizableText size="$bodyMd" color={closePnlInfo.closePnlColor}>
-            $
             {`${closePnlInfo.closePnlPlusOrMinus}$${
               closePnlInfo.closePnlFormatted as string
             }`}

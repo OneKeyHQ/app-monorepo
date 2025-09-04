@@ -48,10 +48,41 @@ const OpenOrdersRow = memo(
       const priceBN = new BigNumber(price);
       const sizeBN = new BigNumber(size);
       const executePrice = order.triggerPx;
-      const value = priceBN.times(sizeBN).toFixed();
       const origSize = order.origSz;
       const triggerCondition = order.triggerCondition;
-      return { price, size, value, origSize, triggerCondition, executePrice };
+      const origSizeFormatted = numberFormat(origSize, {
+        formatter: 'balance',
+      });
+      const executePriceFormatted = numberFormat(executePrice, {
+        formatter: 'price',
+        formatterOptions: {
+          currency: '$',
+        },
+      });
+      const priceFormatted = numberFormat(price, {
+        formatter: 'price',
+        formatterOptions: {
+          currency: '$',
+        },
+      });
+      const sizeFormatted = numberFormat(size, {
+        formatter: 'balance',
+      });
+      const value = priceBN.times(sizeBN).toFixed();
+      const valueFormatted = numberFormat(value, {
+        formatter: 'value',
+        formatterOptions: {
+          currency: '$',
+        },
+      });
+      return {
+        triggerCondition,
+        origSizeFormatted,
+        executePriceFormatted,
+        priceFormatted,
+        sizeFormatted,
+        valueFormatted,
+      };
     }, [
       order.limitPx,
       order.sz,
@@ -68,15 +99,21 @@ const OpenOrdersRow = memo(
         const tpslOrders = tpslChildren.filter((child) => child.isPositionTpsl);
         tpslOrders.forEach((child) => {
           if (child.orderType.startsWith('Take')) {
-            tpPrice = `$${
+            tpPrice = `${
               numberFormat(child.triggerPx, {
                 formatter: 'price',
+                formatterOptions: {
+                  currency: '$',
+                },
               }) as string
             }`;
           } else if (child.orderType.startsWith('Stop')) {
-            slPrice = `$${
+            slPrice = `${
               numberFormat(child.triggerPx, {
                 formatter: 'price',
+                formatterOptions: {
+                  currency: '$',
+                },
               }) as string
             }`;
           }
@@ -146,7 +183,9 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[4].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`${orderBaseInfo.size}${assetInfo.assetSymbol}`}</SizableText>
+          <SizableText size="$bodySm">{`${
+            orderBaseInfo.sizeFormatted as string
+          }${assetInfo.assetSymbol}`}</SizableText>
         </XStack>
 
         {/* Original size */}
@@ -157,7 +196,9 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[3].align)}
           alignItems="center"
         >
-          <SizableText size="$bodyMd">{`${orderBaseInfo.origSize}${assetInfo.assetSymbol}`}</SizableText>
+          <SizableText size="$bodyMd">{`${
+            orderBaseInfo.origSizeFormatted as string
+          }${assetInfo.assetSymbol}`}</SizableText>
         </XStack>
 
         {/* value */}
@@ -168,7 +209,9 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[5].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`$${orderBaseInfo.value}`}</SizableText>
+          <SizableText size="$bodySm">{`${
+            orderBaseInfo.valueFormatted as string
+          }`}</SizableText>
         </XStack>
 
         {/* Execute price */}
@@ -179,7 +222,9 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[6].align)}
           alignItems="center"
         >
-          <SizableText size="$bodyMd">{orderBaseInfo.executePrice}</SizableText>
+          <SizableText size="$bodyMd">
+            {orderBaseInfo.executePriceFormatted as string}
+          </SizableText>
         </XStack>
         {/* Trigger Condition */}
         <XStack
