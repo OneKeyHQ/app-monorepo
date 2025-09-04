@@ -1,12 +1,21 @@
 import type { ReactNode } from 'react';
 
-import { ScrollView, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  ScrollView,
+  SizableText,
+  Tabs,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+
+import { calcCellAlign } from '../utils';
 
 export interface IColumnConfig {
   key: string;
   title: string;
   width?: number; // 固定宽度
-  minWidth?: number; // 最小宽度（可变宽度）
+  minWidth?: number;
+  flex?: number;
   align?: 'left' | 'center' | 'right';
 }
 
@@ -33,7 +42,6 @@ export function CommonTableListView({
   headerBgColor = '$bgSubtle',
   headerTextColor = '$textSubdued',
   borderColor = '$borderSubdued',
-  rowHoverColor = '$bgHover',
 }: ICommonTableListViewProps) {
   // 计算总的最小宽度
   const totalMinWidth = columns.reduce(
@@ -44,24 +52,6 @@ export function CommonTableListView({
   // 确定表格的最终宽度
   const finalTableWidth = minTableWidth || totalMinWidth;
 
-  if (!data.length) {
-    return (
-      <YStack flex={1} justifyContent="center" alignItems="center" p="$6">
-        <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-          {emptyMessage}
-        </SizableText>
-        <SizableText
-          size="$bodySm"
-          color="$textSubdued"
-          textAlign="center"
-          mt="$2"
-        >
-          {emptySubMessage}
-        </SizableText>
-      </YStack>
-    );
-  }
-
   const getJustifyContent = (align?: string) => {
     if (align === 'center') return 'center';
     if (align === 'right') return 'flex-end';
@@ -69,17 +59,19 @@ export function CommonTableListView({
   };
 
   return (
-    <YStack flex={1} overflow="hidden">
-      <ScrollView
-        flex={1}
-        horizontal
-        showsHorizontalScrollIndicator
-        contentContainerStyle={{
-          minWidth: finalTableWidth,
-          flexGrow: 1,
-          width: '100%',
-        }}
-      >
+    <Tabs.ScrollView
+      style={{
+        flex: 1,
+      }}
+      horizontal
+      showsHorizontalScrollIndicator
+      contentContainerStyle={{
+        minWidth: minTableWidth,
+        flexGrow: 1,
+        width: '100%',
+      }}
+    >
+      {data.length ? (
         <YStack flex={1} minWidth={finalTableWidth} width="100%">
           <XStack
             py="$2"
@@ -118,7 +110,21 @@ export function CommonTableListView({
             <XStack key={index}>{renderRow(item, index)}</XStack>
           ))}
         </YStack>
-      </ScrollView>
-    </YStack>
+      ) : (
+        <YStack flex={1} justifyContent="center" alignItems="center" p="$6">
+          <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+            {emptyMessage}
+          </SizableText>
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            textAlign="center"
+            mt="$2"
+          >
+            {emptySubMessage}
+          </SizableText>
+        </YStack>
+      )}
+    </Tabs.ScrollView>
   );
 }

@@ -1,6 +1,12 @@
 import { memo, useEffect, useState } from 'react';
 
-import { SizableText, Skeleton, XStack, YStack } from '@onekeyhq/components';
+import {
+  ScrollView,
+  SizableText,
+  Skeleton,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { useCurrentTokenPriceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 
 import { usePerpSession } from '../../hooks';
@@ -72,11 +78,11 @@ function PerpTickerBar() {
       p="$4"
       alignItems="center"
       justifyContent="flex-start"
-      space="$6"
+      gap="$6"
       minHeight={80}
     >
       {/* Left: Token Info and Price */}
-      <XStack alignItems="center" space="$4">
+      <XStack alignItems="center" gap="$4">
         <PerpTokenSelector />
 
         {showSkeleton ? (
@@ -105,14 +111,17 @@ function PerpTickerBar() {
       </XStack>
 
       {/* Right: Market Data */}
-      <XStack
-        space="$6"
-        alignItems="center"
+      <ScrollView
+        horizontal
         flex={1}
-        justifyContent="flex-start"
+        contentContainerStyle={{
+          gap: '$6',
+          alignItems: 'center',
+          justifyContent: 'flex-start',
+        }}
       >
         {/* Oracle Price */}
-        <YStack space="$1" alignItems="flex-start" minWidth={120}>
+        <YStack gap="$1" alignItems="flex-start" minWidth={120}>
           <SizableText size="$bodySm" color="$textSubdued">
             Oracle Price
           </SizableText>
@@ -126,7 +135,7 @@ function PerpTickerBar() {
         </YStack>
 
         {/* 24h Volume */}
-        <YStack space="$1" alignItems="flex-start" minWidth={120}>
+        <YStack gap="$1" alignItems="flex-start" minWidth={120}>
           <SizableText size="$bodySm" color="$textSubdued">
             24h Volume
           </SizableText>
@@ -140,7 +149,7 @@ function PerpTickerBar() {
         </YStack>
 
         {/* Open Interest */}
-        <YStack space="$1" alignItems="flex-start" minWidth={120}>
+        <YStack gap="$1" alignItems="flex-start" minWidth={120}>
           <SizableText size="$bodySm" color="$textSubdued">
             Open Interest
           </SizableText>
@@ -154,17 +163,17 @@ function PerpTickerBar() {
         </YStack>
 
         {/* Funding Rate */}
-        <YStack space="$1" alignItems="flex-start" minWidth={140}>
+        <YStack gap="$1" alignItems="flex-start" minWidth={140}>
           <SizableText size="$bodySm" color="$textSubdued">
             Funding / Countdown
           </SizableText>
           {showSkeleton ? (
-            <XStack alignItems="center" space="$2">
+            <XStack alignItems="center" gap="$2">
               <Skeleton width={80} height={20} />
               <Skeleton width={40} height={20} />
             </XStack>
           ) : (
-            <XStack alignItems="center" space="$2">
+            <XStack alignItems="center" gap="$2">
               <SizableText
                 size="$bodyMd"
                 fontWeight="600"
@@ -188,7 +197,7 @@ function PerpTickerBar() {
             </XStack>
           )}
         </YStack>
-      </XStack>
+      </ScrollView>
     </XStack>
   );
 }
