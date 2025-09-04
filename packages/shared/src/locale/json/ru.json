@@ -1853,6 +1853,7 @@
   "message_signing.address_invalid_text": "Недопустимый адрес или неподдерживаемая сеть",
   "message_signing.address_placeholder": "Введите сообщение, чтобы подтвердить владение этим адресом...",
   "message_signing.main_title": "Подписать и проверить сообщение",
+  "message_signing.message_invalid_hex": "Недопустимая шестнадцатеричная строка",
   "message_signing.sign_action": "Подписать сообщение",
   "message_signing.signature_desc": "Создано после подписания",
   "message_signing.signature_invalid_text": "Недопустимая подпись",

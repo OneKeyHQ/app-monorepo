@@ -84,6 +84,7 @@ function SignAndVerifyMessage() {
   ]);
 
   const [isSigning, setIsSigning] = useState(false);
+  const [isDisabled, setIsDisabled] = useState(false);
   const [action, setAction] = useState(ESignAndVerifyAction.Sign);
   const [currentSignAccount, setCurrentSignAccount] = useState<
     ISignAccount | undefined
@@ -91,6 +92,12 @@ function SignAndVerifyMessage() {
   const [verifyDetectedNetworkId, setVerifyDetectedNetworkId] = useState<
     string | null
   >(null);
+
+  useEffect(() => {
+    if (action === ESignAndVerifyAction.Verify) {
+      setIsDisabled(false);
+    }
+  }, [action]);
 
   const signedMessageRef = useRef<{
     message: string;
@@ -244,12 +251,14 @@ function SignAndVerifyMessage() {
         <SignForm
           key="sign-form"
           form={signForm}
+          walletId={walletId ?? ''}
           networkId={networkId}
           accountId={accountId}
           indexedAccountId={indexedAccountId}
           isOthersWallet={isOthersWallet}
           onCurrentSignAccountChange={setCurrentSignAccount}
           onCopySignature={handleCopySignature}
+          onDisabledChange={setIsDisabled}
         />
       );
     }
@@ -264,6 +273,7 @@ function SignAndVerifyMessage() {
     action,
     signForm,
     verifyForm,
+    walletId,
     networkId,
     accountId,
     indexedAccountId,
@@ -336,6 +346,7 @@ function SignAndVerifyMessage() {
         })}
         confirmButtonProps={{
           loading: isSigning,
+          disabled: isDisabled,
         }}
         onConfirm={
           action === ESignAndVerifyAction.Sign ? handleSign : handleVerify

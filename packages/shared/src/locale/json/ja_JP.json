@@ -1853,6 +1853,7 @@
   "message_signing.address_invalid_text": "無効なアドレス、またはサポートされていないネットワークです",
   "message_signing.address_placeholder": "このアドレスの所有権を証明するためのメッセージを入力してください...",
   "message_signing.main_title": "メッセージの署名と検証",
+  "message_signing.message_invalid_hex": "無効な16進数文字列",
   "message_signing.sign_action": "メッセージに署名する",
   "message_signing.signature_desc": "署名後に生成されます",
   "message_signing.signature_invalid_text": "無効な署名",
