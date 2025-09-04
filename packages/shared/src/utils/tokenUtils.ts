@@ -551,3 +551,11 @@ export function getTokenPriceChangeStyle({
     showPlusMinusSigns,
   };
 }
+
+export function buildAggregateTokenMapKey(params: {
+  networkId: string;
+  tokenAddress: string;
+}) {
+  const { networkId, tokenAddress } = params;
+  return `${networkId}_${tokenAddress}`;
+}

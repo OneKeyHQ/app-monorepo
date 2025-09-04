@@ -15,12 +15,14 @@ import perfUtils, {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
+  buildAggregateTokenMapKey,
   getEmptyTokenData,
   getMergedTokenData,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountToken,
+  IAggregateToken,
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
   IFetchTokenDetailItem,
@@ -50,10 +52,20 @@ class ServiceToken extends ServiceBase {
 
   _searchTokensControllers: AbortController[] = [];
 
+  _fetchAggregateTokenMapControllers: AbortController[] = [];
+
   @backgroundMethod()
   public async abortSearchTokens() {
     this._searchTokensControllers.forEach((controller) => controller.abort());
     this._searchTokensControllers = [];
+  }
+
+  @backgroundMethod()
+  public async abortFetchAggregateTokenMap() {
+    this._fetchAggregateTokenMapControllers.forEach((controller) =>
+      controller.abort(),
+    );
+    this._fetchAggregateTokenMapControllers = [];
   }
 
   @backgroundMethod()
@@ -875,6 +887,43 @@ class ServiceToken extends ServiceBase {
         unblockedTokens,
       },
     );
+  }
+
+  @backgroundMethod()
+  public async syncAggregateTokenMap() {
+    await this.abortFetchAggregateTokenMap();
+    const { tokens = {} } = await this.fetchAggregateTokenMap();
+    const tokenAggregateMap: Record<string, IAggregateToken> = {};
+    for (const token of Object.values(tokens).flat()) {
+      tokenAggregateMap[
+        buildAggregateTokenMapKey({
+          networkId: token.networkId,
+          tokenAddress: token.address || token.assetType || '',
+        })
+      ] = token;
+    }
+    await this.backgroundApi.simpleDb.localTokens.updateTokenAggregateMap({
+      tokenAggregateMap,
+    });
+    return tokenAggregateMap;
+  }
+
+  @backgroundMethod()
+  public async getTokenAggregateMap() {
+    return this.backgroundApi.simpleDb.localTokens.getTokenAggregateMap();
+  }
+
+  @backgroundMethod()
+  public async fetchAggregateTokenMap() {
+    const controller = new AbortController();
+    this._fetchAggregateTokenMapControllers.push(controller);
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.get<{
+      data: {
+        tokens: Record<string, IAggregateToken[]>;
+      };
+    }>('/wallet/v1/tokens/aggregate-chains');
+    return resp.data.data;
   }
 }
 

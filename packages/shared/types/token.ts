@@ -161,3 +161,37 @@ type IWatchAssetOptions = {
   decimals?: number;
   image?: string;
 };
+
+/**
+ * Token aggregate map
+ */
+
+export enum EAggregateTokenStatus {
+  Active = 'active',
+  Inactive = 'inactive',
+  Deprecated = 'deprecated',
+}
+
+export enum EAggregateTokenStandard {
+  ERC20 = 'ERC-20',
+  TRC20 = 'TRC-20',
+  SPL = 'SPL',
+  NEP141 = 'NEP-141',
+  APTOS = 'APTOS',
+  SUI = 'SUI',
+  NATIVE = 'NATIVE',
+}
+
+export interface IAggregateToken {
+  networkId: string;
+  chainKey: string;
+  vmType: string;
+  decimals: number;
+  tokenStandard: EAggregateTokenStandard;
+  isOfficial: boolean;
+  whyIncluded: string;
+  supportedByWallet: boolean;
+  status: EAggregateTokenStatus;
+  address: string;
+  assetType: string;
+}
