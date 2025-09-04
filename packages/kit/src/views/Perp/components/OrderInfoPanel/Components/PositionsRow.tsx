@@ -3,11 +3,13 @@ import { memo, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { calcCellAlign } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
+import type { FrontendOrder } from '@nktkas/hyperliquid';
 
 interface IPositionRowProps {
   pos: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
@@ -24,16 +26,20 @@ interface IPositionRowProps {
   }) => void;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
+  tpslOrders: FrontendOrder[];
+  handleViewTpslOrders: () => void;
 }
 
 const PositionRow = memo(
   ({
     pos,
     mid,
+    tpslOrders,
     cellMinWidth,
     columnConfigs,
     handleMarketClose,
     handleLimitClose,
+    handleViewTpslOrders,
   }: IPositionRowProps) => {
     const side = useMemo(() => {
       return parseFloat(pos.szi || '0') >= 0 ? 'long' : 'short';
@@ -92,39 +98,34 @@ const PositionRow = memo(
       };
     }, [pos.unrealizedPnl, pos.marginUsed, pos.cumFunding]);
 
-    // Calculate ROE percentage
-    // const roiPercent = marginUsed > 0 ? (unrealizedPnl / marginUsed) * 100 : 0;
-
-    // const isProfit = unrealizedPnl >= 0;
-    // const displayLiqPrice =
-    //   liquidationPrice === '0'
-    //     ? 'N/A'
-    //     : `$${
-    //         parseFloat(liquidationPrice) > 0
-    //           ? formatPriceToSignificantDigits(parseFloat(liquidationPrice), 5)
-    //           : '0'
-    //       }`;
-    // const formattedSize = `${size.toFixed(4)} ${pos.coin}`;
-
-    // const tokenInfo = useMemo(() => {
-    //   return getTokenInfo(pos.coin);
-    // }, [pos.coin, getTokenInfo]);
-
-    // const handleMarketClose = () => {
-    //   if (tokenInfo) {
-    //     console.log('PerpPositionRow handleMarketClose:', {
-    //       coin: pos.coin,
-    //       mid,
-    //       tokenInfo,
-    //     });
-    //     showClosePositionDialog({
-    //       position: pos,
-    //       assetId: tokenInfo.assetId,
-    //       mid,
-    //       hyperliquidActions: actions,
-    //     });
-    //   }
-    // };
+    const tpslInfo = useMemo(() => {
+      let tpPrice = '--';
+      let slPrice = '--';
+      let showOrder = false;
+      if (tpslOrders && tpslOrders.length > 0) {
+        showOrder = tpslOrders.some(
+          (order) => !new BigNumber(order.origSz).isZero(),
+        );
+        if (!showOrder) {
+          tpslOrders.forEach((order) => {
+            if (order.orderType.startsWith('Take')) {
+              tpPrice = `$${
+                numberFormat(order.triggerPx, {
+                  formatter: 'price',
+                }) as string
+              }`;
+            } else if (order.orderType.startsWith('Stop')) {
+              slPrice = `$${
+                numberFormat(order.triggerPx, {
+                  formatter: 'price',
+                }) as string
+              }`;
+            }
+          });
+        }
+      }
+      return { tpsl: `${tpPrice}/${slPrice}`, showOrder };
+    }, [tpslOrders]);
 
     return (
       <XStack
@@ -246,7 +247,17 @@ const PositionRow = memo(
           justifyContent={calcCellAlign(columnConfigs[8].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">--/--</SizableText>
+          {tpslInfo.showOrder ? (
+            <Button
+              size="small"
+              variant="tertiary"
+              onPress={handleViewTpslOrders}
+            >
+              View Order
+            </Button>
+          ) : (
+            <SizableText size="$bodySm">{tpslInfo.tpsl}</SizableText>
+          )}
         </XStack>
 
         {/* Actions */}

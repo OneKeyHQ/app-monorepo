@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
 
-import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
-
 import { usePerpOrders } from '../../../hooks/usePerpOrderInfoPanel';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
+
+import type { FrontendOrder } from '@nktkas/hyperliquid';
 
 function PerpOpenOrdersList() {
   const orders = usePerpOrders();
@@ -52,10 +52,7 @@ function PerpOpenOrdersList() {
       ),
     [columnsConfig],
   );
-  const renderOrderRow = (
-    item: IWsWebData2['openOrders'][number],
-    _index: number,
-  ) => {
+  const renderOrderRow = (item: FrontendOrder, _index: number) => {
     return (
       <OpenOrdersRow
         order={item}
