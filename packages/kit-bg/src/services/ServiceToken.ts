@@ -15,7 +15,8 @@ import perfUtils, {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
-  buildAggregateTokenMapKey,
+  buildAggregateTokenListData,
+  buildAggregateTokenMapKeyForAggregateConfig,
   getEmptyTokenData,
   getMergedTokenData,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -110,6 +111,7 @@ class ServiceToken extends ServiceBase {
       customTokensRawData,
       blockedTokensRawData,
       unblockedTokensRawData,
+      aggregateTokenMapRawData,
       ...rest
     } = params;
     const { networkId } = rest;
@@ -231,6 +233,98 @@ class ServiceToken extends ServiceBase {
       signal: controller.signal,
     });
     let allTokens: ITokenData | undefined;
+
+    let aggregateTokenListMap: Record<string, IAccountToken> = {};
+    let aggregateTokenMap: Record<string, ITokenFiat> = {};
+
+    resp.data.data.tokens.data = resp.data.data.tokens.data
+      .map((token) => {
+        if (isAllNetworks && aggregateTokenMapRawData) {
+          const data = buildAggregateTokenListData({
+            networkId,
+            token,
+            tokenMap: resp.data.data.tokens.map,
+            aggregateTokenListMap,
+            aggregateTokenMap,
+            aggregateTokenMapRawData,
+          });
+
+          if (data.isAggregateToken) {
+            aggregateTokenListMap = data.aggregateTokenListMap;
+            aggregateTokenMap = data.aggregateTokenMap;
+            return null;
+          }
+        }
+
+        return {
+          ...this.mergeTokenMetadataWithCustomDataSync({
+            token,
+            customTokens,
+            networkId,
+          }),
+          accountId,
+          networkId,
+          mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
+        };
+      })
+      .filter(Boolean);
+
+    resp.data.data.riskTokens.data = resp.data.data.riskTokens.data.map(
+      (token) => ({
+        ...this.mergeTokenMetadataWithCustomDataSync({
+          token,
+          customTokens,
+          networkId,
+        }),
+        accountId,
+        networkId,
+        mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
+      }),
+    );
+
+    resp.data.data.smallBalanceTokens.data =
+      resp.data.data.smallBalanceTokens.data
+        .map((token) => {
+          if (isAllNetworks && aggregateTokenMapRawData) {
+            const data = buildAggregateTokenListData({
+              networkId,
+              token,
+              tokenMap: resp.data.data.smallBalanceTokens.map,
+              aggregateTokenListMap,
+              aggregateTokenMap,
+              aggregateTokenMapRawData,
+            });
+
+            if (data.isAggregateToken) {
+              aggregateTokenListMap = data.aggregateTokenListMap;
+              aggregateTokenMap = data.aggregateTokenMap;
+              return null;
+            }
+          }
+          return {
+            ...this.mergeTokenMetadataWithCustomDataSync({
+              token,
+              customTokens,
+              networkId,
+            }),
+            accountId,
+            networkId,
+            mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
+          };
+        })
+        .filter(Boolean);
+
+    const aggregateTokenList = Object.values(aggregateTokenListMap);
+
+    resp.data.data.tokens.data = [
+      ...resp.data.data.tokens.data,
+      ...aggregateTokenList,
+    ];
+    resp.data.data.tokens.map = {
+      ...resp.data.data.tokens.map,
+      ...aggregateTokenMap,
+    };
+
     if (mergeTokens) {
       const { tokens, riskTokens, smallBalanceTokens } = resp.data.data as any;
       ({ allTokens } = getMergedTokenData({
@@ -248,42 +342,6 @@ class ServiceToken extends ServiceBase {
       }
       resp.data.data.allTokens = allTokens;
     }
-
-    resp.data.data.tokens.data = resp.data.data.tokens.data.map((token) => ({
-      ...this.mergeTokenMetadataWithCustomDataSync({
-        token,
-        customTokens,
-        networkId,
-      }),
-      accountId,
-      networkId,
-      mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
-    }));
-
-    resp.data.data.riskTokens.data = resp.data.data.riskTokens.data.map(
-      (token) => ({
-        ...this.mergeTokenMetadataWithCustomDataSync({
-          token,
-          customTokens,
-          networkId,
-        }),
-        accountId,
-        networkId,
-        mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
-      }),
-    );
-
-    resp.data.data.smallBalanceTokens.data =
-      resp.data.data.smallBalanceTokens.data.map((token) => ({
-        ...this.mergeTokenMetadataWithCustomDataSync({
-          token,
-          customTokens,
-          networkId,
-        }),
-        accountId,
-        networkId,
-        mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
-      }));
 
     if (saveToLocal) {
       let tokenListValue = new BigNumber(0);
@@ -894,14 +952,19 @@ class ServiceToken extends ServiceBase {
     await this.abortFetchAggregateTokenMap();
     const { tokens = {} } = await this.fetchAggregateTokenMap();
     const tokenAggregateMap: Record<string, IAggregateToken> = {};
-    for (const token of Object.values(tokens).flat()) {
-      tokenAggregateMap[
-        buildAggregateTokenMapKey({
-          networkId: token.networkId,
-          tokenAddress: token.address || token.assetType || '',
-        })
-      ] = token;
-    }
+    Object.entries(tokens).forEach(([commonSymbol, _tokens]) => {
+      _tokens.forEach((token) => {
+        tokenAggregateMap[
+          buildAggregateTokenMapKeyForAggregateConfig({
+            networkId: token.networkId,
+            tokenAddress: token.address || token.assetType || '',
+          })
+        ] = {
+          ...token,
+          commonSymbol,
+        };
+      });
+    });
     await this.backgroundApi.simpleDb.localTokens.updateTokenAggregateMap({
       tokenAggregateMap,
     });

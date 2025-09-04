@@ -521,6 +521,7 @@ function TokenListContainer({
         blockedTokensRawData: riskTokenManagementRawData.current.blockedTokens,
         unblockedTokensRawData:
           riskTokenManagementRawData.current.unblockedTokens,
+        aggregateTokenMapRawData: localTokensRawData.current?.tokenAggregateMap,
       });
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {

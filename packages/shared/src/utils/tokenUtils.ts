@@ -8,6 +8,7 @@ import networkUtils from './networkUtils';
 
 import type {
   IAccountToken,
+  IAggregateToken,
   IFetchAccountTokensResp,
   ITokenData,
   ITokenFiat,
@@ -552,10 +553,127 @@ export function getTokenPriceChangeStyle({
   };
 }
 
-export function buildAggregateTokenMapKey(params: {
+export function buildAggregateTokenMapKeyForAggregateConfig(params: {
   networkId: string;
   tokenAddress: string;
 }) {
   const { networkId, tokenAddress } = params;
   return `${networkId}_${tokenAddress}`;
+}
+
+export function buildAggregateTokenListMapKeyForTokenList(params: {
+  commonSymbol: string;
+}) {
+  const { commonSymbol } = params;
+  return `aggregate_${commonSymbol}`;
+}
+
+export function buildAggregateTokenListData(params: {
+  networkId: string;
+  token: IAccountToken;
+  tokenMap: Record<string, ITokenFiat>;
+  aggregateTokenListMap: Record<string, IAccountToken>;
+  aggregateTokenMap: Record<string, ITokenFiat>;
+  aggregateTokenMapRawData: Record<string, IAggregateToken>;
+}) {
+  const {
+    networkId,
+    tokenMap,
+    aggregateTokenListMap,
+    aggregateTokenMap,
+    token,
+    aggregateTokenMapRawData,
+  } = params;
+
+  const newAggregateTokenListMap = { ...aggregateTokenListMap };
+  const newAggregateTokenMap = { ...aggregateTokenMap };
+  let isAggregateToken = false;
+
+  const aggregateToken =
+    aggregateTokenMapRawData[
+      buildAggregateTokenMapKeyForAggregateConfig({
+        networkId,
+        tokenAddress: token.address,
+      })
+    ];
+
+  if (aggregateToken) {
+    isAggregateToken = true;
+    const aggregateTokenListMapKey = buildAggregateTokenListMapKeyForTokenList({
+      commonSymbol: aggregateToken.commonSymbol ?? '',
+    });
+
+    if (!newAggregateTokenListMap[aggregateTokenListMapKey]) {
+      newAggregateTokenListMap[aggregateTokenListMapKey] = {
+        ...token,
+        $key: aggregateTokenListMapKey,
+        isAggregateToken: true,
+        commonSymbol: aggregateToken.commonSymbol,
+      };
+    }
+
+    if (newAggregateTokenMap[aggregateTokenListMapKey]) {
+      newAggregateTokenMap[aggregateTokenListMapKey] = {
+        balance: new BigNumber(
+          newAggregateTokenMap[aggregateTokenListMapKey].balance ?? '0',
+        )
+          .plus(tokenMap[token.address]?.balance ?? '0')
+          .toFixed(),
+        balanceParsed: new BigNumber(
+          newAggregateTokenMap[aggregateTokenListMapKey].balanceParsed ?? '0',
+        )
+          .plus(tokenMap[token.address]?.balanceParsed ?? '0')
+          .toFixed(),
+        frozenBalance: new BigNumber(
+          newAggregateTokenMap[aggregateTokenListMapKey].frozenBalance ?? '0',
+        )
+          .plus(tokenMap[token.address]?.frozenBalance ?? '0')
+          .toFixed(),
+        frozenBalanceParsed: new BigNumber(
+          newAggregateTokenMap[aggregateTokenListMapKey].frozenBalanceParsed ??
+            '0',
+        )
+          .plus(tokenMap[token.address]?.frozenBalanceParsed ?? '0')
+          .toFixed(),
+        totalBalance: new BigNumber(
+          newAggregateTokenMap[aggregateTokenListMapKey].totalBalance ?? '0',
+        )
+          .plus(tokenMap[token.address]?.totalBalance ?? '0')
+          .toFixed(),
+        totalBalanceParsed: new BigNumber(
+          newAggregateTokenMap[aggregateTokenListMapKey].totalBalanceParsed ??
+            '0',
+        )
+          .plus(tokenMap[token.address]?.totalBalanceParsed ?? '0')
+          .toFixed(),
+        frozenBalanceFiatValue: new BigNumber(
+          newAggregateTokenMap[aggregateTokenListMapKey]
+            .frozenBalanceFiatValue ?? '0',
+        )
+          .plus(tokenMap[token.address]?.frozenBalanceFiatValue ?? '0')
+          .toFixed(),
+        totalBalanceFiatValue: new BigNumber(
+          newAggregateTokenMap[aggregateTokenListMapKey]
+            .totalBalanceFiatValue ?? '0',
+        )
+          .plus(tokenMap[token.address]?.totalBalanceFiatValue ?? '0')
+          .toFixed(),
+        fiatValue: new BigNumber(
+          newAggregateTokenMap[aggregateTokenListMapKey].fiatValue ?? '0',
+        )
+          .plus(tokenMap[token.address]?.fiatValue ?? '0')
+          .toFixed(),
+        price: tokenMap[token.address]?.price,
+        price24h: tokenMap[token.address]?.price24h,
+      };
+    } else {
+      newAggregateTokenMap[aggregateTokenListMapKey] = tokenMap[token.address];
+    }
+  }
+
+  return {
+    isAggregateToken,
+    aggregateTokenListMap: newAggregateTokenListMap,
+    aggregateTokenMap: newAggregateTokenMap,
+  };
 }

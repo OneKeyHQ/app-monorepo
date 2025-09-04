@@ -25,6 +25,10 @@ export type IToken = {
   networkId?: string;
   accountId?: string;
   mergeAssets?: boolean;
+
+  // for aggregate token
+  isAggregateToken?: boolean;
+  commonSymbol?: string;
 };
 
 export type ITokenFiat = {
@@ -78,6 +82,7 @@ export type IFetchAccountTokensParams = {
   customTokensRawData?: ICustomTokenDBStruct;
   blockedTokensRawData?: IRiskTokenManagementDBStruct['blockedTokens'];
   unblockedTokensRawData?: IRiskTokenManagementDBStruct['unblockedTokens'];
+  aggregateTokenMapRawData?: Record<string, IAggregateToken>;
 };
 
 export type ITokenData = {
@@ -192,6 +197,7 @@ export interface IAggregateToken {
   whyIncluded: string;
   supportedByWallet: boolean;
   status: EAggregateTokenStatus;
-  address: string;
-  assetType: string;
+  address?: string;
+  assetType?: string;
+  commonSymbol?: string;
 }
