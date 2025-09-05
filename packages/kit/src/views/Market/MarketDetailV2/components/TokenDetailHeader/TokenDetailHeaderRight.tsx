@@ -11,7 +11,6 @@ import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
-import { clampPercentage } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketStarV2 } from '../../../components/MarketStarV2';
@@ -94,7 +93,7 @@ export function TokenDetailHeaderRight({
           lastUpdated={tokenDetail?.lastUpdated?.toString()}
         />
         <PriceChangePercentage size="$bodySm">
-          {clampPercentage(priceChange24hPercent)}
+          {priceChange24hPercent}
         </PriceChangePercentage>
       </YStack>
 
