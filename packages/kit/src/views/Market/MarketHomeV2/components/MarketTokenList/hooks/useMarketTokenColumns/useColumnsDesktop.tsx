@@ -126,7 +126,7 @@ export const useColumnsDesktop = (
           formatter="marketCap"
           formatterOptions={{ currency, capAtMaxT: true }}
         >
-          {text}
+          {text === 0 ? '--' : text}
         </NumberSizeableText>
       ),
       renderSkeleton: () => <Skeleton width={80} height={16} />,
@@ -141,7 +141,7 @@ export const useColumnsDesktop = (
           formatter="marketCap"
           formatterOptions={{ currency }}
         >
-          {text}
+          {text === 0 ? '--' : text}
         </NumberSizeableText>
       ),
       renderSkeleton: () => <Skeleton width={100} height={16} />,
@@ -156,7 +156,7 @@ export const useColumnsDesktop = (
           formatter="marketCap"
           formatterOptions={{ currency }}
         >
-          {text}
+          {text === 0 ? '--' : text}
         </NumberSizeableText>
       ),
       renderSkeleton: () => <Skeleton width={100} height={16} />,
