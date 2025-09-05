@@ -181,7 +181,7 @@ const PositionRow = memo(
 
     if (isMobile) {
       return (
-        <ListItem flexDirection="column" alignItems="flex-start">
+        <ListItem flex={1} flexDirection="column" alignItems="flex-start">
           <XStack gap="$2">
             <XStack
               w="$5"
@@ -274,9 +274,9 @@ const PositionRow = memo(
               </SizableText>
             </YStack>
           </XStack>
-          <XStack flex={1} gap="$2">
+          <XStack width="100%" justifyContent="space-between">
             <Button
-              width="100%"
+              width={160}
               size="small"
               variant="secondary"
               onPress={setTpsl}
@@ -284,7 +284,7 @@ const PositionRow = memo(
               Set TP/SL
             </Button>
             <Button
-              width="100%"
+              width={160}
               size="small"
               variant="secondary"
               onPress={onAllClose}
