@@ -335,7 +335,7 @@ function SelectContent() {
       sheetProps={{
         dismissOnSnapToBottom: true,
         snapPointsMode: usingPercentSnapPoints ? 'percent' : 'fit',
-        snapPoints: usingPercentSnapPoints ? [60] : undefined,
+        snapPoints: usingPercentSnapPoints ? [65] : undefined,
         ...sheetProps,
       }}
       floatingPanelProps={{
