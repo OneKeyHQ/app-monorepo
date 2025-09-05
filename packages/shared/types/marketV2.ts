@@ -275,12 +275,14 @@ export interface IMarketBasicConfigToken {
   chainId: string;
   isNative: boolean;
   name: string;
+  symbol: string;
   logo?: string;
 }
 
 export interface IMarketBasicConfigData {
   networkList: IMarketBasicConfigNetwork[];
   recommendTokens: IMarketBasicConfigToken[];
+  searchRecommendTokens: IMarketBasicConfigToken[];
   refreshInterval: number;
   minLiquidity: number;
 }

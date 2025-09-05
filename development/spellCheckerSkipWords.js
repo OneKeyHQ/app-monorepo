@@ -960,4 +960,5 @@ module.exports = [
   'checkboxes',
   'Scroller',
   'scroller',
+  'Resizing',
 ];
