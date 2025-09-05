@@ -24,6 +24,7 @@ export type IModalReceiveParamList = {
     indexedAccountId?: string;
     token?: IToken;
     onDeriveTypeChange?: (deriveType: IAccountDeriveTypes) => void;
+    disableSelector?: boolean;
   };
   [EModalReceiveRoutes.ReceiveInvoice]: {
     networkId: string;

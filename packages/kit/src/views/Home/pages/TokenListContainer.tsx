@@ -56,7 +56,6 @@ import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
   IAccountToken,
   IFetchAccountTokensResp,
-  IToken,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
@@ -73,7 +72,11 @@ import {
   useAllNetworksStateStateAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
+import {
+  useAggregateTokensListMapAtom,
+  useAllTokenListMapAtom,
+  useTokenListActions,
+} from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 
@@ -214,6 +217,8 @@ function TokenListContainer({
     updateSearchKey,
   } = useTokenListActions().current;
 
+  const [aggregateTokenListMapAtom] = useAggregateTokensListMapAtom();
+  const [allTokenListMapAtom] = useAllTokenListMapAtom();
   const {
     updateAccountWorth,
     updateAccountOverviewState,
@@ -1111,7 +1116,6 @@ function TokenListContainer({
         });
 
         tokenList.keys = `${tokenList.keys}_${r.tokens.keys}`;
-
         tokenListMap = mergeDeriveTokenListMap({
           sourceMap: r.tokens.map,
           targetMap: tokenListMap,
@@ -1551,20 +1555,45 @@ function TokenListContainer({
   ]);
 
   const handleOnPressToken = useCallback(
-    (token: IToken) => {
+    (token: IAccountToken) => {
       if (!network || !wallet || !deriveInfo || !deriveType) return;
+
+      let sortedTokens = [token];
+
+      if (token.isAggregateToken) {
+        const tokens = aggregateTokenListMapAtom[token.$key]?.tokens;
+
+        sortedTokens = sortTokensByFiatValue({
+          tokens,
+          map: allTokenListMapAtom,
+        });
+
+        const index = sortedTokens.findIndex((t) =>
+          new BigNumber(allTokenListMapAtom[t.$key]?.fiatValue ?? 0).isZero(),
+        );
+
+        if (index > -1) {
+          const tokensWithBalance = sortedTokens.slice(0, index);
+          let tokensWithZeroBalance = sortedTokens.slice(index);
+
+          tokensWithZeroBalance = sortTokensByOrder({
+            tokens: tokensWithZeroBalance,
+          });
+
+          sortedTokens = [...tokensWithBalance, ...tokensWithZeroBalance];
+        }
+      }
 
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.TokenDetails,
         params: {
-          accountId: token.accountId ?? account?.id ?? '',
-          networkId: token.networkId ?? network.id,
+          accountId: sortedTokens[0]?.accountId ?? account?.id ?? '',
+          networkId: sortedTokens[0]?.networkId ?? network.id,
           walletId: wallet.id,
-          deriveInfo,
-          deriveType,
-          tokenInfo: token,
           isAllNetworks: network.isAllNetworks,
           indexedAccountId: indexedAccount?.id ?? '',
+          tokens: sortedTokens,
+          isAggregateToken: token.isAggregateToken,
         },
       });
     },
@@ -1576,6 +1605,8 @@ function TokenListContainer({
       navigation,
       network,
       wallet,
+      aggregateTokenListMapAtom,
+      allTokenListMapAtom,
     ],
   );
 

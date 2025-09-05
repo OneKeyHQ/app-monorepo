@@ -7,14 +7,15 @@ type IProps = {
   icon?: string;
   networkId: string | undefined;
   isAllNetworks?: boolean;
+  showNetworkIcon?: boolean;
 };
 
 function TokenIconView(props: IProps) {
-  const { icon, networkId, isAllNetworks } = props;
+  const { icon, networkId, isAllNetworks, showNetworkIcon } = props;
 
   const { network } = useAccountData({ networkId });
 
-  if (isAllNetworks) {
+  if (isAllNetworks && showNetworkIcon) {
     return (
       <Token
         size="lg"

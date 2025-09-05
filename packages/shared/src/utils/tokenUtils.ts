@@ -226,13 +226,15 @@ export function mergeDeriveTokenListMap({
   };
   mergeDeriveAssets?: boolean;
 }) {
+  const newTargetMap = { ...targetMap };
+  const newSourceMap = { ...sourceMap };
   if (mergeDeriveAssets) {
-    forEach(sourceMap, (value, key) => {
+    forEach(newSourceMap, (value, key) => {
       const keyArr = key.split('_');
       const groupDeriveKey = `${keyArr[0]}_${keyArr[keyArr.length - 1]}`;
-      const mergedToken = targetMap[groupDeriveKey];
+      const mergedToken = newTargetMap[groupDeriveKey];
 
-      if (mergedToken && !targetMap[key]) {
+      if (mergedToken && !newTargetMap[key]) {
         mergedToken.balance = new BigNumber(mergedToken.balance)
           .plus(value.balance)
           .toFixed();
@@ -279,11 +281,11 @@ export function mergeDeriveTokenListMap({
           .plus(value.totalBalanceFiatValue ?? 0)
           .toFixed();
 
-        targetMap[groupDeriveKey] = {
+        newTargetMap[groupDeriveKey] = {
           ...mergedToken,
         };
       } else {
-        targetMap[groupDeriveKey] = {
+        newTargetMap[groupDeriveKey] = {
           ...value,
         };
       }
@@ -291,8 +293,8 @@ export function mergeDeriveTokenListMap({
   }
 
   return {
-    ...targetMap,
-    ...sourceMap,
+    ...newTargetMap,
+    ...newSourceMap,
   };
 }
 
@@ -691,6 +693,7 @@ export function buildAggregateTokenListMapKeyForTokenList(params: {
 
 export function buildAggregateTokenListData(params: {
   networkId: string;
+  accountId: string;
   token: IAccountToken;
   tokenMap: Record<string, ITokenFiat>;
   aggregateTokenListMap: Record<
@@ -702,14 +705,17 @@ export function buildAggregateTokenListData(params: {
   >;
   aggregateTokenMap: Record<string, ITokenFiat>;
   aggregateTokenMapRawData: Record<string, IAggregateToken>;
+  networkName: string;
 }) {
   const {
     networkId,
+    accountId,
     tokenMap,
     aggregateTokenListMap,
     aggregateTokenMap,
     token,
     aggregateTokenMapRawData,
+    networkName,
   } = params;
 
   const newAggregateTokenListMap = { ...aggregateTokenListMap };
@@ -734,6 +740,7 @@ export function buildAggregateTokenListData(params: {
       newAggregateTokenListMap[aggregateTokenListMapKey] = {
         commonToken: {
           ...token,
+          accountId,
           $key: aggregateTokenListMapKey,
           isAggregateToken: true,
           commonSymbol: aggregateToken.commonSymbol,
@@ -741,7 +748,11 @@ export function buildAggregateTokenListData(params: {
         tokens: [
           {
             ...token,
-            aggregateOrder: aggregateToken.order,
+            accountId,
+            networkId,
+            order: aggregateToken.order,
+            commonSymbol: aggregateToken.commonSymbol,
+            networkName,
           },
         ],
       };
@@ -749,7 +760,9 @@ export function buildAggregateTokenListData(params: {
       newAggregateTokenListMap[aggregateTokenListMapKey].tokens.push(token);
     }
 
-    newAggregateTokenMap[aggregateTokenListMapKey] = tokenMap[token.$key];
+    newAggregateTokenMap[aggregateTokenListMapKey] = {
+      ...tokenMap[token.$key],
+    };
   }
 
   return {

@@ -164,6 +164,7 @@ class ServiceToken extends ServiceBase {
       unblockedTokens,
       blockedTokens,
       vaultSettings,
+      network,
     ] = await Promise.all([
       this.backgroundApi.serviceCustomToken.getCustomTokens({
         ...accountParams,
@@ -182,6 +183,7 @@ class ServiceToken extends ServiceBase {
         blockedTokensRawData,
       }),
       this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
+      this.backgroundApi.serviceNetwork.getNetworkSafe({ networkId }),
     ]);
 
     rest.contractList = [
@@ -248,11 +250,13 @@ class ServiceToken extends ServiceBase {
         if (isAllNetworks && aggregateTokenMapRawData) {
           const data = buildAggregateTokenListData({
             networkId,
+            accountId,
             token,
             tokenMap: resp.data.data.tokens.map,
             aggregateTokenListMap,
             aggregateTokenMap,
             aggregateTokenMapRawData,
+            networkName: network?.name ?? '',
           });
 
           if (data.isAggregateToken) {
@@ -270,6 +274,7 @@ class ServiceToken extends ServiceBase {
           }),
           accountId,
           networkId,
+          networkName: network?.name,
           mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
         };
       })
@@ -284,6 +289,7 @@ class ServiceToken extends ServiceBase {
         }),
         accountId,
         networkId,
+        networkName: network?.name,
         mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
       }),
     );
@@ -293,6 +299,8 @@ class ServiceToken extends ServiceBase {
         .map((token) => {
           if (isAllNetworks && aggregateTokenMapRawData) {
             const data = buildAggregateTokenListData({
+              accountId,
+              networkName: network?.name ?? '',
               networkId,
               token,
               tokenMap: resp.data.data.smallBalanceTokens.map,
@@ -315,6 +323,7 @@ class ServiceToken extends ServiceBase {
             }),
             accountId,
             networkId,
+            networkName: network?.name,
             mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
           };
         })
@@ -341,6 +350,7 @@ class ServiceToken extends ServiceBase {
           ...token,
           accountId,
           networkId,
+          networkName: network?.name,
           mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
         }));
       }
@@ -514,20 +524,33 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async fetchTokenInfoOnly(
-    params: Pick<IFetchTokenDetailParams, 'networkId' | 'contractList'>,
-  ) {
-    const { networkId, contractList } = params;
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.post<{ data: IFetchTokenDetailItem[] }>(
-      '/wallet/v1/account/token/search',
-      {
-        networkId,
-        contractList,
-      },
-    );
-    return resp.data.data;
+  public async fetchTokenInfoOnly(params: {
+    networkId: string;
+    tokenAddress: string;
+  }) {
+    return this.fetchTokenInfoOnlyMemo(params);
   }
+
+  fetchTokenInfoOnlyMemo = memoizee(
+    async (params: { networkId: string; tokenAddress: string }) => {
+      const { networkId, tokenAddress } = params;
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.post<{ data: IFetchTokenDetailItem[] }>(
+        '/wallet/v1/account/token/search',
+        {
+          networkId,
+          contractList: [tokenAddress],
+        },
+      );
+      return resp.data.data[0];
+    },
+    {
+      promise: true,
+      primitive: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+      max: 10,
+    },
+  );
 
   @backgroundMethod()
   public async searchTokens(params: ISearchTokensParams) {
@@ -643,10 +666,12 @@ class ServiceToken extends ServiceBase {
       let tokensDetails: IFetchTokenDetailItem[] = [];
 
       if (accountId === '') {
-        tokensDetails = await this.fetchTokenInfoOnly({
-          networkId,
-          contractList: [tokenIdOnNetwork],
-        });
+        tokensDetails = [
+          await this.fetchTokenInfoOnly({
+            networkId,
+            tokenAddress: tokenIdOnNetwork,
+          }),
+        ];
       } else {
         tokensDetails = await this.fetchTokensDetails({
           accountId,

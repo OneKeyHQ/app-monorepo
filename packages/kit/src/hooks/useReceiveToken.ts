@@ -84,6 +84,7 @@ function useReceiveToken({
             walletId,
             token,
             indexedAccountId,
+            disableSelector: true,
           },
         });
       } else {

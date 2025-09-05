@@ -86,6 +86,7 @@ type IProps = {
     | 'ListFooterComponentStyle'
     | 'contentContainerStyle'
   >;
+  showNetworkIcon?: boolean;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -116,6 +117,7 @@ function TokenListViewCmp(props: IProps) {
     showActiveAccountTokenList = false,
     listViewStyleProps,
     onRefresh,
+    showNetworkIcon,
   } = props;
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
@@ -379,6 +381,7 @@ function TokenListViewCmp(props: IProps) {
           withNetwork={withNetwork}
           isTokenSelector={isTokenSelector}
           withSwapAction={withSwapAction}
+          showNetworkIcon={showNetworkIcon}
         />
       )}
       ListFooterComponent={

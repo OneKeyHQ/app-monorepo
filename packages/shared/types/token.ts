@@ -23,13 +23,13 @@ export type IToken = {
   // for all networks
   order?: number;
   networkId?: string;
+  networkName?: string;
   accountId?: string;
   mergeAssets?: boolean;
 
   // for aggregate token
   isAggregateToken?: boolean;
   commonSymbol?: string;
-  aggregateOrder?: number;
 };
 
 export type ITokenFiat = {
