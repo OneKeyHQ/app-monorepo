@@ -1,7 +1,7 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import {
-  ScrollView,
+  ListView,
   SizableText,
   Tabs,
   XStack,
@@ -9,6 +9,8 @@ import {
 } from '@onekeyhq/components';
 
 import { calcCellAlign } from '../utils';
+
+import type { ListRenderItem } from 'react-native';
 
 export interface IColumnConfig {
   key: string;
@@ -22,7 +24,7 @@ export interface IColumnConfig {
 export interface ICommonTableListViewProps {
   columns: IColumnConfig[];
   data: any[];
-  renderRow: (item: any, index: number) => ReactNode;
+  renderRow: (item: any, index: number) => ReactElement;
   emptyMessage?: string;
   emptySubMessage?: string;
   minTableWidth?: number;
@@ -30,12 +32,14 @@ export interface ICommonTableListViewProps {
   headerTextColor?: string;
   borderColor?: string;
   rowHoverColor?: string;
+  isMobile?: boolean;
 }
 
 export function CommonTableListView({
   columns,
   data,
   renderRow,
+  isMobile,
   emptyMessage = 'No data',
   emptySubMessage = 'Data will appear here',
   minTableWidth,
@@ -43,20 +47,21 @@ export function CommonTableListView({
   headerTextColor = '$textSubdued',
   borderColor = '$borderSubdued',
 }: ICommonTableListViewProps) {
-  // 计算总的最小宽度
+  if (isMobile) {
+    return (
+      <ListView
+        data={data}
+        renderItem={({ item, index }) => {
+          return renderRow(item, index);
+        }}
+      />
+    );
+  }
   const totalMinWidth = columns.reduce(
     (sum, col) => sum + (col.width || col.minWidth || 0),
     0,
   );
-
-  // 确定表格的最终宽度
   const finalTableWidth = minTableWidth || totalMinWidth;
-
-  const getJustifyContent = (align?: string) => {
-    if (align === 'center') return 'center';
-    if (align === 'right') return 'flex-end';
-    return 'flex-start';
-  };
 
   return (
     <Tabs.ScrollView
@@ -91,7 +96,7 @@ export function CommonTableListView({
                   width={isFixedWidth ? column.width : undefined}
                   minWidth={isFixedWidth ? undefined : column.minWidth}
                   flex={isFixedWidth ? undefined : 1}
-                  justifyContent={getJustifyContent(column.align) as any}
+                  justifyContent={calcCellAlign(column.align) as any}
                 >
                   <SizableText
                     size="$bodySm"

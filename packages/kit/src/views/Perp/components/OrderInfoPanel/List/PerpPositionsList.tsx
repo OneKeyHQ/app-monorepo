@@ -18,9 +18,13 @@ import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
 interface IPerpPositionsListProps {
   handleViewTpslOrders: () => void;
+  isMobile?: boolean;
 }
 
-function PerpPositionsList({ handleViewTpslOrders }: IPerpPositionsListProps) {
+function PerpPositionsList({
+  handleViewTpslOrders,
+  isMobile,
+}: IPerpPositionsListProps) {
   const positions = usePerpPositions();
   const openOrders = usePerpOrders();
   const [allMids] = useAllMidsAtom();
@@ -79,6 +83,12 @@ function PerpPositionsList({ handleViewTpslOrders }: IPerpPositionsListProps) {
     [columnsConfig],
   );
 
+  const onAllClose = () => {
+    console.log('onAllClose');
+  };
+  const setTpsl = () => {
+    console.log('setTpsl');
+  };
   const handleLimitClose = ({
     position,
   }: {
@@ -117,12 +127,15 @@ function PerpPositionsList({ handleViewTpslOrders }: IPerpPositionsListProps) {
         key={`${coin}_${szi}`}
         pos={position}
         mid={midValue}
+        isMobile={isMobile}
         tpslOrders={tpslOrders}
         cellMinWidth={totalMinWidth}
         columnConfigs={columnsConfig}
         handleMarketClose={handleMarketClose}
         handleLimitClose={handleLimitClose}
         handleViewTpslOrders={handleViewTpslOrders}
+        onAllClose={onAllClose}
+        setTpsl={setTpsl}
       />
     );
   };
@@ -132,6 +145,7 @@ function PerpPositionsList({ handleViewTpslOrders }: IPerpPositionsListProps) {
       columns={columnsConfig}
       minTableWidth={totalMinWidth}
       data={positions}
+      isMobile={isMobile}
       renderRow={renderPositionRow}
       emptyMessage="No open positions"
       emptySubMessage="Your positions will appear here after opening trades"

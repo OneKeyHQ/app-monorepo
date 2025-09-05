@@ -15,6 +15,7 @@ export type ITradesHistoryRowProps = {
   fill: IFill;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
+  isMobile?: boolean;
 };
 
 const TradesHistoryRow = memo(

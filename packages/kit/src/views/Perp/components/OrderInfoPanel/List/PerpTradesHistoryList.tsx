@@ -7,8 +7,11 @@ import { TradesHistoryRow } from '../Components/TradesHistoryRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
-// Column configuration for CommonTableListView
-function PerpTradesHistoryList() {
+interface IPerpTradesHistoryListProps {
+  isMobile?: boolean;
+}
+
+function PerpTradesHistoryList({ isMobile }: IPerpTradesHistoryListProps) {
   const { trades } = usePerpTradesHistory();
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
@@ -47,6 +50,7 @@ function PerpTradesHistoryList() {
     return (
       <TradesHistoryRow
         fill={item}
+        isMobile={isMobile}
         cellMinWidth={totalMinWidth}
         columnConfigs={columnsConfig}
       />
@@ -57,6 +61,7 @@ function PerpTradesHistoryList() {
     <CommonTableListView
       columns={columnsConfig}
       data={trades}
+      isMobile={isMobile}
       minTableWidth={totalMinWidth}
       renderRow={renderTradesHistoryRow}
       emptyMessage="No open positions"

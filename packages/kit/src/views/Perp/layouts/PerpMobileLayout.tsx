@@ -2,6 +2,8 @@ import { useCallback } from 'react';
 
 import { SizableText, Tabs, XStack, YStack } from '@onekeyhq/components';
 
+import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
+
 export function PerpMobileLayout() {
   const renderTabHeader = useCallback(() => {
     return (
@@ -20,22 +22,9 @@ export function PerpMobileLayout() {
       <XStack px="$5">
         <SizableText>BTC</SizableText>
       </XStack>
-      <Tabs.Container
-        initialTabName="Orders"
-        renderHeader={renderTabHeader}
-        renderTabBar={(props) => <Tabs.TabBar {...props} />}
-      >
-        <Tabs.Tab name="Orders">
-          <Tabs.ScrollView contentContainerStyle={{ paddingHorizontal: 20 }}>
-            <SizableText>Orders</SizableText>
-          </Tabs.ScrollView>
-        </Tabs.Tab>
-        <Tabs.Tab name="Positions">
-          <Tabs.ScrollView contentContainerStyle={{ paddingHorizontal: 20 }}>
-            <SizableText>Positions</SizableText>
-          </Tabs.ScrollView>
-        </Tabs.Tab>
-      </Tabs.Container>
+      <YStack flex={0.4} minHeight={300}>
+        <PerpOrderInfoPanel isMobile />
+      </YStack>
     </YStack>
   );
 }
