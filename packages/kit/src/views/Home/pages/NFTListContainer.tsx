@@ -204,7 +204,7 @@ function NFTListContainer() {
   );
 
   const handleAllNetworkCacheData = useCallback(
-    ({ data }: { data: IAccountNFT[] }) => {
+    async ({ data }: { data: IAccountNFT[] }) => {
       const allNFTs = data.flat();
       if (!isEmpty(allNFTs)) {
         setNftList(allNFTs);
