@@ -54,6 +54,7 @@ browsers.forEach((browser) => {
   console.log('buildNumber', buildNumber);
   if (buildNumber.length > 2) {
     // Split buildVersionString into two equal parts and parse them as integers
+    const buildVersionString = buildNumber.slice(2);
     const mid = Math.floor(buildVersionString.length / 2);
     const part1 = buildVersionString.slice(0, mid);
     const part2 = buildVersionString.slice(mid);
@@ -65,7 +66,6 @@ browsers.forEach((browser) => {
   } else {
     versionArray.push('1', '1');
   }
-  const buildVersionString = buildNumber.slice(2);
   jsonObj.version = versionArray.join('.');
   console.log('OneKey Development Build', jsonObj.version);
   fs.writeFileSync(manifestPath, JSON.stringify(jsonObj, null, 2));
