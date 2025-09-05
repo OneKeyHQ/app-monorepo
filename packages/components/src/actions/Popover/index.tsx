@@ -14,7 +14,7 @@ import {
   useState,
 } from 'react';
 
-import { useWindowDimensions } from 'react-native';
+import { Dimensions, useWindowDimensions } from 'react-native';
 import { Popover as TMPopover, useMedia, withStaticProperties } from 'tamagui';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -42,7 +42,7 @@ import { PopoverContent } from './PopoverContent';
 import type { IPopoverTooltip } from './type';
 import type { IIconButtonProps } from '../IconButton';
 import type { UseMediaState } from '@tamagui/core';
-import type { LayoutChangeEvent } from 'react-native';
+import type { LayoutChangeEvent, View } from 'react-native';
 import type {
   PopoverContentTypeProps,
   SheetProps,
@@ -260,30 +260,29 @@ function RawPopover({
 
   useBackHandler(handleBackPress);
 
-  const [maxScrollViewHeight, setMaxScrollViewHeight] = useState<
-    number | undefined
-  >(undefined);
-  const { height: windowHeight } = useWindowDimensions();
-  const handleLayout = useCallback(
-    ({ nativeEvent }: LayoutChangeEvent) => {
-      if (!platformEnv.isNative && !allowFlip) {
-        const { top, height } = nativeEvent.layout as unknown as {
-          top: number;
-          height: number;
-        };
-        let contentHeight = 0;
-        if (placement.startsWith('bottom')) {
-          contentHeight = windowHeight - top - height - 20;
-        } else if (placement.startsWith('top')) {
-          contentHeight = top - 20;
-        } else {
-          contentHeight = windowHeight;
-        }
-        setMaxScrollViewHeight(Math.max(contentHeight, 0));
-      }
-    },
-    [allowFlip, placement, windowHeight],
-  );
+  const triggerRef = useRef<View | null>(null);
+  const getMaxScrollViewHeight = useCallback(() => {
+    if (platformEnv.isNative) {
+      return undefined;
+    }
+    const windowHeight = Dimensions.get('window').height;
+    const currentElement = triggerRef.current as unknown as HTMLElement;
+
+    const top = currentElement?.getBoundingClientRect().top;
+    const height =
+      (currentElement || (currentElement as HTMLElement).parentElement)
+        ?.clientHeight || 0;
+    let contentHeight = 0;
+    if (placement.startsWith('bottom')) {
+      contentHeight = windowHeight - top - height - 20;
+    } else if (placement.startsWith('top')) {
+      contentHeight = top - 20;
+    } else {
+      contentHeight = windowHeight;
+    }
+
+    return Math.max(contentHeight, 0);
+  }, [placement]);
 
   const RenderContent =
     typeof renderContent === 'function' ? renderContent : null;
@@ -321,6 +320,7 @@ function RawPopover({
 
   const isShowNativeKeepChildrenMountedBackdrop =
     platformEnv.isNative && props.keepChildrenMounted;
+  const maxScrollViewHeight = getMaxScrollViewHeight();
   return (
     <TMPopover
       offset={8}
@@ -331,7 +331,7 @@ function RawPopover({
       {...props}
     >
       <TMPopover.Trigger asChild>
-        <Trigger onLayout={handleLayout} onPress={openPopover}>
+        <Trigger ref={triggerRef} onPress={openPopover}>
           {renderTrigger}
         </Trigger>
       </TMPopover.Trigger>
