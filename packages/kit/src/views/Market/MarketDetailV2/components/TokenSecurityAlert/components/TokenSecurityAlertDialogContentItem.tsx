@@ -68,12 +68,7 @@ function TokenSecurityAlertDialogContentItem({
   };
 
   return (
-    <XStack
-      key={item.key}
-      justifyContent="space-between"
-      alignItems="center"
-      py="$2"
-    >
+    <XStack key={item.key} justifyContent="space-between" alignItems="center">
       <SizableText size="$bodyMdMedium" color="$text" flex={1}>
         {item.label}
       </SizableText>
