@@ -22,7 +22,7 @@ import type {
   ISelectSection,
   ISelectTriggerProps,
 } from './type';
-import type { IListViewProps, ISectionListProps } from '../../layouts';
+import type { IListViewProps } from '../../layouts';
 import type { GestureResponderEvent } from 'react-native';
 
 const useTriggerLabel = (value: string | number | undefined | boolean) => {
