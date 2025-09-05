@@ -270,8 +270,9 @@ function RawPopover({
 
     const top = currentElement?.getBoundingClientRect().top;
     const height =
-      (currentElement || (currentElement as HTMLElement).parentElement)
-        ?.clientHeight || 0;
+      currentElement?.clientHeight ||
+      currentElement?.parentElement?.clientHeight ||
+      0;
     let contentHeight = 0;
     if (placement.startsWith('bottom')) {
       contentHeight = windowHeight - top - height - 20;
