@@ -19,7 +19,6 @@ import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contex
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
   ETabMarketRoutes,
@@ -31,7 +30,7 @@ import { ESearchStatus } from '@onekeyhq/shared/types/search';
 
 import { MarketStarV2 } from '../../../Market/components/MarketStarV2';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
-import { MarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
+import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
 
 function ContractAddress({ address }: { address: string }) {
   const { copyText } = useClipboard();
@@ -204,8 +203,8 @@ export function UniversalSearchV2MarketTokenItem({
     >
       <XStack alignItems="center">
         <YStack alignItems="flex-end">
-          <MarketTokenPrice
-            price={String(price)}
+          <BaseMarketTokenPrice
+            price={price}
             size="$bodyLgMedium"
             tokenName={name}
             tokenSymbol={symbol}

@@ -116,7 +116,6 @@ export const useTokenPrice = ({
   return useMemo(
     () => {
       const price = marketTokenPriceEvent.getTokenPrice(tokenName, tokenSymbol);
-
       return price;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -160,6 +159,34 @@ export function MarketTokenPrice({
       {...props}
     >
       {tokenPrice}
+    </NumberSizeableText>
+  );
+}
+
+export function BaseMarketTokenPrice({
+  price,
+  tokenName,
+  tokenSymbol,
+  lastUpdated,
+  size,
+  ...props
+}: {
+  price: string;
+  tokenSymbol: string;
+  tokenName: string;
+  lastUpdated?: string;
+} & ISizableTextProps) {
+  const [settings] = useSettingsPersistAtom();
+  const currency = settings.currencyInfo.symbol;
+  return (
+    <NumberSizeableText
+      userSelect="none"
+      formatter="price"
+      size={size}
+      formatterOptions={{ currency }}
+      {...props}
+    >
+      {price}
     </NumberSizeableText>
   );
 }

@@ -1853,6 +1853,7 @@
   "message_signing.address_invalid_text": "Недійсна адреса або непідтримувана мережа",
   "message_signing.address_placeholder": "Введіть повідомлення, щоб підтвердити право власності на цю адресу...",
   "message_signing.main_title": "Підписати та перевірити повідомлення",
+  "message_signing.message_invalid_hex": "Недійсний шістнадцятковий рядок",
   "message_signing.sign_action": "Підписати повідомлення",
   "message_signing.signature_desc": "Згенеровано після підписання",
   "message_signing.signature_invalid_text": "Недійсний підпис",

@@ -2,7 +2,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 
 import {
-  convertRecommendedTokens,
   formatLiquidityValue,
   getDefaultNetworkId,
   getMinLiquidity,
@@ -27,9 +26,7 @@ export function useMarketBasicConfig() {
 
       // Process all data in one place
       const defaultNetworkId = getDefaultNetworkId(configData);
-      const recommendedTokens = convertRecommendedTokens(
-        configData.recommendTokens,
-      );
+      const recommendedTokens = configData.recommendTokens;
       const minLiquidity = getMinLiquidity(configData);
       const refreshInterval = getRefreshInterval(configData);
       const formattedMinLiquidity = formatLiquidityValue(minLiquidity);

@@ -79,6 +79,14 @@ function TokenSecurityAlertDialogContentItem({
       </SizableText>
 
       <XStack gap="$1.5" alignItems="center">
+        <SizableText
+          size="$bodyMdMedium"
+          color={getTextColorByRiskType(item.riskType)}
+          textAlign="right"
+        >
+          {formatValue(item.value ?? '')}
+        </SizableText>
+
         {(() => {
           // Don't show icon if there's a value or if risk type is normal
           if (item.riskType === 'normal') {
@@ -88,14 +96,6 @@ function TokenSecurityAlertDialogContentItem({
             <TokenSecurityAlertDialogContentIcon riskType={item.riskType} />
           );
         })()}
-
-        <SizableText
-          size="$bodyMdMedium"
-          color={getTextColorByRiskType(item.riskType)}
-          textAlign="right"
-        >
-          {formatValue(item.value ?? '')}
-        </SizableText>
 
         {isLongString(item.value) ? (
           <Stack
