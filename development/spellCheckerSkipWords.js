@@ -973,4 +973,5 @@ module.exports = [
   'unsubscription',
   'unsubscriptions',
   'Unsubscriptions',
+  'Resizing',
 ];

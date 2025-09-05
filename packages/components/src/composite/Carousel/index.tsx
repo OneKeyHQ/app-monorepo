@@ -22,6 +22,7 @@ import { PaginationItem } from './PaginationItem';
 import type { ICarouselProps, IPaginationItemProps } from './type';
 import type { LayoutChangeEvent, NativeSyntheticEvent } from 'react-native';
 import type NativePagerView from 'react-native-pager-view';
+import { debounce } from 'lodash';
 
 const defaultRenderPaginationItem = <T,>(
   { dotStyle, activeDotStyle, onPress }: IPaginationItemProps<T>,
@@ -99,6 +100,25 @@ export function Carousel<T>({
     [disableAnimation],
   );
 
+  const isResizingRef = useRef(false);
+
+  useEffect(() => {
+    if (platformEnv.isNative || !pageWidthProp) {
+      return;
+    }
+    const onResizeEnd = debounce(() => {
+      isResizingRef.current = false;
+    }, 350);
+    const handleResize = () => {
+      isResizingRef.current = true;
+      onResizeEnd();
+    };
+    globalThis.addEventListener('resize', handleResize);
+    return () => {
+      globalThis.removeEventListener('resize', handleResize);
+    };
+  }, [pageWidthProp]);
+
   const scrollToPreviousPage = useCallback(() => {
     const previousPage =
       currentPage.current > 0 ? currentPage.current - 1 : data.length - 1;
@@ -166,6 +186,9 @@ export function Carousel<T>({
 
   const onPageSelected = useCallback(
     (e: NativeSyntheticEvent<Readonly<{ position: number }>>) => {
+      if (isResizingRef.current) {
+        return;
+      }
       currentPage.current = e.nativeEvent.position;
       debouncedSetPageIndex(currentPage.current);
       onPageChanged?.(currentPage.current);
