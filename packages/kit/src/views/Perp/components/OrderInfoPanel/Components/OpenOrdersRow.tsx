@@ -3,6 +3,7 @@ import { memo, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -16,6 +17,7 @@ interface IOpenOrdersRowProps {
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
   handleCancelAll: () => void;
+  isMobile?: boolean;
 }
 
 const OpenOrdersRow = memo(
@@ -24,11 +26,12 @@ const OpenOrdersRow = memo(
     cellMinWidth,
     handleCancelAll,
     columnConfigs,
+    isMobile,
   }: IOpenOrdersRowProps) => {
     const assetInfo = useMemo(() => {
       const assetSymbol = order.coin ?? '-';
       const orderType = order.orderType;
-      const type = order.side === 'B' ? 'Buy' : 'Sell';
+      const type = order.side === 'B' ? 'Long' : 'Short';
       const typeColor = order.side === 'B' ? '$textSuccess' : '$textCritical';
       return { assetSymbol, type, orderType, typeColor };
     }, [order.coin, order.side, order.orderType]);
@@ -123,6 +126,75 @@ const OpenOrdersRow = memo(
         tpsl: `${tpPrice}/${slPrice}`,
       };
     }, [order.children]);
+
+    if (isMobile) {
+      return (
+        <ListItem flexDirection="column" alignItems="flex-start">
+          <XStack
+            justifyContent="space-between"
+            width="100%"
+            alignItems="center"
+          >
+            <YStack gap="$2">
+              <SizableText size="$bodyMdMedium">
+                {assetInfo.assetSymbol}
+              </SizableText>
+              <XStack gap="$2">
+                <SizableText size="$bodySm" color={assetInfo.typeColor}>
+                  {`${assetInfo.orderType} / ${assetInfo.type}`}
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {`${dateInfo.date} ${dateInfo.time}`}
+                </SizableText>
+              </XStack>
+            </YStack>
+            <Button size="small" variant="secondary" onPress={handleCancelAll}>
+              <SizableText size="$bodyMd">Cancel</SizableText>
+            </Button>
+          </XStack>
+          <XStack
+            width="100%"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <SizableText size="$bodySm">Filled / Size</SizableText>
+            <SizableText size="$bodySm">
+              {`${orderBaseInfo.sizeFormatted as string} / ${
+                orderBaseInfo.origSizeFormatted as string
+              }`}
+            </SizableText>
+          </XStack>
+          <XStack
+            width="100%"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <SizableText size="$bodySm">Price</SizableText>
+            <SizableText size="$bodySm">
+              {`$${orderBaseInfo.priceFormatted as string}`}
+            </SizableText>
+          </XStack>
+          <XStack
+            width="100%"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <SizableText size="$bodySm">Trigger Condition</SizableText>
+            <SizableText size="$bodySm">
+              {`${orderBaseInfo.triggerCondition}`}
+            </SizableText>
+          </XStack>
+          <XStack
+            width="100%"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <SizableText size="$bodySm">TP/SL</SizableText>
+            <SizableText size="$bodySm">{`${tpslInfo.tpsl}`}</SizableText>
+          </XStack>
+        </ListItem>
+      );
+    }
 
     return (
       <XStack

@@ -1,6 +1,14 @@
 import { useRef } from 'react';
 
-import { Button, IconButton, Tabs, YStack } from '@onekeyhq/components';
+import type {
+  IModalNavigationProp,
+  IPageNavigationProp,
+} from '@onekeyhq/components';
+import { IconButton, Tabs, YStack } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
 import { PerpPositionsList } from './List/PerpPositionsList';
@@ -17,8 +25,12 @@ function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
   const handleViewTpslOrders = () => {
     tabsRef.current?.switchTab('Open Orders');
   };
+  const navigation =
+    useAppNavigation<IModalNavigationProp<IModalPerpParamList>>();
   const handleViewTradesHistory = () => {
-    // todo
+    navigation.pushModal(EModalRoutes.PerpModal, {
+      screen: EModalPerpRoutes.PerpTradersHistoryList,
+    });
   };
   return (
     <YStack flex={1} minHeight={300} overflow="hidden">

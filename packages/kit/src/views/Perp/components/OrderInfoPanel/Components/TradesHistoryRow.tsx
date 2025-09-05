@@ -2,7 +2,8 @@ import { memo, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { Divider, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -19,7 +20,7 @@ export type ITradesHistoryRowProps = {
 };
 
 const TradesHistoryRow = memo(
-  ({ fill, cellMinWidth, columnConfigs }: ITradesHistoryRowProps) => {
+  ({ fill, cellMinWidth, columnConfigs, isMobile }: ITradesHistoryRowProps) => {
     const assetSymbol = useMemo(() => fill.coin ?? '-', [fill.coin]);
     const dateInfo = useMemo(() => {
       const timeDate = new Date(fill.time);
@@ -50,14 +51,23 @@ const TradesHistoryRow = memo(
       const sizeBN = new BigNumber(size);
       const priceFormatted = numberFormat(price, {
         formatter: 'price',
+        formatterOptions: {
+          currency: '$',
+        },
       });
       const feeFormatted = numberFormat(fee, {
         formatter: 'value',
+        formatterOptions: {
+          currency: '$',
+        },
       });
 
       const tradeValue = priceBN.times(sizeBN).toFixed();
       const tradeValueFormatted = numberFormat(tradeValue, {
         formatter: 'value',
+        formatterOptions: {
+          currency: '$',
+        },
       });
       return { priceFormatted, size, feeFormatted, tradeValueFormatted };
     }, [fill.fee, fill.px, fill.sz]);
@@ -74,10 +84,101 @@ const TradesHistoryRow = memo(
       const closePnlStr = closePnlBN.abs().toFixed();
       const closePnlFormatted = numberFormat(closePnlStr, {
         formatter: 'value',
+        formatterOptions: {
+          currency: '$',
+        },
       });
       return { closePnlFormatted, closePnlColor, closePnlPlusOrMinus };
     }, [fill.closedPnl]);
 
+    if (isMobile) {
+      return (
+        <ListItem
+          mx="$5"
+          my="$2"
+          p="$0"
+          backgroundColor="$bgSubdued"
+          flexDirection="column"
+          alignItems="flex-start"
+          borderRadius="$3"
+        >
+          <XStack
+            px="$3"
+            pt="$3"
+            justifyContent="space-between"
+            alignItems="center"
+            width="100%"
+          >
+            <YStack gap="$2">
+              <XStack gap="$2">
+                <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
+                <SizableText
+                  size="$bodySm"
+                  color={directionInfo.directionColor}
+                >
+                  {directionInfo.directionStr}
+                </SizableText>
+              </XStack>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {dateInfo.date} {dateInfo.time}
+              </SizableText>
+            </YStack>
+            <YStack gap="$2" alignItems="flex-end">
+              <SizableText size="$bodySm" color="$textSubdued">
+                Close PnL
+              </SizableText>
+              <SizableText size="$bodySm" color={closePnlInfo.closePnlColor}>
+                {`${closePnlInfo.closePnlPlusOrMinus}${
+                  closePnlInfo.closePnlFormatted as string
+                }`}
+              </SizableText>
+            </YStack>
+          </XStack>
+          <Divider width="100%" borderColor="$borderSubdued" />
+          <XStack
+            px="$3"
+            pb="$3"
+            width="100%"
+            flex={1}
+            alignItems="center"
+            justifyContent="space-around"
+          >
+            <YStack gap="$1" flex={1} alignItems="flex-start">
+              <SizableText size="$bodySm" color="$textSubdued">
+                Price
+              </SizableText>
+              <SizableText size="$bodySm">
+                {`${tradeBaseInfo.priceFormatted as string}`}
+              </SizableText>
+            </YStack>
+            <YStack gap="$1" flex={1} alignItems="flex-start">
+              <SizableText size="$bodySm" color="$textSubdued">
+                Size
+              </SizableText>
+              <SizableText size="$bodySm">
+                {`${tradeBaseInfo.size}`}
+              </SizableText>
+            </YStack>
+            <YStack gap="$1" flex={1} alignItems="flex-start">
+              <SizableText size="$bodySm" color="$textSubdued">
+                Value
+              </SizableText>
+              <SizableText size="$bodySm">
+                {`${tradeBaseInfo.tradeValueFormatted as string}`}
+              </SizableText>
+            </YStack>
+            <YStack gap="$1" flex={1} alignItems="flex-end">
+              <SizableText size="$bodySm" color="$textSubdued">
+                Fee
+              </SizableText>
+              <SizableText size="$bodySm">
+                {`${tradeBaseInfo.feeFormatted as string}`}
+              </SizableText>
+            </YStack>
+          </XStack>
+        </ListItem>
+      );
+    }
     return (
       <XStack
         flex={1}
@@ -136,7 +237,7 @@ const TradesHistoryRow = memo(
           justifyContent={calcCellAlign(columnConfigs[3].align)}
           alignItems="center"
         >
-          <SizableText size="$bodyMd">{`$${
+          <SizableText size="$bodyMd">{`${
             tradeBaseInfo.priceFormatted as string
           }`}</SizableText>
         </XStack>
@@ -161,7 +262,7 @@ const TradesHistoryRow = memo(
           alignItems="center"
         >
           <SizableText size="$bodySm">
-            {`$${tradeBaseInfo.tradeValueFormatted as string}`}
+            {`${tradeBaseInfo.tradeValueFormatted as string}`}
           </SizableText>
         </XStack>
 
@@ -174,7 +275,7 @@ const TradesHistoryRow = memo(
           alignItems="center"
         >
           <SizableText size="$bodyMd">
-            {`$${tradeBaseInfo.feeFormatted as string}`}
+            {`${tradeBaseInfo.feeFormatted as string}`}
           </SizableText>
         </XStack>
 
@@ -187,7 +288,7 @@ const TradesHistoryRow = memo(
           alignItems="center"
         >
           <SizableText size="$bodyMd" color={closePnlInfo.closePnlColor}>
-            {`${closePnlInfo.closePnlPlusOrMinus}$${
+            {`${closePnlInfo.closePnlPlusOrMinus}${
               closePnlInfo.closePnlFormatted as string
             }`}
           </SizableText>
