@@ -62,8 +62,6 @@ export function UniversalSearchAccountAssetItem({
         accountId: token.accountId ?? activeAccount.account?.id ?? '',
         networkId: token.networkId ?? activeAccount.network?.id,
         walletId: activeAccount.wallet?.id,
-        deriveInfo: activeAccount.deriveInfo,
-        deriveType: activeAccount.deriveType,
         tokens: [token],
         isAllNetworks: activeAccount.network?.isAllNetworks,
         indexedAccountId: activeAccount.indexedAccount?.id ?? '',
