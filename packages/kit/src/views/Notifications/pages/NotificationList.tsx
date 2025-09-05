@@ -8,6 +8,7 @@ import { useSharedValue } from 'react-native-reanimated';
 import {
   Alert,
   Dialog,
+  Divider,
   Empty,
   HeaderButtonGroup,
   HeaderIconButton,
@@ -62,10 +63,13 @@ function HeaderRight() {
   return (
     <HeaderButtonGroup>
       <HeaderIconButton
-        icon="BroomOutline"
+        icon="CheckRadioOutline"
+        title={intl.formatMessage({
+          id: ETranslations.global_mark_all_as_confirmation_title_tooltip,
+        })}
         onPress={() => {
           Dialog.show({
-            icon: 'BroomOutline',
+            icon: 'CheckRadioOutline',
             title: intl.formatMessage({
               id: ETranslations.global_mark_all_as_confirmation_title,
             }),
@@ -115,22 +119,22 @@ function NotificationItem({
         </Stack>
       );
     }
-    if (extras?.image) {
+    // Only render the left image for non-system topics to avoid duplicates
+    if (
+      extras?.image &&
+      item.topicType !== ENotificationPushTopicTypes.system
+    ) {
       return <Image size={28} source={{ uri: extras.image }} />;
     }
-  }, [extras?.image, item.icon]);
+  }, [extras?.image, item.icon, item.topicType]);
   return (
     <ListItem
-      gap="$0.5"
       flexDirection="column"
       alignItems="stretch"
       userSelect="none"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
       {...rest}
     >
-      <XStack alignItems="flex-start" gap="$3" pr="$1.5">
+      <XStack alignItems="flex-start" gap="$3" py="$2">
         <YStack>
           {imageElement}
           {!readed && !!badge && !readedMap?.[msgId] ? (
@@ -145,21 +149,41 @@ function NotificationItem({
             />
           ) : null}
         </YStack>
-        <YStack flex={1}>
-          <SizableText flex={1} size="$headingSm" numberOfLines={1}>
+        <YStack flex={1} gap="$0.5">
+          <SizableText flex={1} size="$headingSm" numberOfLines={2}>
             {title}
           </SizableText>
 
-          <SizableText size="$bodyMd" flex={1} maxWidth="$96" pt="$1" pb="$1.5">
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            flex={1}
+            numberOfLines={3}
+          >
             {content}
           </SizableText>
-          <SizableText size="$bodySm" color="$textSubdued" flexShrink={0}>
+          <SizableText
+            pt="$0.5"
+            size="$bodySm"
+            color="$textDisabled"
+            flexShrink={0}
+          >
             {formatDistanceToNow(new Date(createdAt))}
           </SizableText>
         </YStack>
-        {item.topicType === ENotificationPushTopicTypes.system ? (
-          <Image source={{ uri: extras?.image }} size="$16" borderRadius={6} />
+        {item.topicType === ENotificationPushTopicTypes.system &&
+        !!extras?.image ? (
+          <Image
+            source={{ uri: extras.image }}
+            size="$16"
+            borderColor="$neutral3"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderRadius={6}
+          />
         ) : null}
+      </XStack>
+      <XStack pl="$12" position="absolute" bottom={0} left={0} right={0}>
+        <Divider borderColor="$neutral3" />
       </XStack>
     </ListItem>
   );
@@ -298,7 +322,9 @@ function NotificationList() {
       },
       {
         id: ENotificationPushTopicTypes.system,
-        name: 'System',
+        name: intl.formatMessage({
+          id: ETranslations.global_system,
+        }),
       },
     ],
 
@@ -361,9 +387,6 @@ function NotificationList() {
             <NotificationItemMemo
               key={item.msgId || index}
               item={item}
-              {...(index !== 0 && {
-                mt: '$2.5',
-              })}
               onPress={() => {
                 if (isVersionCompatible(item.body.extras?.miniBundlerVersion)) {
                   void notificationsUtils.navigateToNotificationDetail({
