@@ -9,7 +9,6 @@ import perfUtils, {
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import type {
   IAccountToken,
-  IAggregateToken,
   IToken,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
@@ -23,7 +22,6 @@ export interface ISimpleDBLocalTokens {
   riskyTokenList: Record<string, IAccountToken[]>; // <networkId_accountAddress/xpub, IAccountToken[]>
   tokenListMap: Record<string, Record<string, ITokenFiat>>; // <networkId_accountAddress/xpub, Record<string, ITokenFiat>>
   tokenListValue: Record<string, string>; // <networkId_accountAddress/xpub, string>
-  tokenAggregateMap: Record<string, IAggregateToken>; // <networkId_tokenAddress, IAggregateToken>
 }
 
 export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocalTokens> {
@@ -56,7 +54,6 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       riskyTokenList: rawData?.riskyTokenList ?? {},
       tokenListMap: rawData?.tokenListMap ?? {},
       tokenListValue: rawData?.tokenListValue ?? {},
-      tokenAggregateMap: rawData?.tokenAggregateMap ?? {},
     }));
   }
 
@@ -166,7 +163,6 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     perf.markStart('setRawData');
     await this.setRawData((rawData) => ({
       data: rawData?.data ?? {},
-      tokenAggregateMap: rawData?.tokenAggregateMap ?? {},
       tokenList: {
         ...rawData?.tokenList,
         [key]: tokenList,
@@ -202,7 +198,6 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
   }) {
     await this.setRawData((rawData) => ({
       data: rawData?.data ?? {},
-      tokenAggregateMap: rawData?.tokenAggregateMap ?? {},
       tokenList: {
         ...rawData?.tokenList,
         ...tokenListCache.tokenList,
@@ -288,34 +283,6 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       riskyTokenList: {},
       tokenListMap: {},
       tokenListValue: {},
-      tokenAggregateMap: {},
     });
-  }
-
-  @backgroundMethod()
-  async getTokenAggregateMap() {
-    return (await this.getRawData())?.tokenAggregateMap ?? {};
-  }
-
-  @backgroundMethod()
-  async updateTokenAggregateMap({
-    tokenAggregateMap,
-    merge: _merge,
-  }: {
-    tokenAggregateMap: Record<string, IAggregateToken>;
-    merge?: boolean;
-  }) {
-    await this.setRawData((rawData) => ({
-      ...rawData,
-      tokenAggregateMap: _merge
-        ? { ...rawData?.tokenAggregateMap, ...tokenAggregateMap }
-        : tokenAggregateMap,
-      data: rawData?.data ?? {},
-      tokenList: rawData?.tokenList ?? {},
-      smallBalanceTokenList: rawData?.smallBalanceTokenList ?? {},
-      riskyTokenList: rawData?.riskyTokenList ?? {},
-      tokenListMap: rawData?.tokenListMap ?? {},
-      tokenListValue: rawData?.tokenListValue ?? {},
-    }));
   }
 }

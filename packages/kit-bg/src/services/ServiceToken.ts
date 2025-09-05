@@ -17,6 +17,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   buildAggregateTokenListData,
   buildAggregateTokenMapKeyForAggregateConfig,
+  buildHomeDefaultTokenMapKey,
   getEmptyTokenData,
   getMergedTokenData,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -26,8 +27,10 @@ import type {
   IAggregateToken,
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
+  IFetchAggregateTokenConfigMapResp,
   IFetchTokenDetailItem,
   IFetchTokenDetailParams,
+  IHomeDefaultToken,
   ISearchTokensParams,
   IToken,
   ITokenData,
@@ -111,7 +114,7 @@ class ServiceToken extends ServiceBase {
       customTokensRawData,
       blockedTokensRawData,
       unblockedTokensRawData,
-      aggregateTokenMapRawData,
+      aggregateTokenConfigMapRawData,
       ...rest
     } = params;
     const { networkId } = rest;
@@ -247,7 +250,7 @@ class ServiceToken extends ServiceBase {
 
     resp.data.data.tokens.data = resp.data.data.tokens.data
       .map((token) => {
-        if (isAllNetworks && aggregateTokenMapRawData) {
+        if (isAllNetworks && aggregateTokenConfigMapRawData) {
           const data = buildAggregateTokenListData({
             networkId,
             accountId,
@@ -255,7 +258,7 @@ class ServiceToken extends ServiceBase {
             tokenMap: resp.data.data.tokens.map,
             aggregateTokenListMap,
             aggregateTokenMap,
-            aggregateTokenMapRawData,
+            aggregateTokenConfigMapRawData,
             networkName: network?.name ?? '',
           });
 
@@ -297,7 +300,7 @@ class ServiceToken extends ServiceBase {
     resp.data.data.smallBalanceTokens.data =
       resp.data.data.smallBalanceTokens.data
         .map((token) => {
-          if (isAllNetworks && aggregateTokenMapRawData) {
+          if (isAllNetworks && aggregateTokenConfigMapRawData) {
             const data = buildAggregateTokenListData({
               accountId,
               networkName: network?.name ?? '',
@@ -306,7 +309,7 @@ class ServiceToken extends ServiceBase {
               tokenMap: resp.data.data.smallBalanceTokens.map,
               aggregateTokenListMap,
               aggregateTokenMap,
-              aggregateTokenMapRawData,
+              aggregateTokenConfigMapRawData,
             });
 
             if (data.isAggregateToken) {
@@ -980,45 +983,90 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async syncAggregateTokenMap() {
+  public async syncAggregateTokenConfigMap() {
     await this.abortFetchAggregateTokenMap();
-    const { tokens = {} } = await this.fetchAggregateTokenMap();
-    const tokenAggregateMap: Record<string, IAggregateToken> = {};
-    Object.entries(tokens).forEach(([commonSymbol, _tokens]) => {
-      _tokens.forEach((token) => {
-        tokenAggregateMap[
+    const { tokens = {}, meta: { homeDefaults = [] } = {} } =
+      await this.fetchAggregateTokenConfigMap();
+    const aggregateTokenConfigMap: Record<string, IAggregateToken> = {};
+    const homeDefaultTokenMap: Record<string, IHomeDefaultToken> = {};
+    homeDefaults.forEach((homeDefault) => {
+      homeDefaultTokenMap[
+        buildHomeDefaultTokenMapKey({
+          networkId: homeDefault.networkId,
+          symbol: homeDefault.symbol,
+        })
+      ] = homeDefault;
+    });
+    Object.entries(tokens).forEach(([commonSymbol, { data, logoURI }]) => {
+      data.forEach((token) => {
+        aggregateTokenConfigMap[
           buildAggregateTokenMapKeyForAggregateConfig({
             networkId: token.networkId,
             tokenAddress: token.address || token.assetType || '',
           })
         ] = {
           ...token,
+          logoURI,
           commonSymbol,
         };
       });
     });
-    await this.backgroundApi.simpleDb.localTokens.updateTokenAggregateMap({
-      tokenAggregateMap,
+    await this.backgroundApi.simpleDb.aggregateToken.updateAggregateTokenConfigMap(
+      {
+        aggregateTokenConfigMap,
+      },
+    );
+    await this.backgroundApi.simpleDb.aggregateToken.updateHomeDefaultTokenMap({
+      homeDefaultTokenMap,
     });
-    return tokenAggregateMap;
+    return aggregateTokenConfigMap;
   }
 
   @backgroundMethod()
-  public async getTokenAggregateMap() {
-    return this.backgroundApi.simpleDb.localTokens.getTokenAggregateMap();
+  public async getAggregateTokenConfigMap() {
+    return this.backgroundApi.simpleDb.aggregateToken.getAggregateTokenConfigMap();
   }
 
   @backgroundMethod()
-  public async fetchAggregateTokenMap() {
+  public async fetchAggregateTokenConfigMap() {
     const controller = new AbortController();
     this._fetchAggregateTokenMapControllers.push(controller);
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.get<{
-      data: {
-        tokens: Record<string, IAggregateToken[]>;
-      };
-    }>('/wallet/v1/tokens/aggregate-chains');
+    const resp = await client.get<IFetchAggregateTokenConfigMapResp>(
+      '/wallet/v1/tokens/aggregate-chains',
+    );
     return resp.data.data;
+  }
+
+  @backgroundMethod()
+  public async updateLocalAggregateTokenMap({
+    networkId,
+    accountId,
+    aggregateTokenMap,
+  }: {
+    networkId: string;
+    accountId: string;
+    aggregateTokenMap: Record<string, ITokenFiat>;
+  }) {
+    return this.backgroundApi.simpleDb.aggregateToken.updateAggregateTokenMap({
+      networkId,
+      accountId,
+      aggregateTokenMap,
+    });
+  }
+
+  @backgroundMethod()
+  public async getLocalAggregateTokenMap({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    return this.backgroundApi.simpleDb.aggregateToken.getAggregateTokenMap({
+      networkId,
+      accountId,
+    });
   }
 }
 

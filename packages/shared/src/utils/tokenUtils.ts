@@ -681,7 +681,7 @@ export function buildAggregateTokenMapKeyForAggregateConfig(params: {
   tokenAddress: string;
 }) {
   const { networkId, tokenAddress } = params;
-  return `${networkId}_${tokenAddress}`;
+  return `${networkId}_${tokenAddress.toLowerCase()}`;
 }
 
 export function buildAggregateTokenListMapKeyForTokenList(params: {
@@ -704,7 +704,7 @@ export function buildAggregateTokenListData(params: {
     }
   >;
   aggregateTokenMap: Record<string, ITokenFiat>;
-  aggregateTokenMapRawData: Record<string, IAggregateToken>;
+  aggregateTokenConfigMapRawData: Record<string, IAggregateToken>;
   networkName: string;
 }) {
   const {
@@ -714,7 +714,7 @@ export function buildAggregateTokenListData(params: {
     aggregateTokenListMap,
     aggregateTokenMap,
     token,
-    aggregateTokenMapRawData,
+    aggregateTokenConfigMapRawData,
     networkName,
   } = params;
 
@@ -723,7 +723,7 @@ export function buildAggregateTokenListData(params: {
   let isAggregateToken = false;
 
   const aggregateToken =
-    aggregateTokenMapRawData[
+    aggregateTokenConfigMapRawData[
       buildAggregateTokenMapKeyForAggregateConfig({
         networkId,
         tokenAddress: token.address,
@@ -744,6 +744,7 @@ export function buildAggregateTokenListData(params: {
           $key: aggregateTokenListMapKey,
           isAggregateToken: true,
           commonSymbol: aggregateToken.commonSymbol,
+          logoURI: aggregateToken.logoURI,
         },
         tokens: [
           {
@@ -753,6 +754,7 @@ export function buildAggregateTokenListData(params: {
             order: aggregateToken.order,
             commonSymbol: aggregateToken.commonSymbol,
             networkName,
+            logoURI: aggregateToken.logoURI,
           },
         ],
       };
@@ -770,4 +772,24 @@ export function buildAggregateTokenListData(params: {
     aggregateTokenListMap: newAggregateTokenListMap,
     aggregateTokenMap: newAggregateTokenMap,
   };
+}
+
+export function buildLocalAggregateTokenMapKey({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) {
+  return `${networkId}_${accountId}`;
+}
+
+export function buildHomeDefaultTokenMapKey({
+  networkId,
+  symbol,
+}: {
+  networkId: string;
+  symbol: string;
+}) {
+  return `${networkId}_${symbol}`;
 }

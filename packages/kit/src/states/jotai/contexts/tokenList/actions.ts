@@ -103,7 +103,7 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           const aggregateTokenMap = get(aggregateTokensMapAtom());
 
           newTokens = sortTokensByFiatValue({
-            tokens: newTokens,
+            tokens: uniqBy(newTokens, (item) => item.$key),
             map: {
               ...tokenListMap,
               ...aggregateTokenMap,
@@ -176,7 +176,6 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       },
     ) => {
       const { keys, tokens, merge, mergeDerive, split } = payload;
-
       if (merge) {
         if (tokens.length) {
           let newTokens = get(tokenListAtom()).tokens.concat(
@@ -199,7 +198,7 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           };
 
           newTokens = sortTokensByFiatValue({
-            tokens: newTokens,
+            tokens: uniqBy(newTokens, (item) => item.$key),
             map: mergedTokenListMap,
           });
 
@@ -234,7 +233,7 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
             );
 
             set(tokenListAtom(), {
-              tokens: uniqBy(highValueTokens, (item) => item.$key),
+              tokens: highValueTokens,
               keys: `${get(tokenListAtom()).keys}_${keys}`,
             });
 

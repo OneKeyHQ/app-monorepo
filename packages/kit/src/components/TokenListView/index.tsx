@@ -29,6 +29,7 @@ import {
 import {
   useActiveAccountTokenListAtom,
   useActiveAccountTokenListStateAtom,
+  useAggregateTokensMapAtom,
   useSearchKeyAtom,
   useSearchTokenListAtom,
   useSearchTokenStateAtom,
@@ -123,6 +124,7 @@ function TokenListViewCmp(props: IProps) {
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
   const [tokenList] = useTokenListAtom();
   const [tokenListMap] = useTokenListMapAtom();
+  const [aggregateTokenMap] = useAggregateTokensMapAtom();
   const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
@@ -171,7 +173,10 @@ function TokenListViewCmp(props: IProps) {
         return sortTokensByPrice({
           tokens: resp,
           sortDirection,
-          map: tokenListMap,
+          map: {
+            ...tokenListMap,
+            ...aggregateTokenMap,
+          },
         });
       }
 
@@ -179,7 +184,10 @@ function TokenListViewCmp(props: IProps) {
         return sortTokensByFiatValue({
           tokens: resp,
           sortDirection,
-          map: tokenListMap,
+          map: {
+            ...tokenListMap,
+            ...aggregateTokenMap,
+          },
         });
       }
 
@@ -203,6 +211,7 @@ function TokenListViewCmp(props: IProps) {
     sortType,
     sortDirection,
     tokenListMap,
+    aggregateTokenMap,
   ]);
 
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();

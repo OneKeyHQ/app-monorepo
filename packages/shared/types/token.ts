@@ -83,7 +83,7 @@ export type IFetchAccountTokensParams = {
   customTokensRawData?: ICustomTokenDBStruct;
   blockedTokensRawData?: IRiskTokenManagementDBStruct['blockedTokens'];
   unblockedTokensRawData?: IRiskTokenManagementDBStruct['unblockedTokens'];
-  aggregateTokenMapRawData?: Record<string, IAggregateToken>;
+  aggregateTokenConfigMapRawData?: Record<string, IAggregateToken>;
 };
 
 export type ITokenData = {
@@ -208,5 +208,28 @@ export interface IAggregateToken {
   address?: string;
   assetType?: string;
   commonSymbol?: string;
-  order?: number;
+  order: number;
+  logoURI?: string;
 }
+
+export type IHomeDefaultToken = {
+  symbol: string;
+  networkId: string;
+  logoURI: string;
+  order: number;
+};
+
+export type IFetchAggregateTokenConfigMapResp = {
+  data: {
+    meta: {
+      homeDefaults: IHomeDefaultToken[];
+    };
+    tokens: Record<
+      string,
+      {
+        logoURI: string;
+        data: IAggregateToken[];
+      }
+    >;
+  };
+};

@@ -15,6 +15,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { ISimpleDBAggregateToken } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAggregateToken';
 import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
 import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
@@ -149,6 +150,10 @@ function TokenListContainer({
   );
 
   const localTokensRawData = useRef<ISimpleDBLocalTokens | undefined>(
+    undefined,
+  );
+
+  const aggregateTokenRawData = useRef<ISimpleDBAggregateToken | undefined>(
     undefined,
   );
 
@@ -539,7 +544,8 @@ function TokenListContainer({
         blockedTokensRawData: riskTokenManagementRawData.current.blockedTokens,
         unblockedTokensRawData:
           riskTokenManagementRawData.current.unblockedTokens,
-        aggregateTokenMapRawData: localTokensRawData.current?.tokenAggregateMap,
+        aggregateTokenConfigMapRawData:
+          aggregateTokenRawData.current?.aggregateTokenConfigMap,
       });
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
@@ -775,10 +781,11 @@ function TokenListContainer({
     }) => {
       perfTokenListView.markStart('allNetworkRequestsStarted_getRawData');
 
-      const [c, r, l] = await Promise.all([
-        backgroundApiProxy.serviceToken.getCustomTokensRawData(),
-        backgroundApiProxy.serviceToken.getRiskTokenManagementRawData(),
+      const [c, r, l, a] = await Promise.all([
+        backgroundApiProxy.simpleDb.customTokens.getRawData(),
+        backgroundApiProxy.simpleDb.riskTokenManagement.getRawData(),
         backgroundApiProxy.simpleDb.localTokens.getRawData(),
+        backgroundApiProxy.simpleDb.aggregateToken.getRawData(),
       ]);
 
       perfTokenListView.markEnd('allNetworkRequestsStarted_getRawData');
@@ -789,6 +796,7 @@ function TokenListContainer({
         blockedTokens: r?.blockedTokens ?? {},
       };
       localTokensRawData.current = l ?? undefined;
+      aggregateTokenRawData.current = a ?? undefined;
 
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
@@ -855,7 +863,7 @@ function TokenListContainer({
   );
 
   const handleAllNetworkCacheData = useCallback(
-    ({
+    async ({
       data,
       accountId,
       networkId,
@@ -875,6 +883,12 @@ function TokenListContainer({
       networkId: string;
     }) => {
       perfTokenListView.markStart('handleAllNetworkCacheData');
+
+      const localAggregateTokenMap =
+        await backgroundApiProxy.serviceToken.getLocalAggregateTokenMap({
+          accountId,
+          networkId,
+        });
 
       const tokenList: IAccountToken[] = [];
       const riskyTokenList: IAccountToken[] = [];
@@ -896,6 +910,10 @@ function TokenListContainer({
             networkId: item.networkId,
           })]: item.tokenListValue,
         };
+      });
+
+      refreshAggregateTokensMap({
+        tokens: localAggregateTokenMap,
       });
 
       refreshTokenListMap({
@@ -926,7 +944,10 @@ function TokenListContainer({
         keys: `${accountId}_${networkId}_local_all`,
         tokens: tokenList,
         merge: true,
-        map: tokenListMap,
+        map: {
+          ...tokenListMap,
+          ...localAggregateTokenMap,
+        },
         mergeDerive: true,
         split: true,
       });
@@ -935,14 +956,20 @@ function TokenListContainer({
         keys: `${accountId}_${networkId}_local_all`,
         riskyTokens: riskyTokenList,
         merge: true,
-        map: tokenListMap,
+        map: {
+          ...tokenListMap,
+          ...localAggregateTokenMap,
+        },
         mergeDerive: true,
       });
 
       refreshAllTokenList({
         keys: `${accountId}_${networkId}_local_all`,
         tokens: [...tokenList, ...riskyTokenList],
-        map: tokenListMap,
+        map: {
+          ...tokenListMap,
+          ...localAggregateTokenMap,
+        },
         merge: true,
         mergeDerive: true,
         accountId: account?.id,
@@ -980,6 +1007,7 @@ function TokenListContainer({
       account?.createAtNetwork,
       account?.id,
       network?.id,
+      refreshAggregateTokensMap,
       refreshAllTokenList,
       refreshAllTokenListMap,
       refreshRiskyTokenList,
@@ -1177,6 +1205,12 @@ function TokenListContainer({
             .plus(r.smallBalanceTokens.fiatValue ?? '0');
         }
       }
+
+      void backgroundApiProxy.serviceToken.updateLocalAggregateTokenMap({
+        networkId: network?.id ?? '',
+        accountId: account?.id ?? '',
+        aggregateTokenMap,
+      });
 
       tokenList.tokens = uniqBy(tokenList.tokens, (item) => item.$key);
       smallBalanceTokenList.smallBalanceTokens = uniqBy(
