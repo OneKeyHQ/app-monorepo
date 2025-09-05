@@ -218,6 +218,35 @@ export default function NotificationsSettings() {
           />
           <Switch value />
           </ListItem> */}
+
+                <Divider m="$5" />
+
+                <ListItem>
+                  <ListItem.Text
+                    flex={1}
+                    primary={intl.formatMessage({
+                      id: ETranslations.global_system_notifications,
+                    })}
+                    secondary={intl.formatMessage({
+                      id: ETranslations.notifications_system_notifications_desc,
+                    })}
+                    secondaryTextProps={{
+                      maxWidth: '$96',
+                    }}
+                    primaryTextProps={{
+                      size: '$headingMd',
+                    }}
+                  />
+                  <Switch
+                    size="small"
+                    value={!!settings?.announcementEnabled}
+                    onChange={(checked) => {
+                      void updateSettings({
+                        announcementEnabled: checked,
+                      });
+                    }}
+                  />
+                </ListItem>
                 <Divider m="$5" />
                 <ListItem>
                   <ListItem.Text
@@ -242,52 +271,6 @@ export default function NotificationsSettings() {
                     }
                   />
                   <NotificationsTestButton />
-                </ListItem>
-                <Divider m="$5" />
-
-                <ListItem>
-                  <ListItem.Text
-                    flex={1}
-                    primary={intl.formatMessage({
-                      id: ETranslations.global_system_notifications,
-                    })}
-                    secondary={intl.formatMessage({
-                      id: ETranslations.notifications_system_notifications_desc,
-                    })}
-                    secondaryTextProps={{
-                      maxWidth: '$96',
-                    }}
-                    primaryTextProps={{
-                      size: '$headingMd',
-                    }}
-                  />
-                  <Switch
-                    size="small"
-                    value={!!settings?.pushEnabled}
-                    onChange={async (checked) => {
-                      void updateSettings({
-                        pushEnabled: checked,
-                      });
-                      if (checked) {
-                        const permission =
-                          await backgroundApiProxy.serviceNotification.getPermission();
-                        await timerUtils.wait(300);
-                        if (
-                          permission.isSupported &&
-                          permission.permission !==
-                            ENotificationPermission.granted
-                        ) {
-                          navigation.pushModal(
-                            EModalRoutes.NotificationsModal,
-                            {
-                              screen:
-                                EModalNotificationsRoutes.NotificationIntroduction,
-                            },
-                          );
-                        }
-                      }
-                    }}
-                  />
                 </ListItem>
               </>
             ) : null}

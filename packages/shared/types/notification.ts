@@ -127,6 +127,7 @@ export type INotificationPushRegisterParams = {
 export type INotificationPushSettings = {
   pushEnabled?: boolean;
   accountActivityPushEnabled?: boolean;
+  announcementEnabled?: boolean;
   maxAccount?: number;
   supportedNetworks?: {
     networkId: string;
