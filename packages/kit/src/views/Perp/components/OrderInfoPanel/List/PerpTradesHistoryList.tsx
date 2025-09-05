@@ -13,7 +13,6 @@ interface IPerpTradesHistoryListProps {
 
 function PerpTradesHistoryList({ isMobile }: IPerpTradesHistoryListProps) {
   const { trades } = usePerpTradesHistory();
-  console.log('perp__trades', trades);
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
       { key: 'asset', title: 'Asset', width: 80, align: 'center' },
