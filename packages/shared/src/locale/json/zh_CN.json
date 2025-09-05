@@ -1290,7 +1290,7 @@
   "global.hardware_troubleshooting_warranty_description": "别担心！我们的支持团队随时准备为您提供帮助。请联系客服并提供您的订单号。",
   "global.hardware_troubleshooting_warranty_title": "遇到硬件问题了吗？",
   "global.help_message": "需要帮助吗？<url>https://help.onekey.so/hc/requests/new<underline>联系 OneKey 支持</underline></url>。",
-  "global.hex_data": "留言",
+  "global.hex_data": "消息",
   "global.hex_data_default": "十六进制数据",
   "global.hex_data_default_faq": "什么是十六进制数据？",
   "global.hex_data_error": "输入格式错误",
