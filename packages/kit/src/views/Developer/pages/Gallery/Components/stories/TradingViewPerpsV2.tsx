@@ -48,7 +48,10 @@ const TradingViewPerpsV2Gallery = () => {
               </Stack>
 
               <Stack w="100%" h={500}>
-                <TradingViewPerpsV2 symbol={currentSymbol} />
+                <TradingViewPerpsV2
+                  symbol={currentSymbol}
+                  userAddress={undefined}
+                />
               </Stack>
             </Stack>
           ),

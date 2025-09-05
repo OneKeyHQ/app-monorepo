@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useCalendars } from 'expo-localization';
 
@@ -32,6 +32,71 @@ interface IBaseTradingViewPerpsV2Props {
 export type ITradingViewPerpsV2Props = IBaseTradingViewPerpsV2Props &
   IStackStyle;
 
+// Dynamic params sync hook - symbol changes sync via message instead of WebView reload
+const useSymbolSync = ({
+  webRef,
+  symbol,
+}: {
+  webRef: React.RefObject<IWebViewRef | null>;
+  symbol: string;
+}) => {
+  const prevSymbolRef = useRef<string>(symbol);
+
+  useEffect(() => {
+    const prevSymbol = prevSymbolRef.current;
+    const hasSymbolChanged = prevSymbol !== symbol;
+
+    if (hasSymbolChanged && webRef.current) {
+      console.log('🔄 Syncing symbol to WebView:', {
+        from: prevSymbol,
+        to: symbol,
+      });
+
+      // Sync symbol changes via message communication instead of WebView reload
+      webRef.current.sendMessageViaInjectedScript({
+        type: 'SYMBOL_CHANGE',
+        payload: {
+          symbol,
+          force: true,
+        },
+      });
+
+      prevSymbolRef.current = symbol;
+    }
+  }, [symbol, webRef]);
+};
+
+// WebView Memoized component to prevent unnecessary re-renders
+const WebViewMemoized = memo(
+  ({
+    src,
+    customReceiveHandler,
+    onWebViewRef,
+    ...otherProps
+  }: {
+    src: string;
+    customReceiveHandler: (data: any) => Promise<void>;
+    onWebViewRef: (ref: IWebViewRef | null) => void;
+    [key: string]: any;
+  }) => (
+    <WebView
+      src={src}
+      customReceiveHandler={customReceiveHandler}
+      onWebViewRef={onWebViewRef}
+      {...otherProps}
+    />
+  ),
+  (prevProps, nextProps) => {
+    // Only re-render if critical props change
+    return (
+      prevProps.src === nextProps.src &&
+      prevProps.customReceiveHandler === nextProps.customReceiveHandler
+    );
+  },
+);
+
+WebViewMemoized.displayName = 'WebViewMemoized';
+
 export function TradingViewPerpsV2(
   props: ITradingViewPerpsV2Props & WebViewProps,
 ) {
@@ -46,8 +111,8 @@ export function TradingViewPerpsV2(
   const { symbol, userAddress, onLoadEnd, onTradeUpdate, tradingViewUrl } =
     props;
 
-  // build TradingView URL
-  const finalTradingViewUrl = useMemo(() => {
+  // Optimization: Static URL with only initialization params to avoid WebView reload
+  const staticTradingViewUrl = useMemo(() => {
     const baseUrl =
       tradingViewUrl ||
       (devSettings.enabled && devSettings.settings?.useLocalTradingViewUrl
@@ -63,7 +128,14 @@ export function TradingViewPerpsV2(
     url.searchParams.set('type', 'perps');
 
     return url.toString();
-  }, [tradingViewUrl, devSettings, calendars, systemLocale, theme, symbol]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tradingViewUrl, devSettings, calendars, systemLocale, theme]);
+
+  // Optimization: Dynamic symbol parameter sync mechanism
+  useSymbolSync({
+    webRef,
+    symbol,
+  });
 
   const { customReceiveHandler } = usePerpsMessageHandler({
     symbol,
@@ -83,8 +155,8 @@ export function TradingViewPerpsV2(
 
   return (
     <Stack position="relative" flex={1}>
-      <WebView
-        src={finalTradingViewUrl}
+      <WebViewMemoized
+        src={staticTradingViewUrl}
         customReceiveHandler={customReceiveHandler}
         onWebViewRef={onWebViewRef}
         onLoadEnd={onLoadEnd}
