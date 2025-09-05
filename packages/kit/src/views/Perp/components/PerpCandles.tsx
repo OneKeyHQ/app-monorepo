@@ -5,10 +5,11 @@ import { TradingViewPerpsV2 } from '@onekeyhq/kit/src/components/TradingView/Tra
 
 import { useCurrentTokenAtom } from '../../../states/jotai/contexts/hyperliquid';
 import { useHyperliquidAccount } from '../hooks';
+import { usePerpUseChainAccount } from '../hooks/usePerpUseChainAccount';
 
 export function PerpCandles() {
   const [currentToken] = useCurrentTokenAtom();
-  const { currentUser } = useHyperliquidAccount();
+  const { userAddress } = usePerpUseChainAccount();
 
   useEffect(() => {
     if (currentToken) {
@@ -17,14 +18,14 @@ export function PerpCandles() {
   }, [currentToken]);
 
   useEffect(() => {
-    if (currentUser) {
-      console.log('PerpCandles -> currentUser: ', currentUser);
+    if (userAddress) {
+      console.log('PerpCandles -> currentUser: ', userAddress);
     }
-  }, [currentUser]);
+  }, [userAddress]);
 
   return (
     <Stack w="100%" h="100%">
-      <TradingViewPerpsV2 userAddress={currentUser} symbol={currentToken} />
+      <TradingViewPerpsV2 userAddress={userAddress} symbol={currentToken} />
     </Stack>
   );
 }

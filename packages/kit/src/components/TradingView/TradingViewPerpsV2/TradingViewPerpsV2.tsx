@@ -23,7 +23,7 @@ import type { WebViewProps } from 'react-native-webview';
 
 interface IBaseTradingViewPerpsV2Props {
   symbol: string;
-  userAddress: IHex | null;
+  userAddress: IHex | undefined;
   onLoadEnd?: () => void;
   onTradeUpdate?: (trade: ITradeEvent) => void;
   tradingViewUrl?: string;

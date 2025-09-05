@@ -4,10 +4,6 @@ export interface ITradingMark {
   color: string;
   text: string;
   label: string;
-  labelFontColor?: string;
-  size?: 'normal' | 'small' | 'large';
-  shape?: 'circle' | 'square' | 'arrowUp' | 'arrowDown';
-  minSize?: number;
 }
 
 export interface ITradeEvent {
@@ -30,4 +26,19 @@ export interface IGetMarksRequest {
 export interface IGetMarksResponse {
   marks: ITradingMark[];
   requestId?: string;
+}
+
+export enum EMarksUpdateOperationEnum {
+  INCREMENTAL = 'incremental',
+  REPLACE = 'replace',
+  CLEAR = 'clear',
+}
+
+export interface IMarksUpdateMessage {
+  type: 'MARKS_UPDATE';
+  payload: {
+    marks: ITradingMark[];
+    symbol: string;
+    operation: EMarksUpdateOperationEnum;
+  };
 }
