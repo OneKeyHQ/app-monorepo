@@ -527,7 +527,7 @@ const TabsWithInfiniteScrollDemo = () => {
 
 const NewTabsGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="NewTabs"
     suggestions={[
       '使用 Tabs.Container 作为容器组件',
