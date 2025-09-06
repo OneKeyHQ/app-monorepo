@@ -52,6 +52,7 @@ import {
   mergeDeriveTokenListMap,
   sortTokensByFiatValue,
   sortTokensByOrder,
+  sortTokensCommon,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
@@ -1597,25 +1598,10 @@ function TokenListContainer({
       if (token.isAggregateToken) {
         const tokens = aggregateTokenListMapAtom[token.$key]?.tokens;
 
-        sortedTokens = sortTokensByFiatValue({
+        sortedTokens = sortTokensCommon({
           tokens,
-          map: allTokenListMapAtom,
+          tokenListMap: allTokenListMapAtom,
         });
-
-        const index = sortedTokens.findIndex((t) =>
-          new BigNumber(allTokenListMapAtom[t.$key]?.fiatValue ?? 0).isZero(),
-        );
-
-        if (index > -1) {
-          const tokensWithBalance = sortedTokens.slice(0, index);
-          let tokensWithZeroBalance = sortedTokens.slice(index);
-
-          tokensWithZeroBalance = sortTokensByOrder({
-            tokens: tokensWithZeroBalance,
-          });
-
-          sortedTokens = [...tokensWithBalance, ...tokensWithZeroBalance];
-        }
       }
 
       navigation.pushModal(EModalRoutes.MainModal, {

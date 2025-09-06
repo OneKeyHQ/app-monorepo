@@ -793,3 +793,37 @@ export function buildHomeDefaultTokenMapKey({
 }) {
   return `${networkId}_${symbol}`;
 }
+
+export function sortTokensCommon({
+  tokens,
+  tokenListMap,
+}: {
+  tokens: IAccountToken[];
+  tokenListMap: {
+    [key: string]: ITokenFiat;
+  };
+}) {
+  // sort tokens by Fiat Value
+  let sortedTokens = sortTokensByFiatValue({
+    tokens,
+    map: tokenListMap,
+  });
+
+  const index = sortedTokens.findIndex((t) =>
+    new BigNumber(tokenListMap[t.$key]?.fiatValue ?? 0).isZero(),
+  );
+
+  // sort zero fiat value tokens by order
+  if (index > -1) {
+    const tokensWithBalance = sortedTokens.slice(0, index);
+    let tokensWithZeroBalance = sortedTokens.slice(index);
+
+    tokensWithZeroBalance = sortTokensByOrder({
+      tokens: tokensWithZeroBalance,
+    });
+
+    sortedTokens = [...tokensWithBalance, ...tokensWithZeroBalance];
+  }
+
+  return sortedTokens;
+}
