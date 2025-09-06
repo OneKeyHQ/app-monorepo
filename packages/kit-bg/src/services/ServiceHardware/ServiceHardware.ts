@@ -98,6 +98,7 @@ import type {
   DeviceUploadResourceParams,
   Features,
   IDeviceType,
+  IFrameCallbackMessage,
   KnownDevice,
   OnekeyFeatures,
   Response,
@@ -578,6 +579,20 @@ class ServiceHardware extends ServiceBase {
       hardwareCallContext: EHardwareCallContext.SDK_INITIALIZATION,
       connectId: undefined,
     });
+  }
+
+  @backgroundMethod()
+  async passHardwareCallbackEventsFromOffscreenToBackground(
+    eventMessage: IFrameCallbackMessage,
+  ) {
+    const sdk = await this.getSDKInstance({
+      connectId: undefined,
+    });
+    sdk.executeCallback(
+      eventMessage.payload.callbackId,
+      eventMessage.payload.data,
+      eventMessage.payload.error,
+    );
   }
 
   @backgroundMethod()

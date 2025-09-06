@@ -713,6 +713,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
             try {
               allNetworkGetAddressResponse = (await convertDeviceResponse(
                 async () => {
+                  console.log('[DEBUG] Calling allNetworkGetAddressByLoop with callbacks', sdk);
+                  console.log('[DEBUG] Calling allNetworkGetAddressByLoop with callbacks', sdk);
                   const sdkPromiseResult = params.loopMode
                     ? sdk.allNetworkGetAddressByLoop(
                         compatibleConnectId,
@@ -722,6 +724,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
                           bundle: bundleParams,
                           // loopMode: params.loopMode,
                           onLoopItemResponse: (data) => {
+                            console.log('[DEBUG] onLoopItemResponse called:', !!data);
+                            console.log('[DEBUG] onLoopItemResponse data:', data);
                             if (hideCheckingDeviceLoading) {
                               // TODO close PIN dialog or passphrase dialog
                               void this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog(
@@ -744,6 +748,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
                             }
                           },
                           onAllItemsResponse: (data, error) => {
+                            console.log('[DEBUG] onAllItemsResponse called:', !!data, !!error);
                             // TODO lock device, reject pin or correct pin, data and error is undefined
                             console.log(
                               'sdk.allNetworkGetAddressByLoop__onAllItemsResponse',

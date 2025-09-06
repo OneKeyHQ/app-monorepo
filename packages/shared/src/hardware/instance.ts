@@ -1,11 +1,11 @@
-import {
-  HARDWARE_SDK_IFRAME_SRC_ONEKEYSO,
-  HARDWARE_SDK_VERSION,
-} from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { EHardwareTransportType } from '../../types';
+import {
+  HARDWARE_SDK_IFRAME_SRC_ONEKEYSO,
+  HARDWARE_SDK_VERSION,
+} from '../config/appConfig';
 
 import { importHardwareSDK, importHardwareSDKLowLevel } from './sdk-loader';
 
@@ -107,7 +107,6 @@ const createHardwareSDKInstance = async (params: {
     try {
       await HardwareSDK.init(settings, HardwareLowLevelSDK);
       // debugLogger.hardwareSDK.info('HardwareSDK initialized success');
-      console.log('HardwareSDK initialized success');
       resolve(HardwareSDK);
     } catch (e) {
       reject(e);

@@ -35,6 +35,22 @@ const createOffscreenApiModule = memoizee(
             // TODO backgroundApiProxyInOffscreen
             void appGlobals.extJsBridgeOffscreenToBg.request({ data: message });
           });
+
+          // Forward callback events to background
+          HardwareLowLevelSDK.addHardwareCallbackEventListener(
+            (eventParams) => {
+              const backgroundServiceName = 'serviceHardware';
+              const backgroundMethodName = `${INTERNAL_METHOD_PREFIX}passHardwareCallbackEventsFromOffscreenToBackground`;
+              const message: IBackgroundApiInternalCallMessage = {
+                service: backgroundServiceName,
+                method: backgroundMethodName,
+                params: [eventParams],
+              };
+              void appGlobals.extJsBridgeOffscreenToBg.request({
+                data: message,
+              });
+            },
+          );
         }
         return HardwareLowLevelSDK;
       case 'adaSdk':
