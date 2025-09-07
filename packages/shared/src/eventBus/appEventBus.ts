@@ -39,6 +39,7 @@ import type {
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { FuseResult } from 'fuse.js';
+import { INotificationViewDialogPayload } from '../../types/notification';
 
 // Supported hardware error types for dialog display
 export const HARDWARE_ERROR_DIALOG_TYPES = {
@@ -342,15 +343,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ShowFallbackUpdateDialog]: {
     version: string | null | undefined;
   };
-  [EAppEventBusNames.ShowNotificationViewDialog]: Omit<
-    IDialogShowProps,
-    'onConfirm' | 'onCancel' | 'renderContent'
-  > & {
-    onConfirm: {
-      actionType: 'navigate' | 'openInApp' | 'openInBrowser';
-      payload: string | Record<string, Record<string, string>>;
-    };
-  };
+  [EAppEventBusNames.ShowNotificationViewDialog]: INotificationViewDialogPayload;
 }
 
 export enum EEventBusBroadcastMethodNames {
