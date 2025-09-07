@@ -34,17 +34,20 @@ import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notificat
 import notificationsUtils, {
   NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
 } from '@onekeyhq/shared/src/utils/notificationsUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ENotificationPushTopicTypes,
   type INotificationPushMessageListItem,
 } from '@onekeyhq/shared/types/notification';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { ListItem } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useFormatDate from '../../../hooks/useFormatDate';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 import type { IListItemProps } from '../../../components/ListItem';
 
@@ -282,7 +285,7 @@ function MaxAccountLimitWarning() {
   );
 }
 
-function NotificationList() {
+function BaseNotificationList() {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const navigation = useAppNavigation();
@@ -291,6 +294,10 @@ function NotificationList() {
     useNotificationsAtom();
 
   const isFirstTimeGuideOpened = useRef(false);
+
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const activeAccountRef = useRef(activeAccount);
+  activeAccountRef.current = activeAccount;
 
   useEffect(() => {
     if (!firstTimeGuideOpened && !isFirstTimeGuideOpened.current) {
@@ -401,6 +408,16 @@ function NotificationList() {
                       item?.body?.extras?.params?.msgId ||
                       item?.body?.extras?.msgId ||
                       '',
+                    localParams: {
+                      accountId: activeAccountRef.current?.account?.id,
+                      indexedAccountId:
+                        activeAccountRef.current?.indexedAccount?.id,
+                      networkId: activeAccountRef.current?.network?.id,
+                      walletId: activeAccountRef.current?.wallet?.id,
+                      accountName: activeAccountRef.current?.account?.name,
+                      deriveType: activeAccountRef.current?.deriveType,
+                      avatarUrl: activeAccountRef.current?.wallet?.avatar,
+                    },
                   });
                 }
               }}
@@ -472,6 +489,20 @@ function NotificationList() {
         </YStack>
       </Page.Body>
     </Page>
+  );
+}
+
+function NotificationList() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <BaseNotificationList />
+    </AccountSelectorProviderMirror>
   );
 }
 

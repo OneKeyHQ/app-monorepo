@@ -48,7 +48,7 @@ export function navigateToNotificationDetailByLocalParams({
     screen: string;
     params: Record<string, any>;
   };
-  localParams: Record<string, string> | undefined;
+  localParams: Record<string, string | undefined>;
 }) {
   const { screen, params: navigationParams } = payload;
   // Recursively find and merge the deepest params
@@ -79,7 +79,7 @@ async function navigateToNotificationDetail({
   navigation?: IAppNavigation;
   mode?: ENotificationPushMessageMode;
   payload?: string;
-  localParams?: Record<string, string>;
+  localParams?: Record<string, string | undefined> | undefined;
 }) {
   let routes: string[] = [];
   let params: any = {};
@@ -142,7 +142,7 @@ async function navigateToNotificationDetail({
             const payloadObj = JSON.parse(payload || '');
             navigateToNotificationDetailByLocalParams({
               payload: payloadObj,
-              localParams,
+              localParams: localParams || {},
             });
           } catch (error) {
             showFallbackUpdateDialog();
