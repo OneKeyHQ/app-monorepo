@@ -91,10 +91,12 @@ function TokenSecurityAlertDialogContentOverviewBase({
       {isSafe ? (
         <SecurityStatusItem
           count={0}
-          label={intl.formatMessage({
-            id: ETranslations.dexmarket_audit_safe,
-          })}
-          iconName="CheckRadioSolid"
+          label={intl
+            .formatMessage({
+              id: ETranslations.dexmarket_details_audit_issue,
+            })
+            .replace('{amount} ', '')}
+          iconName="BugOutline"
           iconColor="$iconSuccess"
           backgroundColor="$bgSuccess"
         />

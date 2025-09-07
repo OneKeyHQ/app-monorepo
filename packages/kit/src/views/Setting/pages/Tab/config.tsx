@@ -42,6 +42,7 @@ import {
   EModalRoutes,
   EModalSettingRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EModalShortcutsRoutes } from '@onekeyhq/shared/src/routes/shortcuts';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -193,6 +194,17 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             },
           ],
           [
+            {
+              icon: 'SignatureOutline',
+              title: intl.formatMessage({
+                id: ETranslations.manual_backup,
+              }),
+              onPress: (navigation) => {
+                navigation?.pushModal(EModalRoutes.ManualBackupModal, {
+                  screen: EManualBackupRoutes.ManualBackupSelectWallet,
+                });
+              },
+            },
             platformEnv.isNative
               ? {
                   icon: 'OnekeyLiteOutline',

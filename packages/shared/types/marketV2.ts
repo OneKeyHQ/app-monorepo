@@ -14,6 +14,10 @@ export interface IMarketTokenDetail {
     website?: string;
     twitter?: string;
   };
+  supportSwap?: {
+    enable: boolean;
+    warningMessage?: string;
+  };
   price?: string;
   priceChange1mPercent?: string;
   priceChange5mPercent?: string;
@@ -219,6 +223,8 @@ export interface IMarketTokenTransaction {
 
 export interface IMarketTokenTransactionsResponse {
   list: IMarketTokenTransaction[];
+  hasMore?: boolean;
+  total?: number;
 }
 
 export interface IMarketTokenHolder {
@@ -269,12 +275,14 @@ export interface IMarketBasicConfigToken {
   chainId: string;
   isNative: boolean;
   name: string;
+  symbol: string;
   logo?: string;
 }
 
 export interface IMarketBasicConfigData {
   networkList: IMarketBasicConfigNetwork[];
   recommendTokens: IMarketBasicConfigToken[];
+  searchRecommendTokens: IMarketBasicConfigToken[];
   refreshInterval: number;
   minLiquidity: number;
 }

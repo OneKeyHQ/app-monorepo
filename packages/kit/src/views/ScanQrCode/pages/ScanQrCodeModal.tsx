@@ -15,11 +15,11 @@ import {
   Toast,
   XStack,
   YStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
-import { TRANSFER_DEEPLINK_URL } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -27,11 +27,8 @@ import type {
   EScanQrCodeModalPages,
   IScanQrCodeModalParamList,
 } from '@onekeyhq/shared/src/routes';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
-import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -43,6 +40,7 @@ import type { RouteProp } from '@react-navigation/core';
 appGlobals.$$scanNavigation = undefined;
 function DebugInput({ onText }: { onText: (text: string) => void }) {
   const navigation = useAppNavigation();
+  const { bottom } = useSafeAreaInsets();
   appGlobals.$$scanNavigation = navigation;
 
   const [inputText, setInputText] = useState<string>(
@@ -54,7 +52,7 @@ function DebugInput({ onText }: { onText: (text: string) => void }) {
 
   if (visible) {
     return (
-      <YStack>
+      <YStack pb={bottom}>
         <XStack>
           <IconButton
             onPress={() => navigation.popStack()}
@@ -83,13 +81,15 @@ function DebugInput({ onText }: { onText: (text: string) => void }) {
     );
   }
   return (
-    <MultipleClickStack
-      triggerAt={process.env.NODE_ENV === 'production' ? 10 : 1}
-      showDevBgColor
-      w="$8"
-      h="$8"
-      onPress={() => setVisible(true)}
-    />
+    <YStack pb={bottom}>
+      <MultipleClickStack
+        triggerAt={process.env.NODE_ENV === 'production' ? 10 : 1}
+        showDevBgColor
+        w="$8"
+        h="$8"
+        onPress={() => setVisible(true)}
+      />
+    </YStack>
   );
 }
 
@@ -227,36 +227,9 @@ export default function ScanQrCodeModal() {
         }
       }
 
-      // Check if the scanned QR code is OneKey transfer URL
-      if (value && value.startsWith(`${TRANSFER_DEEPLINK_URL}`)) {
-        try {
-          const parsedUrl = uriUtils.parseUrl(value);
-          const code = parsedUrl?.urlParamList?.code;
-          const server = parsedUrl?.urlParamList?.server;
-
-          if (code) {
-            // Close the QR code modal first
-            popNavigation();
-
-            // Navigate to Prime Transfer page
-            navigation.pushModal(EModalRoutes.PrimeModal, {
-              screen: EPrimePages.PrimeTransfer,
-              params: {
-                code,
-                server,
-              },
-            });
-
-            return;
-          }
-        } catch (error) {
-          // URL parsing failed, continue with normal flow
-        }
-      }
-
       return routeCallback({ value, popNavigation });
     },
-    [routeCallback, navigation],
+    [routeCallback],
   );
 
   const popNavigation = useCallback(() => {
