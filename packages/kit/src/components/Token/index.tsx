@@ -31,6 +31,7 @@ import { useAccountData } from '../../hooks/useAccountData';
 import { NetworkAvatar, NetworkAvatarBase } from '../NetworkAvatar';
 
 import type { ImageURISource } from 'react-native';
+import { useAggregateTokensListMapAtom } from '../../states/jotai/contexts/tokenList';
 
 type ITokenSize = 'xl' | 'lg' | 'md' | 'sm' | 'xs';
 export type ITokenProps = {
@@ -153,31 +154,60 @@ export function Token({
 }
 
 export function TokenName({
+  $key,
   name,
   isNative,
   isAllNetworks,
   withNetwork,
   networkId,
   textProps,
+  isAggregateToken,
+  withAggregateBadge,
   ...rest
 }: {
+  $key: string;
   name: string;
   isNative?: boolean;
   isAllNetworks?: boolean;
   withNetwork?: boolean;
   networkId: string | undefined;
   textProps?: ISizableTextProps;
+  isAggregateToken?: boolean;
+  withAggregateBadge?: boolean;
 } & IXStackProps) {
   const { network } = useAccountData({ networkId });
   const intl = useIntl();
+
+  const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
+  const aggregateTokenList = aggregateTokensListMap[$key];
+  const firstAggregateToken = aggregateTokenList?.tokens[0];
+  const { network: firstAggregateTokenNetwork } = useAccountData({
+    networkId: firstAggregateToken?.networkId,
+  });
+
   return (
     <XStack alignItems="center" gap="$1" {...rest}>
       <SizableText minWidth={0} numberOfLines={1} {...textProps}>
         {name}
       </SizableText>
-      {withNetwork && network ? (
+      {isAllNetworks &&
+      withAggregateBadge &&
+      isAggregateToken &&
+      aggregateTokenList &&
+      aggregateTokenList.tokens.length > 1 ? (
         <Badge flexShrink={1}>
-          <Badge.Text numberOfLines={1}>{network.name}</Badge.Text>
+          <Badge.Text numberOfLines={1}>Multichain</Badge.Text>
+        </Badge>
+      ) : null}
+      {withNetwork &&
+      (network ||
+        (firstAggregateTokenNetwork &&
+          aggregateTokenList?.tokens.length === 1)) &&
+      !isNative ? (
+        <Badge flexShrink={1}>
+          <Badge.Text numberOfLines={1}>
+            {network?.name || firstAggregateTokenNetwork?.name}
+          </Badge.Text>
         </Badge>
       ) : null}
       {isNative && !isAllNetworks ? (

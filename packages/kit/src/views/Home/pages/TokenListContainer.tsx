@@ -37,6 +37,7 @@ import {
   EModalReceiveRoutes,
   EModalRoutes,
   EModalSendRoutes,
+  EModalSignatureConfirmRoutes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -189,11 +190,11 @@ function TokenListContainer({
 
     if (
       // @ts-ignore
-      (modalRoutes?.params?.screen === EModalRoutes.SendModal &&
+      (modalRoutes?.params?.screen === EModalRoutes.SignatureConfirmModal &&
         // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         modalRoutes?.params?.params?.screen ===
-          EModalSendRoutes.SendSelectToken) ||
+          EModalSignatureConfirmRoutes.TxSelectToken) ||
       // @ts-ignore
       (modalRoutes?.params?.screen === EModalRoutes.ReceiveModal &&
         // @ts-ignore

@@ -54,13 +54,22 @@ function AggregateTokenListItem({
     >
       <ListItem.Text
         align="right"
-        primary={tokenInfo.balanceParsed}
+        primary={
+          <NumberSizeableText
+            size="$bodyLgMedium"
+            formatter="balance"
+            textAlign="right"
+          >
+            {tokenInfo.balanceParsed}
+          </NumberSizeableText>
+        }
         secondary={
           <NumberSizeableText
             size="$bodyMd"
             color="$textSubdued"
             formatter="value"
             formatterOptions={{ currency: settings.currencyInfo.symbol }}
+            textAlign="right"
           >
             {tokenInfo.fiatValue}
           </NumberSizeableText>
@@ -84,7 +93,7 @@ function AggregateTokenSelector() {
     aggregateToken,
     searchPlaceholder,
     onSelect,
-    closeAfterSelect = true,
+    closeAfterSelect,
   } = route.params;
 
   const intl = useIntl();
@@ -103,12 +112,10 @@ function AggregateTokenSelector() {
 
   const handleOnPressToken = useCallback(
     (token: IAccountToken) => {
-      void onSelect({ token });
-      if (closeAfterSelect) {
-        navigation.pop();
-      }
+      void onSelect(token);
+      navigation.pop();
     },
-    [onSelect, closeAfterSelect, navigation],
+    [onSelect, navigation],
   );
 
   const sortedAggregateTokens = useMemo(() => {

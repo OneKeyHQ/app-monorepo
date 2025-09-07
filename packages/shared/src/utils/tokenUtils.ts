@@ -91,12 +91,14 @@ export function getFilteredTokenBySearchKey({
   searchAll,
   searchTokenList,
   allowEmptyWhenBelowMinLength,
+  aggregateTokenListMap,
 }: {
   tokens: IAccountToken[];
   searchKey: string;
   searchAll?: boolean;
   searchTokenList?: IAccountToken[];
   allowEmptyWhenBelowMinLength?: boolean;
+  aggregateTokenListMap?: Record<string, { tokens: IAccountToken[] }>;
 }) {
   let mergedTokens = tokens;
 
@@ -114,12 +116,28 @@ export function getFilteredTokenBySearchKey({
   // eslint-disable-next-line no-param-reassign
   searchKey = searchKey.trim().toLowerCase();
 
-  const filteredTokens = mergedTokens.filter(
-    (token) =>
+  const filteredTokens = mergedTokens.filter((token) => {
+    if (token.isAggregateToken) {
+      const aggregateTokenList = aggregateTokenListMap?.[token.$key];
+      if (
+        aggregateTokenList?.tokens?.some(
+          (t) => t.address?.toLowerCase() === searchKey,
+        )
+      ) {
+        return true;
+      }
+      return (
+        token.name?.toLowerCase().includes(searchKey) ||
+        token.symbol?.toLowerCase().includes(searchKey) ||
+        token.commonSymbol?.toLowerCase().includes(searchKey)
+      );
+    }
+    return (
       token.name?.toLowerCase().includes(searchKey) ||
       token.symbol?.toLowerCase().includes(searchKey) ||
-      token.address?.toLowerCase() === searchKey,
-  );
+      token.address?.toLowerCase() === searchKey
+    );
+  });
 
   return filteredTokens;
 }

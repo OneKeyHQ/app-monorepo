@@ -13,8 +13,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useAccountData } from '../../hooks/useAccountData';
+import { useAggregateTokensListMapAtom } from '../../states/jotai/contexts/tokenList';
 
 type IProps = {
+  $key: string;
   name: string;
   isNative?: boolean;
   isAggregateToken?: boolean;
@@ -27,6 +29,7 @@ type IProps = {
 
 function TokenNameView(props: IProps) {
   const {
+    $key,
     name,
     isNative,
     isAggregateToken,
@@ -40,20 +43,36 @@ function TokenNameView(props: IProps) {
   const intl = useIntl();
 
   const { network } = useAccountData({ networkId });
+  const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
+  const aggregateTokenList = aggregateTokensListMap[$key];
+  const firstAggregateToken = aggregateTokenList?.tokens[0];
+  const { network: firstAggregateTokenNetwork } = useAccountData({
+    networkId: firstAggregateToken?.networkId,
+  });
 
   return (
     <XStack alignItems="center" gap="$1" {...rest}>
       <SizableText minWidth={0} numberOfLines={1} {...textProps}>
         {name}
       </SizableText>
-      {withAggregateBadge && isAggregateToken ? (
+      {isAllNetworks &&
+      withAggregateBadge &&
+      isAggregateToken &&
+      aggregateTokenList &&
+      aggregateTokenList.tokens.length > 1 ? (
         <Badge flexShrink={1}>
           <Badge.Text numberOfLines={1}>Multichain</Badge.Text>
         </Badge>
       ) : null}
-      {withNetwork && network ? (
+      {withNetwork &&
+      (network ||
+        (firstAggregateTokenNetwork &&
+          aggregateTokenList?.tokens.length === 1)) &&
+      !isNative ? (
         <Badge flexShrink={1}>
-          <Badge.Text numberOfLines={1}>{network.name}</Badge.Text>
+          <Badge.Text numberOfLines={1}>
+            {network?.name || firstAggregateTokenNetwork?.name}
+          </Badge.Text>
         </Badge>
       ) : null}
       {isNative && !isAllNetworks ? (

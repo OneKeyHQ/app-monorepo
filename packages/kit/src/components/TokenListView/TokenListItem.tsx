@@ -54,7 +54,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
           />
           <YStack flex={1}>
             <TokenNameView
-              withAggregateBadge
+              $key={token.$key}
               name={
                 token.isAggregateToken
                   ? token.commonSymbol ?? token.symbol
@@ -97,6 +97,8 @@ function BasicTokenListItem(props: ITokenListItemProps) {
         />
         <YStack flex={1}>
           <TokenNameView
+            $key={token.$key}
+            withAggregateBadge={isTokenSelector}
             name={
               token.isAggregateToken
                 ? token.commonSymbol ?? token.symbol
@@ -113,6 +115,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             }}
           />
           <TokenNameView
+            $key={token.$key}
             name={token.name}
             // name={token.accountId || ''}
             networkId={token.networkId}

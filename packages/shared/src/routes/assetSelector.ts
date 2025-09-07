@@ -9,6 +9,8 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
+import type { EModalReceiveRoutes } from './receive';
+import type { EModalSignatureConfirmRoutes } from './signatureConfirm';
 import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
 
@@ -53,6 +55,10 @@ export type ITokenSelectorParamList = {
   isAllNetworks?: boolean;
   searchPlaceholder?: string;
   footerTipText?: string;
+  aggregateTokenSelectorScreen?:
+    | EModalReceiveRoutes.ReceiveSelectAggregateToken
+    | EAssetSelectorRoutes.AggregateTokenSelector
+    | EModalSignatureConfirmRoutes.TxSelectAggregateToken;
 };
 
 export type IAggregateTokenSelectorParams = {
@@ -60,7 +66,7 @@ export type IAggregateTokenSelectorParams = {
   searchPlaceholder?: string;
   accountId: string;
   aggregateToken: IAccountToken;
-  onSelect: ({ token }: { token: IAccountToken }) => void | Promise<void>;
+  onSelect: (token: IAccountToken) => void | Promise<void>;
   closeAfterSelect?: boolean;
 };
 

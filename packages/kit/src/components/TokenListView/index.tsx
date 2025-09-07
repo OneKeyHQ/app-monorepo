@@ -29,6 +29,7 @@ import {
 import {
   useActiveAccountTokenListAtom,
   useActiveAccountTokenListStateAtom,
+  useAggregateTokensListMapAtom,
   useAggregateTokensMapAtom,
   useSearchKeyAtom,
   useSearchTokenListAtom,
@@ -156,6 +157,8 @@ function TokenListViewCmp(props: IProps) {
 
   const [searchTokenList] = useSearchTokenListAtom();
 
+  const [aggregateTokenListMap] = useAggregateTokensListMapAtom();
+
   const [{ sortType, sortDirection }] = useTokenListSortAtom();
 
   const filteredTokens = useMemo(() => {
@@ -166,6 +169,7 @@ function TokenListViewCmp(props: IProps) {
       searchTokenList: isTokenSelector
         ? tokenSelectorSearchTokenList.tokens
         : searchTokenList.tokens,
+      aggregateTokenListMap,
     });
 
     if (!isTokenSelector) {
@@ -208,6 +212,7 @@ function TokenListViewCmp(props: IProps) {
     searchAll,
     tokenSelectorSearchTokenList.tokens,
     searchTokenList.tokens,
+    aggregateTokenListMap,
     sortType,
     sortDirection,
     tokenListMap,
