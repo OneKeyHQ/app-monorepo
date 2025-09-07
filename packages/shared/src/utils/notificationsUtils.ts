@@ -96,15 +96,6 @@ async function navigateToNotificationDetail({
     }
   }
 
-  if (shouldAckRead) {
-    void appGlobals?.$backgroundApiProxy?.serviceNotification.ackNotificationMessage(
-      {
-        msgId: notificationId,
-        action: ENotificationPushMessageAckAction.readed,
-      },
-    );
-  }
-
   const showFallbackUpdateDialog = () => {
     appEventBus.emit(EAppEventBusNames.ShowFallbackUpdateDialog, {
       version: payload,
@@ -112,57 +103,71 @@ async function navigateToNotificationDetail({
   };
 
   // For new versions with mode set, handle the mode properly
-  if (!isFromNotificationClick && mode) {
-    switch (mode) {
-      case ENotificationPushMessageMode.page:
-        try {
-          const { screen, params: navigationParams } = JSON.parse(
-            payload || '',
-          ) as {
-            screen: string;
-            params: Record<string, any>;
-          };
-          // Recursively find and merge the deepest params
-
-          let targetParams = navigationParams;
-          while (
-            targetParams?.params &&
-            typeof targetParams.params === 'object'
-          ) {
-            targetParams = targetParams.params;
-          }
-          Object.assign(targetParams, localParams);
-          appGlobals.$navigationRef.current?.navigate(screen, navigationParams);
-        } catch (error) {
-          showFallbackUpdateDialog();
-        }
-        break;
-      case ENotificationPushMessageMode.dialog:
-        try {
-          const payloadObj = JSON.parse(payload || '');
-          appEventBus.emit(
-            EAppEventBusNames.ShowNotificationViewDialog,
-            payloadObj,
-          );
-        } catch (error) {
-          showFallbackUpdateDialog();
-        }
-
-        break;
-      case ENotificationPushMessageMode.openInBrowser:
-        if (payload) {
-          openUrlExternal(payload);
-        }
-        break;
-      case ENotificationPushMessageMode.openInApp:
-        if (payload) {
-          openUrlInApp(payload);
-        }
-        break;
-      default:
-        break;
+  if (!isFromNotificationClick) {
+    if (shouldAckRead) {
+      void appGlobals?.$backgroundApiProxy?.serviceNotification.ackNotificationMessage(
+        {
+          msgId: notificationId,
+          action: ENotificationPushMessageAckAction.readed,
+        },
+      );
     }
-    return;
+
+    if (mode) {
+      switch (mode) {
+        case ENotificationPushMessageMode.page:
+          try {
+            const { screen, params: navigationParams } = JSON.parse(
+              payload || '',
+            ) as {
+              screen: string;
+              params: Record<string, any>;
+            };
+            // Recursively find and merge the deepest params
+
+            let targetParams = navigationParams;
+            while (
+              targetParams?.params &&
+              typeof targetParams.params === 'object'
+            ) {
+              targetParams = targetParams.params;
+            }
+            Object.assign(targetParams, localParams);
+            appGlobals.$navigationRef.current?.navigate(
+              screen,
+              navigationParams,
+            );
+          } catch (error) {
+            showFallbackUpdateDialog();
+          }
+          break;
+        case ENotificationPushMessageMode.dialog:
+          try {
+            const payloadObj = JSON.parse(payload || '');
+            appEventBus.emit(
+              EAppEventBusNames.ShowNotificationViewDialog,
+              payloadObj,
+            );
+          } catch (error) {
+            showFallbackUpdateDialog();
+          }
+
+          break;
+        case ENotificationPushMessageMode.openInBrowser:
+          if (payload) {
+            openUrlExternal(payload);
+          }
+          break;
+        case ENotificationPushMessageMode.openInApp:
+          if (payload) {
+            openUrlInApp(payload);
+          }
+          break;
+        default:
+          break;
+      }
+      return;
+    }
   }
 
   // For backward compatibility with older versions:
