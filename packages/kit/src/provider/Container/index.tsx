@@ -130,10 +130,6 @@ export function ColdStartByNotification() {
         EAppEventBusNames.ShowNotificationViewDialog,
         handleShowNotificationViewDialog,
       );
-
-      if (!isVersionCompatible(options.miniBundlerVersion)) {
-        return;
-      }
       void backgroundApiProxy.serviceNotification.handleColdStartByNotification(
         {
           notificationId: options.msgId,
