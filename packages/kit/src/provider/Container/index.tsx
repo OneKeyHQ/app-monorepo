@@ -83,53 +83,6 @@ export function ColdStartByNotification() {
       const icon = options?.image;
       const badge = options.aps?.badge?.toString() || '';
 
-      const handleShowFallbackUpdateDialog = ({
-        version,
-      }: {
-        version: string | null | undefined;
-      }) => {
-        showFallbackUpdateDialog(version);
-      };
-      appEventBus.on(
-        EAppEventBusNames.ShowFallbackUpdateDialog,
-        handleShowFallbackUpdateDialog,
-      );
-      const handleShowNotificationViewDialog = ({
-        onConfirm,
-        ...rest
-      }: INotificationViewDialogPayload) => {
-        Dialog.show({
-          ...rest,
-          onConfirm: () => {
-            const { actionType, payload } = onConfirm;
-            switch (actionType) {
-              case ENotificationViewDialogActionType.navigate:
-                try {
-                  const { screen, params } = payload as unknown as {
-                    screen: string;
-                    params: Record<string, string>;
-                  };
-                  appGlobals.$navigationRef.current?.navigate(screen, params);
-                } catch (error) {
-                  showFallbackUpdateDialog(null);
-                }
-                break;
-              case ENotificationViewDialogActionType.openInApp:
-                openUrlInApp(payload as string);
-                break;
-              case ENotificationViewDialogActionType.openInBrowser:
-                openUrlExternal(payload as string);
-                break;
-              default:
-                break;
-            }
-          },
-        });
-      };
-      appEventBus.on(
-        EAppEventBusNames.ShowNotificationViewDialog,
-        handleShowNotificationViewDialog,
-      );
       void backgroundApiProxy.serviceNotification.handleColdStartByNotification(
         {
           notificationId: options.msgId,
@@ -150,17 +103,64 @@ export function ColdStartByNotification() {
           },
         },
       );
-      return () => {
-        appEventBus.off(
-          EAppEventBusNames.ShowFallbackUpdateDialog,
-          handleShowFallbackUpdateDialog,
-        );
-        appEventBus.off(
-          EAppEventBusNames.ShowNotificationViewDialog,
-          handleShowNotificationViewDialog,
-        );
-      };
     }
+    const handleShowFallbackUpdateDialog = ({
+      version,
+    }: {
+      version: string | null | undefined;
+    }) => {
+      showFallbackUpdateDialog(version);
+    };
+    appEventBus.on(
+      EAppEventBusNames.ShowFallbackUpdateDialog,
+      handleShowFallbackUpdateDialog,
+    );
+    const handleShowNotificationViewDialog = ({
+      onConfirm,
+      ...rest
+    }: INotificationViewDialogPayload) => {
+      Dialog.show({
+        ...rest,
+        onConfirm: () => {
+          const { actionType, payload } = onConfirm;
+          switch (actionType) {
+            case ENotificationViewDialogActionType.navigate:
+              try {
+                const { screen, params } = payload as unknown as {
+                  screen: string;
+                  params: Record<string, string>;
+                };
+                appGlobals.$navigationRef.current?.navigate(screen, params);
+              } catch (error) {
+                showFallbackUpdateDialog(null);
+              }
+              break;
+            case ENotificationViewDialogActionType.openInApp:
+              openUrlInApp(payload as string);
+              break;
+            case ENotificationViewDialogActionType.openInBrowser:
+              openUrlExternal(payload as string);
+              break;
+            default:
+              break;
+          }
+        },
+      });
+    };
+    appEventBus.on(
+      EAppEventBusNames.ShowNotificationViewDialog,
+      handleShowNotificationViewDialog,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.ShowFallbackUpdateDialog,
+        handleShowFallbackUpdateDialog,
+      );
+      appEventBus.off(
+        EAppEventBusNames.ShowNotificationViewDialog,
+        handleShowNotificationViewDialog,
+      );
+    };
   }, [isVersionCompatible, showFallbackUpdateDialog]);
   return null;
 }
