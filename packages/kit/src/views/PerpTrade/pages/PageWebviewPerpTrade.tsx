@@ -256,7 +256,7 @@ function WebviewPerpTradeView() {
   return (
     <Page fullPage>
       <TabPageHeader
-        sceneName={EAccountSelectorSceneName.perp}
+        sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.WebviewPerpTrade}
         customHeaderLeftItems={leftHeaderItems}
         renderCustomHeaderRightItems={({ fixedItems }) => (

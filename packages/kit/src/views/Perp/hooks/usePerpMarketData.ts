@@ -1,13 +1,9 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 
-import type { ICandleInterval } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   useActiveAssetCtxAtom,
   useAllMidsAtom,
-  useCandlesMapAtom,
-  useCurrentCandleIntervalAtom,
   useCurrentTokenAtom,
-  useHyperliquidActions,
   useL2BookAtom,
   useTradingPanelDataAtom,
   useWebData2Atom,
@@ -247,125 +243,5 @@ export function useL2Book(): {
     getSpreadPercent,
     getTotalBidVolume,
     getTotalAskVolume,
-  };
-}
-
-export const CANDLE_INTERVALS: ICandleInterval[] = [
-  { label: '1M', value: '1m' },
-  { label: '5M', value: '5m' },
-  { label: '15M', value: '15m' },
-  { label: '1H', value: '1h' },
-  { label: '4H', value: '4h' },
-  { label: '1D', value: '1d' },
-  { label: '1W', value: '1w' },
-];
-
-export interface IUseCandlesReturn {
-  candles: HL.ICandle[];
-  isLoading: boolean;
-  error: string | null;
-  lastUpdate: number | null;
-  currentInterval: ICandleInterval;
-  changeInterval: (interval: ICandleInterval) => void;
-  refreshHistory: () => void;
-  latestCandle: HL.ICandle | null;
-  currentPrice: string | null;
-  priceChange24h: number | null;
-}
-
-export function useCandles(): IUseCandlesReturn {
-  const [currentToken] = useCurrentTokenAtom();
-  const [candlesMap] = useCandlesMapAtom();
-  const [currentInterval] = useCurrentCandleIntervalAtom();
-  const actions = useHyperliquidActions();
-
-  const candlesKey = `${currentToken}-${currentInterval.value}`;
-  const candlesData = candlesMap.get(candlesKey);
-
-  useEffect(() => {
-    if (!currentToken) return;
-
-    const key = `${currentToken}-${currentInterval.value}`;
-    const existingData = candlesMap.get(key);
-
-    if (!existingData) {
-      const endTime = Date.now();
-      const startTime = endTime - 7 * 24 * 60 * 60 * 1000;
-      void actions.current.loadHistoryCandles({
-        coin: currentToken,
-        interval: currentInterval.value,
-        startTime,
-        endTime,
-      });
-    } else if (
-      existingData.candles.length === 0 &&
-      !existingData.isLoading &&
-      existingData.error
-    ) {
-      const endTime = Date.now();
-      const startTime = endTime - 7 * 24 * 60 * 60 * 1000;
-      void actions.current.loadHistoryCandles({
-        coin: currentToken,
-        interval: currentInterval.value,
-        startTime,
-        endTime,
-      });
-    }
-  }, [currentToken, currentInterval.value, candlesMap, actions]);
-
-  const changeInterval = useCallback(
-    (newInterval: ICandleInterval) => {
-      void actions.current.changeCandleInterval(newInterval);
-    },
-    [actions],
-  );
-
-  const refreshHistory = useCallback(() => {
-    if (!currentToken) return;
-
-    const endTime = Date.now();
-    const startTime = endTime - 7 * 24 * 60 * 60 * 1000;
-    void actions.current.loadHistoryCandles({
-      coin: currentToken,
-      interval: currentInterval.value,
-      startTime,
-      endTime,
-    });
-  }, [currentToken, currentInterval.value, actions]);
-
-  // Computed values
-  const computedData = useMemo(() => {
-    const candles = candlesData?.candles || [];
-    const latestCandle =
-      candles.length > 0 ? candles[candles.length - 1] : null;
-    const currentPrice = latestCandle?.c || null;
-
-    let priceChange24h: number | null = null;
-    if (candles.length >= 2) {
-      const latest = parseFloat(latestCandle?.c || '0');
-      const prev = parseFloat(candles[candles.length - 2]?.c || '0');
-      if (prev > 0) {
-        priceChange24h = ((latest - prev) / prev) * 100;
-      }
-    }
-
-    return {
-      latestCandle,
-      currentPrice,
-      priceChange24h,
-    };
-  }, [candlesData]);
-
-  return {
-    candles: candlesData?.candles || [],
-    isLoading: candlesData?.isLoading || false,
-    error: candlesData?.error || null,
-    lastUpdate: candlesData?.lastUpdate || null,
-    currentInterval,
-    changeInterval,
-    refreshHistory,
-    latestCandle: computedData.latestCandle,
-    currentPrice: computedData.currentPrice,
-    priceChange24h: computedData.priceChange24h,
   };
 }

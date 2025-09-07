@@ -5,32 +5,33 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import ServiceBase from '../ServiceBase';
 
 import {
-  SUBSCRIPTION_CONFIGS,
+  SUBSCRIPTION_TYPE_INFO,
   calculateRequiredSubscriptions,
   calculateSubscriptionDiff,
-  getSubscriptionConfig,
-  validateSubscriptionParams,
+  createSubscription,
+  getSubscriptionPriority,
 } from './utils/SubscriptionConfig';
 
 import type {
   ISubscriptionDiff,
   ISubscriptionSpec,
   ISubscriptionState,
-  ISubscriptionType,
 } from './utils/SubscriptionConfig';
 
 interface IActiveSubscription {
   key: string;
-  type: ISubscriptionType;
+  type: ESubscriptionType;
   sdkSubscription: any;
   createdAt: number;
   lastActivity: number;
@@ -38,9 +39,8 @@ interface IActiveSubscription {
 }
 
 interface ISubscriptionUpdateParams {
-  currentUser?: `0x${string}` | null;
+  currentUser?: IHex | null;
   currentSymbol?: string;
-  currentCandleInterval?: string;
   isConnected?: boolean;
 }
 
@@ -55,22 +55,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _currentState: ISubscriptionState = {
     currentUser: null,
     currentSymbol: '',
-    currentCandleInterval: '1h',
     isConnected: false,
   };
 
   private _activeSubscriptions = new Map<string, IActiveSubscription>();
 
-  private _connectionMonitor: ReturnType<typeof setInterval> | null = null;
-
-  private _pendingUpdate: Promise<void> | null = null;
-
   @backgroundMethod()
   async updateSubscriptions(params: ISubscriptionUpdateParams): Promise<void> {
-    if (this._pendingUpdate) {
-      await this._pendingUpdate;
-    }
-
     const newState: ISubscriptionState = { ...this._currentState };
     this._applyStateUpdates(newState, params);
 
@@ -82,8 +73,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._emitConnectionStatus();
     await this._executeSubscriptionChanges(diff, newState);
 
-    this._pendingUpdate = null;
-
     this._currentState = newState;
   }
 
@@ -94,7 +83,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     isConnected: boolean;
     activeSubscriptions: Array<{
       key: string;
-      type: ISubscriptionType;
+      type: ESubscriptionType;
       createdAt: number;
       lastActivity: number;
       isActive: boolean;
@@ -120,12 +109,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   async connect(): Promise<void> {
     await this._ensureClient();
     this._currentState.isConnected = true;
-    // this._startConnectionMonitoring();
   }
 
   @backgroundMethod()
   async disconnect(): Promise<void> {
-    // this._stopConnectionMonitoring();
     await this._cleanupAllSubscriptions();
     await this._closeClient();
     this._currentState.isConnected = false;
@@ -135,7 +122,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async reconnect(): Promise<void> {
     await this.disconnect();
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await timerUtils.wait(1000);
     await this.connect();
   }
 
@@ -153,9 +140,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
     if (params.currentSymbol !== undefined) {
       state.currentSymbol = params.currentSymbol;
-    }
-    if (params.currentCandleInterval !== undefined) {
-      state.currentCandleInterval = params.currentCandleInterval;
     }
     if (params.isConnected !== undefined) {
       state.isConnected = params.isConnected;
@@ -200,14 +184,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private async _executeSubscriptions(
     toSubscribe: ISubscriptionSpec[],
-  ): Promise<Promise<void>[]> {
-    if (toSubscribe.length === 0) return [];
-
-    const subscribePromises = toSubscribe.map(async (spec) => {
-      await this._createSubscription(spec);
-    });
-
-    return subscribePromises;
+  ): Promise<void> {
+    if (toSubscribe.length) {
+      toSubscribe.forEach((spec) => {
+        this._createSubscription(spec).catch((error) => {
+          console.error(
+            `[ServiceHyperliquidSubscription.executeSubscriptions] Failed to subscribe ${spec.key}:`,
+            error,
+          );
+        });
+      });
+    }
   }
 
   private async _ensureClient(): Promise<SubscriptionClient> {
@@ -225,10 +212,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private async _closeClient(): Promise<void> {
     if (this._client) {
       try {
-        const transport = this._client.transport as any;
-        if (transport?.close && typeof transport.close === 'function') {
-          await transport.close();
-        }
+        await this._client[Symbol.asyncDispose]();
       } catch (error) {
         console.error(
           '[ServiceHyperliquidSubscription.closeClient] Failed to close client:',
@@ -244,13 +228,23 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       type: sub.type,
       key: sub.key,
       params: this._parseKeyToParams(sub.key, sub.type),
-      priority: SUBSCRIPTION_CONFIGS[sub.type].priority,
+      priority: getSubscriptionPriority(sub.type),
     }));
   }
 
-  private async _createSubscription<T extends ISubscriptionType>(
-    spec: ISubscriptionSpec<T>,
-  ): Promise<void> {
+  private async _createSubscriptionDirect(
+    spec: ISubscriptionSpec,
+    client: SubscriptionClient,
+  ): Promise<unknown> {
+    const handleData = (data: unknown) => {
+      this._handleSubscriptionData(spec.key, data, spec.type);
+    };
+
+    // Use type-safe subscription creation function from mapping
+    return createSubscription(spec.type, client, spec.params, handleData);
+  }
+
+  private async _createSubscription(spec: ISubscriptionSpec): Promise<void> {
     if (this._activeSubscriptions.has(spec.key)) {
       console.warn(
         `[ServiceHyperliquidSubscription.createSubscription] Subscription already exists: ${spec.key}`,
@@ -259,98 +253,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
 
     const client = await this._ensureClient();
-    const config = getSubscriptionConfig(spec.type);
-
-    if (!validateSubscriptionParams(spec.type, spec.params)) {
-      throw new OneKeyLocalError(
-        `[ServiceHyperliquidSubscription.createSubscription] Invalid subscription parameters for type: ${spec.type}`,
-      );
-    }
-
-    let sdkSubscription: any;
 
     try {
-      switch (spec.type) {
-        case 'allMids':
-          sdkSubscription = await client.allMids((data) => {
-            this._handleSubscriptionData(spec.key, data, config);
-          });
-          break;
-
-        case 'activeAssetCtx':
-          sdkSubscription = await client.activeAssetCtx(
-            spec.params as any,
-            (data) => {
-              this._handleSubscriptionData(spec.key, data, config);
-            },
-          );
-          break;
-
-        case 'webData2':
-          sdkSubscription = await client.webData2(
-            spec.params as any,
-            (data) => {
-              this._handleSubscriptionData(spec.key, data, config);
-            },
-          );
-          break;
-
-        case 'l2Book':
-          sdkSubscription = await client.l2Book(spec.params as any, (data) => {
-            this._handleSubscriptionData(spec.key, data, config);
-          });
-          break;
-
-        case 'candles':
-          sdkSubscription = await client.candle(spec.params as any, (data) => {
-            this._handleSubscriptionData(spec.key, data, config);
-          });
-          break;
-
-        case 'trades':
-          sdkSubscription = await client.trades(spec.params as any, (data) => {
-            this._handleSubscriptionData(spec.key, data, config);
-          });
-          break;
-
-        case 'bbo':
-          sdkSubscription = await client.bbo(spec.params as any, (data) => {
-            this._handleSubscriptionData(spec.key, data, config);
-          });
-          break;
-
-        case 'activeAssetData':
-          sdkSubscription = await client.activeAssetData(
-            spec.params as any,
-            (data) => {
-              this._handleSubscriptionData(spec.key, data, config);
-            },
-          );
-          break;
-
-        case 'userEvents':
-          sdkSubscription = await client.userEvents(
-            spec.params as any,
-            (data) => {
-              this._handleSubscriptionData(spec.key, data, config);
-            },
-          );
-          break;
-
-        case 'userNotifications':
-          sdkSubscription = await client.notification(
-            spec.params as any,
-            (data) => {
-              this._handleSubscriptionData(spec.key, data, config);
-            },
-          );
-          break;
-
-        default:
-          throw new OneKeyLocalError(
-            `[ServiceHyperliquidSubscription.createSubscription] Unsupported subscription type: ${spec.type}`,
-          );
-      }
+      const sdkSubscription = await this._createSubscriptionDirect(
+        spec,
+        client,
+      );
 
       this._activeSubscriptions.set(spec.key, {
         key: spec.key,
@@ -403,7 +311,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._activeSubscriptions.clear();
   }
 
-  private _handleSubscriptionData(key: string, data: any, config: any): void {
+  private _handleSubscriptionData(
+    key: string,
+    data: unknown,
+    subscriptionType: ESubscriptionType,
+  ): void {
     try {
       const subscription = this._activeSubscriptions.get(key);
       if (subscription) {
@@ -419,38 +331,33 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
 
       const parts = key.split(':');
-      const type = parts[0];
       const metadata: Record<string, any> = {
         timestamp: Date.now(),
         source: 'ServiceHyperliquidSubscription',
         key,
       };
       if (
-        type === 'activeAssetCtx' ||
-        type === 'l2Book' ||
-        type === 'trades' ||
-        type === 'bbo'
+        subscriptionType === ESubscriptionType.ACTIVE_ASSET_CTX ||
+        subscriptionType === ESubscriptionType.L2_BOOK ||
+        subscriptionType === ESubscriptionType.TRADES ||
+        subscriptionType === ESubscriptionType.BBO
       ) {
-        metadata.coin = parts[1];
-      } else if (type === 'candles') {
-        metadata.coin = parts[1];
-        metadata.interval = parts[2];
+        metadata.coin = parts[2];
       } else if (
-        type === 'webData2' ||
-        type === 'userEvents' ||
-        type === 'userNotifications' ||
-        type === 'activeAssetData'
+        subscriptionType === ESubscriptionType.WEB_DATA2 ||
+        subscriptionType === ESubscriptionType.USER_EVENTS ||
+        subscriptionType === ESubscriptionType.USER_NOTIFICATIONS ||
+        subscriptionType === ESubscriptionType.ACTIVE_ASSET_DATA
       ) {
-        metadata.userId = parts[1];
-        if (type === 'activeAssetData') {
-          metadata.coin = parts[2];
+        metadata.userId = parts[2];
+        if (subscriptionType === ESubscriptionType.ACTIVE_ASSET_DATA) {
+          metadata.coin = parts[3];
         }
       }
 
-      const configObj = config as Record<string, any>;
       appEventBus.emit(EAppEventBusNames.HyperliquidDataUpdate, {
-        type: configObj.eventType,
-        subType: configObj.eventSubType,
+        type: SUBSCRIPTION_TYPE_INFO[subscriptionType].eventType,
+        subType: subscriptionType,
         data,
         metadata,
       });
@@ -462,51 +369,32 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
   }
 
-  private _parseKeyToParams(key: string, type: ISubscriptionType): any {
+  private _parseKeyToParams(key: string, type: ESubscriptionType): any {
     const parts = key.split(':');
 
     switch (type) {
-      case 'allMids':
+      case ESubscriptionType.ALL_MIDS:
         return {};
-      case 'activeAssetCtx':
-      case 'l2Book':
-      case 'trades':
-      case 'bbo':
+      case ESubscriptionType.ACTIVE_ASSET_CTX:
+      case ESubscriptionType.L2_BOOK:
+      case ESubscriptionType.TRADES:
+      case ESubscriptionType.BBO:
         return { coin: parts[2] };
-      case 'candles':
-        return { coin: parts[2], interval: parts[3] };
-      case 'webData2':
-      case 'userEvents':
-      case 'userNotifications':
-        return { user: parts[2] as `0x${string}` };
-      case 'activeAssetData':
-        return { user: parts[2] as `0x${string}`, coin: parts[3] };
+      case ESubscriptionType.WEB_DATA2:
+      case ESubscriptionType.USER_EVENTS:
+      case ESubscriptionType.USER_NOTIFICATIONS:
+        return { user: parts[2] };
+      case ESubscriptionType.ACTIVE_ASSET_DATA:
+        return { user: parts[2], coin: parts[3] };
       default:
         return {};
-    }
-  }
-
-  private _startConnectionMonitoring(): void {
-    if (this._connectionMonitor) {
-      clearInterval(this._connectionMonitor);
-    }
-
-    this._connectionMonitor = setInterval(() => {
-      this._emitConnectionStatus();
-    }, 30_000);
-  }
-
-  private _stopConnectionMonitoring(): void {
-    if (this._connectionMonitor) {
-      clearInterval(this._connectionMonitor);
-      this._connectionMonitor = null;
     }
   }
 
   private _emitConnectionStatus(): void {
     appEventBus.emit(EAppEventBusNames.HyperliquidConnectionChange, {
       type: 'connection',
-      subType: 'datastream' as any,
+      subType: 'datastream',
       data: {
         status: this._currentState.isConnected ? 'connected' : 'disconnected',
         lastConnected: Date.now(),

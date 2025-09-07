@@ -50,8 +50,21 @@ export type IPortfolio = HL.Portfolio;
 export type IReferral = HL.Referral;
 export type IExtraAgent = HL.ExtraAgent;
 
+// Request types
 export type IUserFillsByTimeParameters = HL.UserFillsByTimeParameters;
 export type ICandleSnapshotParameters = HL.CandleSnapshotParameters;
+
+// Subscription parameter types
+export type IWsAllMidsParameters = HL.WsAllMidsParameters;
+export type IEventActiveAssetCtxParameters = HL.EventActiveAssetCtxParameters;
+export type IEventActiveAssetDataParameters = HL.EventActiveAssetDataParameters;
+export type IEventBboParameters = HL.EventBboParameters;
+export type IEventL2BookParameters = HL.EventL2BookParameters;
+export type IEventNotificationParameters = HL.EventNotificationParameters;
+export type IEventTradesParameters = HL.EventTradesParameters;
+export type IEventUserEventsParameters = HL.EventUserEventsParameters;
+export type IEventWebData2Parameters = HL.EventWebData2Parameters;
+
 // Request types (define manually as SDK may not export these)
 export interface IOrderRequest {
   action: {

@@ -1,9 +1,8 @@
-import { ZeroAddress } from 'ethersV6';
-
 import {
   atom,
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
+import { ZERO_ADDRESS } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
   IConnectionState,
@@ -32,31 +31,6 @@ export const { atom: activeAssetDataAtom, use: useActiveAssetDataAtom } =
 
 export const { atom: l2BookAtom, use: useL2BookAtom } =
   contextAtom<HL.IBook | null>(null);
-
-export interface ICandleInterval {
-  label: string;
-  value: '1m' | '5m' | '15m' | '1h' | '4h' | '1d' | '1w' | '1M';
-}
-
-export interface ICandlesData {
-  candles: HL.ICandle[];
-  isLoading: boolean;
-  error: string | null;
-  lastHistoryLoad: number;
-  lastUpdate: number;
-}
-
-export const { atom: candlesMapAtom, use: useCandlesMapAtom } = contextAtom<
-  Map<string, ICandlesData>
->(new Map());
-
-export const {
-  atom: currentCandleIntervalAtom,
-  use: useCurrentCandleIntervalAtom,
-} = contextAtom<ICandleInterval>({
-  label: '1H',
-  value: '1h',
-});
 
 export const { atom: connectionStateAtom, use: useConnectionStateAtom } =
   contextAtom<IConnectionState>({
@@ -94,6 +68,7 @@ export const tokenListAtom = () =>
           ? ((parseFloat(change24h) / parseFloat(prevDayPx)) * 100).toFixed(2)
           : '0';
       return {
+        assetId: i,
         coin: u.name,
         lastPrice: mid,
         change24h,
@@ -145,7 +120,6 @@ export const {
   if (currentToken) {
     subscriptions.push(`activeAssetCtx:${currentToken}`);
     subscriptions.push(`l2Book:${currentToken}`);
-    subscriptions.push(`candles:${currentToken}:1h`);
   }
 
   if (currentUser) {
@@ -346,7 +320,7 @@ export const { atom: accountPanelDataAtom, use: useAccountPanelDataAtom } =
       };
     }
 
-    const currentUser = webData2.user === ZeroAddress ? null : webData2.user;
+    const currentUser = webData2.user === ZERO_ADDRESS ? null : webData2.user;
     const isLoggedIn = !!currentUser;
     const hasUserData = isLoggedIn && !!webData2;
 

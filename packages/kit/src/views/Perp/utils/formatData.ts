@@ -1,21 +1,19 @@
-import { WsActiveAssetCtx } from "@onekeyhq/shared/types/hyperliquid/sdk";
+import type { IWsActiveAssetCtx } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-
-export function formatAssetCtx(assetCtx: WsActiveAssetCtx["ctx"] | null) {
-    const prevPrice = parseFloat(assetCtx?.prevDayPx || '0');
-    const markPrice = parseFloat(assetCtx?.markPx || '0');
-    const change24hPercent = prevPrice > 0
-      ? ((markPrice - prevPrice) / prevPrice) * 100
-      : 0;
-    return {
-      markPrice: assetCtx?.markPx || '0',
-      oraclePrice: assetCtx?.oraclePx || '0',
-      prevDayPrice: assetCtx?.prevDayPx || '0',
-      fundingRate: assetCtx?.funding || '0',
-      openInterest: assetCtx?.openInterest || '0',
-      volume24h: assetCtx?.dayNtlVlm || '0',
-      change24hPercent,
-    }
+export function formatAssetCtx(assetCtx: IWsActiveAssetCtx['ctx'] | null) {
+  const prevPrice = parseFloat(assetCtx?.prevDayPx || '0');
+  const markPrice = parseFloat(assetCtx?.markPx || '0');
+  const change24hPercent =
+    prevPrice > 0 ? ((markPrice - prevPrice) / prevPrice) * 100 : 0;
+  return {
+    markPrice: assetCtx?.markPx || '0',
+    oraclePrice: assetCtx?.oraclePx || '0',
+    prevDayPrice: assetCtx?.prevDayPx || '0',
+    fundingRate: assetCtx?.funding || '0',
+    openInterest: assetCtx?.openInterest || '0',
+    volume24h: assetCtx?.dayNtlVlm || '0',
+    change24hPercent,
+  };
 }
 
 export function formatLargeNumber(
