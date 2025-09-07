@@ -129,7 +129,7 @@ export function ColdStartByNotification() {
               try {
                 navigateToNotificationDetailByLocalParams({
                   payload: payload as any,
-                  localParams: undefined,
+                  localParams: {},
                 });
               } catch (error) {
                 showFallbackUpdateDialog(null);
