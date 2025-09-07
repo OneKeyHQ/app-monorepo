@@ -120,7 +120,7 @@ async function navigateToNotificationDetail({
 
   const showFallbackUpdateDialog = () => {
     appEventBus.emit(EAppEventBusNames.ShowFallbackUpdateDialog, {
-      version: payload,
+      version: message?.extras?.miniBundlerVersion,
     });
   };
 
