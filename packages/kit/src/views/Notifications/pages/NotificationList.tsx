@@ -363,7 +363,7 @@ function NotificationList() {
     [result],
   );
 
-  const isVersionCompatible = useVersionCompatible();
+  const { isVersionCompatible } = useVersionCompatible();
 
   const contentView = useMemo(() => {
     return (
