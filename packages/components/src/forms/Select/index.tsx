@@ -367,7 +367,7 @@ function SelectFrame<
   offset,
   labelInValue = false,
   floatingPanelProps,
-  placement = 'bottom-start',
+  placement = platformEnv.isNative ? 'bottom-start' : undefined,
   usingPercentSnapPoints,
 }: ISelectProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
