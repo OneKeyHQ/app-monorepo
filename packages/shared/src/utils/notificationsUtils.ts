@@ -58,6 +58,14 @@ export function navigateToNotificationDetailByLocalParams({
     targetParams = targetParams.params;
   }
   Object.assign(targetParams, localParams);
+  // Replace template variables in targetParams values with localParams values
+  for (const [key, value] of Object.entries(targetParams)) {
+    if (typeof value === 'string' && value.includes('{')) {
+      targetParams[key] = value.replace(/\{local_(\w+)\}/g, (match, param) => {
+        return localParams[param as keyof typeof localParams] || match;
+      });
+    }
+  }
   appGlobals.$navigationRef.current?.navigate(screen, navigationParams);
   return true;
 }
