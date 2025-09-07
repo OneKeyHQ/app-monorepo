@@ -40,6 +40,28 @@ export const NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED: true | false =
   false;
 export const NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT = 20;
 
+export function navigateToNotificationDetailByLocalParams({
+  payload,
+  localParams,
+}: {
+  payload: {
+    screen: string;
+    params: Record<string, any>;
+  };
+  localParams: Record<string, string> | undefined;
+}) {
+  const { screen, params: navigationParams } = payload;
+  // Recursively find and merge the deepest params
+
+  let targetParams = navigationParams;
+  while (targetParams?.params && typeof targetParams.params === 'object') {
+    targetParams = targetParams.params;
+  }
+  Object.assign(targetParams, localParams);
+  appGlobals.$navigationRef.current?.navigate(screen, navigationParams);
+  return true;
+}
+
 async function navigateToNotificationDetail({
   notificationId,
   notificationAccountId,
@@ -117,26 +139,11 @@ async function navigateToNotificationDetail({
       switch (mode) {
         case ENotificationPushMessageMode.page:
           try {
-            const { screen, params: navigationParams } = JSON.parse(
-              payload || '',
-            ) as {
-              screen: string;
-              params: Record<string, any>;
-            };
-            // Recursively find and merge the deepest params
-
-            let targetParams = navigationParams;
-            while (
-              targetParams?.params &&
-              typeof targetParams.params === 'object'
-            ) {
-              targetParams = targetParams.params;
-            }
-            Object.assign(targetParams, localParams);
-            appGlobals.$navigationRef.current?.navigate(
-              screen,
-              navigationParams,
-            );
+            const payloadObj = JSON.parse(payload || '');
+            navigateToNotificationDetailByLocalParams({
+              payload: payloadObj,
+              localParams,
+            });
           } catch (error) {
             showFallbackUpdateDialog();
           }
