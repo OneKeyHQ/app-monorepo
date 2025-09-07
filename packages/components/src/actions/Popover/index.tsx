@@ -189,6 +189,27 @@ const useDismissKeyboard = platformEnv.isNative
     }
   : () => {};
 
+const getPlacement = (
+  placementProp: IPopoverProps['placement'],
+  triggerRef: React.RefObject<View | null>,
+) => {
+  if (platformEnv.isNative) {
+    return placementProp || 'bottom-end';
+  }
+  if (placementProp) {
+    return placementProp;
+  }
+  const element = triggerRef.current as unknown as HTMLElement;
+  if (element) {
+    const { top } = element.getBoundingClientRect();
+    if (top > Dimensions.get('window').height / 2) {
+      return 'top-end';
+    }
+    return 'bottom-end';
+  }
+  return 'bottom-end';
+};
+
 function RawPopover({
   title,
   open: isOpen,
@@ -199,13 +220,15 @@ function RawPopover({
   onOpenChange,
   openPopover,
   closePopover,
-  placement = 'bottom-end',
+  placement: placementProp,
   usingSheet = true,
   allowFlip = true,
   showHeader = true,
   ...props
 }: IPopoverProps) {
   const { bottom } = useSafeAreaInsets();
+  const triggerRef = useRef<View | null>(null);
+  const placement = getPlacement(placementProp, triggerRef);
   const transformOrigin = useMemo(() => {
     switch (placement) {
       case 'top':
@@ -260,7 +283,6 @@ function RawPopover({
 
   useBackHandler(handleBackPress);
 
-  const triggerRef = useRef<View | null>(null);
   const getMaxScrollViewHeight = useCallback(() => {
     if (platformEnv.isNative) {
       return undefined;
