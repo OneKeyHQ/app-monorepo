@@ -9,6 +9,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import { navigateToNotificationDetailByLocalParams } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import {
   openUrlExternal,
   openUrlInApp,
@@ -126,11 +127,10 @@ export function ColdStartByNotification() {
           switch (actionType) {
             case ENotificationViewDialogActionType.navigate:
               try {
-                const { screen, params } = payload as unknown as {
-                  screen: string;
-                  params: Record<string, string>;
-                };
-                appGlobals.$navigationRef.current?.navigate(screen, params);
+                navigateToNotificationDetailByLocalParams({
+                  payload: payload as any,
+                  localParams: undefined,
+                });
               } catch (error) {
                 showFallbackUpdateDialog(null);
               }
