@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useCarouselIndex } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
@@ -28,8 +27,6 @@ export function useMarketWatchlistTokenList({
   initialSortType,
   pageSize = 100,
 }: IUseMarketWatchlistTokenListParams) {
-  // Get minLiquidity from market config
-  const { minLiquidity } = useMarketBasicConfig();
   const [currentPage, setCurrentPage] = useState(1);
   const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
   const [sortBy, setSortBy] = useState<string | undefined>(initialSortBy);
@@ -137,19 +134,11 @@ export function useMarketWatchlistTokenList({
     }
   }, [apiResult, watchlist, isInitialLoad]);
 
-  // Apply minimum liquidity filter (maxLiquidity no longer exists)
-  const filteredData = useMemo(() => {
-    if (typeof minLiquidity === 'number') {
-      return transformedData.filter((d) => d.liquidity >= minLiquidity);
-    }
-    return transformedData;
-  }, [transformedData, minLiquidity]);
-
   // Sorting
   const sortedData = useMemo(() => {
     if (!sortBy || !sortType) {
       // Default: use sortIndex for natural watchlist ordering (ascending)
-      return [...filteredData].sort((a, b) => {
+      return [...transformedData].sort((a, b) => {
         const av = a.sortIndex ?? 0;
         const bv = b.sortIndex ?? 0;
         return av - bv;
@@ -158,13 +147,13 @@ export function useMarketWatchlistTokenList({
 
     // Custom sorting
     const key = SORT_MAP[sortBy] || sortBy;
-    return [...filteredData].sort((a, b) => {
+    return [...transformedData].sort((a, b) => {
       const av = a[key] as number;
       const bv = b[key] as number;
       if (av === bv) return 0;
       return sortType === 'asc' ? av - bv : bv - av;
     });
-  }, [filteredData, sortBy, sortType]);
+  }, [transformedData, sortBy, sortType]);
 
   const totalCount = sortedData.length;
   const totalPages = totalCount > 0 ? Math.ceil(totalCount / pageSize) : 1;
