@@ -112,7 +112,7 @@ async function navigateToNotificationDetail({
   };
 
   // For new versions with mode set, handle the mode properly
-  if (mode) {
+  if (!isFromNotificationClick && mode) {
     switch (mode) {
       case ENotificationPushMessageMode.page:
         try {
