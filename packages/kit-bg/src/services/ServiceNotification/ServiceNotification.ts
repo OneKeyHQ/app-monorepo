@@ -266,6 +266,8 @@ export default class ServiceNotification extends ServiceBase {
       notificationId: notificationId || '',
       notificationAccountId:
         params?.remotePushMessageInfo?.extras?.params?.accountId,
+      mode: params?.remotePushMessageInfo?.extras?.mode,
+      payload: params?.remotePushMessageInfo?.extras?.payload,
     });
 
     void this.removeNotification({
