@@ -57,7 +57,6 @@ export function navigateToNotificationDetailByLocalParams({
   while (targetParams?.params && typeof targetParams.params === 'object') {
     targetParams = targetParams.params;
   }
-  Object.assign(targetParams, localParams);
   // Replace template variables in targetParams values with localParams values
   for (const [key, value] of Object.entries(targetParams)) {
     if (typeof value === 'string' && value.includes('{')) {
