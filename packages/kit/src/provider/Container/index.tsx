@@ -122,12 +122,12 @@ export function ColdStartByNotification() {
     }: INotificationViewDialogPayload) => {
       Dialog.show({
         ...rest,
-        onConfirm: () => {
+        onConfirm: async () => {
           const { actionType, payload } = onConfirm;
           switch (actionType) {
             case ENotificationViewDialogActionType.navigate:
               try {
-                navigateToNotificationDetailByLocalParams({
+                await navigateToNotificationDetailByLocalParams({
                   payload: payload as any,
                   localParams: {},
                 });

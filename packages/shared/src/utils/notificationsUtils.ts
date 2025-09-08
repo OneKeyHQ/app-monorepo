@@ -20,6 +20,7 @@ import { openUrlExternal, openUrlInApp } from './openUrlUtils';
 import { buildModalRouteParams } from './routeUtils';
 
 import type { INotificationPushMessageInfo } from '../../types/notification';
+import timerUtils from './timerUtils';
 
 function convertWebPermissionToEnum(
   permission: NotificationPermission,
@@ -40,7 +41,7 @@ export const NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED: true | false =
   false;
 export const NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT = 20;
 
-export function navigateToNotificationDetailByLocalParams({
+export async function navigateToNotificationDetailByLocalParams({
   payload,
   localParams,
 }: {
@@ -65,8 +66,11 @@ export function navigateToNotificationDetailByLocalParams({
       });
     }
   }
+  if (screen === ERootRoutes.Main) {
+    appGlobals.$navigationRef.current?.goBack?.();
+    await timerUtils.wait(350);
+  }
   appGlobals.$navigationRef.current?.navigate(screen, navigationParams);
-  return true;
 }
 
 async function navigateToNotificationDetail({
@@ -162,7 +166,7 @@ async function navigateToNotificationDetail({
         case ENotificationPushMessageMode.page:
           try {
             const payloadObj = JSON.parse(payload || '');
-            navigateToNotificationDetailByLocalParams({
+            await navigateToNotificationDetailByLocalParams({
               payload: payloadObj,
               localParams: localParams || {},
             });
