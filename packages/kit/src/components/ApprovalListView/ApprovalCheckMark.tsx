@@ -12,6 +12,8 @@ import {
 
 import { useApprovalListViewContext } from './ApprovalListViewContext';
 
+import type { CheckedState } from 'tamagui';
+
 type IProps = {
   approval: IContractApproval;
 };
@@ -32,17 +34,20 @@ function ApprovalCheckMark(props: IProps) {
     });
   }, [approval, selectedTokens]);
 
-  const handleOnChange = useCallback(() => {
-    const selectedTokensTemp = approvalUtils.buildToggleSelectAllTokensMap({
-      approvals: [approval],
-      toggle: !(isSelectAllTokens === true),
-    });
+  const handleOnChange = useCallback(
+    (checked: CheckedState) => {
+      const selectedTokensTemp = approvalUtils.buildToggleSelectAllTokensMap({
+        approvals: [approval],
+        toggle: checked === true,
+      });
 
-    updateSelectedTokens({
-      selectedTokens: selectedTokensTemp,
-      merge: true,
-    });
-  }, [approval, isSelectAllTokens, updateSelectedTokens]);
+      updateSelectedTokens({
+        selectedTokens: selectedTokensTemp,
+        merge: true,
+      });
+    },
+    [approval, updateSelectedTokens],
+  );
 
   if (!isBulkRevokeMode || selectDisabled) {
     return null;
@@ -53,10 +58,14 @@ function ApprovalCheckMark(props: IProps) {
       pr="$3"
       onPress={(e) => {
         e.stopPropagation();
-        handleOnChange();
       }}
     >
-      <Checkbox value={isSelectAllTokens} />
+      <Checkbox
+        value={isSelectAllTokens}
+        onChange={(checked) => {
+          handleOnChange(checked);
+        }}
+      />
     </Stack>
   );
 }
