@@ -8,6 +8,7 @@ import { type IntlShape, useIntl } from 'react-intl';
 import {
   Accordion,
   Alert,
+  Dialog,
   NumberSizeableText,
   Page,
   SizableText,
@@ -17,12 +18,18 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type { IOneKeyRpcError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type {
+  IOneKeyError,
+  IOneKeyRpcError,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalApprovalManagementRoutes,
   IModalApprovalManagementParamList,
 } from '@onekeyhq/shared/src/routes/approvalManagement';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   ERevokeProgressState,
@@ -127,10 +134,27 @@ function BulkRevoke() {
   usePromiseResult(async () => {
     for (let i = 0; i < unsignedTxs?.length; i += 1) {
       const tx = unsignedTxs[i];
+
+      setCurrentProcessIndex(i);
+
+      if (accountUtils.isOthersAccount({ accountId: tx.accountId })) {
+        setRevokeTxsStatusMap((prev) => ({
+          ...prev,
+          [tx.uuid ?? '']: {
+            status: ERevokeTxStatus.Skipped,
+            skippedReason: intl.formatMessage({
+              id: ETranslations.wallet_error_trade_with_watched_account,
+            }),
+          },
+        }));
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+
       if (isAborted.current) {
         break;
       }
-      setCurrentProcessIndex(i);
+
       await waitUntilInProgress();
       const uuid = tx.uuid ?? '';
 
@@ -255,22 +279,72 @@ function BulkRevoke() {
             feeFiat: feeResult.totalFiatForDisplay,
           },
         }));
-      } catch (e) {
-        setRevokeTxsStatusMap((prev) => ({
-          ...prev,
-          [uuid]: {
-            status: ERevokeTxStatus.Skipped,
-            skippedReason:
-              (e as { data: { data: IOneKeyRpcError } }).data?.data?.res?.error
-                ?.message ??
-              (e as Error).message ??
-              e,
-          },
-        }));
+      } catch (error: unknown) {
+        let passphraseEnabled;
+        if (
+          errorUtils.isErrorByClassName({
+            error,
+            className: EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,
+          })
+        ) {
+          const p = (error as IOneKeyError).payload as
+            | {
+                connectId: string;
+                deviceId: string;
+              }
+            | undefined;
+          passphraseEnabled = await new Promise((resolve) => {
+            Dialog.show({
+              title: intl.formatMessage({
+                id: ETranslations.passphrase_disabled_dialog_title,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.passphrase_disabled_dialog_desc,
+              }),
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.global_enable,
+              }),
+              onCancel: (close) => {
+                void close();
+                resolve(false);
+              },
+              onConfirm: async () => {
+                try {
+                  await backgroundApiProxy.serviceHardware.setPassphraseEnabled(
+                    {
+                      walletId: '',
+                      connectId: p?.connectId,
+                      featuresDeviceId: p?.deviceId,
+                      passphraseEnabled: true,
+                    },
+                  );
+                  resolve(true);
+                  i -= 1;
+                } catch {
+                  resolve(false);
+                }
+              },
+            });
+          });
+        }
+
+        if (!passphraseEnabled) {
+          setRevokeTxsStatusMap((prev) => ({
+            ...prev,
+            [uuid]: {
+              status: ERevokeTxStatus.Skipped,
+              skippedReason:
+                (error as { data: { data: IOneKeyRpcError } }).data?.data?.res
+                  ?.error?.message ??
+                (error as Error).message ??
+                error,
+            },
+          }));
+        }
       }
     }
     setProgressState(ERevokeProgressState.Finished);
-  }, [unsignedTxs, waitUntilInProgress]);
+  }, [unsignedTxs, waitUntilInProgress, intl]);
 
   const renderBulkRevokeAlert = useCallback(() => {
     return (
@@ -380,7 +454,13 @@ function BulkRevoke() {
               pb: '$2.5',
             }}
           >
-            <XStack alignItems="center" justifyContent="space-between" gap="$2">
+            <XStack
+              alignItems="center"
+              gap="$2"
+              $md={{
+                justifyContent: 'space-between',
+              }}
+            >
               <SizableText size="$bodyMd" color="$textSubdued">
                 {intl.formatMessage({
                   id: ETranslations.global_process,
@@ -399,7 +479,9 @@ function BulkRevoke() {
             {progressState === ERevokeProgressState.Finished ? (
               <XStack
                 alignItems="center"
-                justifyContent="space-between"
+                $md={{
+                  justifyContent: 'space-between',
+                }}
                 gap="$2"
               >
                 <SizableText size="$bodyMd" color="$textSubdued">
