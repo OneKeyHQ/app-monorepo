@@ -17,15 +17,23 @@ export const useVersionCompatible = () => {
     (version: string | null | undefined) => {
       Dialog.show({
         icon: 'InfoCircleOutline',
-        title: 'Update to continue',
-        description: (
+        title: intl.formatMessage({
+          id: ETranslations.global_update_to_continue_title,
+        }),
+        description: version ? (
           <SizableText size="$bodyLg">
-            The feature you tapped on requires version
+            {intl.formatMessage({
+              id: ETranslations.global_update_to_continue_desc,
+            })}
             <SizableText size="$bodyLg" fontWeight="bold">
-              {version ? `v${version}` : 'Latest Version'}
+              {`v${version}`}
             </SizableText>
             or higher. Please update your app to continue.
           </SizableText>
+        ) : (
+          intl.formatMessage({
+            id: ETranslations.global_update_to_continue_desc_fallback,
+          })
         ),
         onConfirmText: 'Update',
         onConfirm: () => {
