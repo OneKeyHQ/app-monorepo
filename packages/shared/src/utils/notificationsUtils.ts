@@ -18,9 +18,10 @@ import { ERootRoutes } from '../routes/root';
 import extUtils from './extUtils';
 import { openUrlExternal, openUrlInApp } from './openUrlUtils';
 import { buildModalRouteParams } from './routeUtils';
-
-import type { INotificationPushMessageInfo } from '../../types/notification';
 import timerUtils from './timerUtils';
+
+import type { INetworkAccount } from '../../types/account';
+import type { INotificationPushMessageInfo } from '../../types/notification';
 
 function convertWebPermissionToEnum(
   permission: NotificationPermission,
@@ -41,22 +42,51 @@ export const NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED: true | false =
   false;
 export const NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT = 20;
 
+type IGetEarnAccountFunc = (params: {
+  accountId: string;
+  networkId: string;
+  indexedAccountId?: string;
+}) => Promise<{
+  walletId: string;
+  accountId: string;
+  networkId: string;
+  accountAddress: string;
+  account: INetworkAccount;
+} | null>;
+
 export async function navigateToNotificationDetailByLocalParams({
   payload,
-  localParams,
+  localParams: originalLocalParams,
+  getEarnAccount,
 }: {
   payload: {
     screen: string;
     params: Record<string, any>;
   };
   localParams: Record<string, string | undefined>;
+  getEarnAccount: IGetEarnAccountFunc;
 }) {
   const { screen, params: navigationParams } = payload;
   // Recursively find and merge the deepest params
 
+  const localParams = { ...originalLocalParams };
+
   let targetParams = navigationParams;
   while (targetParams?.params && typeof targetParams.params === 'object') {
     targetParams = targetParams.params;
+  }
+
+  if (targetParams.networkId) {
+    const accountInfos = await getEarnAccount({
+      accountId: localParams.accountId || '',
+      networkId: targetParams.networkId,
+      indexedAccountId: localParams.indexedAccountId || '',
+    });
+    if (accountInfos) {
+      localParams.accountId = accountInfos?.accountId || localParams.accountId;
+      localParams.indexedAccountId =
+        accountInfos?.account.indexedAccountId || localParams.indexedAccountId;
+    }
   }
   // Replace template variables in targetParams values with localParams values
   for (const [key, value] of Object.entries(targetParams)) {
@@ -69,8 +99,12 @@ export async function navigateToNotificationDetailByLocalParams({
   if (screen === ERootRoutes.Main) {
     appGlobals.$navigationRef.current?.goBack?.();
     await timerUtils.wait(350);
+    appGlobals.$navigationRef.current?.navigate(screen, navigationParams);
+  } else {
+    appGlobals.$navigationRef.current?.dispatch(
+      StackActions.push(screen, navigationParams),
+    );
   }
-  appGlobals.$navigationRef.current?.navigate(screen, navigationParams);
 }
 
 async function navigateToNotificationDetail({
@@ -82,6 +116,7 @@ async function navigateToNotificationDetail({
   mode,
   payload,
   localParams,
+  getEarnAccount,
 }: {
   notificationId: string;
   notificationAccountId?: string;
@@ -91,6 +126,7 @@ async function navigateToNotificationDetail({
   mode?: ENotificationPushMessageMode;
   payload?: string;
   localParams?: Record<string, string | undefined> | undefined;
+  getEarnAccount: IGetEarnAccountFunc;
 }) {
   let routes: string[] = [];
   let params: any = {};
@@ -169,6 +205,7 @@ async function navigateToNotificationDetail({
             await navigateToNotificationDetailByLocalParams({
               payload: payloadObj,
               localParams: localParams || {},
+              getEarnAccount,
             });
           } catch (error) {
             showFallbackUpdateDialog();

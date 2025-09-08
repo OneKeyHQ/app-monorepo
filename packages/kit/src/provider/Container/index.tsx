@@ -130,6 +130,8 @@ export function ColdStartByNotification() {
                 await navigateToNotificationDetailByLocalParams({
                   payload: payload as any,
                   localParams: {},
+                  getEarnAccount: (props) =>
+                    backgroundApiProxy.serviceStaking.getEarnAccount(props),
                 });
               } catch (error) {
                 showFallbackUpdateDialog(null);
