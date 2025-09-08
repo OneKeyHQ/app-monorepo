@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef } from 'react';
 
+import {
+  IInjectedProviderNames,
+  type IJsBridgeMessagePayload,
+} from '@onekeyfe/cross-inpage-provider-types';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useCurrentTokenPriceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IFill, IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { MESSAGE_TYPES } from '../constants/messageTypes';
@@ -12,7 +19,6 @@ import type {
   IGetMarksResponse,
   ITradingMark,
 } from '../types';
-import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 export function usePerpsMessageHandler({
   symbol,
@@ -24,6 +30,13 @@ export function usePerpsMessageHandler({
   webRef: React.RefObject<IWebViewRef | null>;
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
+  const [priceData] = useCurrentTokenPriceAtom();
+
+  useEffect(() => {
+    if (priceData) {
+      console.log('[MarksHandler] priceData: ', priceData);
+    }
+  }, [priceData]);
 
   // Extract shared logic for fetching and formatting marks
   const fetchAndFormatMarks = useCallback(
@@ -136,20 +149,108 @@ export function usePerpsMessageHandler({
     [webRef, userAddress, symbol, fetchAndFormatMarks],
   );
 
+  // Handle HyperLiquid price scale requests
+  const handleGetHyperliquidPriceScale = useCallback(
+    async (request: { symbol: string; requestId: string }) => {
+      const { symbol: requestSymbol, requestId } = request;
+
+      console.log('[MessageHandler] handleGetHyperliquidPriceScale: ', request);
+
+      // Wait for matching symbol and valid market price with 3s timeout
+      const startTime = Date.now();
+      const timeout = 3000; // 3 seconds
+      let currentPriceData = priceData;
+
+      while (Date.now() - startTime < timeout) {
+        // Check if we have matching symbol and valid price
+        if (
+          currentPriceData?.coin === requestSymbol &&
+          currentPriceData?.markPrice &&
+          Number(currentPriceData.markPrice) > 0
+        ) {
+          break;
+        }
+
+        console.log(
+          '[MessageHandler] Waiting for matching symbol and valid price...',
+          {
+            requested: requestSymbol,
+            currentSymbol: currentPriceData?.coin,
+            currentPrice: currentPriceData?.markPrice,
+            elapsed: Date.now() - startTime,
+          },
+        );
+
+        await timerUtils.wait(100);
+        currentPriceData = priceData;
+      }
+
+      // Calculate priceScale based on market price decimal places
+      let calculatedPriceScale = 100; // default 2 decimal places
+
+      if (
+        currentPriceData?.coin === requestSymbol &&
+        currentPriceData?.markPrice &&
+        Number(currentPriceData.markPrice) > 0
+      ) {
+        const priceStr = currentPriceData.markPrice;
+        const decimalIndex = priceStr.indexOf('.');
+
+        if (decimalIndex !== -1) {
+          const decimalPlaces = priceStr.length - decimalIndex - 1;
+          calculatedPriceScale = 10 ** decimalPlaces;
+        }
+      }
+
+      const response = {
+        priceScale: calculatedPriceScale,
+        minmov: 1,
+        requestId,
+      };
+
+      console.log('[MessageHandler] Price scale response:', {
+        symbol: requestSymbol,
+        matchedSymbol: currentPriceData?.coin,
+        markPrice: currentPriceData?.markPrice,
+        priceScale: calculatedPriceScale,
+        timeout: Date.now() - startTime >= timeout,
+      });
+
+      webRef.current?.sendMessageViaInjectedScript({
+        type: 'HYPERLIQUID_PRICESCALE_RESPONSE',
+        payload: response,
+      });
+    },
+    [webRef, priceData],
+  );
+
   const customReceiveHandler = useCallback(
     async (payload: IJsBridgeMessagePayload) => {
       const { data } = payload;
       if (typeof data !== 'object' || data === null) return;
-      if (
-        (data as { scope?: string })?.scope === '$private' &&
-        (data as { method?: string })?.method === 'tradingview_getMarks'
-      ) {
-        await handleGetMarks(
-          (data as { data?: unknown }).data as IGetMarksRequest,
-        );
+
+      const messageData = data as {
+        scope?: string;
+        method?: string;
+        data?: unknown;
+      };
+
+      if (messageData.scope !== IInjectedProviderNames.$private) return;
+
+      switch (messageData.method) {
+        case 'tradingview_getMarks':
+          await handleGetMarks(messageData.data as IGetMarksRequest);
+          break;
+        case 'tradingview_getHyperliquidPriceScale':
+          await handleGetHyperliquidPriceScale(
+            messageData.data as { symbol: string; requestId: string },
+          );
+          break;
+        default:
+          break;
       }
     },
-    [handleGetMarks],
+    [handleGetMarks, handleGetHyperliquidPriceScale],
   );
 
   // Monitor userAddress changes and push updates
