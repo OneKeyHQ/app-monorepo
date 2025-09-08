@@ -466,6 +466,14 @@ function BaseNotificationList() {
                       avatarUrl: activeAccountRef.current?.wallet?.avatar,
                     },
                   });
+                  setTimeout(() => {
+                    if (!item.readed) {
+                      setUnreadMap((prev) => ({
+                        ...prev,
+                        [item.topicType]: prev[item.topicType] - 1,
+                      }));
+                    }
+                  }, 100);
                 }
               }}
             />
