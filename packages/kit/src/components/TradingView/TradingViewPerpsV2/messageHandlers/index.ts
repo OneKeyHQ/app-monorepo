@@ -7,6 +7,7 @@ import {
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCurrentTokenPriceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { calculatePriceScale } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IFill, IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
@@ -185,7 +186,7 @@ export function usePerpsMessageHandler({
         currentPriceData = priceData;
       }
 
-      // Calculate priceScale based on market price decimal places
+      // Calculate priceScale using HyperLiquid precision rules
       let calculatedPriceScale = 100; // default 2 decimal places
 
       if (
@@ -193,13 +194,8 @@ export function usePerpsMessageHandler({
         currentPriceData?.markPrice &&
         Number(currentPriceData.markPrice) > 0
       ) {
-        const priceStr = currentPriceData.markPrice;
-        const decimalIndex = priceStr.indexOf('.');
-
-        if (decimalIndex !== -1) {
-          const decimalPlaces = priceStr.length - decimalIndex - 1;
-          calculatedPriceScale = 10 ** decimalPlaces;
-        }
+        // Use simplified HyperLiquid precision rules to calculate price scale
+        calculatedPriceScale = calculatePriceScale(currentPriceData.markPrice);
       }
 
       const response = {
