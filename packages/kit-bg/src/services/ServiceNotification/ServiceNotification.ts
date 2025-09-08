@@ -23,6 +23,7 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
+  ENotificationPushTopicTypes,
   INotificationClickParams,
   INotificationPermissionDetail,
   INotificationPushClient,
@@ -265,6 +266,8 @@ export default class ServiceNotification extends ServiceBase {
       notificationId: notificationId || '',
       notificationAccountId:
         params?.remotePushMessageInfo?.extras?.params?.accountId,
+      mode: params?.remotePushMessageInfo?.extras?.mode,
+      payload: params?.remotePushMessageInfo?.extras?.payload,
     });
 
     void this.removeNotification({
@@ -1198,11 +1201,13 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async fetchMessageList(): Promise<INotificationPushMessageListItem[]> {
+  async fetchMessageList(
+    topicTypes?: ENotificationPushTopicTypes[] | undefined,
+  ): Promise<INotificationPushMessageListItem[]> {
     const client = await this.getClient(EServiceEndpointEnum.Notification);
     const result = await client.post<
       IApiClientResponse<INotificationPushMessageListItem[]>
-    >('/notification/v1/message/list');
+    >('/notification/v1/message/list', topicTypes ? { topicTypes } : undefined);
     return result?.data?.data || [];
   }
 

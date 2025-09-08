@@ -68,7 +68,7 @@ const openUrlOutsideNative = (url: string): void => {
 };
 
 export const openUrlInApp = (url: string, title?: string) => {
-  if (platformEnv.isNative) {
+  if (platformEnv.isNative || platformEnv.isDesktop) {
     openUrlByWebview(url.trim(), title);
   } else {
     openUrlOutsideNative(url.trim());
