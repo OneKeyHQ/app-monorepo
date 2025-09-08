@@ -2,7 +2,10 @@ import { memo } from 'react';
 
 import type { ISizableTextProps } from '@onekeyhq/components';
 
-import { useTokenListMapAtom } from '../../states/jotai/contexts/tokenList';
+import {
+  useAggregateTokensMapAtom,
+  useTokenListMapAtom,
+} from '../../states/jotai/contexts/tokenList';
 import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 
 type IProps = {
@@ -14,7 +17,8 @@ type IProps = {
 function TokenBalanceView(props: IProps) {
   const { $key, symbol, ...rest } = props;
   const [tokenListMap] = useTokenListMapAtom();
-  const token = tokenListMap[$key || ''];
+  const [aggregateTokensMap] = useAggregateTokensMapAtom();
+  const token = tokenListMap[$key || ''] ?? aggregateTokensMap[$key || ''];
 
   if (!token) {
     return null;

@@ -73,7 +73,7 @@ const CarouselGallery = () => {
   return (
     <Layout
       componentName="Carousel"
-      filePath={__CURRENT_FILE_PATH__}
+      getFilePath={() => __CURRENT_FILE_PATH__}
       elements={[
         {
           title: 'Interactive Carousel',

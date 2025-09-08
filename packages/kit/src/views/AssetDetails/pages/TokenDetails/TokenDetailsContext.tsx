@@ -29,10 +29,12 @@ export interface ITokenDetailsContextValue {
   }) => void;
   updateTokenDetails: ({
     accountId,
+    networkId,
     isInit,
     data,
   }: {
     accountId: string;
+    networkId: string;
     isInit: boolean;
     data: IFetchTokenDetailItem;
   }) => void;
