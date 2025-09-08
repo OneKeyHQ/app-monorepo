@@ -6,6 +6,7 @@ import type { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAcco
 import type { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import type { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
 import type { SimpleDbEntityAddressInfo } from '../entity/SimpleDbEntityAddressInfo';
+import type { SimpleDbEntityAggregateToken } from '../entity/SimpleDbEntityAggregateToken';
 import type { SimpleDbEntityAllNetworks } from '../entity/SimpleDbEntityAllNetworks';
 import type { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanup';
 import type { SimpleDbEntityApproval } from '../entity/SimpleDbEntityApproval';
@@ -250,4 +251,8 @@ export class SimpleDbProxy
   ) as SimpleDbEntityPrimeTransfer;
 
   approval = this._createProxyService('approval') as SimpleDbEntityApproval;
+
+  aggregateToken = this._createProxyService(
+    'aggregateToken',
+  ) as SimpleDbEntityAggregateToken;
 }
