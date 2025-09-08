@@ -93,11 +93,26 @@ async function navigateToNotificationDetail({
   let shouldAckRead = true;
 
   if (isFromNotificationClick) {
-    routes = [
-      ERootRoutes.Modal,
-      EModalRoutes.NotificationsModal,
-      EModalNotificationsRoutes.NotificationList,
-    ];
+    const statusRoutes = appGlobals.$navigationRef.current?.getState().routes;
+    const currentRoute = statusRoutes?.[statusRoutes.length - 1];
+    if (
+      currentRoute &&
+      currentRoute.name === ERootRoutes.Modal &&
+      (
+        currentRoute.params as {
+          screen?: EModalRoutes;
+        }
+      )?.screen === EModalRoutes.NotificationsModal
+    ) {
+      routes = [];
+      appEventBus.emit(EAppEventBusNames.UpdateNotificationBadge, undefined);
+    } else {
+      routes = [
+        ERootRoutes.Modal,
+        EModalRoutes.NotificationsModal,
+        EModalNotificationsRoutes.NotificationList,
+      ];
+    }
   }
 
   // show Transaction Detail Modal

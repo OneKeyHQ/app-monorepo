@@ -344,6 +344,7 @@ export interface IAppEventBusPayload {
     version: string | null | undefined;
   };
   [EAppEventBusNames.ShowNotificationViewDialog]: INotificationViewDialogPayload;
+  [EAppEventBusNames.UpdateNotificationBadge]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {
