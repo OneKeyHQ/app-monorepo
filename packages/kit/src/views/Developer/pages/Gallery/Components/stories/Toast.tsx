@@ -7,7 +7,7 @@ const ONE_HOUR = 60 * 60 * 1000;
 
 const ToastGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="Toast"
     elements={[
       {

@@ -8,15 +8,16 @@ import { Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useTokenListActions } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import {
+  useAggregateTokensListMapAtom,
+  useTokenListActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  EAssetSelectorRoutes,
-  IAssetSelectorParamList,
-} from '@onekeyhq/shared/src/routes';
+import type { IAssetSelectorParamList } from '@onekeyhq/shared/src/routes';
+import { EAssetSelectorRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
@@ -50,6 +51,8 @@ function TokenSelector() {
 
   const { createAddress } = useAccountSelectorCreateAddress();
 
+  const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
+
   const {
     title,
     networkId,
@@ -62,6 +65,7 @@ function TokenSelector() {
     footerTipText,
     activeAccountId,
     activeNetworkId,
+    aggregateTokenSelectorScreen,
   } = route.params;
 
   const { network, account } = useAccountData({ networkId, accountId });
@@ -76,6 +80,27 @@ function TokenSelector() {
 
   const handleTokenOnPress = useCallback(
     async (token: IAccountToken) => {
+      if (token.isAggregateToken) {
+        const aggregateTokenList = aggregateTokensListMap[token.$key];
+        if (aggregateTokenList && aggregateTokenList.tokens.length === 1) {
+          void onSelect?.(aggregateTokenList.tokens[0]);
+          return;
+        }
+
+        if (aggregateTokenList && aggregateTokenList.tokens.length > 1) {
+          navigation.push(
+            aggregateTokenSelectorScreen ??
+              EAssetSelectorRoutes.AggregateTokenSelector,
+            {
+              aggregateToken: token,
+              onSelect,
+              closeAfterSelect,
+            },
+          );
+          return;
+        }
+      }
+
       if (network?.isAllNetworks) {
         let vaultSettings: IVaultSettings | undefined;
         if (token.networkId) {
@@ -199,6 +224,8 @@ function TokenSelector() {
     },
     [
       account,
+      aggregateTokenSelectorScreen,
+      aggregateTokensListMap,
       closeAfterSelect,
       createAddress,
       navigation,
