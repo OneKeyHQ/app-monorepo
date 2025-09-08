@@ -22,6 +22,7 @@ import type {
 export function ImageV2({
   style: defaultStyle,
   animated,
+  canRetry = true,
   ...props
 }: IImageV2Props) {
   const sizeProps = useMemo(() => {
