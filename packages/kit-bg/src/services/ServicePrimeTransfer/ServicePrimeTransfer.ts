@@ -118,6 +118,11 @@ class ServicePrimeTransfer extends ServiceBase {
 
   initWebsocketMutex = new Semaphore(1);
 
+  // Heartbeat mechanism for UI layer connection monitoring
+  private lastPingTime = 0;
+
+  private heartbeatCheckTimer: ReturnType<typeof setInterval> | null = null;
+
   @backgroundMethod()
   async verifyWebSocketEndpoint(endpoint: string): Promise<{
     isValid: boolean;
@@ -356,6 +361,9 @@ class ServicePrimeTransfer extends ServiceBase {
           }
         });
       }
+
+      // Start heartbeat monitoring after WebSocket is initialized
+      this.startHeartbeatCheck();
     });
   }
 
@@ -1052,9 +1060,50 @@ class ServicePrimeTransfer extends ServiceBase {
     );
   }
 
+  // Heartbeat mechanism methods
+  @backgroundMethod()
+  async pingService() {
+    this.lastPingTime = Date.now();
+  }
+
+  private startHeartbeatCheck() {
+    if (!platformEnv.isExtension) {
+      return;
+    }
+    // Clear existing timer
+    if (this.heartbeatCheckTimer) {
+      clearInterval(this.heartbeatCheckTimer);
+    }
+
+    // Check every 10 seconds if the last ping is older than 10 seconds
+    this.heartbeatCheckTimer = setInterval(() => {
+      const now = Date.now();
+      const timeSinceLastPing = now - this.lastPingTime;
+
+      // If no ping for more than 10 seconds, UI layer is likely closed
+      if (this.lastPingTime > 0 && timeSinceLastPing > 10_000) {
+        console.log(
+          'UI layer connection timeout, auto disconnecting WebSocket',
+        );
+        void this.disconnectWebSocket();
+      }
+    }, 10_000);
+  }
+
+  private stopHeartbeatCheck() {
+    if (this.heartbeatCheckTimer) {
+      clearInterval(this.heartbeatCheckTimer);
+      this.heartbeatCheckTimer = null;
+    }
+    this.lastPingTime = 0;
+  }
+
   @backgroundMethod()
   @toastIfError()
   async disconnectWebSocket() {
+    // Stop heartbeat monitoring
+    this.stopHeartbeatCheck();
+
     try {
       if (this.socket) {
         try {
