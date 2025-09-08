@@ -410,8 +410,9 @@ function TokenDetailsView() {
         <Token
           size="sm"
           tokenImageUri={tokens[0].logoURI}
-          showNetworkIcon={!!(tokens.length <= 1 && !gtMd)}
-          networkImageUri={network?.logoURI}
+          networkImageUri={
+            tokens.length <= 1 && !gtMd ? network?.logoURI : undefined
+          }
           networkId={networkId}
         />
         <SizableText size="$headingLg" numberOfLines={1}>
