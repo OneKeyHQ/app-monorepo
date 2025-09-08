@@ -4,6 +4,7 @@ import { cloneDeep } from 'lodash';
 
 import type {
   IDialogLoadingProps,
+  IDialogShowProps,
   IQrcodeDrawType,
 } from '@onekeyhq/components';
 import type { ISubSettingConfig } from '@onekeyhq/kit/src/views/Setting/pages/Tab/config';
@@ -25,6 +26,7 @@ import { EAppEventBusNames } from './appEventBusNames';
 
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
+import type { INotificationViewDialogPayload } from '../../types/notification';
 import type { IPrimeTransferData } from '../../types/prime/primeTransferTypes';
 import type {
   ESwapCrossChainStatus,
@@ -338,6 +340,10 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.ShowHardwareErrorDialog]: IHardwareErrorDialogPayload;
   [EAppEventBusNames.SwapPanelDismissKeyboard]: undefined;
+  [EAppEventBusNames.ShowFallbackUpdateDialog]: {
+    version: string | null | undefined;
+  };
+  [EAppEventBusNames.ShowNotificationViewDialog]: INotificationViewDialogPayload;
 }
 
 export enum EEventBusBroadcastMethodNames {

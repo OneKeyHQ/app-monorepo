@@ -10,7 +10,7 @@ import { Layout } from './utils/Layout';
 
 const NumberSizeableTextGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="NumberSizeableText"
     elements={[
       {

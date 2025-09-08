@@ -2,7 +2,7 @@
   "name": "@onekeyhq/desktop",
   "version": "1.0.0",
   "main": "dist/app.js",
-  "description": "Anti-scam crypto wallet for every chain. Supports Bitcoin, Ethereum, Solana, Tron, XRP, Cardano, Sui, Aptos, Polkadot, Cosmos, Kaspa",
+  "description": "Anti-scam crypto wallet for every chain. Supports major blockchains like Bitcoin, Ethereum, Solana, Tron and more.",
   "private": true,
   "author": "OneKey <hi@onekey.so>",
   "dependencies": {

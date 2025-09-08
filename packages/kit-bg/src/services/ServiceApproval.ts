@@ -110,6 +110,7 @@ class ServiceApproval extends ServiceBase {
     const contractApprovals = resp.data.data.contractApprovals ?? [];
 
     const riskApprovals: IContractApproval[] = [];
+    const inactiveApprovals: IContractApproval[] = [];
     const normalApprovals: IContractApproval[] = [];
 
     // 90 days
@@ -130,13 +131,18 @@ class ServiceApproval extends ServiceBase {
           owner: query.accountAddress,
           isRiskContract: true,
         });
+      } else if (now - item.latestApprovalTime > inactiveApprovalTime) {
+        inactiveApprovals.push({
+          ...item,
+          accountId: query.accountId,
+          owner: query.accountAddress,
+          isInactiveApproval: true,
+        });
       } else {
         normalApprovals.push({
           ...item,
           accountId: query.accountId,
           owner: query.accountAddress,
-          isInactiveApproval:
-            now - item.latestApprovalTime > inactiveApprovalTime,
         });
       }
     }
@@ -145,10 +151,13 @@ class ServiceApproval extends ServiceBase {
       ...resp.data.data,
       contractApprovals: [
         ...riskApprovals.sort(
-          (a, b) => a.latestApprovalTime - b.latestApprovalTime,
+          (a, b) => b.latestApprovalTime - a.latestApprovalTime,
+        ),
+        ...inactiveApprovals.sort(
+          (a, b) => b.latestApprovalTime - a.latestApprovalTime,
         ),
         ...normalApprovals.sort(
-          (a, b) => a.latestApprovalTime - b.latestApprovalTime,
+          (a, b) => b.latestApprovalTime - a.latestApprovalTime,
         ),
       ],
     };

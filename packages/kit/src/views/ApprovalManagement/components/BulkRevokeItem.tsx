@@ -269,7 +269,7 @@ function BulkRevokeItem(props: IProps) {
                 })}
               </SizableText>
               <XStack alignItems="center" gap="$2">
-                <YStack>
+                <YStack alignItems="flex-end">
                   <SizableText size="$bodyMdMedium">
                     {contract.label}
                   </SizableText>

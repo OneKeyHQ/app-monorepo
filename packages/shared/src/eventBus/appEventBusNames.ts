@@ -107,4 +107,6 @@ export enum EAppEventBusNames {
   DesktopBleRepairRequired = 'DesktopBleRepairRequired',
   ShowHardwareErrorDialog = 'ShowHardwareErrorDialog',
   SwapPanelDismissKeyboard = 'SwapPanelDismissKeyboard',
+  ShowFallbackUpdateDialog = 'ShowFallbackUpdateDialog',
+  ShowNotificationViewDialog = 'ShowNotificationViewDialog',
 }

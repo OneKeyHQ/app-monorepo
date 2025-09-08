@@ -1,3 +1,5 @@
+import type { IDialogShowProps, IKeyOfIcons } from '@onekeyhq/components';
+
 import type { IEndpointInfo } from './endpoint';
 import type { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 import type { Socket } from 'socket.io-client';
@@ -108,8 +110,10 @@ export enum ENotificationPushSyncMethod {
   append = 'append', // append or replace
 }
 export enum ENotificationPushTopicTypes {
+  all = 'all',
   accountActivity = 'accountActivity',
   coinPriceAlert = 'coinPriceAlert',
+  system = 'announcement',
 }
 // /notification/v1/account/register
 // /notification/v1/account/unregister
@@ -123,6 +127,7 @@ export type INotificationPushRegisterParams = {
 export type INotificationPushSettings = {
   pushEnabled?: boolean;
   accountActivityPushEnabled?: boolean;
+  announcementEnabled?: boolean;
   maxAccount?: number;
   supportedNetworks?: {
     networkId: string;
@@ -182,6 +187,13 @@ export enum ENotificationPushMessageAckAction {
   clicked = 'clicked',
   readed = 'readed',
 }
+
+export enum ENotificationPushMessageMode {
+  page = 1,
+  dialog = 2,
+  openInBrowser = 3,
+  openInApp = 4,
+}
 // /notification/v1/message/ack
 export type INotificationPushMessageAckParams = {
   remotePushMessageInfo?: INotificationPushMessageInfo;
@@ -191,6 +203,9 @@ export type INotificationPushMessageAckParams = {
 export type INotificationPushMessageExtras = {
   badge?: string;
   msgId: string; // TODO obsoleted, use params.msgId instead
+  miniBundlerVersion?: string;
+  mode?: ENotificationPushMessageMode;
+  payload?: string;
   topic: ENotificationPushTopicTypes.accountActivity;
   image?: string;
   // params is a json string on Android
@@ -250,4 +265,21 @@ export type INotificationPushMessageListItem = {
   referId: string;
   readed: boolean | undefined;
   createdAt: string;
+  icon: IKeyOfIcons;
+};
+
+export enum ENotificationViewDialogActionType {
+  navigate = 'navigate',
+  openInApp = 'openInApp',
+  openInBrowser = 'openInBrowser',
+}
+
+export type INotificationViewDialogPayload = Omit<
+  IDialogShowProps,
+  'onConfirm' | 'onCancel' | 'renderContent'
+> & {
+  onConfirm: {
+    actionType: ENotificationViewDialogActionType;
+    payload: string | Record<string, Record<string, string>>;
+  };
 };

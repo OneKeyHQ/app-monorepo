@@ -18,7 +18,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
@@ -31,6 +30,7 @@ import {
   WALLET_TYPE_HD,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -57,20 +57,18 @@ function TokenDetailsHeader(props: IProps) {
     accountId,
     networkId,
     walletId,
-    deriveType,
-    deriveInfo,
     tokenInfo,
     isAllNetworks,
     indexedAccountId,
     isTabView,
+    deriveInfo,
+    deriveType,
   } = props;
   const navigation = useAppNavigation();
   const intl = useIntl();
   const copyAccountAddress = useCopyAccountAddress();
   const {
     updateTokenMetadata,
-    isLoadingTokenDetails,
-    updateIsLoadingTokenDetails,
     tokenDetails: tokenDetailsContext,
     updateTokenDetails,
   } = useTokenDetailsContext();
@@ -83,6 +81,8 @@ function TokenDetailsHeader(props: IProps) {
     walletId,
   });
 
+  const tokenDetailsKey = `${accountId}_${networkId}`;
+
   const { handleOnReceive } = useReceiveToken({
     accountId,
     networkId,
@@ -91,16 +91,8 @@ function TokenDetailsHeader(props: IProps) {
   });
 
   const { isFocused } = useTabIsRefreshingFocused();
-  const initRef = useRef(true);
-  const { result: tokenDetailsResult } = usePromiseResult(
+  const { result: tokenDetailsResult, isLoading } = usePromiseResult(
     async () => {
-      if (initRef.current) {
-        initRef.current = false;
-      }
-      updateIsLoadingTokenDetails({
-        accountId,
-        isLoading: true,
-      });
       const tokensDetails =
         await backgroundApiProxy.serviceToken.fetchTokensDetails({
           accountId,
@@ -114,38 +106,36 @@ function TokenDetailsHeader(props: IProps) {
       });
       updateTokenDetails({
         accountId,
+        networkId,
         isInit: true,
         data: tokensDetails[0],
-      });
-      updateIsLoadingTokenDetails({
-        accountId,
-        isLoading: false,
       });
       return tokensDetails[0];
     },
     [
       accountId,
-      updateIsLoadingTokenDetails,
       networkId,
       tokenInfo.address,
       updateTokenMetadata,
       updateTokenDetails,
     ],
     {
+      watchLoading: true,
       overrideIsFocused: (isPageFocused) =>
-        initRef.current || (isPageFocused && (isTabView ? isFocused : true)),
+        isPageFocused && (isTabView ? isFocused : true),
+      debounced: POLLING_DEBOUNCE_INTERVAL,
     },
   );
 
   const tokenDetails =
-    tokenDetailsResult ?? tokenDetailsContext[accountId]?.data;
+    tokenDetailsResult ?? tokenDetailsContext[tokenDetailsKey]?.data;
 
   const showLoadingState = useMemo(() => {
-    if (tokenDetailsContext[accountId]?.init) {
+    if (tokenDetailsContext[tokenDetailsKey]?.init) {
       return false;
     }
-    return isLoadingTokenDetails?.[accountId];
-  }, [isLoadingTokenDetails, tokenDetailsContext, accountId]);
+    return isLoading;
+  }, [tokenDetailsContext, tokenDetailsKey, isLoading]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
@@ -239,28 +229,6 @@ function TokenDetailsHeader(props: IProps) {
     [accountId],
   );
 
-  const renderTokenIcon = useCallback(() => {
-    if (showLoadingState) {
-      return <Skeleton radius="round" h="$12" w="$12" />;
-    }
-    return (
-      <Token
-        tokenImageUri={tokenInfo.logoURI ?? tokenDetails?.info.logoURI}
-        size="xl"
-        networkImageUri={isAllNetworks ? network?.logoURI : ''}
-        showNetworkIcon={isAllNetworks}
-        networkId={networkId}
-      />
-    );
-  }, [
-    isAllNetworks,
-    network?.logoURI,
-    networkId,
-    tokenDetails?.info.logoURI,
-    tokenInfo.logoURI,
-    showLoadingState,
-  ]);
-
   const shouldShowAddressBlock = useMemo(() => {
     if (networkUtils.isLightningNetworkByNetworkId(networkId)) return false;
 
@@ -276,8 +244,7 @@ function TokenDetailsHeader(props: IProps) {
         <Stack px="$5" pb="$5" pt={isTabView ? '$5' : '$0'}>
           {/* Balance */}
           <XStack alignItems="center" mb="$5">
-            {renderTokenIcon()}
-            <Stack ml="$3" flex={1}>
+            <Stack flex={1}>
               {showLoadingState ? (
                 <Skeleton.Group show>
                   <Skeleton.Heading3Xl />
@@ -357,6 +324,7 @@ function TokenDetailsHeader(props: IProps) {
             />
             <ReviewControl>
               <ActionBuy
+                isTabView={isTabView}
                 walletId={wallet?.id ?? ''}
                 networkId={networkId}
                 accountId={accountId}
@@ -370,6 +338,7 @@ function TokenDetailsHeader(props: IProps) {
 
             <ReviewControl>
               <ActionSell
+                isTabView={isTabView}
                 walletId={wallet?.id ?? ''}
                 networkId={networkId}
                 accountId={accountId}

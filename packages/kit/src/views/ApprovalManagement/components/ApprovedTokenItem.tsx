@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Checkbox,
+  Icon,
   NumberSizeableText,
   Stack,
 } from '@onekeyhq/components';
@@ -80,6 +81,15 @@ function ApprovedTokenItem(props: IProps) {
       }}
       avatarProps={{
         src: token.info.logoURI,
+        borderRadius: '$full',
+        fallbackProps: {
+          bg: '$gray5',
+          width: '$10',
+          height: '$10',
+          justifyContent: 'center',
+          alignItems: 'center',
+          children: <Icon size="$7" name="CryptoCoinOutline" />,
+        },
       }}
       onPress={
         isSelectMode

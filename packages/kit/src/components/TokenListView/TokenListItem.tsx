@@ -24,6 +24,7 @@ export type ITokenListItemProps = {
   isTokenSelector?: boolean;
   hideValue?: boolean;
   withSwapAction?: boolean;
+  showNetworkIcon?: boolean;
 } & Omit<IListItemProps, 'onPress'>;
 
 function BasicTokenListItem(props: ITokenListItemProps) {
@@ -37,6 +38,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     isTokenSelector,
     hideValue,
     withSwapAction,
+    showNetworkIcon,
     ...rest
   } = props;
 
@@ -48,10 +50,17 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             networkId={token.networkId}
             icon={token.logoURI}
             isAllNetworks={isAllNetworks}
+            showNetworkIcon={showNetworkIcon}
           />
           <YStack flex={1}>
             <TokenNameView
-              name={token.symbol}
+              $key={token.$key}
+              name={
+                token.isAggregateToken
+                  ? token.commonSymbol ?? token.symbol
+                  : token.symbol
+              }
+              isAggregateToken={token.isAggregateToken}
               isNative={token.isNative}
               isAllNetworks={isAllNetworks}
               networkId={token.networkId}
@@ -88,7 +97,14 @@ function BasicTokenListItem(props: ITokenListItemProps) {
         />
         <YStack flex={1}>
           <TokenNameView
-            name={token.symbol}
+            $key={token.$key}
+            withAggregateBadge={isTokenSelector}
+            name={
+              token.isAggregateToken
+                ? token.commonSymbol ?? token.symbol
+                : token.symbol
+            }
+            isAggregateToken={token.isAggregateToken}
             isNative={token.isNative}
             isAllNetworks={isAllNetworks}
             networkId={token.networkId}
@@ -99,6 +115,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             }}
           />
           <TokenNameView
+            $key={token.$key}
             name={token.name}
             // name={token.accountId || ''}
             networkId={token.networkId}
@@ -110,7 +127,14 @@ function BasicTokenListItem(props: ITokenListItemProps) {
         </YStack>
       </XStack>
     );
-  }, [token, isAllNetworks, withNetwork, tableLayout, isTokenSelector]);
+  }, [
+    token,
+    isAllNetworks,
+    withNetwork,
+    tableLayout,
+    isTokenSelector,
+    showNetworkIcon,
+  ]);
 
   const renderSecondColumn = useCallback(() => {
     if (isTokenSelector) {
