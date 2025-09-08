@@ -125,7 +125,10 @@ function formatPriceToValid(marketPrice: string | number): string {
   return price.toFixed(validDecimals).replace(/\.?0+$/, '');
 }
 
+export { getValidPriceDecimals, calculatePriceScale, formatPriceToValid };
+
 export default {
+  getValidPriceDecimals,
   calculatePriceScale,
   formatPriceToValid,
 };
