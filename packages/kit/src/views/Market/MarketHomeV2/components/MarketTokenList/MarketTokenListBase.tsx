@@ -190,11 +190,7 @@ function MarketTokenListBase({
               columns={marketTokenColumns}
               onEndReached={handleEndReached}
               dataSource={data}
-              keyExtractor={(item) =>
-                `${item.address}${item.chainId ?? ''}${item.name ?? ''}${
-                  item.networkId ?? ''
-                }${item.symbol ?? ''}${item.tokenImageUri ?? ''}`
-              }
+              keyExtractor={(item) => JSON.stringify(item)}
               extraData={networkId}
               onHeaderRow={handleHeaderRow}
               TableFooterComponent={TableFooterComponent}

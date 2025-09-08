@@ -33,7 +33,8 @@ export const useStarV2Checked = ({
     if (!isMounted || watchListData.length === 0) return false;
     return !!watchListData?.find(
       (item) =>
-        item.chainId === chainId && item.contractAddress === contractAddress,
+        item.chainId === chainId &&
+        item.contractAddress.toLowerCase() === contractAddress.toLowerCase(),
     );
   }, [watchListData, isMounted, chainId, contractAddress]);
 
