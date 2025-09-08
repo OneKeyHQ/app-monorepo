@@ -10,6 +10,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
@@ -199,6 +200,43 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
         const purchase = await Purchases.getSharedInstance().purchase(
           purchaseParams,
         );
+
+        // Track successful subscription
+        const planType = subscriptionPeriod === 'P1Y' ? 'yearly' : 'monthly';
+
+        let amount = 0;
+        try {
+          const amountMicros =
+            paywallPackage.rcBillingProduct.currentPrice?.amountMicros;
+          if (amountMicros && typeof amountMicros === 'number') {
+            amount = new BigNumber(amountMicros).div(1_000_000).toNumber();
+          }
+        } catch (error) {
+          console.warn('Error converting price amount:', error);
+          amount = 0;
+        }
+
+        let currency = 'USD';
+        try {
+          const formattedPrice =
+            paywallPackage.rcBillingProduct.currentPrice?.formattedPrice;
+          if (formattedPrice) {
+            currency =
+              primePaymentUtils.extractCurrencySymbol(formattedPrice, {
+                useShortUSSymbol: true,
+              }) || 'USD';
+          }
+        } catch (error) {
+          console.warn('Error extracting currency:', error);
+          currency = 'USD';
+        }
+
+        defaultLogger.prime.subscription.primeSubscribeSuccess({
+          planType,
+          amount,
+          currency,
+        });
+
         // test credit card
         // https://docs.stripe.com/testing#testing-interactively
         // Mastercard: 5555555555554444

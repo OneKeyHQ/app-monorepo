@@ -35,7 +35,7 @@ export const useWatchListV2Action = () => {
         (item, index) => ({
           chainId: item.chainId,
           contractAddress: item.contractAddress,
-          sortIndex: firstSortIndex - (index + 1) - Math.random(),
+          sortIndex: firstSortIndex - (index + 1),
         }),
       );
 

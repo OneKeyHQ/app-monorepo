@@ -96,6 +96,7 @@ export enum EHomeTab {
   NFT = 'nft',
   HISTORY = 'history',
   TOOLS = 'tools',
+  APPROVALS = 'approvals',
 }
 
 export enum EAssetType {

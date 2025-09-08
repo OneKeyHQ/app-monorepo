@@ -45,3 +45,10 @@ export const { atom: allNetworksStateAtom, use: useAllNetworksStateStateAtom } =
   }>({
     visibleCount: 0,
   });
+
+export const { atom: approvalsInfoAtom, use: useApprovalsInfoAtom } =
+  contextAtom<{
+    hasRiskApprovals: boolean;
+  }>({
+    hasRiskApprovals: false,
+  });

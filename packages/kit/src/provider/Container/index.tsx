@@ -2,13 +2,28 @@ import { useEffect } from 'react';
 
 import { RootSiblingParent } from 'react-native-root-siblings';
 
+import { Dialog } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
-import type { IJPushRemotePushMessageInfo } from '@onekeyhq/shared/types/notification';
+import { navigateToNotificationDetailByLocalParams } from '@onekeyhq/shared/src/utils/notificationsUtils';
+import {
+  openUrlExternal,
+  openUrlInApp,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  ENotificationViewDialogActionType,
+  type IJPushRemotePushMessageInfo,
+  type INotificationViewDialogPayload,
+} from '@onekeyhq/shared/types/notification';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { useVersionCompatible } from '../../hooks/useVersionCompatible';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 import { PrimeGlobalEffect } from '../../views/Prime/hooks/PrimeGlobalEffect';
 import { Bootstrap } from '../Bootstrap';
@@ -45,6 +60,8 @@ function GlobalRootAppNavigationUpdate() {
 }
 
 export function ColdStartByNotification() {
+  const { isVersionCompatible, showFallbackUpdateDialog } =
+    useVersionCompatible();
   useEffect(() => {
     const options: IJPushRemotePushMessageInfo | null =
       ColdStartByNotification.launchNotification as IJPushRemotePushMessageInfo | null;
@@ -88,7 +105,63 @@ export function ColdStartByNotification() {
         },
       );
     }
-  }, []);
+    const handleShowFallbackUpdateDialog = ({
+      version,
+    }: {
+      version: string | null | undefined;
+    }) => {
+      showFallbackUpdateDialog(version);
+    };
+    appEventBus.on(
+      EAppEventBusNames.ShowFallbackUpdateDialog,
+      handleShowFallbackUpdateDialog,
+    );
+    const handleShowNotificationViewDialog = ({
+      onConfirm,
+      ...rest
+    }: INotificationViewDialogPayload) => {
+      Dialog.show({
+        ...rest,
+        onConfirm: () => {
+          const { actionType, payload } = onConfirm;
+          switch (actionType) {
+            case ENotificationViewDialogActionType.navigate:
+              try {
+                navigateToNotificationDetailByLocalParams({
+                  payload: payload as any,
+                  localParams: {},
+                });
+              } catch (error) {
+                showFallbackUpdateDialog(null);
+              }
+              break;
+            case ENotificationViewDialogActionType.openInApp:
+              openUrlInApp(payload as string);
+              break;
+            case ENotificationViewDialogActionType.openInBrowser:
+              openUrlExternal(payload as string);
+              break;
+            default:
+              break;
+          }
+        },
+      });
+    };
+    appEventBus.on(
+      EAppEventBusNames.ShowNotificationViewDialog,
+      handleShowNotificationViewDialog,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.ShowFallbackUpdateDialog,
+        handleShowFallbackUpdateDialog,
+      );
+      appEventBus.off(
+        EAppEventBusNames.ShowNotificationViewDialog,
+        handleShowNotificationViewDialog,
+      );
+    };
+  }, [isVersionCompatible, showFallbackUpdateDialog]);
   return null;
 }
 ColdStartByNotification.launchNotification = null;

@@ -293,6 +293,7 @@ export class KeyringQr extends KeyringQrBase {
             addresses: {
               [addressRelPath]: address,
             },
+            __hwExtraInfo__: undefined,
           };
           ret.push(addressInfo);
           console.log('KeyringQr prepareAccounts', {

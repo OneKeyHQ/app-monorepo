@@ -92,7 +92,7 @@ export abstract class KeyringBase extends VaultContext {
     });
     const ret: Array<IDBSimpleAccount | IDBVariantAccount> = [];
     for (let idx = 0; idx < addressInfos.length; idx += 1) {
-      const { path, publicKey, address, addresses, relPath } =
+      const { path, publicKey, address, addresses, relPath, __hwExtraInfo__ } =
         addressInfos[idx];
       if (!path) {
         throw new OneKeyLocalError(
@@ -141,6 +141,7 @@ export abstract class KeyringBase extends VaultContext {
         address,
         addresses,
         template,
+        __hwExtraInfo__,
       });
     }
 
@@ -194,6 +195,7 @@ export abstract class KeyringBase extends VaultContext {
       xpubSegwit,
       address,
       addresses,
+      __hwExtraInfo__,
     } of addressesInfo) {
       if (!path || isNil(xpub) || !addresses) {
         throw new OneKeyLocalError(
@@ -233,6 +235,7 @@ export abstract class KeyringBase extends VaultContext {
           address,
           addresses,
           template,
+          __hwExtraInfo__,
         });
       }
 

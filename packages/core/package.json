@@ -38,6 +38,7 @@
     "base32-decode": "^1.0.0",
     "bchaddrjs": "^0.5.2",
     "bip32": "^4.0.0",
+    "bip322-js": "3.0.0",
     "bip39": "^3.1.0",
     "bitcoinjs-lib": "7.0.0-rc.0",
     "bitcoinjs-message": "2.2.0",

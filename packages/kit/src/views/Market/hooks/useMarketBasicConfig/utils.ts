@@ -14,30 +14,6 @@ export function getDefaultNetworkId(
 }
 
 /**
- * Convert recommended tokens from basic config to market token list format
- */
-export function convertRecommendedTokens(
-  recommendTokens?: IMarketBasicConfigToken[],
-): IMarketTokenListItem[] {
-  if (!recommendTokens) return [];
-
-  return recommendTokens.map((token) => ({
-    address: token.contractAddress,
-    name: token.name,
-    symbol: token.name, // Use name as symbol since API doesn't provide symbol
-    logoUrl: '', // API doesn't provide logo URL
-    decimals: 6, // Default decimals
-    // Set minimal required fields for IMarketTokenListItem
-    marketCap: undefined,
-    fdv: undefined,
-    tvl: undefined,
-    holders: undefined,
-    extraData: undefined,
-    price: undefined,
-  }));
-}
-
-/**
  * Extract minimum liquidity value
  */
 export function getMinLiquidity(basicConfig?: IMarketBasicConfigData): number {

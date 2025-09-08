@@ -76,6 +76,7 @@ import type {
   IServerFetchAccountHistoryDetailResp,
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type {
@@ -358,6 +359,12 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     params: IFetchServerTokenDetailParams,
   ): Promise<IFetchServerTokenDetailResponse> {
     throw new NotImplemented();
+  }
+
+  async verifyMessage(params: IVerifyMessageParams) {
+    return Promise.resolve({
+      valid: false,
+    });
   }
 }
 

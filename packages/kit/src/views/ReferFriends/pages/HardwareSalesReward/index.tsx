@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Alert,
@@ -128,10 +129,18 @@ export default function HardwareSalesReward() {
       originalData.current[originalData.current.length - 1]._id,
     );
     if (data.items.length > 0) {
-      originalData.current.push(...data.items);
+      const uniqueItems = data.items.filter(
+        (item) =>
+          !originalData.current.some(
+            (existingItem) => existingItem._id === item._id,
+          ),
+      );
+      originalData.current.push(...uniqueItems);
       setSections(formatSections(originalData.current));
     }
   }, [fetchSales]);
+
+  const debounceFetchMore = useDebouncedCallback(fetchMore, 250);
 
   const intl = useIntl();
   const renderItem = useCallback(
@@ -183,6 +192,12 @@ export default function HardwareSalesReward() {
     },
     [],
   );
+
+  const keyExtractor = useCallback(
+    (item: IHardwareSalesRecord['items'][0]) => item._id,
+    [],
+  );
+
   return (
     <Page>
       <Page.Header
@@ -302,7 +317,8 @@ export default function HardwareSalesReward() {
             renderSectionHeader={renderSectionHeader}
             estimatedItemSize={60}
             renderItem={renderItem}
-            onEndReached={fetchMore}
+            onEndReached={debounceFetchMore}
+            keyExtractor={keyExtractor}
           />
         )}
       </Page.Body>

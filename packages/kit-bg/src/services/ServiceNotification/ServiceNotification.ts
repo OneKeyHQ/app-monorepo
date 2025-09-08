@@ -23,6 +23,7 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
+  ENotificationPushTopicTypes,
   INotificationClickParams,
   INotificationPermissionDetail,
   INotificationPushClient,
@@ -48,6 +49,7 @@ import {
   notificationsAtom,
   notificationsDevSettingsPersistAtom,
   notificationsReadedAtom,
+  primePersistAtom,
   settingsPersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
@@ -61,7 +63,10 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '../../dbs/local/types';
-import type { IAccountActivityNotificationSettings } from '../../dbs/simple/entity/SimpleDbEntityNotificationSettings';
+import type {
+  IAccountActivityNotificationSettings,
+  ISimpleDbNotificationSettings,
+} from '../../dbs/simple/entity/SimpleDbEntityNotificationSettings';
 import type { Socket } from 'socket.io-client';
 
 export default class ServiceNotification extends ServiceBase {
@@ -70,7 +75,7 @@ export default class ServiceNotification extends ServiceBase {
     appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, async (params) => {
       const { accounts } = params;
       // clear cache
-      await this.getSupportedNetworks.clear();
+      await this.clearServerSettingsCache();
       void this.registerClientWithAppendAccounts({
         dbAccounts: accounts, // append
       });
@@ -261,6 +266,8 @@ export default class ServiceNotification extends ServiceBase {
       notificationId: notificationId || '',
       notificationAccountId:
         params?.remotePushMessageInfo?.extras?.params?.accountId,
+      mode: params?.remotePushMessageInfo?.extras?.mode,
+      payload: params?.remotePushMessageInfo?.extras?.payload,
     });
 
     void this.removeNotification({
@@ -499,9 +506,9 @@ export default class ServiceNotification extends ServiceBase {
       notificationWallets = await this.getNotificationWalletsWithAccounts();
     }
 
-    await this.fixAccountActivityNotificationSettings({ notificationWallets });
+    const { supportNetworksFiltered } = await this.getServerSettingsWithCache();
 
-    const supportNetworksFiltered = await this.getSupportedNetworks();
+    await this.fixAccountActivityNotificationSettings({ notificationWallets });
 
     defaultLogger.notification.common.consoleLog('supportNetworksFiltered', {
       supportNetworksFiltered: supportNetworksFiltered.length,
@@ -740,10 +747,99 @@ export default class ServiceNotification extends ServiceBase {
       (await notificationsAtom.get()).maxAccountCount ??
       NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT;
 
+    const isPrime = await primePersistAtom.get();
+    const isPrimeActive = isPrime?.primeSubscription?.isActive;
+
     const settings =
       await this.backgroundApi.simpleDb.notificationSettings.getRawData();
 
-    const oldAccountActivity = cloneDeep(settings?.accountActivity ?? {});
+    const originalAccountActivity = cloneDeep(settings?.accountActivity ?? {});
+    const currentAccountActivity = cloneDeep(settings?.accountActivity ?? {});
+    if (
+      isPrimeActive &&
+      settings?.primeBackupAccountActivity &&
+      maxAccountCount > NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT
+    ) {
+      // merge oldAccountActivity with settings?.primeBackupAccountActivity
+      // Logic: either value being true results in true, only when both are false does the result become false
+      Object.entries(settings.primeBackupAccountActivity).forEach(
+        ([walletId, primeWalletData]) => {
+          if (primeWalletData) {
+            const originalWalletData:
+              | {
+                  enabled: boolean | undefined;
+                  accounts: {
+                    [accountId: string]: {
+                      enabled: boolean | undefined;
+                    };
+                  };
+                }
+              | undefined = originalAccountActivity[walletId];
+
+            // Merge wallet enabled: true if either is true
+            const mergedWalletEnabled = Boolean(
+              primeWalletData.enabled || originalWalletData?.enabled,
+            );
+
+            currentAccountActivity[walletId] = {
+              enabled: mergedWalletEnabled,
+              accounts: {
+                ...originalWalletData?.accounts,
+              },
+            };
+
+            // Merge accounts
+            if (primeWalletData.accounts) {
+              Object.entries(primeWalletData.accounts).forEach(
+                ([accountId, primeAccountData]) => {
+                  if (primeAccountData) {
+                    const originalAccountData:
+                      | {
+                          enabled: boolean | undefined;
+                        }
+                      | undefined = originalWalletData?.accounts?.[accountId];
+
+                    // Merge account enabled: true if either is true
+                    const mergedAccountEnabled = Boolean(
+                      primeAccountData.enabled || originalAccountData?.enabled,
+                    );
+
+                    currentAccountActivity[walletId].accounts[accountId] = {
+                      enabled: mergedAccountEnabled,
+                    };
+                  }
+                },
+              );
+            }
+          }
+        },
+      );
+    }
+
+    const accountActivity = await this.rebuildAccountActivity({
+      notificationWallets,
+      maxAccountCount,
+      originalAccountActivity,
+      currentAccountActivity,
+      settings,
+    });
+    await this.saveAccountActivityNotificationSettings(accountActivity);
+  }
+
+  async rebuildAccountActivity({
+    notificationWallets,
+    maxAccountCount,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    originalAccountActivity,
+    currentAccountActivity,
+    settings,
+  }: {
+    notificationWallets: IDBWallet[];
+    maxAccountCount: number;
+    originalAccountActivity: IAccountActivityNotificationSettings;
+    currentAccountActivity: IAccountActivityNotificationSettings;
+    settings: ISimpleDbNotificationSettings | null | undefined;
+  }) {
     const accountActivity: IAccountActivityNotificationSettings = {};
 
     const currentEnabledAccountCount =
@@ -751,7 +847,15 @@ export default class ServiceNotification extends ServiceBase {
 
     let totalEnabledCount = 0;
     const isInit = !settings?.accountActivity;
-    const updateWalletAccountActivity = (wallet: IDBWallet) => {
+    const updateWalletAccountActivity = ({
+      wallet,
+      skipDisabledAccounts,
+      oldAccountActivity,
+    }: {
+      wallet: IDBWallet;
+      skipDisabledAccounts?: boolean;
+      oldAccountActivity: IAccountActivityNotificationSettings;
+    }) => {
       accountActivity[wallet.id] = oldAccountActivity?.[wallet.id] || {
         enabled: false,
         accounts: {},
@@ -760,6 +864,9 @@ export default class ServiceNotification extends ServiceBase {
         accountActivity[wallet.id].accounts || {};
       let enabledCountInWallet = 0;
       const disableAccount = (account: IDBAccount | IDBIndexedAccount) => {
+        if (skipDisabledAccounts) {
+          return;
+        }
         accountActivity[wallet.id].accounts[account.id] = {
           enabled: false,
         };
@@ -808,19 +915,39 @@ export default class ServiceNotification extends ServiceBase {
         }
       }
       if (accountActivity?.[wallet.id]?.enabled === undefined) {
-        accountActivity[wallet.id].enabled = enabledCountInWallet > 0;
+        const newEnabled = enabledCountInWallet > 0;
+        if (!newEnabled) {
+          if (!skipDisabledAccounts) {
+            accountActivity[wallet.id].enabled = false;
+          }
+        } else {
+          accountActivity[wallet.id].enabled = true;
+        }
       }
-      if (enabledCountInWallet === 0) {
+      if (enabledCountInWallet === 0 && !skipDisabledAccounts) {
         accountActivity[wallet.id].enabled = false;
       }
     };
     for (const wallet of notificationWallets) {
-      updateWalletAccountActivity(wallet);
+      // TODO only update enabled=true accounts
+      // updateWalletAccountActivity(wallet, originalAccountActivity);
+      // for (const hiddenWallet of wallet.hiddenWallets || []) {
+      //   updateWalletAccountActivity(hiddenWallet, originalAccountActivity);
+      // }
+
+      updateWalletAccountActivity({
+        wallet,
+        oldAccountActivity: currentAccountActivity,
+      });
       for (const hiddenWallet of wallet.hiddenWallets || []) {
-        updateWalletAccountActivity(hiddenWallet);
+        updateWalletAccountActivity({
+          wallet: hiddenWallet,
+          oldAccountActivity: currentAccountActivity,
+        });
       }
     }
-    await this.saveAccountActivityNotificationSettings(accountActivity);
+
+    return accountActivity;
   }
 
   @backgroundMethod()
@@ -983,7 +1110,50 @@ export default class ServiceNotification extends ServiceBase {
     }
   }
 
-  getSupportedNetworks = memoizee(
+  async saveMaxAccountCount({
+    serverSettings,
+  }: {
+    serverSettings: INotificationPushSettings;
+  }) {
+    const oldMaxAccountCount = (await notificationsAtom.get())?.maxAccountCount;
+
+    // serverSettings.maxAccount = 30;
+
+    // eslint-disable-next-line prefer-const
+    let maxAccountCount =
+      serverSettings.maxAccount ??
+      NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT;
+
+    const primeUserInfo = await primePersistAtom.get();
+    if (primeUserInfo?.primeSubscription?.isActive) {
+      // debugger;
+      // maxAccountCount = Math.max(maxAccountCount, 100);
+    }
+
+    await notificationsAtom.set((v) =>
+      perfUtils.buildNewValueIfChanged(v, {
+        ...v,
+        maxAccountCount,
+      }),
+    );
+
+    if ((maxAccountCount ?? 0) < (oldMaxAccountCount ?? 0)) {
+      await this.backgroundApi.simpleDb.notificationSettings.backupPrimeAccountActivityNotificationSettings();
+    }
+
+    console.log('saveMaxAccountCount', {
+      oldMaxAccountCount,
+      maxAccountCount,
+    });
+  }
+
+  @backgroundMethod()
+  async clearServerSettingsCache() {
+    await this.getServerSettingsWithCache.clear();
+  }
+
+  // TODO clear cache if prime expired, onekeyID logout
+  getServerSettingsWithCache = memoizee(
     async () => {
       const serverSettings = await this.fetchServerNotificationSettings();
 
@@ -994,8 +1164,8 @@ export default class ServiceNotification extends ServiceBase {
             chainId: string;
           }[]
         | undefined;
-      if (serverSettings.supportNetworks) {
-        supportNetworks = serverSettings.supportNetworks;
+      if (serverSettings.supportedNetworks) {
+        supportNetworks = serverSettings.supportedNetworks;
       } else {
         // /notification/v1/config/supported-networks
         const client = await this.getClient(EServiceEndpointEnum.Notification);
@@ -1012,22 +1182,7 @@ export default class ServiceNotification extends ServiceBase {
         supportNetworks = result?.data?.data ?? [];
       }
 
-      // serverSettings.maxAccount = 30;
-
-      const maxAccountCount =
-        serverSettings.maxAccount ??
-        NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT;
-
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const currentMaxAccountCount = (await notificationsAtom.get())
-        .maxAccountCount;
-
-      await notificationsAtom.set((v) =>
-        perfUtils.buildNewValueIfChanged(v, {
-          ...v,
-          maxAccountCount,
-        }),
-      );
+      await this.saveMaxAccountCount({ serverSettings });
 
       const supportNetworksFiltered = uniqBy(supportNetworks, (item) => {
         if (item.impl === IMPL_EVM) {
@@ -1035,7 +1190,7 @@ export default class ServiceNotification extends ServiceBase {
         }
         return item.networkId;
       });
-      return supportNetworksFiltered;
+      return { supportNetworksFiltered, serverSettings };
     },
     {
       maxAge: timerUtils.getTimeDurationMs({
@@ -1046,11 +1201,13 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async fetchMessageList(): Promise<INotificationPushMessageListItem[]> {
+  async fetchMessageList(
+    topicTypes?: ENotificationPushTopicTypes[] | undefined,
+  ): Promise<INotificationPushMessageListItem[]> {
     const client = await this.getClient(EServiceEndpointEnum.Notification);
     const result = await client.post<
       IApiClientResponse<INotificationPushMessageListItem[]>
-    >('/notification/v1/message/list');
+    >('/notification/v1/message/list', topicTypes ? { topicTypes } : undefined);
     return result?.data?.data || [];
   }
 

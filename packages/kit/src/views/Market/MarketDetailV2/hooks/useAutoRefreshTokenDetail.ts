@@ -15,15 +15,16 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       tokenDetailActions.setTokenAddress(data.tokenAddress);
       tokenDetailActions.setNetworkId(data.networkId);
 
-      // Fetch token detail data
-      await tokenDetailActions.fetchTokenDetail(
+      // Always fetch token detail data to get complete token information
+      // The K-line price priority logic is handled inside fetchTokenDetail
+      const result = await tokenDetailActions.fetchTokenDetail(
         data.tokenAddress,
         data.networkId,
       );
     },
     [data.tokenAddress, data.networkId, tokenDetailActions],
     {
-      pollingInterval: 5000,
+      pollingInterval: 6000, // Changed from 5000 to 6000 to avoid race condition with K-line updates
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
     },

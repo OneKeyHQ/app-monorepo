@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { isNil, isUndefined } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -18,6 +18,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
+import type { IHasId, LinkedDeck } from '@onekeyhq/kit/src/hooks/useLinkedList';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import useShouldRejectDappAction from '@onekeyhq/kit/src/hooks/useShouldRejectDappAction';
 import {
@@ -66,6 +67,8 @@ type IProps = {
   useFeeInTx?: boolean;
   feeInfoEditable?: boolean;
   popStack?: boolean;
+  isQueueMode?: boolean;
+  unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
 };
 
 function TxConfirmActions(props: IProps) {
@@ -81,6 +84,8 @@ function TxConfirmActions(props: IProps) {
     useFeeInTx,
     feeInfoEditable,
     popStack = true,
+    isQueueMode,
+    unsignedTxQueue,
   } = props;
   const intl = useIntl();
   const isSubmitted = useRef(false);
@@ -98,7 +103,8 @@ function TxConfirmActions(props: IProps) {
   const [preCheckTxStatus] = usePreCheckTxStatusAtom();
   const [txAdvancedSettings] = useTxAdvancedSettingsAtom();
   const [{ isBuildingDecodedTxs, decodedTxs }] = useDecodedTxsAtom();
-  const { updateSendTxStatus } = useSignatureConfirmActions().current;
+  const { updateSendTxStatus, updateUnsignedTxs } =
+    useSignatureConfirmActions().current;
   const successfullySentTxs = useRef<string[]>([]);
   const { bottom } = useSafeAreaInsets();
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
@@ -206,6 +212,18 @@ function TxConfirmActions(props: IProps) {
     }
 
     let newUnsignedTxs: IUnsignedTxPro[];
+    let nonceInfo: undefined | { nonce: number };
+
+    if (isUndefined(unsignedTxs[0].nonce) && vaultSettings?.nonceRequired) {
+      nonceInfo = {
+        nonce: await serviceSend.getNextNonce({
+          accountId,
+          networkId,
+          accountAddress,
+        }),
+      };
+    }
+
     try {
       newUnsignedTxs = await serviceSend.updateUnSignedTxBeforeSending({
         accountId,
@@ -214,7 +232,7 @@ function TxConfirmActions(props: IProps) {
         feeInfos: sendSelectedFeeInfo?.feeInfos,
         nonceInfo: txAdvancedSettings.nonce
           ? { nonce: Number(txAdvancedSettings.nonce) }
-          : undefined,
+          : nonceInfo,
         nativeAmountInfo: nativeTokenTransferAmountToUpdate.isMaxSend
           ? {
               maxSendAmount: nativeTokenTransferAmountToUpdate.amountToUpdate,
@@ -353,12 +371,6 @@ function TxConfirmActions(props: IProps) {
         navigation.popStack();
       }
 
-      if (popStack) {
-        navigation.popStack();
-      } else {
-        navigation.pop();
-      }
-
       updateSendTxStatus({ isSubmitting: false });
       onSuccess?.(result);
 
@@ -386,6 +398,20 @@ function TxConfirmActions(props: IProps) {
           );
         }
       }
+
+      if (isQueueMode && unsignedTxQueue && unsignedTxQueue.size > 1) {
+        unsignedTxQueue.removeCurrent();
+        if (unsignedTxQueue.current) {
+          updateUnsignedTxs([unsignedTxQueue.current]);
+        }
+        return;
+      }
+
+      if (popStack) {
+        navigation.popStack();
+      } else {
+        navigation.pop();
+      }
     } catch (e: any) {
       if (accountUtils.isQrAccount({ accountId })) {
         navigation.popStack();
@@ -407,27 +433,31 @@ function TxConfirmActions(props: IProps) {
     updateSendTxStatus,
     accountId,
     networkId,
+    unsignedTxs,
+    vaultSettings?.nonceRequired,
+    vaultSettings?.replaceTxEnabled,
+    vaultSettings?.afterSendTxActionEnabled,
     sendSelectedFeeInfo,
     unsignedTx?.isInternalTransfer,
     toAddress,
-    unsignedTxs,
     nativeTokenTransferAmountToUpdate.isMaxSend,
     nativeTokenTransferAmountToUpdate.amountToUpdate,
     onFail,
     dappApprove,
+    tronResourceRentalInfo,
+    navigation,
     txAdvancedSettings.nonce,
     feeInfoEditable,
-    tronResourceRentalInfo,
     checkFeeInfoIsOverflow,
     showFeeInfoOverflowConfirm,
-    vaultSettings?.replaceTxEnabled,
-    vaultSettings?.afterSendTxActionEnabled,
     signOnly,
     transferPayload,
     intl,
-    popStack,
     onSuccess,
-    navigation,
+    isQueueMode,
+    unsignedTxQueue,
+    popStack,
+    updateUnsignedTxs,
     shouldRejectDappAction,
   ]);
 
@@ -456,6 +486,14 @@ function TxConfirmActions(props: IProps) {
 
   const handleOnCancel = useCallback(
     (close: () => void, closePageStack: () => void) => {
+      if (isQueueMode && unsignedTxQueue && unsignedTxQueue.size > 1) {
+        unsignedTxQueue.removeCurrent();
+        if (unsignedTxQueue.current) {
+          updateUnsignedTxs([unsignedTxQueue.current]);
+        }
+        return;
+      }
+
       dappApprove.reject();
       if (!sourceInfo) {
         closePageStack();
@@ -464,7 +502,14 @@ function TxConfirmActions(props: IProps) {
       }
       onCancelOnce();
     },
-    [dappApprove, onCancelOnce, sourceInfo],
+    [
+      dappApprove,
+      isQueueMode,
+      onCancelOnce,
+      sourceInfo,
+      unsignedTxQueue,
+      updateUnsignedTxs,
+    ],
   );
 
   const showTakeRiskAlert = useMemo(() => {

@@ -10,6 +10,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
@@ -247,6 +248,41 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
             ?.isActive
         ) {
           await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+
+          // Track successful subscription
+          const planType = subscriptionPeriod === 'P1Y' ? 'yearly' : 'monthly';
+
+          // Get actual price based on subscription period
+          let amount = 0;
+          if (subscriptionPeriod === 'P1Y') {
+            amount = platformEnv.isNativeAndroid
+              ? new BigNumber(offering.product.pricePerYear || 0)
+                  .div(1_000_000)
+                  .toNumber()
+              : offering.product.pricePerYear || 0;
+          } else {
+            amount = platformEnv.isNativeAndroid
+              ? new BigNumber(offering.product.pricePerMonth || 0)
+                  .div(1_000_000)
+                  .toNumber()
+              : offering.product.pricePerMonth || 0;
+          }
+
+          // Extract currency from price string
+          const currency =
+            primePaymentUtils.extractCurrencySymbol(
+              offering.product.priceString ||
+                offering.product.pricePerYearString ||
+                '',
+              { useShortUSSymbol: true },
+            ) || 'USD';
+
+          defaultLogger.prime.subscription.primeSubscribeSuccess({
+            planType,
+            amount,
+            currency,
+          });
+
           void Dialog.confirm({
             dismissOnOverlayPress: false,
             icon: 'CheckLargeOutline',

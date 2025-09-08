@@ -23,6 +23,11 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  TRANSFER_PAIRING_CODE_LENGTH,
+  TRANSFER_ROOM_ID_LENGTH,
+  TRANSFER_VERIFY_STRING,
+} from '@onekeyhq/shared/src/consts/primeConsts';
 import { IMPL_TON } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   OneKeyLocalError,
@@ -100,10 +105,6 @@ export interface ITransferProgress {
 let connectedPairingCode: string | null = null;
 let connectedEncryptedKey: string | null = null;
 
-const PAIRING_CODE_LENGTH = 59;
-const ROOM_ID_LENGTH = 11;
-const VERIFY_STRING = 'OneKeyPrimeTransfer';
-
 class ServicePrimeTransfer extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -116,6 +117,11 @@ class ServicePrimeTransfer extends ServiceBase {
   private e2eeClientToClientApiProxy: E2EEClientToClientApiProxy | null = null;
 
   initWebsocketMutex = new Semaphore(1);
+
+  // Heartbeat mechanism for UI layer connection monitoring
+  private lastPingTime = 0;
+
+  private heartbeatCheckTimer: ReturnType<typeof setInterval> | null = null;
 
   @backgroundMethod()
   async verifyWebSocketEndpoint(endpoint: string): Promise<{
@@ -355,6 +361,9 @@ class ServicePrimeTransfer extends ServiceBase {
           }
         });
       }
+
+      // Start heartbeat monitoring after WebSocket is initialized
+      this.startHeartbeatCheck();
     });
   }
 
@@ -431,13 +440,13 @@ class ServicePrimeTransfer extends ServiceBase {
   }
 
   checkRoomIdValid(roomId: string | undefined | null) {
-    if (!roomId || roomId.length !== ROOM_ID_LENGTH) {
+    if (!roomId || roomId.length !== TRANSFER_ROOM_ID_LENGTH) {
       throw new TransferInvalidCodeError();
     }
   }
 
   checkPairingCodeValid(pairingCode: string | undefined | null) {
-    if (!pairingCode || pairingCode.length !== PAIRING_CODE_LENGTH) {
+    if (!pairingCode || pairingCode.length !== TRANSFER_PAIRING_CODE_LENGTH) {
       throw new TransferInvalidCodeError();
     }
   }
@@ -541,7 +550,7 @@ class ServicePrimeTransfer extends ServiceBase {
 
       // Generate client ECDHE key pair
       const clientKeyPair = await appCrypto.ECDHE.generateECDHEKeyPair();
-      const verifyString = VERIFY_STRING;
+      const verifyString = TRANSFER_VERIFY_STRING;
 
       // Encrypt verification data with pairing code
       const encryptedData = bufferUtils.bytesToHex(
@@ -1051,9 +1060,50 @@ class ServicePrimeTransfer extends ServiceBase {
     );
   }
 
+  // Heartbeat mechanism methods
+  @backgroundMethod()
+  async pingService() {
+    this.lastPingTime = Date.now();
+  }
+
+  private startHeartbeatCheck() {
+    if (!platformEnv.isExtension) {
+      return;
+    }
+    // Clear existing timer
+    if (this.heartbeatCheckTimer) {
+      clearInterval(this.heartbeatCheckTimer);
+    }
+
+    // Check every 10 seconds if the last ping is older than 10 seconds
+    this.heartbeatCheckTimer = setInterval(() => {
+      const now = Date.now();
+      const timeSinceLastPing = now - this.lastPingTime;
+
+      // If no ping for more than 10 seconds, UI layer is likely closed
+      if (this.lastPingTime > 0 && timeSinceLastPing > 10_000) {
+        console.log(
+          'UI layer connection timeout, auto disconnecting WebSocket',
+        );
+        void this.disconnectWebSocket();
+      }
+    }, 10_000);
+  }
+
+  private stopHeartbeatCheck() {
+    if (this.heartbeatCheckTimer) {
+      clearInterval(this.heartbeatCheckTimer);
+      this.heartbeatCheckTimer = null;
+    }
+    this.lastPingTime = 0;
+  }
+
   @backgroundMethod()
   @toastIfError()
   async disconnectWebSocket() {
+    // Stop heartbeat monitoring
+    this.stopHeartbeatCheck();
+
     try {
       if (this.socket) {
         try {

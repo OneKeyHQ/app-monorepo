@@ -90,7 +90,7 @@ function useAllNetworkRequests<T>(params: {
     data: any;
     accountId: string;
     networkId: string;
-  }) => void;
+  }) => Promise<void>;
   allNetworkAccountsData?: ({
     accounts,
     allAccounts,
@@ -259,7 +259,7 @@ function useAllNetworkRequests<T>(params: {
               'useAllNetworkRequestsRun',
               '执行时间明细请查看 EPerformanceTimerLogNames.allNetwork__useAllNetworkRequests',
             );
-            allNetworkCacheData?.({
+            await allNetworkCacheData?.({
               data: cachedData,
               accountId: currentAccountId,
               networkId: currentNetworkId,
@@ -276,7 +276,6 @@ function useAllNetworkRequests<T>(params: {
       //   'currentRequestsUUID set: =====>>>>>: ',
       //   currentRequestsUUID.current,
       // );
-
       if (allNetworkDataInit.current) {
         const allNetworks = accountsInfo;
         const requests = allNetworks.map((networkDataString) => {

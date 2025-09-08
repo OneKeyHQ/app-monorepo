@@ -677,5 +677,25 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'serviceWalletBanner', { value });
     return value;
   }
+
+  get serviceApproval() {
+    const ServiceApproval =
+      require('../services/ServiceApproval') as typeof import('../services/ServiceApproval');
+    const value = new ServiceApproval.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceApproval', { value });
+    return value;
+  }
+
+  get serviceInternalSignAndVerify() {
+    const ServiceInternalSignAndVerify =
+      require('../services/ServiceInternalSignAndVerify') as typeof import('../services/ServiceInternalSignAndVerify');
+    const value = new ServiceInternalSignAndVerify.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceInternalSignAndVerify', { value });
+    return value;
+  }
 }
 export default BackgroundApi;

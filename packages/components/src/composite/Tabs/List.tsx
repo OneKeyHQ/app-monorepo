@@ -1,6 +1,13 @@
 /* eslint-disable react/prop-types */
 import type { CSSProperties, ComponentType, ReactNode } from 'react';
-import { isValidElement, useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  isValidElement,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { View } from 'react-native';
 import {
@@ -67,6 +74,7 @@ const renderElement = (Element: ReactNode | ComponentType<any>) => {
 };
 
 export function List<Item>({
+  ref: parentRef,
   renderItem,
   data,
   sections,
@@ -82,11 +90,15 @@ export function List<Item>({
   keyExtractor,
   contentContainerStyle,
   horizontalPadding = 0,
+  onEndReached,
+  onEndReachedThreshold = 0.5,
 }: Omit<IListProps<Item>, 'ListEmptyComponent'> &
   Omit<ISectionListProps<Item>, 'ListEmptyComponent'> & {
     ListEmptyComponent?: ReactNode | ComponentType<any>;
     contentContainerStyle?: CSSProperties;
     horizontalPadding?: number;
+    onEndReached?: () => void;
+    onEndReachedThreshold?: number;
   }) {
   const {
     registerChild,
@@ -399,6 +411,41 @@ export function List<Item>({
     );
   }, [HeaderElement, ListEmptyComponent, FooterElement]);
 
+  useImperativeHandle(parentRef as any, () => ({
+    recomputeLayout: () => {
+      recompute({ numColumns, width });
+    },
+  }));
+
+  const handleScroll = useCallback(
+    (params: {
+      scrollTop: number;
+      scrollHeight: number;
+      clientHeight: number;
+      [key: string]: any;
+    }) => {
+      if (!isVisible) return;
+
+      onChildScroll?.(params);
+
+      // Check if we've reached the end for infinite scroll
+      if (onEndReached && params && typeof params.scrollTop === 'number') {
+        const {
+          scrollTop: currentScrollTop,
+          scrollHeight,
+          clientHeight,
+        } = params;
+        const threshold = onEndReachedThreshold || 0.5;
+        const scrollPosition = (currentScrollTop + clientHeight) / scrollHeight;
+
+        if (scrollPosition >= 1 - threshold) {
+          onEndReached();
+        }
+      }
+    },
+    [isVisible, onChildScroll, onEndReached, onEndReachedThreshold],
+  );
+
   const listProps = useMemo(() => {
     return {
       ref: listRef as any,
@@ -407,7 +454,7 @@ export function List<Item>({
       data: listData,
       rowCount: listData.length,
       isScrolling: isVisible ? isScrolling : false,
-      onScroll: isVisible ? onChildScroll : undefined,
+      onScroll: isVisible ? handleScroll : undefined,
       scrollTop: isVisible && listData.length > 0 ? scrollTop : 0,
       overscanRowCount: 10,
       deferredMeasurementCache: cache,
@@ -417,7 +464,7 @@ export function List<Item>({
     listData,
     isVisible,
     isScrolling,
-    onChildScroll,
+    handleScroll,
     scrollTop,
     cache,
   ]);

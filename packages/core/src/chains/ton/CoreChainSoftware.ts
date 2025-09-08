@@ -135,6 +135,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       address: addr.nonBounceAddress,
       publicKey,
       addresses: {},
+      __hwExtraInfo__: undefined,
     };
   }
 

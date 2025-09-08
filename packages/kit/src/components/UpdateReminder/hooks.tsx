@@ -30,6 +30,7 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -299,6 +300,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         latestVersion?: string;
         isForceUpdate?: boolean;
         summary?: string;
+        storeUrl?: string;
       },
     ) => {
       dialog.show({
@@ -341,9 +343,13 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
           defaultLogger.app.component.closedInUpdateDialog();
         },
         onConfirm: () => {
-          setTimeout(() => {
-            toUpdatePreviewPage(isFull, params);
-          }, 120);
+          if (!platformEnv.isExtension && params?.storeUrl) {
+            openUrlExternal(params.storeUrl);
+          } else {
+            setTimeout(() => {
+              toUpdatePreviewPage(isFull, params);
+            }, 120);
+          }
           defaultLogger.app.component.confirmedInUpdateDialog();
         },
       });

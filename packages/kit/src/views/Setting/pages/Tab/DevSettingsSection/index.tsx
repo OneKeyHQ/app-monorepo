@@ -19,13 +19,9 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { WebEmbedDevConfig } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed';
-import {
-  appUpdatePersistAtom,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import appDeviceInfo from '@onekeyhq/shared/src/appDeviceInfo/appDeviceInfo';
-import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { isCorrectDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
@@ -76,8 +72,6 @@ let correctDevOnlyPwd = '';
 if (process.env.NODE_ENV !== 'production') {
   correctDevOnlyPwd = `${formatDateFns(new Date(), 'yyyyMMdd')}-onekey-debug`;
 }
-
-const APP_VERSION = platformEnv.version ?? '1.0.0';
 
 export function showDevOnlyPasswordDialog({
   title,
@@ -256,6 +250,36 @@ export const DevSettingsSection = () => {
           titleProps={{ color: '$textCritical' }}
         />
       ) : null}
+
+      <SectionPressItem
+        icon="BookmarkOutline"
+        title="清空Market收藏数据"
+        subtitle="清空所有Market页面的收藏/WatchList数据"
+        onPress={() => {
+          Dialog.confirm({
+            title: '清空Market收藏数据',
+            description:
+              '确定要清空所有Market页面的收藏数据吗？此操作不可恢复。',
+            confirmButtonProps: { variant: 'destructive' },
+            onConfirm: async () => {
+              try {
+                await backgroundApiProxy.serviceMarketV2.clearAllMarketWatchListV2();
+                Toast.success({
+                  title: '成功清空Market收藏数据',
+                });
+                setTimeout(() => {
+                  void backgroundApiProxy.serviceApp.restartApp();
+                }, 1000);
+              } catch (error) {
+                Toast.error({
+                  title: '清空失败',
+                  message: String(error),
+                });
+              }
+            },
+          });
+        }}
+      />
       <SectionFieldItem
         icon="ChartTrendingOutline"
         name="enableAnalyticsRequest"
@@ -400,23 +424,6 @@ export const DevSettingsSection = () => {
             ? 'http://localhost:5173/'
             : 'https://tradingview.onekeytest.com/'
         }
-      >
-        <Switch size={ESwitchSize.small} />
-      </SectionFieldItem>
-      <SectionFieldItem
-        icon="Layers2Outline"
-        name="enableMarketV2"
-        title="启用市场模块 V2 版本"
-        subtitle={
-          devSettings.settings?.enableMarketV2
-            ? '使用新版本市场模块 (V2)'
-            : '使用旧版本市场模块 (V1)'
-        }
-        onValueChange={() => {
-          setTimeout(() => {
-            void backgroundApiProxy.serviceApp.restartApp();
-          }, 300);
-        }}
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
@@ -840,6 +847,13 @@ export const DevSettingsSection = () => {
         title="PerpGallery"
         onPress={() => {
           navigation.push(EModalSettingRoutes.SettingDevPerpGalleryModal);
+        }}
+      />
+      <SectionPressItem
+        icon="LockOutline"
+        title="CryptoGallery"
+        onPress={() => {
+          navigation.push(EModalSettingRoutes.SettingDevCryptoGalleryModal);
         }}
       />
       <AutoJumpSetting />
