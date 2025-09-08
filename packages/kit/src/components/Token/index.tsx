@@ -28,10 +28,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAccountData } from '../../hooks/useAccountData';
+import { useAggregateTokensListMapAtom } from '../../states/jotai/contexts/tokenList';
 import { NetworkAvatar, NetworkAvatarBase } from '../NetworkAvatar';
 
 import type { ImageURISource } from 'react-native';
-import { useAggregateTokensListMapAtom } from '../../states/jotai/contexts/tokenList';
 
 type ITokenSize = 'xl' | 'lg' | 'md' | 'sm' | 'xs';
 export type ITokenProps = {
