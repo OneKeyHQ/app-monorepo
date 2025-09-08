@@ -7,7 +7,7 @@ import { Layout } from './utils/Layout';
 const RestartGallery = () => {
   return (
     <Layout
-      filePath={__CURRENT_FILE_PATH__}
+      getFilePath={() => __CURRENT_FILE_PATH__}
       componentName="SecureQRToast"
       elements={[
         {

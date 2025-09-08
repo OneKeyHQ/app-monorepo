@@ -9,9 +9,7 @@ import { Layout } from './utils/Layout';
 const TutorialsListGallery = () => (
   <Layout
     componentName="TutorialsList / OrderedList"
-    filePath={require.resolve(
-      '@onekeyhq/kit/src/components/TutorialsList/TutorialsList',
-    )}
+    getFilePath={() => __CURRENT_FILE_PATH__}
     description="A component for displaying numbered tutorial steps with titles, descriptions, and optional children content. Available as both TutorialsList and OrderedList (alias)."
     suggestions={[
       'Use for step-by-step tutorials or guides',
