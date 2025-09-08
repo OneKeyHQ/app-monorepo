@@ -41,6 +41,7 @@ import { calculateFeeForSend } from '../../../utils/gasFee';
 import BulkRevokeItem from '../components/BulkRevokeItem';
 
 import type { RouteProp } from '@react-navigation/core';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 function getConfirmText({
   intl,
@@ -127,10 +128,27 @@ function BulkRevoke() {
   usePromiseResult(async () => {
     for (let i = 0; i < unsignedTxs?.length; i += 1) {
       const tx = unsignedTxs[i];
+
+      setCurrentProcessIndex(i);
+
+      if (accountUtils.isOthersAccount({ accountId: tx.accountId })) {
+        setRevokeTxsStatusMap((prev) => ({
+          ...prev,
+          [tx.uuid ?? '']: {
+            status: ERevokeTxStatus.Skipped,
+            skippedReason: intl.formatMessage({
+              id: ETranslations.wallet_error_trade_with_watched_account,
+            }),
+          },
+        }));
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+
       if (isAborted.current) {
         break;
       }
-      setCurrentProcessIndex(i);
+
       await waitUntilInProgress();
       const uuid = tx.uuid ?? '';
 
@@ -270,7 +288,7 @@ function BulkRevoke() {
       }
     }
     setProgressState(ERevokeProgressState.Finished);
-  }, [unsignedTxs, waitUntilInProgress]);
+  }, [unsignedTxs, waitUntilInProgress, intl]);
 
   const renderBulkRevokeAlert = useCallback(() => {
     return (
