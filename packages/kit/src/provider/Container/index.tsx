@@ -117,9 +117,13 @@ export function ColdStartByNotification() {
       handleShowFallbackUpdateDialog,
     );
     const handleShowNotificationViewDialog = ({
-      onConfirm,
-      ...rest
-    }: INotificationViewDialogPayload) => {
+      payload: payloadObj,
+      localParams,
+    }: {
+      payload: INotificationViewDialogPayload;
+      localParams: Record<string, string | undefined>;
+    }) => {
+      const { onConfirm, ...rest } = payloadObj;
       Dialog.show({
         ...rest,
         onConfirm: async () => {
@@ -129,7 +133,7 @@ export function ColdStartByNotification() {
               try {
                 await navigateToNotificationDetailByLocalParams({
                   payload: payload as any,
-                  localParams: {},
+                  localParams,
                   getEarnAccount: (props) =>
                     backgroundApiProxy.serviceStaking.getEarnAccount(props),
                 });
