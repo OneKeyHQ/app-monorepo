@@ -3,6 +3,7 @@ import { useState } from 'react';
 import {
   Badge,
   Button,
+  Icon,
   NumberSizeableText,
   Popover,
   ScrollView,
@@ -12,7 +13,11 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  NUMBER_FORMATTER,
+  formatDisplayNumber,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 
 // eslint-disable-next-line import-path/parent-depth
 import { Token } from '../../../../components/Token';
@@ -48,25 +53,32 @@ function PerpTokenSelector() {
       onOpenChange={setIsOpen}
       placement="bottom-start"
       renderTrigger={
-        <Button
-          size="medium"
-          iconAfter="ChevronDownSmallOutline"
-          disabled={isLoading}
+        <Badge
+          gap="$3"
+          bg="$bgApp"
+          cursor="pointer"
+          hoverStyle={{
+            p: '$2',
+            borderRadius: '$full',
+            bg: '$bgHover',
+          }}
+          pressStyle={{
+            p: '$2',
+            borderRadius: '$full',
+            bg: '$bgActive',
+          }}
         >
-          <XStack alignItems="center" space="$2">
-            {/* Token Icon */}
-            <Token
-              size="md"
-              tokenImageUri={`https://app.hyperliquid.xyz/coins/${currentToken}.svg`}
-              fallbackIcon="CryptoCoinOutline"
-            />
+          <Token
+            size="md"
+            tokenImageUri={`https://app.hyperliquid.xyz/coins/${currentToken}.svg`}
+            fallbackIcon="CryptoCoinOutline"
+          />
 
-            {/* Token Name */}
-            <SizableText size="$bodyLg">{currentToken}</SizableText>
-
-            {isLoading ? <Spinner size="small" /> : null}
-          </XStack>
-        </Button>
+          {/* Token Name */}
+          <SizableText size="$heading2xl">{currentToken}</SizableText>
+          <Icon name="ChevronBottomOutline" size="$4" />
+          {isLoading ? <Spinner size="small" /> : null}
+        </Badge>
       }
       renderContent={
         <YStack>
@@ -203,28 +215,26 @@ function PerpTokenSelector() {
                         </XStack>
                         <XStack width={100} justifyContent="flex-start">
                           <SizableText size="$bodySm" color="$text">
-                            {(token.fundingRate * 100).toFixed(4)}%
+                            {(Number(token.fundingRate) * 100).toFixed(4)}%
                           </SizableText>
                         </XStack>
 
                         <XStack width={100} justifyContent="flex-start">
-                          <NumberSizeableText
-                            formatter="marketCap"
-                            size="$bodySm"
-                            color="$text"
-                          >
-                            {token.volume24h}
-                          </NumberSizeableText>
+                          <SizableText size="$bodySm" color="$text">
+                            $
+                            {formatDisplayNumber(
+                              NUMBER_FORMATTER.marketCap(token.volume24h),
+                            )}
+                          </SizableText>
                         </XStack>
 
                         <XStack flex={1} justifyContent="flex-end">
-                          <NumberSizeableText
-                            formatter="marketCap"
-                            size="$bodySm"
-                            color="$text"
-                          >
-                            {token.openInterest}
-                          </NumberSizeableText>
+                          <SizableText size="$bodySm" color="$text">
+                            $
+                            {formatDisplayNumber(
+                              NUMBER_FORMATTER.marketCap(token.openInterest),
+                            )}
+                          </SizableText>
                         </XStack>
                       </XStack>
                     </XStack>
