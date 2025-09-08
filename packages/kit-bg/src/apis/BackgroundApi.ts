@@ -11,6 +11,9 @@ import { vaultFactory } from '../vaults/factory';
 import BackgroundApiBase from './BackgroundApiBase';
 
 import type { IBackgroundApi } from './IBackgroundApi';
+import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
+import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
+import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
 
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   constructor() {
@@ -697,7 +700,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'serviceInternalSignAndVerify', { value });
     return value;
   }
-  
+
   get serviceHyperliquid() {
     const Service =
       require('../services/ServiceHyperLiquid/ServiceHyperliquid') as typeof import('../services/ServiceHyperLiquid/ServiceHyperliquid');
@@ -718,7 +721,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceHyperliquidExchange() {
+  get serviceHyperliquidExchange(): ServiceHyperliquidExchange {
     const Service =
       require('../services/ServiceHyperLiquid/ServiceHyperliquidExchange') as typeof import('../services/ServiceHyperLiquid/ServiceHyperliquidExchange');
     const value = new Service.default({
@@ -728,7 +731,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceHyperliquidWallet() {
+  get serviceHyperliquidWallet(): ServiceHyperliquidWallet {
     const Service =
       require('../services/ServiceHyperLiquid/ServiceHyperliquidWallet') as typeof import('../services/ServiceHyperLiquid/ServiceHyperliquidWallet');
     const value = new Service.default({
@@ -738,7 +741,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceHyperliquidSubscription() {
+  get serviceHyperliquidSubscription(): ServiceHyperliquidSubscription {
     const Service =
       require('../services/ServiceHyperLiquid/ServiceHyperliquidSubscription') as typeof import('../services/ServiceHyperLiquid/ServiceHyperliquidSubscription');
     const value = new Service.default({

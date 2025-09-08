@@ -309,7 +309,7 @@ const PageWebviewPerpTrade = () => {
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: EAccountSelectorSceneName.perp,
+        sceneName: EAccountSelectorSceneName.home,
         sceneUrl: '',
       }}
       enabledNum={[0]}

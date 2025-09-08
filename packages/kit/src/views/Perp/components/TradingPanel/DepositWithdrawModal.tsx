@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { BigNumber } from 'bignumber.js';
+
 import type { ISegmentControlProps } from '@onekeyhq/components';
 import {
   Badge,
@@ -83,37 +85,38 @@ function DepositWithdrawContent({
       }
     }, [activeAccount?.account?.id, activeAccount?.account?.address]);
 
-  const numAmount = parseFloat(amount || '0');
-  const numBalance = parseFloat(usdcBalance || '0');
-
   const isValidAmount = useMemo(() => {
-    if (Number.isNaN(numAmount) || numAmount <= 0) return false;
+    const amountBN = new BigNumber(amount || '0');
+    const balanceBN = new BigNumber(usdcBalance || '0');
+
+    if (amountBN.isNaN() || amountBN.lte(0)) return false;
 
     if (selectedAction === 'deposit') {
       return (
-        numAmount <= numBalance &&
-        (!showMinDepositError || numAmount >= MIN_DEPOSIT_AMOUNT)
+        amountBN.lte(balanceBN) &&
+        (!showMinDepositError || amountBN.gte(MIN_DEPOSIT_AMOUNT))
       );
     }
 
     return true;
-  }, [numAmount, selectedAction, numBalance, showMinDepositError]);
+  }, [amount, usdcBalance, selectedAction, showMinDepositError]);
 
   const errorMessage = useMemo(() => {
     if (!amount) return '';
 
-    if (Number.isNaN(numAmount) || numAmount <= 0) {
+    const amountBN = new BigNumber(amount || '0');
+    if (amountBN.isNaN() || amountBN.lte(0)) {
       return '';
     }
 
     if (selectedAction === 'deposit') {
-      if (showMinDepositError && numAmount < MIN_DEPOSIT_AMOUNT) {
+      if (showMinDepositError && amountBN.lt(MIN_DEPOSIT_AMOUNT)) {
         return `Minimum deposit is ${MIN_DEPOSIT_AMOUNT} USDC`;
       }
     }
 
     return '';
-  }, [amount, numAmount, selectedAction, showMinDepositError]);
+  }, [amount, selectedAction, showMinDepositError]);
 
   const handleAmountChange = useCallback(
     (value: string) => {
@@ -138,7 +141,10 @@ function DepositWithdrawContent({
     if (!isValidAmount || !activeAccount?.account?.address) return;
 
     // Check minimum deposit amount on submit
-    if (selectedAction === 'deposit' && numAmount < MIN_DEPOSIT_AMOUNT) {
+    if (
+      selectedAction === 'deposit' &&
+      new BigNumber(amount).lt(MIN_DEPOSIT_AMOUNT)
+    ) {
       setShowMinDepositError(true);
       return;
     }
@@ -186,13 +192,16 @@ function DepositWithdrawContent({
     activeAccount,
     amount,
     selectedAction,
-    numAmount,
     normalizeTxConfirm,
     onClose,
   ]);
 
-  const isInsufficientBalance =
-    selectedAction === 'deposit' && numAmount > numBalance && numAmount > 0;
+  const isInsufficientBalance = useMemo(() => {
+    if (selectedAction !== 'deposit') return false;
+    const amountBN = new BigNumber(amount || '0');
+    const balanceBN = new BigNumber(usdcBalance || '0');
+    return amountBN.gt(balanceBN) && amountBN.gt(0);
+  }, [selectedAction, amount, usdcBalance]);
 
   const getButtonBackground = () => {
     if (isInsufficientBalance) return '$neutral7';

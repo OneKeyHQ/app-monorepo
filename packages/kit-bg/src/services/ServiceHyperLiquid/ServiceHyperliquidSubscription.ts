@@ -28,6 +28,7 @@ import type {
   ISubscriptionSpec,
   ISubscriptionState,
 } from './utils/SubscriptionConfig';
+import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 interface IActiveSubscription {
   key: string;
@@ -46,7 +47,7 @@ interface ISubscriptionUpdateParams {
 
 @backgroundClass()
 export default class ServiceHyperliquidSubscription extends ServiceBase {
-  constructor({ backgroundApi }: { backgroundApi: any }) {
+  constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
     super({ backgroundApi });
   }
 

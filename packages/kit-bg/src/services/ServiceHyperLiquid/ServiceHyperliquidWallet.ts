@@ -78,8 +78,11 @@ export class WalletHyperliquidProxy implements IAbstractEthersV6Signer {
 export class WalletHyperliquidOnekey implements IAbstractEthersV6Signer {
   accountId: string;
 
-  constructor(accountId: string, private backgroundApi: IBackgroundApi) {
+  backgroundApi: IBackgroundApi;
+
+  constructor(accountId: string, backgroundApi: IBackgroundApi) {
     this.accountId = accountId;
+    this.backgroundApi = backgroundApi;
   }
 
   async signTypedData(

@@ -1,4 +1,5 @@
 import { ExchangeClient, HttpTransport } from '@nktkas/hyperliquid';
+import { BigNumber } from 'bignumber.js';
 
 import {
   backgroundClass,
@@ -192,10 +193,12 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     isBuy: boolean,
     slippage: number,
   ): string {
-    const price = parseFloat(markPrice);
-    const slippageMultiplier = isBuy ? 1 + slippage : 1 - slippage;
-    const adjustedPrice = price * slippageMultiplier;
-    return formatPriceToSignificantDigits(adjustedPrice, 5);
+    const price = new BigNumber(markPrice);
+    const slippageMultiplier = isBuy
+      ? new BigNumber(1).plus(slippage)
+      : new BigNumber(1).minus(slippage);
+    const adjustedPrice = price.multipliedBy(slippageMultiplier);
+    return formatPriceToSignificantDigits(adjustedPrice.toNumber(), 5);
   }
 
   @backgroundMethod()

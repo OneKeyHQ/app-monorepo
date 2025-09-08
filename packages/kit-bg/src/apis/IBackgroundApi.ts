@@ -41,6 +41,11 @@ import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHardwareUI from '../services/ServiceHardwareUI';
 import type ServiceHistory from '../services/ServiceHistory';
+import type ServiceHyperliquid from '../services/ServiceHyperLiquid/ServiceHyperliquid';
+import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
+import type ServiceHyperliquidInfo from '../services/ServiceHyperLiquid/ServiceHyperliquidInfo';
+import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
+import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
 import type ServiceInternalSignAndVerify from '../services/ServiceInternalSignAndVerify';
 import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
@@ -89,11 +94,6 @@ import type {
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
-import type ServiceHyperliquid from '../services/ServiceHyperLiquid/ServiceHyperliquid';
-import type ServiceHyperliquidInfo from '../services/ServiceHyperLiquid/ServiceHyperliquidInfo';
-import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
-import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
-import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 // import type ServiceCronJob from '../services/ServiceCronJob';
 
 export type IBackgroundApiInternalCallMessage = IJsonRpcRequest & {
