@@ -24,6 +24,8 @@ import {
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
+import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import {
   useNotificationsAtom,
   useNotificationsReadedAtom,
@@ -468,6 +470,46 @@ function BaseNotificationList() {
     [focusedTab, reFetchList, tabs],
   );
 
+  const hasUnreadMap = useMemo(() => {
+    const hasUnreadAccountActivity = result.some(
+      (item) =>
+        item.topicType === ENotificationPushTopicTypes.accountActivity &&
+        !item.readed,
+    );
+    const hasUnreadSystem = result.some(
+      (item) =>
+        item.topicType === ENotificationPushTopicTypes.system && !item.readed,
+    );
+    console.log('hasUnreadMap', hasUnreadAccountActivity, hasUnreadSystem);
+    return {
+      [ENotificationPushTopicTypes.accountActivity]: hasUnreadAccountActivity,
+      [ENotificationPushTopicTypes.system]: hasUnreadSystem,
+    };
+  }, [result]);
+
+  const handleRenderItem = useCallback(
+    (props: ITabBarItemProps) => {
+      const tabId = tabs.find((i) => i.name === props.name)?.id;
+      return (
+        <XStack>
+          <TabBarItem {...props} />
+          {hasUnreadMap[tabId as keyof typeof hasUnreadMap] ? (
+            <Stack
+              position="absolute"
+              right={-2}
+              top={6}
+              w="$1.5"
+              h="$1.5"
+              bg="$iconCritical"
+              borderRadius="$full"
+            />
+          ) : null}
+        </XStack>
+      );
+    },
+    [hasUnreadMap, tabs],
+  );
+
   return (
     <Page safeAreaEnabled={false}>
       <Page.Header
@@ -479,6 +521,7 @@ function BaseNotificationList() {
           tabNames={tabTitles}
           onTabPress={handleTabPress}
           focusedTab={focusedTab}
+          renderItem={handleRenderItem}
           tabItemStyle={{
             h: 44,
           }}
