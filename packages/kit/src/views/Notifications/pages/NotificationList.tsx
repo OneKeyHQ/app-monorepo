@@ -471,20 +471,22 @@ function BaseNotificationList() {
   );
 
   const hasUnreadMap = useMemo(() => {
-    const hasUnreadAccountActivity = result.some(
-      (item) =>
-        item.topicType === ENotificationPushTopicTypes.accountActivity &&
-        !item.readed,
+    return result.reduce(
+      (acc, item) => {
+        if (!item.readed) {
+          if (item.topicType === ENotificationPushTopicTypes.accountActivity) {
+            acc[ENotificationPushTopicTypes.accountActivity] += 1;
+          } else if (item.topicType === ENotificationPushTopicTypes.system) {
+            acc[ENotificationPushTopicTypes.system] += 1;
+          }
+        }
+        return acc;
+      },
+      {
+        [ENotificationPushTopicTypes.accountActivity]: 0,
+        [ENotificationPushTopicTypes.system]: 0,
+      },
     );
-    const hasUnreadSystem = result.some(
-      (item) =>
-        item.topicType === ENotificationPushTopicTypes.system && !item.readed,
-    );
-    console.log('hasUnreadMap', hasUnreadAccountActivity, hasUnreadSystem);
-    return {
-      [ENotificationPushTopicTypes.accountActivity]: hasUnreadAccountActivity,
-      [ENotificationPushTopicTypes.system]: hasUnreadSystem,
-    };
   }, [result]);
 
   const handleRenderItem = useCallback(
@@ -493,7 +495,7 @@ function BaseNotificationList() {
       return (
         <XStack>
           <TabBarItem {...props} />
-          {hasUnreadMap[tabId as keyof typeof hasUnreadMap] ? (
+          {hasUnreadMap[tabId as keyof typeof hasUnreadMap] > 0 ? (
             <Stack
               position="absolute"
               right={-2}
