@@ -14,7 +14,7 @@ module.exports = {
   version,
   'name': 'OneKey',
   'description':
-    'Anti-scam crypto wallet for every chain. Supports Bitcoin, Ethereum, Solana, Tron, XRP, Cardano, Sui, Aptos, Polkadot, Cosmos, Kaspa',
+    'Anti-scam crypto wallet for every chain. Supports major blockchains like Bitcoin, Ethereum, Solana, Tron and more.',
   /*
   'options_page': 'ui-options.html',
   'chrome_url_overrides': {
