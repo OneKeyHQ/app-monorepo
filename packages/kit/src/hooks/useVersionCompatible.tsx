@@ -35,7 +35,9 @@ export const useVersionCompatible = () => {
             id: ETranslations.global_update_to_continue_desc_fallback,
           })
         ),
-        onConfirmText: 'Update',
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.update_update_now,
+        }),
         onConfirm: () => {
           appUpdateInfo.toUpdatePreviewPage();
         },
