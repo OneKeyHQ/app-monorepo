@@ -2,6 +2,7 @@ import { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSe
 import { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
 import { SimpleDbEntityAddressInfo } from '../entity/SimpleDbEntityAddressInfo';
+import { SimpleDbEntityAggregateToken } from '../entity/SimpleDbEntityAggregateToken';
 import { SimpleDbEntityAllNetworks } from '../entity/SimpleDbEntityAllNetworks';
 import { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanup';
 import { SimpleDbEntityApproval } from '../entity/SimpleDbEntityApproval';
@@ -149,4 +150,6 @@ export class SimpleDb {
   perp = new SimpleDbEntityPerp();
 
   approval = new SimpleDbEntityApproval();
+
+  aggregateToken = new SimpleDbEntityAggregateToken();
 }
