@@ -55,7 +55,7 @@ import type { IListItemProps } from '../../../components/ListItem';
 
 let maxAccountLimitWarningDismissed = false;
 
-function HeaderRight() {
+function HeaderRight({ onClearUnread }: { onClearUnread: () => void }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
 
@@ -83,6 +83,9 @@ function HeaderRight() {
             }),
             onConfirm: async () => {
               await backgroundApiProxy.serviceNotification.markNotificationReadAll();
+              setTimeout(() => {
+                onClearUnread();
+              }, 100);
             },
           });
         }}
@@ -291,7 +294,6 @@ function BaseNotificationList() {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const navigation = useAppNavigation();
-  const renderHeaderRight = useCallback(() => <HeaderRight />, []);
   const [{ lastReceivedTime, firstTimeGuideOpened }, setNotificationsData] =
     useNotificationsAtom();
 
@@ -402,6 +404,20 @@ function BaseNotificationList() {
   );
 
   const { isVersionCompatible } = useVersionCompatible();
+
+  const renderHeaderRight = useCallback(
+    () => (
+      <HeaderRight
+        onClearUnread={() => {
+          setUnreadMap({
+            [ENotificationPushTopicTypes.accountActivity]: 0,
+            [ENotificationPushTopicTypes.system]: 0,
+          });
+        }}
+      />
+    ),
+    [setUnreadMap],
+  );
 
   const contentView = useMemo(() => {
     return (
