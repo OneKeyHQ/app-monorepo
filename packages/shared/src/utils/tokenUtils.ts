@@ -103,7 +103,15 @@ export function getFilteredTokenBySearchKey({
   let mergedTokens = tokens;
 
   if (searchAll && searchTokenList) {
-    mergedTokens = mergedTokens.concat(searchTokenList);
+    const aggregateTokens = Object.values(aggregateTokenListMap ?? {}).flatMap(
+      (token) => token.tokens,
+    );
+
+    const filteredSearchTokenList = searchTokenList.filter(
+      (token) => !aggregateTokens.find((t) => t.$key === token.$key),
+    );
+
+    mergedTokens = mergedTokens.concat(filteredSearchTokenList);
     mergedTokens = uniqBy(
       mergedTokens,
       (token) => `${token.address}_${token.networkId ?? ''}`,
