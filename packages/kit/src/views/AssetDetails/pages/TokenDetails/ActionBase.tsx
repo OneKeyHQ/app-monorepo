@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { Toast } from '@onekeyhq/components';
+import { Toast, useTabIsRefreshingFocused } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { ActionItem } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
@@ -26,13 +26,16 @@ export const ActionBase = ({
   disabled,
   hiddenIfDisabled,
   source,
+  isTabView,
   ...rest
 }: IActionBaseProps) => {
   const [loading, setLoading] = useState(false);
+  const { isFocused } = useTabIsRefreshingFocused();
   const { result: isSupported } = useSupportToken(
     networkId,
     tokenAddress,
     type,
+    isTabView ? isFocused : true,
   );
 
   const isDisabled = useMemo(() => {

@@ -42,6 +42,7 @@ export const useSupportToken = (
   networkId: string,
   tokenAddress: string,
   type: IFiatCryptoType,
+  isFocused = true,
 ) =>
   usePromiseResult(
     async () =>
@@ -51,7 +52,11 @@ export const useSupportToken = (
         type,
       }),
     [networkId, tokenAddress, type],
-    { initResult: false, debounced: 100 },
+    {
+      initResult: false,
+      debounced: 100,
+      overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
+    },
   );
 
 export const useGetTokensList = ({

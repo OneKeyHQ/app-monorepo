@@ -275,8 +275,8 @@ export default function ScanQrCodeModal() {
         return {};
       }
       defaultLogger.scanQrCode.readQrCode.readFromCamera(value);
-      await callback({ value, popNavigation });
-      return {};
+      const result = await callback({ value, popNavigation });
+      return result;
     },
     [callback, popNavigation],
   );

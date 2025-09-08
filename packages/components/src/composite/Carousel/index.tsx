@@ -10,6 +10,7 @@ import {
   useState,
 } from 'react';
 
+import { debounce } from 'lodash';
 import { useDebouncedCallback } from 'use-debounce';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -22,7 +23,6 @@ import { PaginationItem } from './PaginationItem';
 import type { ICarouselProps, IPaginationItemProps } from './type';
 import type { LayoutChangeEvent, NativeSyntheticEvent } from 'react-native';
 import type NativePagerView from 'react-native-pager-view';
-import { debounce } from 'lodash';
 
 const defaultRenderPaginationItem = <T,>(
   { dotStyle, activeDotStyle, onPress }: IPaginationItemProps<T>,
