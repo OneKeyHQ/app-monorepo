@@ -214,10 +214,10 @@ async function navigateToNotificationDetail({
         case ENotificationPushMessageMode.dialog:
           try {
             const payloadObj = JSON.parse(payload || '');
-            appEventBus.emit(
-              EAppEventBusNames.ShowNotificationViewDialog,
-              payloadObj,
-            );
+            appEventBus.emit(EAppEventBusNames.ShowNotificationViewDialog, {
+              payload: payloadObj,
+              localParams: localParams || {},
+            });
           } catch (error) {
             showFallbackUpdateDialog();
           }
