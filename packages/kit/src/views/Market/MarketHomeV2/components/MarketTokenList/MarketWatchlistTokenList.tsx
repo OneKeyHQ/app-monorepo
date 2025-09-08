@@ -1,10 +1,7 @@
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 
-import {
-  useMarketWatchListV2Atom,
-  useSelectedNetworkIdAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
@@ -27,7 +24,6 @@ function MarketWatchlistTokenList({
 }: IMarketWatchlistTokenListProps) {
   // Get watchlist from atom if not provided externally
   const [watchlistState] = useMarketWatchListV2Atom();
-  const [selectedNetworkId] = useSelectedNetworkIdAtom();
   const { recommendedTokens } = useMarketBasicConfig();
 
   const internalWatchlist = useMemo(
@@ -50,7 +46,6 @@ function MarketWatchlistTokenList({
 
   return (
     <MarketTokenListBase
-      key={JSON.stringify(watchlist)}
       onItemPress={onItemPress}
       toolbar={toolbar}
       result={watchlistResult}
