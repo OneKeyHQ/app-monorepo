@@ -22,7 +22,7 @@ import type {
   ISelectSection,
   ISelectTriggerProps,
 } from './type';
-import type { IListViewProps, ISectionListProps } from '../../layouts';
+import type { IListViewProps } from '../../layouts';
 import type { GestureResponderEvent } from 'react-native';
 
 const useTriggerLabel = (value: string | number | undefined | boolean) => {
@@ -237,6 +237,7 @@ function SelectContent() {
     floatingPanelProps,
     placement,
     labelInValue,
+    usingPercentSnapPoints: usingPercentSnapPointsFromContext,
     offset,
   } = useContext(SelectContext);
   const handleSelect = useCallback(
@@ -323,7 +324,8 @@ function SelectContent() {
   );
 
   const popoverTrigger = useRenderPopoverTrigger();
-  const usingPercentSnapPoints = items?.length && items?.length > 10;
+  const usingPercentSnapPoints =
+    usingPercentSnapPointsFromContext || (items?.length && items?.length > 10);
   return (
     <Popover
       title={title || ''}
@@ -333,7 +335,7 @@ function SelectContent() {
       sheetProps={{
         dismissOnSnapToBottom: true,
         snapPointsMode: usingPercentSnapPoints ? 'percent' : 'fit',
-        snapPoints: usingPercentSnapPoints ? [60] : undefined,
+        snapPoints: usingPercentSnapPoints ? [65] : undefined,
         ...sheetProps,
       }}
       floatingPanelProps={{
@@ -365,7 +367,8 @@ function SelectFrame<
   offset,
   labelInValue = false,
   floatingPanelProps,
-  placement = 'bottom-start',
+  placement = platformEnv.isNative ? 'bottom-start' : undefined,
+  usingPercentSnapPoints,
 }: ISelectProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const changeOpenStatus = useCallback(
@@ -394,6 +397,7 @@ function SelectFrame<
       floatingPanelProps,
       placement,
       offset,
+      usingPercentSnapPoints,
     }),
     [
       isOpen,
@@ -410,6 +414,7 @@ function SelectFrame<
       floatingPanelProps,
       placement,
       offset,
+      usingPercentSnapPoints,
     ],
   );
   return (
