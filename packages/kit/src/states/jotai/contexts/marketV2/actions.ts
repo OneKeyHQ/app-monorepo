@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
@@ -123,17 +124,20 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
-  refreshWatchListV2 = contextAtomMethod(async (get, set) => {
+  refreshWatchListV2 = contextAtomMethod(async (_get, set) => {
     const data =
       await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
     return this.flushWatchListV2Atom.call(set, data.data);
   });
 
   isInWatchListV2 = contextAtomMethod(
-    (get, set, chainId: string, contractAddress: string) => {
+    (get, _set, chainId: string, contractAddress: string) => {
       const prev = get(marketWatchListV2Atom());
-      return !!prev.data?.find(
-        (i) => i.chainId === chainId && i.contractAddress === contractAddress,
+      return !!prev.data?.find((i) =>
+        equalTokenNoCaseSensitive({
+          token1: { networkId: chainId, contractAddress },
+          token2: { networkId: i.chainId, contractAddress: i.contractAddress },
+        }),
       );
     },
   );
@@ -170,12 +174,16 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
-      // Immediately update local state
+      // Immediately update local state using proper token matching
       const newData = prev.data.filter(
         (item) =>
-          !(
-            item.chainId === chainId && item.contractAddress === contractAddress
-          ),
+          !equalTokenNoCaseSensitive({
+            token1: { networkId: chainId, contractAddress },
+            token2: {
+              networkId: item.chainId,
+              contractAddress: item.contractAddress,
+            },
+          }),
       );
       set(marketWatchListV2Atom(), { ...prev, data: newData });
 
@@ -230,7 +238,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   );
 
   saveWatchListV2 = contextAtomMethod(
-    (get, set, payload: IMarketWatchListItemV2[]) => {
+    (_get, set, payload: IMarketWatchListItemV2[]) => {
       void this.addIntoWatchListV2.call(set, payload);
     },
   );
