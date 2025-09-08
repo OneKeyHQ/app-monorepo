@@ -68,6 +68,7 @@ function ReceiveToken() {
     walletId,
     token,
     onDeriveTypeChange,
+    disableSelector,
   } = route.params;
 
   const { account, network, wallet, vaultSettings, deriveType, deriveInfo } =
@@ -480,6 +481,9 @@ function ReceiveToken() {
                 offset={{
                   mainAxis: 8,
                 }}
+                disableSelector={disableSelector}
+                activeDeriveType={currentDeriveType}
+                activeDeriveInfo={currentDeriveInfo}
                 showTriggerWhenDisabled
                 walletId={walletId}
                 networkId={networkId}
@@ -527,6 +531,8 @@ function ReceiveToken() {
     addressState,
     bottom,
     currentAccount,
+    currentDeriveInfo,
+    currentDeriveType,
     intl,
     network,
     networkId,
@@ -535,6 +541,7 @@ function ReceiveToken() {
     renderCopyAddressButton,
     renderVerifyAddressButton,
     shouldShowAddress,
+    disableSelector,
     token?.symbol,
     vaultSettings?.mergeDeriveAssetsEnabled,
     wallet,

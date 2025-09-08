@@ -19,8 +19,9 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 
 import { usePrimeTransferExit } from './components/hooks/usePrimeTransferExit';
 import { PrimeTransferDirection } from './components/PrimeTransferDirection';
@@ -87,9 +88,24 @@ export default function PagePrimeTransfer() {
       });
 
     return () => {
+      // Disconnect WebSocket
       void backgroundApiProxy.servicePrimeTransfer.disconnectWebSocket();
     };
   }, [result?.endpoint, result?.serverConfig?.serverType]);
+
+  useEffect(() => {
+    if (platformEnv.isExtension) {
+      // Start UI layer heartbeat - ping service immediately and then every 5 seconds
+      void backgroundApiProxy.servicePrimeTransfer.pingService();
+      const heartbeatInterval = setInterval(() => {
+        void backgroundApiProxy.servicePrimeTransfer.pingService();
+      }, 5000);
+      return () => {
+        // Clear heartbeat interval
+        clearInterval(heartbeatInterval);
+      };
+    }
+  }, []);
 
   useEffect(() => {
     const fn = (

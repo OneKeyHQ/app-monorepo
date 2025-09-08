@@ -148,9 +148,13 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
-      // Immediately update local state
-      const newData = [...prev.data, ...params];
-      set(marketWatchListV2Atom(), { ...prev, data: newData });
+      // Immediately update local state with proper sorting
+      const sortedNewData = sortUtils.buildSortedList({
+        oldList: prev.data,
+        saveItems: params,
+        uniqByFn: (i) => `${i.chainId}:${i.contractAddress}`,
+      });
+      set(marketWatchListV2Atom(), { ...prev, data: sortedNewData });
 
       // Asynchronously call API without waiting for result
       void backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({

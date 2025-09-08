@@ -3,17 +3,21 @@ import type {
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
+  IAccountToken,
   IToken,
   ITokenData,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
+import type { EModalReceiveRoutes } from './receive';
+import type { EModalSignatureConfirmRoutes } from './signatureConfirm';
 import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
 
 export enum EAssetSelectorRoutes {
   TokenSelector = 'TokenSelector',
   DeriveTypesAddressSelector = 'DeriveTypesAddressSelector',
+  AggregateTokenSelector = 'AggregateTokenSelector',
 }
 
 export type IDeriveTypesAddressSelectorParams = {
@@ -51,9 +55,23 @@ export type ITokenSelectorParamList = {
   isAllNetworks?: boolean;
   searchPlaceholder?: string;
   footerTipText?: string;
+  aggregateTokenSelectorScreen?:
+    | EModalReceiveRoutes.ReceiveSelectAggregateToken
+    | EAssetSelectorRoutes.AggregateTokenSelector
+    | EModalSignatureConfirmRoutes.TxSelectAggregateToken;
+};
+
+export type IAggregateTokenSelectorParams = {
+  title?: string;
+  searchPlaceholder?: string;
+  accountId: string;
+  aggregateToken: IAccountToken;
+  onSelect: (token: IAccountToken) => void | Promise<void>;
+  closeAfterSelect?: boolean;
 };
 
 export type IAssetSelectorParamList = {
   [EAssetSelectorRoutes.TokenSelector]: ITokenSelectorParamList;
   [EAssetSelectorRoutes.DeriveTypesAddressSelector]: IDeriveTypesAddressSelectorParams;
+  [EAssetSelectorRoutes.AggregateTokenSelector]: IAggregateTokenSelectorParams;
 };
