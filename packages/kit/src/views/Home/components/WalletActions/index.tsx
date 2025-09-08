@@ -120,6 +120,8 @@ function WalletActionSend() {
     navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
       screen: EModalSignatureConfirmRoutes.TxSelectToken,
       params: {
+        aggregateTokenSelectorScreen:
+          EModalSignatureConfirmRoutes.TxSelectAggregateToken,
         title: intl.formatMessage({ id: ETranslations.global_send }),
         searchPlaceholder: intl.formatMessage({
           id: ETranslations.global_search_asset,

@@ -4,7 +4,7 @@ import { Layout } from './utils/Layout';
 
 const InputGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="Input"
     elements={[
       {
