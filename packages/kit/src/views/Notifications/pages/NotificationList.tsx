@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -344,6 +344,12 @@ function BaseNotificationList() {
     return tabs.map((tab) => tab.name);
   }, [tabs]);
   const focusedTab = useSharedValue<string>(tabs[0].name);
+  const [unreadMap, setUnreadMap] = useState<{
+    [key: string]: number;
+  }>({
+    [ENotificationPushTopicTypes.accountActivity]: 0,
+    [ENotificationPushTopicTypes.system]: 0,
+  });
   const {
     result = [],
     isLoading,
@@ -358,6 +364,29 @@ function BaseNotificationList() {
           ? undefined
           : [topicType],
       );
+      if (topicType === ENotificationPushTopicTypes.all) {
+        const hasUnreadMap = r.reduce(
+          (acc, item) => {
+            if (!item.readed) {
+              if (
+                item.topicType === ENotificationPushTopicTypes.accountActivity
+              ) {
+                acc[ENotificationPushTopicTypes.accountActivity] += 1;
+              } else if (
+                item.topicType === ENotificationPushTopicTypes.system
+              ) {
+                acc[ENotificationPushTopicTypes.system] += 1;
+              }
+            }
+            return acc;
+          },
+          {
+            [ENotificationPushTopicTypes.accountActivity]: 0,
+            [ENotificationPushTopicTypes.system]: 0,
+          },
+        );
+        setUnreadMap(hasUnreadMap);
+      }
       return r;
     },
     [focusedTab.value, lastReceivedTime, tabs],
@@ -470,32 +499,13 @@ function BaseNotificationList() {
     [focusedTab, reFetchList, tabs],
   );
 
-  const hasUnreadMap = useMemo(() => {
-    return result.reduce(
-      (acc, item) => {
-        if (!item.readed) {
-          if (item.topicType === ENotificationPushTopicTypes.accountActivity) {
-            acc[ENotificationPushTopicTypes.accountActivity] += 1;
-          } else if (item.topicType === ENotificationPushTopicTypes.system) {
-            acc[ENotificationPushTopicTypes.system] += 1;
-          }
-        }
-        return acc;
-      },
-      {
-        [ENotificationPushTopicTypes.accountActivity]: 0,
-        [ENotificationPushTopicTypes.system]: 0,
-      },
-    );
-  }, [result]);
-
   const handleRenderItem = useCallback(
     (props: ITabBarItemProps) => {
       const tabId = tabs.find((i) => i.name === props.name)?.id;
       return (
         <XStack>
           <TabBarItem {...props} />
-          {hasUnreadMap[tabId as keyof typeof hasUnreadMap] > 0 ? (
+          {unreadMap[tabId as keyof typeof unreadMap] > 0 ? (
             <Stack
               position="absolute"
               right={-2}
@@ -509,7 +519,7 @@ function BaseNotificationList() {
         </XStack>
       );
     },
-    [hasUnreadMap, tabs],
+    [unreadMap, tabs],
   );
 
   return (
