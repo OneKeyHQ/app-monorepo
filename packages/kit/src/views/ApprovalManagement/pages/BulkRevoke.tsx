@@ -380,7 +380,13 @@ function BulkRevoke() {
               pb: '$2.5',
             }}
           >
-            <XStack alignItems="center" justifyContent="space-between" gap="$2">
+            <XStack
+              alignItems="center"
+              gap="$2"
+              $md={{
+                justifyContent: 'space-between',
+              }}
+            >
               <SizableText size="$bodyMd" color="$textSubdued">
                 {intl.formatMessage({
                   id: ETranslations.global_process,
@@ -399,7 +405,9 @@ function BulkRevoke() {
             {progressState === ERevokeProgressState.Finished ? (
               <XStack
                 alignItems="center"
-                justifyContent="space-between"
+                $md={{
+                  justifyContent: 'space-between',
+                }}
                 gap="$2"
               >
                 <SizableText size="$bodyMd" color="$textSubdued">
