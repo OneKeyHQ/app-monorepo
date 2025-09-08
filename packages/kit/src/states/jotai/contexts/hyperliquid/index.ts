@@ -6,8 +6,6 @@ export {
   useActiveAssetCtxAtom,
   useActiveAssetDataAtom,
   useL2BookAtom,
-  useCandlesMapAtom,
-  useCurrentCandleIntervalAtom,
   useConnectionStateAtom,
 } from './atoms';
 
@@ -32,7 +30,7 @@ export {
 
 export { useHyperliquidActions } from './actions';
 
-export type { ITradingFormData, ICandleInterval, ICandlesData } from './atoms';
+export type { ITradingFormData } from './atoms';
 
 export type {
   IConnectionState,

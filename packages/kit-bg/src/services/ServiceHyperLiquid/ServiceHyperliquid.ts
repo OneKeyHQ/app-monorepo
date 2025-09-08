@@ -3,6 +3,11 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  FALLBACK_BUILDER_ADDRESS,
+  FALLBACK_MAX_BUILDER_FEE,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import ServiceBase from '../ServiceBase';
 
@@ -16,33 +21,21 @@ interface IWalletStatus {
 }
 
 interface IEnableTradingParams {
-  userAddress: string;
+  userAddress: IHex;
   userAccountId: string;
   approveAgent?: boolean;
   approveBuilderFee?: boolean;
 }
 
-const FALLBACK_BUILDER_ADDRESS = '0x9b12E858dA780a96876E3018780CF0D83359b0bb';
-const FALLBACK_MAX_BUILDER_FEE = 40;
 @backgroundClass()
 export default class ServiceHyperliquid extends ServiceBase {
-  public builderAddress: string = FALLBACK_BUILDER_ADDRESS;
+  public builderAddress: IHex = FALLBACK_BUILDER_ADDRESS;
 
   public maxBuilderFee: number = FALLBACK_MAX_BUILDER_FEE;
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
-    void this.backgroundApi.simpleDb.perp
-      .getPerpConfig()
-      .then((config) => {
-        this.builderAddress =
-          config.hyperliquidBuilderAddress || FALLBACK_BUILDER_ADDRESS;
-        this.maxBuilderFee =
-          config.hyperliquidMaxBuilderFee || FALLBACK_MAX_BUILDER_FEE;
-      })
-      .catch((error) => {
-        console.error('Failed to load perp config:', error);
-      });
+    void this.init();
   }
 
   private get infoService(): ServiceHyperliquidInfo {
@@ -57,18 +50,32 @@ export default class ServiceHyperliquid extends ServiceBase {
     return this.backgroundApi.serviceHyperliquidWallet;
   }
 
+  private async init() {
+    void this.backgroundApi.simpleDb.perp
+      .getPerpConfig()
+      .then((config) => {
+        this.builderAddress = (config.hyperliquidBuilderAddress ||
+          FALLBACK_BUILDER_ADDRESS) as IHex;
+        this.maxBuilderFee =
+          config.hyperliquidMaxBuilderFee || FALLBACK_MAX_BUILDER_FEE;
+      })
+      .catch((error) => {
+        console.error('Failed to load perp config:', error);
+      });
+  }
+
   @backgroundMethod()
   async checkWalletStatus(params: {
-    userAddress: string;
+    userAddress: IHex;
   }): Promise<IWalletStatus> {
     try {
       const [extraAgents, maxBuilderFee] = await Promise.all([
         this.infoService.getExtraAgents({
-          user: params.userAddress as `0x${string}`,
+          user: params.userAddress,
         }),
         this.infoService.getMaxBuilderFee({
-          user: params.userAddress as `0x${string}`,
-          builder: this.builderAddress as `0x${string}`,
+          user: params.userAddress,
+          builder: this.builderAddress,
         }),
       ]);
 
@@ -104,7 +111,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       if (params.approveBuilderFee) {
         tasks.push(
           this.exchangeService.approveBuilderFee({
-            builder: this.builderAddress as `0x${string}`,
+            builder: this.builderAddress,
             maxFeeRate: `${this.maxBuilderFee / 100}%`, // maxBuilderFee=40, maxFeeRate=0.04%
           }),
         );
@@ -119,7 +126,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       if (params.approveAgent) {
         tasks.push(
           this.exchangeService.approveAgent({
-            agent: proxyWalletAddress as `0x${string}`,
+            agent: proxyWalletAddress,
             authorize: true,
           }),
         );

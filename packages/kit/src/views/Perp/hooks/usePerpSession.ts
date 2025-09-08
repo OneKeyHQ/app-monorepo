@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import {
   useConnectionStateAtom,
@@ -47,22 +47,21 @@ export function usePerpSession(): IPerpSessionReturn {
     };
   }, [connectionState, currentUser]);
 
-  // Simplified actions for demo - in real app would use proper actions
-  const connect = async () => {
+  const connect = useCallback(async () => {
     // TODO: Implement proper connection
-  };
+  }, []);
 
-  const disconnect = async () => {
+  const disconnect = useCallback(async () => {
     // TODO: Implement proper disconnection
-  };
+  }, []);
 
-  const switchToken = async (token: string) => {
+  const switchToken = useCallback(async (_token: string) => {
     // TODO: Implement proper token switching
-  };
+  }, []);
 
-  const setUser = async (user: string | null) => {
+  const setUser = useCallback(async (_user: string | null) => {
     // TODO: Implement proper user setting
-  };
+  }, []);
 
   return {
     // Connection state

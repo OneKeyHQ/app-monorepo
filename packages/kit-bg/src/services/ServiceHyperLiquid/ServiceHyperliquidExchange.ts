@@ -7,11 +7,21 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
+  IHex,
   IOrderParams,
   IOrderRequest,
   IOrderResponse,
-  ITIF,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IAgentApprovalRequest,
+  IBuilderFeeRequest,
+  ICancelOrderParams,
+  ILeverageUpdateRequest,
+  IMarketOrderCloseParams,
+  IMarketOrderOpenParams,
+  IMultiOrderParams,
+  IPlaceOrderParams,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import ServiceBase from '../ServiceBase';
 
@@ -21,72 +31,7 @@ import type {
 } from './ServiceHyperliquidWallet';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
-// SDK-compatible API interfaces
-interface IPlaceOrderParams {
-  assetId: number;
-  isBuy: boolean;
-  sz: string;
-  limitPx?: string;
-  orderType: { limit: { tif: 'Gtc' | 'Ioc' } } | { market?: object };
-  slippage?: number;
-}
-
-interface IMarketOrderOpenParams {
-  assetId: number;
-  isBuy: boolean;
-  size: string;
-  midPx: string;
-  type: 'market' | 'limit';
-  tpTriggerPx?: string;
-  slTriggerPx?: string;
-  slippage?: number;
-}
-
-interface IMarketOrderCloseParams {
-  assetId: number;
-  isBuy: boolean;
-  size: string;
-  midPx: string;
-  slippage?: number;
-}
-
-interface IUpdateLeverageParams {
-  assetId: number;
-  leverage: number;
-  isCross?: boolean;
-}
-
-interface ICancelOrderParams {
-  assetId: number;
-  oid: number;
-}
-
-interface IMultiOrderParams {
-  orders: Array<{
-    assetId: number;
-    isBuy: boolean;
-    sz: string;
-    limitPx: string;
-    orderType: { limit: { tif: 'Gtc' | 'Ioc' } };
-  }>;
-}
-
-interface ILeverageUpdateRequest {
-  asset: number;
-  isCross: boolean;
-  leverage: number;
-}
-
-interface IBuilderFeeRequest {
-  builder: `0x${string}`;
-  maxFeeRate: `${string}%`;
-}
-
-interface IAgentApprovalRequest {
-  agent: `0x${string}`;
-  authorize: boolean;
-}
-
+// TODO: Dynamic set agent name based on client type
 const AGENT_NAME = 'OneKey_Desktop';
 
 @backgroundClass()
@@ -103,7 +48,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   @backgroundMethod()
   async setup(params: {
-    userAddress: string;
+    userAddress: IHex;
     userAccountId?: string;
   }): Promise<void> {
     try {
@@ -130,7 +75,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       this._exchangeClient = new ExchangeClient({
         transport,
         wallet,
-      }) as ExchangeClient;
+      });
 
       this._account = account;
     } catch (error) {
@@ -142,7 +87,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   @backgroundMethod()
   async getOnekeyWalletClient(params: {
-    userAddress: string;
+    userAddress: IHex;
     userAccountId?: string;
   }): Promise<ExchangeClient> {
     const transport = new HttpTransport();
@@ -165,7 +110,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     return new ExchangeClient({
       transport,
       wallet,
-    }) as ExchangeClient;
+    });
   }
 
   private _ensureSetup(): void {
@@ -278,10 +223,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         t:
           'limit' in params.orderType
             ? {
-                limit: { tif: params.orderType.limit.tif as ITIF },
+                limit: { tif: params.orderType.limit.tif },
               }
             : {
-                limit: { tif: 'Ioc' as ITIF },
+                limit: { tif: 'Ioc' },
               },
       };
 
@@ -345,7 +290,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
             trigger: {
               isMarket,
               triggerPx: params.tpTriggerPx,
-              tpsl: 'tp' as const,
+              tpsl: 'tp',
             },
           },
         };
@@ -370,7 +315,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
             trigger: {
               isMarket,
               triggerPx: params.slTriggerPx,
-              tpsl: 'sl' as const,
+              tpsl: 'sl',
             },
           },
         };
@@ -406,7 +351,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       p: price,
       s: params.size,
       r: true,
-      t: { limit: { tif: 'Gtc' as ITIF } },
+      t: { limit: { tif: 'Gtc' } },
     };
 
     try {
@@ -418,21 +363,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       throw new OneKeyLocalError(
         `Failed to place market close order: ${String(error)}`,
       );
-    }
-  }
-
-  @backgroundMethod()
-  async updateLeverageByAssetId(params: IUpdateLeverageParams): Promise<any> {
-    this._ensureSetup();
-
-    try {
-      return await this.updateLeverage({
-        asset: params.assetId,
-        leverage: params.leverage,
-        isCross: params.isCross ?? true,
-      });
-    } catch (error) {
-      throw new OneKeyLocalError(`Failed to update leverage: ${String(error)}`);
     }
   }
 
@@ -466,7 +396,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           p: order.limitPx,
           s: order.sz,
           r: false,
-          t: { limit: { tif: order.orderType.limit.tif as ITIF } },
+          t: { limit: { tif: order.orderType.limit.tif } },
         };
 
         return orderParam;

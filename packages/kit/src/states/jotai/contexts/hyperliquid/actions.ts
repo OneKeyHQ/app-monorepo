@@ -9,11 +9,9 @@ import {
   activeAssetCtxAtom,
   activeAssetDataAtom,
   allMidsAtom,
-  candlesMapAtom,
   connectionStateAtom,
   contextAtomMethod,
   currentAccountAtom,
-  currentCandleIntervalAtom,
   currentTokenAtom,
   currentUserAtom,
   l2BookAtom,
@@ -23,7 +21,7 @@ import {
   webData2Atom,
 } from './atoms';
 
-import type { ICandleInterval, ITradingFormData } from './atoms';
+import type { ITradingFormData } from './atoms';
 
 class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   updateAllMids = contextAtomMethod((_, set, data: HL.IWsAllMids) => {
@@ -49,144 +47,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   updateL2Book = contextAtomMethod((_, set, data: HL.IBook) => {
     set(l2BookAtom(), data);
   });
-
-  updateCandles = contextAtomMethod(
-    (
-      get,
-      set,
-      payload: { coin: string; interval: string; candle: HL.ICandle },
-    ) => {
-      const { coin, interval, candle } = payload;
-      const key = `${coin}-${interval}`;
-      const candlesMap = get(candlesMapAtom());
-      const newMap = new Map(candlesMap);
-
-      const existingData = newMap.get(key);
-      if (!existingData) {
-        newMap.set(key, {
-          candles: [candle],
-          isLoading: false,
-          error: null,
-          lastHistoryLoad: 0,
-          lastUpdate: Date.now(),
-        });
-      } else {
-        const updatedCandles = this._mergeRealtimeCandle(
-          existingData.candles,
-          candle,
-        );
-        newMap.set(key, {
-          ...existingData,
-          candles: updatedCandles,
-          lastUpdate: Date.now(),
-        });
-      }
-
-      set(candlesMapAtom(), newMap);
-    },
-  );
-
-  loadHistoryCandles = contextAtomMethod(
-    async (
-      get,
-      set,
-      payload: {
-        coin: string;
-        interval: string;
-        startTime: number;
-        endTime?: number;
-      },
-    ) => {
-      const { coin, interval, startTime, endTime } = payload;
-      const key = `${coin}-${interval}`;
-      const candlesMap = get(candlesMapAtom());
-      const existingData = candlesMap.get(key);
-
-      if (existingData?.isLoading) {
-        return;
-      }
-
-      const newMap = new Map(candlesMap);
-      newMap.set(key, {
-        candles: existingData?.candles || [],
-        isLoading: true,
-        error: null,
-        lastHistoryLoad: Date.now(),
-        lastUpdate: Date.now(),
-      });
-      set(candlesMapAtom(), newMap);
-
-      try {
-        const historyCandles =
-          await backgroundApiProxy.serviceHyperliquidInfo.getCandleSnapshot({
-            coin,
-            interval: interval as any,
-            startTime,
-            endTime,
-          });
-
-        const updatedMap = new Map(get(candlesMapAtom()));
-        updatedMap.set(key, {
-          candles: historyCandles,
-          isLoading: false,
-          error: null,
-          lastHistoryLoad: Date.now(),
-          lastUpdate: Date.now(),
-        });
-        set(candlesMapAtom(), updatedMap);
-      } catch (error) {
-        const errorMap = new Map(get(candlesMapAtom()));
-        errorMap.set(key, {
-          candles: existingData?.candles || [],
-          isLoading: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : 'Failed to load history candles',
-          lastHistoryLoad: existingData?.lastHistoryLoad || 0,
-          lastUpdate: Date.now(),
-        });
-        set(candlesMapAtom(), errorMap);
-      }
-    },
-  );
-
-  changeCandleInterval = contextAtomMethod(
-    async (get, set, newInterval: ICandleInterval) => {
-      const currentInterval = get(currentCandleIntervalAtom());
-
-      if (currentInterval.value === newInterval.value) {
-        return;
-      }
-
-      set(currentCandleIntervalAtom(), newInterval);
-      await this.updateSubscriptions.call(set);
-    },
-  );
-
-  private _mergeRealtimeCandle(
-    existingCandles: HL.ICandle[],
-    newCandle: HL.ICandle,
-  ): HL.ICandle[] {
-    if (existingCandles.length === 0) {
-      return [newCandle];
-    }
-
-    const lastCandle = existingCandles[existingCandles.length - 1];
-
-    if (newCandle.t === lastCandle.t) {
-      const updated = [...existingCandles];
-      updated[updated.length - 1] = newCandle;
-      return updated;
-    }
-
-    if (newCandle.t > lastCandle.t) {
-      const updated = [...existingCandles, newCandle];
-      return updated.length > 1000 ? updated.slice(-1000) : updated;
-    }
-
-    return existingCandles;
-  }
 
   updateConnectionState = contextAtomMethod(
     (
@@ -231,7 +91,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   updateSubscriptions = contextAtomMethod(async (get, set) => {
     const currentToken = get(currentTokenAtom());
     const currentUser = get(currentUserAtom());
-    const currentInterval = get(currentCandleIntervalAtom());
     const isActive = get(subscriptionActiveAtom());
 
     if (!isActive) {
@@ -243,7 +102,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         {
           currentSymbol: currentToken,
           currentUser,
-          currentCandleInterval: currentInterval.value,
         },
       );
     } catch (error) {
@@ -512,17 +370,17 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       get,
       set,
       params: {
-        assetId: number;
+        asset: number;
         leverage: number;
-        isCross?: boolean;
+        isCross: boolean;
       },
     ) => {
       try {
-        void (await backgroundApiProxy.serviceHyperliquidExchange.updateLeverageByAssetId(
+        void (await backgroundApiProxy.serviceHyperliquidExchange.updateLeverage(
           {
-            assetId: params.assetId,
+            asset: params.asset,
             leverage: params.leverage,
-            isCross: params.isCross ?? true,
+            isCross: params.isCross,
           },
         ));
 
@@ -586,9 +444,6 @@ export function useHyperliquidActions() {
   const updateActiveAssetCtx = actions.updateActiveAssetCtx.use();
   const updateActiveAssetData = actions.updateActiveAssetData.use();
   const updateL2Book = actions.updateL2Book.use();
-  const updateCandles = actions.updateCandles.use();
-  const loadHistoryCandles = actions.loadHistoryCandles.use();
-  const changeCandleInterval = actions.changeCandleInterval.use();
   const updateConnectionState = actions.updateConnectionState.use();
 
   const setCurrentToken = actions.setCurrentToken.use();
@@ -621,9 +476,6 @@ export function useHyperliquidActions() {
     updateActiveAssetCtx,
     updateActiveAssetData,
     updateL2Book,
-    updateCandles,
-    loadHistoryCandles,
-    changeCandleInterval,
     updateConnectionState,
     setCurrentToken,
     setCurrentUser,

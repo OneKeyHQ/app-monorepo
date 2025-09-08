@@ -28,6 +28,7 @@ import type {
   IWsAllMids,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { usePerpUseChainAccount } from './usePerpUseChainAccount';
 
@@ -49,45 +50,35 @@ export function useHyperliquidEventBusListener() {
           interval?: string;
         };
       };
-      const { subType, data, metadata } = eventPayload;
+      const { subType, data } = eventPayload;
 
       try {
         switch (subType) {
-          case 'allMids':
+          case ESubscriptionType.ALL_MIDS:
             void actions.current.updateAllMids(data as IWsAllMids);
             break;
 
-          case 'activeAssetCtx':
+          case ESubscriptionType.ACTIVE_ASSET_CTX:
             void actions.current.updateActiveAssetCtx(
               data as IWsActiveAssetCtx,
             );
             break;
 
-          case 'webData2':
+          case ESubscriptionType.WEB_DATA2:
             void actions.current.updateWebData2(data as IWsWebData2);
             break;
 
-          case 'activeAssetData':
+          case ESubscriptionType.ACTIVE_ASSET_DATA:
             void actions.current.updateActiveAssetData(
               data as IActiveAssetData,
             );
             break;
 
-          case 'l2Book':
+          case ESubscriptionType.L2_BOOK:
             void actions.current.updateL2Book(data as IBook);
             break;
 
-          case 'bbo':
-            break;
-
-          case 'candles':
-            if (metadata.coin && metadata.interval) {
-              void actions.current.updateCandles({
-                coin: metadata.coin,
-                interval: metadata.interval,
-                candle: data,
-              });
-            }
+          case ESubscriptionType.BBO:
             break;
 
           default:

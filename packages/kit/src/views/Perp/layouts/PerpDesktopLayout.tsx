@@ -52,7 +52,7 @@ function PerpDesktopLayout() {
           </YStack>
 
           {/* Right Section: Trading Panel */}
-          <YStack maxWidth={400} minWidth={200}>
+          <YStack maxWidth={400} minWidth={320}>
             <PerpTradingPanel />
             <YStack borderTopWidth="$px" borderTopColor="$borderSubdued">
               <PerpAccountPanel />

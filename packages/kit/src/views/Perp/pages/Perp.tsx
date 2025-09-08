@@ -28,7 +28,7 @@ function PerpContent() {
   return (
     <Page>
       <TabPageHeader
-        sceneName={EAccountSelectorSceneName.perp}
+        sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Perp}
       />
       <Page.Body>

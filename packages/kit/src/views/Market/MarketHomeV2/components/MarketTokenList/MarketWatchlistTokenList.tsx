@@ -45,12 +45,7 @@ function MarketWatchlistTokenList({
 
   // Show recommend list when watchlist is empty
   if (watchlist.length === 0) {
-    return (
-      <MarketRecommendList
-        recommendedTokens={recommendedTokens}
-        networkId={selectedNetworkId}
-      />
-    );
+    return <MarketRecommendList recommendedTokens={recommendedTokens} />;
   }
 
   return (
