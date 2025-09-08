@@ -331,12 +331,10 @@ class ServiceHardwareUI extends ServiceBase {
   ): Promise<T> {
     clearTimeout(this.closeHardwareUiStateDialogTimer);
     clearTimeout(this.backgroundApi.serviceHardware.cancelTimer);
-    console.log(
-      'withHardwareProcessing START:', {
-        processingNestedNum:this.processingNestedNum,
-        skipCloseHardwareUiStateDialog: params.skipCloseHardwareUiStateDialog
-      },
-    );
+    console.log('withHardwareProcessing START:', {
+      processingNestedNum: this.processingNestedNum,
+      skipCloseHardwareUiStateDialog: params.skipCloseHardwareUiStateDialog,
+    });
     const {
       deviceParams,
       skipDeviceCancel = false,
