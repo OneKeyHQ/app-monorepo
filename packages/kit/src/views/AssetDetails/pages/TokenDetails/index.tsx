@@ -115,7 +115,7 @@ function TokenDetailsView() {
 
   const [activeTabIndex, setActiveTabIndex] = useState(0);
 
-  const { vaultSettings } = useAccountData({ networkId });
+  const { vaultSettings, network } = useAccountData({ networkId });
 
   const headerRight = useCallback(() => {
     const sections: IActionListSection[] = [];
@@ -407,18 +407,24 @@ function TokenDetailsView() {
     return (
       <XStack alignItems="center" gap="$2">
         <NavCloseButton onPress={() => navigation.pop()} />
-        <Token size="sm" tokenImageUri={tokens[0].logoURI} />
+        <Token
+          size="sm"
+          tokenImageUri={tokens[0].logoURI}
+          showNetworkIcon={!!(tokens.length <= 1 && !gtMd)}
+          networkImageUri={network?.logoURI}
+          networkId={networkId}
+        />
         <SizableText size="$headingLg" numberOfLines={1}>
           {tokens[0].commonSymbol ?? tokens[0].symbol ?? tokens[0].name ?? ''}
         </SizableText>
-        {tokens.length <= 1 ? (
+        {tokens.length <= 1 && gtMd ? (
           <Badge badgeSize="sm">
             <Badge.Text>{tokens[0].networkName ?? ''}</Badge.Text>
           </Badge>
         ) : null}
       </XStack>
     );
-  }, [navigation, tokens]);
+  }, [tokens, gtMd, network?.logoURI, networkId, navigation]);
 
   return (
     <Page lazyLoad safeAreaEnabled={false}>
