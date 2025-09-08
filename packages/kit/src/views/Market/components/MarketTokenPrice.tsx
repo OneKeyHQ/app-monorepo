@@ -138,10 +138,10 @@ export function MarketTokenPrice({
 } & ISizableTextProps) {
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
-  const lastUpdateDate = useMemo(() => {
-    const result = lastUpdated ? Number(lastUpdated) : Date.now();
-    return result;
-  }, [lastUpdated]);
+  const lastUpdateDate = useMemo(
+    () => (lastUpdated ? new Date(lastUpdated).getTime() : Date.now()),
+    [lastUpdated],
+  );
 
   const tokenPrice = useTokenPrice({
     name: tokenName,

@@ -108,7 +108,7 @@ function TokenList() {
         accountId: token.accountId ?? accountId,
         networkId: token.networkId ?? networkId,
         walletId,
-        tokenInfo: token,
+        tokens: [token],
         isBlocked,
         deriveInfo,
         deriveType,

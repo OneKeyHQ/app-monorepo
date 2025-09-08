@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Empty, Stack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -16,8 +17,17 @@ import type { IProps } from '.';
 const num = 0;
 
 function TokenDetailsViews(props: IProps) {
-  const { accountId, networkId, walletId, deriveType, indexedAccountId } =
-    props;
+  const {
+    accountId,
+    networkId,
+    walletId,
+    indexedAccountId,
+    deriveInfo: deriveInfoProp,
+    deriveType: deriveTypeProp,
+  } = props;
+
+  const [deriveInfo, setDeriveInfo] = useState(deriveInfoProp);
+  const [deriveType, setDeriveType] = useState(deriveTypeProp);
 
   const depsChecker =
     debugUtils.useDebugHooksDepsChangedChecker('TokenDetailsViews');
@@ -26,6 +36,28 @@ function TokenDetailsViews(props: IProps) {
   }, [props, depsChecker]);
 
   const intl = useIntl();
+
+  useEffect(() => {
+    const fetchDefaultDerive = async () => {
+      const defaultDeriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId,
+        });
+      const defaultDeriveInfo =
+        await backgroundApiProxy.serviceNetwork.getDeriveInfoOfNetwork({
+          networkId,
+          deriveType: defaultDeriveType,
+        });
+      setDeriveType(defaultDeriveType);
+      setDeriveInfo(defaultDeriveInfo);
+    };
+    if (deriveInfo && deriveType) {
+      setDeriveInfo(deriveInfo);
+      setDeriveType(deriveType);
+    } else {
+      void fetchDefaultDerive();
+    }
+  }, [deriveInfo, deriveType, networkId]);
 
   const [currentAccountId, setCurrentAccountId] = useState(accountId);
 
@@ -68,6 +100,8 @@ function TokenDetailsViews(props: IProps) {
   return (
     <TokenDetailsHistory
       {...props}
+      deriveInfo={deriveInfo}
+      deriveType={deriveType}
       accountId={currentAccountId}
       ListHeaderComponent={
         <TokenDetailsHeader pt="$5" {...props} accountId={currentAccountId} />

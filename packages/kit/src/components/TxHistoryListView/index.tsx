@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactElement } from 'react';
+import type { ComponentProps, ForwardedRef, ReactElement } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -72,6 +72,7 @@ type IProps = {
   indexedAccountId?: string;
   isSingleAccount?: boolean;
   tokenMap?: Record<string, ITokenFiat>;
+  ref?: ForwardedRef<typeof SectionList>;
 };
 
 const ListFooterComponent = ({
@@ -250,6 +251,7 @@ function BaseTxHistoryListView(props: IProps) {
     indexedAccountId,
     isSingleAccount,
     tokenMap,
+    ref,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
@@ -355,11 +357,23 @@ function BaseTxHistoryListView(props: IProps) {
         tokenMap={tokenMap}
       />
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchKey, data.length]);
+  }, [
+    initialized,
+    isLoading,
+    searchKey,
+    data.length,
+    walletId,
+    accountId,
+    networkId,
+    indexedAccountId,
+    isSingleAccount,
+    tokenMap,
+    tableLayout,
+  ]);
 
   return (
     <ListComponent
+      ref={ref as any}
       refreshControl={
         onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }
@@ -377,7 +391,9 @@ function BaseTxHistoryListView(props: IProps) {
       ListFooterComponent={
         <ListFooterComponent
           showFooter={showFooter}
-          hasMoreOnChainHistory={hasMoreOnChainHistory}
+          hasMoreOnChainHistory={
+            sections.length > 0 ? hasMoreOnChainHistory : false
+          }
           accountId={accountId}
           networkId={networkId}
           walletId={walletId}
