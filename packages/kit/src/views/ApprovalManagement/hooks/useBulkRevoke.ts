@@ -145,7 +145,7 @@ function useBulkRevoke() {
 
       setIsBuildingRevokeTxs(false);
 
-      if (unsignedTxs.length === 1) {
+      if (unsignedTxs.length === 1 || !isPrimeAvailable) {
         void navigationToOneByOneRevoke({
           unsignedTxs,
         });
