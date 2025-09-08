@@ -470,7 +470,10 @@ function BaseNotificationList() {
                     if (!item.readed) {
                       setUnreadMap((prev) => ({
                         ...prev,
-                        [item.topicType]: prev[item.topicType] - 1,
+                        [item.topicType]: Math.max(
+                          0,
+                          (prev[item.topicType] ?? 0) - 1,
+                        ),
                       }));
                     }
                   }, 100);
