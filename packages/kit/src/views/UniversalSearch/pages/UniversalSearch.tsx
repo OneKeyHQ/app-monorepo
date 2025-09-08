@@ -41,6 +41,7 @@ import { ListItem } from '../../../components/ListItem';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
+  useAggregateTokensListMapAtom,
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '../../../states/jotai/contexts/tokenList';
@@ -123,6 +124,7 @@ export function UniversalSearch({
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [allTokenList] = useAllTokenListAtom();
   const [allTokenListMap] = useAllTokenListMapAtom();
+  const [aggregateTokenListMap] = useAggregateTokensListMapAtom();
 
   const [sections, setSections] = useState<IUniversalSection[]>([]);
   const [searchStatus, setSearchStatus] = useState<ESearchStatus>(
@@ -190,12 +192,14 @@ export function UniversalSearch({
     return (
       allTokenList &&
       allTokenListMap &&
+      aggregateTokenListMap &&
       allTokenList.accountId === activeAccount?.account?.id &&
       allTokenList.networkId === activeAccount?.network?.id
     );
   }, [
     allTokenList,
     allTokenListMap,
+    aggregateTokenListMap,
     activeAccount?.account?.id,
     activeAccount?.network?.id,
   ]);
@@ -243,6 +247,9 @@ export function UniversalSearch({
             : undefined,
           tokenListCacheMap: shouldUseTokensCacheData
             ? allTokenListMap
+            : undefined,
+          aggregateTokenListCacheMap: shouldUseTokensCacheData
+            ? aggregateTokenListMap
             : undefined,
         });
       const generateDataFn = (data: IUniversalSearchResultItem[]) => {
