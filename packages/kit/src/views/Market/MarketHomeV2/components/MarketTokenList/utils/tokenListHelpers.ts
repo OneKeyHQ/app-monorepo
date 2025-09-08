@@ -53,11 +53,11 @@ export function transformApiItemToToken(
     sortIndex?: number;
   },
 ): IMarketToken {
-  // Normalize address: treat short addresses (< 15 chars) as empty strings for native tokens
-  const normalizedAddress = item.address.length < 15 ? '' : item.address;
+  // Normalize address: treat short addresses (< 10 chars) as empty strings for native tokens
+  const normalizedAddress = item.address.length < 10 ? '' : item.address;
 
   return {
-    id: normalizedAddress || `${index ?? 0}`,
+    id: `${item.address}${item.name}${networkLogoUri}${item.symbol}`,
     name: item.name,
     symbol: item.symbol,
     address: normalizedAddress,
