@@ -26,9 +26,15 @@ export function useWalletConnection({
   connectionInfo: IExternalConnectionInfo;
 }) {
   const intl = useIntl();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { connectToWallet, loading, hideLoading, showLoading, setLoadingRef } =
-    useConnectExternalWallet();
+  const {
+    connectToWallet,
+    loading,
+    localLoading,
+    hideLoading,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    showLoading,
+    setLoadingRef,
+  } = useConnectExternalWallet();
 
   const dialogRef = useRef<IDialogInstance | null>(null);
 
@@ -121,6 +127,7 @@ export function useWalletConnection({
   ]);
 
   return {
+    localLoading,
     universalLoading: loading,
     loading: false, // Use global loading state in Dialog content
     connectToWalletWithDialogShow,

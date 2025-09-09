@@ -156,7 +156,8 @@ function WalletItem({
   logo: any;
   connectionInfo: IExternalConnectionInfo;
 }) {
-  const { connectToWalletWithDialogShow, universalLoading } =
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { connectToWalletWithDialogShow, universalLoading, localLoading } =
     useWalletConnection({
       name,
       connectionInfo,
@@ -167,7 +168,7 @@ function WalletItem({
       onPress={connectToWalletWithDialogShow}
       logo={logo}
       name={name || 'unknown'}
-      loading={universalLoading}
+      loading={localLoading}
     />
   );
 }

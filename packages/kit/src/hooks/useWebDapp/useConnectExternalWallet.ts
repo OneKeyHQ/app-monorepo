@@ -199,6 +199,7 @@ export function useConnectExternalWallet() {
   return {
     connectToWallet,
     connectToWalletWithDialog,
+    localLoading,
     loading,
     hideLoading,
     showLoading,
