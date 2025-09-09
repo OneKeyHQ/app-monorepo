@@ -2586,10 +2586,10 @@ PODS:
     - ReactCommon/turbomodule/core
     - TOCropViewController (~> 2.7.4)
     - Yoga
-  - RNNotifee (9.0.0):
+  - RNNotifee (9.1.8):
     - React-Core
-    - RNNotifee/NotifeeCore (= 9.0.0)
-  - RNNotifee/NotifeeCore (9.0.0):
+    - RNNotifee/NotifeeCore (= 9.1.8)
+  - RNNotifee/NotifeeCore (9.1.8):
     - React-Core
   - RNPermissions (5.4.2):
     - DoubleConversion
@@ -3501,7 +3501,7 @@ SPEC CHECKSUMS:
   RNFileLogger: bf2de384fca1484f291f361ad8d820e11f1cc4ad
   RNGestureHandler: 6b48571964d1b4302f531bb07f8360399a02200a
   RNImageCropPicker: de6a16085ad4e4c67850b0c662d1d333d367cc59
-  RNNotifee: 3978eab0eb24f9c2ee6ee0440ee7c50748803559
+  RNNotifee: 5e3b271e8ea7456a36eec994085543c9adca9168
   RNPermissions: 56c5d74ecf592d650d5c6cb252ed6956aaf22db0
   RNPurchases: 4c820359d90fab9c83ffd3ef5471d59db72e2ed1
   RNReanimated: 24c64a050426b2e5b27d3435f1dcd89651207ff3

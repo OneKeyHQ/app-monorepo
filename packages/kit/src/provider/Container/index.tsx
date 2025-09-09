@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { RootSiblingParent } from 'react-native-root-siblings';
 
@@ -168,6 +168,9 @@ export function ColdStartByNotification() {
       );
     };
   }, [isVersionCompatible, showFallbackUpdateDialog]);
+
+  useInitialNotification();
+
   return null;
 }
 ColdStartByNotification.launchNotification = null;
