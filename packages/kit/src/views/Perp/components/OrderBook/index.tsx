@@ -394,7 +394,7 @@ export function OrderPairBook({
             );
           }
           return (
-            <XStack mt={1} position="relative">
+            <XStack mt={1} position="relative" h="$6">
               <XStack
                 position="absolute"
                 left={0}
@@ -413,7 +413,7 @@ export function OrderPairBook({
                   width={`${(itemData.cumSize / askDepth) * 100}%`}
                 />
               )}
-              <XStack flex={1} jc="space-between">
+              <XStack flex={1} jc="space-between" ai="center">
                 <NumberSizeableText formatter="marketCap">
                   {itemData.price}
                 </NumberSizeableText>
