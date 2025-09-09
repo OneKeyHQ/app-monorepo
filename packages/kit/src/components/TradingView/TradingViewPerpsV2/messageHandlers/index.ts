@@ -6,9 +6,8 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useCurrentTokenPriceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useAllMidsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { calculatePriceScale } from '@onekeyhq/shared/src/utils/perpsUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IFill, IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { MESSAGE_TYPES } from '../constants/messageTypes';
@@ -31,9 +30,7 @@ export function usePerpsMessageHandler({
   webRef: React.RefObject<IWebViewRef | null>;
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
-  const [priceData] = useCurrentTokenPriceAtom();
-  const priceDataRef = useRef(priceData);
-  priceDataRef.current = priceData;
+  const [allMids] = useAllMidsAtom();
 
   // Extract shared logic for fetching and formatting marks
   const fetchAndFormatMarks = useCallback(
@@ -150,37 +147,13 @@ export function usePerpsMessageHandler({
     async (request: { symbol: string; requestId: string }) => {
       const { symbol: requestSymbol, requestId } = request;
 
-      // Wait for matching symbol and valid market price with 3s timeout
-      const startTime = Date.now();
-      const timeout = 3000; // 3 seconds
-      let currentPriceData = priceData;
-
-      while (Date.now() - startTime < timeout) {
-        // Get the latest priceData from ref (always current)
-        currentPriceData = priceDataRef.current;
-
-        // Check if we have matching symbol and valid price
-        if (
-          currentPriceData?.coin === requestSymbol &&
-          currentPriceData?.markPrice &&
-          Number(currentPriceData.markPrice) > 0
-        ) {
-          break;
-        }
-
-        await timerUtils.wait(100);
-      }
-
-      // Calculate priceScale using HyperLiquid precision rules
+      // Get price from allMids directly
+      const midValue = allMids?.mids?.[requestSymbol];
       let calculatedPriceScale = 100; // default 2 decimal places
 
-      if (
-        currentPriceData?.coin === requestSymbol &&
-        currentPriceData?.markPrice &&
-        Number(currentPriceData.markPrice) > 0
-      ) {
-        // Use simplified HyperLiquid precision rules to calculate price scale
-        calculatedPriceScale = calculatePriceScale(currentPriceData.markPrice);
+      if (midValue && Number(midValue) > 0) {
+        // Use HyperLiquid precision rules to calculate price scale
+        calculatedPriceScale = calculatePriceScale(midValue);
       }
 
       const response = {
@@ -191,10 +164,8 @@ export function usePerpsMessageHandler({
 
       console.log('[MessageHandler] Price scale response:', {
         symbol: requestSymbol,
-        matchedSymbol: currentPriceData?.coin,
-        markPrice: currentPriceData?.markPrice,
+        midValue,
         priceScale: calculatedPriceScale,
-        timeout: Date.now() - startTime >= timeout,
       });
 
       webRef.current?.sendMessageViaInjectedScript({
@@ -202,8 +173,7 @@ export function usePerpsMessageHandler({
         payload: response,
       });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [webRef],
+    [webRef, allMids],
   );
 
   const customReceiveHandler = useCallback(
