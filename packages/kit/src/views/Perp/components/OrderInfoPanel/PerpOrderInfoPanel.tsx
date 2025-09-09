@@ -1,10 +1,16 @@
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 
 import type {
   IModalNavigationProp,
   IPageNavigationProp,
 } from '@onekeyhq/components';
-import { IconButton, Tabs, YStack } from '@onekeyhq/components';
+import {
+  IconButton,
+  SizableText,
+  Tabs,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
@@ -32,6 +38,7 @@ function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
       screen: EModalPerpRoutes.PerpTradersHistoryList,
     });
   };
+
   return (
     <YStack flex={1} minHeight={300} overflow="hidden">
       <Tabs.Container
@@ -55,6 +62,18 @@ function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
                   )
                 : undefined
             }
+            renderItem={({ name, isFocused, onPress }) => (
+              <XStack
+                py="$3"
+                ml="$5"
+                mr="$2"
+                borderBottomWidth={isFocused ? '$0.5' : '$0'}
+                borderBottomColor="$borderActive"
+                onPress={() => onPress(name)}
+              >
+                <SizableText size="$headingXs">{name}</SizableText>
+              </XStack>
+            )}
             containerStyle={{
               borderRadius: 0,
               margin: 0,

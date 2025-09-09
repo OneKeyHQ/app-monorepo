@@ -207,9 +207,10 @@ export interface IAggregateToken {
   status: EAggregateTokenStatus;
   address?: string;
   assetType?: string;
-  commonSymbol?: string;
+  commonSymbol: string;
   order: number;
   logoURI?: string;
+  name: string;
 }
 
 export type IHomeDefaultToken = {
@@ -228,6 +229,7 @@ export type IFetchAggregateTokenConfigMapResp = {
       string,
       {
         logoURI: string;
+        name: string;
         data: IAggregateToken[];
       }
     >;

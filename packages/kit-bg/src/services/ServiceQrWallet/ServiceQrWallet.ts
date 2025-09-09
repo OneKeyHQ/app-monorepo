@@ -284,7 +284,8 @@ class ServiceQrWallet extends ServiceBase {
       appQrCodeModalTitle,
     });
 
-    return airGapUrUtils.urToJson({ ur: checkIsDefined(responseUr) });
+    const jsonData = airGapUrUtils.urToJson({ ur: checkIsDefined(responseUr) });
+    return jsonData;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     //   const { wallet: walletCreated } = await createQrWallet({
     //     isOnboarding: false,
