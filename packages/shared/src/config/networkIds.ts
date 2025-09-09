@@ -1,10 +1,10 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { ENetworkStatus } from '../../types';
 import { memoFn } from '../utils/cacheUtils';
 
 import { getPresetNetworks } from './presetNetworks';
-import { ENetworkStatus } from '../../types';
 
 export type INetworkShortCode =
   | 'onekeyall'
