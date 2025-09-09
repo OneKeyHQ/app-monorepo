@@ -4,6 +4,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   IAccountToken,
+  IAggregateToken,
   IToken,
   ITokenData,
   ITokenFiat,
@@ -59,6 +60,13 @@ export type ITokenSelectorParamList = {
     | EModalReceiveRoutes.ReceiveSelectAggregateToken
     | EAssetSelectorRoutes.AggregateTokenSelector
     | EModalSignatureConfirmRoutes.TxSelectAggregateToken;
+  allAggregateTokenMap?: Record<
+    string,
+    {
+      tokens: IAccountToken[];
+    }
+  >;
+  allAggregateTokens?: IAccountToken[];
 };
 
 export type IAggregateTokenSelectorParams = {

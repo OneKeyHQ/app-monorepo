@@ -66,6 +66,8 @@ function TokenSelector() {
     activeAccountId,
     activeNetworkId,
     aggregateTokenSelectorScreen,
+    allAggregateTokenMap,
+    allAggregateTokens,
   } = route.params;
 
   const { network, account } = useAccountData({ networkId, accountId });
@@ -364,6 +366,8 @@ function TokenSelector() {
           tokenSelectorSearchKey={searchKey}
           tokenSelectorSearchTokenState={searchTokenState}
           tokenSelectorSearchTokenList={searchTokenList}
+          allAggregateTokenMap={allAggregateTokenMap}
+          allAggregateTokens={allAggregateTokens}
         />
       </Page.Body>
     </Page>

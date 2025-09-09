@@ -16,6 +16,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   buildAggregateTokenListData,
+  buildAggregateTokenListMapKeyForTokenList,
   buildAggregateTokenMapKeyForAggregateConfig,
   buildHomeDefaultTokenMapKey,
   getEmptyTokenData,
@@ -987,6 +988,13 @@ class ServiceToken extends ServiceBase {
     await this.abortFetchAggregateTokenMap();
     const { tokens = {}, meta: { homeDefaults = [] } = {} } =
       await this.fetchAggregateTokenConfigMap();
+    const allAggregateTokenMap: Record<
+      string,
+      {
+        tokens: IAccountToken[];
+      }
+    > = {};
+
     const aggregateTokenConfigMap: Record<string, IAggregateToken> = {};
     const homeDefaultTokenMap: Record<string, IHomeDefaultToken> = {};
     homeDefaults.forEach((homeDefault) => {
@@ -999,6 +1007,44 @@ class ServiceToken extends ServiceBase {
     });
     Object.entries(tokens).forEach(([commonSymbol, { data, logoURI }]) => {
       data.forEach((token) => {
+        const aggregateTokenKey = buildAggregateTokenListMapKeyForTokenList({
+          commonSymbol,
+        });
+
+        if (allAggregateTokenMap[aggregateTokenKey]) {
+          allAggregateTokenMap[aggregateTokenKey].tokens.push({
+            ...token,
+            $key: buildAggregateTokenListMapKeyForTokenList({
+              commonSymbol,
+              networkId: token.networkId,
+            }),
+            name: '',
+            symbol: commonSymbol,
+            isNative: false,
+            logoURI,
+            commonSymbol,
+            address: token.address || token.assetType || '',
+          });
+        } else {
+          allAggregateTokenMap[aggregateTokenKey] = {
+            tokens: [
+              {
+                ...token,
+                $key: buildAggregateTokenListMapKeyForTokenList({
+                  commonSymbol,
+                  networkId: token.networkId,
+                }),
+                name: '',
+                symbol: commonSymbol,
+                isNative: false,
+                logoURI,
+                commonSymbol,
+                address: token.address || token.assetType || '',
+              },
+            ],
+          };
+        }
+
         aggregateTokenConfigMap[
           buildAggregateTokenMapKeyForAggregateConfig({
             networkId: token.networkId,
@@ -1011,14 +1057,32 @@ class ServiceToken extends ServiceBase {
         };
       });
     });
-    await this.backgroundApi.simpleDb.aggregateToken.updateAggregateTokenConfigMap(
-      {
-        aggregateTokenConfigMap,
-      },
-    );
-    await this.backgroundApi.simpleDb.aggregateToken.updateHomeDefaultTokenMap({
-      homeDefaultTokenMap,
+
+    const allAggregateTokens: IAccountToken[] = Object.keys(
+      allAggregateTokenMap,
+    ).map((key) => {
+      const aggregateToken = allAggregateTokenMap[key].tokens[0];
+      return {
+        $key: key,
+        isAggregateToken: true,
+        commonSymbol: aggregateToken.commonSymbol,
+        name: '',
+        symbol: aggregateToken.symbol,
+        networkId: '',
+        address: key,
+        isNative: false,
+        decimals: 0,
+        logoURI: aggregateToken.logoURI,
+      };
     });
+
+    await this.backgroundApi.simpleDb.aggregateToken.updateAllAggregateInfo({
+      allAggregateTokens,
+      aggregateTokenConfigMap,
+      homeDefaultTokenMap,
+      allAggregateTokenMap,
+    });
+
     return aggregateTokenConfigMap;
   }
 
@@ -1067,6 +1131,16 @@ class ServiceToken extends ServiceBase {
       networkId,
       accountId,
     });
+  }
+
+  @backgroundMethod()
+  public async getAllAggregateTokenInfo() {
+    const rawData =
+      await this.backgroundApi.simpleDb.aggregateToken.getRawData();
+    return {
+      allAggregateTokenMap: rawData?.allAggregateTokenMap ?? {},
+      allAggregateTokens: rawData?.allAggregateTokens ?? [],
+    };
   }
 }
 

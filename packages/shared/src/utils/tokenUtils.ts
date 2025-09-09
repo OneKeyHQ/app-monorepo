@@ -712,9 +712,10 @@ export function buildAggregateTokenMapKeyForAggregateConfig(params: {
 
 export function buildAggregateTokenListMapKeyForTokenList(params: {
   commonSymbol: string;
+  networkId?: string;
 }) {
-  const { commonSymbol } = params;
-  return `aggregate_${commonSymbol}`;
+  const { commonSymbol, networkId } = params;
+  return `aggregate_${commonSymbol}_${networkId ?? ''}`;
 }
 
 export function buildAggregateTokenListData(params: {
@@ -767,6 +768,8 @@ export function buildAggregateTokenListData(params: {
         commonToken: {
           ...token,
           accountId,
+          networkId: '',
+          address: aggregateTokenListMapKey,
           $key: aggregateTokenListMapKey,
           isAggregateToken: true,
           commonSymbol: aggregateToken.commonSymbol,

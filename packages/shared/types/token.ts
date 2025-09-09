@@ -207,7 +207,7 @@ export interface IAggregateToken {
   status: EAggregateTokenStatus;
   address?: string;
   assetType?: string;
-  commonSymbol?: string;
+  commonSymbol: string;
   order: number;
   logoURI?: string;
 }
