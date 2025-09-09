@@ -15,15 +15,16 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   const orders = usePerpOrders();
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
-      { key: 'asset', title: 'Asset', width: 80, align: 'left' },
-      { key: 'time', title: 'Time', width: 100, align: 'left' },
-      { key: 'type', title: 'Type', width: 100, align: 'left' },
-      { key: 'size', title: 'Size', width: 100, align: 'left' },
+      { key: 'asset', title: 'Asset', width: 100, align: 'left' },
+      { key: 'time', title: 'Time', minWidth: 100, align: 'left', flex: 1 },
+      { key: 'type', title: 'Type', minWidth: 100, align: 'left', flex: 1 },
+      { key: 'size', title: 'Size', minWidth: 100, align: 'left', flex: 1 },
       {
         key: 'originalSize',
         title: 'Original Size',
-        width: 100,
+        minWidth: 100,
         align: 'left',
+        flex: 1,
       },
       { key: 'value', title: 'Value', minWidth: 100, flex: 1, align: 'left' },
       {
@@ -41,7 +42,13 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
         align: 'left',
       },
       { key: 'TPSL', title: 'TP/SL', minWidth: 100, flex: 1, align: 'left' },
-      { key: 'cancel', title: 'Cancel All', width: 100, align: 'right' },
+      {
+        key: 'cancel',
+        title: 'Cancel All',
+        minWidth: 100,
+        align: 'right',
+        flex: 1,
+      },
     ],
     [],
   );

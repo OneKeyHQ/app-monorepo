@@ -8,7 +8,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 
-import { calcCellAlign } from '../utils';
+import { calcCellAlign, getColumnStyle } from '../utils';
 
 export interface IColumnConfig {
   key: string;
@@ -75,6 +75,7 @@ export function CommonTableListView({
             <XStack
               py="$2"
               px="$3"
+              display="flex"
               minWidth={minTableWidth}
               width="100%"
               borderBottomWidth="$px"
@@ -82,14 +83,10 @@ export function CommonTableListView({
               bg={headerBgColor}
             >
               {columns.map((column, index) => {
-                const isFixedWidth = !!column.width;
-
                 return (
                   <XStack
                     key={column.key}
-                    width={isFixedWidth ? column.width : undefined}
-                    minWidth={isFixedWidth ? undefined : column.minWidth}
-                    flex={isFixedWidth ? undefined : 1}
+                    {...getColumnStyle(column)}
                     justifyContent={calcCellAlign(column.align) as any}
                     {...(index === 0 && {
                       pl: '$2',
@@ -108,9 +105,7 @@ export function CommonTableListView({
               })}
             </XStack>
 
-            {data.map((item, index) => (
-              <XStack key={index}>{renderRow(item, index)}</XStack>
-            ))}
+            {data.map((item, index) => renderRow(item, index))}
           </YStack>
         ) : (
           <YStack flex={1} justifyContent="center" alignItems="center" p="$6">

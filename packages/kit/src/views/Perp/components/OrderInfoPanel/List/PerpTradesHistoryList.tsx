@@ -15,9 +15,15 @@ function PerpTradesHistoryList({ isMobile }: IPerpTradesHistoryListProps) {
   const { trades } = usePerpTradesHistory();
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
-      { key: 'asset', title: 'Asset', width: 80, align: 'left' },
-      { key: 'time', title: 'Time', width: 100, align: 'left' },
-      { key: 'direction', title: 'Direction', width: 100, align: 'left' },
+      { key: 'asset', title: 'Asset', width: 100, align: 'left' },
+      { key: 'time', title: 'Time', minWidth: 100, flex: 1, align: 'left' },
+      {
+        key: 'direction',
+        title: 'Direction',
+        minWidth: 100,
+        flex: 1,
+        align: 'left',
+      },
       { key: 'price', title: 'Price', minWidth: 100, flex: 1, align: 'left' },
       {
         key: 'size',
@@ -34,7 +40,13 @@ function PerpTradesHistoryList({ isMobile }: IPerpTradesHistoryListProps) {
         align: 'left',
       },
       { key: 'fee', title: 'Fee', minWidth: 100, flex: 1, align: 'left' },
-      { key: 'closePnl', title: 'Close PnL', width: 100, align: 'right' },
+      {
+        key: 'closePnl',
+        title: 'Close PnL',
+        minWidth: 100,
+        flex: 1,
+        align: 'right',
+      },
     ],
     [],
   );
