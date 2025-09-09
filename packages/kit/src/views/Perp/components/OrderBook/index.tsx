@@ -207,7 +207,7 @@ export function Orderbook({
                     right={0}
                     h="$6"
                     width={`${(item.cumSize / bidDepth) * 100}%`}
-                    bg="rgba(233, 249, 238, 1)"
+                    bg="$green3"
                   />
                   <XStack flex={1} jc="space-between">
                     <NumberSizeableText
@@ -219,7 +219,7 @@ export function Orderbook({
                     </NumberSizeableText>
                     <NumberSizeableText
                       fontFamily="$monoRegular"
-                      color="rgba(24, 121, 78)"
+                      color="$green11"
                       formatter="value"
                     >
                       {item.price}
@@ -244,12 +244,12 @@ export function Orderbook({
                     left={0}
                     h="$6"
                     width={`${(item.cumSize / askDepth) * 100}%`}
-                    bg="rgb(255, 239, 239)"
+                    bg="$red3"
                   />
                   <XStack flex={1} jc="space-between">
                     <NumberSizeableText
                       fontFamily="$monoRegular"
-                      color="rgb(198, 42, 47)"
+                      color="$red11"
                       formatter="marketCap"
                     >
                       {item.size}
@@ -300,34 +300,42 @@ export function Orderbook({
               left={0}
               h="$6"
               width={`${(item.cumSize / bidDepth) * 100}%`}
-              bg="rgba(233, 249, 238, 1)"
+              bg="$green3"
+              jc="space-between"
             />
-            <XStack flex={1}>
-              <NumberSizeableText
-                fontFamily="$monoRegular"
-                color="$textSubdued"
-                formatter="marketCap"
-              >
-                {item.price}
-              </NumberSizeableText>
-            </XStack>
-            <XStack flex={1} jc="center" ai="center">
-              <NumberSizeableText
-                fontFamily="$monoRegular"
-                color="$textSubdued"
-                formatter="marketCap"
-              >
-                {item.size}
-              </NumberSizeableText>
-            </XStack>
-            <XStack flex={1} jc="flex-end" ai="center">
-              <NumberSizeableText
-                fontFamily="$monoRegular"
-                color="$textSubdued"
-                formatter="marketCap"
-              >
-                {item.cumSize}
-              </NumberSizeableText>
+            <XStack flex={1} jc="space-between">
+              <XStack width="33.33%">
+                <NumberSizeableText
+                  fontFamily="$monoRegular"
+                  color="$textSubdued"
+                  formatter="marketCap"
+                >
+                  {item.price}
+                </NumberSizeableText>
+              </XStack>
+              <XStack width="33.33%">
+                <NumberSizeableText
+                  flex={1}
+                  fontFamily="$monoRegular"
+                  color="$textSubdued"
+                  formatter="marketCap"
+                  textAlign="center"
+                >
+                  {item.size}
+                </NumberSizeableText>
+              </XStack>
+
+              <XStack width="33.33%">
+                <NumberSizeableText
+                  flex={1}
+                  textAlign="right"
+                  fontFamily="$monoRegular"
+                  color="$textSubdued"
+                  formatter="marketCap"
+                >
+                  {item.cumSize}
+                </NumberSizeableText>
+              </XStack>
             </XStack>
           </XStack>
         )}
@@ -371,7 +379,7 @@ export function OrderPriceBook({
               left={0}
               h="$6"
               width={`${(item.item.cumSize / bidDepth) * 100}%`}
-              bg="rgba(233, 249, 238, 1)"
+              bg="$green3"
             />
             <XStack flex={1} jc="space-between">
               <NumberSizeableText formatter="marketCap">
