@@ -8,6 +8,10 @@
 #import "LaunchOptionsManager.h"
 #import <React/RCTLog.h>
 
+@interface LaunchOptionsManager ()
+@property (nonatomic, strong) NSDictionary *launchOptions;
+@end
+
 @implementation LaunchOptionsManager
 
 static LaunchOptionsManager *sharedInstance = nil;
@@ -23,7 +27,7 @@ static LaunchOptionsManager *sharedInstance = nil;
 - (instancetype)init {
     self = [super init];
     if (self) {
-        _launchOptions = nil;
+        self.launchOptions = nil;
     }
     return self;
 }
@@ -45,25 +49,23 @@ static LaunchOptionsManager *sharedInstance = nil;
 
 RCT_EXPORT_MODULE();
 
-RCT_EXPORT_METHOD(getLaunchOptions:(RCTResponseSenderBlock)callback) {
+RCT_EXPORT_METHOD(getLaunchOptions:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
     NSDictionary *launchOptions = [self getLaunchOptions];
     if (launchOptions) {
-        callback(@[[NSNull null], launchOptions]);
+        resolve(launchOptions);
     } else {
-        callback(@[[NSNull null], [NSNull null]]);
+        resolve(@{});
     }
 }
 
-RCT_EXPORT_METHOD(clearLaunchOptions:(RCTResponseSenderBlock)callback) {
+RCT_EXPORT_METHOD(clearLaunchOptions:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
     @synchronized(self) {
         self.launchOptions = nil;
         RCTLogInfo(@"LaunchOptionsManager: Cleared launch options");
     }
-    callback(@[[NSNull null], @YES]);
+    resolve(@YES);
 }
-
-// MARK: - Private Properties
-
-@property (nonatomic, strong) NSDictionary *launchOptions;
 
 @end
