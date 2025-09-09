@@ -6137,7 +6137,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@msgpack/msgpack@npm:3.1.2":
+"@msgpack/msgpack@npm:3.1.2, @msgpack/msgpack@npm:^3.1.2":
   version: 3.1.2
   resolution: "@msgpack/msgpack@npm:3.1.2"
   checksum: 10/e04ff37d7c89ffdd6b4fbcd1770af60b16c98afdf1c3c16190170dfe34764048eb45e3654016ac62cc616c7e4b09e611f8863317ca5f18b3a72974fb131e562e
@@ -6429,6 +6429,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@nktkas/hyperliquid@npm:^0.24.2":
+  version: 0.24.2
+  resolution: "@nktkas/hyperliquid@npm:0.24.2"
+  dependencies:
+    "@msgpack/msgpack": "npm:^3.1.2"
+    "@noble/hashes": "npm:^1.8.0"
+    "@noble/secp256k1": "npm:^2.3.0"
+  checksum: 10/40c26401bab08f2b6e06d94c63073cf2f174d6d61b614c435541e407268c247d562f16677270081341be8b3137d80ee5c34bc4df9ef7711b90a584c27c034bcf
+  languageName: node
+  linkType: hard
+
 "@noble/ciphers@npm:1.0.0":
   version: 1.0.0
   resolution: "@noble/ciphers@npm:1.0.0"
@@ -6616,6 +6627,13 @@ __metadata:
   version: 1.7.1
   resolution: "@noble/secp256k1@npm:1.7.1"
   checksum: 10/214d4756c20ed20809d948d0cc161e95664198cb127266faf747fd7deffe5444901f05fe9f833787738f2c6e60b09e544c2f737f42f73b3699e3999ba15b1b63
+  languageName: node
+  linkType: hard
+
+"@noble/secp256k1@npm:^2.3.0":
+  version: 2.3.0
+  resolution: "@noble/secp256k1@npm:2.3.0"
+  checksum: 10/3e2669aae45612cebccdac466e584e9b35329cc3a28528100dc0bd17c16244336678a0ea663ccad6e32873ea15259ae57cf208f1ce03e475ae063b42e6561e3a
   languageName: node
   linkType: hard
 
@@ -7462,6 +7480,7 @@ __metadata:
     "@morpho-org/bundler-sdk-ethers": "npm:^1.0.3"
     "@mysten/sui": "npm:1.28.0"
     "@ngraveio/bc-ur": "npm:^1.1.13"
+    "@nktkas/hyperliquid": "npm:^0.24.2"
     "@onekeyfe/cross-inpage-provider-core": "npm:2.2.42"
     "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.42"
     "@onekeyfe/cross-inpage-provider-injected": "npm:2.2.42"
