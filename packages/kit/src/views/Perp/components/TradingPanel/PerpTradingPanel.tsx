@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { Button, SizableText, Spinner, YStack } from '@onekeyhq/components';
 import {
@@ -7,7 +7,11 @@ import {
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 
-import { useCurrentTokenData, useHyperliquidTrading } from '../../hooks';
+import {
+  useCurrentTokenData,
+  useHyperliquidAccount,
+  useHyperliquidTrading,
+} from '../../hooks';
 
 import { showOrderConfirmDialog } from './OrderConfirmModal';
 import { PerpTradingForm } from './PerpTradingForm';
@@ -15,9 +19,70 @@ import { PerpTradingForm } from './PerpTradingForm';
 function PerpTradingPanel() {
   const { canTrade, loading, currentUser, checkAndApproveWallet } =
     useHyperliquidTrading();
+  const { accountSummary } = useHyperliquidAccount();
   const tokenInfo = useCurrentTokenData();
   const [formData] = useTradingFormAtom();
   const [isSubmitting] = useTradingLoadingAtom();
+
+  const leverage = useMemo(() => {
+    return tokenInfo?.leverage?.value || tokenInfo?.maxLeverage || 1;
+  }, [tokenInfo]);
+
+  const maxTradeSz = useMemo(() => {
+    const maxTradeSzs = tokenInfo?.maxTradeSzs || [0, 0];
+    return maxTradeSzs[formData.side === 'long' ? 0 : 1];
+  }, [tokenInfo?.maxTradeSzs, formData.side]);
+
+  const isNoEnoughMargin = useMemo(() => {
+    if (formData.type === 'limit') {
+      return (
+        (+formData.price * +formData.size) / leverage >
+        +(accountSummary?.withdrawable || 0)
+      );
+    }
+    return +formData.size > maxTradeSz;
+  }, [
+    formData.size,
+    maxTradeSz,
+    formData.type,
+    accountSummary?.withdrawable,
+    formData.price,
+    leverage,
+  ]);
+
+  const buttonDisabled = useMemo(() => {
+    return !canTrade || isSubmitting || isNoEnoughMargin;
+  }, [canTrade, isSubmitting, isNoEnoughMargin]);
+
+  const buttonText = useMemo(() => {
+    if (isSubmitting) return 'Placing...';
+    if (isNoEnoughMargin) return 'No Enough Margin';
+    return 'Place order';
+  }, [isSubmitting, isNoEnoughMargin]);
+
+  const buttonStyles = useMemo(() => {
+    const isLong = formData.side === 'long';
+
+    const getBgColor = () => {
+      return isLong ? '$buttonSuccess' : '$buttonCritical';
+    };
+
+    const getHoverBgColor = () => {
+      return isLong ? '$green7' : '$red7';
+    };
+
+    const getPressBgColor = () => {
+      return isLong ? '$green9' : '$red9';
+    };
+
+    return {
+      bg: getBgColor(),
+      hoverBg: getHoverBgColor(),
+      pressBg: getPressBgColor(),
+      textColor: buttonDisabled ? '$textDisabled' : '$textOnColor',
+    };
+  }, [formData.side, buttonDisabled]);
+
   const actions = useHyperliquidActions();
   const handleShowConfirm = useCallback(() => {
     if (!tokenInfo) {
@@ -26,11 +91,12 @@ function PerpTradingPanel() {
       );
       return;
     }
+    const liquidationPrice = '';
 
     showOrderConfirmDialog({
       formData,
       tokenName: tokenInfo.name,
-      liquidationPrice: '-', // TODO: Calculate actual liquidation price
+      liquidationPrice,
       onConfirm: async () => {
         try {
           if (formData.type === 'market') {
@@ -90,24 +156,9 @@ function PerpTradingPanel() {
 
           {canTrade ? (
             <Button
-              bg={(() => {
-                if (!canTrade || isSubmitting) return '$gray7';
-                return formData.side === 'long'
-                  ? '$buttonSuccess'
-                  : '$buttonCritical';
-              })()}
-              hoverStyle={{
-                bg: (() => {
-                  if (!canTrade || isSubmitting) return '$gray7';
-                  return formData.side === 'long' ? '$green7' : '$red7';
-                })(),
-              }}
-              pressStyle={{
-                bg: (() => {
-                  if (!canTrade || isSubmitting) return '$gray7';
-                  return formData.side === 'long' ? '$green9' : '$red9';
-                })(),
-              }}
+              bg={buttonStyles.bg}
+              hoverStyle={{ bg: buttonStyles.hoverBg }}
+              pressStyle={{ bg: buttonStyles.pressBg }}
               onPress={() => {
                 if (!canTrade) {
                   void checkAndApproveWallet();
@@ -115,19 +166,16 @@ function PerpTradingPanel() {
                   handleShowConfirm();
                 }
               }}
-              disabled={!canTrade || isSubmitting}
+              disabled={buttonDisabled}
               size="large"
               borderRadius="$3"
             >
               <SizableText
-                color={(() => {
-                  if (!canTrade || isSubmitting) return '$textDisabled';
-                  return '$textOnColor';
-                })()}
+                color={buttonStyles.textColor}
                 fontWeight="600"
                 size="$bodyLgMedium"
               >
-                {isSubmitting ? 'Placing...' : 'Place order'}
+                {buttonText}
               </SizableText>
             </Button>
           ) : null}
