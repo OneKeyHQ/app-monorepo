@@ -3688,6 +3688,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // accountNameBuilder for watching, imported, external account
     accountNameBuilder?: (data: { nextAccountId: number }) => string;
   }): Promise<{ isOverrideAccounts: boolean; existsAccounts: IDBAccount[] }> {
+    // eslint-disable-next-line no-param-reassign
+    accounts = accounts.map((account) => {
+      const a = {
+        ...account,
+      };
+      delete a.__hwExtraInfo__;
+      return a;
+    });
     this.validateAccountsFields(accounts);
 
     const wallet = await this.getWallet({ walletId });
