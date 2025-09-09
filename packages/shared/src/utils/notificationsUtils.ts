@@ -18,7 +18,9 @@ import { ERootRoutes } from '../routes/root';
 import extUtils from './extUtils';
 import { openUrlExternal, openUrlInApp } from './openUrlUtils';
 import { buildModalRouteParams } from './routeUtils';
+import timerUtils from './timerUtils';
 
+import type { INetworkAccount } from '../../types/account';
 import type { INotificationPushMessageInfo } from '../../types/notification';
 
 function convertWebPermissionToEnum(
@@ -40,22 +42,51 @@ export const NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED: true | false =
   false;
 export const NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT = 20;
 
-export function navigateToNotificationDetailByLocalParams({
+type IGetEarnAccountFunc = (params: {
+  accountId: string;
+  networkId: string;
+  indexedAccountId?: string;
+}) => Promise<{
+  walletId: string;
+  accountId: string;
+  networkId: string;
+  accountAddress: string;
+  account: INetworkAccount;
+} | null>;
+
+export async function navigateToNotificationDetailByLocalParams({
   payload,
-  localParams,
+  localParams: originalLocalParams,
+  getEarnAccount,
 }: {
   payload: {
     screen: string;
     params: Record<string, any>;
   };
   localParams: Record<string, string | undefined>;
+  getEarnAccount: IGetEarnAccountFunc;
 }) {
   const { screen, params: navigationParams } = payload;
   // Recursively find and merge the deepest params
 
+  const localParams = { ...originalLocalParams };
+
   let targetParams = navigationParams;
   while (targetParams?.params && typeof targetParams.params === 'object') {
     targetParams = targetParams.params;
+  }
+
+  if (targetParams.networkId) {
+    const accountInfos = await getEarnAccount({
+      accountId: localParams.accountId || '',
+      networkId: targetParams.networkId,
+      indexedAccountId: localParams.indexedAccountId || '',
+    });
+    if (accountInfos) {
+      localParams.accountId = accountInfos?.accountId || localParams.accountId;
+      localParams.indexedAccountId =
+        accountInfos?.account.indexedAccountId || localParams.indexedAccountId;
+    }
   }
   // Replace template variables in targetParams values with localParams values
   for (const [key, value] of Object.entries(targetParams)) {
@@ -65,8 +96,15 @@ export function navigateToNotificationDetailByLocalParams({
       });
     }
   }
-  appGlobals.$navigationRef.current?.navigate(screen, navigationParams);
-  return true;
+  if (screen === ERootRoutes.Main) {
+    appGlobals.$navigationRef.current?.goBack?.();
+    await timerUtils.wait(350);
+    appGlobals.$navigationRef.current?.navigate(screen, navigationParams);
+  } else {
+    appGlobals.$navigationRef.current?.dispatch(
+      StackActions.push(screen, navigationParams),
+    );
+  }
 }
 
 async function navigateToNotificationDetail({
@@ -78,6 +116,7 @@ async function navigateToNotificationDetail({
   mode,
   payload,
   localParams,
+  getEarnAccount,
 }: {
   notificationId: string;
   notificationAccountId?: string;
@@ -87,17 +126,33 @@ async function navigateToNotificationDetail({
   mode?: ENotificationPushMessageMode;
   payload?: string;
   localParams?: Record<string, string | undefined> | undefined;
+  getEarnAccount: IGetEarnAccountFunc;
 }) {
   let routes: string[] = [];
   let params: any = {};
   let shouldAckRead = true;
 
   if (isFromNotificationClick) {
-    routes = [
-      ERootRoutes.Modal,
-      EModalRoutes.NotificationsModal,
-      EModalNotificationsRoutes.NotificationList,
-    ];
+    const statusRoutes = appGlobals.$navigationRef.current?.getState().routes;
+    const currentRoute = statusRoutes?.[statusRoutes.length - 1];
+    if (
+      currentRoute &&
+      currentRoute.name === ERootRoutes.Modal &&
+      (
+        currentRoute.params as {
+          screen?: EModalRoutes;
+        }
+      )?.screen === EModalRoutes.NotificationsModal
+    ) {
+      routes = [];
+      appEventBus.emit(EAppEventBusNames.UpdateNotificationBadge, undefined);
+    } else {
+      routes = [
+        ERootRoutes.Modal,
+        EModalRoutes.NotificationsModal,
+        EModalNotificationsRoutes.NotificationList,
+      ];
+    }
   }
 
   // show Transaction Detail Modal
@@ -147,9 +202,10 @@ async function navigateToNotificationDetail({
         case ENotificationPushMessageMode.page:
           try {
             const payloadObj = JSON.parse(payload || '');
-            navigateToNotificationDetailByLocalParams({
+            await navigateToNotificationDetailByLocalParams({
               payload: payloadObj,
               localParams: localParams || {},
+              getEarnAccount,
             });
           } catch (error) {
             showFallbackUpdateDialog();
@@ -158,10 +214,10 @@ async function navigateToNotificationDetail({
         case ENotificationPushMessageMode.dialog:
           try {
             const payloadObj = JSON.parse(payload || '');
-            appEventBus.emit(
-              EAppEventBusNames.ShowNotificationViewDialog,
-              payloadObj,
-            );
+            appEventBus.emit(EAppEventBusNames.ShowNotificationViewDialog, {
+              payload: payloadObj,
+              localParams: localParams || {},
+            });
           } catch (error) {
             showFallbackUpdateDialog();
           }

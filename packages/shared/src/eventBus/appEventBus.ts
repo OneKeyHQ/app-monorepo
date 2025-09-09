@@ -40,6 +40,7 @@ import type {
 } from '../../types/swap/types';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
+import type { IWalletConnectSession } from '../walletConnect/types';
 import type { FuseResult } from 'fuse.js';
 
 // Supported hardware error types for dialog display
@@ -145,6 +146,12 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.WalletConnectCloseModal]: undefined;
   [EAppEventBusNames.WalletConnectModalState]: {
     open: boolean;
+  };
+  [EAppEventBusNames.WalletConnectConnectSuccess]: {
+    session: IWalletConnectSession;
+  };
+  [EAppEventBusNames.WalletConnectConnectError]: {
+    error: IOneKeyError;
   };
   [EAppEventBusNames.ShowToast]: IEventBusPayloadShowToast;
   [EAppEventBusNames.ShowAirGapQrcode]: {
@@ -364,7 +371,11 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ShowFallbackUpdateDialog]: {
     version: string | null | undefined;
   };
-  [EAppEventBusNames.ShowNotificationViewDialog]: INotificationViewDialogPayload;
+  [EAppEventBusNames.ShowNotificationViewDialog]: {
+    payload: INotificationViewDialogPayload;
+    localParams: Record<string, string | undefined>;
+  };
+  [EAppEventBusNames.UpdateNotificationBadge]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

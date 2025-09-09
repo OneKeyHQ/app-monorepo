@@ -20,20 +20,15 @@ export const useVersionCompatible = () => {
         title: intl.formatMessage({
           id: ETranslations.global_update_to_continue_title,
         }),
-        description: version ? (
-          <SizableText size="$bodyLg">
-            {intl.formatMessage({
-              id: ETranslations.global_update_to_continue_desc,
-            })}
-            <SizableText size="$bodyLg" fontWeight="bold">
-              {`v${version}`}
-            </SizableText>
-            or higher. Please update your app to continue.
-          </SizableText>
-        ) : (
-          intl.formatMessage({
-            id: ETranslations.global_update_to_continue_desc_fallback,
-          })
+        description: intl.formatMessage(
+          {
+            id: version
+              ? ETranslations.global_update_to_continue_desc
+              : ETranslations.global_update_to_continue_desc_fallback,
+          },
+          {
+            version,
+          },
         ),
         onConfirmText: intl.formatMessage({
           id: ETranslations.update_update_now,

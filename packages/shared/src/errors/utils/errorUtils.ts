@@ -20,32 +20,33 @@ import type { MessageDescriptor } from 'react-intl';
  * @param {Object} error - The error object to convert. It may have properties such as name, message, stack (js native Error), code, data (Web3RpcError), className, info, key (OneKeyError).
  * @returns {Object} A plain object with properties: name, message, code, data, className, info, key, stack. If the platform is Android hermes engine, the stack property will be a specific error message.
  */
-export function toPlainErrorObject(error: IOneKeyError | undefined) {
+export function toPlainErrorObject(error: unknown | IOneKeyError | undefined) {
   if (!error) {
     return {
       name: 'UnknownEmptyError',
       message: 'Unknown empty error',
     };
   }
+  const e = error as IOneKeyError;
   return omitBy(
     {
       // ****** also update JsBridgeBase.toPlainError
-      name: error.name,
-      constructorName: error.constructorName,
-      className: error.className,
-      key: error.key,
-      code: error.code,
-      message: error.message,
-      autoToast: error.autoToast,
-      requestId: error.requestId,
-      data: error.data,
-      info: error.info,
-      payload: error.payload,
+      name: e.name,
+      constructorName: e.constructorName,
+      className: e.className,
+      key: e.key,
+      code: e.code,
+      message: e.message,
+      autoToast: e.autoToast,
+      requestId: e.requestId,
+      data: e.data,
+      info: e.info,
+      payload: e.payload,
       // Crash in native hermes engine (error.stack serialize fail, only if Web3Errors object)
       stack: platformEnv.isNative
         ? 'Access error.stack failed in native hermes engine: unable to serialize, circular reference is too complex to analyze'
-        : error.stack,
-      reconnect: error.reconnect,
+        : e.stack,
+      reconnect: e.reconnect,
       // TODO Crash in Android hermes engine (error.stack serialize fail, only if Web3Errors object)
       // 'Access error.stack failed in Android hermes engine: unable to serialize, circular reference is too complex to analyze'
     },
