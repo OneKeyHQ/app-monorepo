@@ -368,7 +368,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           oldSelectedAccount?.walletId?.startsWith('watching') &&
           newSelectedAccount?.walletId?.startsWith('hw-')
         ) {
-          debugger;
+          // debugger;
         }
         // if (
         //   sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
