@@ -39,7 +39,6 @@ const generateSampleData = (basePrice: number, spread = 0.5) => {
 const OrderBookDemo = () => {
   const [basePrice, setBasePrice] = useState(500_000);
   const [spread, setSpread] = useState(0.5);
-  const [tickSize, setTickSize] = useState(0.1);
 
   const { bids, asks } = generateSampleData(basePrice, spread);
 
@@ -114,18 +113,7 @@ const OrderBookDemo = () => {
         </SizableText>
 
         <Stack p="$2">
-          <OrderBook
-            controls
-            bids={bids}
-            asks={asks}
-            maxLevelsPerSide={15}
-            aggregation={{
-              baseTickSize: 0.01,
-              tickSize,
-              tickSizes,
-              onTickSizeChange: setTickSize,
-            }}
-          />
+          <OrderBook bids={bids} asks={asks} maxLevelsPerSide={15} />
         </Stack>
         <Stack p="$2">
           <OrderBook
@@ -133,27 +121,11 @@ const OrderBookDemo = () => {
             bids={bids}
             asks={asks}
             maxLevelsPerSide={15}
-            aggregation={{
-              baseTickSize: 0.01,
-              tickSize,
-              tickSizes,
-              onTickSizeChange: setTickSize,
-            }}
           />
         </Stack>
       </Stack>
       <Stack p="$2">
-        <OrderPairBook
-          bids={bids}
-          asks={asks}
-          aggregation={{
-            baseTickSize: 0.01,
-            tickSize,
-            tickSizes,
-            onTickSizeChange: setTickSize,
-          }}
-          maxLevelsPerSide={15}
-        />
+        <OrderPairBook bids={bids} asks={asks} maxLevelsPerSide={15} />
       </Stack>
 
       <Stack gap="$2">

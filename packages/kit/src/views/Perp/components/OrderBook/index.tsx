@@ -46,10 +46,6 @@ interface IOrderBookProps {
   asks: IOBLevel[];
   /** The maximum price levels to render per side */
   maxLevelsPerSide?: number;
-  /** Aggregation options */
-  aggregation?: IOBAggregation;
-  /** A function which can return a custom aggregation button */
-  aggregationBtn?: IAggregationBtn;
   /** Styles for the container (outer) view */
   style?: StyleProp<ViewStyle>;
   /** A function which receives the mid price and can return a
@@ -59,8 +55,6 @@ interface IOrderBookProps {
   loadingNode?: React.ReactNode;
   /** Whether to render the order book horizontally */
   horizontal?: boolean;
-  /** Whether to render the controls */
-  controls?: boolean;
 }
 
 const styles = StyleSheet.create({
@@ -128,21 +122,12 @@ export function OrderBook({
   bids,
   asks,
   maxLevelsPerSide = 30,
-  aggregation,
-  aggregationBtn = defaultAggregationBtn,
   style,
   midPriceNode = defaultMidPriceNode,
   loadingNode = <DefaultLoadingNode />,
   horizontal = true,
-  controls,
 }: IOrderBookProps) {
-  const aggr = useAggregatedBook(
-    bids,
-    asks,
-    aggregation?.baseTickSize ?? 1,
-    aggregation?.tickSize ?? 1,
-    maxLevelsPerSide,
-  );
+  const aggr = useAggregatedBook(bids, asks, 0.01, 0.1, maxLevelsPerSide);
   const isEmpty = !aggr.bids.length && !aggr.asks.length;
 
   const midPrice = getMidPrice(bids[0]?.price ?? 0, asks[0]?.price ?? 0);
@@ -153,16 +138,6 @@ export function OrderBook({
   if (horizontal) {
     return (
       <View style={[styles.container, style]}>
-        {controls &&
-        aggregation?.tickSizes?.length &&
-        aggregation?.onTickSizeChange ? (
-          <AggregationControls
-            aggregationBtn={aggregationBtn}
-            tickSizes={aggregation.tickSizes}
-            tickSize={aggregation.tickSize}
-            onChange={aggregation.onTickSizeChange}
-          />
-        ) : null}
         <XStack gap="$1" h="$4" ai="center">
           <XStack flex={1} jc="space-between">
             <SizableText size="$bodySmMedium" color="$textSubdued">
@@ -349,20 +324,12 @@ export function OrderPairBook({
   bids,
   asks,
   maxLevelsPerSide = 30,
-  aggregation,
 }: {
-  aggregation?: IOBAggregation;
   maxLevelsPerSide?: number;
   bids: IOBLevel[];
   asks: IOBLevel[];
 }) {
-  const aggr = useAggregatedBook(
-    bids,
-    asks,
-    aggregation?.baseTickSize ?? 1,
-    aggregation?.tickSize ?? 1,
-    maxLevelsPerSide,
-  );
+  const aggr = useAggregatedBook(bids, asks, 0.01, 0.1, maxLevelsPerSide);
   const bidDepth = aggr.bids.at(-1)?.cumSize ?? 0;
   const askDepth = aggr.asks.at(-1)?.cumSize ?? 0;
   const midPrice = getMidPrice(bids[0]?.price ?? 0, asks[0]?.price ?? 0);

@@ -1,46 +1,8 @@
-import { ScrollView, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
 
 import { useL2Book } from '../hooks/usePerpMarketData';
 
 import { OrderPairBook } from './OrderBook';
-
-interface IOrderBookRowProps {
-  px: string;
-  sz: string;
-  side: 'bid' | 'ask';
-  index: number;
-}
-
-function OrderBookRow({ px, sz, side, index }: IOrderBookRowProps) {
-  const isBid = side === 'bid';
-
-  return (
-    <XStack
-      py="$1"
-      px="$2"
-      justifyContent="space-between"
-      bg={index % 2 === 0 ? '$bgSubdued' : 'transparent'}
-    >
-      <SizableText
-        size="$bodyMd"
-        color={isBid ? '$textSuccess' : '$textCritical'}
-        flex={1}
-        textAlign="right"
-        pr="$2"
-      >
-        {parseFloat(px).toFixed(2)}
-      </SizableText>
-      <SizableText
-        size="$bodyMd"
-        color="$textSubdued"
-        flex={1}
-        textAlign="right"
-      >
-        {parseFloat(sz).toFixed(4)}
-      </SizableText>
-    </XStack>
-  );
-}
 
 export function PerpOrderBook() {
   const {
