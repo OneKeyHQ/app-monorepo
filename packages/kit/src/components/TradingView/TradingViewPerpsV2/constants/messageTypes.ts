@@ -3,4 +3,4 @@ export const MESSAGE_TYPES = {
   MARKS_RESPONSE: 'MARKS_RESPONSE',
 } as const;
 
-export type MessageType = typeof MESSAGE_TYPES[keyof typeof MESSAGE_TYPES];
+export type IMessageType = (typeof MESSAGE_TYPES)[keyof typeof MESSAGE_TYPES];
