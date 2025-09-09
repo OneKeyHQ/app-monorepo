@@ -59,9 +59,12 @@ export function useHyperliquidEventBusListener() {
             break;
 
           case ESubscriptionType.ACTIVE_ASSET_CTX:
-            void actions.current.updateActiveAssetCtx(
-              data as IWsActiveAssetCtx,
-            );
+            if (eventPayload.metadata.coin) {
+              void actions.current.updateActiveAssetCtx(
+                data as IWsActiveAssetCtx,
+                eventPayload.metadata.coin,
+              );
+            }
             break;
 
           case ESubscriptionType.WEB_DATA2:
@@ -69,9 +72,12 @@ export function useHyperliquidEventBusListener() {
             break;
 
           case ESubscriptionType.ACTIVE_ASSET_DATA:
-            void actions.current.updateActiveAssetData(
-              data as IActiveAssetData,
-            );
+            if (eventPayload.metadata.coin) {
+              void actions.current.updateActiveAssetData(
+                data as IActiveAssetData,
+                eventPayload.metadata.coin,
+              );
+            }
             break;
 
           case ESubscriptionType.L2_BOOK:

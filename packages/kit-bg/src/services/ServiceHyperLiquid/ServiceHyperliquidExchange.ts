@@ -188,15 +188,15 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     this._exchangeClient = null;
   }
 
-  private _calculateSlippagePrice(
-    markPrice: string,
-    isBuy: boolean,
-    slippage: number,
-  ): string {
-    const price = new BigNumber(markPrice);
-    const slippageMultiplier = isBuy
-      ? new BigNumber(1).plus(slippage)
-      : new BigNumber(1).minus(slippage);
+  private _calculateSlippagePrice(params: {
+    markPrice: string;
+    isBuy: boolean;
+    slippage: number;
+  }): string {
+    const price = new BigNumber(params.markPrice);
+    const slippageMultiplier = params.isBuy
+      ? new BigNumber(1).plus(params.slippage)
+      : new BigNumber(1).minus(params.slippage);
     const adjustedPrice = price.multipliedBy(slippageMultiplier);
     return formatPriceToSignificantDigits(adjustedPrice.toNumber(), 5);
   }
@@ -251,11 +251,11 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     try {
       const isMarket = params.type === 'market';
       const midPx = params.midPx;
-      const price = this._calculateSlippagePrice(
-        midPx,
-        params.isBuy,
-        params.slippage || this.slippage,
-      );
+      const price = this._calculateSlippagePrice({
+        markPrice: midPx,
+        isBuy: params.isBuy,
+        slippage: params.slippage || this.slippage,
+      });
 
       const orders: IOrderParams[] = [];
 
@@ -277,11 +277,11 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
       if (params.tpTriggerPx) {
         if (isMarket) {
-          params.tpTriggerPx = this._calculateSlippagePrice(
-            params.tpTriggerPx,
-            true,
-            params.slippage || this.slippage,
-          );
+          params.tpTriggerPx = this._calculateSlippagePrice({
+            markPrice: params.tpTriggerPx,
+            isBuy: true,
+            slippage: params.slippage || this.slippage,
+          });
         }
         const tpOrder: IOrderParams = {
           a: params.assetId,
@@ -302,11 +302,11 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
       if (params.slTriggerPx) {
         if (isMarket) {
-          params.slTriggerPx = this._calculateSlippagePrice(
-            params.slTriggerPx,
-            false,
-            params.slippage || this.slippage,
-          );
+          params.slTriggerPx = this._calculateSlippagePrice({
+            markPrice: params.slTriggerPx,
+            isBuy: false,
+            slippage: params.slippage || this.slippage,
+          });
         }
         const slOrder: IOrderParams = {
           a: params.assetId,
@@ -342,11 +342,11 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   ): Promise<IOrderResponse> {
     this._ensureSetup();
     const midPx = params.midPx;
-    const price = this._calculateSlippagePrice(
-      midPx,
-      !params.isBuy,
-      params.slippage || this.slippage,
-    );
+    const price = this._calculateSlippagePrice({
+      markPrice: midPx,
+      isBuy: !params.isBuy,
+      slippage: params.slippage || this.slippage,
+    });
 
     const orderParams: IOrderParams = {
       a: params.assetId,
