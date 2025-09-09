@@ -25,7 +25,7 @@ export function aggregateLevels(
   };
   const aggregatedLevels: IOBLevel[] = [currLevel];
 
-  for (let i = 0; i < levels.length; i++) {
+  for (let i = 0; i < levels.length; i += 1) {
     const level = levels[i];
     cumSize += level.size;
     const roundedPrice = roundFn(level.price, tickSize);

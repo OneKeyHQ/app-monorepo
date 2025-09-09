@@ -35,8 +35,6 @@ export function getMidPrice(bestBid: number, bestAsk: number) {
   return (bestBid + bestAsk) / 2;
 }
 
-export const monoFamily = Platform.OS === 'ios' ? 'Menlo-Regular' : 'monospace';
-
 type IStringNumericLiteral =
   | `${number}`
   | 'Infinity'
