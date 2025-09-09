@@ -505,7 +505,11 @@ class ServiceDemo extends ServiceBase {
         account,
       },
     );
-    const result = await provider.request(payload, wcChain);
+    const result = await provider.request({
+      args: payload,
+      wcChain,
+      account,
+    });
     console.log('testExternalAccountPersonalSign RESULT: ', payload, result);
 
     return result as string;

@@ -23,6 +23,8 @@ export enum EAppEventBusNames {
   WalletConnectOpenModal = 'WalletConnectOpenModal',
   WalletConnectCloseModal = 'WalletConnectCloseModal',
   WalletConnectModalState = 'WalletConnectModalState',
+  WalletConnectConnectSuccess = 'WalletConnectConnectSuccess',
+  WalletConnectConnectError = 'WalletConnectConnectError',
   ShowDialogLoading = 'ShowDialogLoading',
   HideDialogLoading = 'HideDialogLoading',
   ShowToast = 'ShowToast',
@@ -109,4 +111,7 @@ export enum EAppEventBusNames {
   SwapPanelDismissKeyboard = 'SwapPanelDismissKeyboard',
   ShowFallbackUpdateDialog = 'ShowFallbackUpdateDialog',
   ShowNotificationViewDialog = 'ShowNotificationViewDialog',
+  UpdateNotificationBadge = 'UpdateNotificationBadge',
+  HyperliquidDataUpdate = 'HyperliquidDataUpdate',
+  HyperliquidConnectionChange = 'HyperliquidConnectionChange',
 }

@@ -26,6 +26,7 @@ import { EAppEventBusNames } from './appEventBusNames';
 
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
+import type { ESubscriptionType } from '../../types/hyperliquid/types';
 import type { INotificationViewDialogPayload } from '../../types/notification';
 import type { IPrimeTransferData } from '../../types/prime/primeTransferTypes';
 import type {
@@ -39,6 +40,7 @@ import type {
 } from '../../types/swap/types';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
+import type { IWalletConnectSession } from '../walletConnect/types';
 import type { FuseResult } from 'fuse.js';
 
 // Supported hardware error types for dialog display
@@ -119,6 +121,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.NetworkDeriveTypeChanged]: undefined;
   [EAppEventBusNames.AccountSelectorSelectedAccountUpdate]: {
     selectedAccount: IAccountSelectorSelectedAccount;
+    selectedAccountUpdatedAt: number | undefined;
     sceneName: EAccountSelectorSceneName;
     sceneUrl?: string;
     num: number;
@@ -144,6 +147,12 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.WalletConnectCloseModal]: undefined;
   [EAppEventBusNames.WalletConnectModalState]: {
     open: boolean;
+  };
+  [EAppEventBusNames.WalletConnectConnectSuccess]: {
+    session: IWalletConnectSession;
+  };
+  [EAppEventBusNames.WalletConnectConnectError]: {
+    error: IOneKeyError;
   };
   [EAppEventBusNames.ShowToast]: IEventBusPayloadShowToast;
   [EAppEventBusNames.ShowAirGapQrcode]: {
@@ -340,10 +349,34 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.ShowHardwareErrorDialog]: IHardwareErrorDialogPayload;
   [EAppEventBusNames.SwapPanelDismissKeyboard]: undefined;
+  [EAppEventBusNames.HyperliquidDataUpdate]: {
+    type: string;
+    subType: ESubscriptionType;
+    data: unknown;
+    metadata: Record<string, any>;
+  };
+  [EAppEventBusNames.HyperliquidConnectionChange]: {
+    type: 'connection';
+    subType: 'datastream';
+    data: {
+      status: 'connected' | 'disconnected';
+      lastConnected: number;
+      service: string;
+      activeSubscriptions: number;
+    };
+    metadata: {
+      timestamp: number;
+      source: string;
+    };
+  };
   [EAppEventBusNames.ShowFallbackUpdateDialog]: {
     version: string | null | undefined;
   };
-  [EAppEventBusNames.ShowNotificationViewDialog]: INotificationViewDialogPayload;
+  [EAppEventBusNames.ShowNotificationViewDialog]: {
+    payload: INotificationViewDialogPayload;
+    localParams: Record<string, string | undefined>;
+  };
+  [EAppEventBusNames.UpdateNotificationBadge]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

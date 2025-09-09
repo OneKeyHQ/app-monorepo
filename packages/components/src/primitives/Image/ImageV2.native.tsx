@@ -21,6 +21,7 @@ const getRandomRetryTimes = () => {
 export function ImageV2({
   style: defaultStyle,
   animated,
+  canRetry = true,
   ...props
 }: IImageV2Props) {
   const sizeProps = useMemo(() => {
@@ -69,7 +70,7 @@ export function ImageV2({
   const { image, reFetchImage } = useImage((source as ImageSource) || src, {
     onError(error, retry) {
       console.error('Loading failed:', error.message);
-      if (retryTimes.current < retryTimesLimit.current) {
+      if (canRetry && retryTimes.current < retryTimesLimit.current) {
         retryTimes.current += 1;
         setTimeout(() => {
           retry();

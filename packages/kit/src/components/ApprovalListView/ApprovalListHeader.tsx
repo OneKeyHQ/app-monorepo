@@ -57,8 +57,12 @@ function ApprovalListHeader({
       );
     }, [accountId, networkId]);
 
+  const [{ approvals }] = useApprovalListAtom();
+  const [{ tokenMap }] = useTokenMapAtom();
+  const [{ contractMap }] = useContractMapAtom();
+
   const renderTableHeader = useCallback(() => {
-    if (!tableLayout) {
+    if (!tableLayout || approvals?.length <= 0) {
       return null;
     }
 
@@ -95,11 +99,7 @@ function ApprovalListHeader({
         </Stack>
       </ListItem>
     );
-  }, [intl, tableLayout, tableHeaderOpacity]);
-
-  const [{ approvals }] = useApprovalListAtom();
-  const [{ tokenMap }] = useTokenMapAtom();
-  const [{ contractMap }] = useContractMapAtom();
+  }, [intl, tableLayout, tableHeaderOpacity, approvals?.length]);
 
   const handleViewRiskApprovals = useCallback(
     ({

@@ -83,6 +83,10 @@ export type IImageV2Props = Omit<
     resizeMode?: ImageProps['resizeMode'];
     tintColor?: ImageProps['tintColor'];
     onProgress?: (event: ImageProgressEventData) => void;
+    /** Whether the image can be retried
+     * @default true
+     */
+    canRetry?: boolean;
   };
 
 export type IImageProps = IImageV2Props;

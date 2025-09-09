@@ -170,6 +170,13 @@ export class PushProviderWebSocket extends PushProviderBase {
     this.socket.on(
       EAppSocketEventNames.primeConfigChanged,
       async (payload: IPrimeConfigChangedInfo) => {
+        if (!payload?.pwdHash) {
+          console.error(
+            'EAppSocketEventNames.primeConfigChanged ERROR:  payload pwdHash is missing',
+            payload,
+          );
+          return;
+        }
         defaultLogger.notification.websocket.consoleLog(
           'WebSocket 收到 primeConfigChanged 消息:',
           payload,
@@ -185,7 +192,7 @@ export class PushProviderWebSocket extends PushProviderBase {
             serverItems: payload.serverData,
             shouldSyncToScene: true,
             syncCredential,
-            serverPwdHash: syncCredential?.masterPasswordUUID || '', // TODO use serverPwdHash
+            serverPwdHash: payload?.pwdHash,
           },
         );
       },

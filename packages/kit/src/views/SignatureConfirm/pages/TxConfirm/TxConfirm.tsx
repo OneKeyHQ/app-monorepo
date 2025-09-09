@@ -65,9 +65,6 @@ function TxConfirm() {
     unsignedTxQueue,
   } = route.params;
 
-  const accountId = unsignedTxs?.[0]?.accountId ?? route.params.accountId;
-  const networkId = unsignedTxs?.[0]?.networkId ?? route.params.networkId;
-
   const {
     updateDecodedTxs,
     updateUnsignedTxs,
@@ -81,6 +78,11 @@ function TxConfirm() {
   const [reactiveUnsignedTxs] = useUnsignedTxsAtom();
   const decodedTxsInit = useRef(false);
   const txConfirmParamsInit = useRef(false);
+
+  const accountId =
+    reactiveUnsignedTxs?.[0]?.accountId ?? route.params.accountId;
+  const networkId =
+    reactiveUnsignedTxs?.[0]?.networkId ?? route.params.networkId;
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
