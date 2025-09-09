@@ -140,6 +140,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
         onWebViewRef={(ref) => {
           webRef.current = ref;
         }}
+        allowsBackForwardNavigationGestures={false}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         displayProgressBar={false}
         pullToRefreshEnabled={false}
@@ -156,9 +157,9 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
         <Stack
           position="absolute"
           left={0}
-          top={0}
+          top={50}
           bottom={0}
-          width={12}
+          width={15}
           zIndex={1}
           pointerEvents="auto"
         />

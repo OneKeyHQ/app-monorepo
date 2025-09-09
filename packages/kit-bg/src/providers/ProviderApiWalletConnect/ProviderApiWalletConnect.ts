@@ -15,7 +15,6 @@ import { EWalletConnectSessionEvents } from '@onekeyhq/shared/src/walletConnect/
 import type { IWalletConnectSessionProposalResult } from '@onekeyhq/shared/types/dappConnection';
 
 import walletConnectClient from '../../services/ServiceWalletConnect/walletConnectClient';
-import walletConnectStorage from '../../services/ServiceWalletConnect/walletConnectStorage';
 
 import { WalletConnectRequestProxyAlgo } from './WalletConnectRequestProxyAlgo';
 import { WalletConnectRequestProxyEth } from './WalletConnectRequestProxyEth';
@@ -25,7 +24,7 @@ import type {
   WalletConnectRequestProxy,
 } from './WalletConnectRequestProxy';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-import type { IWeb3Wallet, Web3WalletTypes } from '@walletconnect/web3wallet';
+import type { IWalletKit, WalletKitTypes } from '@reown/walletkit';
 
 class ProviderApiWalletConnect {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -34,7 +33,7 @@ class ProviderApiWalletConnect {
 
   backgroundApi: IBackgroundApi;
 
-  web3Wallet?: IWeb3Wallet;
+  web3Wallet?: IWalletKit;
 
   requestProxyMap: {
     [networkImpl: string]: WalletConnectRequestProxy;
@@ -52,8 +51,10 @@ class ProviderApiWalletConnect {
   }
 
   async initializeOnStart() {
-    const sessions = await walletConnectStorage.walletSideStorage.getSessions();
-    if (sessions?.length) {
+    const sessionsNew =
+      await walletConnectClient.getWalletSideStorageSessions();
+    // const sessions = await walletConnectStorage.walletSideStorage.getSessions();
+    if (sessionsNew?.length) {
       await this.initialize();
     }
   }
@@ -88,9 +89,17 @@ class ProviderApiWalletConnect {
       this.onSessionPing,
     );
     this.web3Wallet.on(
-      EWalletConnectSessionEvents.auth_request,
+      EWalletConnectSessionEvents.session_authenticate,
       this.onAuthRequest,
     );
+    // this.web3Wallet.on(
+    //   EWalletConnectSessionEvents.session_connect,
+    //   function () {
+    //     // eslint-disable-next-line prefer-rest-params
+    //     console.log('session_connect: ', arguments);
+    //     debugger;
+    //   },
+    // );
   }
 
   unregisterEvents() {
@@ -114,12 +123,12 @@ class ProviderApiWalletConnect {
       this.onSessionPing,
     );
     this.web3Wallet.off(
-      EWalletConnectSessionEvents.auth_request,
+      EWalletConnectSessionEvents.session_authenticate,
       this.onAuthRequest,
     );
   }
 
-  onSessionProposal = async (proposal: Web3WalletTypes.SessionProposal) => {
+  onSessionProposal = async (proposal: WalletKitTypes.SessionProposal) => {
     const { serviceWalletConnect, serviceDApp } = this.backgroundApi;
     console.log('onSessionProposal: ', JSON.stringify(proposal));
     const optionalNamespaces = proposal?.params?.optionalNamespaces;
@@ -233,7 +242,7 @@ class ProviderApiWalletConnect {
     }
   };
 
-  onSessionRequest = async (request: Web3WalletTypes.SessionRequest) => {
+  onSessionRequest = async (request: WalletKitTypes.SessionRequest) => {
     console.log('onSessionRequest: ', request);
     const { topic, id } = request;
     const { serviceWalletConnect } = this.backgroundApi;
@@ -313,7 +322,7 @@ class ProviderApiWalletConnect {
     }
   };
 
-  onSessionDelete = (args: Web3WalletTypes.SessionDelete) => {
+  onSessionDelete = (args: WalletKitTypes.SessionDelete) => {
     console.log('onSessionDelete: ', args);
     console.log(this.web3Wallet?.getActiveSessions());
     void this.backgroundApi.serviceWalletConnect.handleSessionDelete(
@@ -321,7 +330,7 @@ class ProviderApiWalletConnect {
     );
   };
 
-  onAuthRequest = (args: Web3WalletTypes.AuthRequest) => {
+  onAuthRequest = (args: WalletKitTypes.SessionAuthenticate) => {
     console.log('onAuthRequest: ', args);
   };
 
@@ -334,7 +343,7 @@ class ProviderApiWalletConnect {
     request,
     requestProxy,
   }: {
-    request: Web3WalletTypes.SessionRequest;
+    request: WalletKitTypes.SessionRequest;
     requestProxy: WalletConnectRequestProxy;
   }) {
     const { topic, id } = request;
@@ -376,7 +385,10 @@ class ProviderApiWalletConnect {
   @backgroundMethod()
   async connectToDapp(uri: string) {
     await this.initialize();
-    await this.web3Wallet?.pair({ uri });
+    if (!this.web3Wallet) {
+      throw new OneKeyLocalError('web3Wallet is not initialized');
+    }
+    await this.web3Wallet.pair({ uri });
   }
 
   getDAppOrigin(option: IWalletConnectRequestOptions) {
