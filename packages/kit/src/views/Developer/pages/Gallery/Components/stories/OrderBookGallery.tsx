@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { Button, SizableText, Stack, XStack } from '@onekeyhq/components';
 import {
-  OrderPriceBook,
+  OrderPairBook,
   Orderbook,
 } from '@onekeyhq/kit/src/views/Perp/components/OrderBook';
 import type { IOBLevel } from '@onekeyhq/kit/src/views/Perp/components/OrderBook/types';
@@ -37,7 +37,7 @@ const generateSampleData = (basePrice: number, spread = 0.5) => {
 };
 
 const OrderBookDemo = () => {
-  const [basePrice, setBasePrice] = useState(50_000);
+  const [basePrice, setBasePrice] = useState(500_000);
   const [spread, setSpread] = useState(0.5);
   const [tickSize, setTickSize] = useState(0.1);
 
@@ -143,7 +143,7 @@ const OrderBookDemo = () => {
         </Stack>
       </Stack>
       <Stack p="$2">
-        <OrderPriceBook
+        <OrderPairBook
           bids={bids}
           asks={asks}
           aggregation={{
