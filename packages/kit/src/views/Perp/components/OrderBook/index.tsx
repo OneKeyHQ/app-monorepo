@@ -191,11 +191,11 @@ export function Orderbook({
               index,
             })}
             renderItem={({ item }) => (
-              <XStack h="$6" ai="center" mt={1}>
+              <XStack h="$6" ai="center" mt={1} position="relative">
                 <XStack
                   position="absolute"
                   right={0}
-                  h={rowHeight}
+                  h="$6"
                   width={`${(item.cumSize / bidDepth) * 100}%`}
                   bg="rgba(233, 249, 238, 1)"
                 />
@@ -203,7 +203,7 @@ export function Orderbook({
                   <NumberSizeableText
                     fontFamily="$monoRegular"
                     color="$textSubdued"
-                    formatter="balance"
+                    formatter="marketCap"
                   >
                     {item.size}
                   </NumberSizeableText>
@@ -228,11 +228,11 @@ export function Orderbook({
               index,
             })}
             renderItem={({ item }) => (
-              <XStack h="$6" ai="center" mt={1}>
+              <XStack h="$6" ai="center" mt={1} position="relative">
                 <XStack
                   position="absolute"
                   left={0}
-                  h={rowHeight}
+                  h="$6"
                   width={`${(item.cumSize / askDepth) * 100}%`}
                   bg="rgb(255, 239, 239)"
                 />
@@ -240,7 +240,7 @@ export function Orderbook({
                   <NumberSizeableText
                     fontFamily="$monoRegular"
                     color="rgb(198, 42, 47)"
-                    formatter="balance"
+                    formatter="marketCap"
                   >
                     {item.size}
                   </NumberSizeableText>
