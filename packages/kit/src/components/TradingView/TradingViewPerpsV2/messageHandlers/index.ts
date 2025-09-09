@@ -35,7 +35,7 @@ export function usePerpsMessageHandler({
 
   useEffect(() => {
     if (priceData) {
-      console.log('[MarksHandler] priceData: ', priceData);
+      // console.log('[MarksHandler] priceData: ', priceData);
     }
   }, [priceData]);
 
