@@ -15,7 +15,7 @@ const generateSampleData = (basePrice: number, spread = 0.5) => {
   const asks: IOBLevel[] = [];
 
   // Generate 20 levels on each side
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 20; i += 1) {
     const bidPrice = basePrice - (i + 1) * spread;
     const askPrice = basePrice + (i + 1) * spread;
     const size = Math.random() * 100 + 10; // Random size between 10-110
