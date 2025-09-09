@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
-import { StyleSheet } from 'react-native';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Badge,
@@ -10,8 +10,8 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
