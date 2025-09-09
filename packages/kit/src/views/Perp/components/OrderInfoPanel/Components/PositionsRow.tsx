@@ -7,7 +7,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import { calcCellAlign } from '../utils';
+import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
 import type { FrontendOrder } from '@nktkas/hyperliquid';
@@ -32,6 +32,7 @@ interface IPositionRowProps {
   onAllClose: () => void;
   setTpsl: () => void;
   isMobile?: boolean;
+  index: number;
 }
 
 const PositionRow = memo(
@@ -47,6 +48,7 @@ const PositionRow = memo(
     handleViewTpslOrders,
     onAllClose,
     setTpsl,
+    index,
   }: IPositionRowProps) => {
     const side = useMemo(() => {
       return parseFloat(pos.szi || '0') >= 0 ? 'long' : 'short';
@@ -67,21 +69,12 @@ const PositionRow = memo(
       ).toFixed();
       const entryPriceFormatted = numberFormat(entryPrice, {
         formatter: 'price',
-        formatterOptions: {
-          currency: '$',
-        },
       });
       const markPriceFormatted = numberFormat(markPrice, {
         formatter: 'price',
-        formatterOptions: {
-          currency: '$',
-        },
       });
       const liquidationPriceFormatted = numberFormat(liquidationPrice, {
         formatter: 'price',
-        formatterOptions: {
-          currency: '$',
-        },
       });
       return {
         entryPriceFormatted,
@@ -100,9 +93,15 @@ const PositionRow = memo(
         },
       });
       const sizeValue = new BigNumber(pos.positionValue || '0').toFixed();
+      const sizeValueFormatted = numberFormat(sizeValue, {
+        formatter: 'price',
+        formatterOptions: {
+          currency: '$',
+        },
+      });
       return {
         sizeAbsFormatted,
-        sizeValue,
+        sizeValue: sizeValueFormatted,
       };
     }, [pos.szi, pos.positionValue, assetInfo.assetSymbol]);
 
@@ -110,7 +109,10 @@ const PositionRow = memo(
       const pnlBn = new BigNumber(pos.unrealizedPnl || '0');
       const pnlAbs = pnlBn.abs().toFixed();
       const pnlFormatted = numberFormat(pnlAbs, {
-        formatter: 'value',
+        formatter: 'price',
+        formatterOptions: {
+          currency: '$',
+        },
       });
       let pnlColor = '$textSuccess';
       let pnlPlusOrMinus = '+';
@@ -297,24 +299,24 @@ const PositionRow = memo(
     }
     return (
       <XStack
-        flex={1}
-        py="$2"
+        minWidth={cellMinWidth}
+        py="$1.5"
         px="$3"
+        display="flex"
+        flex={1}
         alignItems="center"
         hoverStyle={{ bg: '$bgHover' }}
-        bg="$bg"
-        borderBottomWidth="$px"
-        borderBottomColor="$borderSubdued"
-        minWidth={cellMinWidth}
+        {...(index % 2 === 1 && {
+          backgroundColor: '$bgSubdued',
+        })}
       >
         {/* Symbol & Leverage */}
         <XStack
-          width={columnConfigs[0].width}
-          minWidth={columnConfigs[0].minWidth}
-          flex={columnConfigs[0].flex}
+          {...getColumnStyle(columnConfigs[0])}
           alignItems="center"
           justifyContent={calcCellAlign(columnConfigs[0].align)}
           gap="$2"
+          pl="$2"
         >
           <SizableText size="$bodySmMedium" color={assetInfo.assetColor}>
             {assetInfo.assetSymbol}
@@ -326,9 +328,7 @@ const PositionRow = memo(
 
         {/* Position Size */}
         <YStack
-          width={columnConfigs[1].width}
-          minWidth={columnConfigs[1].minWidth}
-          flex={columnConfigs[1].flex}
+          {...getColumnStyle(columnConfigs[1])}
           justifyContent="center"
           alignItems={calcCellAlign(columnConfigs[1].align)}
         >
@@ -336,15 +336,13 @@ const PositionRow = memo(
             {`${sizeInfo.sizeAbsFormatted as string}`}
           </SizableText>
           <SizableText size="$bodySm" color="$textSubdued">
-            {`$${sizeInfo.sizeValue}`}
+            {`${sizeInfo.sizeValue as string}`}
           </SizableText>
         </YStack>
 
         {/* Entry Price */}
         <XStack
-          width={columnConfigs[2].width}
-          minWidth={columnConfigs[2].minWidth}
-          flex={columnConfigs[2].flex}
+          {...getColumnStyle(columnConfigs[2])}
           justifyContent={calcCellAlign(columnConfigs[2].align)}
           alignItems="center"
         >
@@ -355,9 +353,7 @@ const PositionRow = memo(
 
         {/* Mark Price */}
         <XStack
-          width={columnConfigs[3].width}
-          minWidth={columnConfigs[3].minWidth}
-          flex={columnConfigs[3].flex}
+          {...getColumnStyle(columnConfigs[3])}
           justifyContent={calcCellAlign(columnConfigs[3].align)}
           alignItems="center"
         >
@@ -367,9 +363,7 @@ const PositionRow = memo(
         </XStack>
         {/* Liq. Price */}
         <XStack
-          width={columnConfigs[4].width}
-          minWidth={columnConfigs[4].minWidth}
-          flex={columnConfigs[4].flex}
+          {...getColumnStyle(columnConfigs[4])}
           justifyContent={calcCellAlign(columnConfigs[4].align)}
           alignItems="center"
         >
@@ -379,24 +373,20 @@ const PositionRow = memo(
         </XStack>
         {/* Unrealized PnL */}
         <XStack
-          width={columnConfigs[5].width}
-          minWidth={columnConfigs[5].minWidth}
-          flex={columnConfigs[5].flex}
+          {...getColumnStyle(columnConfigs[5])}
           justifyContent={calcCellAlign(columnConfigs[5].align)}
           alignItems="center"
         >
           <SizableText size="$bodySm" color={otherInfo.pnlColor}>{`${
             otherInfo.pnlPlusOrMinus
-          }$${otherInfo.unrealizedPnl as string}(${otherInfo.pnlPlusOrMinus}${
+          }${otherInfo.unrealizedPnl as string}(${otherInfo.pnlPlusOrMinus}${
             otherInfo.roiPercent
           }%)`}</SizableText>
         </XStack>
 
         {/* Margin */}
         <XStack
-          width={columnConfigs[6].width}
-          minWidth={columnConfigs[6].minWidth}
-          flex={columnConfigs[6].flex}
+          {...getColumnStyle(columnConfigs[6])}
           justifyContent={calcCellAlign(columnConfigs[6].align)}
           alignItems="center"
         >
@@ -407,9 +397,7 @@ const PositionRow = memo(
 
         {/* Funding */}
         <XStack
-          width={columnConfigs[7].width}
-          minWidth={columnConfigs[7].minWidth}
-          flex={columnConfigs[7].flex}
+          {...getColumnStyle(columnConfigs[7])}
           justifyContent={calcCellAlign(columnConfigs[7].align)}
           alignItems="center"
         >
@@ -420,9 +408,7 @@ const PositionRow = memo(
 
         {/* TPSL */}
         <XStack
-          width={columnConfigs[8].width}
-          minWidth={columnConfigs[8].minWidth}
-          flex={columnConfigs[8].flex}
+          {...getColumnStyle(columnConfigs[8])}
           justifyContent={calcCellAlign(columnConfigs[8].align)}
           alignItems="center"
         >
@@ -441,9 +427,7 @@ const PositionRow = memo(
 
         {/* Actions */}
         <XStack
-          width={columnConfigs[9].width}
-          minWidth={columnConfigs[9].minWidth}
-          flex={columnConfigs[9].flex}
+          {...getColumnStyle(columnConfigs[9])}
           justifyContent={calcCellAlign(columnConfigs[9].align)}
           alignItems="center"
           gap="$2"
