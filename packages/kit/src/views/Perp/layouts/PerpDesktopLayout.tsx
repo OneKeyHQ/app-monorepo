@@ -10,49 +10,40 @@ import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 function PerpDesktopLayout() {
   const { gtXl } = useMedia();
   return (
-    <ScrollView>
-      <YStack flex={1} bg="$bgApp">
+    <ScrollView flex={1}>
+      <YStack bg="$bgApp">
         <PerpTickerBar />
         <XStack flex={1}>
           <YStack
             flex={1}
             borderRightWidth="$px"
             borderRightColor="$borderSubdued"
-            minWidth={gtXl ? 800 : 400}
           >
-            {/* Charts Section - Takes 60% of left side height */}
+            {/* Charts Section */}
             <XStack
-              flex={gtXl ? 1 : 0.6}
+              flex={7}
               borderBottomWidth="$px"
               borderBottomColor="$borderSubdued"
-              minHeight={400}
             >
-              {/* Charts - 70% width */}
-              <YStack flex={gtXl ? 0.7 : 1}>
+              <YStack flex={1}>
                 <PerpCandles />
               </YStack>
 
-              {/* Order Book - 30% width */}
               {gtXl ? (
                 <YStack
-                  flex={0.3}
                   borderLeftWidth="$px"
                   borderLeftColor="$borderSubdued"
-                  minWidth={300}
+                  w={320}
                 >
                   <PerpOrderBook />
                 </YStack>
               ) : null}
             </XStack>
-
-            {/* Positions Section - Takes 40% of left side height */}
-            <YStack flex={0.4} minHeight={300}>
-              <PerpOrderInfoPanel />
-            </YStack>
+            {/* Positions Section */}
+            <PerpOrderInfoPanel />
           </YStack>
 
-          {/* Right Section: Trading Panel */}
-          <YStack maxWidth={400} minWidth={320}>
+          <YStack w={360}>
             <PerpTradingPanel />
             <YStack borderTopWidth="$px" borderTopColor="$borderSubdued">
               <PerpAccountPanel />
