@@ -110,13 +110,7 @@ const OrderBookDemo = () => {
           Order Book
         </SizableText>
 
-        <Stack
-          style={{
-            height: 400,
-            borderRadius: 8,
-            padding: 8,
-          }}
-        >
+        <Stack p="$2">
           <Orderbook
             bids={bids}
             asks={asks}

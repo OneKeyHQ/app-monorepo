@@ -239,14 +239,14 @@ export function Orderbook({
                 <XStack flex={1} jc="space-between">
                   <NumberSizeableText
                     fontFamily="$monoRegular"
-                    color="$textSubdued"
+                    color="rgb(198, 42, 47)"
                     formatter="balance"
                   >
                     {item.size}
                   </NumberSizeableText>
                   <NumberSizeableText
                     fontFamily="$monoRegular"
-                    color="rgb(198, 42, 47)"
+                    color="$textSubdued"
                     formatter="value"
                   >
                     {item.price}
