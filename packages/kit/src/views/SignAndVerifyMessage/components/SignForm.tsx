@@ -463,6 +463,7 @@ export const SignForm = ({
         }}
       >
         <Select
+          usingPercentSnapPoints
           title={intl.formatMessage({
             id: ETranslations.global_address,
           })}

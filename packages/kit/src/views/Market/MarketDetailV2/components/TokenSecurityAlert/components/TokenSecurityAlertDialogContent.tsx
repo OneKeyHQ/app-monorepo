@@ -38,7 +38,7 @@ function TokenSecurityAlertDialogContent({
         />
 
         {formattedData.length > 0 ? (
-          <YStack>
+          <YStack gap="$4">
             {formattedData.map((item) => {
               return (
                 <TokenSecurityAlertDialogContentItem

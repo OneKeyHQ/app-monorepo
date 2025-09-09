@@ -211,6 +211,7 @@ class ServiceSend extends ServiceBase {
         hasEnergyRented,
       },
       {
+        timeout: timerUtils.getTimeDurationMs({ seconds: 10 }),
         headers:
           await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
             accountId,

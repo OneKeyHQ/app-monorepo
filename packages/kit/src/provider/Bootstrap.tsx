@@ -367,6 +367,12 @@ export const useFetchCurrencyList = () => {
   }, []);
 };
 
+export const useFetchMarketBasicConfig = () => {
+  useEffect(() => {
+    void backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
+  }, []);
+};
+
 const launchFloatingIconEvent = async (intl: IntlShape) => {
   const visited = await backgroundApiProxy.serviceSpotlight.isVisited(
     ESpotlightTour.showFloatingIconDialog,
@@ -584,6 +590,7 @@ export function Bootstrap() {
   }, [devSettings.enabled, devSettings.settings?.showPerformanceMonitor]);
 
   useFetchCurrencyList();
+  useFetchMarketBasicConfig();
   useAboutVersion();
   useDesktopEvents();
   useLaunchEvents();
