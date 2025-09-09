@@ -33,15 +33,19 @@ static LaunchOptionsManager *sharedInstance = nil;
 }
 
 - (void)saveLaunchOptions:(NSDictionary *)launchOptions {
-    @synchronized(self) {
+    if (launchOptions) {
+        // Show alert with launch options on main thread
         self.launchOptions = launchOptions;
         RCTLogInfo(@"LaunchOptionsManager: Saved launch options: %@", launchOptions);
+    } else {
+        RCTLogInfo(@"LaunchOptionsManager: Launch options is nil, skipping save");
     }
 }
 
 - (NSDictionary *)getLaunchOptions {
     @synchronized(self) {
-        return self.launchOptions;
+        // Show alert with current launch options on main thread
+        return [LaunchOptionsManager sharedInstance].launchOptions;
     }
 }
 

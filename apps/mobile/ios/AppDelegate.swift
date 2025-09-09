@@ -14,22 +14,21 @@ public class AppDelegate: ExpoAppDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
-    // Save launch options to LaunchOptionsManager
-    if let launchOptions = launchOptions {
-      var options: [String: Any] = [:]
-      
-      options["isUserAction"] = launchOptions[UIApplication.LaunchOptionsKey.sourceApplication] != nil
-      if let remoteNotification = launchOptions[UIApplication.LaunchOptionsKey.remoteNotification] as? [AnyHashable: Any] {
-        options["remoteNotification"] = remoteNotification
-      }
-      
-      if let localNotification = launchOptions[UIApplication.LaunchOptionsKey.localNotification] as? [AnyHashable: Any] {
-        options["localNotification"] = localNotification
-      }
-      
-      LaunchOptionsManager.sharedInstance().saveLaunchOptions(options)
+    if let options = launchOptions {
+        let alert = UIAlertController(
+            title: "Launch Options",
+            message: "\(options)",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        
+        // Present alert on main thread after a short delay to ensure window is ready
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            if let rootViewController = self.window?.rootViewController {
+                rootViewController.present(alert, animated: true)
+            }
+        }
     }
-    
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
@@ -45,6 +44,8 @@ public class AppDelegate: ExpoAppDelegate {
       in: window,
       launchOptions: launchOptions)
 #endif
+    // Save launch options to LaunchOptionsManager
+    LaunchOptionsManager.sharedInstance().saveLaunchOptions(launchOptions)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
