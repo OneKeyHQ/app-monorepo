@@ -7891,7 +7891,7 @@ __metadata:
     "@sentry/react-native": "npm:6.16.1"
     "@shopify/flash-list": "npm:2.0.3"
     "@types/react-native-canvas": "npm:^0.1.13"
-    "@walletconnect/react-native-compat": "npm:2.11.2"
+    "@walletconnect/react-native-compat": "npm:2.21.7"
     burnt: "npm:0.12.2"
     expo: "npm:53.0.19"
     expo-apple-authentication: "npm:7.2.4"
@@ -16710,22 +16710,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@walletconnect/react-native-compat@npm:2.11.2":
-  version: 2.11.2
-  resolution: "@walletconnect/react-native-compat@npm:2.11.2"
+"@walletconnect/react-native-compat@npm:2.21.7":
+  version: 2.21.7
+  resolution: "@walletconnect/react-native-compat@npm:2.21.7"
   dependencies:
     events: "npm:3.3.0"
-    fast-text-encoding: "npm:^1.0.6"
-    react-native-url-polyfill: "npm:^2.0.0"
+    fast-text-encoding: "npm:1.0.6"
+    react-native-url-polyfill: "npm:2.0.0"
   peerDependencies:
     "@react-native-async-storage/async-storage": "*"
     "@react-native-community/netinfo": "*"
     expo-application: "*"
+    react-native: "*"
     react-native-get-random-values: "*"
   peerDependenciesMeta:
     expo-application:
       optional: true
-  checksum: 10/5f955e90f63f1cba614a6f46987c2df549f1fe04274d6752c282fa37a0fb8f2334a1226d35f582e6a2619ee0a32df211b319e92949255ffe438148f1bb1390ea
+  checksum: 10/c64b202640ea4da680ed361f8695aa5005f27da56f25839c41f049a85d808a297e59b29c2700c73b9f453f7839399df134bcf0c27848d042b60824a6e0e8df91
   languageName: node
   linkType: hard
 
@@ -25502,7 +25503,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fast-text-encoding@npm:^1.0.6":
+"fast-text-encoding@npm:1.0.6":
   version: 1.0.6
   resolution: "fast-text-encoding@npm:1.0.6"
   checksum: 10/f7b9e2e7a21e4ae5f4b8d3729850be83fb45052b28c9c38c09b8366463a291d6dc5448359238bdaf87f6a9e907d5895a94319a2c5e0e9f0786859ad6312d1d06
@@ -35481,6 +35482,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-native-url-polyfill@npm:2.0.0":
+  version: 2.0.0
+  resolution: "react-native-url-polyfill@npm:2.0.0"
+  dependencies:
+    whatwg-url-without-unicode: "npm:8.0.0-3"
+  peerDependencies:
+    react-native: "*"
+  checksum: 10/6a8d605eeb1b0ee9b0f47f1866acc2edfa2131a4a8fb1ea3839ceb507e225b894ed66f49a3bd826fc964f2c8005b3678c9d3b65d07eb0a3b979be830cb618686
+  languageName: node
+  linkType: hard
+
 "react-native-url-polyfill@npm:^1.3.0":
   version: 1.3.0
   resolution: "react-native-url-polyfill@npm:1.3.0"
@@ -35489,17 +35501,6 @@ __metadata:
   peerDependencies:
     react-native: "*"
   checksum: 10/e2dcfc11744ab16e841c44d037062dee971cf1387cfc20dd610f175e53eb8c203a1c9d9f0df3570605371560f3e64f6f078f31409846fa1c68dfd316b168df33
-  languageName: node
-  linkType: hard
-
-"react-native-url-polyfill@npm:^2.0.0":
-  version: 2.0.0
-  resolution: "react-native-url-polyfill@npm:2.0.0"
-  dependencies:
-    whatwg-url-without-unicode: "npm:8.0.0-3"
-  peerDependencies:
-    react-native: "*"
-  checksum: 10/6a8d605eeb1b0ee9b0f47f1866acc2edfa2131a4a8fb1ea3839ceb507e225b894ed66f49a3bd826fc964f2c8005b3678c9d3b65d07eb0a3b979be830cb618686
   languageName: node
   linkType: hard
 
