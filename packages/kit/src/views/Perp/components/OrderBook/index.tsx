@@ -1,5 +1,7 @@
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 
+import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
+
 import { AggregationControls } from './AggregationControls';
 import { defaultAggregationBtn } from './defaultAggregationBtn';
 import { DefaultLoadingNode } from './DefaultLoadingNode';
@@ -12,9 +14,7 @@ import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 export const rowHeight = 28;
 
 export const defaultMidPriceNode = (midPrice: number) => (
-  <Text style={{ fontWeight: 'bold', fontFamily: monoFamily, color: 'white' }}>
-    {priceFmt(midPrice)}
-  </Text>
+  <NumberSizeableText formatter="balance">{midPrice}</NumberSizeableText>
 );
 
 interface IOBAggregation {
@@ -88,10 +88,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 8,
   },
-  book: {
-    display: 'flex',
-    flexDirection: 'row',
-  },
   levelList: {
     flexGrow: 1,
   },
@@ -133,7 +129,7 @@ export function Orderbook({
   askPriceColor = 'rgb(246, 70, 93)',
   askBarColor = 'rgb(49, 30, 38)',
   bidBarColor = '#1a2643',
-  sizeLabel = 'Size',
+  sizeLabel = 'SIZE',
   style,
   cellTextStyle,
   midPriceNode = defaultMidPriceNode,
@@ -164,25 +160,28 @@ export function Orderbook({
           onChange={aggregation.onTickSizeChange}
         />
       ) : null}
-      <View
-        style={[styles.columns, { borderBottomColor: aggregationBorderColor }]}
-      >
-        <Text
-          style={{ fontSize: 13, fontWeight: '600', color: columnLabelColor }}
-        >
-          {sizeLabel}
-        </Text>
-        {midPrice ? midPriceNode(midPrice) : null}
-        <Text
-          style={{ fontSize: 13, fontWeight: '600', color: columnLabelColor }}
-        >
-          {sizeLabel}
-        </Text>
-      </View>
+      <XStack gap="$1" h="$4" ai="center">
+        <XStack flex={1} jc="space-between">
+          <SizableText size="$bodySmMedium" color="$textSubdued">
+            {sizeLabel}
+          </SizableText>
+          <SizableText size="$bodySmMedium" color="$textSubdued">
+            BUY
+          </SizableText>
+        </XStack>
+        <XStack flex={1} jc="space-between">
+          <SizableText size="$bodySmMedium" color="$textSubdued">
+            SELL
+          </SizableText>
+          <SizableText size="$bodySmMedium" color="$textSubdued">
+            {sizeLabel}
+          </SizableText>
+        </XStack>
+      </XStack>
       {isEmpty ? (
         loadingNode
       ) : (
-        <View style={styles.book}>
+        <XStack gap="$1">
           <FlatList
             contentContainerStyle={styles.levelList}
             data={aggr.bids}
@@ -192,40 +191,31 @@ export function Orderbook({
               index,
             })}
             renderItem={({ item }) => (
-              <View style={styles.row}>
-                <View
-                  style={[
-                    styles.bar,
-                    {
-                      right: 0,
-                      backgroundColor: bidBarColor,
-                      width: `${(item.cumSize / bidDepth) * 100}%`,
-                    },
-                  ]}
+              <XStack h="$6" ai="center" mt={1}>
+                <XStack
+                  position="absolute"
+                  right={0}
+                  h={rowHeight}
+                  width={`${(item.cumSize / bidDepth) * 100}%`}
+                  bg="rgba(233, 249, 238, 1)"
                 />
-                <View style={styles.cell}>
-                  <Text
-                    style={[
-                      styles.cellText,
-                      cellTextStyle,
-                      { color: sizeColor },
-                    ]}
+                <XStack flex={1} jc="space-between">
+                  <NumberSizeableText
+                    fontFamily="$monoRegular"
+                    color="$textSubdued"
+                    formatter="balance"
                   >
-                    {sizeFormatter(item.size)}
-                  </Text>
-                </View>
-                <View style={styles.cell}>
-                  <Text
-                    style={[
-                      styles.cellText,
-                      cellTextStyle,
-                      { textAlign: 'right', color: bidPriceColor },
-                    ]}
+                    {item.size}
+                  </NumberSizeableText>
+                  <NumberSizeableText
+                    fontFamily="$monoRegular"
+                    color="rgba(24, 121, 78)"
+                    formatter="value"
                   >
-                    {priceFormatter(item.price)}
-                  </Text>
-                </View>
-              </View>
+                    {item.price}
+                  </NumberSizeableText>
+                </XStack>
+              </XStack>
             )}
             keyExtractor={(level) => String(level.price)}
           />
@@ -238,44 +228,35 @@ export function Orderbook({
               index,
             })}
             renderItem={({ item }) => (
-              <View style={styles.row}>
-                <View
-                  style={[
-                    styles.bar,
-                    {
-                      left: 0,
-                      backgroundColor: askBarColor,
-                      width: `${(item.cumSize / askDepth) * 100}%`,
-                    },
-                  ]}
+              <XStack h="$6" ai="center" mt={1}>
+                <XStack
+                  position="absolute"
+                  left={0}
+                  h={rowHeight}
+                  width={`${(item.cumSize / askDepth) * 100}%`}
+                  bg="rgb(255, 239, 239)"
                 />
-                <View style={styles.cell}>
-                  <Text
-                    style={[
-                      styles.cellText,
-                      cellTextStyle,
-                      { color: askPriceColor },
-                    ]}
+                <XStack flex={1} jc="space-between">
+                  <NumberSizeableText
+                    fontFamily="$monoRegular"
+                    color="$textSubdued"
+                    formatter="balance"
                   >
-                    {priceFormatter(item.price)}
-                  </Text>
-                </View>
-                <View style={styles.cell}>
-                  <Text
-                    style={[
-                      styles.cellText,
-                      cellTextStyle,
-                      { textAlign: 'right', color: sizeColor },
-                    ]}
+                    {item.size}
+                  </NumberSizeableText>
+                  <NumberSizeableText
+                    fontFamily="$monoRegular"
+                    color="rgb(198, 42, 47)"
+                    formatter="value"
                   >
-                    {sizeFormatter(item.size)}
-                  </Text>
-                </View>
-              </View>
+                    {item.price}
+                  </NumberSizeableText>
+                </XStack>
+              </XStack>
             )}
             keyExtractor={(level) => String(level.price)}
           />
-        </View>
+        </XStack>
       )}
     </View>
   );
