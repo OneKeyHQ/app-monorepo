@@ -1,13 +1,6 @@
-import { useCallback, useEffect, useRef } from 'react';
-
-import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IDialogInstance } from '@onekeyhq/components';
 import {
-  Button,
-  Dialog,
-  Icon,
   Image,
   SizableText,
   Spinner,
@@ -15,145 +8,14 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import { useConnectExternalWallet } from '../../hooks/useWebDapp/useConnectExternalWallet';
+import { useWalletConnection } from '../../hooks/useWebDapp/useWalletConnection';
 
 const walletConnectInfo = externalWalletLogoUtils.getLogoInfo('walletconnect');
-
-function ConnectToWalletDialogContent({
-  onRetryPress,
-}: {
-  onRetryPress: () => void;
-}) {
-  const [loading] = useOnboardingConnectWalletLoadingAtom();
-  const intl = useIntl();
-
-  return (
-    <Stack>
-      <Stack
-        justifyContent="center"
-        alignItems="center"
-        p="$5"
-        bg="$bgStrong"
-        borderRadius="$3"
-        borderCurve="continuous"
-      >
-        {loading ? (
-          <Spinner size="large" />
-        ) : (
-          <Icon size="$9" name="BrokenLink2Outline" />
-        )}
-
-        <SizableText textAlign="center" pt="$4">
-          {loading
-            ? intl.formatMessage({
-                id: ETranslations.global_connect_to_wallet_confirm_to_proceed,
-              })
-            : intl.formatMessage({
-                id: ETranslations.global_connect_to_wallet_no_confirmation,
-              })}
-        </SizableText>
-      </Stack>
-      {loading ? null : (
-        <Button
-          mt="$5"
-          variant="primary"
-          size="large"
-          $gtMd={{
-            size: 'medium',
-          }}
-          onPress={onRetryPress}
-        >
-          {intl.formatMessage({ id: ETranslations.global_retry })}
-        </Button>
-      )}
-    </Stack>
-  );
-}
-
-// Hook for wallet connection logic - shared between WalletItem and WalletConnectListItem
-function useWalletConnection({
-  name,
-  connectionInfo,
-}: {
-  name?: string;
-  connectionInfo: IExternalConnectionInfo;
-}) {
-  const intl = useIntl();
-  const { connectToWallet } = useConnectExternalWallet();
-  const [jotaiLoading, setJotaiLoading] =
-    useOnboardingConnectWalletLoadingAtom();
-  const dialogRef = useRef<IDialogInstance | null>(null);
-
-  // Only add WalletConnect modal state listener for retry button
-  const loadingRef = useRef(jotaiLoading);
-  loadingRef.current = jotaiLoading;
-
-  useEffect(() => {
-    if (!jotaiLoading) {
-      return;
-    }
-    const fn = (state: { open: boolean }) => {
-      if (state.open === false && loadingRef.current) {
-        // Use the same delay logic as ConnectWallet.tsx
-        setTimeout(() => {
-          setJotaiLoading(false);
-        }, 600);
-      }
-    };
-    appEventBus.on(EAppEventBusNames.WalletConnectModalState, fn);
-    return () => {
-      appEventBus.off(EAppEventBusNames.WalletConnectModalState, fn);
-    };
-  }, [jotaiLoading, setJotaiLoading]);
-
-  const connectToWalletWithDialogShow = useCallback(async () => {
-    // Don't check loading state - let user try again if needed
-    await dialogRef.current?.close();
-    dialogRef.current = Dialog.show({
-      title: intl.formatMessage(
-        { id: ETranslations.global_connect_to_wallet },
-        {
-          wallet: name || 'Wallet',
-        },
-      ),
-      showFooter: false,
-      dismissOnOverlayPress: false,
-      onClose() {
-        setJotaiLoading(false);
-      },
-      renderContent: (
-        <ConnectToWalletDialogContent
-          onRetryPress={() => connectToWallet(connectionInfo)}
-        />
-      ),
-    });
-
-    try {
-      await connectToWallet(connectionInfo);
-      // Connection successful - close the dialog
-      await dialogRef.current?.close();
-    } catch (error) {
-      // Connection failed - dialog stays open to show retry button
-      console.error('Wallet connection failed:', error);
-    }
-  }, [connectToWallet, connectionInfo, intl, name, setJotaiLoading]);
-
-  return {
-    loading: false, // Use global loading state in Dialog content
-    connectToWalletWithDialogShow,
-  };
-}
 
 function WalletItemView({
   onPress,

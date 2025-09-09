@@ -1,8 +1,6 @@
 /* eslint-disable prefer-rest-params */
 import { useCallback, useRef } from 'react';
 
-// import { WalletConnectModal } from '@walletconnect/modal';
-// import { RouterCtrl } from '@walletconnect/modal-core';
 // import { mainnet, solana } from '@reown/appkit/networks';
 import { mainnet, solana } from '@reown/appkit/networks';
 import { EventsController } from '@reown/appkit-controllers';

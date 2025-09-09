@@ -28,7 +28,6 @@ export function useConnectExternalWallet() {
   const navigation = useAppNavigation();
   const actions = useAccountSelectorActions();
   const { selectedAccount } = useSelectedAccount({ num: 0 });
-  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const loading = jotaiLoading || localLoading;
   const setLoading = useCallback(
@@ -94,6 +93,7 @@ export function useConnectExternalWallet() {
     return { protocol, walletName: walletName || 'unknown', network };
   };
 
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const connectToWallet = useCallback(
     async (connectionInfo: IExternalConnectionInfo) => {
       try {
@@ -117,9 +117,12 @@ export function useConnectExternalWallet() {
           await backgroundApiProxy.serviceDappSide.connectExternalWallet({
             connectionInfo,
           });
-        if (!loadingRef.current) {
+        if (
+          !loadingRef.current &&
+          Object.keys(connectResult?.accountInfo?.addresses || {}).length === 0
+        ) {
           Toast.error({
-            title: `337914--${intl.formatMessage({
+            title: `${intl.formatMessage({
               id: ETranslations.feedback_connection_request_denied,
             })}`,
           });
@@ -197,5 +200,8 @@ export function useConnectExternalWallet() {
     connectToWallet,
     connectToWalletWithDialog,
     loading,
+    hideLoading,
+    showLoading,
+    setLoadingRef,
   };
 }

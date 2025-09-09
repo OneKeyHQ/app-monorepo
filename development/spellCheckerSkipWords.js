@@ -11,6 +11,7 @@ module.exports = [
   '0x1fffffffffffff',
   '0xf7ad23226db5c1c00ca0ca1468fd49c8f8bbc1489bc1c382de5adc557a69c229',
   '0xffffffffffffffffn',
+  'reown',
   '0xxxxxxx',
   '100vw',
   '10xxxxxx',
