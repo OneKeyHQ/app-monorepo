@@ -1,0 +1,118 @@
+import { memo, useCallback } from 'react';
+
+import {
+  Button,
+  NumberSizeableText,
+  SizableText,
+  Spinner,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+
+import { useHyperliquidAccount } from '../../hooks';
+
+import { showDepositWithdrawModal } from './DepositWithdrawModal';
+
+function PerpAccountPanel() {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { userWebData2, accountSummary } = useHyperliquidAccount();
+
+  const availableBalance = accountSummary.withdrawable;
+  let currentPositionValue = 0;
+  if (userWebData2) {
+    currentPositionValue =
+      userWebData2.clearinghouseState.assetPositions.reduce(
+        (acc, curr) => acc + Number(curr.position.positionValue),
+        0,
+      );
+  }
+
+  const handleDepositOrWithdraw = useCallback(() => {
+    if (!activeAccount?.account?.id || !activeAccount?.account?.address) {
+      return;
+    }
+
+    const accountData = {
+      account: {
+        id: activeAccount.account.id,
+        address: activeAccount.account.address,
+      },
+    };
+
+    showDepositWithdrawModal(accountData);
+  }, [activeAccount]);
+
+  if (!userWebData2) {
+    return (
+      <YStack flex={1} justifyContent="center" alignItems="center" p="$6">
+        <Spinner size="large" />
+        <SizableText size="$bodySm" color="$textSubdued" mt="$3">
+          Loading account data...
+        </SizableText>
+      </YStack>
+    );
+  }
+
+  return (
+    <YStack flex={1} gap="$3">
+      {/* Header */}
+      <XStack p="$4" justifyContent="space-between" alignItems="center">
+        <SizableText size="$headingLg" fontWeight="600">
+          ACCOUNT OVERVIEW
+        </SizableText>
+      </XStack>
+
+      <YStack flex={1} px="$4">
+        {/* Available Balance */}
+        <XStack justifyContent="space-between">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            Available to Trade
+          </SizableText>
+          <NumberSizeableText
+            size="$bodyMd"
+            formatter="value"
+            formatterOptions={{ currency: '$' }}
+          >
+            {availableBalance}
+          </NumberSizeableText>
+        </XStack>
+        <XStack justifyContent="space-between">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            Current Position
+          </SizableText>
+          <NumberSizeableText
+            size="$bodyMd"
+            formatter="value"
+            formatterOptions={{ currency: '$' }}
+          >
+            {currentPositionValue}
+          </NumberSizeableText>
+        </XStack>
+      </YStack>
+
+      {/* Action Buttons */}
+      <XStack px="$4" pb="$4" space="$2" mt="$4">
+        <Button
+          flex={1}
+          size="medium"
+          variant="secondary"
+          onPress={handleDepositOrWithdraw}
+        >
+          <SizableText size="$bodySm">Withdraw</SizableText>
+        </Button>
+        <Button
+          flex={1}
+          size="medium"
+          variant="secondary"
+          onPress={handleDepositOrWithdraw}
+        >
+          <SizableText size="$bodySm">Deposit</SizableText>
+        </Button>
+      </XStack>
+    </YStack>
+  );
+}
+
+const PerpAccountPanelMemo = memo(PerpAccountPanel);
+export { PerpAccountPanelMemo as PerpAccountPanel };
