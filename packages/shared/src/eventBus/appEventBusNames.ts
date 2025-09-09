@@ -109,7 +109,7 @@ export enum EAppEventBusNames {
   SwapPanelDismissKeyboard = 'SwapPanelDismissKeyboard',
   ShowFallbackUpdateDialog = 'ShowFallbackUpdateDialog',
   ShowNotificationViewDialog = 'ShowNotificationViewDialog',
-
+  UpdateNotificationBadge = 'UpdateNotificationBadge',
   HyperliquidDataUpdate = 'HyperliquidDataUpdate',
   HyperliquidConnectionChange = 'HyperliquidConnectionChange',
 }
