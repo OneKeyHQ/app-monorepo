@@ -57,6 +57,7 @@ function TokenSelector() {
     title,
     networkId,
     accountId,
+    indexedAccountId,
     closeAfterSelect = true,
     onSelect,
     searchAll,
@@ -66,6 +67,8 @@ function TokenSelector() {
     activeAccountId,
     activeNetworkId,
     aggregateTokenSelectorScreen,
+    allAggregateTokenMap,
+    allAggregateTokens,
   } = route.params;
 
   const { network, account } = useAccountData({ networkId, accountId });
@@ -81,20 +84,29 @@ function TokenSelector() {
   const handleTokenOnPress = useCallback(
     async (token: IAccountToken) => {
       if (token.isAggregateToken) {
-        const aggregateTokenList = aggregateTokensListMap[token.$key];
-        if (aggregateTokenList && aggregateTokenList.tokens.length === 1) {
-          void onSelect?.(aggregateTokenList.tokens[0]);
+        const allAggregateTokenList =
+          allAggregateTokenMap?.[token.$key]?.tokens ?? [];
+        const aggregateTokenList =
+          aggregateTokensListMap[token.$key]?.tokens ?? [];
+        if (
+          aggregateTokenList.length === 1 &&
+          allAggregateTokenList.length === 0
+        ) {
+          void onSelect?.(aggregateTokenList[0]);
           return;
         }
 
-        if (aggregateTokenList && aggregateTokenList.tokens.length > 1) {
+        if (aggregateTokenList.length > 1 || allAggregateTokenList.length > 1) {
           navigation.push(
             aggregateTokenSelectorScreen ??
               EAssetSelectorRoutes.AggregateTokenSelector,
             {
+              accountId,
+              indexedAccountId,
               aggregateToken: token,
               onSelect,
               closeAfterSelect,
+              allAggregateTokenList,
             },
           );
           return;
@@ -223,16 +235,19 @@ function TokenSelector() {
       }
     },
     [
-      account,
-      aggregateTokenSelectorScreen,
-      aggregateTokensListMap,
-      closeAfterSelect,
-      createAddress,
-      navigation,
-      network?.id,
       network?.isAllNetworks,
+      network?.id,
+      closeAfterSelect,
+      allAggregateTokenMap,
+      aggregateTokensListMap,
       onSelect,
+      navigation,
+      aggregateTokenSelectorScreen,
+      accountId,
+      indexedAccountId,
+      account,
       updateCreateAccountState,
+      createAddress,
     ],
   );
 
@@ -364,6 +379,8 @@ function TokenSelector() {
           tokenSelectorSearchKey={searchKey}
           tokenSelectorSearchTokenState={searchTokenState}
           tokenSelectorSearchTokenList={searchTokenList}
+          allAggregateTokenMap={allAggregateTokenMap}
+          allAggregateTokens={allAggregateTokens}
         />
       </Page.Body>
     </Page>
