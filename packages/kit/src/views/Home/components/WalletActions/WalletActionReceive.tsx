@@ -65,13 +65,14 @@ function WalletActionReceive() {
       source: 'homePage',
       isSoftwareWalletOnlyUser,
     });
-    handleOnReceive();
+    void handleOnReceive({ withAllAggregateTokens: network?.isAllNetworks });
   }, [
     wallet?.type,
     wallet?.id,
     network?.id,
     isSoftwareWalletOnlyUser,
     handleOnReceive,
+    network?.isAllNetworks,
   ]);
 
   return (
