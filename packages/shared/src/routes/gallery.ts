@@ -79,6 +79,7 @@ export enum EGalleryRoutes {
   ComponentToken = 'component-Token',
   ComponentTooltip = 'component-Tooltip',
   ComponentTradingViewGallery = 'component-TradingView',
+  ComponentTradingViewPerpsV2Gallery = 'component-TradingViewPerpsV2',
   ComponentTrigger = 'component-Trigger',
   ComponentTutorialsList = 'component-TutorialsList',
   ComponentOrderedList = 'component-OrderedList',
