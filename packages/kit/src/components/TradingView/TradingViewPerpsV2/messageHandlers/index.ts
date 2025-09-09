@@ -32,12 +32,8 @@ export function usePerpsMessageHandler({
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
   const [priceData] = useCurrentTokenPriceAtom();
-
-  useEffect(() => {
-    if (priceData) {
-      // console.log('[MarksHandler] priceData: ', priceData);
-    }
-  }, [priceData]);
+  const priceDataRef = useRef(priceData);
+  priceDataRef.current = priceData;
 
   // Extract shared logic for fetching and formatting marks
   const fetchAndFormatMarks = useCallback(
@@ -125,7 +121,6 @@ export function usePerpsMessageHandler({
 
       try {
         const marks = await fetchAndFormatMarks(symbol, userAddress);
-        console.log('[MarksHandler] fetch marks: ', marks);
 
         const response: IGetMarksResponse = {
           marks,
@@ -155,14 +150,15 @@ export function usePerpsMessageHandler({
     async (request: { symbol: string; requestId: string }) => {
       const { symbol: requestSymbol, requestId } = request;
 
-      console.log('[MessageHandler] handleGetHyperliquidPriceScale: ', request);
-
       // Wait for matching symbol and valid market price with 3s timeout
       const startTime = Date.now();
       const timeout = 3000; // 3 seconds
       let currentPriceData = priceData;
 
       while (Date.now() - startTime < timeout) {
+        // Get the latest priceData from ref (always current)
+        currentPriceData = priceDataRef.current;
+
         // Check if we have matching symbol and valid price
         if (
           currentPriceData?.coin === requestSymbol &&
@@ -172,18 +168,7 @@ export function usePerpsMessageHandler({
           break;
         }
 
-        console.log(
-          '[MessageHandler] Waiting for matching symbol and valid price...',
-          {
-            requested: requestSymbol,
-            currentSymbol: currentPriceData?.coin,
-            currentPrice: currentPriceData?.markPrice,
-            elapsed: Date.now() - startTime,
-          },
-        );
-
         await timerUtils.wait(100);
-        currentPriceData = priceData;
       }
 
       // Calculate priceScale using HyperLiquid precision rules
@@ -217,7 +202,8 @@ export function usePerpsMessageHandler({
         payload: response,
       });
     },
-    [webRef, priceData],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [webRef],
   );
 
   const customReceiveHandler = useCallback(
@@ -262,12 +248,6 @@ export function usePerpsMessageHandler({
 
     // User address changed
     if (previousUserAddress !== currentUserAddress) {
-      console.log('[MarksHandler] UserAddress changed:', {
-        from: previousUserAddress,
-        to: currentUserAddress,
-        symbol,
-      });
-
       if (!currentUserAddress) {
         // User logged out, clear marks
         console.log('[MarksHandler] User logged out, clear marks');
@@ -276,10 +256,6 @@ export function usePerpsMessageHandler({
         // User changed or logged in, fetch fresh data
         void fetchAndFormatMarks(symbol, currentUserAddress)
           .then((marks) => {
-            console.log(
-              '[MarksHandler] User logged in, fetch fresh data: ',
-              marks,
-            );
             sendMarksUpdate(marks, EMarksUpdateOperationEnum.REPLACE);
           })
           .catch((error) => {
