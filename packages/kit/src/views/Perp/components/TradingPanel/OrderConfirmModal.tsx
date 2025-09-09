@@ -1,5 +1,6 @@
 import {
   Dialog,
+  NumberSizeableText,
   SizableText,
   Toast,
   XStack,
@@ -23,27 +24,12 @@ export function showOrderConfirmDialog({
   const actionColor = formData.side === 'long' ? '$green10' : '$red10';
   const actionText = formData.side === 'long' ? 'Long' : 'Short';
 
-  const getPriceDisplay = () => {
-    if (formData.type === 'market') return 'Market';
-    if (formData.price)
-      return `$${parseFloat(formData.price).toLocaleString()}`;
-    return 'Market';
-  };
-
   const getSizeDisplay = () => {
     if (formData.size && tokenName) return `${formData.size} ${tokenName}`;
     return '0';
   };
 
-  const getLiquidationDisplay = () => {
-    if (liquidationPrice)
-      return `$${parseFloat(liquidationPrice).toLocaleString()}`;
-    return 'N/A';
-  };
-
-  const priceDisplay = getPriceDisplay();
   const sizeDisplay = getSizeDisplay();
-  const liquidationDisplay = getLiquidationDisplay();
 
   const OrderContent = () => (
     <YStack gap="$4">
@@ -74,9 +60,20 @@ export function showOrderConfirmDialog({
           <SizableText size="$bodyMd" color="$textSubdued">
             Price
           </SizableText>
-          <SizableText size="$bodyMd" fontWeight="500">
-            {priceDisplay}
-          </SizableText>
+          {formData.type === 'market' || !formData.price ? (
+            <SizableText size="$bodyMd" fontWeight="500">
+              Market
+            </SizableText>
+          ) : (
+            <NumberSizeableText
+              size="$bodyMd"
+              fontWeight="500"
+              formatter="price"
+              formatterOptions={{ currency: '$' }}
+            >
+              {formData.price}
+            </NumberSizeableText>
+          )}
         </XStack>
 
         {/* Liquidation Price */}
@@ -84,9 +81,20 @@ export function showOrderConfirmDialog({
           <SizableText size="$bodyMd" color="$textSubdued">
             Liquidation Price
           </SizableText>
-          <SizableText size="$bodyMd" fontWeight="500">
-            {liquidationDisplay}
-          </SizableText>
+          {!liquidationPrice ? (
+            <SizableText size="$bodyMd" fontWeight="500">
+              N/A
+            </SizableText>
+          ) : (
+            <NumberSizeableText
+              size="$bodyMd"
+              fontWeight="500"
+              formatter="price"
+              formatterOptions={{ currency: '$' }}
+            >
+              {liquidationPrice}
+            </NumberSizeableText>
+          )}
         </XStack>
       </YStack>
     </YStack>

@@ -9,16 +9,9 @@ const MAX_DECIMALS_PERP = 6;
 const MAX_SIGNIFICANT_FIGURES = 5;
 
 /**
- * Check if a number is effectively an integer (no meaningful decimal places)
- */
-function isEffectivelyInteger(price: BigNumber): boolean {
-  return price.isInteger();
-}
-
-/**
  * Count significant figures in a BigNumber
  */
-function countSignificantFigures(price: BigNumber): number {
+function _countSignificantFigures(price: BigNumber): number {
   if (price.isZero()) return 1;
 
   const priceStr = price.toFixed(); // Get fixed decimal representation
@@ -54,7 +47,7 @@ function getValidPriceDecimals(marketPrice: string | number): number {
   }
 
   // Rule 1: Integer prices are always allowed
-  if (isEffectivelyInteger(price)) {
+  if (price.isInteger()) {
     return 0;
   }
 
@@ -67,30 +60,66 @@ function getValidPriceDecimals(marketPrice: string | number): number {
   }
 
   const actualDecimals = priceStr.length - decimalIndex - 1;
-  const significantFigures = countSignificantFigures(price);
+  const significantFigures = _countSignificantFigures(price);
 
-  // Calculate max allowed decimals based on significant figures constraint
-  const integerPart = price.integerValue(BigNumber.ROUND_DOWN);
-  const integerDigits = integerPart.isZero() ? 0 : integerPart.toFixed().length;
+  // For non-integer prices, respect both significant figures and MAX_DECIMALS limits
+  let maxAllowedDecimals = Math.min(actualDecimals, MAX_DECIMALS_PERP);
 
-  let maxAllowedDecimals = actualDecimals;
-
-  // Apply 5 significant figures limit for non-integer prices
+  // Apply 5 significant figures limit
   if (significantFigures > MAX_SIGNIFICANT_FIGURES) {
+    const integerPart = price.integerValue(BigNumber.ROUND_DOWN);
+    const integerDigits = integerPart.isZero()
+      ? 0
+      : integerPart.toFixed().length;
+
     if (integerDigits >= MAX_SIGNIFICANT_FIGURES) {
       maxAllowedDecimals = 0;
     } else {
       const remainingSignificantFigures =
         MAX_SIGNIFICANT_FIGURES - integerDigits;
       maxAllowedDecimals = Math.min(
-        actualDecimals,
+        maxAllowedDecimals,
         remainingSignificantFigures,
       );
     }
   }
 
-  // Rule 3: Also limit by MAX_DECIMALS_PERP (assuming szDecimals=0)
-  maxAllowedDecimals = Math.min(maxAllowedDecimals, MAX_DECIMALS_PERP);
+  return Math.max(0, maxAllowedDecimals);
+}
+
+/**
+ * Calculate maximum decimal places for TradingView price scale
+ *
+ * This determines the precision that should be supported for trading,
+ * allowing users to input prices with appropriate decimal precision.
+ *
+ * @param marketPrice - The market price to analyze
+ * @returns Maximum decimal places for price scale
+ */
+function getPriceScaleDecimals(marketPrice: string | number): number {
+  const price = new BigNumber(marketPrice);
+
+  if (!price.isFinite() || price.isLessThanOrEqualTo(0)) {
+    return 2; // Default fallback
+  }
+
+  // Calculate integer digits
+  const integerPart = price.integerValue(BigNumber.ROUND_DOWN);
+  const integerDigits = integerPart.isZero() ? 0 : integerPart.toFixed().length;
+
+  // For TradingView price scale: determine max decimals that would still be valid
+  // under HyperLiquid's rules for non-integer prices (5 significant figures max)
+
+  if (integerDigits >= MAX_SIGNIFICANT_FIGURES) {
+    // If integer part already uses all 5 significant figures, no decimals allowed
+    return 0;
+  }
+
+  // Calculate max decimals that keep within 5 sig figs rule for non-integers
+  const maxAllowedDecimals = Math.min(
+    MAX_SIGNIFICANT_FIGURES - integerDigits,
+    MAX_DECIMALS_PERP,
+  );
 
   return Math.max(0, maxAllowedDecimals);
 }
@@ -102,8 +131,8 @@ function getValidPriceDecimals(marketPrice: string | number): number {
  * @returns Price scale for TradingView (e.g., 100 for 2 decimals)
  */
 function calculatePriceScale(marketPrice: string | number): number {
-  const validDecimals = getValidPriceDecimals(marketPrice);
-  return new BigNumber(10).exponentiatedBy(validDecimals).toNumber();
+  const validDecimals = getPriceScaleDecimals(marketPrice);
+  return new BigNumber(10).pow(validDecimals).toNumber();
 }
 
 /**
@@ -125,10 +154,16 @@ function formatPriceToValid(marketPrice: string | number): string {
   return price.toFixed(validDecimals).replace(/\.?0+$/, '');
 }
 
-export { getValidPriceDecimals, calculatePriceScale, formatPriceToValid };
+export {
+  getValidPriceDecimals,
+  getPriceScaleDecimals,
+  calculatePriceScale,
+  formatPriceToValid,
+};
 
 export default {
   getValidPriceDecimals,
+  getPriceScaleDecimals,
   calculatePriceScale,
   formatPriceToValid,
 };
