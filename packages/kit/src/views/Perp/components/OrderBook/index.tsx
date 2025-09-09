@@ -39,7 +39,7 @@ interface IOBAggregation {
   onTickSizeChange?: (nextTickSize: number) => void;
 }
 
-interface IOrderbookProps {
+interface IOrderBookProps {
   /** The sorted best to worst (high to low) bid levels */
   bids: IOBLevel[];
   /** The sorted best to worst (low to high) ask levels */
@@ -124,7 +124,7 @@ function RedBlock({ width, ...props }: IColorBlockProps) {
   return <ColorBlock color="$red3" width={width} {...props} />;
 }
 
-export function Orderbook({
+export function OrderBook({
   bids,
   asks,
   maxLevelsPerSide = 30,
@@ -135,7 +135,7 @@ export function Orderbook({
   loadingNode = <DefaultLoadingNode />,
   horizontal = true,
   controls,
-}: IOrderbookProps) {
+}: IOrderBookProps) {
   const aggr = useAggregatedBook(
     bids,
     asks,
@@ -345,7 +345,7 @@ export function Orderbook({
   );
 }
 
-export function OrderBook({
+export function OrderPairBook({
   bids,
   asks,
   maxLevelsPerSide = 30,
