@@ -1,5 +1,6 @@
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import type { IXStackProps } from '@onekeyhq/components';
 import {
   ListView,
   NumberSizeableText,
@@ -99,6 +100,32 @@ const styles = StyleSheet.create({
   },
 });
 
+type IColorBlockProps = Omit<IXStackProps, 'width'> & {
+  width: string;
+  color?: IXStackProps['bg'];
+};
+
+function ColorBlock({ color, width, ...props }: IColorBlockProps) {
+  return (
+    <XStack
+      position="absolute"
+      right={0}
+      h="$6"
+      width={width}
+      bg={color}
+      {...props}
+    />
+  );
+}
+
+function GreenBlock({ width, ...props }: IColorBlockProps) {
+  return <ColorBlock color="$green3" width={width} {...props} />;
+}
+
+function RedBlock({ width, ...props }: IColorBlockProps) {
+  return <ColorBlock color="$red3" width={width} {...props} />;
+}
+
 export function Orderbook({
   bids,
   asks,
@@ -160,22 +187,15 @@ export function Orderbook({
           loadingNode
         ) : (
           <XStack gap="$1">
-            <FlatList
+            <ListView
+              useFlashList
               contentContainerStyle={styles.levelList}
               data={aggr.bids}
-              getItemLayout={(data, index) => ({
-                length: rowHeight,
-                offset: rowHeight * index,
-                index,
-              })}
               renderItem={({ item }) => (
                 <XStack h="$6" ai="center" mt={1} position="relative">
-                  <XStack
-                    position="absolute"
+                  <GreenBlock
                     right={0}
-                    h="$6"
                     width={`${(item.cumSize / bidDepth) * 100}%`}
-                    bg="$green3"
                   />
                   <XStack flex={1} jc="space-between">
                     <NumberSizeableText
@@ -197,22 +217,15 @@ export function Orderbook({
               )}
               keyExtractor={(level) => String(level.price)}
             />
-            <FlatList
+            <ListView
+              useFlashList
               contentContainerStyle={styles.levelList}
               data={aggr.asks}
-              getItemLayout={(data, index) => ({
-                length: rowHeight,
-                offset: rowHeight * index,
-                index,
-              })}
               renderItem={({ item }) => (
                 <XStack h="$6" ai="center" mt={1} position="relative">
-                  <XStack
-                    position="absolute"
+                  <RedBlock
                     left={0}
-                    h="$6"
                     width={`${(item.cumSize / askDepth) * 100}%`}
-                    bg="$red3"
                   />
                   <XStack flex={1} jc="space-between">
                     <NumberSizeableText
@@ -240,6 +253,12 @@ export function Orderbook({
     );
   }
 
+  const data = [
+    ...aggr.asks.map((ask) => ({ data: ask, type: 'ask' })),
+    { type: 'mid', data: { price: midPrice, size: 0, cumSize: 0 } },
+    ...aggr.bids.map((bid) => ({ data: bid, type: 'bid' })),
+  ];
+
   return (
     <YStack>
       <XStack>
@@ -255,58 +274,74 @@ export function Orderbook({
         </XStack>
         <XStack flex={1} ai="center" jc="flex-end" pr="$3">
           <SizableText size="$headingXs" color="$textSubdued">
-            ToTAL
+            TOTAL
           </SizableText>
         </XStack>
       </XStack>
-      <FlatList
-        data={aggr.bids}
-        renderItem={({ item }) => (
-          <XStack h="$6" ai="center" mt={1} position="relative">
-            <XStack
-              position="absolute"
-              left={0}
-              h="$6"
-              width={`${(item.cumSize / bidDepth) * 100}%`}
-              bg="$green3"
-              jc="space-between"
-            />
-            <XStack flex={1} jc="space-between">
-              <XStack width="33.33%">
-                <NumberSizeableText
-                  fontFamily="$monoRegular"
-                  color="$textSubdued"
-                  formatter="marketCap"
-                >
-                  {item.price}
-                </NumberSizeableText>
+      <ListView
+        useFlashList
+        data={data}
+        renderItem={({ item }) => {
+          const { type, data: itemData } = item;
+          if (type === 'mid') {
+            return (
+              <XStack gap="$6" h="$6" ai="center" jc="center" mt={1}>
+                <SizableText size="$bodySm">Spread</SizableText>
+                <SizableText size="$bodySm">{itemData.price}</SizableText>
+                <SizableText size="$bodySm">0.002%</SizableText>
               </XStack>
-              <XStack width="33.33%">
-                <NumberSizeableText
-                  flex={1}
-                  fontFamily="$monoRegular"
-                  color="$textSubdued"
-                  formatter="marketCap"
-                  textAlign="center"
-                >
-                  {item.size}
-                </NumberSizeableText>
-              </XStack>
+            );
+          }
+          return (
+            <XStack h="$6" ai="center" mt={1} position="relative">
+              {type === 'bid' ? (
+                <GreenBlock
+                  left={0}
+                  width={`${(itemData.cumSize / bidDepth) * 100}%`}
+                />
+              ) : (
+                <RedBlock
+                  left={0}
+                  width={`${(itemData.cumSize / askDepth) * 100}%`}
+                />
+              )}
+              <XStack flex={1} jc="space-between">
+                <XStack width="33.33%">
+                  <NumberSizeableText
+                    fontFamily="$monoRegular"
+                    color="$textSubdued"
+                    formatter="marketCap"
+                  >
+                    {itemData.price}
+                  </NumberSizeableText>
+                </XStack>
+                <XStack width="33.33%">
+                  <NumberSizeableText
+                    flex={1}
+                    fontFamily="$monoRegular"
+                    color="$textSubdued"
+                    formatter="marketCap"
+                    textAlign="center"
+                  >
+                    {itemData.size}
+                  </NumberSizeableText>
+                </XStack>
 
-              <XStack width="33.33%">
-                <NumberSizeableText
-                  flex={1}
-                  textAlign="right"
-                  fontFamily="$monoRegular"
-                  color="$textSubdued"
-                  formatter="marketCap"
-                >
-                  {item.cumSize}
-                </NumberSizeableText>
+                <XStack width="33.33%">
+                  <NumberSizeableText
+                    flex={1}
+                    textAlign="right"
+                    fontFamily="$monoRegular"
+                    color="$textSubdued"
+                    formatter="marketCap"
+                  >
+                    {itemData.cumSize}
+                  </NumberSizeableText>
+                </XStack>
               </XStack>
             </XStack>
-          </XStack>
-        )}
+          );
+        }}
       />
     </YStack>
   );
