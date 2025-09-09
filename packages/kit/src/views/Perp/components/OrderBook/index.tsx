@@ -1,6 +1,12 @@
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 
-import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
+import {
+  ListView,
+  NumberSizeableText,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 
 import { AggregationControls } from './AggregationControls';
 import { defaultAggregationBtn } from './defaultAggregationBtn';
@@ -73,6 +79,8 @@ interface IOrderbookProps {
   midPriceNode?: (midPrice: number) => React.ReactNode;
   /** A custom loading node. Defaults to "Loading...". */
   loadingNode?: React.ReactNode;
+  /** Whether to render the order book horizontally */
+  horizontal?: boolean;
 }
 
 const styles = StyleSheet.create({
@@ -134,6 +142,7 @@ export function Orderbook({
   cellTextStyle,
   midPriceNode = defaultMidPriceNode,
   loadingNode = <DefaultLoadingNode />,
+  horizontal = true,
 }: IOrderbookProps) {
   const aggr = useAggregatedBook(
     bids,
@@ -149,115 +158,232 @@ export function Orderbook({
   const bidDepth = aggr.bids.at(-1)?.cumSize ?? 0;
   const askDepth = aggr.asks.at(-1)?.cumSize ?? 0;
 
+  if (horizontal) {
+    return (
+      <View style={[styles.container, style]}>
+        {aggregation?.tickSizes?.length && aggregation?.onTickSizeChange ? (
+          <AggregationControls
+            aggregationBtn={aggregationBtn}
+            aggregationBorderColor={aggregationBorderColor}
+            tickSizes={aggregation.tickSizes}
+            tickSize={aggregation.tickSize}
+            onChange={aggregation.onTickSizeChange}
+          />
+        ) : null}
+        <XStack gap="$1" h="$4" ai="center">
+          <XStack flex={1} jc="space-between">
+            <SizableText size="$bodySmMedium" color="$textSubdued">
+              {sizeLabel}
+            </SizableText>
+            <SizableText size="$bodySmMedium" color="$textSubdued">
+              BUY
+            </SizableText>
+          </XStack>
+          <XStack flex={1} jc="space-between">
+            <SizableText size="$bodySmMedium" color="$textSubdued">
+              SELL
+            </SizableText>
+            <SizableText size="$bodySmMedium" color="$textSubdued">
+              {sizeLabel}
+            </SizableText>
+          </XStack>
+        </XStack>
+        {isEmpty ? (
+          loadingNode
+        ) : (
+          <XStack gap="$1">
+            <FlatList
+              contentContainerStyle={styles.levelList}
+              data={aggr.bids}
+              getItemLayout={(data, index) => ({
+                length: rowHeight,
+                offset: rowHeight * index,
+                index,
+              })}
+              renderItem={({ item }) => (
+                <XStack h="$6" ai="center" mt={1} position="relative">
+                  <XStack
+                    position="absolute"
+                    right={0}
+                    h="$6"
+                    width={`${(item.cumSize / bidDepth) * 100}%`}
+                    bg="rgba(233, 249, 238, 1)"
+                  />
+                  <XStack flex={1} jc="space-between">
+                    <NumberSizeableText
+                      fontFamily="$monoRegular"
+                      color="$textSubdued"
+                      formatter="marketCap"
+                    >
+                      {item.size}
+                    </NumberSizeableText>
+                    <NumberSizeableText
+                      fontFamily="$monoRegular"
+                      color="rgba(24, 121, 78)"
+                      formatter="value"
+                    >
+                      {item.price}
+                    </NumberSizeableText>
+                  </XStack>
+                </XStack>
+              )}
+              keyExtractor={(level) => String(level.price)}
+            />
+            <FlatList
+              contentContainerStyle={styles.levelList}
+              data={aggr.asks}
+              getItemLayout={(data, index) => ({
+                length: rowHeight,
+                offset: rowHeight * index,
+                index,
+              })}
+              renderItem={({ item }) => (
+                <XStack h="$6" ai="center" mt={1} position="relative">
+                  <XStack
+                    position="absolute"
+                    left={0}
+                    h="$6"
+                    width={`${(item.cumSize / askDepth) * 100}%`}
+                    bg="rgb(255, 239, 239)"
+                  />
+                  <XStack flex={1} jc="space-between">
+                    <NumberSizeableText
+                      fontFamily="$monoRegular"
+                      color="rgb(198, 42, 47)"
+                      formatter="marketCap"
+                    >
+                      {item.size}
+                    </NumberSizeableText>
+                    <NumberSizeableText
+                      fontFamily="$monoRegular"
+                      color="$textSubdued"
+                      formatter="value"
+                    >
+                      {item.price}
+                    </NumberSizeableText>
+                  </XStack>
+                </XStack>
+              )}
+              keyExtractor={(level) => String(level.price)}
+            />
+          </XStack>
+        )}
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.container, style]}>
-      {aggregation?.tickSizes?.length && aggregation?.onTickSizeChange ? (
-        <AggregationControls
-          aggregationBtn={aggregationBtn}
-          aggregationBorderColor={aggregationBorderColor}
-          tickSizes={aggregation.tickSizes}
-          tickSize={aggregation.tickSize}
-          onChange={aggregation.onTickSizeChange}
-        />
-      ) : null}
-      <XStack gap="$1" h="$4" ai="center">
-        <XStack flex={1} jc="space-between">
-          <SizableText size="$bodySmMedium" color="$textSubdued">
-            {sizeLabel}
-          </SizableText>
-          <SizableText size="$bodySmMedium" color="$textSubdued">
-            BUY
+    <YStack>
+      <XStack>
+        <XStack flex={1} ai="center" pl="$3">
+          <SizableText size="$headingXs" color="$textSubdued">
+            Price
           </SizableText>
         </XStack>
-        <XStack flex={1} jc="space-between">
-          <SizableText size="$bodySmMedium" color="$textSubdued">
-            SELL
+        <XStack flex={1} ai="center" jc="center">
+          <SizableText size="$headingXs" color="$textSubdued">
+            SIZE
           </SizableText>
-          <SizableText size="$bodySmMedium" color="$textSubdued">
-            {sizeLabel}
+        </XStack>
+        <XStack flex={1} ai="center" jc="flex-end" pr="$3">
+          <SizableText size="$headingXs" color="$textSubdued">
+            ToTAL
           </SizableText>
         </XStack>
       </XStack>
-      {isEmpty ? (
-        loadingNode
-      ) : (
-        <XStack gap="$1">
-          <FlatList
-            contentContainerStyle={styles.levelList}
-            data={aggr.bids}
-            getItemLayout={(data, index) => ({
-              length: rowHeight,
-              offset: rowHeight * index,
-              index,
-            })}
-            renderItem={({ item }) => (
-              <XStack h="$6" ai="center" mt={1} position="relative">
-                <XStack
-                  position="absolute"
-                  right={0}
-                  h="$6"
-                  width={`${(item.cumSize / bidDepth) * 100}%`}
-                  bg="rgba(233, 249, 238, 1)"
-                />
-                <XStack flex={1} jc="space-between">
-                  <NumberSizeableText
-                    fontFamily="$monoRegular"
-                    color="$textSubdued"
-                    formatter="marketCap"
-                  >
-                    {item.size}
-                  </NumberSizeableText>
-                  <NumberSizeableText
-                    fontFamily="$monoRegular"
-                    color="rgba(24, 121, 78)"
-                    formatter="value"
-                  >
-                    {item.price}
-                  </NumberSizeableText>
-                </XStack>
-              </XStack>
-            )}
-            keyExtractor={(level) => String(level.price)}
-          />
-          <FlatList
-            contentContainerStyle={styles.levelList}
-            data={aggr.asks}
-            getItemLayout={(data, index) => ({
-              length: rowHeight,
-              offset: rowHeight * index,
-              index,
-            })}
-            renderItem={({ item }) => (
-              <XStack h="$6" ai="center" mt={1} position="relative">
-                <XStack
-                  position="absolute"
-                  left={0}
-                  h="$6"
-                  width={`${(item.cumSize / askDepth) * 100}%`}
-                  bg="rgb(255, 239, 239)"
-                />
-                <XStack flex={1} jc="space-between">
-                  <NumberSizeableText
-                    fontFamily="$monoRegular"
-                    color="rgb(198, 42, 47)"
-                    formatter="marketCap"
-                  >
-                    {item.size}
-                  </NumberSizeableText>
-                  <NumberSizeableText
-                    fontFamily="$monoRegular"
-                    color="$textSubdued"
-                    formatter="value"
-                  >
-                    {item.price}
-                  </NumberSizeableText>
-                </XStack>
-              </XStack>
-            )}
-            keyExtractor={(level) => String(level.price)}
-          />
-        </XStack>
-      )}
-    </View>
+      <FlatList
+        data={aggr.bids}
+        renderItem={({ item }) => (
+          <XStack h="$6" ai="center" mt={1} position="relative">
+            <XStack
+              position="absolute"
+              left={0}
+              h="$6"
+              width={`${(item.cumSize / bidDepth) * 100}%`}
+              bg="rgba(233, 249, 238, 1)"
+            />
+            <XStack flex={1}>
+              <NumberSizeableText
+                fontFamily="$monoRegular"
+                color="$textSubdued"
+                formatter="marketCap"
+              >
+                {item.price}
+              </NumberSizeableText>
+            </XStack>
+            <XStack flex={1} jc="center" ai="center">
+              <NumberSizeableText
+                fontFamily="$monoRegular"
+                color="$textSubdued"
+                formatter="marketCap"
+              >
+                {item.size}
+              </NumberSizeableText>
+            </XStack>
+            <XStack flex={1} jc="flex-end" ai="center">
+              <NumberSizeableText
+                fontFamily="$monoRegular"
+                color="$textSubdued"
+                formatter="marketCap"
+              >
+                {item.cumSize}
+              </NumberSizeableText>
+            </XStack>
+          </XStack>
+        )}
+      />
+    </YStack>
+  );
+}
+
+export function OrderPriceBook({
+  bids,
+  asks,
+  maxLevelsPerSide = 30,
+  aggregation,
+}: {
+  aggregation?: IOBAggregation;
+  maxLevelsPerSide?: number;
+  bids: IOBLevel[];
+  asks: IOBLevel[];
+}) {
+  const aggr = useAggregatedBook(
+    bids,
+    asks,
+    aggregation?.baseTickSize ?? 1,
+    aggregation?.tickSize ?? 1,
+    maxLevelsPerSide,
+  );
+  const bidDepth = aggr.bids.at(-1)?.cumSize ?? 0;
+  return (
+    <YStack>
+      <XStack pb="$1" ai="center" jc="space-between">
+        <SizableText color="$textSubdued">USDC</SizableText>
+        <SizableText color="$textSubdued">BTC</SizableText>
+      </XStack>
+      <ListView
+        useFlashList
+        data={aggr.bids}
+        renderItem={(item) => (
+          <XStack mt={1} position="relative">
+            <XStack
+              position="absolute"
+              left={0}
+              h="$6"
+              width={`${(item.item.cumSize / bidDepth) * 100}%`}
+              bg="rgba(233, 249, 238, 1)"
+            />
+            <XStack flex={1} jc="space-between">
+              <NumberSizeableText formatter="marketCap">
+                {item.item.price}
+              </NumberSizeableText>
+              <NumberSizeableText formatter="marketCap">
+                {item.item.size}
+              </NumberSizeableText>
+            </XStack>
+          </XStack>
+        )}
+      />
+    </YStack>
   );
 }

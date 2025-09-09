@@ -1,7 +1,10 @@
 import { useState } from 'react';
 
 import { Button, SizableText, Stack, XStack } from '@onekeyhq/components';
-import { Orderbook } from '@onekeyhq/kit/src/views/Perp/components/OrderBook';
+import {
+  OrderPriceBook,
+  Orderbook,
+} from '@onekeyhq/kit/src/views/Perp/components/OrderBook';
 import type { IOBLevel } from '@onekeyhq/kit/src/views/Perp/components/OrderBook/types';
 
 import { Layout } from './utils/Layout';
@@ -128,6 +131,38 @@ const OrderBookDemo = () => {
             sizeLabel="Size"
           />
         </Stack>
+        <Stack p="$2">
+          <Orderbook
+            horizontal={false}
+            bids={bids}
+            asks={asks}
+            maxLevelsPerSide={15}
+            aggregation={{
+              baseTickSize: 0.01,
+              tickSize,
+              tickSizes,
+              onTickSizeChange: setTickSize,
+            }}
+            bidPriceColor="#00d4aa"
+            askPriceColor="#ff6b6b"
+            bidBarColor="rgba(0, 212, 170, 0.1)"
+            askBarColor="rgba(255, 107, 107, 0.1)"
+            sizeLabel="Size"
+          />
+        </Stack>
+      </Stack>
+      <Stack p="$2">
+        <OrderPriceBook
+          bids={bids}
+          asks={asks}
+          aggregation={{
+            baseTickSize: 0.01,
+            tickSize,
+            tickSizes,
+            onTickSizeChange: setTickSize,
+          }}
+          maxLevelsPerSide={15}
+        />
       </Stack>
 
       <Stack gap="$2">
