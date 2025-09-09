@@ -47,33 +47,8 @@ interface IOrderbookProps {
   aggregation?: IOBAggregation;
   /** A function which can return a custom aggregation button */
   aggregationBtn?: IAggregationBtn;
-  /** Border color of aggregation controls */
-  aggregationBorderColor?: string;
-  /** A formatter function to format prices */
-  priceFormatter?: (n: number) => React.ReactNode;
-  /** A formatter function to format sizes */
-  sizeFormatter?: (n: number) => React.ReactNode;
-  /** Text color of column header labels */
-  columnLabelColor?: string;
-  /** The size text color */
-  sizeColor?: string;
-  /** The bid text color */
-  bidPriceColor?: string;
-  /** The ask text color */
-  askPriceColor?: string;
-  /** Color of ask level size bars */
-  askBarColor?: string;
-  /** Color of bid level size bars */
-  bidBarColor?: string;
-  /** Column label of the size columns, defaults to "Size". You
-   * could add the base ccy e.g. "Size (BTC)" */
-  sizeLabel?: React.ReactNode;
   /** Styles for the container (outer) view */
   style?: StyleProp<ViewStyle>;
-  /** Styles for a column cell Text element. Typically used to
-   * change font, use `sizeColor`, `bidPriceColor`, `askPriceColor`
-   * to change the color. */
-  cellTextStyle?: StyleProp<TextStyle>;
   /** A function which receives the mid price and can return a
    * custom mid price node */
   midPriceNode?: (midPrice: number) => React.ReactNode;
@@ -81,6 +56,8 @@ interface IOrderbookProps {
   loadingNode?: React.ReactNode;
   /** Whether to render the order book horizontally */
   horizontal?: boolean;
+  /** Whether to render the controls */
+  controls?: boolean;
 }
 
 const styles = StyleSheet.create({
@@ -128,21 +105,11 @@ export function Orderbook({
   maxLevelsPerSide = 30,
   aggregation,
   aggregationBtn = defaultAggregationBtn,
-  aggregationBorderColor = 'rgba(255,255,255,0.06)',
-  priceFormatter = priceFmt,
-  sizeFormatter = sizeFmt,
-  columnLabelColor = 'rgb(132, 142, 156)',
-  sizeColor = 'rgb(183, 189, 198)',
-  bidPriceColor = '#5981f2',
-  askPriceColor = 'rgb(246, 70, 93)',
-  askBarColor = 'rgb(49, 30, 38)',
-  bidBarColor = '#1a2643',
-  sizeLabel = 'SIZE',
   style,
-  cellTextStyle,
   midPriceNode = defaultMidPriceNode,
   loadingNode = <DefaultLoadingNode />,
   horizontal = true,
+  controls,
 }: IOrderbookProps) {
   const aggr = useAggregatedBook(
     bids,
@@ -161,10 +128,11 @@ export function Orderbook({
   if (horizontal) {
     return (
       <View style={[styles.container, style]}>
-        {aggregation?.tickSizes?.length && aggregation?.onTickSizeChange ? (
+        {controls &&
+        aggregation?.tickSizes?.length &&
+        aggregation?.onTickSizeChange ? (
           <AggregationControls
             aggregationBtn={aggregationBtn}
-            aggregationBorderColor={aggregationBorderColor}
             tickSizes={aggregation.tickSizes}
             tickSize={aggregation.tickSize}
             onChange={aggregation.onTickSizeChange}
@@ -173,7 +141,7 @@ export function Orderbook({
         <XStack gap="$1" h="$4" ai="center">
           <XStack flex={1} jc="space-between">
             <SizableText size="$bodySmMedium" color="$textSubdued">
-              {sizeLabel}
+              SIZE
             </SizableText>
             <SizableText size="$bodySmMedium" color="$textSubdued">
               BUY
@@ -184,7 +152,7 @@ export function Orderbook({
               SELL
             </SizableText>
             <SizableText size="$bodySmMedium" color="$textSubdued">
-              {sizeLabel}
+              SIZE
             </SizableText>
           </XStack>
         </XStack>

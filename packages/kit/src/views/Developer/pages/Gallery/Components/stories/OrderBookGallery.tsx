@@ -115,6 +115,7 @@ const OrderBookDemo = () => {
 
         <Stack p="$2">
           <Orderbook
+            controls
             bids={bids}
             asks={asks}
             maxLevelsPerSide={15}
@@ -124,11 +125,6 @@ const OrderBookDemo = () => {
               tickSizes,
               onTickSizeChange: setTickSize,
             }}
-            bidPriceColor="#00d4aa"
-            askPriceColor="#ff6b6b"
-            bidBarColor="rgba(0, 212, 170, 0.1)"
-            askBarColor="rgba(255, 107, 107, 0.1)"
-            sizeLabel="Size"
           />
         </Stack>
         <Stack p="$2">
@@ -143,11 +139,6 @@ const OrderBookDemo = () => {
               tickSizes,
               onTickSizeChange: setTickSize,
             }}
-            bidPriceColor="#00d4aa"
-            askPriceColor="#ff6b6b"
-            bidBarColor="rgba(0, 212, 170, 0.1)"
-            askBarColor="rgba(255, 107, 107, 0.1)"
-            sizeLabel="Size"
           />
         </Stack>
       </Stack>

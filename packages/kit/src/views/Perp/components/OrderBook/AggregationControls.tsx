@@ -6,7 +6,6 @@ import type { IAggregationBtn } from './types';
 
 interface IAggregationControlsProps {
   aggregationBtn: IAggregationBtn;
-  aggregationBorderColor: string;
   tickSize: number;
   tickSizes: number[];
   onChange: (nextTickSize: number) => void;
@@ -33,14 +32,13 @@ const styles = StyleSheet.create({
 
 export function AggregationControls({
   aggregationBtn,
-  aggregationBorderColor,
   tickSizes,
   tickSize,
   onChange,
 }: IAggregationControlsProps) {
   return (
     <ScrollView
-      style={[styles.container, { borderBottomColor: aggregationBorderColor }]}
+      style={styles.container}
       contentContainerStyle={styles.contentContainer}
     >
       {tickSizes.map((size) => (
