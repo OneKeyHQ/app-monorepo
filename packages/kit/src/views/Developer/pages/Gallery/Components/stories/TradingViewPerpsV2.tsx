@@ -16,7 +16,7 @@ const TradingViewPerpsV2Gallery = () => {
 
   return (
     <Layout
-      filePath={__CURRENT_FILE_PATH__}
+      getFilePath={() => __CURRENT_FILE_PATH__}
       componentName="TradingViewPerpsV2"
       elements={[
         {
