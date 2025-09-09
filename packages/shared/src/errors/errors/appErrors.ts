@@ -161,6 +161,19 @@ export class OneKeyErrorAirGapWalletMismatch extends OneKeyAppError {
   override autoToast?: boolean | undefined = true;
 }
 
+export class OneKeyErrorAirGapDeviceMismatch extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'OneKeyErrorAirGapDeviceMismatch',
+        defaultKey: ETranslations.hardware_not_same,
+      }),
+    );
+  }
+
+  override autoToast?: boolean | undefined = true;
+}
+
 export class OneKeyErrorAirGapInvalidQrCode extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(
