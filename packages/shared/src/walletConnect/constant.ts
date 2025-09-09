@@ -28,6 +28,7 @@ export const DAPP_SIDE_SINGLE_WALLET_MODE = true;
 export const WALLET_CONNECT_V2_PROJECT_ID = '5e21f5018bfdeb78af03187a432a301d';
 
 export const WALLET_CONNECT_RELAY_URL = 'wss://relay.walletconnect.com';
+// type Level = "fatal" | "error" | "warn" | "info" | "debug" | "trace";
 export const WALLET_CONNECT_LOGGER_LEVEL: IWalletConnectLoggerLevel = 'error';
 
 const platformName = uniq([

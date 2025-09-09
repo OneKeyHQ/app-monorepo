@@ -37,8 +37,8 @@ import ServiceBase from '../ServiceBase';
 
 import { WalletConnectDappSide } from './WalletConnectDappSide';
 
+import type { WalletKitTypes } from '@reown/walletkit';
 import type { ProposalTypes, SessionTypes } from '@walletconnect/types';
-import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
 @backgroundClass()
 class ServiceWalletConnect extends ServiceBase {
@@ -50,6 +50,21 @@ class ServiceWalletConnect extends ServiceBase {
   dappSide = new WalletConnectDappSide({
     backgroundApi: this.backgroundApi,
   });
+
+  @backgroundMethod()
+  async abortConnectPairing({ uri }: { uri: string }) {
+    const providers = this.dappSide.providers;
+    const lastProvider = this.dappSide.lastConnectToWalletProvider;
+    if (lastProvider?.uri === uri) {
+      await lastProvider.abortConnectPairing();
+    }
+    console.log(
+      'abortConnectPairing lastProvider: ',
+      uri,
+      lastProvider,
+      providers,
+    );
+  }
 
   @backgroundMethod()
   @toastIfError()
@@ -233,7 +248,7 @@ class ServiceWalletConnect extends ServiceBase {
 
   @backgroundMethod()
   async getSessionApprovalAccountInfo(
-    proposal: Web3WalletTypes.SessionProposal,
+    proposal: WalletKitTypes.SessionProposal,
   ) {
     const { requiredNamespaces, optionalNamespaces } = proposal.params;
     const supported: Array<{
@@ -293,7 +308,7 @@ class ServiceWalletConnect extends ServiceBase {
     proposal,
     accountsInfo,
   }: {
-    proposal: Web3WalletTypes.SessionProposal;
+    proposal: WalletKitTypes.SessionProposal;
     accountsInfo: IConnectionAccountInfo[];
   }): Promise<Record<string, SessionTypes.BaseNamespace>> {
     const supportedNamespaces: Record<string, SessionTypes.BaseNamespace> = {};
