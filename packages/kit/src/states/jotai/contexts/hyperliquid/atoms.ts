@@ -24,10 +24,10 @@ export const { atom: webData2Atom, use: useWebData2Atom } =
   contextAtom<HL.IWsWebData2 | null>(null);
 
 export const { atom: activeAssetCtxAtom, use: useActiveAssetCtxAtom } =
-  contextAtom<HL.IWsActiveAssetCtx | null>(null);
+  contextAtom<(HL.IWsActiveAssetCtx & { coin: string }) | null>(null);
 
 export const { atom: activeAssetDataAtom, use: useActiveAssetDataAtom } =
-  contextAtom<HL.IActiveAssetData | null>(null);
+  contextAtom<(HL.IActiveAssetData & { coin: string }) | null>(null);
 
 export const { atom: l2BookAtom, use: useL2BookAtom } =
   contextAtom<HL.IBook | null>(null);
@@ -172,7 +172,7 @@ export const { atom: currentTokenPriceAtom, use: useCurrentTokenPriceAtom } =
     const activeAssetCtx = get(activeAssetCtxAtom());
     const currentToken = get(currentTokenAtom());
 
-    if (!activeAssetCtx?.ctx || !currentToken) {
+    if (!activeAssetCtx?.ctx || activeAssetCtx.coin !== currentToken) {
       return {
         markPrice: '0',
         oraclePrice: '0',
@@ -183,6 +183,7 @@ export const { atom: currentTokenPriceAtom, use: useCurrentTokenPriceAtom } =
         change24hPercent: 0,
         prevDayPx: '0',
         coin: currentToken,
+        isLoading: true,
         lastUpdate: Date.now(),
       };
     }
@@ -213,6 +214,7 @@ export const { atom: currentTokenPriceAtom, use: useCurrentTokenPriceAtom } =
       change24hPercent,
       prevDayPx,
       coin: currentToken,
+      isLoading: false,
       lastUpdate: Date.now(),
     };
   });
@@ -250,10 +252,10 @@ export const { atom: tradingPanelDataAtom, use: useTradingPanelDataAtom } =
   contextAtomComputed((get) => {
     const currentToken = get(currentTokenAtom());
     const tokenList = get(tokenListAtom());
-    const activeAssetCtx = get(activeAssetCtxAtom());
     const activeAssetData = get(activeAssetDataAtom());
+    const priceData = get(currentTokenPriceAtom());
 
-    if (!currentToken) {
+    if (priceData.isLoading) {
       return null;
     }
 
@@ -262,37 +264,15 @@ export const { atom: tradingPanelDataAtom, use: useTradingPanelDataAtom } =
       return null;
     }
 
-    const ctx = activeAssetCtx?.ctx;
-    const markPrice = ctx?.markPx || '0';
-    const oraclePrice = ctx?.oraclePx || '0';
-    const funding = ctx?.funding || '0';
-    const openInterest = ctx?.openInterest || '0';
-    const volume24h = ctx?.dayNtlVlm || '0';
-    const prevDayPx = ctx?.prevDayPx || markPrice;
-
-    const markPriceNum = parseFloat(markPrice);
-    const prevDayPxNum = parseFloat(prevDayPx);
-    const change24hPercent =
-      prevDayPxNum > 0
-        ? ((markPriceNum - prevDayPxNum) / prevDayPxNum) * 100
-        : 0;
-
-    const tradingData = {
+    return {
       ...tokenInfo,
       ...activeAssetData,
+      ...priceData,
       name: currentToken,
-      markPx: markPrice,
-      markPrice,
-      oraclePrice,
-      prevDayPrice: prevDayPx,
-      fundingRate: funding,
-      openInterest,
-      volume24h,
-      change24hPercent,
-      lastUpdate: Date.now(),
+      markPx: priceData.markPrice,
+      prevDayPrice: priceData.prevDayPx,
+      fundingRate: priceData.funding,
     };
-
-    return tradingData;
   });
 
 export const { atom: accountPanelDataAtom, use: useAccountPanelDataAtom } =

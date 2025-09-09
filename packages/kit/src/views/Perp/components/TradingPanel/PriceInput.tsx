@@ -16,16 +16,24 @@ interface IPriceInputProps {
 }
 
 export const PriceInput = memo<IPriceInputProps>(
-  ({ value, onChange, error, disabled = false, onUseMarketPrice }) => {
+  ({
+    value,
+    onChange,
+    error,
+    disabled = false,
+    onUseMarketPrice,
+    szDecimals,
+  }) => {
     const handleInputChange = useCallback(
       (text: string) => {
-        const isValid = validatePriceInput(text);
+        const processedText = text.replace(/。/g, '.');
+        const isValid = validatePriceInput(processedText, szDecimals);
         if (!isValid) {
           return;
         }
-        onChange(text);
+        onChange(processedText);
       },
-      [onChange],
+      [onChange, szDecimals],
     );
 
     return (

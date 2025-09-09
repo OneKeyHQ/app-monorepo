@@ -33,14 +33,22 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   });
 
   updateActiveAssetCtx = contextAtomMethod(
-    (_, set, data: HL.IWsActiveAssetCtx) => {
-      set(activeAssetCtxAtom(), data);
+    (get, set, data: HL.IWsActiveAssetCtx, coin: string) => {
+      const currentToken = get(currentTokenAtom());
+      if (currentToken !== coin) {
+        return;
+      }
+      set(activeAssetCtxAtom(), { ...data, coin });
     },
   );
 
   updateActiveAssetData = contextAtomMethod(
-    (_, set, data: HL.IActiveAssetData) => {
-      set(activeAssetDataAtom(), data);
+    (get, set, data: HL.IActiveAssetData, coin: string) => {
+      const currentToken = get(currentTokenAtom());
+      if (currentToken !== coin) {
+        return;
+      }
+      set(activeAssetDataAtom(), { ...data, coin });
     },
   );
 
