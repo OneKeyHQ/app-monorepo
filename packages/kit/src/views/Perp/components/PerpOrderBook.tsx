@@ -2,6 +2,8 @@ import { ScrollView, SizableText, XStack, YStack } from '@onekeyhq/components';
 
 import { useL2Book } from '../hooks/usePerpMarketData';
 
+import { OrderPairBook } from './OrderBook';
+
 interface IOrderBookRowProps {
   px: string;
   sz: string;
@@ -80,7 +82,7 @@ export function PerpOrderBook() {
         <SizableText size="$headingSm" fontWeight="600">
           Order Book
         </SizableText>
-        <XStack space="$2">
+        <XStack gap="$2">
           <SizableText size="$bodyMd" color="$textSubdued">
             Spread: {spread ? spread.toFixed(2) : '--'}
           </SizableText>
@@ -167,6 +169,20 @@ export function PerpOrderBook() {
           ))}
         </YStack>
       </ScrollView>
+
+      <OrderPairBook
+        bids={l2Book.bids.map((bid) => ({
+          price: Number(bid.px),
+          size: Number(bid.sz),
+          cumSize: 0,
+        }))}
+        asks={l2Book.asks.map((ask) => ({
+          price: Number(ask.px),
+          size: Number(ask.sz),
+          cumSize: 0,
+        }))}
+        maxLevelsPerSide={15}
+      />
 
       {/* Footer Stats */}
       <XStack
