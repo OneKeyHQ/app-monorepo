@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import notifee from '@notifee/react-native';
+import launchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
 
 export const useInitialNotification = () => {
   const coldStartRef = useRef(true);
@@ -8,8 +8,8 @@ export const useInitialNotification = () => {
     setTimeout(async () => {
       if (coldStartRef.current) {
         coldStartRef.current = false;
-        const notifeeNotification = await notifee.getInitialNotification();
-        alert(`notifeeNotification: ${JSON.stringify(notifeeNotification)}`);
+        const launchOptions = await launchOptionsManager.getLaunchOptions();
+        alert(`initialNotification: ${JSON.stringify(launchOptions)}`);
       }
     }, 650);
   }, []);

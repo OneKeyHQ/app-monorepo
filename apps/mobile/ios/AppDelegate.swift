@@ -14,6 +14,22 @@ public class AppDelegate: ExpoAppDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    // Save launch options to LaunchOptionsManager
+    if let launchOptions = launchOptions {
+      var options: [String: Any] = [:]
+      
+      options["isUserAction"] = launchOptions[UIApplication.LaunchOptionsKey.sourceApplication] != nil
+      if let remoteNotification = launchOptions[UIApplication.LaunchOptionsKey.remoteNotification] as? [AnyHashable: Any] {
+        options["remoteNotification"] = remoteNotification
+      }
+      
+      if let localNotification = launchOptions[UIApplication.LaunchOptionsKey.localNotification] as? [AnyHashable: Any] {
+        options["localNotification"] = localNotification
+      }
+      
+      LaunchOptionsManager.sharedInstance().saveLaunchOptions(options)
+    }
+    
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
