@@ -24,6 +24,7 @@ import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EContractApprovalAlertType } from '@onekeyhq/shared/types/approval';
 
@@ -135,6 +136,7 @@ export function HomePageView({
           );
 
         if (shouldShowRiskApprovalsRevokeSuggestion) {
+          await timerUtils.wait(2000);
           navigation.pushModal(EModalRoutes.ApprovalManagementModal, {
             screen: EModalApprovalManagementRoutes.RevokeSuggestion,
             params: {

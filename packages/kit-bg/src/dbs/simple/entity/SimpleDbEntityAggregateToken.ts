@@ -1,6 +1,7 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { buildLocalAggregateTokenMapKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
+  IAccountToken,
   IAggregateToken,
   IHomeDefaultToken,
   ITokenFiat,
@@ -12,6 +13,13 @@ export interface ISimpleDBAggregateToken {
   aggregateTokenConfigMap: Record<string, IAggregateToken>;
   homeDefaultTokenMap: Record<string, IHomeDefaultToken>;
   aggregateTokenMap: Record<string, Record<string, ITokenFiat>>;
+  allAggregateTokenMap: Record<
+    string,
+    {
+      tokens: IAccountToken[];
+    }
+  >;
+  allAggregateTokens: IAccountToken[];
 }
 
 export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAggregateToken> {
@@ -39,6 +47,8 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
   }) {
     await this.setRawData((rawData) => ({
       ...rawData,
+      allAggregateTokenMap: rawData?.allAggregateTokenMap ?? {},
+      allAggregateTokens: rawData?.allAggregateTokens ?? [],
       aggregateTokenConfigMap: rawData?.aggregateTokenConfigMap ?? {},
       aggregateTokenMap: rawData?.aggregateTokenMap ?? {},
       homeDefaultTokenMap: merge
@@ -79,6 +89,8 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
     await this.setRawData((rawData) => {
       return {
         ...rawData,
+        allAggregateTokenMap: rawData?.allAggregateTokenMap ?? {},
+        allAggregateTokens: rawData?.allAggregateTokens ?? [],
         homeDefaultTokenMap: rawData?.homeDefaultTokenMap ?? {},
         aggregateTokenConfigMap: rawData?.aggregateTokenConfigMap ?? {},
         aggregateTokenMap: {
@@ -99,11 +111,45 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
   }) {
     await this.setRawData((rawData) => ({
       ...rawData,
+      allAggregateTokenMap: rawData?.allAggregateTokenMap ?? {},
+      allAggregateTokens: rawData?.allAggregateTokens ?? [],
       homeDefaultTokenMap: rawData?.homeDefaultTokenMap ?? {},
       aggregateTokenMap: rawData?.aggregateTokenMap ?? {},
       aggregateTokenConfigMap: merge
         ? { ...rawData?.aggregateTokenConfigMap, ...aggregateTokenConfigMap }
         : aggregateTokenConfigMap,
+    }));
+  }
+
+  @backgroundMethod()
+  async updateAllAggregateInfo({
+    aggregateTokenConfigMap,
+    homeDefaultTokenMap,
+    allAggregateTokenMap,
+    allAggregateTokens,
+    merge = false,
+  }: {
+    allAggregateTokenMap: Record<string, { tokens: IAccountToken[] }>;
+    allAggregateTokens: IAccountToken[];
+    aggregateTokenConfigMap: Record<string, IAggregateToken>;
+    homeDefaultTokenMap: Record<string, IHomeDefaultToken>;
+    merge?: boolean;
+  }) {
+    await this.setRawData((rawData) => ({
+      ...rawData,
+      aggregateTokenMap: rawData?.aggregateTokenMap ?? {},
+      allAggregateTokenMap: merge
+        ? { ...rawData?.allAggregateTokenMap, ...allAggregateTokenMap }
+        : allAggregateTokenMap,
+      allAggregateTokens: merge
+        ? { ...rawData?.allAggregateTokens, ...allAggregateTokens }
+        : allAggregateTokens,
+      aggregateTokenConfigMap: merge
+        ? { ...rawData?.aggregateTokenConfigMap, ...aggregateTokenConfigMap }
+        : aggregateTokenConfigMap,
+      homeDefaultTokenMap: merge
+        ? { ...rawData?.homeDefaultTokenMap, ...homeDefaultTokenMap }
+        : homeDefaultTokenMap,
     }));
   }
 }

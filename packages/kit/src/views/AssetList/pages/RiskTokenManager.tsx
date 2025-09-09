@@ -304,7 +304,7 @@ function RiskTokenManager() {
         accountId: token.accountId ?? accountId,
         networkId: token.networkId ?? networkId,
         walletId,
-        tokenInfo: token,
+        tokens: [token],
         isBlocked: token.isBlocked,
         deriveInfo,
         deriveType,
