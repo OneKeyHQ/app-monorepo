@@ -12,16 +12,6 @@ export function getPriceDecimals(szDecimals: number): number {
   return Math.abs(szDecimals - 5);
 }
 
-export function formatTokenAmount(
-  amount: string | number,
-  weiDecimals: number,
-  szDecimals: number,
-): string {
-  if (!amount || Number.isNaN(Number(amount))) return '0';
-  const amountDecimals = weiDecimals - szDecimals;
-  return new BigNumber(amount).toFixed(amountDecimals);
-}
-
 export function calculateSlippagePrice(
   markPrice: string | number,
   side: 'long' | 'short',
@@ -50,31 +40,9 @@ export function validatePricePrecision(
   return decimalPlaces <= maxPriceDecimals;
 }
 
-export function validateAmountPrecision(
-  amount: string | number,
-  weiDecimals: number,
-  szDecimals: number,
-): boolean {
-  const amountStr = amount.toString();
-  const decimalIndex = amountStr.indexOf('.');
-  if (decimalIndex === -1) return true;
-
-  const maxAmountDecimals = weiDecimals - szDecimals;
-  const decimalPlaces = amountStr.length - decimalIndex - 1;
-  return decimalPlaces <= maxAmountDecimals;
-}
-
 export function getPriceTickSize(szDecimals: number): string {
   const priceDecimals = getPriceDecimals(szDecimals);
   return new BigNumber(10).exponentiatedBy(-priceDecimals).toFixed();
-}
-
-export function getAmountLotSize(
-  weiDecimals: number,
-  szDecimals: number,
-): string {
-  const amountDecimals = weiDecimals - szDecimals;
-  return new BigNumber(10).exponentiatedBy(-amountDecimals).toFixed();
 }
 
 export function displayPrice(
@@ -83,15 +51,6 @@ export function displayPrice(
 ): string {
   const priceDecimals = getPriceDecimals(szDecimals);
   return new BigNumber(price || 0).toFormat(priceDecimals);
-}
-
-export function displayAmount(
-  amount: string | number,
-  weiDecimals: number,
-  szDecimals: number,
-): string {
-  const amountDecimals = weiDecimals - szDecimals;
-  return new BigNumber(amount || 0).toFormat(amountDecimals);
 }
 
 export function validateSizeInput(input: string, szDecimals: number): boolean {
@@ -112,40 +71,56 @@ export function validateSizeInput(input: string, szDecimals: number): boolean {
   return true;
 }
 
-export function validatePriceInput(input: string): boolean {
+export function validatePriceInput(
+  input: string,
+  szDecimals?: number,
+): boolean {
   if (!input) return true;
 
-  // Only allow numbers and decimal point
-  if (!/^[0-9]*\.?[0-9]*$/.test(input)) return false;
+  const processedInput = input.replace(/。/g, '.');
 
-  const parts = input.split('.');
-  if (parts.length > 2) return false; // Multiple decimal points
+  if (!/^[0-9]*\.?[0-9]*$/.test(processedInput)) return false;
+
+  const parts = processedInput.split('.');
+  if (parts.length > 2) return false;
 
   const integerPart = parts[0] || '';
   const decimalPart = parts.length > 1 ? parts[1] : '';
-
-  // Remove leading zeros for significant digit calculation
   const trimmedInteger = integerPart.replace(/^0+/, '') || '0';
 
-  // If no decimal point, allow any integer (no limit for whole numbers)
-  if (parts.length === 1) return true;
+  if (parts.length === 2 && decimalPart === '') return true;
 
-  // If integer part has 5 or more digits, no decimal allowed
-  if (trimmedInteger.length >= 5 && trimmedInteger !== '0') return false;
-
-  // Calculate total significant digits
-  const integerDigits = trimmedInteger === '0' ? 0 : trimmedInteger.length;
-  const decimalDigits = decimalPart.length;
-
-  // For numbers like 0.0012345, count only non-zero decimal digits
-  if (integerDigits === 0) {
-    const leadingZeros = decimalPart.match(/^0*/)?.[0].length || 0;
-    const significantDecimalDigits = decimalPart.length - leadingZeros;
-    return significantDecimalDigits <= 5;
+  if (szDecimals !== undefined && decimalPart.length > 0) {
+    const maxDecimalPlaces = Math.max(0, 6 - szDecimals);
+    if (decimalPart.length > maxDecimalPlaces) return false;
   }
 
-  // For numbers with integer part, total significant digits <= 5
-  return integerDigits + decimalDigits <= 5;
+  if (parts.length === 1) {
+    if (trimmedInteger !== '0' && trimmedInteger.length > 5) return false;
+    return true;
+  }
+
+  if (
+    trimmedInteger.length >= 5 &&
+    trimmedInteger !== '0' &&
+    decimalPart.length > 0
+  )
+    return false;
+
+  if (decimalPart.length > 0) {
+    const integerDigits = trimmedInteger === '0' ? 0 : trimmedInteger.length;
+    const decimalDigits = decimalPart.length;
+
+    if (integerDigits === 0) {
+      const leadingZeros = decimalPart.match(/^0*/)?.[0].length || 0;
+      const significantDecimalDigits = decimalPart.length - leadingZeros;
+      return significantDecimalDigits <= 5;
+    }
+
+    return integerDigits + decimalDigits <= 5;
+  }
+
+  return true;
 }
 
 export function formatSizeInput(input: string, szDecimals: number): string {
@@ -153,8 +128,8 @@ export function formatSizeInput(input: string, szDecimals: number): string {
   return input;
 }
 
-export function formatPriceInput(input: string): string {
-  if (!validatePriceInput(input)) return input;
+export function formatPriceInput(input: string, szDecimals?: number): string {
+  if (!validatePriceInput(input, szDecimals)) return input;
   return input;
 }
 

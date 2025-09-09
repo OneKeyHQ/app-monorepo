@@ -1,5 +1,7 @@
 import { memo, useCallback } from 'react';
 
+import { BigNumber } from 'bignumber.js';
+
 import {
   Button,
   NumberSizeableText,
@@ -19,12 +21,13 @@ function PerpAccountPanel() {
   const { userWebData2, accountSummary } = useHyperliquidAccount();
 
   const availableBalance = accountSummary.withdrawable;
-  let currentPositionValue = 0;
+  let currentPositionValue = new BigNumber(0);
   if (userWebData2) {
     currentPositionValue =
       userWebData2.clearinghouseState.assetPositions.reduce(
-        (acc, curr) => acc + Number(curr.position.positionValue),
-        0,
+        (acc, curr) =>
+          acc.plus(new BigNumber(curr.position.positionValue || 0)),
+        new BigNumber(0),
       );
   }
 
@@ -71,7 +74,7 @@ function PerpAccountPanel() {
           </SizableText>
           <NumberSizeableText
             size="$bodyMd"
-            formatter="value"
+            formatter="price"
             formatterOptions={{ currency: '$' }}
           >
             {availableBalance}
@@ -83,10 +86,10 @@ function PerpAccountPanel() {
           </SizableText>
           <NumberSizeableText
             size="$bodyMd"
-            formatter="value"
+            formatter="price"
             formatterOptions={{ currency: '$' }}
           >
-            {currentPositionValue}
+            {currentPositionValue.toNumber()}
           </NumberSizeableText>
         </XStack>
       </YStack>

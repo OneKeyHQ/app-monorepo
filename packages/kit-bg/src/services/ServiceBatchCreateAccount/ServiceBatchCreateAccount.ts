@@ -25,6 +25,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -713,81 +714,82 @@ class ServiceBatchCreateAccount extends ServiceBase {
             try {
               allNetworkGetAddressResponse = (await convertDeviceResponse(
                 async () => {
-                  const sdkPromiseResult = params.loopMode
-                    ? sdk.allNetworkGetAddressByLoop(
-                        compatibleConnectId,
-                        deviceParams.dbDevice?.deviceId || '',
-                        {
-                          ...deviceParams.deviceCommonParams,
-                          bundle: bundleParams,
-                          // loopMode: params.loopMode,
-                          onLoopItemResponse: (data) => {
-                            if (hideCheckingDeviceLoading) {
-                              // TODO close PIN dialog or passphrase dialog
-                              void this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog(
-                                {
-                                  connectId: compatibleConnectId,
-                                },
+                  const sdkPromiseResult =
+                    params.loopMode && !platformEnv.isExtension
+                      ? sdk.allNetworkGetAddressByLoop(
+                          compatibleConnectId,
+                          deviceParams.dbDevice?.deviceId || '',
+                          {
+                            ...deviceParams.deviceCommonParams,
+                            bundle: bundleParams,
+                            // loopMode: params.loopMode,
+                            onLoopItemResponse: (data) => {
+                              if (hideCheckingDeviceLoading) {
+                                // TODO close PIN dialog or passphrase dialog
+                                void this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog(
+                                  {
+                                    connectId: compatibleConnectId,
+                                  },
+                                );
+                              }
+                              console.log(
+                                'sdk.allNetworkGetAddressByLoop__onLoopItemResponse',
+                                data,
                               );
-                            }
-                            console.log(
-                              'sdk.allNetworkGetAddressByLoop__onLoopItemResponse',
-                              data,
-                            );
 
-                            // TODO handle device locked or reboot error
-                            // TODO handle network not support error
-                            if (data) {
-                              hwAllNetworkPrepareAccountsResponse.onSdkItemCallResponse(
-                                data as IHwAllNetworkPrepareAccountsItem,
+                              // TODO handle device locked or reboot error
+                              // TODO handle network not support error
+                              if (data) {
+                                hwAllNetworkPrepareAccountsResponse.onSdkItemCallResponse(
+                                  data as IHwAllNetworkPrepareAccountsItem,
+                                );
+                              }
+                            },
+                            onAllItemsResponse: (data, error) => {
+                              // TODO lock device, reject pin or correct pin, data and error is undefined
+                              console.log(
+                                'sdk.allNetworkGetAddressByLoop__onAllItemsResponse',
+                                data,
+                                error,
                               );
-                            }
+                              if (data === undefined && error) {
+                                const hwError = convertDeviceError(
+                                  {
+                                    code: error.payload?.code,
+                                    error: error.payload?.error,
+                                    // message: item.payload?.message,
+                                    // params: item.payload?.params,
+                                    // errorCode: item.payload?.errorCode,
+                                    // connectId: error.payload?.connectId,
+                                    // deviceId: error.payload?.deviceId,
+                                  },
+                                  {
+                                    // silentMode: true,
+                                  },
+                                );
+                                // TODO i18n RepeatUnlocking: 417
+                                hwAllNetworkPrepareAccountsResponse.rejectAllResponse(
+                                  hwError ||
+                                    new OneKeyLocalError(
+                                      'Device communication interrupted, please try again later (386147)',
+                                    ),
+                                );
+                              }
+                              appEventBus.emit(
+                                EAppEventBusNames.SDKGetAllNetworkAddressesEnd,
+                                undefined,
+                              );
+                            },
                           },
-                          onAllItemsResponse: (data, error) => {
-                            // TODO lock device, reject pin or correct pin, data and error is undefined
-                            console.log(
-                              'sdk.allNetworkGetAddressByLoop__onAllItemsResponse',
-                              data,
-                              error,
-                            );
-                            if (data === undefined && error) {
-                              const hwError = convertDeviceError(
-                                {
-                                  code: error.payload?.code,
-                                  error: error.payload?.error,
-                                  // message: item.payload?.message,
-                                  // params: item.payload?.params,
-                                  // errorCode: item.payload?.errorCode,
-                                  // connectId: error.payload?.connectId,
-                                  // deviceId: error.payload?.deviceId,
-                                },
-                                {
-                                  // silentMode: true,
-                                },
-                              );
-                              // TODO i18n RepeatUnlocking: 417
-                              hwAllNetworkPrepareAccountsResponse.rejectAllResponse(
-                                hwError ||
-                                  new OneKeyLocalError(
-                                    'Device communication interrupted, please try again later (386147)',
-                                  ),
-                              );
-                            }
-                            appEventBus.emit(
-                              EAppEventBusNames.SDKGetAllNetworkAddressesEnd,
-                              undefined,
-                            );
+                        )
+                      : sdk.allNetworkGetAddress(
+                          compatibleConnectId,
+                          deviceParams.dbDevice?.deviceId || '',
+                          {
+                            ...deviceParams.deviceCommonParams,
+                            bundle: bundleParams,
                           },
-                        },
-                      )
-                    : sdk.allNetworkGetAddress(
-                        compatibleConnectId,
-                        deviceParams.dbDevice?.deviceId || '',
-                        {
-                          ...deviceParams.deviceCommonParams,
-                          bundle: bundleParams,
-                        },
-                      );
+                        );
 
                   const sdkAllNetworkGetAddressResponse =
                     await sdkPromiseResult;

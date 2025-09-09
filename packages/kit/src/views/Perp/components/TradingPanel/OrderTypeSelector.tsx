@@ -1,9 +1,7 @@
 import { memo } from 'react';
 
-import {
-  type ISegmentControlProps,
-  SegmentControl,
-} from '@onekeyhq/components';
+import { Icon, Select, SizableText, XStack } from '@onekeyhq/components';
+import type { ISelectItem } from '@onekeyhq/components';
 
 interface IOrderTypeSelectorProps {
   value: 'market' | 'limit';
@@ -11,18 +9,45 @@ interface IOrderTypeSelectorProps {
   disabled?: boolean;
 }
 
+const orderTypeOptions: ISelectItem[] = [
+  { label: 'Market', value: 'market' },
+  { label: 'Limit', value: 'limit' },
+];
+
 export const OrderTypeSelector = memo<IOrderTypeSelectorProps>(
   // eslint-disable-next-line react/prop-types
   ({ value, onChange, disabled = false }) => {
     return (
-      <SegmentControl
+      <Select
+        items={orderTypeOptions}
         value={value}
-        onChange={onChange as ISegmentControlProps['onChange']}
+        onChange={onChange}
         disabled={disabled}
-        options={[
-          { label: 'Market', value: 'market' },
-          { label: 'Limit', value: 'limit' },
-        ]}
+        title="Order Type"
+        renderTrigger={({ onPress, label, disabled: disabledTrigger }) => (
+          <XStack
+            cursor="pointer"
+            onPress={onPress}
+            disabled={disabledTrigger}
+            width={100}
+            height={30}
+            bg="$bgSubdued"
+            borderRadius="$2"
+            alignItems="center"
+            justifyContent="space-between"
+            px="$3"
+          >
+            <SizableText>{label}</SizableText>
+            <Icon
+              name="ChevronTriangleDownSmallOutline"
+              color="$iconSubdued"
+              size="$5"
+            />
+          </XStack>
+        )}
+        floatingPanelProps={{
+          width: 120,
+        }}
       />
     );
   },
