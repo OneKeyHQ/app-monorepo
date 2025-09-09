@@ -333,9 +333,16 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           this.getSelectedAccount.call(set, { num }) ||
             defaultSelectedAccount(),
         );
-        const newSelectedAccount = cloneDeep(builder(oldSelectedAccount));
+        const newSelectedAccount: IAccountSelectorSelectedAccount = cloneDeep(
+          builder(oldSelectedAccount),
+        );
 
-        if (isEqual(oldSelectedAccount, newSelectedAccount)) {
+        if (
+          isEqual(
+            omitBy(oldSelectedAccount, isUndefined),
+            omitBy(newSelectedAccount, isUndefined),
+          )
+        ) {
           return;
         }
 
@@ -358,7 +365,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         if (
           sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
-          newSelectedAccount?.indexedAccountId === 'hd-1--0'
+          oldSelectedAccount?.walletId?.startsWith('watching') &&
+          newSelectedAccount?.walletId?.startsWith('hw-')
         ) {
           // debugger;
         }
@@ -451,6 +459,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           ...v,
           [num]: {
             eventEmitDisabled: Boolean(updateMeta?.eventEmitDisabled),
+            updatedAt: Date.now(),
           },
         }));
       });
@@ -1347,6 +1356,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           await this.updateSelectedAccount.call(set, {
             updateMeta: {
               eventEmitDisabled: true, // stop update infinite loop here
+              updatedAt: Date.now(),
             },
             num,
             builder(v) {
@@ -1413,6 +1423,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           await this.updateSelectedAccountDeriveType.call(set, {
             updateMeta: {
               eventEmitDisabled: true, // stop update infinite loop here
+              updatedAt: Date.now(),
             },
             num,
             deriveType: globalDeriveType || 'default',
@@ -1521,6 +1532,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         sceneName: EAccountSelectorSceneName;
         sceneUrl?: string;
         num: number;
+        selectedAccountUpdatedAt: number | undefined;
       },
     ) => {
       const { serviceAccountSelector } = backgroundApiProxy;
@@ -1667,6 +1679,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         availableNetworks,
       }: IAccountSelectorSyncFromSceneParams,
     ) => {
+      defaultLogger.accountSelector.storage.syncFromScene({
+        sceneName: from.sceneName,
+        sceneUrl: from.sceneUrl,
+        num,
+      });
       await this.autoSelectNextAccountMutex.waitForUnlock();
 
       const sceneInfo = await this.getCurrentSceneInfo.call(set);
@@ -1932,6 +1949,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       }
 
       await this.autoSelectNextAccountMutex.runExclusive(async () => {
+        defaultLogger.accountSelector.storage.autoSelectNextAccount({
+          sceneName,
+          sceneUrl,
+          num,
+        });
         // TODO auto select account from home scene
         const { network, wallet, indexedAccount, account, dbAccount } =
           activeAccount;
