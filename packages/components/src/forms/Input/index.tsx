@@ -435,7 +435,7 @@ function BaseInput(
           flex={1}
           // @ts-expect-error
           pointerEvents={readonly ? 'none' : 'auto'}
-          /* 
+          /*
           use height instead of lineHeight because of a RN issue while render TextInput on iOS
           https://github.com/facebook/react-native/issues/28012
         */

@@ -42,6 +42,45 @@ const TextAreaGallery = () => (
                 },
               ]}
             />
+            <TextAreaInput
+              addOns={[
+                {
+                  testID: 'account-key-show-btn',
+                  iconName: 'EyeOutline',
+                  onPress: () => {
+                    alert('eyes');
+                  },
+                },
+                {
+                  iconName: 'Copy3Outline',
+                  testID: 'account-key-copy-btn',
+                  onPress: () => {
+                    alert('copy');
+                  },
+                },
+              ]}
+              value={Array.from({ length: 100 }, (_, i) => `${i + 1}`).join('')}
+            />
+            <TextAreaInput
+              addOns={[
+                {
+                  testID: 'account-key-show-btn',
+                  iconName: 'EyeOutline',
+                  onPress: () => {
+                    alert('eyes');
+                  },
+                },
+                {
+                  iconName: 'Copy3Outline',
+                  testID: 'account-key-copy-btn',
+                  onPress: () => {
+                    alert('copy');
+                  },
+                },
+              ]}
+              editable={false}
+              value={Array.from({ length: 100 }, (_, i) => `${i + 1}`).join('')}
+            />
           </Stack>
         ),
       },
