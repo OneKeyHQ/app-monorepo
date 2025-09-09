@@ -1,3 +1,17 @@
+import type { IHex } from './sdk';
+
+export enum ESubscriptionType {
+  ALL_MIDS = 'allMids',
+  ACTIVE_ASSET_CTX = 'activeAssetCtx',
+  WEB_DATA2 = 'webData2',
+  L2_BOOK = 'l2Book',
+  TRADES = 'trades',
+  BBO = 'bbo',
+  ACTIVE_ASSET_DATA = 'activeAssetData',
+  USER_EVENTS = 'userEvents',
+  USER_NOTIFICATIONS = 'userNotifications',
+}
+
 export interface IConnectionState {
   readonly isConnected: boolean;
   readonly lastConnected: number | null;
@@ -40,4 +54,70 @@ export interface ITokenListItem {
   readonly markPrice: string;
   readonly indexPrice: string;
   readonly fundingRate: string;
+}
+
+// request types
+export interface IPlaceOrderParams {
+  assetId: number;
+  isBuy: boolean;
+  sz: string;
+  limitPx?: string;
+  orderType: { limit: { tif: 'Gtc' | 'Ioc' } } | { market?: object };
+  slippage?: number;
+}
+
+export interface IMarketOrderOpenParams {
+  assetId: number;
+  isBuy: boolean;
+  size: string;
+  midPx: string;
+  type: 'market' | 'limit';
+  tpTriggerPx?: string;
+  slTriggerPx?: string;
+  slippage?: number;
+}
+
+export interface IMarketOrderCloseParams {
+  assetId: number;
+  isBuy: boolean;
+  size: string;
+  midPx: string;
+  slippage?: number;
+}
+
+export interface IUpdateLeverageParams {
+  assetId: number;
+  leverage: number;
+  isCross?: boolean;
+}
+
+export interface ICancelOrderParams {
+  assetId: number;
+  oid: number;
+}
+
+export interface IMultiOrderParams {
+  orders: Array<{
+    assetId: number;
+    isBuy: boolean;
+    sz: string;
+    limitPx: string;
+    orderType: { limit: { tif: 'Gtc' | 'Ioc' } };
+  }>;
+}
+
+export interface ILeverageUpdateRequest {
+  asset: number;
+  isCross: boolean;
+  leverage: number;
+}
+
+export interface IBuilderFeeRequest {
+  builder: IHex;
+  maxFeeRate: `${string}%`;
+}
+
+export interface IAgentApprovalRequest {
+  agent: IHex;
+  authorize: boolean;
 }

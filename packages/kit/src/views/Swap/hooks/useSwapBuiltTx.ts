@@ -110,6 +110,13 @@ import {
 } from './useSwapState';
 import { useSwapTxHistoryActions } from './useSwapTxHistory';
 
+/**
+ * React hook that manages the full lifecycle of building, approving, signing, and sending swap transactions in a multi-step workflow.
+ *
+ * Integrates with background APIs, handles UI state updates, fee checks, error handling, and event logging for swap operations. Supports various swap protocols, approval flows, limit order cancellation, and fallback UI confirmations. Returns functions to start the swap steps execution and to cancel limit orders.
+ *
+ * @returns An object with `preSwapStepsStart` to initiate the swap steps process and `cancelLimitOrder` to cancel a limit order.
+ */
 export function useSwapBuildTx() {
   const intl = useIntl();
   const [fromToken] = useSwapSelectFromTokenAtom();

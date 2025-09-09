@@ -1,7 +1,7 @@
 export const useHoldersLayoutSmall = () => {
   const styles = {
     rank: {
-      width: '$8',
+      width: '$6',
     },
     address: {
       width: 170,
@@ -11,7 +11,7 @@ export const useHoldersLayoutSmall = () => {
       textAlign: 'right' as const,
     },
     value: {
-      width: '$18',
+      width: '$20',
       textAlign: 'right' as const,
     },
   };

@@ -3,6 +3,7 @@ import type {
   IUnsignedMessage,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import type { IHasId, LinkedDeck } from '@onekeyhq/kit/src/hooks/useLinkedList';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
@@ -11,7 +12,10 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
-import type { ITokenSelectorParamList } from './assetSelector';
+import type {
+  IAggregateTokenSelectorParams,
+  ITokenSelectorParamList,
+} from './assetSelector';
 import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
 import type { IAccountHistoryTx } from '../../types/history';
@@ -35,6 +39,7 @@ export enum EModalSignatureConfirmRoutes {
 
   TxReplace = 'TxReplace',
   TxSelectToken = 'TxSelectToken',
+  TxSelectAggregateToken = 'TxSelectAggregateToken',
   TxSelectDeriveAddress = 'TxSelectDeriveAddress',
 
   // Lightning Network
@@ -46,6 +51,7 @@ export enum EModalSignatureConfirmRoutes {
 
 export type IModalSignatureConfirmParamList = {
   [EModalSignatureConfirmRoutes.TxSelectToken]: ITokenSelectorParamList;
+  [EModalSignatureConfirmRoutes.TxSelectAggregateToken]: IAggregateTokenSelectorParams;
   [EModalSignatureConfirmRoutes.TxDataInput]: {
     networkId: string;
     accountId: string;
@@ -74,6 +80,8 @@ export type IModalSignatureConfirmParamList = {
     onCancel?: () => void;
     transferPayload?: ITransferPayload;
     popStack?: boolean;
+    isQueueMode?: boolean;
+    unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
   };
   [EModalSignatureConfirmRoutes.MessageConfirm]: {
     accountId: string;

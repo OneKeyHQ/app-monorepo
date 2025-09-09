@@ -29,6 +29,8 @@ import {
 import {
   useActiveAccountTokenListAtom,
   useActiveAccountTokenListStateAtom,
+  useAggregateTokensListMapAtom,
+  useAggregateTokensMapAtom,
   useSearchKeyAtom,
   useSearchTokenListAtom,
   useSearchTokenStateAtom,
@@ -86,6 +88,7 @@ type IProps = {
     | 'ListFooterComponentStyle'
     | 'contentContainerStyle'
   >;
+  showNetworkIcon?: boolean;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -116,11 +119,13 @@ function TokenListViewCmp(props: IProps) {
     showActiveAccountTokenList = false,
     listViewStyleProps,
     onRefresh,
+    showNetworkIcon,
   } = props;
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
   const [tokenList] = useTokenListAtom();
   const [tokenListMap] = useTokenListMapAtom();
+  const [aggregateTokenMap] = useAggregateTokensMapAtom();
   const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
@@ -152,6 +157,8 @@ function TokenListViewCmp(props: IProps) {
 
   const [searchTokenList] = useSearchTokenListAtom();
 
+  const [aggregateTokenListMap] = useAggregateTokensListMapAtom();
+
   const [{ sortType, sortDirection }] = useTokenListSortAtom();
 
   const filteredTokens = useMemo(() => {
@@ -162,6 +169,7 @@ function TokenListViewCmp(props: IProps) {
       searchTokenList: isTokenSelector
         ? tokenSelectorSearchTokenList.tokens
         : searchTokenList.tokens,
+      aggregateTokenListMap,
     });
 
     if (!isTokenSelector) {
@@ -169,7 +177,10 @@ function TokenListViewCmp(props: IProps) {
         return sortTokensByPrice({
           tokens: resp,
           sortDirection,
-          map: tokenListMap,
+          map: {
+            ...tokenListMap,
+            ...aggregateTokenMap,
+          },
         });
       }
 
@@ -177,7 +188,10 @@ function TokenListViewCmp(props: IProps) {
         return sortTokensByFiatValue({
           tokens: resp,
           sortDirection,
-          map: tokenListMap,
+          map: {
+            ...tokenListMap,
+            ...aggregateTokenMap,
+          },
         });
       }
 
@@ -198,9 +212,11 @@ function TokenListViewCmp(props: IProps) {
     searchAll,
     tokenSelectorSearchTokenList.tokens,
     searchTokenList.tokens,
+    aggregateTokenListMap,
     sortType,
     sortDirection,
     tokenListMap,
+    aggregateTokenMap,
   ]);
 
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
@@ -379,6 +395,7 @@ function TokenListViewCmp(props: IProps) {
           withNetwork={withNetwork}
           isTokenSelector={isTokenSelector}
           withSwapAction={withSwapAction}
+          showNetworkIcon={showNetworkIcon}
         />
       )}
       ListFooterComponent={

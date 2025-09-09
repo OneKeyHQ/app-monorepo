@@ -41,6 +41,7 @@ import { ListItem } from '../../../components/ListItem';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
+  useAggregateTokensListMapAtom,
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '../../../states/jotai/contexts/tokenList';
@@ -123,6 +124,7 @@ export function UniversalSearch({
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [allTokenList] = useAllTokenListAtom();
   const [allTokenListMap] = useAllTokenListMapAtom();
+  const [aggregateTokenListMap] = useAggregateTokensListMapAtom();
 
   const [sections, setSections] = useState<IUniversalSection[]>([]);
   const [searchStatus, setSearchStatus] = useState<ESearchStatus>(
@@ -190,12 +192,14 @@ export function UniversalSearch({
     return (
       allTokenList &&
       allTokenListMap &&
+      aggregateTokenListMap &&
       allTokenList.accountId === activeAccount?.account?.id &&
       allTokenList.networkId === activeAccount?.network?.id
     );
   }, [
     allTokenList,
     allTokenListMap,
+    aggregateTokenListMap,
     activeAccount?.account?.id,
     activeAccount?.network?.id,
   ]);
@@ -243,6 +247,9 @@ export function UniversalSearch({
             : undefined,
           tokenListCacheMap: shouldUseTokensCacheData
             ? allTokenListMap
+            : undefined,
+          aggregateTokenListCacheMap: shouldUseTokensCacheData
+            ? aggregateTokenListMap
             : undefined,
         });
       const generateDataFn = (data: IUniversalSearchResultItem[]) => {
@@ -458,6 +465,32 @@ export function UniversalSearch({
     [activeAccount?.network?.id, searchStatus],
   );
 
+  const keyExtractor = useCallback(
+    (item: IUniversalSearchResultItem, index: number) => {
+      switch (item.type) {
+        case EUniversalSearchType.Address:
+          return `${item.type}-${
+            item.payload.account?.id || item.payload.wallet?.id || index
+          }`;
+        case EUniversalSearchType.MarketToken:
+          return `${item.type}-${item.payload.coingeckoId || index}`;
+        case EUniversalSearchType.V2MarketToken:
+          return `${item.type}-${
+            item.payload.address || item.payload.symbol
+          }-${index}`;
+        case EUniversalSearchType.AccountAssets:
+          return `${item.type}-${
+            item.payload.token.address || item.payload.token.symbol
+          }-${index}`;
+        case EUniversalSearchType.Dapp:
+          return `${item.type}-${item.payload.dappId || index}`;
+        default:
+          return `${index}`;
+      }
+    },
+    [],
+  );
+
   const filterSections = useMemo(() => {
     if (isInAllTab) {
       const sectionsWithSliceData = sections.map((i) => ({
@@ -495,6 +528,7 @@ export function UniversalSearch({
             renderSectionHeader={renderSectionHeader}
             sections={recommendSections}
             renderItem={renderItem}
+            keyExtractor={keyExtractor}
             ListHeaderComponent={
               <RecentSearched
                 filterTypes={filterTypes}
@@ -546,6 +580,7 @@ export function UniversalSearch({
                 />
               }
               renderItem={renderItem}
+              keyExtractor={keyExtractor}
               estimatedItemSize="$16"
               ListFooterComponent={<Stack h="$16" />}
               keyboardShouldPersistTaps="handled"
@@ -560,6 +595,7 @@ export function UniversalSearch({
     renderSectionHeader,
     recommendSections,
     renderItem,
+    keyExtractor,
     filterTypes,
     handleSearchTextFill,
     tabTitles,

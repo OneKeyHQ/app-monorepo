@@ -58,6 +58,7 @@ export enum EAppEventBusNames {
   RefreshTokenList = 'RefreshTokenList',
   RefreshHistoryList = 'RefreshHistoryList',
   RefreshBookmarkList = 'RefreshBookmarkList',
+  RefreshApprovalList = 'RefreshApprovalList',
   AccountDataUpdate = 'AccountDataUpdate',
   onDragBeginInListView = 'onDragBeginInListView',
   onDragEndInListView = 'onDragEndInListView',
@@ -106,6 +107,8 @@ export enum EAppEventBusNames {
   DesktopBleRepairRequired = 'DesktopBleRepairRequired',
   ShowHardwareErrorDialog = 'ShowHardwareErrorDialog',
   SwapPanelDismissKeyboard = 'SwapPanelDismissKeyboard',
+  ShowFallbackUpdateDialog = 'ShowFallbackUpdateDialog',
+  ShowNotificationViewDialog = 'ShowNotificationViewDialog',
 
   HyperliquidDataUpdate = 'HyperliquidDataUpdate',
   HyperliquidConnectionChange = 'HyperliquidConnectionChange',

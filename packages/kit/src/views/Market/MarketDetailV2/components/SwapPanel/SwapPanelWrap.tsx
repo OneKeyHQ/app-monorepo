@@ -38,11 +38,26 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   const {
     isLoading,
     speedConfig,
-    supportSpeedSwap,
+    supportSpeedSwap: originalSupportSpeedSwap,
     defaultTokens,
     provider,
     swapMevNetConfig,
   } = useSpeedSwapInit(networkId || '');
+
+  const supportSpeedSwap = useMemo(() => {
+    const speedSwapEnabled = originalSupportSpeedSwap;
+    const tokenSwapEnabled = tokenDetail?.supportSwap?.enable !== false;
+    const isEnabled = speedSwapEnabled && tokenSwapEnabled;
+
+    const warningMessage = !tokenSwapEnabled
+      ? tokenDetail?.supportSwap?.warningMessage
+      : undefined;
+
+    return {
+      enabled: isEnabled,
+      warningMessage,
+    };
+  }, [originalSupportSpeedSwap, tokenDetail?.supportSwap]);
 
   const useSpeedSwapActionsParams = {
     slippage,

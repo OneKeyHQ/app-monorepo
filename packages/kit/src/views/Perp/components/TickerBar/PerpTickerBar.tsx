@@ -1,6 +1,7 @@
 import { memo, useEffect, useState } from 'react';
 
 import {
+  NumberSizeableText,
   ScrollView,
   SizableText,
   Skeleton,
@@ -8,9 +9,12 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useCurrentTokenPriceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  NUMBER_FORMATTER,
+  formatDisplayNumber,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { usePerpSession } from '../../hooks';
-import { formatLargeNumber } from '../../utils/formatData';
 import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
 
 // Countdown timer hook for funding rate countdown (every hour)
@@ -72,98 +76,93 @@ function PerpTickerBar() {
 
   return (
     <XStack
-      bg="$bg"
+      bg="$bgApp"
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
       p="$4"
       alignItems="center"
       justifyContent="flex-start"
       gap="$6"
-      minHeight={80}
+      h={62}
     >
-      {/* Left: Token Info and Price */}
-      <XStack alignItems="center" gap="$4">
+      <XStack gap="$4" alignItems="center">
         <PerpTokenSelector />
+        <XStack alignItems="center" width={140} gap="$1.5" cursor="default">
+          {showSkeleton ? (
+            <Skeleton width={80} height={28} />
+          ) : (
+            <SizableText size="$headingXl">{formattedMarkPrice}</SizableText>
+          )}
 
-        {showSkeleton ? (
-          <Skeleton width={120} height={32} />
-        ) : (
-          <SizableText size="$headingLg" fontWeight="bold">
-            ${formattedMarkPrice}
-          </SizableText>
-        )}
-
-        {showSkeleton ? (
-          <Skeleton width={80} height={24} />
-        ) : (
-          <SizableText
-            size="$bodySm"
-            color={change24hPercent >= 0 ? '$textSuccess' : '$textCritical'}
-            bg={change24hPercent >= 0 ? '$green3' : '$red3'}
-            px="$2"
-            py="$1"
-            borderRadius="$2"
-          >
-            {change24hPercent >= 0 ? '+' : ''}
-            {change24hPercent.toFixed(2)}%
-          </SizableText>
-        )}
+          {showSkeleton ? (
+            <Skeleton width={50} height={16} />
+          ) : (
+            <NumberSizeableText
+              size="$headingXs"
+              color={change24hPercent >= 0 ? '$green11' : '$red11'}
+              formatter="priceChange"
+              formatterOptions={{
+                showPlusMinusSigns: true,
+              }}
+            >
+              {change24hPercent}
+            </NumberSizeableText>
+          )}
+        </XStack>
       </XStack>
 
       {/* Right: Market Data */}
       <ScrollView
+        cursor="default"
         horizontal
         flex={1}
         contentContainerStyle={{
-          gap: '$6',
+          gap: '$8',
           alignItems: 'center',
           justifyContent: 'flex-start',
         }}
       >
-        {/* Oracle Price */}
-        <YStack gap="$1" alignItems="flex-start" minWidth={120}>
+        <YStack>
           <SizableText size="$bodySm" color="$textSubdued">
             Oracle Price
           </SizableText>
           {showSkeleton ? (
             <Skeleton width={100} height={20} />
           ) : (
-            <SizableText size="$bodyMd" fontWeight="600">
-              ${formattedOraclePrice}
-            </SizableText>
+            <SizableText size="$headingXs">{formattedOraclePrice}</SizableText>
           )}
         </YStack>
 
-        {/* 24h Volume */}
-        <YStack gap="$1" alignItems="flex-start" minWidth={120}>
+        <YStack>
           <SizableText size="$bodySm" color="$textSubdued">
             24h Volume
           </SizableText>
           {showSkeleton ? (
             <Skeleton width={100} height={20} />
           ) : (
-            <SizableText size="$bodyMd" fontWeight="600">
-              ${formatLargeNumber(volume24h)}
+            <SizableText size="$headingXs">
+              $
+              {formatDisplayNumber(
+                NUMBER_FORMATTER.marketCap(volume24h.toString()),
+              )}
             </SizableText>
           )}
         </YStack>
 
-        {/* Open Interest */}
-        <YStack gap="$1" alignItems="flex-start" minWidth={120}>
+        <YStack>
           <SizableText size="$bodySm" color="$textSubdued">
             Open Interest
           </SizableText>
           {showSkeleton ? (
             <Skeleton width={100} height={20} />
           ) : (
-            <SizableText size="$bodyMd" fontWeight="600">
-              ${formatLargeNumber(openInterest)}
+            <SizableText size="$headingXs">
+              ${formatDisplayNumber(NUMBER_FORMATTER.marketCap(openInterest))}
             </SizableText>
           )}
         </YStack>
 
-        {/* Funding Rate */}
-        <YStack gap="$1" alignItems="flex-start" minWidth={140}>
+        <YStack>
           <SizableText size="$bodySm" color="$textSubdued">
             Funding / Countdown
           </SizableText>
@@ -175,23 +174,12 @@ function PerpTickerBar() {
           ) : (
             <XStack alignItems="center" gap="$2">
               <SizableText
-                size="$bodyMd"
-                fontWeight="600"
-                color={
-                  parseFloat(fundingRate) >= 0
-                    ? '$textSuccess'
-                    : '$textCritical'
-                }
+                size="$headingXs"
+                color={parseFloat(fundingRate) >= 0 ? '$green11' : '$red11'}
               >
-                {formatFundingRate(fundingRate)}
+                {(parseFloat(fundingRate) * 100).toFixed(4)}%
               </SizableText>
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                fontFamily="$body"
-                minWidth={40}
-                textAlign="center"
-              >
+              <SizableText size="$headingXs" color="$text">
                 {countdown}
               </SizableText>
             </XStack>

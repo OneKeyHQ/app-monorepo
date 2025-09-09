@@ -1,157 +1,136 @@
-import { ZeroAddress } from 'ethersV6';
+import { ZERO_ADDRESS } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type {
+  IActiveAssetData,
+  IBook,
+  IEventActiveAssetCtxParameters,
+  IEventActiveAssetDataParameters,
+  IEventBboParameters,
+  IEventL2BookParameters,
+  IEventNotificationParameters,
+  IEventTradesParameters,
+  IEventUserEventsParameters,
+  IEventWebData2Parameters,
+  IHex,
+  ISubscriptionClient,
+  IWsAllMids,
+  IWsAllMidsParameters,
+  IWsBbo,
+  IWsNotification,
+  IWsUserEvent,
+  IWsWebData2,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
+import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
-
-export type ISubscriptionType =
-  | 'allMids'
-  | 'activeAssetCtx'
-  | 'webData2'
-  | 'l2Book'
-  | 'candles'
-  | 'trades'
-  | 'bbo'
-  | 'activeAssetData'
-  | 'userEvents'
-  | 'userNotifications';
-
-export interface ISubscriptionParams {
-  allMids: Record<string, never>;
-  activeAssetCtx: { coin: string };
-  webData2: { user: `0x${string}` };
-  l2Book: { coin: string };
-  candles: { coin: string; interval: string };
-  trades: { coin: string };
-  bbo: { coin: string };
-  activeAssetData: { user: `0x${string}`; coin: string };
-  userEvents: { user: `0x${string}` };
-  userNotifications: { user: `0x${string}` };
-}
-
-export interface ISubscriptionConfig<
-  T extends ISubscriptionType = ISubscriptionType,
-> {
-  readonly type: T;
-  readonly method: keyof HL.ISubscriptionClient;
-  readonly eventType: 'market' | 'account';
-  readonly eventSubType: ISubscriptionType;
-  readonly keyGenerator: (params: ISubscriptionParams[T]) => string;
-  readonly priority: number;
-}
-
-export const SUBSCRIPTION_CONFIGS: Record<
-  ISubscriptionType,
-  ISubscriptionConfig<any>
-> = {
-  allMids: {
-    type: 'allMids',
-    method: 'allMids',
+export const SUBSCRIPTION_TYPE_INFO = {
+  [ESubscriptionType.ALL_MIDS]: {
     eventType: 'market',
-    eventSubType: 'allMids',
-    keyGenerator: () => 'market:allMids',
     priority: 1,
+    keyGenerator: (_params: IWsAllMidsParameters) => 'market:allMids',
+    createSubscription: (
+      client: ISubscriptionClient,
+      params: IWsAllMidsParameters,
+      handleData: (data: IWsAllMids) => void,
+    ) => client.allMids(params, handleData),
   },
-
-  activeAssetCtx: {
-    type: 'activeAssetCtx',
-    method: 'activeAssetCtx',
+  [ESubscriptionType.ACTIVE_ASSET_CTX]: {
     eventType: 'market',
-    eventSubType: 'activeAssetCtx',
-    keyGenerator: (params: { coin: string }) =>
+    priority: 2,
+    keyGenerator: (params: IEventActiveAssetCtxParameters) =>
       `market:activeAssetCtx:${params.coin}`,
-    priority: 2,
+    createSubscription: (
+      client: ISubscriptionClient,
+      params: IEventActiveAssetCtxParameters,
+      handleData: (data: any) => void,
+    ) => client.activeAssetCtx(params, handleData),
   },
-
-  webData2: {
-    type: 'webData2',
-    method: 'webData2',
+  [ESubscriptionType.WEB_DATA2]: {
     eventType: 'account',
-    eventSubType: 'webData2',
-    keyGenerator: (params: { user: `0x${string}` }) =>
+    priority: 2,
+    keyGenerator: (params: IEventWebData2Parameters) =>
       `account:webData2:${params.user}`,
-    priority: 2,
+    createSubscription: (
+      client: ISubscriptionClient,
+      params: IEventWebData2Parameters,
+      handleData: (data: IWsWebData2) => void,
+    ) => client.webData2(params, handleData),
   },
-
-  l2Book: {
-    type: 'l2Book',
-    method: 'l2Book',
+  [ESubscriptionType.L2_BOOK]: {
     eventType: 'market',
-    eventSubType: 'l2Book',
-    keyGenerator: (params: { coin: string }) => `market:l2Book:${params.coin}`,
     priority: 3,
+    keyGenerator: (params: IEventL2BookParameters) =>
+      `market:l2Book:${params.coin}`,
+    createSubscription: (
+      client: ISubscriptionClient,
+      params: IEventL2BookParameters,
+      handleData: (data: IBook) => void,
+    ) => client.l2Book(params, handleData),
   },
-
-  candles: {
-    type: 'candles',
-    method: 'candle',
+  [ESubscriptionType.TRADES]: {
     eventType: 'market',
-    eventSubType: 'candles',
-    keyGenerator: (params: { coin: string; interval: string }) =>
-      `market:candles:${params.coin}:${params.interval}`,
     priority: 4,
+    keyGenerator: (params: IEventTradesParameters) =>
+      `market:trades:${params.coin}`,
+    createSubscription: (
+      client: ISubscriptionClient,
+      params: IEventTradesParameters,
+      handleData: (data: any) => void,
+    ) => client.trades(params, handleData),
   },
-
-  trades: {
-    type: 'trades',
-    method: 'trades',
+  [ESubscriptionType.BBO]: {
     eventType: 'market',
-    eventSubType: 'trades',
-    keyGenerator: (params: { coin: string }) => `market:trades:${params.coin}`,
-    priority: 4,
-  },
-
-  bbo: {
-    type: 'bbo',
-    method: 'bbo',
-    eventType: 'market',
-    eventSubType: 'bbo',
-    keyGenerator: (params: { coin: string }) => `market:bbo:${params.coin}`,
     priority: 3,
+    keyGenerator: (params: IEventBboParameters) => `market:bbo:${params.coin}`,
+    createSubscription: (
+      client: ISubscriptionClient,
+      params: IEventBboParameters,
+      handleData: (data: IWsBbo) => void,
+    ) => client.bbo(params, handleData),
   },
-
-  activeAssetData: {
-    type: 'activeAssetData',
-    method: 'activeAssetData',
+  [ESubscriptionType.ACTIVE_ASSET_DATA]: {
     eventType: 'account',
-    eventSubType: 'activeAssetData',
-    keyGenerator: (params: { user: `0x${string}`; coin: string }) =>
+    priority: 3,
+    keyGenerator: (params: IEventActiveAssetDataParameters) =>
       `account:activeAssetData:${params.user}:${params.coin}`,
-    priority: 3,
+    createSubscription: (
+      client: ISubscriptionClient,
+      params: IEventActiveAssetDataParameters,
+      handleData: (data: IActiveAssetData) => void,
+    ) => client.activeAssetData(params, handleData),
   },
-
-  userEvents: {
-    type: 'userEvents',
-    method: 'userEvents',
+  [ESubscriptionType.USER_EVENTS]: {
     eventType: 'account',
-    eventSubType: 'userEvents',
-    keyGenerator: (params: { user: `0x${string}` }) =>
-      `account:userEvents:${params.user}`,
     priority: 2,
+    keyGenerator: (params: IEventUserEventsParameters) =>
+      `account:userEvents:${params.user}`,
+    createSubscription: (
+      client: ISubscriptionClient,
+      params: IEventUserEventsParameters,
+      handleData: (data: IWsUserEvent) => void,
+    ) => client.userEvents(params, handleData),
   },
-
-  userNotifications: {
-    type: 'userNotifications',
-    method: 'notification',
+  [ESubscriptionType.USER_NOTIFICATIONS]: {
     eventType: 'account',
-    eventSubType: 'userNotifications',
-    keyGenerator: (params: { user: `0x${string}` }) =>
-      `account:userNotifications:${params.user}`,
     priority: 3,
+    keyGenerator: (params: IEventNotificationParameters) =>
+      `account:userNotifications:${params.user}`,
+    createSubscription: (
+      client: ISubscriptionClient,
+      params: IEventNotificationParameters,
+      handleData: (data: IWsNotification) => void,
+    ) => client.notification(params, handleData),
   },
 };
 
-export interface ISubscriptionSpec<
-  T extends ISubscriptionType = ISubscriptionType,
-> {
-  readonly type: T;
+export interface ISubscriptionSpec {
+  readonly type: ESubscriptionType;
   readonly key: string;
-  readonly params: ISubscriptionParams[T];
+  readonly params: any;
   readonly priority: number;
 }
 
 export interface ISubscriptionState {
-  currentUser: `0x${string}` | null;
+  currentUser: IHex | null;
   currentSymbol: string;
-  currentCandleInterval: string;
   isConnected: boolean;
 }
 
@@ -160,54 +139,63 @@ export interface ISubscriptionDiff {
   toUnsubscribe: ISubscriptionSpec[];
 }
 
-export function getSubscriptionConfig<T extends ISubscriptionType>(
-  type: T,
-): ISubscriptionConfig<T> {
-  return SUBSCRIPTION_CONFIGS[type] as ISubscriptionConfig<T>;
-}
-
-export function generateSubscriptionKey<T extends ISubscriptionType>(
-  type: T,
-  params: ISubscriptionParams[T],
+export function generateSubscriptionKey(
+  type: ESubscriptionType,
+  params: any,
 ): string {
-  const config = getSubscriptionConfig(type);
-  return config.keyGenerator(params);
+  return SUBSCRIPTION_TYPE_INFO[type].keyGenerator(params);
 }
 
-export function validateSubscriptionParams<T extends ISubscriptionType>(
-  type: T,
+export function createSubscription(
+  type: ESubscriptionType,
+  client: ISubscriptionClient,
+  params: any,
+  handleData: (data: any) => void,
+): Promise<unknown> {
+  return SUBSCRIPTION_TYPE_INFO[type].createSubscription(
+    client,
+    params,
+    handleData,
+  );
+}
+
+export function getSubscriptionPriority(type: ESubscriptionType): number {
+  return SUBSCRIPTION_TYPE_INFO[type].priority;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+const EMPTY_PARAMS: Record<string, never> = {};
+
+export function validateSubscriptionParams(
+  type: ESubscriptionType,
   params: unknown,
-): params is ISubscriptionParams[T] {
-  if (typeof params !== 'object' || params === null) {
+): params is any {
+  if (!isRecord(params)) {
     return false;
   }
 
-  const obj = params as Record<string, unknown>;
+  const obj = params;
 
   switch (type) {
-    case 'allMids':
+    case ESubscriptionType.ALL_MIDS:
       return typeof params === 'object';
-    case 'activeAssetCtx':
-    case 'l2Book':
-    case 'trades':
-    case 'bbo':
+    case ESubscriptionType.ACTIVE_ASSET_CTX:
+    case ESubscriptionType.L2_BOOK:
+    case ESubscriptionType.TRADES:
+    case ESubscriptionType.BBO:
       return 'coin' in obj && typeof obj.coin === 'string';
-    case 'candles':
-      return (
-        'coin' in obj &&
-        'interval' in obj &&
-        typeof obj.coin === 'string' &&
-        typeof obj.interval === 'string'
-      );
-    case 'webData2':
-    case 'userEvents':
-    case 'userNotifications':
+    case ESubscriptionType.WEB_DATA2:
+    case ESubscriptionType.USER_EVENTS:
+    case ESubscriptionType.USER_NOTIFICATIONS:
       return (
         'user' in obj &&
         typeof obj.user === 'string' &&
         obj.user.startsWith('0x')
       );
-    case 'activeAssetData':
+    case ESubscriptionType.ACTIVE_ASSET_DATA:
       return (
         'user' in obj &&
         'coin' in obj &&
@@ -226,64 +214,53 @@ export function calculateRequiredSubscriptions(
   const specs: ISubscriptionSpec[] = [];
 
   specs.push({
-    type: 'allMids',
-    key: generateSubscriptionKey('allMids', {} as Record<string, never>),
-    params: {} as Record<string, never>,
-    priority: SUBSCRIPTION_CONFIGS.allMids.priority,
+    type: ESubscriptionType.ALL_MIDS,
+    key: generateSubscriptionKey(ESubscriptionType.ALL_MIDS, EMPTY_PARAMS),
+    params: EMPTY_PARAMS,
+    priority: getSubscriptionPriority(ESubscriptionType.ALL_MIDS),
   });
 
   if (state.currentSymbol) {
     specs.push({
-      type: 'activeAssetCtx',
-      key: generateSubscriptionKey('activeAssetCtx', {
+      type: ESubscriptionType.ACTIVE_ASSET_CTX,
+      key: generateSubscriptionKey(ESubscriptionType.ACTIVE_ASSET_CTX, {
         coin: state.currentSymbol,
       }),
       params: { coin: state.currentSymbol },
-      priority: SUBSCRIPTION_CONFIGS.activeAssetCtx.priority,
+      priority: getSubscriptionPriority(ESubscriptionType.ACTIVE_ASSET_CTX),
     });
 
     specs.push({
-      type: 'l2Book',
-      key: generateSubscriptionKey('l2Book', { coin: state.currentSymbol }),
+      type: ESubscriptionType.L2_BOOK,
+      key: generateSubscriptionKey(ESubscriptionType.L2_BOOK, {
+        coin: state.currentSymbol,
+      }),
       params: { coin: state.currentSymbol },
-      priority: SUBSCRIPTION_CONFIGS.l2Book.priority,
+      priority: getSubscriptionPriority(ESubscriptionType.L2_BOOK),
     });
-
-    if (state.currentCandleInterval) {
-      specs.push({
-        type: 'candles',
-        key: generateSubscriptionKey('candles', {
-          coin: state.currentSymbol,
-          interval: state.currentCandleInterval,
-        }),
-        params: {
-          coin: state.currentSymbol,
-          interval: state.currentCandleInterval,
-        },
-        priority: SUBSCRIPTION_CONFIGS.candles.priority,
-      });
-    }
   }
 
-  const effectiveUser = state.currentUser || (ZeroAddress as `0x${string}`);
+  const effectiveUser = state.currentUser || ZERO_ADDRESS;
 
   specs.push({
-    type: 'webData2',
-    key: generateSubscriptionKey('webData2', { user: effectiveUser }),
+    type: ESubscriptionType.WEB_DATA2,
+    key: generateSubscriptionKey(ESubscriptionType.WEB_DATA2, {
+      user: effectiveUser,
+    }),
     params: { user: effectiveUser },
-    priority: SUBSCRIPTION_CONFIGS.webData2.priority,
+    priority: getSubscriptionPriority(ESubscriptionType.WEB_DATA2),
   });
 
-  if (state.currentUser && state.currentUser !== ZeroAddress) {
+  if (state.currentUser && state.currentUser !== ZERO_ADDRESS) {
     if (state.currentSymbol) {
       specs.push({
-        type: 'activeAssetData',
-        key: generateSubscriptionKey('activeAssetData', {
+        type: ESubscriptionType.ACTIVE_ASSET_DATA,
+        key: generateSubscriptionKey(ESubscriptionType.ACTIVE_ASSET_DATA, {
           user: state.currentUser,
           coin: state.currentSymbol,
         }),
         params: { user: state.currentUser, coin: state.currentSymbol },
-        priority: SUBSCRIPTION_CONFIGS.activeAssetData.priority,
+        priority: getSubscriptionPriority(ESubscriptionType.ACTIVE_ASSET_DATA),
       });
     }
   }

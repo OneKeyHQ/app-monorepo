@@ -18,6 +18,7 @@ import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceAllNetwork from '../services/ServiceAllNetwork';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceAppCleanup from '../services/ServiceAppCleanup';
+import type ServiceApproval from '../services/ServiceApproval';
 import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
@@ -40,6 +41,11 @@ import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHardwareUI from '../services/ServiceHardwareUI';
 import type ServiceHistory from '../services/ServiceHistory';
+import type ServiceHyperliquid from '../services/ServiceHyperLiquid/ServiceHyperliquid';
+import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
+import type ServiceHyperliquidInfo from '../services/ServiceHyperLiquid/ServiceHyperliquidInfo';
+import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
+import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
 import type ServiceInternalSignAndVerify from '../services/ServiceInternalSignAndVerify';
 import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
@@ -196,6 +202,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceReferralCode: ServiceReferralCode;
   serviceDBBackup: ServiceDBBackup;
   serviceWalletBanner: ServiceWalletBanner;
+  serviceApproval: ServiceApproval;
   serviceInternalSignAndVerify: ServiceInternalSignAndVerify;
 
   serviceE2E: ServiceE2E;

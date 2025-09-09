@@ -368,6 +368,10 @@ function TxHistoryListContainer() {
       setHistoryData((prev) =>
         prev.filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending),
       );
+
+    const reloadCallback = () => run({ alwaysSetState: true });
+
+    appEventBus.on(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
     appEventBus.on(
       EAppEventBusNames.ClearLocalHistoryPendingTxs,
       clearCallback,
@@ -384,23 +388,7 @@ function TxHistoryListContainer() {
       appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
       appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
       appEventBus.off(EAppEventBusNames.RefreshHistoryList, refresh);
-    };
-  }, [isFocused, run]);
-
-  useEffect(() => {
-    const reloadCallback = () => run({ alwaysSetState: true });
-
-    const fn = () => {
-      if (isFocused) {
-        void run();
-      }
-    };
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, fn);
-
-    appEventBus.on(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
-    return () => {
       appEventBus.off(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, fn);
     };
   }, [isFocused, run]);
 

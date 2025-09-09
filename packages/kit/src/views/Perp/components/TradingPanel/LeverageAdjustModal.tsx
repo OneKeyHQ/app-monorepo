@@ -128,7 +128,7 @@ export const LeverageAdjustModal = memo(() => {
       onConfirm: async () => {
         await backgroundApiProxy.serviceHyperliquidExchange.updateLeverage({
           asset: tokenInfo.assetId,
-          isCross: true,
+          isCross: activeAssetData?.leverage?.type === 'cross',
           leverage: currentValue,
         });
       },
@@ -143,16 +143,14 @@ export const LeverageAdjustModal = memo(() => {
     <Button
       size="small"
       variant="tertiary"
-      borderRadius="$3"
-      borderColor="$borderSubdued"
-      // borderWidth="$1"
-      // backgroundColor="$bgSubdued"
+      borderRadius="$2"
+      bg="$bgSubdued"
       onPress={showLeverageDialog}
       px="$3"
       py="$1"
       mr="$1"
     >
-      <SizableText size="$bodyMd" fontWeight="500" color="$textSubdued">
+      <SizableText size="$bodyMd" fontWeight="500">
         {activeAssetData?.leverage?.value || tokenInfo.maxLeverage || 1}x
       </SizableText>
     </Button>

@@ -24,7 +24,7 @@ const ExtPluginText = platformEnv.isExtension
   ? () => {
       const intl = useIntl();
       return (
-        <YStack>
+        <YStack px="$5">
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.update_recommend_regular_check_and_update_plugin,

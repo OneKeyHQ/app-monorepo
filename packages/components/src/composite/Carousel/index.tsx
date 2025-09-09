@@ -10,6 +10,7 @@ import {
   useState,
 } from 'react';
 
+import { debounce } from 'lodash';
 import { useDebouncedCallback } from 'use-debounce';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -38,6 +39,13 @@ const defaultRenderPaginationItem = <T,>(
   );
 };
 
+/**
+ * A generic React carousel component with autoplay, looping, pagination, and imperative navigation controls.
+ *
+ * Renders a swipeable carousel of items with optional autoplay and looping behavior. Supports custom item rendering, pagination dot customization, and exposes imperative methods for navigation. Pagination dots are interactive and reflect the current page. The carousel adapts to container layout and pauses autoplay on user interaction.
+ *
+ * @returns The rendered carousel component.
+ */
 const CarouselContext = createContext<{
   pageIndex: number;
 }>({
@@ -91,6 +99,25 @@ export function Carousel<T>({
     },
     [disableAnimation],
   );
+
+  const isResizingRef = useRef(false);
+
+  useEffect(() => {
+    if (platformEnv.isNative || !pageWidthProp) {
+      return;
+    }
+    const onResizeEnd = debounce(() => {
+      isResizingRef.current = false;
+    }, 350);
+    const handleResize = () => {
+      isResizingRef.current = true;
+      onResizeEnd();
+    };
+    globalThis.addEventListener('resize', handleResize);
+    return () => {
+      globalThis.removeEventListener('resize', handleResize);
+    };
+  }, [pageWidthProp]);
 
   const scrollToPreviousPage = useCallback(() => {
     const previousPage =
@@ -159,6 +186,9 @@ export function Carousel<T>({
 
   const onPageSelected = useCallback(
     (e: NativeSyntheticEvent<Readonly<{ position: number }>>) => {
+      if (isResizingRef.current) {
+        return;
+      }
       currentPage.current = e.nativeEvent.position;
       debouncedSetPageIndex(currentPage.current);
       onPageChanged?.(currentPage.current);

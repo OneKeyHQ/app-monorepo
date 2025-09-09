@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { IPrimeTransferValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/handlers/primeTransfer';
 import type {
   IAnimationValue,
   IBaseValue,
@@ -31,6 +32,7 @@ import {
   EModalSignatureConfirmRoutes,
   EOnboardingPages,
 } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -211,6 +213,20 @@ const useParseQRCode = () => {
           navigation.pushModal(EModalRoutes.SettingModal, {
             screen: EModalSettingRoutes.SettingProtectModal,
           });
+          break;
+        case EQRCodeHandlerType.PRIME_TRANSFER:
+          {
+            const primeTransferData = result.data as IPrimeTransferValue;
+            await closeScanPage();
+            await timerUtils.wait(600);
+            navigation.pushModal(EModalRoutes.PrimeModal, {
+              screen: EPrimePages.PrimeTransfer,
+              params: {
+                code: primeTransferData.code,
+                server: primeTransferData.server,
+              },
+            });
+          }
           break;
         case EQRCodeHandlerType.BITCOIN:
         case EQRCodeHandlerType.ETHEREUM:

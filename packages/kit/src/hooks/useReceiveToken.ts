@@ -84,12 +84,15 @@ function useReceiveToken({
             walletId,
             token,
             indexedAccountId,
+            disableSelector: true,
           },
         });
       } else {
         navigation.pushModal(EModalRoutes.ReceiveModal, {
           screen: EModalReceiveRoutes.ReceiveSelectToken,
           params: {
+            aggregateTokenSelectorScreen:
+              EModalReceiveRoutes.ReceiveSelectAggregateToken,
             title: intl.formatMessage({ id: ETranslations.global_receive }),
             networkId,
             accountId,

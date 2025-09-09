@@ -7,13 +7,13 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import {
   SizableText,
+  Spinner,
   Stack,
   Tabs,
   useCurrentTabScrollY,
   useMedia,
 } from '@onekeyhq/components';
 import { useTabsScrollContext } from '@onekeyhq/components/src/composite/Tabs/context';
-import { useLeftColumnWidthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketTransactions } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketTransactions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -57,12 +57,12 @@ export function TransactionsHistory({
   onScrollEnd,
 }: ITransactionsHistoryProps) {
   const intl = useIntl();
-  const { gtLg } = useMedia();
-  const [_leftColumnWidth] = useLeftColumnWidthAtom();
-  const { transactions, isRefreshing } = useMarketTransactions({
-    tokenAddress,
-    networkId,
-  });
+  const { gtXl } = useMedia();
+  const { transactions, isRefreshing, isLoadingMore, hasMore, loadMore } =
+    useMarketTransactions({
+      tokenAddress,
+      networkId,
+    });
   const { scrollTop } = useTabsScrollContext() as {
     scrollTop: number;
   };
@@ -82,13 +82,13 @@ export function TransactionsHistory({
   const renderItem: FlatListProps<IMarketTokenTransaction>['renderItem'] =
     useCallback(
       ({ item }: { item: IMarketTokenTransaction }) => {
-        return gtLg ? (
+        return gtXl ? (
           <TransactionItemNormal item={item} networkId={networkId} />
         ) : (
           <TransactionItemSmall item={item} />
         );
       },
-      [networkId, gtLg],
+      [networkId, gtXl],
     );
 
   const keyExtractor = useCallback(
@@ -97,8 +97,10 @@ export function TransactionsHistory({
   );
 
   const handleEndReached = useCallback(() => {
-    // TODO: Implement pagination logic here
-  }, []);
+    if (hasMore && !isLoadingMore) {
+      void loadMore();
+    }
+  }, [hasMore, isLoadingMore, loadMore]);
 
   useScrollEnd(onScrollEnd ?? noop);
 
@@ -106,6 +108,7 @@ export function TransactionsHistory({
     <Tabs.FlatList<IMarketTokenTransaction>
       key={listKey}
       onEndReached={handleEndReached}
+      onEndReachedThreshold={0.2}
       data={transactions}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
@@ -123,8 +126,15 @@ export function TransactionsHistory({
           </Stack>
         )
       }
+      ListFooterComponent={
+        isLoadingMore ? (
+          <Stack p="$4" alignItems="center" gap="$2">
+            <Spinner size="small" />
+          </Stack>
+        ) : null
+      }
       contentContainerStyle={{
-        paddingBottom: 16,
+        paddingBottom: platformEnv.isNativeAndroid ? 48 : 16,
       }}
     />
   );

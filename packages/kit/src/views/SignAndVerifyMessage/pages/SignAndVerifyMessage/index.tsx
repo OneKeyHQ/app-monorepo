@@ -84,6 +84,7 @@ function SignAndVerifyMessage() {
   ]);
 
   const [isSigning, setIsSigning] = useState(false);
+  const [isDisabled, setIsDisabled] = useState(false);
   const [action, setAction] = useState(ESignAndVerifyAction.Sign);
   const [currentSignAccount, setCurrentSignAccount] = useState<
     ISignAccount | undefined
@@ -91,6 +92,12 @@ function SignAndVerifyMessage() {
   const [verifyDetectedNetworkId, setVerifyDetectedNetworkId] = useState<
     string | null
   >(null);
+
+  useEffect(() => {
+    if (action === ESignAndVerifyAction.Verify) {
+      setIsDisabled(false);
+    }
+  }, [action]);
 
   const signedMessageRef = useRef<{
     message: string;
@@ -191,7 +198,9 @@ function SignAndVerifyMessage() {
       if (!verifyDetectedNetworkId) {
         console.error('No network detected for address:', address);
         Toast.error({
-          title: 'Verification failed',
+          title: intl.formatMessage({
+            id: ETranslations.message_signing_verification_failed,
+          }),
         });
         return;
       }
@@ -212,23 +221,29 @@ function SignAndVerifyMessage() {
 
         if (result) {
           Toast.success({
-            title: 'Verification successful',
+            title: intl.formatMessage({
+              id: ETranslations.message_signing_verification_success,
+            }),
           });
         } else {
           Toast.error({
-            title: 'Verification failed',
+            title: intl.formatMessage({
+              id: ETranslations.message_signing_verification_failed,
+            }),
           });
         }
       } catch (error) {
         console.error('Verify error:', error);
         Toast.error({
-          title: 'Verification failed',
+          title: intl.formatMessage({
+            id: ETranslations.message_signing_verification_failed,
+          }),
         });
       } finally {
         setIsSigning(false);
       }
     }
-  }, [verifyDetectedNetworkId, verifyForm]);
+  }, [intl, verifyDetectedNetworkId, verifyForm]);
 
   const renderContent = useCallback(() => {
     if (action === ESignAndVerifyAction.Sign) {
@@ -236,12 +251,14 @@ function SignAndVerifyMessage() {
         <SignForm
           key="sign-form"
           form={signForm}
+          walletId={walletId ?? ''}
           networkId={networkId}
           accountId={accountId}
           indexedAccountId={indexedAccountId}
           isOthersWallet={isOthersWallet}
           onCurrentSignAccountChange={setCurrentSignAccount}
           onCopySignature={handleCopySignature}
+          onDisabledChange={setIsDisabled}
         />
       );
     }
@@ -256,6 +273,7 @@ function SignAndVerifyMessage() {
     action,
     signForm,
     verifyForm,
+    walletId,
     networkId,
     accountId,
     indexedAccountId,
@@ -271,7 +289,7 @@ function SignAndVerifyMessage() {
         })}
       />
       <Page.Body>
-        <YStack p="$5" gap="$5">
+        <YStack p="$5" pt="$2" gap="$5">
           <SegmentControl
             value={action}
             fullWidth
@@ -328,6 +346,7 @@ function SignAndVerifyMessage() {
         })}
         confirmButtonProps={{
           loading: isSigning,
+          disabled: isDisabled,
         }}
         onConfirm={
           action === ESignAndVerifyAction.Sign ? handleSign : handleVerify

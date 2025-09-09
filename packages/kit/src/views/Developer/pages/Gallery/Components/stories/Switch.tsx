@@ -21,7 +21,7 @@ const SwitchDemo = ({ ...rest }: ISwitchProps) => {
 
 const SwitchGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="Switch"
     elements={[
       {

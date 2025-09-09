@@ -16,6 +16,7 @@ export enum EModalSettingRoutes {
   SettingDevUnitTestsModal = 'SettingDevUnitTestsModal',
   SettingDevDesktopApiProxyTestModal = 'SettingDevDesktopApiProxyTestModal',
   SettingDevPerpGalleryModal = 'SettingDevPerpGalleryModal',
+  SettingDevCryptoGalleryModal = 'SettingDevCryptoGalleryModal',
   SettingExportCustomNetworkConfig = 'SettingExportCustomNetworkConfig',
   SettingNotifications = 'SettingNotifications',
   SettingManageAccountActivity = 'SettingManageAccountActivity',
@@ -46,6 +47,7 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingDevUnitTestsModal]: undefined;
   [EModalSettingRoutes.SettingDevDesktopApiProxyTestModal]: undefined;
   [EModalSettingRoutes.SettingDevPerpGalleryModal]: undefined;
+  [EModalSettingRoutes.SettingDevCryptoGalleryModal]: undefined;
   [EModalSettingRoutes.SettingExportCustomNetworkConfig]: undefined;
   [EModalSettingRoutes.SettingNotifications]: undefined;
   [EModalSettingRoutes.SettingManageAccountActivity]: undefined;

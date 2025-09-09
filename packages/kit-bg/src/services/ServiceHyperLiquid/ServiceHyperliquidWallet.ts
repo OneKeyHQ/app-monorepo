@@ -8,18 +8,20 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import ServiceBase from '../ServiceBase';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
-const CHAIN_ID = 'evm--42161'; // Arbitrum hex chainId
+const CHAIN_ID = getNetworkIdsMap().arbitrum;
 
 interface IAbstractEthersV6Signer {
   signTypedData(
@@ -66,23 +68,21 @@ export class WalletHyperliquidProxy implements IAbstractEthersV6Signer {
     return this.wallet._signTypedData(domain, types, value);
   }
 
-  async getAddress(): Promise<string> {
-    return this.wallet.address;
+  async getAddress(): Promise<IHex> {
+    return this.wallet.address as IHex;
   }
 
   provider = null;
 }
 
 export class WalletHyperliquidOnekey implements IAbstractEthersV6Signer {
-  private instanceId: string;
+  accountId: string;
 
-  constructor(
-    private accountId: string,
-    private backgroundApi: IBackgroundApi,
-  ) {
-    this.instanceId = `onekey-${Date.now()}-${Math.random()
-      .toString(36)
-      .substr(2, 9)}`;
+  backgroundApi: IBackgroundApi;
+
+  constructor(accountId: string, backgroundApi: IBackgroundApi) {
+    this.accountId = accountId;
+    this.backgroundApi = backgroundApi;
   }
 
   async signTypedData(
@@ -117,6 +117,11 @@ export class WalletHyperliquidOnekey implements IAbstractEthersV6Signer {
     };
 
     const address = await this.getAddress();
+    if (!address) {
+      throw new OneKeyLocalError({
+        message: `Failed to get address for account ${this.accountId}`,
+      });
+    }
     const unsignedMessage: IUnsignedMessage = {
       type: EMessageTypesEth.TYPED_DATA_V4,
       message: JSON.stringify(typedDataPayload),
@@ -160,8 +165,8 @@ export default class ServiceHyperliquidWallet extends ServiceBase {
   private onekeyWalletCache = new Map<string, WalletHyperliquidOnekey>();
 
   @backgroundMethod()
-  async getProxyWallet(params: { userAddress: string }): Promise<{
-    address: string;
+  async getProxyWallet(params: { userAddress: IHex }): Promise<{
+    address: IHex;
     wallet: WalletHyperliquidProxy;
   }> {
     let credential =
@@ -199,9 +204,7 @@ export default class ServiceHyperliquidWallet extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getProxyWalletAddress(params: {
-    userAddress: string;
-  }): Promise<string> {
+  async getProxyWalletAddress(params: { userAddress: IHex }): Promise<IHex> {
     const proxyWallet = await this.getProxyWallet(params);
     return proxyWallet.address;
   }

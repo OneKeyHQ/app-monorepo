@@ -3,6 +3,7 @@ import { memo, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
@@ -28,6 +29,9 @@ interface IPositionRowProps {
   columnConfigs: IColumnConfig[];
   tpslOrders: FrontendOrder[];
   handleViewTpslOrders: () => void;
+  onAllClose: () => void;
+  setTpsl: () => void;
+  isMobile?: boolean;
 }
 
 const PositionRow = memo(
@@ -37,9 +41,12 @@ const PositionRow = memo(
     tpslOrders,
     cellMinWidth,
     columnConfigs,
+    isMobile,
     handleMarketClose,
     handleLimitClose,
     handleViewTpslOrders,
+    onAllClose,
+    setTpsl,
   }: IPositionRowProps) => {
     const side = useMemo(() => {
       return parseFloat(pos.szi || '0') >= 0 ? 'long' : 'short';
@@ -172,6 +179,122 @@ const PositionRow = memo(
       return { tpsl: `${tpPrice}/${slPrice}`, showOrder };
     }, [tpslOrders]);
 
+    if (isMobile) {
+      return (
+        <ListItem flex={1} flexDirection="column" alignItems="flex-start">
+          <XStack gap="$2">
+            <XStack
+              w="$5"
+              h="$5"
+              justifyContent="center"
+              alignItems="center"
+              borderRadius="$1"
+              backgroundColor={assetInfo.assetColor}
+            >
+              <SizableText size="$bodyMdMedium" color="$textOnColor">
+                {side === 'long' ? 'B' : 'S'}
+              </SizableText>
+            </XStack>
+            <SizableText size="$bodyMdMedium" color="$text">
+              {assetInfo.assetSymbol}
+            </SizableText>
+            <SizableText size="$bodySm" color={assetInfo.assetColor}>
+              {`${side === 'long' ? 'Long' : 'Sell'} ${assetInfo.leverage}X`}
+            </SizableText>
+          </XStack>
+          <XStack
+            width="100%"
+            justifyContent="space-between"
+            alignItems="center"
+          >
+            <YStack gap="$1">
+              <SizableText size="$bodySm" color="$textSubdued">
+                PNL
+              </SizableText>
+              <SizableText size="$bodySm" color={otherInfo.pnlColor}>
+                {`${otherInfo.unrealizedPnl as string}`}
+              </SizableText>
+            </YStack>
+            <YStack gap="$1" alignItems="flex-end">
+              <SizableText size="$bodySm" color="$textSubdued">
+                ROE
+              </SizableText>
+              <SizableText size="$bodySm" color={otherInfo.pnlColor}>
+                {`${otherInfo.roiPercent}%`}
+              </SizableText>
+            </YStack>
+          </XStack>
+          <XStack width="100%" flex={1} alignItems="center">
+            <YStack gap="$1" width={120}>
+              <SizableText size="$bodySm" color="$textSubdued">
+                Positon Size
+              </SizableText>
+              <SizableText size="$bodySm">
+                {`${sizeInfo.sizeAbsFormatted as string}`}
+              </SizableText>
+            </YStack>
+            <YStack gap="$1" flex={1} alignItems="center">
+              <SizableText size="$bodySm" color="$textSubdued">
+                Margin
+              </SizableText>
+              <SizableText size="$bodySm">
+                {`${otherInfo.marginUsedFormatted as string}`}
+              </SizableText>
+            </YStack>
+            <YStack gap="$1" width={120} alignItems="flex-end">
+              <SizableText size="$bodySm" color="$textSubdued">
+                Entry Price
+              </SizableText>
+              <SizableText size="$bodySm">
+                {`${priceInfo.entryPriceFormatted as string}`}
+              </SizableText>
+            </YStack>
+          </XStack>
+          <XStack width="100%" flex={1} alignItems="center">
+            <YStack gap="$1" width={120}>
+              <SizableText size="$bodySm" color="$textSubdued">
+                Funding
+              </SizableText>
+              <SizableText size="$bodySm">
+                {`${otherInfo.fundingFormatted as string}`}
+              </SizableText>
+            </YStack>
+            <YStack gap="$1" flex={1} alignItems="center">
+              <SizableText size="$bodySm" color="$textSubdued">
+                TPSL
+              </SizableText>
+              <SizableText size="$bodySm">{`${tpslInfo.tpsl}`}</SizableText>
+            </YStack>
+            <YStack gap="$1" width={120} alignItems="flex-end">
+              <SizableText size="$bodySm" color="$textSubdued">
+                Liq. Price
+              </SizableText>
+              <SizableText size="$bodySm">
+                {`${priceInfo.liquidationPriceFormatted as string}`}
+              </SizableText>
+            </YStack>
+          </XStack>
+          <XStack width="100%" justifyContent="space-between">
+            <Button
+              width={160}
+              size="small"
+              variant="secondary"
+              onPress={setTpsl}
+            >
+              Set TP/SL
+            </Button>
+            <Button
+              width={160}
+              size="small"
+              variant="secondary"
+              onPress={onAllClose}
+            >
+              Close
+            </Button>
+          </XStack>
+        </ListItem>
+      );
+    }
     return (
       <XStack
         flex={1}
