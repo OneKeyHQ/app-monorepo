@@ -100,7 +100,7 @@ export function useCreateQrWallet() {
         throw error;
       }
     },
-    [actions, intl, navigation],
+    [actions, navigation],
   );
 
   const createQrWallet = useCallback(

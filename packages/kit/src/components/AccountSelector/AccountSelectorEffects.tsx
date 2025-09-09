@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { throttle } from 'lodash';
+import { useDebouncedCallback } from 'use-debounce';
 
 import type { IDBExternalAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
@@ -9,6 +10,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -20,6 +22,7 @@ import {
   useAccountSelectorContextDataAtom,
   useAccountSelectorSceneInfo,
   useAccountSelectorStorageReadyAtom,
+  useAccountSelectorUpdateMetaAtom,
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
@@ -75,6 +78,9 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   const { selectedAccount, isSelectedAccountDefaultValue } = useSelectedAccount(
     { num },
   );
+  const [updateMeta] = useAccountSelectorUpdateMetaAtom();
+  const updateMetaRef = useRef(updateMeta);
+  updateMetaRef.current = updateMeta;
   const selectedAccountRef = useRef(selectedAccount);
   selectedAccountRef.current = selectedAccount;
 
@@ -148,23 +154,22 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
     [actions, isReady, num],
   );
 
-  useEffect(() => {
-    void (async () => {
-      // do not save initial value to storage
-      if (!isSelectedAccountDefaultValue) {
-        // check initFromStorage() at AccountSelectorStorageInit
-        await actions.current.saveToStorage({
-          selectedAccount,
-          sceneName,
-          sceneUrl,
-          num,
-        });
-      } else {
-        console.log(
-          'AccountSelector saveToStorage skip:  isSelectedAccountDefaultValue',
-        );
-      }
-    })();
+  const autoSaveToStorage = useCallback(async () => {
+    // do not save initial value to storage
+    if (!isSelectedAccountDefaultValue) {
+      // check initFromStorage() at AccountSelectorStorageInit
+      await actions.current.saveToStorage({
+        selectedAccount,
+        sceneName,
+        sceneUrl,
+        num,
+        selectedAccountUpdatedAt: updateMeta[num]?.updatedAt,
+      });
+    } else {
+      console.log(
+        'AccountSelector saveToStorage skip:  isSelectedAccountDefaultValue',
+      );
+    }
   }, [
     actions,
     isSelectedAccountDefaultValue,
@@ -172,7 +177,12 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
     sceneName,
     sceneUrl,
     selectedAccount,
+    updateMeta,
   ]);
+
+  useEffect(() => {
+    void autoSaveToStorage();
+  }, [autoSaveToStorage]);
 
   useEffect(() => {
     noopObject(activeAccountReloadDeps);
@@ -233,6 +243,7 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   const syncSceneData = useCallback(
     async (eventPayload: {
       selectedAccount: IAccountSelectorSelectedAccount;
+      selectedAccountUpdatedAt: number | undefined;
       sceneName: EAccountSelectorSceneName;
       sceneUrl?: string | undefined;
       num: number;
@@ -244,15 +255,37 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
         eventPayload.sceneName === sceneName &&
         eventPayload.sceneUrl === sceneUrl &&
         // @ts-ignore
-        eventPayload?.$$isRemoteEvent
+        eventPayload?.$$isRemoteEvent // ext background event emit
       ) {
-        await actions.current.updateSelectedAccount({
-          num: eventPayload.num,
-          builder: () => eventPayload.selectedAccount,
-          updateMeta: {
-            eventEmitDisabled: true, // avoid infinite loop: event -> updateSelectedAccount -> event
-          },
+        const eventPayloadUpdatedAt = eventPayload.selectedAccountUpdatedAt;
+        const currentUpdatedAt =
+          updateMetaRef.current?.[eventPayload.num]?.updatedAt;
+
+        defaultLogger.accountSelector.storage.syncSceneData({
+          selectedAccount: eventPayload.selectedAccount,
+          eventPayloadUpdatedAt,
+          currentUpdatedAt,
         });
+
+        let shouldUpdateAtom = true;
+        if (
+          eventPayloadUpdatedAt &&
+          currentUpdatedAt &&
+          currentUpdatedAt > eventPayloadUpdatedAt
+        ) {
+          shouldUpdateAtom = false;
+        }
+
+        if (shouldUpdateAtom) {
+          await actions.current.updateSelectedAccount({
+            num: eventPayload.num,
+            builder: () => eventPayload.selectedAccount,
+            updateMeta: {
+              eventEmitDisabled: true, // avoid infinite loop: event -> updateSelectedAccount -> event
+              updatedAt: Date.now(),
+            },
+          });
+        }
       }
 
       await syncHomeAndSwap(eventPayload);
