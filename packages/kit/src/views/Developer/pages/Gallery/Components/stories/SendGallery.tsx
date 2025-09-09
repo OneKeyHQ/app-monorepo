@@ -1,9 +1,11 @@
 import { type ReactNode, useCallback } from 'react';
 
+import { StorageUtil as StorageUtilCore } from '@reown/appkit-core-react-native';
 import { StyleSheet } from 'react-native';
 
 import {
   Button,
+  Dialog,
   SizableText,
   Stack,
   Toast,
@@ -49,6 +51,23 @@ function ExternalAccountSign() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   return (
     <PartContainer title="ExternalAccountSign">
+      <Button
+        onPress={async () => {
+          Dialog.debugMessage({
+            title: 'walletconnect deeplink',
+            debugMessage: await StorageUtilCore.getWalletConnectDeepLink(),
+          });
+        }}
+      >
+        log walletconnect deeplink
+      </Button>
+      <Button
+        onPress={async () => {
+          await StorageUtilCore.removeWalletConnectDeepLink();
+        }}
+      >
+        remove walletconnect deeplink
+      </Button>
       <Button
         onPress={async () => {
           const r = await backgroundApiProxy.serviceDemo.demoEvmPersonalSign({

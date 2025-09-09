@@ -24,13 +24,13 @@ import type {
   IHandleAccountChanged,
   IHandleAccountChangedParams,
 } from '../../hooks/useHandleAccountChanged';
-import type { Web3WalletTypes } from '@walletconnect/web3wallet';
+import type { WalletKitTypes } from '@reown/walletkit';
 
 function SessionProposalModal() {
   const { serviceWalletConnect } = backgroundApiProxy;
   const intl = useIntl();
   const { proposal, $sourceInfo } = useDappQuery<{
-    proposal: Web3WalletTypes.SessionProposal;
+    proposal: WalletKitTypes.SessionProposal;
   }>();
   const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
