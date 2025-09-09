@@ -86,11 +86,14 @@ export function Token({
     }
     return '$full';
   }, [isNFT]);
+  const source = useMemo(() => {
+    return tokenImageUri ? { uri: tokenImageUri } : undefined;
+  }, [tokenImageUri]);
   const tokenImage = (
     <Image
       size={tokenImageSize}
       borderRadius={borderRadius}
-      source={tokenImageUri ? { uri: tokenImageUri } : undefined}
+      source={source}
       fallback={
         <Stack
           bg="$gray5"

@@ -20,6 +20,7 @@ import type { ILiteCardParamList } from './liteCard';
 import type { IManualBackupParamList } from './manualBackup';
 import type { IModalNotificationsParamList } from './notifications';
 import type { IOnboardingParamList } from './onboarding';
+import type { IModalPerpParamList } from './perp';
 import type { IPrimeParamList } from './prime';
 import type { IModalReceiveParamList } from './receive';
 import type { IModalReferFriendsParamList } from './referFriends';
@@ -44,6 +45,7 @@ export enum EModalRoutes {
   SettingModal = 'SettingModal',
   TestModal = 'TestModal',
   SwapModal = 'SwapModal',
+  PerpModal = 'PerpModal',
   MarketModal = 'MarketModal',
   AccountManagerStacks = 'AccountManagerStacks',
   OnboardingModal = 'OnboardingModal',
@@ -115,4 +117,5 @@ export type IModalParamList = {
   [EModalRoutes.BulkCopyAddressesModal]: IModalBulkCopyAddressesParamList;
   [EModalRoutes.ApprovalManagementModal]: IModalApprovalManagementParamList;
   [EModalRoutes.SignAndVerifyModal]: IModalSignAndVerifyParamList;
+  [EModalRoutes.PerpModal]: IModalPerpParamList;
 };

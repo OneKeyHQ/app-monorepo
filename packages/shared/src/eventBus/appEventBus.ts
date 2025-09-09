@@ -26,6 +26,7 @@ import { EAppEventBusNames } from './appEventBusNames';
 
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
+import type { ESubscriptionType } from '../../types/hyperliquid/types';
 import type { INotificationViewDialogPayload } from '../../types/notification';
 import type { IPrimeTransferData } from '../../types/prime/primeTransferTypes';
 import type {
@@ -340,6 +341,26 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.ShowHardwareErrorDialog]: IHardwareErrorDialogPayload;
   [EAppEventBusNames.SwapPanelDismissKeyboard]: undefined;
+  [EAppEventBusNames.HyperliquidDataUpdate]: {
+    type: string;
+    subType: ESubscriptionType;
+    data: unknown;
+    metadata: Record<string, any>;
+  };
+  [EAppEventBusNames.HyperliquidConnectionChange]: {
+    type: 'connection';
+    subType: 'datastream';
+    data: {
+      status: 'connected' | 'disconnected';
+      lastConnected: number;
+      service: string;
+      activeSubscriptions: number;
+    };
+    metadata: {
+      timestamp: number;
+      source: string;
+    };
+  };
   [EAppEventBusNames.ShowFallbackUpdateDialog]: {
     version: string | null | undefined;
   };

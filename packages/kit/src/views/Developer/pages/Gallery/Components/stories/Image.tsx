@@ -1,6 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { Button, Icon, Image, XStack, YStack } from '@onekeyhq/components';
+import type { IImageProps } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  Image,
+  Skeleton,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -39,6 +47,56 @@ function ImageStateTest() {
         fallback={<Icon name="ImageMountainsOutline" size="$10" />}
         source={{ uri }}
       />
+    </YStack>
+  );
+}
+
+function OneTimeImage({
+  uri: uriProp,
+  ...props
+}: { uri: string } & IImageProps) {
+  const [uri, setUri] = useState<string>(uriProp);
+  useEffect(() => {
+    if (!uri) {
+      setUri(uriProp);
+    }
+  }, [uriProp, uri]);
+  console.log('uri', uri);
+  const source = useMemo(() => {
+    return { uri };
+  }, [uri]);
+  return (
+    <YStack gap="$4">
+      <Image size="$10" source={source} {...props} />
+    </YStack>
+  );
+}
+
+function RetryFailedImage() {
+  const [uri, setUri] = useState<string>(
+    'https://uni.onekey-asset.com/static/chain/btc.pn',
+  );
+  return (
+    <YStack gap="$4">
+      <Image
+        size="$10"
+        source={{ uri }}
+        fallback={<Icon name="ImageMountainsOutline" size="$8" />}
+      />
+      <OneTimeImage
+        uri={uri}
+        size="$10"
+        fallback={<Icon name="ImageMountainsOutline" size="$8" />}
+      />
+      <Button
+        onPress={() =>
+          setUri(
+            `https://uni.onekey-asset.com/static/chain/btc.pn${Math.random()}`,
+          )
+        }
+      >
+        retry failed image
+      </Button>
     </YStack>
   );
 }
@@ -176,6 +234,10 @@ const ImageGallery = () => (
             />
           </YStack>
         ),
+      },
+      {
+        title: 'retry failed image',
+        element: <RetryFailedImage />,
       },
     ]}
   />
