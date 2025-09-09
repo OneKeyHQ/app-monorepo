@@ -375,7 +375,7 @@ export function OrderPairBook({
   }, [aggr.asks, aggr.bids, midPrice]);
   return (
     <YStack>
-      <XStack pb="$1" ai="center" jc="space-between">
+      <XStack pb="$1" px="$2" ai="center" jc="space-between">
         <SizableText color="$textSubdued">PRICE</SizableText>
         <SizableText color="$textSubdued">SIZE</SizableText>
       </XStack>
@@ -413,8 +413,8 @@ export function OrderPairBook({
                   width={`${(itemData.cumSize / askDepth) * 100}%`}
                 />
               )}
-              <XStack flex={1} jc="space-between" ai="center">
-                <NumberSizeableText formatter="marketCap">
+              <XStack flex={1} px="$2" jc="space-between" ai="center">
+                <NumberSizeableText formatter="value">
                   {itemData.price}
                 </NumberSizeableText>
                 <NumberSizeableText formatter="marketCap">
