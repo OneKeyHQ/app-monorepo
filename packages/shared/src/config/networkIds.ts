@@ -1,6 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { ENetworkStatus } from '../../types';
 import { memoFn } from '../utils/cacheUtils';
 
 import { getPresetNetworks } from './presetNetworks';
@@ -94,3 +95,11 @@ export const getNetworkIdsMap = memoFn(() => {
 });
 
 export const getNetworkIds = memoFn(() => Object.keys(getNetworkIdsMap()));
+
+export const getListedNetworkMap = memoFn(() => {
+  const networks = getPresetNetworks();
+  return networks.reduce((memo, n) => {
+    memo[n.id] = n.status === ENetworkStatus.LISTED;
+    return memo;
+  }, {} as Record<string, boolean>);
+});
