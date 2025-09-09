@@ -116,10 +116,12 @@ function ApprovalList() {
           toggleIsBulkRevokeMode();
         }}
       >
-        {intl.formatMessage({ id: ETranslations.global_bulk })}
+        {isBulkRevokeMode
+          ? intl.formatMessage({ id: ETranslations.global_done })
+          : intl.formatMessage({ id: ETranslations.global_edit })}
       </Button>
     );
-  }, [intl, toggleIsBulkRevokeMode]);
+  }, [intl, toggleIsBulkRevokeMode, isBulkRevokeMode]);
 
   const handleSearchTextChange = useDebouncedCallback((text: string) => {
     updateSearchKey(text);

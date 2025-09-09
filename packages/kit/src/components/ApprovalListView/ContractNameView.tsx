@@ -48,7 +48,7 @@ function ContractNameView(props: IProps) {
 
   return (
     <XStack alignItems="center" gap="$1">
-      <SizableText size="$bodyMdMedium" {...nameStyleProps} numberOfLines={1}>
+      <SizableText size="$bodyLgMedium" {...nameStyleProps} numberOfLines={1}>
         {contract?.label ||
           intl.formatMessage({ id: ETranslations.global_unknown })}
       </SizableText>
