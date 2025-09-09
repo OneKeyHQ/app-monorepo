@@ -210,6 +210,7 @@ export interface IAggregateToken {
   commonSymbol: string;
   order: number;
   logoURI?: string;
+  name: string;
 }
 
 export type IHomeDefaultToken = {
@@ -228,6 +229,7 @@ export type IFetchAggregateTokenConfigMapResp = {
       string,
       {
         logoURI: string;
+        name: string;
         data: IAggregateToken[];
       }
     >;

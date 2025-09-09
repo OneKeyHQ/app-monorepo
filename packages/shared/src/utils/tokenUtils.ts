@@ -774,6 +774,7 @@ export function buildAggregateTokenListData(params: {
           isAggregateToken: true,
           commonSymbol: aggregateToken.commonSymbol,
           logoURI: aggregateToken.logoURI,
+          name: aggregateToken.name,
         },
         tokens: [
           {

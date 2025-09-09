@@ -4,6 +4,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoFn } from '../utils/cacheUtils';
 
 import { getPresetNetworks } from './presetNetworks';
+import { ENetworkStatus } from '../../types';
 
 export type INetworkShortCode =
   | 'onekeyall'
@@ -94,3 +95,11 @@ export const getNetworkIdsMap = memoFn(() => {
 });
 
 export const getNetworkIds = memoFn(() => Object.keys(getNetworkIdsMap()));
+
+export const getListedNetworkMap = memoFn(() => {
+  const networks = getPresetNetworks();
+  return networks.reduce((memo, n) => {
+    memo[n.id] = n.status === ENetworkStatus.LISTED;
+    return memo;
+  }, {} as Record<string, boolean>);
+});

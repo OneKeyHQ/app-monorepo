@@ -43,6 +43,7 @@ export type ITokenSelectorParamList = {
   title?: string;
   networkId: string;
   accountId: string;
+  indexedAccountId?: string;
   activeAccountId?: string;
   activeNetworkId?: string;
   tokens?: ITokenData;
@@ -73,7 +74,9 @@ export type IAggregateTokenSelectorParams = {
   title?: string;
   searchPlaceholder?: string;
   accountId: string;
+  indexedAccountId?: string;
   aggregateToken: IAccountToken;
+  allAggregateTokenList?: IAccountToken[];
   onSelect: (token: IAccountToken) => void | Promise<void>;
   closeAfterSelect?: boolean;
 };

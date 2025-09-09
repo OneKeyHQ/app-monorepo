@@ -122,6 +122,7 @@ function useReceiveToken({
             title: intl.formatMessage({ id: ETranslations.global_receive }),
             networkId,
             accountId,
+            indexedAccountId,
             tokens,
             tokenListState,
             searchAll: true,
