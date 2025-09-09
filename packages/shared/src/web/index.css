@@ -235,3 +235,7 @@ body > div.cet-container {
   background: rgba(0, 0, 0, 0.27);
   border-radius: 100px;
 }
+
+w3m-modal { 
+  z-index: 99993173;
+}
