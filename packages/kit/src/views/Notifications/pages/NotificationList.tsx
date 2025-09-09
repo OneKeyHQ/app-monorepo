@@ -30,6 +30,8 @@ import {
   useNotificationsAtom,
   useNotificationsReadedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
@@ -419,6 +421,16 @@ function BaseNotificationList() {
     [setUnreadMap],
   );
 
+  useEffect(() => {
+    const fn = () => {
+      void reFetchList();
+    };
+    appEventBus.on(EAppEventBusNames.UpdateNotificationBadge, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.UpdateNotificationBadge, fn);
+    };
+  }, [reFetchList]);
+
   const contentView = useMemo(() => {
     return (
       <SectionList
@@ -465,6 +477,8 @@ function BaseNotificationList() {
                       deriveType: activeAccountRef.current?.deriveType,
                       avatarUrl: activeAccountRef.current?.wallet?.avatar,
                     },
+                    getEarnAccount: (props) =>
+                      backgroundApiProxy.serviceStaking.getEarnAccount(props),
                   });
                   setTimeout(() => {
                     if (!item.readed) {

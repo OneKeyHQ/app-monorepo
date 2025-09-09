@@ -24,6 +24,7 @@ import { ManualBackupRouter } from '../../views/ManualBackup/router';
 import { ModalMarketStack } from '../../views/Market/router';
 import { ModalNotificationsRouter } from '../../views/Notifications/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
+import { ModalPerpStack } from '../../views/Perp/router';
 import { PrimeRouter } from '../../views/Prime/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
 import { ReferFriendsRouter } from '../../views/ReferFriends/router';
@@ -76,6 +77,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.SwapModal,
     children: ModalSwapStack,
+  },
+  {
+    name: EModalRoutes.PerpModal,
+    children: ModalPerpStack,
   },
   {
     name: EModalRoutes.MarketModal,
