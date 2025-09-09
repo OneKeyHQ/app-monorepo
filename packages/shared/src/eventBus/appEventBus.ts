@@ -371,7 +371,11 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ShowFallbackUpdateDialog]: {
     version: string | null | undefined;
   };
-  [EAppEventBusNames.ShowNotificationViewDialog]: INotificationViewDialogPayload;
+  [EAppEventBusNames.ShowNotificationViewDialog]: {
+    payload: INotificationViewDialogPayload;
+    localParams: Record<string, string | undefined>;
+  };
+  [EAppEventBusNames.UpdateNotificationBadge]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {
