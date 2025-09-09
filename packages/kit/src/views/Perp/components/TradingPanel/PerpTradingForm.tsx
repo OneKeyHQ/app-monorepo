@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { BigNumber } from 'bignumber.js';
+
 import {
   Checkbox,
   Input,
@@ -24,6 +26,7 @@ import {
 } from '../../utils/tokenUtils';
 
 import { LeverageAdjustModal } from './LeverageAdjustModal';
+import { MarginModeSelector } from './MarginModeSelector';
 import { OrderTypeSelector } from './OrderTypeSelector';
 import { PriceInput } from './PriceInput';
 import { SizeInput } from './SizeInput';
@@ -70,56 +73,76 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
 
   const referencePrice = useMemo(() => {
     if (formData.type === 'limit' && formData.price) {
-      return parseFloat(formData.price);
+      return new BigNumber(formData.price);
     }
     if (formData.type === 'market' && tokenInfo?.markPx) {
-      return parseFloat(tokenInfo.markPx);
+      return new BigNumber(tokenInfo.markPx);
     }
-    return 0;
+    return new BigNumber(0);
   }, [formData.type, formData.price, tokenInfo?.markPx]);
+
+  const totalValue = useMemo(() => {
+    const size = new BigNumber(formData.size || 0);
+    return size.multipliedBy(referencePrice);
+  }, [formData.size, referencePrice]);
+
+  const marginRequired = useMemo(() => {
+    if (!leverage || leverage === 0) return new BigNumber(0);
+    return totalValue.dividedBy(leverage);
+  }, [totalValue, leverage]);
 
   const calculateTpPrice = useCallback(
     (gainPercent: string) => {
-      if (!gainPercent || !referencePrice) return '';
-      const gain = parseFloat(gainPercent) / 100;
-      const multiplier = formData.side === 'long' ? 1 + gain : 1 - gain;
-      const price = referencePrice * multiplier;
-      return formatPriceToSignificantDigits(price);
+      if (!gainPercent || referencePrice.isZero()) return '';
+      const gain = new BigNumber(gainPercent).dividedBy(100);
+      const multiplier =
+        formData.side === 'long'
+          ? new BigNumber(1).plus(gain)
+          : new BigNumber(1).minus(gain);
+      const price = referencePrice.multipliedBy(multiplier);
+      return formatPriceToSignificantDigits(price.toNumber());
     },
     [referencePrice, formData.side],
   );
 
   const calculateSlPrice = useCallback(
     (lossPercent: string) => {
-      if (!lossPercent || !referencePrice) return '';
-      const loss = parseFloat(lossPercent) / 100;
-      const multiplier = formData.side === 'long' ? 1 - loss : 1 + loss;
-      const price = referencePrice * multiplier;
-      return formatPriceToSignificantDigits(price);
+      if (!lossPercent || referencePrice.isZero()) return '';
+      const loss = new BigNumber(lossPercent).dividedBy(100);
+      const multiplier =
+        formData.side === 'long'
+          ? new BigNumber(1).minus(loss)
+          : new BigNumber(1).plus(loss);
+      const price = referencePrice.multipliedBy(multiplier);
+      return formatPriceToSignificantDigits(price.toNumber());
     },
     [referencePrice, formData.side],
   );
 
   const calculateTpPercent = useCallback(
     (tpPrice: string) => {
-      if (!tpPrice || !referencePrice) return '';
-      const tp = parseFloat(tpPrice);
+      if (!tpPrice || referencePrice.isZero()) return '';
+      const tp = new BigNumber(tpPrice);
       const diff =
-        formData.side === 'long' ? tp - referencePrice : referencePrice - tp;
-      const percent = (diff / referencePrice) * 100;
-      return formatPercentage(percent);
+        formData.side === 'long'
+          ? tp.minus(referencePrice)
+          : referencePrice.minus(tp);
+      const percent = diff.dividedBy(referencePrice).multipliedBy(100);
+      return formatPercentage(percent.toNumber());
     },
     [referencePrice, formData.side],
   );
 
   const calculateSlPercent = useCallback(
     (slPrice: string) => {
-      if (!slPrice || !referencePrice) return '';
-      const sl = parseFloat(slPrice);
+      if (!slPrice || referencePrice.isZero()) return '';
+      const sl = new BigNumber(slPrice);
       const diff =
-        formData.side === 'long' ? referencePrice - sl : sl - referencePrice;
-      const percent = (diff / referencePrice) * 100;
-      return formatPercentage(percent);
+        formData.side === 'long'
+          ? referencePrice.minus(sl)
+          : sl.minus(referencePrice);
+      const percent = diff.dividedBy(referencePrice).multipliedBy(100);
+      return formatPercentage(percent.toNumber());
     },
     [referencePrice, formData.side],
   );
@@ -176,19 +199,22 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
 
   return (
     <>
-      <YStack gap="$4" h={400}>
+      <YStack gap="$4">
         <TradeSideToggle
           value={formData.side}
           onChange={(side: ISide) => updateForm({ side })}
           disabled={isSubmitting}
         />
 
-        <XStack gap="$3" alignItems="center" justifyContent="space-between">
-          <OrderTypeSelector
-            value={formData.type}
-            onChange={(type: 'market' | 'limit') => updateForm({ type })}
-            disabled={isSubmitting}
-          />
+        <XStack alignItems="center" justifyContent="space-between">
+          <XStack gap="$2">
+            <OrderTypeSelector
+              value={formData.type}
+              onChange={(type: 'market' | 'limit') => updateForm({ type })}
+              disabled={isSubmitting}
+            />
+            <MarginModeSelector disabled={isSubmitting} />
+          </XStack>
           <LeverageAdjustModal />
         </XStack>
 
@@ -241,17 +267,28 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
                     onChangeText={handleTpPriceChange}
                     disabled={isSubmitting}
                     keyboardType="decimal-pad"
-                    size="medium"
+                    size="small"
+                    borderWidth={0}
+                    containerProps={{
+                      bg: '$bgSubdued',
+                      borderRadius: '$2',
+                      borderWidth: 0,
+                    }}
                   />
                 </YStack>
-                <YStack flex={1}>
+                <YStack width={100}>
                   <Input
                     placeholder="Gain"
                     value={formData.tpGainPercent}
                     onChangeText={handleTpPercentChange}
                     disabled={isSubmitting}
                     keyboardType="decimal-pad"
-                    size="medium"
+                    size="small"
+                    containerProps={{
+                      bg: '$bgSubdued',
+                      borderRadius: '$2',
+                      borderWidth: 0,
+                    }}
                     addOns={[
                       {
                         renderContent: (
@@ -278,17 +315,27 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
                     onChangeText={handleSlPriceChange}
                     disabled={isSubmitting}
                     keyboardType="decimal-pad"
-                    size="medium"
+                    size="small"
+                    containerProps={{
+                      bg: '$bgSubdued',
+                      borderRadius: '$2',
+                      borderWidth: 0,
+                    }}
                   />
                 </YStack>
-                <YStack flex={1}>
+                <YStack width={100}>
                   <Input
                     placeholder="Loss"
                     value={formData.slLossPercent}
                     onChangeText={handleSlPercentChange}
                     disabled={isSubmitting}
                     keyboardType="decimal-pad"
-                    size="medium"
+                    size="small"
+                    containerProps={{
+                      bg: '$bgSubdued',
+                      borderRadius: '$2',
+                      borderWidth: 0,
+                    }}
                     addOns={[
                       {
                         renderContent: (
@@ -319,13 +366,10 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
           </SizableText>
           <NumberSizeableText
             size="$bodyMd"
-            formatter="value"
+            formatter="price"
             formatterOptions={{ currency: '$' }}
           >
-            {formatPriceToSignificantDigits(
-              Number(formData.size) * Number(referencePrice),
-              2,
-            )}
+            {totalValue.toNumber()}
           </NumberSizeableText>
         </XStack>
         <XStack justifyContent="space-between">
@@ -335,13 +379,10 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
           {leverage ? (
             <NumberSizeableText
               size="$bodyMd"
-              formatter="value"
+              formatter="price"
               formatterOptions={{ currency: '$' }}
             >
-              {formatPriceToSignificantDigits(
-                (Number(formData.size) * Number(referencePrice)) / leverage,
-                2,
-              )}
+              {marginRequired.toNumber()}
             </NumberSizeableText>
           ) : (
             <Skeleton width={80} height={18} />

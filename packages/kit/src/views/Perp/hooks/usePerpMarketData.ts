@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import {
   useActiveAssetCtxAtom,
+  useActiveAssetDataAtom,
   useAllMidsAtom,
   useCurrentTokenAtom,
   useL2BookAtom,
@@ -11,6 +12,8 @@ import {
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { formatAssetCtx } from '../utils/formatData';
+
+import type { PerpsUniverse } from '@nktkas/hyperliquid';
 
 export interface IPerpMarketDataReturn {
   currentTokenData: any | null;
@@ -31,7 +34,6 @@ export interface IPerpMarketDataReturn {
 export interface ICurrentTokenData {
   name: string;
   assetId: number;
-  weiDecimals: number;
   szDecimals: number;
   markPx?: string;
   oraclePx?: string;
@@ -124,12 +126,31 @@ export function usePerpMarketData(): IPerpMarketDataReturn {
 
 export function useCurrentTokenData(): ICurrentTokenData | null {
   const [tradingData] = useTradingPanelDataAtom();
+  const [currentToken] = useCurrentTokenAtom();
+  const [webData2] = useWebData2Atom();
+  const [activeAssetData] = useActiveAssetDataAtom();
 
-  if (!tradingData) {
+  if (!tradingData || !currentToken || !webData2) {
     return null;
   }
 
-  return tradingData as unknown as ICurrentTokenData;
+  const universe = webData2.meta?.universe || [];
+  const assetId = universe.findIndex((token) => token.name === currentToken);
+  const tokenFromUniverse: PerpsUniverse | undefined = universe[assetId];
+
+  return {
+    ...tradingData,
+    name: currentToken,
+    assetId,
+    szDecimals: tokenFromUniverse?.szDecimals || 2,
+    maxLeverage: tokenFromUniverse?.maxLeverage,
+    maxTradeSzs: activeAssetData?.maxTradeSzs
+      ? [
+          Number(activeAssetData.maxTradeSzs[0]),
+          Number(activeAssetData.maxTradeSzs[1]),
+        ]
+      : [0, 0],
+  };
 }
 
 export function useTokenList() {

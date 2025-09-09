@@ -1,7 +1,13 @@
 /* eslint-disable react/prop-types */
 import { memo, useCallback, useMemo } from 'react';
 
-import { Input, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Input,
+  NumberSizeableText,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 
 import { validateSizeInput } from '../../utils/tokenUtils';
 
@@ -32,17 +38,6 @@ export const SizeInput = memo<ISizeInputProps>(
       [szDecimals, onChange],
     );
 
-    const handleBlur = useCallback(() => {
-      if (value) {
-        const maxSizeNum = parseFloat(maxSize.toString());
-        const currentValue = parseFloat(value);
-
-        if (currentValue > maxSizeNum) {
-          onChange(maxSize.toString());
-        }
-      }
-    }, [value, maxSize, onChange]);
-
     const formatLabel = useMemo(() => {
       return side === 'long' ? 'Buy amount' : 'Sell amount';
     }, [side]);
@@ -58,7 +53,6 @@ export const SizeInput = memo<ISizeInputProps>(
             size="medium"
             value={value}
             onChangeText={handleInputChange}
-            onBlur={handleBlur}
             placeholder="0.0"
             keyboardType="decimal-pad"
             disabled={isDisabled}
@@ -90,14 +84,18 @@ export const SizeInput = memo<ISizeInputProps>(
             </SizableText>
           ) : null}
           {Number(maxSize) > 0 ? (
-            <SizableText
-              size="$bodySm"
-              color="$textSubdued"
-              mt="$1"
-              alignSelf="flex-end"
-            >
-              Max: {Number(maxSize).toFixed(szDecimals)}
-            </SizableText>
+            <XStack alignItems="center" alignSelf="flex-end" mt="$1" gap="$1">
+              <SizableText size="$bodySm" color="$textSubdued">
+                Max:
+              </SizableText>
+              <NumberSizeableText
+                size="$bodySm"
+                color="$textSubdued"
+                formatter="balance"
+              >
+                {maxSize}
+              </NumberSizeableText>
+            </XStack>
           ) : null}
         </YStack>
       </YStack>
