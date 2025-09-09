@@ -2,8 +2,8 @@ import { useState } from 'react';
 
 import { Button, SizableText, Stack, XStack } from '@onekeyhq/components';
 import {
+  OrderBook,
   OrderPairBook,
-  Orderbook,
 } from '@onekeyhq/kit/src/views/Perp/components/OrderBook';
 import type { IOBLevel } from '@onekeyhq/kit/src/views/Perp/components/OrderBook/types';
 
@@ -114,7 +114,7 @@ const OrderBookDemo = () => {
         </SizableText>
 
         <Stack p="$2">
-          <Orderbook
+          <OrderBook
             controls
             bids={bids}
             asks={asks}
@@ -128,7 +128,7 @@ const OrderBookDemo = () => {
           />
         </Stack>
         <Stack p="$2">
-          <Orderbook
+          <OrderBook
             horizontal={false}
             bids={bids}
             asks={asks}
