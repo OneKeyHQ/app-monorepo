@@ -8,6 +8,10 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token, TokenName } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useAggregateTokensListMapAtom,
+  useAllTokenListMapAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import {
   useSettingsPersistAtom,
@@ -18,7 +22,11 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import {
+  getTokenPriceChangeStyle,
+  sortTokensCommon,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IUniversalSearchAccountAssets } from '@onekeyhq/shared/types/search';
 
 interface IUniversalSearchAccountAssetItemProps {
@@ -35,58 +43,78 @@ export function UniversalSearchAccountAssetItem({
   const [{ hideValue }] = useSettingsValuePersistAtom();
   const { token, tokenFiat } = item.payload;
   const priceChange = tokenFiat?.price24h ?? 0;
+  const [aggregateTokenListMapAtom] = useAggregateTokensListMapAtom();
+  const [allTokenListMapAtom] = useAllTokenListMapAtom();
   const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
     priceChange,
   });
   const fiatValue = new BigNumber(tokenFiat?.fiatValue ?? 0);
 
-  const handlePress = useCallback(() => {
+  const handlePress = useCallback(async () => {
     navigation.pop();
-    setTimeout(async () => {
-      if (
-        !activeAccount ||
-        !activeAccount.account ||
-        !activeAccount.network ||
-        !activeAccount.wallet ||
-        !activeAccount.deriveInfo ||
-        !activeAccount.deriveType ||
-        !activeAccount.indexedAccount
-      )
-        return;
+    if (
+      !activeAccount ||
+      !activeAccount.account ||
+      !activeAccount.network ||
+      !activeAccount.wallet ||
+      !activeAccount.deriveInfo ||
+      !activeAccount.deriveType ||
+      !activeAccount.indexedAccount
+    )
+      return;
 
-      navigation.pushModal(EModalRoutes.MainModal, {
-        screen: EModalAssetDetailRoutes.TokenDetails,
-        params: {
-          accountId: token.accountId ?? activeAccount.account?.id ?? '',
-          networkId: token.networkId ?? activeAccount.network?.id,
-          walletId: activeAccount.wallet?.id,
-          deriveInfo: activeAccount.deriveInfo,
-          deriveType: activeAccount.deriveType,
-          tokenInfo: token,
-          isAllNetworks: activeAccount.network?.isAllNetworks,
-          indexedAccountId: activeAccount.indexedAccount?.id ?? '',
-        },
+    let sortedTokens = [token];
+
+    if (token.isAggregateToken) {
+      const tokens = aggregateTokenListMapAtom[token.$key]?.tokens;
+
+      sortedTokens = sortTokensCommon({
+        tokens,
+        tokenListMap: allTokenListMapAtom,
       });
+    }
 
-      // Add to recent search list
-      setTimeout(() => {
-        universalSearchActions.current.addIntoRecentSearchList({
-          id: `${token.symbol}-${token.networkId || ''}-${
-            token.accountId || activeAccount.account?.id || ''
-          }`,
-          text: token.symbol || token.name || '',
-          type: item.type,
-          timestamp: Date.now(),
-          extra: {
-            tokenSymbol: token.symbol || '',
-            tokenName: token.name || '',
-            networkId: token.networkId || '',
-            accountId: token.accountId || '',
-          },
-        });
-      }, 10);
-    }, 80);
-  }, [activeAccount, item.type, navigation, token, universalSearchActions]);
+    // wait for the modal animation is finished
+    await timerUtils.wait(300);
+    navigation.pushModal(EModalRoutes.MainModal, {
+      screen: EModalAssetDetailRoutes.TokenDetails,
+      params: {
+        accountId:
+          sortedTokens[0]?.accountId ?? activeAccount.account?.id ?? '',
+        networkId: sortedTokens[0]?.networkId ?? activeAccount.network?.id,
+        walletId: activeAccount.wallet?.id,
+        tokens: sortedTokens,
+        isAllNetworks: activeAccount.network?.isAllNetworks,
+        indexedAccountId: activeAccount.indexedAccount?.id ?? '',
+        isAggregateToken: token.isAggregateToken,
+      },
+    });
+
+    await timerUtils.wait(10);
+    // Add to recent search list
+    universalSearchActions.current.addIntoRecentSearchList({
+      id: `${token.symbol}-${token.networkId || ''}-${
+        token.accountId || activeAccount.account?.id || ''
+      }`,
+      text: token.symbol || token.name || '',
+      type: item.type,
+      timestamp: Date.now(),
+      extra: {
+        tokenSymbol: token.symbol || '',
+        tokenName: token.name || '',
+        networkId: token.networkId || '',
+        accountId: token.accountId || '',
+      },
+    });
+  }, [
+    activeAccount,
+    item.type,
+    navigation,
+    token,
+    universalSearchActions,
+    aggregateTokenListMapAtom,
+    allTokenListMapAtom,
+  ]);
 
   return (
     <ListItem
@@ -102,7 +130,9 @@ export function UniversalSearchAccountAssetItem({
       />
       <Stack flexGrow={1} flexBasis={0} minWidth={96} flexDirection="column">
         <TokenName
+          $key={token?.$key}
           name={token?.name}
+          isAggregateToken={token?.isAggregateToken}
           networkId={token?.networkId}
           isNative={token?.isNative}
           isAllNetworks={networkUtils.isAllNetwork({
@@ -115,6 +145,7 @@ export function UniversalSearchAccountAssetItem({
             size: '$bodyLgMedium',
             flexShrink: 0,
           }}
+          withAggregateBadge
         />
         <NumberSizeableTextWrapper
           formatter="balance"

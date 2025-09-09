@@ -208,7 +208,7 @@ function Demo1() {
 
 const ErrorToastGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="ErrorToast"
     elements={[
       {

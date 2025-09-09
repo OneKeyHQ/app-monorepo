@@ -192,26 +192,27 @@ class ServiceAccount extends ServiceBase {
     super({ backgroundApi });
 
     appEventBus.on(EAppEventBusNames.WalletUpdate, () => {
-      this.clearAccountCache();
+      void this.clearAccountCache();
     });
     appEventBus.on(EAppEventBusNames.AccountRemove, () => {
-      this.clearAccountCache();
+      void this.clearAccountCache();
     });
     appEventBus.on(EAppEventBusNames.AccountUpdate, () => {
-      this.clearAccountCache();
+      void this.clearAccountCache();
     });
     appEventBus.on(EAppEventBusNames.RenameDBAccounts, () => {
-      this.clearAccountCache();
+      void this.clearAccountCache();
     });
     appEventBus.on(EAppEventBusNames.WalletRename, () => {
-      this.clearAccountCache();
+      void this.clearAccountCache();
     });
     appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, () => {
-      this.clearAccountCache();
+      void this.clearAccountCache();
     });
   }
 
-  clearAccountCache() {
+  @backgroundMethod()
+  async clearAccountCache() {
     this.getIndexedAccountWithMemo.clear();
     localDb.clearStoreCachedData();
   }
@@ -467,8 +468,14 @@ class ServiceAccount extends ServiceBase {
         }
       }
       if (accountUtils.isImportedAccount({ accountId: credential.id })) {
+        let accountId = credential.id;
+        if (accountUtils.isTonMnemonicCredentialId(credential.id)) {
+          accountId = accountUtils.getAccountIdFromTonMnemonicCredentialId({
+            credentialId: credential.id,
+          });
+        }
         const account = await this.getDBAccountSafe({
-          accountId: credential.id,
+          accountId,
         });
         if (!account) {
           isRemoved = true;
@@ -779,10 +786,14 @@ class ServiceAccount extends ServiceBase {
     walletId,
     networkId,
     account,
+    indexedAccountNames,
   }: {
     walletId: string;
     networkId: string;
     account: IBatchCreateAccount;
+    indexedAccountNames?: {
+      [index: number]: string;
+    };
   }) {
     const {
       addressDetail: _addressDetail,
@@ -799,6 +810,7 @@ class ServiceAccount extends ServiceBase {
       walletId,
       indexes: [dbAccount.pathIndex],
       skipIfExists: true,
+      names: indexedAccountNames,
     });
     await localDb.addAccountsToWallet({
       allAccountsBelongToNetworkId: networkId,
@@ -1403,7 +1415,8 @@ class ServiceAccount extends ServiceBase {
       skipAddIfNotEqualToAddress &&
       accounts.length === 1 &&
       accounts?.[0]?.address &&
-      accounts?.[0]?.address !== skipAddIfNotEqualToAddress
+      accounts?.[0]?.address?.toLowerCase() !==
+        skipAddIfNotEqualToAddress?.toLowerCase()
     ) {
       return {
         networkId,
@@ -1665,7 +1678,8 @@ class ServiceAccount extends ServiceBase {
       skipAddIfNotEqualToAddress &&
       accounts.length === 1 &&
       accounts?.[0]?.address &&
-      accounts?.[0]?.address !== skipAddIfNotEqualToAddress
+      accounts?.[0]?.address?.toLowerCase() !==
+        skipAddIfNotEqualToAddress?.toLowerCase()
     ) {
       console.error('addWatchingAccount skipAddIfNotEqualToAddress', {
         skipAddIfNotEqualToAddress,
@@ -3231,14 +3245,38 @@ class ServiceAccount extends ServiceBase {
     accountId: string;
     networkId: string;
   }) {
+    const info = await this.getAccountAddressInfoForApi({
+      dbAccount,
+      accountId,
+      networkId,
+    });
+    return info.address;
+  }
+
+  @backgroundMethod()
+  async getAccountAddressInfoForApi({
+    dbAccount,
+    accountId,
+    networkId,
+  }: {
+    dbAccount?: IDBAccount;
+    accountId: string;
+    networkId: string;
+  }): Promise<{ address: string; account: INetworkAccount }> {
+    const account: INetworkAccount = await this.getAccount({
+      accountId,
+      networkId,
+      dbAccount,
+    });
+
     if (networkUtils.isAllNetwork({ networkId })) {
-      return ALL_NETWORK_ACCOUNT_MOCK_ADDRESS;
+      return { address: ALL_NETWORK_ACCOUNT_MOCK_ADDRESS, account };
     }
-    const account = await this.getAccount({ accountId, networkId, dbAccount });
+
     if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
-      return account.addressDetail.normalizedAddress;
+      return { address: account.addressDetail.normalizedAddress, account };
     }
-    return account.address;
+    return { address: account.address, account };
   }
 
   @backgroundMethod()
@@ -4781,18 +4819,28 @@ class ServiceAccount extends ServiceBase {
       }
 
       if (!deriveTypes?.length) {
-        deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
-          accountId: importedAccount.id,
-          networkId,
-          input: await servicePassword.encodeSensitiveText({
-            text: input,
-          }),
-          validatePrivateKey: true,
-          validateXprvt: true,
-          template: importedAccount.template,
-        });
+        try {
+          deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
+            accountId: importedAccount.id,
+            networkId,
+            input: await servicePassword.encodeSensitiveText({
+              text: input,
+            }),
+            validatePrivateKey: true,
+            validateXprvt: true,
+            template: importedAccount.template,
+          });
+        } catch (e) {
+          console.error('getAccountImportingDeriveTypes error', e);
+        }
       }
 
+      if (!deriveTypes?.length) {
+        deriveTypes = ['default'];
+      }
+
+      const skipAddIfNotEqualToAddress =
+        deriveTypes.length > 1 ? importedAccount.address : undefined;
       for (const deriveType of deriveTypes) {
         try {
           const { accounts } =
@@ -4804,7 +4852,7 @@ class ServiceAccount extends ServiceBase {
               networkId,
               name: importedAccount.name,
               deriveType,
-              skipAddIfNotEqualToAddress: importedAccount.address,
+              skipAddIfNotEqualToAddress,
             });
           addedAccounts = [...addedAccounts, ...(accounts || [])];
         } catch (e) {
@@ -4849,18 +4897,28 @@ class ServiceAccount extends ServiceBase {
       }
 
       if (!deriveTypes?.length) {
-        deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
-          accountId: watchingAccount.id,
-          networkId: networkId || '',
-          input: await servicePassword.encodeSensitiveText({
-            text: input,
-          }),
-          validateAddress: true,
-          validateXpub: true,
-          template: watchingAccount.template,
-        });
+        try {
+          deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
+            accountId: watchingAccount.id,
+            networkId: networkId || '',
+            input: await servicePassword.encodeSensitiveText({
+              text: input,
+            }),
+            validateAddress: true,
+            validateXpub: true,
+            template: watchingAccount.template,
+          });
+        } catch (e) {
+          console.error('getAccountImportingDeriveTypes error', e);
+        }
       }
 
+      if (!deriveTypes?.length) {
+        deriveTypes = ['default'];
+      }
+
+      const skipAddIfNotEqualToAddress =
+        deriveTypes.length > 1 ? watchingAccount.address : undefined;
       for (const deriveType of deriveTypes) {
         try {
           const { accounts } = await serviceAccount.addWatchingAccount({
@@ -4870,7 +4928,7 @@ class ServiceAccount extends ServiceBase {
             name: watchingAccount.name,
             deriveType,
             isUrlAccount: false,
-            skipAddIfNotEqualToAddress: watchingAccount.address,
+            skipAddIfNotEqualToAddress,
           });
           addedAccounts = [...addedAccounts, ...(accounts || [])];
         } catch (e) {

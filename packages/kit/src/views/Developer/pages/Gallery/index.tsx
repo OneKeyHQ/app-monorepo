@@ -36,6 +36,12 @@ const BadgeGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Badge'
     ),
 );
+const BreadcrumbGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/BreadcrumbGallery'
+    ),
+);
 const BlurViewGallery = LazyLoadPage(
   () =>
     import(
@@ -479,6 +485,13 @@ const TradingViewGallery = LazyLoadPage(
     ),
 );
 
+const TradingViewPerpsV2Gallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TradingViewPerpsV2'
+    ),
+);
+
 const LetterAvatarGallery = LazyLoadPage(
   () =>
     import(
@@ -648,6 +661,7 @@ export const galleryScreenList: {
   },
   { name: EGalleryRoutes.ComponentOrderedList, component: OrderedListGallery },
   { name: EGalleryRoutes.ComponentBadge, component: BadgeGallery },
+  { name: EGalleryRoutes.ComponentBreadcrumb, component: BreadcrumbGallery },
   { name: EGalleryRoutes.ComponentInput, component: InputGallery },
   { name: EGalleryRoutes.ComponentDialog, component: DialogGallery },
   { name: EGalleryRoutes.ComponentEmpty, component: EmptyGallery },
@@ -832,6 +846,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentTradingViewGallery,
     component: TradingViewGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentTradingViewPerpsV2Gallery,
+    component: TradingViewPerpsV2Gallery,
   },
   {
     name: EGalleryRoutes.LetterAvatarGallery,

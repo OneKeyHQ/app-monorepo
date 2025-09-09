@@ -11,7 +11,7 @@ import type { IUniversalSearchMarketToken } from '@onekeyhq/shared/types/search'
 import { ESearchStatus } from '@onekeyhq/shared/types/search';
 
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
-import { MarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
+import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
 
 interface IUniversalSearchMarketTokenItemProps {
   item: IUniversalSearchMarketToken;
@@ -50,7 +50,7 @@ export function UniversalSearchMarketTokenItem({
           });
         }, 10);
       }
-    }, 0);
+    }, 80);
   }, [
     appNavigation,
     coingeckoId,
@@ -76,7 +76,7 @@ export function UniversalSearchMarketTokenItem({
       }}
     >
       <XStack>
-        <MarketTokenPrice
+        <BaseMarketTokenPrice
           price={String(price)}
           size="$bodyLgMedium"
           lastUpdated={lastUpdated}

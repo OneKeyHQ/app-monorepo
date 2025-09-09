@@ -28,7 +28,6 @@ export function useConnectExternalWallet() {
   const navigation = useAppNavigation();
   const actions = useAccountSelectorActions();
   const { selectedAccount } = useSelectedAccount({ num: 0 });
-  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const loading = jotaiLoading || localLoading;
   const setLoading = useCallback(
@@ -94,11 +93,15 @@ export function useConnectExternalWallet() {
     return { protocol, walletName: walletName || 'unknown', network };
   };
 
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const connectToWallet = useCallback(
     async (connectionInfo: IExternalConnectionInfo) => {
       try {
         const beforeConnectInfo = getExternalWalletConnectionDetails({
           externalConnectionInfo: connectionInfo,
+        });
+        defaultLogger.account.wallet.onboard({
+          onboardMethod: 'connect3rdPartyWallet',
         });
         defaultLogger.account.wallet.addWalletStarted({
           addMethod: 'Connect3rdPartyWallet',
@@ -114,11 +117,14 @@ export function useConnectExternalWallet() {
           await backgroundApiProxy.serviceDappSide.connectExternalWallet({
             connectionInfo,
           });
-        if (!loadingRef.current) {
+        if (
+          !loadingRef.current &&
+          Object.keys(connectResult?.accountInfo?.addresses || {}).length === 0
+        ) {
           Toast.error({
-            title: intl.formatMessage({
+            title: `${intl.formatMessage({
               id: ETranslations.feedback_connection_request_denied,
-            }),
+            })}`,
           });
           return;
         }
@@ -193,6 +199,10 @@ export function useConnectExternalWallet() {
   return {
     connectToWallet,
     connectToWalletWithDialog,
+    localLoading,
     loading,
+    hideLoading,
+    showLoading,
+    setLoadingRef,
   };
 }

@@ -189,6 +189,14 @@ function getDefaultDeriveTypeVisibleNetworks() {
       ];
 }
 
+function isViewInExplorerDisabled({ networkId }: { networkId: string }) {
+  return (
+    networkId === getNetworkIdsMap().lightning ||
+    networkId === getNetworkIdsMap().tlightning ||
+    networkId === getNetworkIdsMap().nostr
+  );
+}
+
 function toNetworkIdFallback({
   networkId,
   allNetworkFallbackId,
@@ -230,4 +238,5 @@ export default {
   toNetworkIdFallback,
   getBtcDappUniSetChainName,
   getLocalNetworkInfo,
+  isViewInExplorerDisabled,
 };

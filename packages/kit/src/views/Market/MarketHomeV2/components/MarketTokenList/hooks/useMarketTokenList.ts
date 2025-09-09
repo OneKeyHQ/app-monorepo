@@ -39,6 +39,8 @@ export function useMarketTokenList({
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isNetworkSwitching, setIsNetworkSwitching] = useState(false);
+  const [hasReachedEnd, setHasReachedEnd] = useState(false);
+  const [consecutiveEmptyResponses, setConsecutiveEmptyResponses] = useState(0);
   const maxPages = 5;
 
   // Optimize network logo URI calculation
@@ -53,9 +55,9 @@ export function useMarketTokenList({
     run: fetchMarketTokenList,
   } = usePromiseResult(
     async () => {
-      // For polling updates, request all loaded pages to keep data fresh
-      // For initial load, only request the first page
-      const pageNumbers = Array.from({ length: currentPage }, (_, i) => i + 1);
+      // Default to fetch first 2 pages, or all loaded pages if user has manually loaded more
+      const pagesToFetch = currentPage === 1 ? 2 : currentPage;
+      const pageNumbers = Array.from({ length: pagesToFetch }, (_, i) => i + 1);
 
       const promises = pageNumbers.map((page) =>
         backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
@@ -69,6 +71,12 @@ export function useMarketTokenList({
       );
 
       const responses = await Promise.all(promises);
+
+      // Update currentPage to reflect the pages we actually fetched (avoid triggering another fetch)
+      if (currentPage === 1 && pagesToFetch === 2) {
+        // Use setTimeout to avoid triggering usePromiseResult again immediately
+        setTimeout(() => setCurrentPage(2), 0);
+      }
 
       // Combine all pages into a single response
       const combinedList = responses.flatMap((response) => response.list);
@@ -112,6 +120,8 @@ export function useMarketTokenList({
   useEffect(() => {
     setCurrentPage(1);
     setIsLoadingMore(false);
+    setHasReachedEnd(false);
+    setConsecutiveEmptyResponses(0);
     // Don't clear data immediately to avoid UI flicker
     // The data will be replaced when new API result arrives
   }, [networkId, sortBy, sortType]);
@@ -134,17 +144,16 @@ export function useMarketTokenList({
 
   const loadMore = useCallback(async () => {
     // Check if we can load more pages
-    if (isLoadingMore || currentPage >= maxPages || isLoading) {
+    if (
+      isLoadingMore ||
+      currentPage >= maxPages ||
+      isLoading ||
+      hasReachedEnd
+    ) {
       return;
     }
 
     const nextPage = currentPage + 1;
-    const maxPossiblePages = Math.ceil(totalCount / pageSize);
-
-    // Check if there are more pages available from server
-    if (maxPossiblePages > 0 && nextPage > maxPossiblePages) {
-      return;
-    }
 
     setIsLoadingMore(true);
 
@@ -161,6 +170,9 @@ export function useMarketTokenList({
         });
 
       if (response?.list?.length > 0) {
+        // Reset consecutive empty responses counter when we get data
+        setConsecutiveEmptyResponses(0);
+
         // Transform new data
         const newTransformed = response.list.map((item, idx) =>
           transformApiItemToToken(item, {
@@ -173,6 +185,18 @@ export function useMarketTokenList({
         // Append new data to existing data
         setTransformedData((prev) => [...prev, ...newTransformed]);
         setCurrentPage(nextPage);
+      } else {
+        // Increment consecutive empty responses counter
+        const newConsecutiveEmptyCount = consecutiveEmptyResponses + 1;
+        setConsecutiveEmptyResponses(newConsecutiveEmptyCount);
+
+        // Only mark as reached end after 3 consecutive empty responses
+        if (newConsecutiveEmptyCount >= 3) {
+          setHasReachedEnd(true);
+        } else {
+          // Still try to load the next page
+          setCurrentPage(nextPage);
+        }
       }
     } catch (error) {
       console.error('Failed to load more market tokens:', error);
@@ -184,7 +208,8 @@ export function useMarketTokenList({
     currentPage,
     maxPages,
     isLoading,
-    totalCount,
+    hasReachedEnd,
+    consecutiveEmptyResponses,
     pageSize,
     networkId,
     sortBy,
@@ -194,7 +219,8 @@ export function useMarketTokenList({
     transformedData.length,
   ]);
 
-  const canLoadMore = currentPage < maxPages && !isLoading && !isLoadingMore;
+  const canLoadMore =
+    currentPage < maxPages && !isLoading && !isLoadingMore && !hasReachedEnd;
 
   return {
     data: transformedData,

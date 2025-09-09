@@ -58,6 +58,13 @@ function SegmentControlItem({
         ? {
             bg: '$bg',
             elevation: 2,
+            '$platform-native': {
+              elevation: 2,
+            },
+            '$platform-web': {
+              boxShadow:
+                '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
+            },
           }
         : {
             hoverStyle: {

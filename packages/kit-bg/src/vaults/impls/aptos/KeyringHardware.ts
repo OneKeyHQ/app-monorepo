@@ -76,6 +76,7 @@ export class KeyringHardware extends KeyringHardwareBase {
                 path: account.path,
                 address: account.payload?.address || '',
                 pub: account.payload?.pub || '',
+                __hwExtraInfo__: undefined,
               }),
               hwSdkNetwork: this.hwSdkNetwork,
             });
@@ -107,7 +108,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < list.length; i += 1) {
           const item = list[i];
-          const { path, address, pub } = item;
+          const { path, address, pub, __hwExtraInfo__ } = item;
           const { normalizedAddress } = await this.vault.validateAddress(
             address || '',
           );
@@ -115,6 +116,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             address: normalizedAddress || address || '',
             path,
             publicKey: pub || '',
+            __hwExtraInfo__,
           };
           ret.push(addressInfo);
         }
@@ -179,10 +181,16 @@ export class KeyringHardware extends KeyringHardwareBase {
     return Promise.all(
       messages.map(async (e) => {
         if (e.type === EMessageTypesAptos.SIGN_IN) {
-          throw new OneKeyLocalError(
-            'SignIn messages are not supported on hardware',
+          const res = await convertDeviceResponse(() =>
+            sdk.aptosSignInMessage(connectId, deviceId, {
+              ...deviceCommonParams,
+              path: account.path,
+              payload: e.message,
+            }),
           );
-        } else if (e.type === EMessageTypesAptos.SIGN_MESSAGE) {
+          return res.signature;
+        }
+        if (e.type === EMessageTypesAptos.SIGN_MESSAGE) {
           const payload = e.payload as ISignMessageRequest;
           const res = await convertDeviceResponse(() =>
             sdk.aptosSignMessage(connectId, deviceId, {

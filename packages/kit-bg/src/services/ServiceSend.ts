@@ -211,6 +211,7 @@ class ServiceSend extends ServiceBase {
         hasEnergyRented,
       },
       {
+        timeout: timerUtils.getTimeDurationMs({ seconds: 10 }),
         headers:
           await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
             accountId,
@@ -593,6 +594,8 @@ class ServiceSend extends ServiceBase {
       isInternalSwap,
       isInternalTransfer,
       disableMev,
+      withoutNonce,
+      withUuid,
     } = params;
 
     let newUnsignedTx = unsignedTx;
@@ -646,7 +649,11 @@ class ServiceSend extends ServiceBase {
       })
     ).nonceRequired;
 
-    if (isNonceRequired && new BigNumber(newUnsignedTx.nonce ?? 0).isZero()) {
+    if (
+      isNonceRequired &&
+      new BigNumber(newUnsignedTx.nonce ?? 0).isZero() &&
+      !withoutNonce
+    ) {
       const nonce = await this.backgroundApi.serviceSend.getNextNonce({
         accountId,
         networkId,
@@ -661,7 +668,12 @@ class ServiceSend extends ServiceBase {
       });
     }
 
-    newUnsignedTx.uuid = generateUUID();
+    if (withUuid) {
+      newUnsignedTx.uuid = generateUUID();
+    }
+
+    newUnsignedTx.accountId = accountId;
+    newUnsignedTx.networkId = networkId;
 
     return newUnsignedTx;
   }

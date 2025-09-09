@@ -131,10 +131,11 @@ const basicFontVariants = {
   },
 } as const;
 
+export const tamaguiWebFontFamily =
+  'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"';
+
 const font = createFont({
-  family: isTamaguiNative
-    ? 'System'
-    : 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
+  family: isTamaguiNative ? 'System' : tamaguiWebFontFamily,
   ...basicFontVariants,
 });
 

@@ -8,6 +8,7 @@ import {
   decryptImportedCredential,
   decryptRevealableSeed,
   encryptAsync,
+  encryptRevealableSeed,
   mnemonicFromEntropy,
 } from '@onekeyhq/core/src/secret';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
@@ -22,6 +23,12 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  TRANSFER_PAIRING_CODE_LENGTH,
+  TRANSFER_ROOM_ID_LENGTH,
+  TRANSFER_VERIFY_STRING,
+} from '@onekeyhq/shared/src/consts/primeConsts';
+import { IMPL_TON } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   OneKeyLocalError,
   TransferInvalidCodeError,
@@ -41,16 +48,17 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import {
-  EPrimeTransferServerType,
-  type IE2EESocketUserInfo,
-  type IPrimeTransferData,
-  type IPrimeTransferHDWallet,
-  type IPrimeTransferPrivateData,
-  type IPrimeTransferSelectedData,
-  type IPrimeTransferSelectedItemMap,
-  type IPrimeTransferSelectedItemMapInfo,
+import type {
+  IE2EESocketUserInfo,
+  IPrimeTransferData,
+  IPrimeTransferHDWallet,
+  IPrimeTransferPrivateData,
+  IPrimeTransferSelectedData,
+  IPrimeTransferSelectedDataItem,
+  IPrimeTransferSelectedItemMap,
+  IPrimeTransferSelectedItemMapInfo,
 } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
@@ -71,7 +79,6 @@ import e2eeClientToClientApi, {
 } from './e2ee/e2eeClientToClientApi';
 import { createE2EEClientToClientApiProxy } from './e2ee/e2eeClientToClientApiProxy';
 import { createE2EEServerApiProxy } from './e2ee/e2eeServerApiProxy';
-import transferErrors from './e2ee/transferErrors';
 
 import type {
   IECDHEKeyExchangeRequest,
@@ -98,10 +105,6 @@ export interface ITransferProgress {
 let connectedPairingCode: string | null = null;
 let connectedEncryptedKey: string | null = null;
 
-const PAIRING_CODE_LENGTH = 59;
-const ROOM_ID_LENGTH = 11;
-const VERIFY_STRING = 'OneKeyPrimeTransfer';
-
 class ServicePrimeTransfer extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -114,6 +117,11 @@ class ServicePrimeTransfer extends ServiceBase {
   private e2eeClientToClientApiProxy: E2EEClientToClientApiProxy | null = null;
 
   initWebsocketMutex = new Semaphore(1);
+
+  // Heartbeat mechanism for UI layer connection monitoring
+  private lastPingTime = 0;
+
+  private heartbeatCheckTimer: ReturnType<typeof setInterval> | null = null;
 
   @backgroundMethod()
   async verifyWebSocketEndpoint(endpoint: string): Promise<{
@@ -353,6 +361,9 @@ class ServicePrimeTransfer extends ServiceBase {
           }
         });
       }
+
+      // Start heartbeat monitoring after WebSocket is initialized
+      this.startHeartbeatCheck();
     });
   }
 
@@ -429,13 +440,13 @@ class ServicePrimeTransfer extends ServiceBase {
   }
 
   checkRoomIdValid(roomId: string | undefined | null) {
-    if (!roomId || roomId.length !== ROOM_ID_LENGTH) {
+    if (!roomId || roomId.length !== TRANSFER_ROOM_ID_LENGTH) {
       throw new TransferInvalidCodeError();
     }
   }
 
   checkPairingCodeValid(pairingCode: string | undefined | null) {
-    if (!pairingCode || pairingCode.length !== PAIRING_CODE_LENGTH) {
+    if (!pairingCode || pairingCode.length !== TRANSFER_PAIRING_CODE_LENGTH) {
       throw new TransferInvalidCodeError();
     }
   }
@@ -539,7 +550,7 @@ class ServicePrimeTransfer extends ServiceBase {
 
       // Generate client ECDHE key pair
       const clientKeyPair = await appCrypto.ECDHE.generateECDHEKeyPair();
-      const verifyString = VERIFY_STRING;
+      const verifyString = TRANSFER_VERIFY_STRING;
 
       // Encrypt verification data with pairing code
       const encryptedData = bufferUtils.bytesToHex(
@@ -1049,9 +1060,50 @@ class ServicePrimeTransfer extends ServiceBase {
     );
   }
 
+  // Heartbeat mechanism methods
+  @backgroundMethod()
+  async pingService() {
+    this.lastPingTime = Date.now();
+  }
+
+  private startHeartbeatCheck() {
+    if (!platformEnv.isExtension) {
+      return;
+    }
+    // Clear existing timer
+    if (this.heartbeatCheckTimer) {
+      clearInterval(this.heartbeatCheckTimer);
+    }
+
+    // Check every 10 seconds if the last ping is older than 10 seconds
+    this.heartbeatCheckTimer = setInterval(() => {
+      const now = Date.now();
+      const timeSinceLastPing = now - this.lastPingTime;
+
+      // If no ping for more than 10 seconds, UI layer is likely closed
+      if (this.lastPingTime > 0 && timeSinceLastPing > 10_000) {
+        console.log(
+          'UI layer connection timeout, auto disconnecting WebSocket',
+        );
+        void this.disconnectWebSocket();
+      }
+    }, 10_000);
+  }
+
+  private stopHeartbeatCheck() {
+    if (this.heartbeatCheckTimer) {
+      clearInterval(this.heartbeatCheckTimer);
+      this.heartbeatCheckTimer = null;
+    }
+    this.lastPingTime = 0;
+  }
+
   @backgroundMethod()
   @toastIfError()
   async disconnectWebSocket() {
+    // Stop heartbeat monitoring
+    this.stopHeartbeatCheck();
+
     try {
       if (this.socket) {
         try {
@@ -1111,8 +1163,8 @@ class ServicePrimeTransfer extends ServiceBase {
     selectedItemMapInfo: IPrimeTransferSelectedItemMapInfo;
     dataSource: Record<string, T>;
     credentials?: Record<string, string>;
-  }): Array<{ item: T; credential?: string; id: string }> {
-    const results: Array<{ item: T; credential?: string; id: string }> = [];
+  }): Array<IPrimeTransferSelectedDataItem<T>> {
+    const results: Array<IPrimeTransferSelectedDataItem<T>> = [];
     const itemIds = Object.keys(selectedItemMapInfo);
 
     for (let i = 0; i < itemIds.length; i += 1) {
@@ -1122,8 +1174,24 @@ class ServicePrimeTransfer extends ServiceBase {
         dataSource?.[itemId]
       ) {
         const item = dataSource[itemId];
+        let tonMnemonicCredential: string | undefined;
+        try {
+          if (
+            item &&
+            accountUtils.isImportedAccount({ accountId: itemId }) &&
+            (item as unknown as { impl: string } | undefined)?.impl === IMPL_TON
+          ) {
+            const tonMnemonicCredentialId =
+              accountUtils.buildTonMnemonicCredentialId({
+                accountId: itemId,
+              });
+            tonMnemonicCredential = credentials?.[tonMnemonicCredentialId];
+          }
+        } catch (e) {
+          console.error('tonMnemonicCredential error', e);
+        }
         const credential = credentials?.[itemId];
-        results.push({ item, credential, id: itemId });
+        results.push({ item, credential, id: itemId, tonMnemonicCredential });
       }
     }
 
@@ -1390,11 +1458,19 @@ class ServicePrimeTransfer extends ServiceBase {
         };
       } = {};
 
+      const indexedAccountNames: {
+        [index: number]: string;
+      } = {};
       for (const hdAccount of wallet.accounts) {
         if (this.currentImportTaskUUID !== taskUUID) {
           // task cancelled
           return cancelledResult;
         }
+
+        if (!isNil(hdAccount?.pathIndex) && hdAccount.name) {
+          indexedAccountNames[hdAccount?.pathIndex] = hdAccount.name;
+        }
+
         try {
           const index = accountUtils.getHDAccountPathIndex({
             account: hdAccount,
@@ -1446,6 +1522,7 @@ class ServicePrimeTransfer extends ServiceBase {
                 walletId: newWallet.id,
                 fromIndex: index,
                 toIndex: index,
+                indexedAccountNames,
                 excludedIndexes: {},
                 saveToDb: true,
                 showUIProgress: true, // emit EAppEventBusNames.BatchCreateAccount event
@@ -1468,6 +1545,22 @@ class ServicePrimeTransfer extends ServiceBase {
             error: (e as Error)?.message || 'Unknown error',
           });
         }
+
+        try {
+          if (newWallet?.id && indexedAccountNames[index]) {
+            const indexedAccountId = accountUtils.buildIndexedAccountId({
+              walletId: newWallet.id,
+              index,
+            });
+            await this.backgroundApi.serviceAccount.setAccountName({
+              indexedAccountId,
+              name: indexedAccountNames[index],
+              skipEventEmit: true,
+            });
+          }
+        } catch (e) {
+          console.error(e);
+        }
       }
       //
     }
@@ -1475,6 +1568,7 @@ class ServicePrimeTransfer extends ServiceBase {
     for (const {
       item: importedAccount,
       credential,
+      tonMnemonicCredential,
     } of selectedTransferData.importedAccounts) {
       if (this.currentImportTaskUUID !== taskUUID) {
         // task cancelled
@@ -1499,6 +1593,7 @@ class ServicePrimeTransfer extends ServiceBase {
           password,
           networkId,
         });
+
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { addedAccounts } =
         await serviceAccount.restoreImportedAccountByInput({
@@ -1507,7 +1602,35 @@ class ServicePrimeTransfer extends ServiceBase {
           privateKey,
           networkId,
         });
-      if (addedAccounts?.length) {
+      if (addedAccounts?.length && addedAccounts?.[0]?.id) {
+        try {
+          if (tonMnemonicCredential) {
+            const tonRs = await decryptRevealableSeed({
+              rs: tonMnemonicCredential,
+              password,
+            });
+            const { password: localPassword } =
+              await this.backgroundApi.servicePassword.promptPasswordVerify({
+                reason: EReasonForNeedPassword.Default,
+              });
+            const tonRsEncrypted = await encryptRevealableSeed({
+              rs: tonRs,
+              password: localPassword,
+            });
+            await localDb.saveTonImportedAccountMnemonic({
+              accountId: addedAccounts?.[0]?.id,
+              rs: tonRsEncrypted,
+            });
+            // const tonMnemonic2 = await tonMnemonicFromEntropy(
+            //   tonMnemonicCredential,
+            //   password,
+            // );
+            // console.log('tonMnemonic2', tonMnemonic2);
+          }
+        } catch (e) {
+          console.error('tonMnemonicCredential error', e);
+        }
+
         await this.updateImportProgress();
         await timerUtils.wait(100); // wait for UI refresh
       }

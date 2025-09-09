@@ -1,44 +1,12 @@
-import { isBoolean, isNumber, isString } from 'lodash';
-
+import type { ColorTokens } from '@onekeyhq/components/src/primitives';
 import type {
   IMarketTokenSecurityData,
   IMarketTokenSecurityItem,
 } from '@onekeyhq/shared/types/marketV2';
 
-import { getSecurityConfig } from '../config/securityConfig';
-
 import type { ISecurityKeyValue, ISecurityStatus } from '../types';
 
-// Helper function to check if a key is a warning
-const isWarningKey = (key: string, value: any): boolean => {
-  const config = getSecurityConfig();
-  const allWarningKeys = [
-    ...config.warningKeys.common,
-    ...config.warningKeys.solana,
-    ...config.warningKeys.sui,
-  ];
-
-  // Check each warning key
-  if (allWarningKeys.includes(key)) {
-    if (isBoolean(value) && value) return true;
-    if (isString(value) && value === 'true') return true;
-  }
-
-  // Check for trusted/open source items (warning if false)
-  if (config.trustKeys.includes(key)) {
-    if (isBoolean(value) && !value) return true;
-    if (isString(value) && value === 'false') return true;
-  }
-
-  // Check tax values
-  if (config.taxKeys.includes(key) && isNumber(value) && value > 0) {
-    return true;
-  }
-
-  return false;
-};
-
-// Helper function to format new security data structure into key-value pairs
+// Simplified function to format security data - directly use API structure
 export const formatSecurityData = (
   data: IMarketTokenSecurityData | null,
 ): ISecurityKeyValue[] => {
@@ -49,20 +17,13 @@ export const formatSecurityData = (
   // Iterate through all security items and format them
   Object.entries(data).forEach(
     ([key, item]: [string, IMarketTokenSecurityItem]) => {
-      const { value, content } = item;
-
-      let displayValue: string;
-      if (isBoolean(value)) {
-        displayValue = ''; // Don't show yes/no text for boolean values
-      } else {
-        displayValue = String(value);
-      }
+      const { value, content, riskType } = item;
 
       items.push({
         key,
         label: content,
-        value: displayValue,
-        isWarning: isWarningKey(key, value),
+        value,
+        riskType, // Pass through the risk type for color handling
       });
     },
   );
@@ -70,23 +31,97 @@ export const formatSecurityData = (
   return items;
 };
 
-// Helper function to determine security status from new data structure
+// Simplified function to analyze security data - directly use riskType with separated counts
 export const analyzeSecurityData = (
   data: IMarketTokenSecurityData | null,
-): { status: ISecurityStatus | null; count: number } => {
-  if (!data) return { status: null, count: 0 };
+): {
+  status: ISecurityStatus | null;
+  riskCount: number;
+  cautionCount: number;
+} => {
+  if (!data) return { status: null, riskCount: 0, cautionCount: 0 };
 
-  let warningCount = 0;
+  let riskCount = 0;
+  let cautionCount = 0;
 
-  // Count warnings for all keys
-  Object.entries(data).forEach(
-    ([key, item]: [string, IMarketTokenSecurityItem]) => {
-      if (isWarningKey(key, item.value)) {
-        warningCount += 1;
-      }
-    },
-  );
+  // Count risks and cautions separately based on riskType
+  Object.values(data).forEach((item: IMarketTokenSecurityItem) => {
+    if (item.riskType === 'risk') {
+      riskCount += 1;
+    } else if (item.riskType === 'caution') {
+      cautionCount += 1;
+    }
+  });
 
-  const status = warningCount > 0 ? 'warning' : 'safe';
-  return { status, count: warningCount };
+  // Determine status based on priority: risk > caution > safe
+  let status: ISecurityStatus;
+  if (riskCount > 0) {
+    status = 'risk'; // Highest priority: show red if any risk items
+  } else if (cautionCount > 0) {
+    status = 'caution'; // Medium priority: show yellow if any caution items
+  } else {
+    status = 'safe'; // Lowest priority: show green if no issues
+  }
+
+  return {
+    status,
+    riskCount,
+    cautionCount,
+  };
+};
+
+// Shared function for getting security display information (count and color)
+export const getSecurityDisplayInfo = (
+  securityStatus: ISecurityStatus | null,
+  riskCount: number,
+  cautionCount: number,
+): {
+  count: number;
+  color: ColorTokens;
+} => {
+  if (securityStatus === 'risk') {
+    return {
+      count: riskCount,
+      color: '$iconCritical',
+    };
+  }
+  if (securityStatus === 'caution') {
+    return {
+      count: cautionCount,
+      color: '$iconCaution',
+    };
+  }
+  return {
+    count: 0,
+    color: '$iconSuccess',
+  };
+};
+
+// Function for getting total security display information (total count with priority color)
+export const getTotalSecurityDisplayInfo = (
+  securityStatus: ISecurityStatus | null,
+  riskCount: number,
+  cautionCount: number,
+): {
+  count: number;
+  color: ColorTokens;
+} => {
+  const totalCount = riskCount + cautionCount;
+
+  if (securityStatus === 'risk') {
+    return {
+      count: totalCount,
+      color: '$iconCritical',
+    };
+  }
+  if (securityStatus === 'caution') {
+    return {
+      count: totalCount,
+      color: '$iconCaution',
+    };
+  }
+  return {
+    count: 0,
+    color: '$iconSuccess',
+  };
 };

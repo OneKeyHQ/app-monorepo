@@ -17,6 +17,7 @@ import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import {
   useAppIsLockedAtom,
   useDevSettingsPersistAtom,
+  useOnboardingConnectWalletLoadingAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import {
@@ -33,6 +34,7 @@ import {
   EModalRoutes,
   EModalSettingRoutes,
   EMultiTabBrowserRoutes,
+  EOnboardingPages,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -367,6 +369,12 @@ export const useFetchCurrencyList = () => {
   }, []);
 };
 
+export const useFetchMarketBasicConfig = () => {
+  useEffect(() => {
+    void backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
+  }, []);
+};
+
 const launchFloatingIconEvent = async (intl: IntlShape) => {
   const visited = await backgroundApiProxy.serviceSpotlight.isVisited(
     ESpotlightTour.showFloatingIconDialog,
@@ -555,6 +563,13 @@ export function Bootstrap() {
   const [devSettings] = useDevSettingsPersistAtom();
   const autoNavigation = devSettings.settings?.autoNavigation;
 
+  const [, setOnboardingConnectWalletLoading] =
+    useOnboardingConnectWalletLoadingAtom();
+
+  useEffect(() => {
+    setOnboardingConnectWalletLoading(false);
+  }, [setOnboardingConnectWalletLoading]);
+
   useEffect(() => {
     if (
       platformEnv.isDev &&
@@ -564,8 +579,11 @@ export function Bootstrap() {
     ) {
       const timer = setTimeout(() => {
         navigation.switchTab(autoNavigation.selectedTab as ETabRoutes);
-        navigation.pushModal(EModalRoutes.PrimeModal, {
-          screen: EPrimePages.PrimeTransfer,
+        // navigation.pushModal(EModalRoutes.PrimeModal, {
+        //   screen: EPrimePages.PrimeTransfer,
+        // });
+        navigation.pushModal(EModalRoutes.OnboardingModal, {
+          screen: EOnboardingPages.ConnectWallet,
         });
       }, 1000);
 
@@ -584,6 +602,7 @@ export function Bootstrap() {
   }, [devSettings.enabled, devSettings.settings?.showPerformanceMonitor]);
 
   useFetchCurrencyList();
+  useFetchMarketBasicConfig();
   useAboutVersion();
   useDesktopEvents();
   useLaunchEvents();

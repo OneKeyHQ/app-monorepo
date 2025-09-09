@@ -110,6 +110,13 @@ import {
 } from './useSwapState';
 import { useSwapTxHistoryActions } from './useSwapTxHistory';
 
+/**
+ * React hook that manages the full lifecycle of building, approving, signing, and sending swap transactions in a multi-step workflow.
+ *
+ * Integrates with background APIs, handles UI state updates, fee checks, error handling, and event logging for swap operations. Supports various swap protocols, approval flows, limit order cancellation, and fallback UI confirmations. Returns functions to start the swap steps execution and to cancel limit orders.
+ *
+ * @returns An object with `preSwapStepsStart` to initiate the swap steps process and `cancelLimitOrder` to cancel a limit order.
+ */
 export function useSwapBuildTx() {
   const intl = useIntl();
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -898,6 +905,7 @@ export function useSwapBuildTx() {
       buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams,
       approveUnsignedTxArr?: IUnsignedTxPro[],
       quoteResult?: IFetchQuoteResult,
+      needFetchGas?: boolean,
     ) => {
       if (
         !fromToken ||
@@ -952,7 +960,8 @@ export function useSwapBuildTx() {
         if (
           unsignedTxArr.every((tx) =>
             findGasInfo(stepGasInfos ?? [], tx.encodedTx),
-          )
+          ) &&
+          !needFetchGas
         ) {
           for (let i = 0; i < unsignedTxArr.length; i += 1) {
             const unsignedTxItem = unsignedTxArr[i];
@@ -1104,7 +1113,8 @@ export function useSwapBuildTx() {
         if (
           unsignedTxArr.every((tx) =>
             findGasInfo(stepGasInfos ?? [], tx.encodedTx),
-          )
+          ) &&
+          !needFetchGas
         ) {
           for (let i = 0; i < unsignedTxArr.length; i += 1) {
             const unsignedTxItem = unsignedTxArr[i];
@@ -1245,22 +1255,12 @@ export function useSwapBuildTx() {
           }
         }
       } else if (
-        stepGasInfos?.find(
-          (s) =>
-            isEqual(s.encodeTx, unsignedTx.encodedTx) ||
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            (s.encodeTx as any)?.rawSignTx ===
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              (unsignedTx.encodedTx as any)?.rawSignTx,
-        )
+        findGasInfo(stepGasInfos ?? [], unsignedTx.encodedTx) &&
+        !needFetchGas
       ) {
-        const gasInfoFinal = stepGasInfos?.find(
-          (s) =>
-            isEqual(s.encodeTx, unsignedTx.encodedTx) ||
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            (s.encodeTx as any)?.rawSignTx ===
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              (unsignedTx.encodedTx as any)?.rawSignTx,
+        const gasInfoFinal = findGasInfo(
+          stepGasInfos ?? [],
+          unsignedTx.encodedTx,
         )?.gasInfo;
         if (gasInfoFinal) {
           try {
@@ -1426,6 +1426,7 @@ export function useSwapBuildTx() {
       data?: IFetchQuoteResult,
       shouldFallback?: boolean,
       shouldWaitApprove?: boolean,
+      needFetchGas?: boolean,
     ) => {
       if (
         data?.allowanceResult?.allowanceTarget &&
@@ -1470,6 +1471,7 @@ export function useSwapBuildTx() {
               },
               undefined,
               data,
+              needFetchGas,
             );
             if (res) {
               void onApproveTxSuccess();
@@ -1859,6 +1861,7 @@ export function useSwapBuildTx() {
       approveUnsignedTxArr?: IUnsignedTxPro[],
       shouldFallback?: boolean,
       fallbackApproveInfos?: IApproveInfo[],
+      needFetchGas?: boolean,
     ) => {
       if (
         data?.fromTokenInfo &&
@@ -1951,6 +1954,7 @@ export function useSwapBuildTx() {
               },
               approveUnsignedTxArr,
               data,
+              needFetchGas,
             );
             if (sendTxRes) {
               void onBuildTxSuccess(sendTxRes.txid, swapInfo, orderId);
@@ -1983,6 +1987,7 @@ export function useSwapBuildTx() {
       currentFromToken?: ISwapToken,
       currentToToken?: ISwapToken,
       data?: IFetchQuoteResult,
+      needFetchGas?: boolean,
     ) => {
       if (
         data?.fromTokenInfo &&
@@ -2124,6 +2129,10 @@ export function useSwapBuildTx() {
                   currentFromToken,
                   currentToToken,
                   selectQuoteRes,
+                  undefined,
+                  undefined,
+                  undefined,
+                  needFetchGas,
                 );
                 return buildTxRes;
               }
@@ -2167,6 +2176,10 @@ export function useSwapBuildTx() {
                   currentFromToken,
                   currentToToken,
                   selectQuoteRes,
+                  undefined,
+                  undefined,
+                  undefined,
+                  needFetchGas,
                 );
                 return buildTxRes;
               }
@@ -2196,6 +2209,7 @@ export function useSwapBuildTx() {
       data?: IFetchQuoteResult,
       fromTokenInfo?: ISwapToken,
       toTokenInfo?: ISwapToken,
+      needFetchGas?: boolean,
     ) => {
       if (
         fromTokenInfo &&
@@ -2257,6 +2271,7 @@ export function useSwapBuildTx() {
           },
           undefined,
           data,
+          needFetchGas,
         );
 
         if (sendTxRes) {
@@ -2360,6 +2375,7 @@ export function useSwapBuildTx() {
       currentToToken?: ISwapToken,
       data?: IFetchQuoteResult,
       shouldFallback?: boolean,
+      needFetchGas?: boolean,
     ) => {
       if (
         data?.fromTokenInfo &&
@@ -2382,6 +2398,7 @@ export function useSwapBuildTx() {
           unsignedTxArr,
           shouldFallback,
           fallbackApproveInfos,
+          needFetchGas,
         );
       }
     },
@@ -2800,6 +2817,7 @@ export function useSwapBuildTx() {
                     quoteResultFinal,
                     preSwapDataFinal?.shouldFallback,
                     step.shouldWaitApproved,
+                    preSwapDataFinal?.needFetchGas,
                   );
                 } else {
                   approveSendTx = await approveTxNew(
@@ -2809,6 +2827,7 @@ export function useSwapBuildTx() {
                     quoteResultFinal,
                     preSwapDataFinal?.shouldFallback,
                     step.shouldWaitApproved,
+                    preSwapDataFinal?.needFetchGas,
                   );
                 }
                 if (
@@ -2884,6 +2903,7 @@ export function useSwapBuildTx() {
                   quoteResultFinal,
                   preSwapDataFinal?.fromToken,
                   preSwapDataFinal?.toToken,
+                  preSwapDataFinal?.needFetchGas,
                 );
               } else if (type === ESwapStepType.SEND_TX) {
                 await buildTxNew(
@@ -2893,6 +2913,8 @@ export function useSwapBuildTx() {
                   quoteResultFinal,
                   undefined,
                   preSwapDataFinal?.shouldFallback,
+                  undefined,
+                  preSwapDataFinal?.needFetchGas,
                 );
               } else if (type === ESwapStepType.SIGN_MESSAGE) {
                 await signMessage(
@@ -2900,6 +2922,7 @@ export function useSwapBuildTx() {
                   preSwapDataFinal?.fromToken,
                   preSwapDataFinal?.toToken,
                   quoteResultFinal,
+                  preSwapDataFinal?.needFetchGas,
                 );
               } else if (type === ESwapStepType.BATCH_APPROVE_SWAP) {
                 await batchApproveSwap(
@@ -2908,6 +2931,7 @@ export function useSwapBuildTx() {
                   preSwapDataFinal?.toToken,
                   quoteResultFinal,
                   preSwapDataFinal?.shouldFallback,
+                  preSwapDataFinal?.needFetchGas,
                 );
               }
 

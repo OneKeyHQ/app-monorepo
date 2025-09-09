@@ -1049,9 +1049,15 @@ export default class Vault extends VaultBase {
       },
     });
 
-    await this._uploadResourceRentalOrder({
+    const uploadResult = await this._uploadResourceRentalOrder({
       orderId: rentalOrder.orderId,
       signedTx: signedRentalTx,
     });
+
+    return {
+      preSendTx: {
+        txid: uploadResult?.tx_ids?.[0] ?? '',
+      },
+    };
   }
 }

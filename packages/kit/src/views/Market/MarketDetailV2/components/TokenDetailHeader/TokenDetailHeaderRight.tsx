@@ -11,7 +11,6 @@ import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
-import { clampPercentage } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketStarV2 } from '../../../components/MarketStarV2';
@@ -55,25 +54,23 @@ export function TokenDetailHeaderRight({
     price: currentPrice = '--',
     priceChange24hPercent = '--',
     marketCap = '0',
-    tvl = '0',
+    liquidity = '0',
     holders = 0,
     address = '',
   } = tokenDetail || {};
 
-  const marketStar =
-    networkId && address ? (
-      <MarketStarV2
-        chainId={networkId}
-        contractAddress={address}
-        size="medium"
-        from={EWatchlistFrom.details}
-      />
-    ) : null;
+  const marketStar = networkId ? (
+    <MarketStarV2
+      chainId={networkId}
+      contractAddress={address}
+      size="medium"
+      from={EWatchlistFrom.details}
+    />
+  ) : null;
 
-  const shareButton =
-    networkId && address ? (
-      <ShareButton networkId={networkId} address={address} />
-    ) : null;
+  const shareButton = networkId ? (
+    <ShareButton networkId={networkId} address={address} />
+  ) : null;
 
   if (!showStats) {
     return (
@@ -93,9 +90,10 @@ export function TokenDetailHeaderRight({
           price={currentPrice}
           tokenName={name}
           tokenSymbol={symbol}
+          lastUpdated={tokenDetail?.lastUpdated?.toString()}
         />
         <PriceChangePercentage size="$bodySm">
-          {clampPercentage(priceChange24hPercent)}
+          {priceChange24hPercent}
         </PriceChangePercentage>
       </YStack>
 
@@ -127,7 +125,7 @@ export function TokenDetailHeaderRight({
               currency: settingsPersistAtom.currencyInfo.symbol,
             }}
           >
-            {tvl === '0' ? '--' : tvl}
+            {liquidity === '0' ? '--' : liquidity}
           </NumberSizeableText>
         }
       />

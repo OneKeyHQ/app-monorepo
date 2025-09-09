@@ -1,5 +1,5 @@
 import type { ComponentProps, FC } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { Button, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -24,7 +24,7 @@ import type {
   WebViewSource,
 } from 'react-native-webview/lib/WebViewTypes';
 
-interface IWebViewProps
+export interface IWebViewProps
   extends IElectronWebViewEvents,
     Partial<RNWebViewProps> {
   id?: string;
@@ -98,6 +98,14 @@ const WebView: FC<IWebViewProps> = ({
     },
     [customReceiveHandler],
   );
+  const webviewRef = useRef<IWebViewRef | null>(null);
+  const handleWebViewRef = useCallback(
+    (ref: IWebViewRef | null) => {
+      webviewRef.current = ref;
+      onWebViewRef(ref);
+    },
+    [onWebViewRef],
+  );
 
   if (
     platformEnv.isExtension &&
@@ -113,7 +121,7 @@ const WebView: FC<IWebViewProps> = ({
   return (
     <Stack flex={1} bg="background-default" {...containerProps}>
       <InpageProviderWebView
-        ref={onWebViewRef}
+        ref={handleWebViewRef}
         webviewDebuggingEnabled={webviewDebuggingEnabled}
         src={src}
         allowpopups={allowpopups}

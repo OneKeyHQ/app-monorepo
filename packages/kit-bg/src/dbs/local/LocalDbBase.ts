@@ -3,6 +3,7 @@
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import {
+  debounce,
   isEmpty,
   isNil,
   isPlainObject,
@@ -124,6 +125,7 @@ import type {
   IDBSetWalletNameAndAvatarParams,
   IDBUpdateDeviceSettingsParams,
   IDBUpdateFirmwareVerifiedParams,
+  IDBVariantAccount,
   IDBWallet,
   IDBWalletId,
   IDBWalletIdSingleton,
@@ -3915,9 +3917,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (allAccountsBelongToNetworkId) {
       for (const account of accounts) {
         try {
-          await this.saveAccountAddresses({
+          void this.saveAccountAddresses({
             networkId: allAccountsBelongToNetworkId,
-            account: account as any,
+            account: account as INetworkAccount,
           });
         } catch (error) {
           //
@@ -4923,6 +4925,164 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   // #region ---------------------------------------------- account address
 
+  // Account address batch cache for saveAccountAddresses
+  private accountAddressCache: Array<{
+    networkId: string;
+    account: INetworkAccount;
+  }> = [];
+
+  // Batch process account addresses from cache
+  private _saveAccountAddressesBatchByCache = debounce(
+    async () => {
+      if (this.accountAddressCache.length === 0) {
+        return;
+      }
+
+      const cacheToProcess = [...this.accountAddressCache];
+      this.accountAddressCache = [];
+
+      // Group records for batch processing
+      const recordPairsToUpdate: Record<
+        string,
+        {
+          recordPair: ILocalDBTxGetRecordByIdResult<ELocalDBStoreNames.Address>;
+          walletId: string;
+          accountId: string;
+        }
+      > = {};
+      const recordsToInsert: Record<
+        string,
+        {
+          id: string;
+          wallets: { [walletId: string]: string };
+        }
+      > = {};
+
+      await this.withTransaction(EIndexedDBBucketNames.address, async (tx) => {
+        const existingAddressRecordPairs: Record<
+          string,
+          ILocalDBTxGetRecordByIdResult<ELocalDBStoreNames.Address>
+        > = {};
+        for (const { networkId, account } of cacheToProcess) {
+          const accountId = account.id;
+          const { indexedAccountId, address, addressDetail, type } = account;
+
+          let id = address ? `${networkId}--${address}` : '';
+          if (type === EDBAccountType.SIMPLE) {
+            const impl = networkUtils.getNetworkImpl({ networkId });
+            const normalizedAddress =
+              addressDetail?.normalizedAddress || address;
+            id = normalizedAddress ? `${impl}--${normalizedAddress}` : '';
+          }
+          if (!id) {
+            const variantAccount = account as IDBVariantAccount | undefined;
+            const variantAddress = variantAccount?.addresses?.[networkId];
+            if (variantAddress && networkId) {
+              id = `${networkId}--${variantAddress}`;
+            }
+            if (!id) {
+              // eslint-disable-next-line no-continue
+              continue;
+            }
+          }
+
+          const walletId = accountUtils.getWalletIdFromAccountId({
+            accountId,
+          });
+
+          try {
+            const recordPair =
+              existingAddressRecordPairs[id] ||
+              (await this.txGetRecordById({
+                tx,
+                name: ELocalDBStoreNames.Address,
+                id,
+              }));
+            existingAddressRecordPairs[id] = recordPair;
+
+            const record = recordPair?.[0];
+            if (record && recordPair) {
+              const newAccountId = indexedAccountId ?? accountId;
+              const oldAccountId = record?.wallets?.[walletId];
+              if (newAccountId && oldAccountId !== newAccountId && record?.id) {
+                recordPairsToUpdate[record.id] = {
+                  recordPair,
+                  accountId: newAccountId,
+                  walletId,
+                };
+              }
+            } else {
+              recordsToInsert[id] = {
+                id,
+                wallets: {
+                  ...recordsToInsert?.[id]?.wallets,
+                  [walletId]: indexedAccountId ?? accountId,
+                },
+              };
+            }
+          } catch (error) {
+            // If record doesn't exist, add to inserts
+            recordsToInsert[id] = {
+              id,
+              wallets: {
+                ...recordsToInsert?.[id]?.wallets,
+                [walletId]: indexedAccountId ?? accountId,
+              },
+            };
+          }
+        }
+
+        // Batch update existing records
+        if (Object.keys(recordPairsToUpdate).length > 0) {
+          try {
+            await this.txUpdateRecords({
+              tx,
+              name: ELocalDBStoreNames.Address,
+              recordPairs: Object.values(recordPairsToUpdate).map(
+                (r) => r.recordPair,
+              ),
+              updater: (r) => {
+                // Find corresponding cache item for this record
+                const cacheItem = recordPairsToUpdate?.[r?.id];
+                if (cacheItem) {
+                  const { walletId, accountId } = cacheItem;
+                  const newAccountId = accountId;
+                  if (!r.wallets) {
+                    r.wallets = {};
+                  }
+                  if (walletId && newAccountId) {
+                    r.wallets[walletId] = newAccountId;
+                  }
+                }
+                return r;
+              },
+            });
+          } catch (error) {
+            console.error('Error updating records', error);
+          }
+        }
+
+        // Batch insert new records
+        if (Object.keys(recordsToInsert).length > 0) {
+          try {
+            await this.txAddRecords({
+              tx,
+              name: ELocalDBStoreNames.Address,
+              records: Object.values(recordsToInsert),
+            });
+          } catch (error) {
+            console.error('Error adding records', error);
+          }
+        }
+      });
+    },
+    5000,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
+
   async saveAccountAddresses({
     networkId,
     account,
@@ -4930,6 +5090,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     networkId: string;
     account: INetworkAccount; // TODO support accounts array
   }) {
+    if (!networkId) {
+      return;
+    }
     if (networkUtils.isAllNetwork({ networkId })) {
       return;
     }
@@ -4940,71 +5103,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return;
     }
 
-    const accountId = account.id;
-    const { indexedAccountId, address, addressDetail, type } = account;
-    let id = address ? `${networkId}--${address}` : '';
-    if (type === EDBAccountType.SIMPLE) {
-      const impl = networkUtils.getNetworkImpl({ networkId });
-      id = addressDetail?.normalizedAddress
-        ? `${impl}--${addressDetail?.normalizedAddress}`
-        : '';
-    }
-    if (!id) {
-      return;
-    }
-    const walletId = accountUtils.getWalletIdFromAccountId({
-      accountId,
-    });
+    // console.log('saveAccountAddresses', networkId, account?.address);
 
-    await this.withTransaction(EIndexedDBBucketNames.address, async (tx) => {
-      let recordPair:
-        | ILocalDBTxGetRecordByIdResult<ELocalDBStoreNames.Address>
-        | undefined;
-      try {
-        recordPair = await this.txGetRecordById({
-          tx,
-          name: ELocalDBStoreNames.Address,
-          id,
-        });
-      } catch (error) {
-        //
-      }
-      const record = recordPair?.[0];
-      if (record && recordPair) {
-        const newAccountId = indexedAccountId ?? accountId;
-        const oldAccountId = record?.wallets?.[walletId];
-        if (newAccountId && oldAccountId !== newAccountId) {
-          await this.txUpdateRecords({
-            tx,
-            name: ELocalDBStoreNames.Address,
-            recordPairs: [recordPair],
-            updater: (r) => {
-              // DO NOT use              r.wallets = r.wallets || {};
-              // it will reset nextIds to {}
-              if (!r.wallets) {
-                r.wallets = {};
-              }
+    // Add to cache instead of direct DB operations
+    this.accountAddressCache.push({ networkId, account });
 
-              r.wallets[walletId] = newAccountId;
-              return r;
-            },
-          });
-        }
-      } else {
-        await this.txAddRecords({
-          tx,
-          name: ELocalDBStoreNames.Address,
-          records: [
-            {
-              id,
-              wallets: {
-                [walletId]: indexedAccountId ?? accountId,
-              },
-            },
-          ],
-        });
-      }
-    });
+    // Trigger debounced batch processing
+    return this._saveAccountAddressesBatchByCache();
   }
 
   // #endregion

@@ -64,6 +64,7 @@ import type {
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
 import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
+import type { HardwareAllNetworkGetAddressResponse } from '../services/ServiceHardware/HardwareAllNetworkGetAddressResponse';
 import type { AllNetworkAddressParams, IDeviceType } from '@onekeyfe/hd-core';
 import type { HDNodeType } from '@onekeyfe/hd-transport';
 import type { SignClientTypes } from '@walletconnect/types';
@@ -280,6 +281,8 @@ export type IVaultSettings = {
 
   maxRetryBroadcastTxCount?: number;
   minRetryBroadcastTxInterval?: number;
+
+  enabledInternalSignAndVerify?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -414,10 +417,12 @@ type IHwAllNetworkPrepareAccountsItemCommon = {
 };
 export type IHwAllNetworkPrepareAccountsItem =
   IHwAllNetworkPrepareAccountsItemCommon & {
-    success: true;
+    success: boolean;
 
     payload?: IHwAllNetworkPrepareAccountsItemErrorPayload & {
       address?: string;
+      path?: string;
+      rootFingerprint?: number;
 
       pub?: string;
       publicKey?: string; // cosmos, sui, aptos 缺
@@ -438,7 +443,8 @@ export type IHwAllNetworkPrepareAccountsItem =
   };
 
 export type IHwAllNetworkPrepareAccountsResponse =
-  IHwAllNetworkPrepareAccountsItem[];
+  HardwareAllNetworkGetAddressResponse;
+// IHwAllNetworkPrepareAccountsItem[];
 
 export type IExportAccountSecretKeysResult = string;
 // GetAddress ----------------------------------------------
@@ -580,6 +586,8 @@ export interface IBuildUnsignedTxParams {
   isInternalSwap?: boolean;
   isInternalTransfer?: boolean;
   disableMev?: boolean;
+  withoutNonce?: boolean;
+  withUuid?: boolean;
 }
 
 export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };

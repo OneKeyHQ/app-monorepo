@@ -496,11 +496,11 @@ export function PerpApiTests() {
 
 const PerpGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="PerpGallery"
     elements={[
       {
-        title: 'Hyperliquid API Test',
+        title: 'Hyperliquid API Test 2862',
         element: <PerpApiTests />,
       },
     ]}

@@ -29,6 +29,9 @@ export const { atom: unsignedTxsAtom, use: useUnsignedTxsAtom } = contextAtom<
   IUnsignedTxPro[]
 >([]);
 
+export const { atom: unsignedTxQueueAtom, use: useUnsignedTxQueueAtom } =
+  contextAtom<IUnsignedTxPro[]>([]);
+
 export const { atom: decodedTxsAtom, use: useDecodedTxsAtom } = contextAtom<{
   decodedTxs: IDecodedTx[];
   isBuildingDecodedTxs: boolean;
@@ -174,6 +177,15 @@ export const {
   isResourceRedeemed: false,
   isResourceClaimed: false,
 });
+
+export const { atom: megafuelEligibleAtom, use: useMegafuelEligibleAtom } =
+  contextAtom<{
+    sponsorable: boolean;
+    sponsorName: string;
+  }>({
+    sponsorable: false,
+    sponsorName: '',
+  });
 
 export const { atom: payWithTokenInfoAtom, use: usePayWithTokenInfoAtom } =
   contextAtom<{

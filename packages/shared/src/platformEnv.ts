@@ -387,7 +387,7 @@ const isRuntimeBrave = checkIsRuntimeBrave();
 const isRuntimeMacOSBrowser = isDesktopMac || checkIsRuntimeMacOSBrowser();
 const isSupportWebUSB = isExtension || isWeb;
 
-const isSupportDesktopBle = isDesktopMac;
+const isSupportDesktopBle = isDesktopMac || isDesktopWin;
 
 // Ext manifest v2 background
 export const isExtensionBackgroundHtml: boolean =

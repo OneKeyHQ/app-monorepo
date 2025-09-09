@@ -11,7 +11,7 @@ import type {
   IExternalListWalletsResult,
 } from '@onekeyhq/shared/types/externalWallet.types';
 
-import walletConnectStorage from '../../../services/ServiceWalletConnect/walletConnectStorage';
+import walletConnectClient from '../../../services/ServiceWalletConnect/walletConnectClient';
 import { ExternalControllerBase } from '../../base/ExternalControllerBase';
 
 import { ExternalConnectorWalletConnect } from './ExternalConnectorWalletConnect';
@@ -107,7 +107,8 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
   }: IExternalCheckNetworkOrAddressMatchedPayload) {
     const { connectedAddresses, address, connectionInfo } = account;
     const topic = connectionInfo?.walletConnect?.topic;
-    const sessions = await walletConnectStorage.dappSideStorage.getSessions();
+    const sessions = await walletConnectClient.getDappSideStorageSessions();
+    // const sessions = await walletConnectStorage.dappSideStorage.getSessions();
     if (!sessions.find((item) => item.topic === topic)) {
       // (cleanupInactiveSessions)
       throw new OneKeyLocalError(

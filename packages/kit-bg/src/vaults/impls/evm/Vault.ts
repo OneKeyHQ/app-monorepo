@@ -7,6 +7,7 @@ import {
   EthersJsonRpcProvider,
   ethers,
 } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
+import { verifyPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
@@ -46,6 +47,7 @@ import type {
   IServerFetchAccountHistoryDetailParams,
   IServerFetchAccountHistoryDetailResp,
 } from '@onekeyhq/shared/types/history';
+import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type {
   IFetchServerTokenDetailParams,
@@ -451,6 +453,19 @@ export default class Vault extends VaultBase {
 
   override async validateAddress(address: string): Promise<IAddressValidation> {
     return validateEvmAddress(address);
+  }
+
+  override verifyMessage(
+    params: IVerifyMessageParams,
+  ): Promise<{ valid: boolean }> {
+    const valid = verifyPersonalSignMessage({
+      message: params.message,
+      address: params.address,
+      signature: params.signature,
+    });
+    return Promise.resolve({
+      valid,
+    });
   }
 
   async _buildDecodedTx(params: {

@@ -41,6 +41,7 @@ export function TokenDetailHeader({
       pb="$2"
       jc="space-between"
       ai="center"
+      bg="green3"
       {...containerProps}
     >
       <TokenDetailHeaderLeft

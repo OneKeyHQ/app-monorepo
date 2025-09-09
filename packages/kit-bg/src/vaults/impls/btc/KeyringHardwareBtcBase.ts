@@ -18,6 +18,7 @@ import type {
   ICoreApiGetAddressItem,
   ISignedMessagePro,
   ISignedTxPro,
+  IUnsignedMessageBtc,
 } from '@onekeyhq/core/src/types';
 import {
   AddressNotSupportSignMethodError,
@@ -335,29 +336,43 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
       connectId: deviceParams.dbDevice.connectId,
     });
     const result = await Promise.all(
-      params.messages.map(async ({ message, type }) => {
-        const dAppSignType = (type as 'ecdsa' | 'bip322-simple') || undefined;
+      (params.messages as IUnsignedMessageBtc[]).map(
+        async ({ message, type, payload, sigOptions }) => {
+          const dAppSignType = (type as 'ecdsa' | 'bip322-simple') || undefined;
 
-        if (dAppSignType && !isTaprootPath(dbAccount.path)) {
-          throw new AddressNotSupportSignMethodError({
-            info: {
-              type: 'Taproot',
-            },
+          const isFromDapp = payload?.isFromDApp;
+          const noScriptType = sigOptions?.noScriptType;
+          // Allow ECDSA signature for non-DApp requests even with non-Taproot paths
+          if (dAppSignType && !isTaprootPath(dbAccount.path)) {
+            // Skip validation if it's not from DApp and using ECDSA signing
+            const isEcdsaSignature = dAppSignType === 'ecdsa';
+
+            if (isFromDapp || !isEcdsaSignature) {
+              throw new AddressNotSupportSignMethodError({
+                info: {
+                  type: 'Taproot',
+                },
+              });
+            }
+          }
+
+          const response = await sdk.btcSignMessage(connectId, deviceId, {
+            ...params.deviceParams?.deviceCommonParams,
+            path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
+            coin: coinName,
+            messageHex: Buffer.from(message).toString('hex'),
+            dAppSignType:
+              !isFromDapp && dAppSignType === 'ecdsa'
+                ? undefined
+                : dAppSignType,
+            noScriptType,
           });
-        }
-
-        const response = await sdk.btcSignMessage(connectId, deviceId, {
-          ...params.deviceParams?.deviceCommonParams,
-          path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
-          coin: coinName,
-          messageHex: Buffer.from(message).toString('hex'),
-          dAppSignType,
-        });
-        if (!response.success) {
-          throw convertDeviceError(response.payload);
-        }
-        return { message, signature: response.payload.signature };
-      }),
+          if (!response.success) {
+            throw convertDeviceError(response.payload);
+          }
+          return { message, signature: response.payload.signature };
+        },
+      ),
     );
     return result.map((ret) => ret.signature);
   }
@@ -404,6 +419,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
                 xpub: account.payload?.xpub || '',
                 xpubSegwit: account.payload?.xpubSegwit || '',
                 node: account.payload?.node || ({} as HDNodeType),
+                __hwExtraInfo__: undefined,
               }),
             });
             if (allNetworkAccounts) {
@@ -433,7 +449,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];
-          const { path, xpub, xpubSegwit } = item;
+          const { path, xpub, xpubSegwit, __hwExtraInfo__ } = item;
 
           const { addresses: addressFromXpub, publicKeys: publicKeysMap } =
             await checkIsDefined(this.coreApi).getAddressFromXpub({
@@ -455,6 +471,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
             addresses: {
               [addressRelPath]: address,
             },
+            __hwExtraInfo__,
           };
           ret.push(addressInfo);
         }

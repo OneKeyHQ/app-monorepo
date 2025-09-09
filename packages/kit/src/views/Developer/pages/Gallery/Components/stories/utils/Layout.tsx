@@ -63,7 +63,7 @@ export function Layout({
   lazyLoad = false,
   wideScreen: initialWideScreen = false,
   children,
-  filePath,
+  getFilePath,
 }: React.PropsWithChildren<{
   componentName?: string;
   description?: string;
@@ -78,7 +78,7 @@ export function Layout({
     | undefined;
   lazyLoad?: boolean;
   wideScreen?: boolean;
-  filePath?: string;
+  getFilePath?: () => string | undefined;
   elements?: {
     title: string;
     description?: string;
@@ -185,10 +185,12 @@ export function Layout({
                 />
               ) : null}
 
-              {(platformEnv.isWeb || platformEnv.isDesktop) && filePath ? (
+              {(platformEnv.isWeb || platformEnv.isDesktop) &&
+              getFilePath &&
+              getFilePath() ? (
                 <IconButton
                   onPress={() => {
-                    openUrlExternal(`cursor://file/${filePath}`);
+                    openUrlExternal(`cursor://file/${getFilePath() || ''}`);
                   }}
                   size="medium"
                   icon="CodeOutline"

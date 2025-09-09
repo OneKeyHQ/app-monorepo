@@ -36,6 +36,7 @@ export function TabBarItem({
       jc="center"
       ml={20}
       key={name}
+      cursor="pointer"
       onPress={handlePress}
       position="relative"
       {...tabItemStyle}
@@ -67,6 +68,14 @@ export interface ITabBarProps extends TabBarProps<string> {
   renderToolbar?: ({ focusedTab }: { focusedTab: string }) => React.ReactNode;
 }
 
+export interface ITabBarItemProps {
+  name: string;
+  isFocused: boolean;
+  onPress: (name: string) => void;
+  tabItemStyle?: IYStackProps;
+  focusedTabStyle?: IYStackProps;
+}
+
 export function TabBar({
   onTabPress,
   tabNames,
@@ -87,16 +96,7 @@ export function TabBar({
   divider?: boolean;
   tabItemStyle?: IYStackProps;
   focusedTabStyle?: IYStackProps;
-  renderItem?: (
-    props: {
-      name: string;
-      isFocused: boolean;
-      onPress: (name: string) => void;
-      tabItemStyle?: IYStackProps;
-      focusedTabStyle?: IYStackProps;
-    },
-    index: number,
-  ) => React.ReactNode;
+  renderItem?: (props: ITabBarItemProps, index: number) => React.ReactNode;
   scrollable?: boolean;
 }) {
   const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
@@ -215,7 +215,6 @@ export function TabBar({
       ref={listViewRef}
       horizontal
       userSelect="none"
-      cursor="pointer"
       bg="$bgApp"
       pr="$4"
       contentContainerStyle={{
@@ -231,6 +230,7 @@ export function TabBar({
     <YStack
       userSelect="none"
       cursor="pointer"
+      pointerEvents="box-none"
       bg="$bgApp"
       className="onekey-tabs-header"
       position={'sticky' as any}

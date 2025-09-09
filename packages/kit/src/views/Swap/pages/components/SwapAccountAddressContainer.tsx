@@ -15,13 +15,9 @@ import {
   useSwapNetworksIncludeAllNetworkAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  ESwapDirectionType,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapAccountAddressContainerProps {
   type: ESwapDirectionType;
@@ -33,7 +29,6 @@ const SwapAccountAddressContainer = ({
 }: ISwapAccountAddressContainerProps) => {
   const intl = useIntl();
   const [fromToken] = useSwapSelectFromTokenAtom();
-  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapSupportAllNetwork] = useSwapNetworksIncludeAllNetworkAtom();
   const [toToken] = useSwapSelectToTokenAtom();
 
@@ -50,7 +45,7 @@ const SwapAccountAddressContainer = ({
 
     return (
       <AnimatePresence>
-        {swapTypeSwitch === ESwapTabSwitchType.BRIDGE && networkInfo ? (
+        {networkInfo ? (
           <XStack
             key="network-component"
             animation="quick"
@@ -79,7 +74,6 @@ const SwapAccountAddressContainer = ({
     );
   }, [
     swapSupportAllNetwork,
-    swapTypeSwitch,
     onClickNetwork,
     type,
     fromToken?.networkId,

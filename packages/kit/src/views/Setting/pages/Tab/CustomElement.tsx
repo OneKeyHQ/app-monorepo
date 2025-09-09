@@ -23,6 +23,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  startViewTransition,
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -234,14 +235,18 @@ export function BiologyAuthListItem({
   );
 }
 
+export function ClearAppCacheListItem(props: ICustomElementProps) {
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
+  const onPress = useCallback(() => {
+    navigation.push(EModalSettingRoutes.SettingClearAppCache);
+  }, [navigation]);
+  return <TabSettingsListItem {...props} onPress={onPress} drillIn />;
+}
+
 export function CleanDataListItem(props: ICustomElementProps) {
   const intl = useIntl();
   const resetApp = useResetApp();
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
-  const toSettingClearAppCachePage = useCallback(() => {
-    navigation.push(EModalSettingRoutes.SettingClearAppCache);
-  }, [navigation]);
   return (
     <ActionList
       offset={{ mainAxis: -4, crossAxis: -10 }}
@@ -252,12 +257,6 @@ export function CleanDataListItem(props: ICustomElementProps) {
         </TabSettingsListItem>
       }
       items={[
-        {
-          label: intl.formatMessage({
-            id: ETranslations.settings_clear_cache_on_app,
-          }),
-          onPress: toSettingClearAppCachePage,
-        },
         {
           label: intl.formatMessage({
             id: ETranslations.settings_clear_pending_transactions,
@@ -611,8 +610,10 @@ export function SocialButtonGroup() {
 export function DesktopBluetoothListItem(props: ICustomElementProps) {
   const [{ enableDesktopBluetooth }] = useSettingsPersistAtom();
   const toggleBluetooth = useCallback(async (value: boolean) => {
-    await backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(value);
-    defaultLogger.setting.page.settingsEnableBluetooth({ enabled: value });
+    startViewTransition(() => {
+      void backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(value);
+      defaultLogger.setting.page.settingsEnableBluetooth({ enabled: value });
+    });
   }, []);
   return (
     <TabSettingsListItem {...props} userSelect="none">

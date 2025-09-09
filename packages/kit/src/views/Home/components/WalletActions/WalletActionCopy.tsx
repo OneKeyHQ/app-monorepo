@@ -93,9 +93,23 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
         networkName: network?.shortname,
       });
     } else {
+      let networkName = network?.shortname;
+
+      if (
+        network?.isAllNetworks &&
+        accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
+        account?.createAtNetwork
+      ) {
+        const createAtNetwork =
+          await backgroundApiProxy.serviceNetwork.getNetworkSafe({
+            networkId: account.createAtNetwork,
+          });
+        networkName = createAtNetwork?.shortname ?? networkName;
+      }
+
       copyAddressWithDeriveType({
         address: account?.address || '',
-        networkName: network?.shortname,
+        networkName,
       });
     }
     onClose();
@@ -112,6 +126,7 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
     handleAllNetworkCopyAddress,
     navigation,
     account?.id,
+    account?.createAtNetwork,
     account?.address,
     indexedAccount?.id,
     copyAddressWithDeriveType,
