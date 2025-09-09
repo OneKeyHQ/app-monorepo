@@ -15,10 +15,10 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   const orders = usePerpOrders();
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
-      { key: 'asset', title: 'Asset', width: 80, align: 'center' },
+      { key: 'asset', title: 'Asset', width: 80, align: 'left' },
       { key: 'time', title: 'Time', width: 100, align: 'left' },
-      { key: 'type', title: 'Type', width: 80, align: 'left' },
-      { key: 'size', title: 'Size', width: 80, align: 'left' },
+      { key: 'type', title: 'Type', width: 100, align: 'left' },
+      { key: 'size', title: 'Size', width: 100, align: 'left' },
       {
         key: 'originalSize',
         title: 'Original Size',
@@ -36,7 +36,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
       {
         key: 'triggerCondition',
         title: 'Trigger Condition',
-        minWidth: 100,
+        minWidth: 160,
         flex: 1,
         align: 'left',
       },
@@ -64,10 +64,10 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
         cellMinWidth={totalMinWidth}
         columnConfigs={columnsConfig}
         handleCancelAll={handleCancelAll}
+        index={_index}
       />
     );
   };
-
   return (
     <CommonTableListView
       columns={columnsConfig}

@@ -17,10 +17,17 @@ export type ITradesHistoryRowProps = {
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
   isMobile?: boolean;
+  index: number;
 };
 
 const TradesHistoryRow = memo(
-  ({ fill, cellMinWidth, columnConfigs, isMobile }: ITradesHistoryRowProps) => {
+  ({
+    fill,
+    cellMinWidth,
+    columnConfigs,
+    isMobile,
+    index,
+  }: ITradesHistoryRowProps) => {
     const assetSymbol = useMemo(() => fill.coin ?? '-', [fill.coin]);
     const dateInfo = useMemo(() => {
       const timeDate = new Date(fill.time);
@@ -190,6 +197,9 @@ const TradesHistoryRow = memo(
         borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
         minWidth={cellMinWidth}
+        {...(index % 2 === 1 && {
+          backgroundColor: '$bgSubdued',
+        })}
       >
         {/* Asset symbol */}
         <XStack
@@ -198,6 +208,7 @@ const TradesHistoryRow = memo(
           flex={columnConfigs[0].flex}
           justifyContent={calcCellAlign(columnConfigs[0].align)}
           alignItems="center"
+          pl="$2"
         >
           <SizableText size="$bodySmMedium">{assetSymbol}</SizableText>
         </XStack>
@@ -284,7 +295,7 @@ const TradesHistoryRow = memo(
           width={columnConfigs[7].width}
           minWidth={columnConfigs[7].minWidth}
           flex={columnConfigs[7].flex}
-          justifyContent={calcCellAlign(columnConfigs[6].align)}
+          justifyContent={calcCellAlign(columnConfigs[7].align)}
           alignItems="center"
         >
           <SizableText size="$bodyMd" color={closePnlInfo.closePnlColor}>

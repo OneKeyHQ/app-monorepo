@@ -18,6 +18,7 @@ interface IOpenOrdersRowProps {
   columnConfigs: IColumnConfig[];
   handleCancelAll: () => void;
   isMobile?: boolean;
+  index: number;
 }
 
 const OpenOrdersRow = memo(
@@ -27,6 +28,7 @@ const OpenOrdersRow = memo(
     handleCancelAll,
     columnConfigs,
     isMobile,
+    index,
   }: IOpenOrdersRowProps) => {
     const assetInfo = useMemo(() => {
       const assetSymbol = order.coin ?? '-';
@@ -207,6 +209,9 @@ const OpenOrdersRow = memo(
         borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
         minWidth={cellMinWidth}
+        {...(index % 2 === 1 && {
+          backgroundColor: '$bgSubdued',
+        })}
       >
         {/* Asset symbol */}
         <YStack
@@ -214,6 +219,7 @@ const OpenOrdersRow = memo(
           minWidth={columnConfigs[0].minWidth}
           flex={columnConfigs[0].flex}
           justifyContent="center"
+          pl="$2"
           alignItems={calcCellAlign(columnConfigs[0].align)}
         >
           <SizableText size="$bodySm">{assetInfo.assetSymbol}</SizableText>
@@ -252,7 +258,7 @@ const OpenOrdersRow = memo(
           width={columnConfigs[3].width}
           minWidth={columnConfigs[3].minWidth}
           flex={columnConfigs[3].flex}
-          justifyContent={calcCellAlign(columnConfigs[4].align)}
+          justifyContent={calcCellAlign(columnConfigs[3].align)}
           alignItems="center"
         >
           <SizableText size="$bodySm">{`${
@@ -265,7 +271,7 @@ const OpenOrdersRow = memo(
           width={columnConfigs[4].width}
           minWidth={columnConfigs[4].minWidth}
           flex={columnConfigs[4].flex}
-          justifyContent={calcCellAlign(columnConfigs[3].align)}
+          justifyContent={calcCellAlign(columnConfigs[4].align)}
           alignItems="center"
         >
           <SizableText size="$bodyMd">{`${
@@ -303,7 +309,7 @@ const OpenOrdersRow = memo(
           width={columnConfigs[7].width}
           minWidth={columnConfigs[7].minWidth}
           flex={columnConfigs[7].flex}
-          justifyContent={calcCellAlign(columnConfigs[6].align)}
+          justifyContent={calcCellAlign(columnConfigs[7].align)}
           alignItems="center"
         >
           <SizableText size="$bodyMd">
@@ -315,7 +321,7 @@ const OpenOrdersRow = memo(
           width={columnConfigs[8].width}
           minWidth={columnConfigs[8].minWidth}
           flex={columnConfigs[8].flex}
-          justifyContent={calcCellAlign(columnConfigs[6].align)}
+          justifyContent={calcCellAlign(columnConfigs[8].align)}
           alignItems="center"
         >
           <SizableText size="$bodyMd">{tpslInfo.tpsl}</SizableText>
@@ -326,7 +332,7 @@ const OpenOrdersRow = memo(
           width={columnConfigs[9].width}
           minWidth={columnConfigs[9].minWidth}
           flex={columnConfigs[9].flex}
-          justifyContent={calcCellAlign(columnConfigs[6].align)}
+          justifyContent={calcCellAlign(columnConfigs[9].align)}
           alignItems="center"
         >
           <Button size="small" variant="tertiary" onPress={handleCancelAll}>

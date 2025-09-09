@@ -32,6 +32,7 @@ interface IPositionRowProps {
   onAllClose: () => void;
   setTpsl: () => void;
   isMobile?: boolean;
+  index: number;
 }
 
 const PositionRow = memo(
@@ -47,6 +48,7 @@ const PositionRow = memo(
     handleViewTpslOrders,
     onAllClose,
     setTpsl,
+    index,
   }: IPositionRowProps) => {
     const side = useMemo(() => {
       return parseFloat(pos.szi || '0') >= 0 ? 'long' : 'short';
@@ -306,6 +308,9 @@ const PositionRow = memo(
         borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
         minWidth={cellMinWidth}
+        {...(index % 2 === 1 && {
+          backgroundColor: '$bgSubdued',
+        })}
       >
         {/* Symbol & Leverage */}
         <XStack
@@ -313,6 +318,7 @@ const PositionRow = memo(
           minWidth={columnConfigs[0].minWidth}
           flex={columnConfigs[0].flex}
           alignItems="center"
+          pl="$2"
           justifyContent={calcCellAlign(columnConfigs[0].align)}
           gap="$2"
         >
