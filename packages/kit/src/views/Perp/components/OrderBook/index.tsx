@@ -299,14 +299,15 @@ export function OrderBook({
           </XStack>
         ))}
 
-        <XStack
+        <View
           key="mid"
-          gap="$6"
-          h="$6"
-          ai="center"
-          jc="center"
-          mt={1}
-          disableClassName
+          style={{
+            gap: 24,
+            height: rowHeight,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: 1,
+          }}
         >
           <SizableText size="$bodySm" disableClassName>
             Spread
@@ -317,17 +318,17 @@ export function OrderBook({
           <SizableText size="$bodySm" disableClassName>
             0.002%
           </SizableText>
-        </XStack>
+        </View>
 
         {aggregatedData.bids.map((itemData, index) => (
-          <XStack key={index} style={styles.row}>
+          <View key={index} style={styles.row}>
             <ColorBlock
               color={blockColors.green}
               left={0}
               width={`${(itemData.cumSize / bidDepth) * 100}%`}
             />
             <OrderBookVerticalRow item={itemData} />
-          </XStack>
+          </View>
         ))}
       </YStack>
     </YStack>
