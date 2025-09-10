@@ -8,10 +8,10 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
 import { useHyperliquidSession } from '../hooks';
 import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
 import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
-import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
 
 function PerpLayout() {
   const { gtMd } = useMedia();

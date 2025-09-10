@@ -12,12 +12,12 @@ import {
 } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { usePerpsAccountLoadingAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useHyperliquidAccount } from '../../hooks';
 import { usePerpUseChainAccount } from '../../hooks/usePerpUseChainAccount';
 
 import { showDepositWithdrawModal } from './DepositWithdrawModal';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 function PerpAccountPanel() {
   const { activeAccount } = useActiveAccount({ num: 0 });
