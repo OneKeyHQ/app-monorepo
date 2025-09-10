@@ -33,27 +33,6 @@ export function PerpOrderBook() {
 
   return (
     <YStack flex={1} bg="$bgApp">
-      {/* Header */}
-      <XStack
-        p="$3"
-        borderBottomWidth="$px"
-        borderBottomColor="$borderSubdued"
-        justifyContent="space-between"
-        alignItems="center"
-      >
-        <SizableText size="$headingSm" fontWeight="600">
-          Order Book
-        </SizableText>
-        <XStack gap="$2">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            Spread: {spread ? spread.toFixed(2) : '--'}
-          </SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            ({spreadPercent ? spreadPercent.toFixed(3) : '--'}%)
-          </SizableText>
-        </XStack>
-      </XStack>
-
       <OrderBook
         horizontal={false}
         bids={l2Book.bids.map((bid) => ({
@@ -66,24 +45,8 @@ export function PerpOrderBook() {
           size: Number(ask.sz),
           cumSize: 0,
         }))}
-        maxLevelsPerSide={15}
+        maxLevelsPerSide={10}
       />
-
-      {/* Footer Stats */}
-      <XStack
-        p="$2"
-        borderTopWidth="$px"
-        borderTopColor="$borderSubdued"
-        justifyContent="space-between"
-        bg="$bgSubdued"
-      >
-        <SizableText size="$bodyMd" color="$textSuccess">
-          Bid Volume: {getTotalBidVolume(5).toFixed(2)}
-        </SizableText>
-        <SizableText size="$bodyMd" color="$textCritical">
-          Ask Volume: {getTotalAskVolume(5).toFixed(2)}
-        </SizableText>
-      </XStack>
     </YStack>
   );
 }
