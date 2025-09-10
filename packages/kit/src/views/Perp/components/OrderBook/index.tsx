@@ -485,8 +485,12 @@ export function OrderPairBook({
     0.1,
     maxLevelsPerSide,
   );
-  const bidDepth = aggregatedData.bids.at(-1)?.cumSize ?? 0;
-  const askDepth = aggregatedData.asks.at(-1)?.cumSize ?? 0;
+  const bidDepth = useMemo(() => {
+    return new BigNumber(aggregatedData.bids.at(-1)?.cumSize ?? '0');
+  }, [aggregatedData.bids]);
+  const askDepth = useMemo(() => {
+    return new BigNumber(aggregatedData.asks.at(-1)?.cumSize ?? '0');
+  }, [aggregatedData.asks]);
   const midPrice = getMidPrice(
     parseFloat(bids[0]?.px ?? '0'),
     parseFloat(asks[0]?.px ?? '0'),
