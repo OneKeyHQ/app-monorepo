@@ -1595,6 +1595,7 @@
   "global.windows_hello_set_error": "Не вдалося налаштувати Windows Hello",
   "global.withdraw": "Вивести",
   "global.x": "X",
+  "global__multichain": "Мультиланцюг",
   "hardware.backup_completed": "Резервне копіювання завершено!",
   "hardware.bluetooth_need_turned_on_error": "Bluetooth вимкнено",
   "hardware.bluetooth_not_paired_error": "Bluetooth не спарений",

@@ -1595,6 +1595,7 @@
   "global.windows_hello_set_error": "设置 Windows Hello 失败",
   "global.withdraw": "赎回",
   "global.x": "X",
+  "global__multichain": "多链",
   "hardware.backup_completed": "备份完成！",
   "hardware.bluetooth_need_turned_on_error": "蓝牙已关闭",
   "hardware.bluetooth_not_paired_error": "蓝牙未配对",

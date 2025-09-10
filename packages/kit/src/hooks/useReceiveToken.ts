@@ -127,9 +127,6 @@ function useReceiveToken({
             tokenListState,
             searchAll: true,
             closeAfterSelect: false,
-            footerTipText: intl.formatMessage({
-              id: ETranslations.receive_token_list_footer_text,
-            }),
             onSelect: async (t: IToken) => {
               if (networkUtils.isLightningNetworkByNetworkId(t.networkId)) {
                 navigation.pushModal(EModalRoutes.ReceiveModal, {
