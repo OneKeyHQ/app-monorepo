@@ -199,7 +199,9 @@ export function TokenName({
       aggregateTokenList &&
       aggregateTokenList.tokens.length > 1 ? (
         <Badge flexShrink={1}>
-          <Badge.Text numberOfLines={1}>Multichain</Badge.Text>
+          <Badge.Text numberOfLines={1}>
+            {intl.formatMessage({ id: ETranslations.global__multichain })}
+          </Badge.Text>
         </Badge>
       ) : null}
       {withNetwork &&
