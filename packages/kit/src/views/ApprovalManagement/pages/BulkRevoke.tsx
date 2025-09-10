@@ -488,7 +488,13 @@ function BulkRevoke() {
                 justifyContent: 'space-between',
               }}
             >
-              <SizableText size="$bodyMd" color="$textSubdued">
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                $md={{
+                  width: '$72',
+                }}
+              >
                 {intl.formatMessage({
                   id: ETranslations.global_process,
                 })}
