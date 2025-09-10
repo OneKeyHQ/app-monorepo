@@ -547,10 +547,22 @@ function OrderBookPairRow({
         alignItems: 'center',
       }}
     >
-      <Text style={[styles.bodySmMedium, { color: priceColor }]}>
+      <Text
+        style={[
+          styles.monospaceText,
+          styles.bodySmMedium,
+          { color: priceColor },
+        ]}
+      >
         {item.price}
       </Text>
-      <Text style={[styles.bodySmMedium, { color: sizeColor }]}>
+      <Text
+        style={[
+          styles.monospaceText,
+          styles.bodySmMedium,
+          { color: sizeColor },
+        ]}
+      >
         {item.size}
       </Text>
     </View>
