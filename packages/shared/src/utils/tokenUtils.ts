@@ -839,8 +839,8 @@ export function buildHomeDefaultTokenMapKey({
 }
 
 export function sortTokensCommon({
-  tokens,
-  tokenListMap,
+  tokens = [],
+  tokenListMap = {},
 }: {
   tokens: IAccountToken[];
   tokenListMap: {

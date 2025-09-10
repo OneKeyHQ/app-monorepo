@@ -1149,6 +1149,44 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getLocalAggregateTokenListMap({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    return this.backgroundApi.simpleDb.aggregateToken.getAggregateTokenListMap({
+      networkId,
+      accountId,
+    });
+  }
+
+  @backgroundMethod()
+  public async updateLocalAggregateTokenListMap({
+    accountId,
+    networkId,
+    aggregateTokenListMap,
+  }: {
+    accountId: string;
+    networkId: string;
+    aggregateTokenListMap: Record<
+      string,
+      {
+        tokens: IAccountToken[];
+      }
+    >;
+  }) {
+    return this.backgroundApi.simpleDb.aggregateToken.updateAggregateTokenListMap(
+      {
+        accountId,
+        networkId,
+        aggregateTokenListMap,
+      },
+    );
+  }
+
+  @backgroundMethod()
   public async getAllAggregateTokenInfo() {
     const rawData =
       await this.backgroundApi.simpleDb.aggregateToken.getRawData();
