@@ -63,6 +63,11 @@ export const marketWatchListV2Atom = memoizee(() =>
           .then((data) => {
             set(basicMarketWatchListV2Atom(), data);
             set(marketV2StorageReadyAtom(), true);
+          })
+          .catch((error) => {
+            console.error('Failed to fetch initial watchlist data:', error);
+            // Still set as ready even if failed, to avoid hanging the UI
+            set(marketV2StorageReadyAtom(), true);
           });
       } else {
         set(basicMarketWatchListV2Atom(), arg);
