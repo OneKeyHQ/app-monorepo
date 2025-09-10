@@ -34,12 +34,20 @@ function ContractIconView(props: IProps) {
         isNFT
         size="lg"
         networkId={networkId}
+        tokenImageUri={contract?.logoURI}
         fallbackIcon={contract?.icon}
         showNetworkIcon
       />
     );
   }
-  return <Token isNFT size="lg" fallbackIcon={contract?.icon} />;
+  return (
+    <Token
+      isNFT
+      size="lg"
+      tokenImageUri={contract?.logoURI}
+      fallbackIcon={contract?.icon}
+    />
+  );
 }
 
 export default memo(ContractIconView);

@@ -77,8 +77,10 @@ function PerpTradesHistoryList({ isMobile }: IPerpTradesHistoryListProps) {
       isMobile={isMobile}
       minTableWidth={totalMinWidth}
       renderRow={renderTradesHistoryRow}
-      emptyMessage="No open positions"
-      emptySubMessage="Your positions will appear here after opening trades"
+      emptyMessage="No trades found"
+      emptySubMessage="Your trades will appear here"
+      enablePagination
+      pageSize={20}
     />
   );
 }

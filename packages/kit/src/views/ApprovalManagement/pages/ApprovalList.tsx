@@ -190,11 +190,12 @@ function ApprovalList() {
     );
   };
   const handleOnClose = useCallback(() => {
+    updateSearchKey('');
     updateIsBulkRevokeMode(false);
     updateSelectedTokens({
       selectedTokens: {},
     });
-  }, [updateIsBulkRevokeMode, updateSelectedTokens]);
+  }, [updateIsBulkRevokeMode, updateSelectedTokens, updateSearchKey]);
 
   return (
     <Page onClose={handleOnClose}>
