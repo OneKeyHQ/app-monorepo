@@ -269,36 +269,39 @@ export function OrderBook({
     );
   }
   return (
-    <YStack>
-      <XStack px="$3" disableClassName>
-        <XStack flex={1} ai="center" disableClassName>
+    <View>
+      <View style={{ flexDirection: 'row', paddingHorizontal: 12 }}>
+        <View style={{ flex: 1, alignItems: 'center' }}>
           <SizableText size="$headingXs" color="$textSubdued" disableClassName>
             Price
           </SizableText>
-        </XStack>
-        <XStack flex={1} ai="center" jc="center" disableClassName>
+        </View>
+        <View
+          style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+        >
           <SizableText size="$headingXs" color="$textSubdued" disableClassName>
             SIZE
           </SizableText>
-        </XStack>
-        <XStack flex={1} ai="center" jc="flex-end">
+        </View>
+        <View
+          style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end' }}
+        >
           <SizableText size="$headingXs" color="$textSubdued" disableClassName>
             TOTAL
           </SizableText>
-        </XStack>
-      </XStack>
-      <YStack>
+        </View>
+      </View>
+      <View>
         {aggregatedData.asks.reverse().map((itemData, index) => (
-          <XStack key={index} style={styles.row} disableClassName>
+          <View key={index} style={styles.row}>
             <ColorBlock
               color={blockColors.red}
               left={0}
               width={`${(itemData.cumSize / askDepth) * 100}%`}
             />
             <OrderBookVerticalRow item={itemData} />
-          </XStack>
+          </View>
         ))}
-
         <View
           key="mid"
           style={{
@@ -307,6 +310,7 @@ export function OrderBook({
             alignItems: 'center',
             justifyContent: 'center',
             marginTop: 1,
+            flexDirection: 'row',
           }}
         >
           <SizableText size="$bodySm" disableClassName>
@@ -330,8 +334,8 @@ export function OrderBook({
             <OrderBookVerticalRow item={itemData} />
           </View>
         ))}
-      </YStack>
-    </YStack>
+      </View>
+    </View>
   );
 }
 
