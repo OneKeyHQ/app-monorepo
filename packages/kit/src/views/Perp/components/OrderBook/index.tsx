@@ -158,9 +158,9 @@ export function OrderBook({
         ) : (
           <XStack gap="$1">
             <YStack style={styles.levelList}>
-              {aggr.bids.map((item) => (
+              {aggr.bids.map((item, index) => (
                 <XStack
-                  key={String(item.price)}
+                  key={index}
                   h="$6"
                   ai="center"
                   mt={1}
@@ -191,9 +191,9 @@ export function OrderBook({
               ))}
             </YStack>
             <YStack style={styles.levelList}>
-              {aggr.asks.map((item) => (
+              {aggr.asks.map((item, index) => (
                 <XStack
-                  key={String(item.price)}
+                  key={index}
                   h="$6"
                   ai="center"
                   mt={1}
@@ -254,7 +254,7 @@ export function OrderBook({
         </XStack>
       </XStack>
       <YStack>
-        {data.map((item) => {
+        {data.map((item, index) => {
           const { type, data: itemData } = item;
           if (type === 'mid') {
             return (
@@ -266,13 +266,7 @@ export function OrderBook({
             );
           }
           return (
-            <XStack
-              key={String(itemData.price)}
-              h="$6"
-              ai="center"
-              mt={1}
-              position="relative"
-            >
+            <XStack key={index} h="$6" ai="center" mt={1} position="relative">
               {type === 'bid' ? (
                 <GreenBlock
                   left={0}
