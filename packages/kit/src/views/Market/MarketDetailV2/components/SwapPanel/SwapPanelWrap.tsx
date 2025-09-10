@@ -120,6 +120,16 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     if (filterDefaultTokens.length > 0 && !paymentToken) {
       setPaymentToken(filterDefaultTokens[0]);
     }
+    if (
+      filterDefaultTokens.length > 0 &&
+      filterDefaultTokens.every(
+        (token) =>
+          token.networkId !== paymentToken?.networkId ||
+          token.contractAddress !== paymentToken?.contractAddress,
+      )
+    ) {
+      setPaymentToken(filterDefaultTokens[0]);
+    }
   }, [paymentToken, setPaymentToken, filterDefaultTokens]);
 
   useEffect(() => {
