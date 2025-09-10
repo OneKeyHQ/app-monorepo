@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import { colorTokens } from '@tamagui/themes';
 import { StyleSheet, Text, View } from 'react-native';
 
-import type { IXStackProps } from '@onekeyhq/components';
 import {
   SizableText,
   XStack,
@@ -89,6 +88,68 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
   },
+  headerText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '500',
+  },
+  verticalHeaderText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    width: '100%',
+  },
+  monospaceText: {
+    fontFamily: 'monospace',
+    color: '#888',
+  },
+  colorBlock: {
+    position: 'absolute',
+    height: rowHeight,
+  },
+  verticalHeaderContainer: {
+    flex: 1,
+    alignItems: 'center',
+    width: '100%',
+  },
+  verticalRowContainer: {
+    flex: 1,
+    width: '100%',
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  verticalRowCell: {
+    width: '33.33%',
+  },
+  spreadRow: {
+    gap: 24,
+    height: rowHeight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+    flexDirection: 'row',
+  },
+  pairBookHeader: {
+    paddingBottom: 4,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pairBookRow: {
+    marginTop: 1,
+    position: 'relative',
+    height: 24,
+  },
+  pairBookSpreadRow: {
+    gap: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
 });
 
 type IColorBlockProps = {
@@ -101,51 +162,47 @@ type IColorBlockProps = {
 function ColorBlock({ color, width, left, right }: IColorBlockProps) {
   return (
     <View
-      style={{
-        position: 'absolute',
-        right,
-        left,
-        height: rowHeight,
-        width,
-        backgroundColor: color,
-      }}
+      style={[
+        styles.colorBlock,
+        {
+          right,
+          left,
+          width,
+          backgroundColor: color,
+        },
+      ]}
     />
   );
 }
 
 function OrderBookVerticalRow({ item }: { item: IOBLevel }) {
   return (
-    <XStack flex={1} px="$3" jc="space-between" disableClassName>
-      <XStack width="33.33%">
-        <Text style={{ fontFamily: 'monospace', color: '#888' }}>
+    <View style={styles.verticalRowContainer}>
+      <View style={styles.verticalRowCell}>
+        <Text
+          style={[styles.monospaceText, { textAlign: 'left' }]}
+          numberOfLines={1}
+        >
           {item.price}
         </Text>
-      </XStack>
-      <XStack width="33.33%" disableClassName>
+      </View>
+      <View style={styles.verticalRowCell}>
         <Text
-          style={{
-            flex: 1,
-            fontFamily: 'monospace',
-            color: '#888',
-            textAlign: 'center',
-          }}
+          numberOfLines={1}
+          style={[styles.monospaceText, { textAlign: 'center' }]}
         >
           {item.size}
         </Text>
-      </XStack>
-      <XStack width="33.33%">
+      </View>
+      <View style={styles.verticalRowCell}>
         <Text
-          style={{
-            flex: 1,
-            textAlign: 'right',
-            fontFamily: 'monospace',
-            color: '#888',
-          }}
+          numberOfLines={1}
+          style={[styles.monospaceText, { textAlign: 'right' }]}
         >
           {item.cumSize}
         </Text>
-      </XStack>
-    </XStack>
+      </View>
+    </View>
   );
 }
 
@@ -155,6 +212,16 @@ const useBlockColors = () => {
     return {
       red: colorTokens[theme].red.red3,
       green: colorTokens[theme].green.green3,
+    };
+  }, [theme]);
+};
+
+const useTextColor = () => {
+  const theme = useTheme();
+  return useMemo(() => {
+    return {
+      textSubdued: theme.textSubdued.val,
+      text: theme.text.val,
     };
   }, [theme]);
 };
@@ -186,26 +253,27 @@ export function OrderBook({
   const askDepth = aggregatedData.asks.at(-1)?.cumSize ?? 0;
 
   const blockColors = useBlockColors();
+  const textColor = useTextColor();
 
   if (horizontal) {
     return (
       <View style={[styles.container, style]}>
         <XStack gap="$1" h="$4" ai="center">
           <XStack flex={1} jc="space-between">
-            <SizableText size="$bodySmMedium" color="$textSubdued">
+            <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
               SIZE
-            </SizableText>
-            <SizableText size="$bodySmMedium" color="$textSubdued">
+            </Text>
+            <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
               BUY
-            </SizableText>
+            </Text>
           </XStack>
           <XStack flex={1} jc="space-between">
-            <SizableText size="$bodySmMedium" color="$textSubdued">
+            <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
               SELL
-            </SizableText>
-            <SizableText size="$bodySmMedium" color="$textSubdued">
+            </Text>
+            <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
               SIZE
-            </SizableText>
+            </Text>
           </XStack>
         </XStack>
         {isEmpty ? (
@@ -228,9 +296,7 @@ export function OrderBook({
                     width={`${(item.cumSize / bidDepth) * 100}%`}
                   />
                   <XStack flex={1} jc="space-between">
-                    <Text style={{ fontFamily: 'monospace', color: '#888' }}>
-                      {item.size}
-                    </Text>
+                    <Text style={styles.monospaceText}>{item.size}</Text>
                     <Text style={{ fontFamily: 'monospace', color: '#22c55e' }}>
                       {item.price}
                     </Text>
@@ -256,9 +322,7 @@ export function OrderBook({
                     <Text style={{ fontFamily: 'monospace', color: '#ef4444' }}>
                       {item.size}
                     </Text>
-                    <Text style={{ fontFamily: 'monospace', color: '#888' }}>
-                      {item.price}
-                    </Text>
+                    <Text style={styles.monospaceText}>{item.price}</Text>
                   </XStack>
                 </XStack>
               ))}
@@ -271,24 +335,42 @@ export function OrderBook({
   return (
     <View>
       <View style={{ flexDirection: 'row', paddingHorizontal: 12 }}>
-        <View style={{ flex: 1, alignItems: 'center' }}>
-          <SizableText size="$headingXs" color="$textSubdued" disableClassName>
+        <View style={styles.verticalHeaderContainer}>
+          <Text
+            style={[
+              styles.verticalHeaderText,
+              { textAlign: 'left', color: textColor.textSubdued },
+            ]}
+          >
             Price
-          </SizableText>
+          </Text>
         </View>
         <View
-          style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+          style={[styles.verticalHeaderContainer, { justifyContent: 'center' }]}
         >
-          <SizableText size="$headingXs" color="$textSubdued" disableClassName>
+          <Text
+            style={[
+              styles.verticalHeaderText,
+              { textAlign: 'center', color: textColor.textSubdued },
+            ]}
+          >
             SIZE
-          </SizableText>
+          </Text>
         </View>
         <View
-          style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end' }}
+          style={[
+            styles.verticalHeaderContainer,
+            { justifyContent: 'flex-end' },
+          ]}
         >
-          <SizableText size="$headingXs" color="$textSubdued" disableClassName>
+          <Text
+            style={[
+              styles.verticalHeaderText,
+              { textAlign: 'right', color: textColor.textSubdued },
+            ]}
+          >
             TOTAL
-          </SizableText>
+          </Text>
         </View>
       </View>
       <View>
@@ -302,17 +384,7 @@ export function OrderBook({
             <OrderBookVerticalRow item={itemData} />
           </View>
         ))}
-        <View
-          key="mid"
-          style={{
-            gap: 24,
-            height: rowHeight,
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginTop: 1,
-            flexDirection: 'row',
-          }}
-        >
+        <View key="mid" style={styles.spreadRow}>
           <SizableText size="$bodySm" disableClassName>
             Spread
           </SizableText>
@@ -373,13 +445,13 @@ export function OrderPairBook({
   const blockColors = useBlockColors();
   return (
     <YStack>
-      <XStack pb="$1" px="$2" ai="center" jc="space-between">
+      <XStack style={styles.pairBookHeader}>
         <SizableText color="$textSubdued">PRICE</SizableText>
         <SizableText color="$textSubdued">SIZE</SizableText>
       </XStack>
       <YStack>
         {aggregatedData.asks.map((itemData, index) => (
-          <XStack key={index} mt={1} position="relative" h="$6">
+          <XStack key={index} style={styles.pairBookRow}>
             <ColorBlock
               color={blockColors.red}
               left={0}
@@ -389,14 +461,14 @@ export function OrderPairBook({
           </XStack>
         ))}
 
-        <XStack gap="$6" h="$6" ai="center" jc="center" mt={1}>
+        <XStack style={styles.pairBookSpreadRow}>
           <SizableText size="$bodySm">Spread</SizableText>
           <SizableText size="$bodySm">{midPrice}</SizableText>
           <SizableText size="$bodySm">0.002%</SizableText>
         </XStack>
 
         {aggregatedData.bids.map((itemData, index) => (
-          <XStack key={index} mt={1} position="relative" h="$6">
+          <XStack key={index} style={styles.pairBookRow}>
             <ColorBlock
               color={blockColors.green}
               left={0}
