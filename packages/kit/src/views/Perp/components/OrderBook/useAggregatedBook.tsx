@@ -1,55 +1,59 @@
+import BigNumber from 'bignumber.js';
+
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { ceilToTick, floorToTick } from './utils';
 
 import type { IOBLevel } from './types';
 
-// Aggregates in 1 iteration.
+// Aggregates in 1 iteration using BigNumber for precision
 export function aggregateLevels(
   levels: IOBLevel[],
   maxLevelsPerSide: number,
-  tickSize: number,
-  roundFn: (n: number, tickSize: number) => number,
+  tickSize: string | number,
+  roundFn: (n: string | number, tickSize: string | number) => string,
 ) {
   if (!levels.length) {
     return {
       aggregatedLevels: levels,
-      maxSize: 0,
+      maxSize: '0',
     };
   }
 
-  let cumSize = 0;
-  let maxSize = 0;
+  let cumSizeBN = new BigNumber(0);
+  let maxSizeBN = new BigNumber(0);
   let currLevel: IOBLevel = {
-    price: 0,
-    size: 0,
-    cumSize: 0,
+    price: '0',
+    size: '0',
+    cumSize: '0',
   };
   const aggregatedLevels: IOBLevel[] = [currLevel];
 
   for (let i = 0; i < levels.length; i += 1) {
     const level = levels[i];
-    cumSize += level.size;
+    const levelSizeBN = new BigNumber(level.size);
+    cumSizeBN = cumSizeBN.plus(levelSizeBN);
     const roundedPrice = roundFn(level.price, tickSize);
 
-    if (currLevel.price === 0 || roundedPrice === currLevel.price) {
+    if (currLevel.price === '0' || roundedPrice === currLevel.price) {
       // Add to current level.
       currLevel.price = roundedPrice;
-      currLevel.size += level.size;
-      currLevel.cumSize = cumSize;
+      const currLevelSizeBN = new BigNumber(currLevel.size).plus(levelSizeBN);
+      currLevel.size = currLevelSizeBN.toFixed();
+      currLevel.cumSize = cumSizeBN.toFixed();
     } else {
       // Create and push new level.
       currLevel = {
         price: roundedPrice,
         size: level.size,
-        cumSize,
+        cumSize: cumSizeBN.toFixed(),
       };
       aggregatedLevels.push(currLevel);
     }
 
-    // Update largest level size.
-    if (maxSize < level.size) {
-      maxSize = level.size;
+    // Update largest level size using BigNumber comparison.
+    if (maxSizeBN.isLessThan(levelSizeBN)) {
+      maxSizeBN = levelSizeBN;
     }
 
     // Exit if reached max levels.
@@ -60,12 +64,17 @@ export function aggregateLevels(
 
   return {
     aggregatedLevels,
-    maxSize,
+    maxSize: maxSizeBN.toFixed(),
   };
 }
 
 function getMaxSize(levels: IOBLevel[]) {
-  return levels.reduce((max, level) => Math.max(level.size, max), 0);
+  return levels
+    .reduce((maxBN, level) => {
+      const levelSizeBN = new BigNumber(level.size);
+      return BigNumber.maximum(levelSizeBN, maxBN);
+    }, new BigNumber(0))
+    .toFixed();
 }
 
 function sumAndSlice(
@@ -86,17 +95,17 @@ function sumAndSlice(
   };
 }
 
-// Convert HL.IBookLevel to IOBLevel format
+// Convert HL.IBookLevel to IOBLevel format using BigNumber for precision
 function convertHLBookLevelsToIOBLevels(levels: IBookLevel[]): IOBLevel[] {
-  let cumSize = 0;
+  let cumSizeBN = new BigNumber(0);
   return levels.map((level) => {
-    const price = parseFloat(level.px);
-    const size = parseFloat(level.sz);
-    cumSize += size;
+    const priceBN = new BigNumber(level.px);
+    const sizeBN = new BigNumber(level.sz);
+    cumSizeBN = cumSizeBN.plus(sizeBN);
     return {
-      price,
-      size,
-      cumSize,
+      price: priceBN.toFixed(),
+      size: sizeBN.toFixed(),
+      cumSize: cumSizeBN.toFixed(),
     };
   });
 }
@@ -111,15 +120,19 @@ export function useAggregatedBook(
   // Convert HL.IBookLevel to IOBLevel format
   const convertedBids = convertHLBookLevelsToIOBLevels(bids);
   const convertedAsks = convertHLBookLevelsToIOBLevels(asks);
-  if (baseTickSize === tickSize) {
+
+  const baseTickSizeStr = String(baseTickSize);
+  const tickSizeStr = String(tickSize);
+
+  if (new BigNumber(baseTickSizeStr).isEqualTo(tickSizeStr)) {
     return sumAndSlice(convertedBids, convertedAsks, maxLevelsPerSide);
   }
 
   const { aggregatedLevels: aggregatedBids, maxSize: maxBidSize } =
-    aggregateLevels(convertedBids, maxLevelsPerSide, tickSize, floorToTick);
+    aggregateLevels(convertedBids, maxLevelsPerSide, tickSizeStr, floorToTick);
 
   const { aggregatedLevels: aggregatedAsks, maxSize: maxAskSize } =
-    aggregateLevels(convertedAsks, maxLevelsPerSide, tickSize, ceilToTick);
+    aggregateLevels(convertedAsks, maxLevelsPerSide, tickSizeStr, ceilToTick);
 
   return {
     bids: aggregatedBids,

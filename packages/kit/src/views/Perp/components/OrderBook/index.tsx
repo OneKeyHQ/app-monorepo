@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { colorTokens } from '@tamagui/themes';
+import BigNumber from 'bignumber.js';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { IXStackProps } from '@onekeyhq/components';
@@ -22,9 +23,16 @@ import type { DimensionValue, StyleProp, ViewStyle } from 'react-native';
 
 export const rowHeight = 24;
 
-export const defaultMidPriceNode = (midPrice: number) => (
+export const defaultMidPriceNode = (midPrice: string) => (
   <Text>{midPrice}</Text>
 );
+
+// Helper function to calculate percentage with BigNumber precision
+function calculatePercentage(cumSize: string, totalDepth: BigNumber): number {
+  if (totalDepth.isZero()) return 0;
+  const cumSizeBN = new BigNumber(cumSize);
+  return cumSizeBN.dividedBy(totalDepth).multipliedBy(100).toNumber();
+}
 
 interface IOBAggregation {
   /** The natural tick size of this instrument */
@@ -50,7 +58,7 @@ interface IOrderBookProps {
   style?: StyleProp<ViewStyle>;
   /** A function which receives the mid price and can return a
    * custom mid price node */
-  midPriceNode?: (midPrice: number) => React.ReactNode;
+  midPriceNode?: (midPrice: string) => React.ReactNode;
   /** A custom loading node. Defaults to "Loading...". */
   loadingNode?: React.ReactNode;
   /** Whether to render the order book horizontally */
@@ -127,7 +135,7 @@ function OrderBookVerticalRow({ item }: { item: IOBLevel }) {
             flex: 1,
             fontFamily: 'monospace',
             color: '#888',
-            textAlign: 'center',
+            textAlign: 'right',
           }}
         >
           {item.size}
@@ -177,13 +185,10 @@ export function OrderBook({
   );
   const isEmpty = !aggregatedData.bids.length && !aggregatedData.asks.length;
 
-  const midPrice = getMidPrice(
-    parseFloat(bids[0]?.px ?? '0'),
-    parseFloat(asks[0]?.px ?? '0'),
-  );
+  const midPrice = getMidPrice(bids[0]?.px ?? '0', asks[0]?.px ?? '0');
 
-  const bidDepth = aggregatedData.bids.at(-1)?.cumSize ?? 0;
-  const askDepth = aggregatedData.asks.at(-1)?.cumSize ?? 0;
+  const bidDepth = new BigNumber(aggregatedData.bids.at(-1)?.cumSize ?? '0');
+  const askDepth = new BigNumber(aggregatedData.asks.at(-1)?.cumSize ?? '0');
 
   const blockColors = useBlockColors();
 
@@ -225,7 +230,7 @@ export function OrderBook({
                   <ColorBlock
                     color={blockColors.green}
                     right={0}
-                    width={`${(item.cumSize / bidDepth) * 100}%`}
+                    width={`${calculatePercentage(item.cumSize, bidDepth)}%`}
                   />
                   <XStack flex={1} jc="space-between">
                     <Text style={{ fontFamily: 'monospace', color: '#888' }}>
@@ -250,7 +255,7 @@ export function OrderBook({
                   <ColorBlock
                     color={blockColors.red}
                     left={0}
-                    width={`${(item.cumSize / askDepth) * 100}%`}
+                    width={`${calculatePercentage(item.cumSize, askDepth)}%`}
                   />
                   <XStack flex={1} jc="space-between">
                     <Text style={{ fontFamily: 'monospace', color: '#ef4444' }}>
@@ -293,7 +298,7 @@ export function OrderBook({
             <ColorBlock
               color={blockColors.red}
               left={0}
-              width={`${(itemData.cumSize / askDepth) * 100}%`}
+              width={`${calculatePercentage(itemData.cumSize, askDepth)}%`}
             />
             <OrderBookVerticalRow item={itemData} />
           </XStack>
@@ -324,7 +329,7 @@ export function OrderBook({
             <ColorBlock
               color={blockColors.green}
               left={0}
-              width={`${(itemData.cumSize / bidDepth) * 100}%`}
+              width={`${calculatePercentage(itemData.cumSize, bidDepth)}%`}
             />
             <OrderBookVerticalRow item={itemData} />
           </XStack>
@@ -350,16 +355,13 @@ export function OrderPairBook({
     0.1,
     maxLevelsPerSide,
   );
-  const bidDepth = aggregatedData.bids.at(-1)?.cumSize ?? 0;
-  const askDepth = aggregatedData.asks.at(-1)?.cumSize ?? 0;
-  const midPrice = getMidPrice(
-    parseFloat(bids[0]?.px ?? '0'),
-    parseFloat(asks[0]?.px ?? '0'),
-  );
+  const bidDepth = new BigNumber(aggregatedData.bids.at(-1)?.cumSize ?? '0');
+  const askDepth = new BigNumber(aggregatedData.asks.at(-1)?.cumSize ?? '0');
+  const midPrice = getMidPrice(bids[0]?.px ?? '0', asks[0]?.px ?? '0');
   const data = useMemo(() => {
     return [
       ...aggregatedData.asks.map((ask) => ({ data: ask, type: 'ask' })),
-      { type: 'mid', data: { price: midPrice, size: 0, cumSize: 0 } },
+      { type: 'mid', data: { price: midPrice, size: '0', cumSize: '0' } },
       ...aggregatedData.bids.map((bid) => ({ data: bid, type: 'bid' })),
     ];
   }, [aggregatedData.asks, aggregatedData.bids, midPrice]);
@@ -388,20 +390,20 @@ export function OrderPairBook({
                 position="absolute"
                 left={0}
                 h="$6"
-                width={`${(itemData.cumSize / bidDepth) * 100}%`}
+                width={`${calculatePercentage(itemData.cumSize, bidDepth)}%`}
                 bg="$green3"
               />
               {type === 'bid' ? (
                 <ColorBlock
                   color={blockColors.green}
                   left={0}
-                  width={`${(itemData.cumSize / bidDepth) * 100}%`}
+                  width={`${calculatePercentage(itemData.cumSize, bidDepth)}%`}
                 />
               ) : (
                 <ColorBlock
                   color={blockColors.red}
                   left={0}
-                  width={`${(itemData.cumSize / askDepth) * 100}%`}
+                  width={`${calculatePercentage(itemData.cumSize, askDepth)}%`}
                 />
               )}
               <XStack flex={1} px="$2" jc="space-between" ai="center">
