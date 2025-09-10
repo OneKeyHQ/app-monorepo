@@ -23,7 +23,7 @@ import type { DimensionValue, StyleProp, ViewStyle } from 'react-native';
 export const rowHeight = 24;
 
 export const defaultMidPriceNode = (midPrice: number) => (
-  <Text formatter="balance">{midPrice}</Text>
+  <Text>{midPrice}</Text>
 );
 
 interface IOBAggregation {
@@ -117,38 +117,30 @@ function OrderBookVerticalRow({ item }: { item: IOBLevel }) {
   return (
     <XStack flex={1} px="$3" jc="space-between" disableClassName>
       <XStack width="33.33%">
-        <Text
-          fontFamily="$monoRegular"
-          color="$textSubdued"
-          formatter="marketCap"
-          disableOptimization
-          disableClassName
-        >
+        <Text style={{ fontFamily: 'monospace', color: '#888' }}>
           {item.price}
         </Text>
       </XStack>
       <XStack width="33.33%" disableClassName>
         <Text
-          disableOptimization
-          disableClassName
-          flex={1}
-          fontFamily="$monoRegular"
-          color="$textSubdued"
-          formatter="marketCap"
-          textAlign="center"
+          style={{
+            flex: 1,
+            fontFamily: 'monospace',
+            color: '#888',
+            textAlign: 'center',
+          }}
         >
           {item.size}
         </Text>
       </XStack>
       <XStack width="33.33%">
         <Text
-          flex={1}
-          textAlign="right"
-          fontFamily="$monoRegular"
-          color="$textSubdued"
-          formatter="marketCap"
-          disableOptimization
-          disableClassName
+          style={{
+            flex: 1,
+            textAlign: 'right',
+            fontFamily: 'monospace',
+            color: '#888',
+          }}
         >
           {item.cumSize}
         </Text>
@@ -172,7 +164,7 @@ export function OrderBook({
   asks,
   maxLevelsPerSide = 30,
   style,
-  midPriceNode = defaultMidPriceNode,
+  midPriceNode: _midPriceNode = defaultMidPriceNode,
   loadingNode = <DefaultLoadingNode />,
   horizontal = true,
 }: IOrderBookProps) {
@@ -236,18 +228,10 @@ export function OrderBook({
                     width={`${(item.cumSize / bidDepth) * 100}%`}
                   />
                   <XStack flex={1} jc="space-between">
-                    <Text
-                      fontFamily="$monoRegular"
-                      color="$textSubdued"
-                      formatter="marketCap"
-                    >
+                    <Text style={{ fontFamily: 'monospace', color: '#888' }}>
                       {item.size}
                     </Text>
-                    <Text
-                      fontFamily="$monoRegular"
-                      color="$green11"
-                      formatter="value"
-                    >
+                    <Text style={{ fontFamily: 'monospace', color: '#22c55e' }}>
                       {item.price}
                     </Text>
                   </XStack>
@@ -269,18 +253,10 @@ export function OrderBook({
                     width={`${(item.cumSize / askDepth) * 100}%`}
                   />
                   <XStack flex={1} jc="space-between">
-                    <Text
-                      fontFamily="$monoRegular"
-                      color="$red11"
-                      formatter="marketCap"
-                    >
+                    <Text style={{ fontFamily: 'monospace', color: '#ef4444' }}>
                       {item.size}
                     </Text>
-                    <Text
-                      fontFamily="$monoRegular"
-                      color="$textSubdued"
-                      formatter="value"
-                    >
+                    <Text style={{ fontFamily: 'monospace', color: '#888' }}>
                       {item.price}
                     </Text>
                   </XStack>

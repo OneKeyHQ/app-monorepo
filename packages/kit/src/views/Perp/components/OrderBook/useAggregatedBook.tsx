@@ -1,7 +1,8 @@
+import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
+
 import { ceilToTick, floorToTick } from './utils';
 
 import type { IOBLevel } from './types';
-import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 // Aggregates in 1 iteration.
 export function aggregateLevels(
