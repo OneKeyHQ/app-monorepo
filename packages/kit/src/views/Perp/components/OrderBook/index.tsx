@@ -27,19 +27,6 @@ function calculatePercentage(cumSize: string, totalDepth: BigNumber): number {
   return cumSizeBN.dividedBy(totalDepth).multipliedBy(100).toNumber();
 }
 
-interface IOBAggregation {
-  /** The natural tick size of this instrument */
-  baseTickSize: number;
-  /** The currently selected tick size */
-  tickSize: number;
-  /** The possible tick sizes the user can select. You can omit
-   * this and `onTickSizeChange` if you don't want aggregation
-   * controls to be rendered */
-  tickSizes?: number[];
-  /** Called when a user selects another aggregation */
-  onTickSizeChange?: (nextTickSize: number) => void;
-}
-
 interface IOrderBookProps {
   /** The sorted best to worst (high to low) bid levels */
   bids: IBookLevel[];
@@ -72,16 +59,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 1,
     position: 'relative',
-  },
-  cell: {
-    position: 'relative',
-    paddingHorizontal: 8,
-    flex: 1,
-  },
-  bar: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
   },
   headerText: {
     fontSize: 12,
