@@ -1012,7 +1012,7 @@ class ServiceToken extends ServiceBase {
     Object.entries(tokens).forEach(
       ([commonSymbol, { data, logoURI, name }]) => {
         const filteredData = data.filter(
-          (token) => listedNetworkMap[token.networkId],
+          (token) => !!listedNetworkMap[token.networkId],
         );
 
         if (filteredData.length > 1) {
