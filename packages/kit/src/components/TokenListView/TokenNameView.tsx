@@ -68,7 +68,9 @@ function TokenNameView(props: IProps) {
       isAggregateToken &&
       (aggregateTokenList?.length > 1 || allAggregateTokenList?.length > 1) ? (
         <Badge flexShrink={1}>
-          <Badge.Text numberOfLines={1}>Multichain</Badge.Text>
+          <Badge.Text numberOfLines={1}>
+            {intl.formatMessage({ id: ETranslations.global_multichain })}
+          </Badge.Text>
         </Badge>
       ) : null}
       {withNetwork &&
