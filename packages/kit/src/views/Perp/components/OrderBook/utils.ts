@@ -1,5 +1,3 @@
-import { Platform } from 'react-native';
-
 export function round(value: number, decimals = 0) {
   return Number(`${Math.round(Number(`${value}e${decimals}`))}e-${decimals}`);
 }
