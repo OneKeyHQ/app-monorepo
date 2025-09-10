@@ -163,7 +163,7 @@ export function OrderBook({
               contentContainerStyle={styles.levelList}
               data={aggr.bids}
               renderItem={({ item }) => (
-                <XStack h="$6" ai="center" mt={1} position="relative">
+                <XStack h="$6" ai="center" mt={1} px="$3" position="relative">
                   <GreenBlock
                     right={0}
                     width={`${(item.cumSize / bidDepth) * 100}%`}
@@ -232,8 +232,8 @@ export function OrderBook({
 
   return (
     <YStack>
-      <XStack>
-        <XStack flex={1} ai="center" pl="$3">
+      <XStack px="$3">
+        <XStack flex={1} ai="center">
           <SizableText size="$headingXs" color="$textSubdued">
             Price
           </SizableText>
@@ -243,7 +243,7 @@ export function OrderBook({
             SIZE
           </SizableText>
         </XStack>
-        <XStack flex={1} ai="center" jc="flex-end" pr="$3">
+        <XStack flex={1} ai="center" jc="flex-end">
           <SizableText size="$headingXs" color="$textSubdued">
             TOTAL
           </SizableText>
@@ -276,7 +276,7 @@ export function OrderBook({
                   width={`${(itemData.cumSize / askDepth) * 100}%`}
                 />
               )}
-              <XStack flex={1} jc="space-between">
+              <XStack flex={1} px="$3" jc="space-between">
                 <XStack width="33.33%">
                   <NumberSizeableText
                     fontFamily="$monoRegular"
