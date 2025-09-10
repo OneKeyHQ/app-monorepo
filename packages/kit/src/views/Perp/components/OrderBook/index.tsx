@@ -4,7 +4,6 @@ import { StyleSheet, View } from 'react-native';
 
 import type { IXStackProps } from '@onekeyhq/components';
 import {
-  ListView,
   NumberSizeableText,
   SizableText,
   XStack,
@@ -158,12 +157,16 @@ export function OrderBook({
           loadingNode
         ) : (
           <XStack gap="$1">
-            <ListView
-              useFlashList
-              contentContainerStyle={styles.levelList}
-              data={aggr.bids}
-              renderItem={({ item }) => (
-                <XStack h="$6" ai="center" mt={1} px="$3" position="relative">
+            <YStack style={styles.levelList}>
+              {aggr.bids.map((item) => (
+                <XStack
+                  key={String(item.price)}
+                  h="$6"
+                  ai="center"
+                  mt={1}
+                  px="$3"
+                  position="relative"
+                >
                   <GreenBlock
                     right={0}
                     width={`${(item.cumSize / bidDepth) * 100}%`}
@@ -185,15 +188,17 @@ export function OrderBook({
                     </NumberSizeableText>
                   </XStack>
                 </XStack>
-              )}
-              keyExtractor={(level) => String(level.price)}
-            />
-            <ListView
-              useFlashList
-              contentContainerStyle={styles.levelList}
-              data={aggr.asks}
-              renderItem={({ item }) => (
-                <XStack h="$6" ai="center" mt={1} position="relative">
+              ))}
+            </YStack>
+            <YStack style={styles.levelList}>
+              {aggr.asks.map((item) => (
+                <XStack
+                  key={String(item.price)}
+                  h="$6"
+                  ai="center"
+                  mt={1}
+                  position="relative"
+                >
                   <RedBlock
                     left={0}
                     width={`${(item.cumSize / askDepth) * 100}%`}
@@ -215,9 +220,8 @@ export function OrderBook({
                     </NumberSizeableText>
                   </XStack>
                 </XStack>
-              )}
-              keyExtractor={(level) => String(level.price)}
-            />
+              ))}
+            </YStack>
           </XStack>
         )}
       </View>
@@ -249,14 +253,12 @@ export function OrderBook({
           </SizableText>
         </XStack>
       </XStack>
-      <ListView
-        useFlashList
-        data={data}
-        renderItem={({ item }) => {
+      <YStack>
+        {data.map((item) => {
           const { type, data: itemData } = item;
           if (type === 'mid') {
             return (
-              <XStack gap="$6" h="$6" ai="center" jc="center" mt={1}>
+              <XStack key="mid" gap="$6" h="$6" ai="center" jc="center" mt={1}>
                 <SizableText size="$bodySm">Spread</SizableText>
                 <SizableText size="$bodySm">{itemData.price}</SizableText>
                 <SizableText size="$bodySm">0.002%</SizableText>
@@ -264,7 +266,13 @@ export function OrderBook({
             );
           }
           return (
-            <XStack h="$6" ai="center" mt={1} position="relative">
+            <XStack
+              key={String(itemData.price)}
+              h="$6"
+              ai="center"
+              mt={1}
+              position="relative"
+            >
               {type === 'bid' ? (
                 <GreenBlock
                   left={0}
@@ -312,8 +320,8 @@ export function OrderBook({
               </XStack>
             </XStack>
           );
-        }}
-      />
+        })}
+      </YStack>
     </YStack>
   );
 }
@@ -344,14 +352,12 @@ export function OrderPairBook({
         <SizableText color="$textSubdued">PRICE</SizableText>
         <SizableText color="$textSubdued">SIZE</SizableText>
       </XStack>
-      <ListView
-        useFlashList
-        data={data}
-        renderItem={(item) => {
-          const { type, data: itemData } = item.item;
+      <YStack>
+        {data.map((item, index) => {
+          const { type, data: itemData } = item;
           if (type === 'mid') {
             return (
-              <XStack gap="$6" h="$6" ai="center" jc="center" mt={1}>
+              <XStack key="mid" gap="$6" h="$6" ai="center" jc="center" mt={1}>
                 <SizableText size="$bodySm">Spread</SizableText>
                 <SizableText size="$bodySm">{itemData.price}</SizableText>
                 <SizableText size="$bodySm">0.002%</SizableText>
@@ -359,7 +365,7 @@ export function OrderPairBook({
             );
           }
           return (
-            <XStack mt={1} position="relative" h="$6">
+            <XStack key={index} mt={1} position="relative" h="$6">
               <XStack
                 position="absolute"
                 left={0}
@@ -388,8 +394,8 @@ export function OrderPairBook({
               </XStack>
             </XStack>
           );
-        }}
-      />
+        })}
+      </YStack>
     </YStack>
   );
 }

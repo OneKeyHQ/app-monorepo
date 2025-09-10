@@ -86,7 +86,7 @@ function PerpTickerBar() {
       h={62}
     >
       <XStack gap="$4" alignItems="center">
-        <PerpTokenSelector />
+        {/* <PerpTokenSelector /> */}
         <XStack alignItems="center" width={140} gap="$1.5" cursor="default">
           {showSkeleton ? (
             <Skeleton width={80} height={28} />
