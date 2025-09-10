@@ -8,6 +8,7 @@ import type { ICheckedState } from '@onekeyhq/components';
 import {
   Alert,
   Badge,
+  Button,
   Divider,
   IconButton,
   ListView,
@@ -257,7 +258,7 @@ function ApprovalDetails() {
               fallbackIcon={contract.icon}
             />
             <YStack flex={1}>
-              <SizableText size="$heading3xl" numberOfLines={1}>
+              <SizableText size="$heading2xl" numberOfLines={1}>
                 {contract.label ??
                   intl.formatMessage({ id: ETranslations.global_unknown })}
               </SizableText>
@@ -286,9 +287,23 @@ function ApprovalDetails() {
           ) : null}
         </XStack>
         <Divider />
-        <XStack px="$5" py="$3" gap="$6" alignItems="center">
+        <XStack
+          px="$5"
+          py="$3.5"
+          gap="$6"
+          alignItems="center"
+          hoverStyle={{
+            bg: '$bgHover',
+          }}
+          pressStyle={{
+            bg: '$bgActive',
+          }}
+          onPress={() => {
+            copyText(approval.contractAddress);
+          }}
+        >
           <YStack flex={1} gap="$1">
-            <SizableText size="$bodyMd" color="$textSubdued">
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.global_contract_address,
               })}
@@ -367,6 +382,7 @@ function ApprovalDetails() {
             <XStack
               justifyContent="space-between"
               alignItems="center"
+              mt="$3"
               px="$5"
               py="$2"
             >
@@ -375,16 +391,17 @@ function ApprovalDetails() {
                   id: ETranslations.wallet_approval_approved_token,
                 })}
               </SizableText>
-              <IconButton
-                title={intl.formatMessage({ id: ETranslations.global_edit })}
+              <Button
                 variant="tertiary"
-                icon="EditOutline"
-                iconColor="$iconSubdued"
                 size="small"
                 onPress={() => {
                   setIsBulkRevokeMode((v) => !v);
                 }}
-              />
+              >
+                {isBulkRevokeMode
+                  ? intl.formatMessage({ id: ETranslations.global_done })
+                  : intl.formatMessage({ id: ETranslations.global_edit })}
+              </Button>
             </XStack>
           )
         }

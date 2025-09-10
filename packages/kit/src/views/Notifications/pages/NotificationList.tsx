@@ -192,9 +192,6 @@ function NotificationItem({
           />
         ) : null}
       </XStack>
-      <XStack pl="$12" position="absolute" bottom={0} left={0} right={0}>
-        <Divider borderColor="$neutral3" />
-      </XStack>
     </ListItem>
   );
 }
@@ -450,50 +447,59 @@ function BaseNotificationList() {
           index: number;
         }) => {
           const itemView = (
-            <NotificationItemMemo
-              key={item.msgId || index}
-              item={item}
-              onPress={() => {
-                if (isVersionCompatible(item.body.extras?.miniBundlerVersion)) {
-                  void notificationsUtils.navigateToNotificationDetail({
-                    navigation,
-                    message: item.body,
-                    notificationAccountId:
-                      item?.body?.extras?.params?.accountId,
-                    mode: item.body.extras?.mode,
-                    payload: item.body.extras?.payload,
-                    notificationId:
-                      item?.msgId ||
-                      item?.body?.extras?.params?.msgId ||
-                      item?.body?.extras?.msgId ||
-                      '',
-                    localParams: {
-                      accountId: activeAccountRef.current?.account?.id,
-                      indexedAccountId:
-                        activeAccountRef.current?.indexedAccount?.id,
-                      networkId: activeAccountRef.current?.network?.id,
-                      walletId: activeAccountRef.current?.wallet?.id,
-                      accountName: activeAccountRef.current?.account?.name,
-                      deriveType: activeAccountRef.current?.deriveType,
-                      avatarUrl: activeAccountRef.current?.wallet?.avatar,
-                    },
-                    getEarnAccount: (props) =>
-                      backgroundApiProxy.serviceStaking.getEarnAccount(props),
-                  });
-                  setTimeout(() => {
-                    if (!item.readed) {
-                      setUnreadMap((prev) => ({
-                        ...prev,
-                        [item.topicType]: Math.max(
-                          0,
-                          (prev[item.topicType] ?? 0) - 1,
-                        ),
-                      }));
-                    }
-                  }, 100);
-                }
-              }}
-            />
+            <YStack>
+              {index > 0 ? (
+                <XStack pl={60} pr="$3" py="$0.5">
+                  <Divider borderColor="$neutral3" />
+                </XStack>
+              ) : null}
+              <NotificationItemMemo
+                key={item.msgId || index}
+                item={item}
+                onPress={() => {
+                  if (
+                    isVersionCompatible(item.body.extras?.miniBundlerVersion)
+                  ) {
+                    void notificationsUtils.navigateToNotificationDetail({
+                      navigation,
+                      message: item.body,
+                      notificationAccountId:
+                        item?.body?.extras?.params?.accountId,
+                      mode: item.body.extras?.mode,
+                      payload: item.body.extras?.payload,
+                      notificationId:
+                        item?.msgId ||
+                        item?.body?.extras?.params?.msgId ||
+                        item?.body?.extras?.msgId ||
+                        '',
+                      localParams: {
+                        accountId: activeAccountRef.current?.account?.id,
+                        indexedAccountId:
+                          activeAccountRef.current?.indexedAccount?.id,
+                        networkId: activeAccountRef.current?.network?.id,
+                        walletId: activeAccountRef.current?.wallet?.id,
+                        accountName: activeAccountRef.current?.account?.name,
+                        deriveType: activeAccountRef.current?.deriveType,
+                        avatarUrl: activeAccountRef.current?.wallet?.avatar,
+                      },
+                      getEarnAccount: (props) =>
+                        backgroundApiProxy.serviceStaking.getEarnAccount(props),
+                    });
+                    setTimeout(() => {
+                      if (!item.readed) {
+                        setUnreadMap((prev) => ({
+                          ...prev,
+                          [item.topicType]: Math.max(
+                            0,
+                            (prev[item.topicType] ?? 0) - 1,
+                          ),
+                        }));
+                      }
+                    }, 100);
+                  }
+                }}
+              />
+            </YStack>
           );
           return itemView;
         }}
@@ -544,13 +550,13 @@ function BaseNotificationList() {
     (props: ITabBarItemProps) => {
       const tabId = tabs.find((i) => i.name === props.name)?.id;
       return (
-        <XStack>
+        <XStack position="relative">
           <TabBarItem {...props} />
           {unreadMap[tabId as keyof typeof unreadMap] > 0 ? (
             <Stack
               position="absolute"
-              right={-2}
-              top={6}
+              right={-6}
+              top={12}
               w="$1.5"
               h="$1.5"
               bg="$iconCritical"
@@ -579,7 +585,7 @@ function BaseNotificationList() {
             h: 44,
           }}
         />
-        <YStack pt="$3" flex={1}>
+        <YStack pt="$2" flex={1}>
           <MaxAccountLimitWarning />
           {contentView}
         </YStack>
