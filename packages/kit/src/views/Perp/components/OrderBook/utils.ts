@@ -70,6 +70,28 @@ export function ceilToTick(
     .toFixed();
 }
 
+// Fast-path rounding helpers for hot loops (skip validation and reuse precomputed values)
+// Inputs are BigNumber to avoid repeated constructions; outputs are fixed-decimal strings
+export function floorToTickFast(
+  nBN: BigNumber,
+  invTickSizeBN: BigNumber,
+  priceDecimals: number,
+): string {
+  return floorBN(nBN.multipliedBy(invTickSizeBN), 0)
+    .dividedBy(invTickSizeBN)
+    .toFixed(priceDecimals);
+}
+
+export function ceilToTickFast(
+  nBN: BigNumber,
+  invTickSizeBN: BigNumber,
+  priceDecimals: number,
+): string {
+  return ceilBN(nBN.multipliedBy(invTickSizeBN), 0)
+    .dividedBy(invTickSizeBN)
+    .toFixed(priceDecimals);
+}
+
 export function getMidPrice(
   bestBid: string | number,
   bestAsk: string | number,

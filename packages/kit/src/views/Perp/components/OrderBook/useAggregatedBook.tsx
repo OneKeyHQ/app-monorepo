@@ -1,8 +1,17 @@
 import BigNumber from 'bignumber.js';
 
+import {
+  analyzeOrderBookPrecision,
+  formatWithPrecision,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import { ceilToTick, floorToTick } from './utils';
+import {
+  ceilToTick,
+  ceilToTickFast,
+  floorToTick,
+  floorToTickFast,
+} from './utils';
 
 import type { IOBLevel } from './types';
 
@@ -12,6 +21,8 @@ export function aggregateLevels(
   maxLevelsPerSide: number,
   tickSize: string | number,
   roundFn: (n: string | number, tickSize: string | number) => string,
+  sizeDecimals: number,
+  priceDecimals: number,
 ) {
   if (!levels.length) {
     return {
@@ -29,24 +40,40 @@ export function aggregateLevels(
   };
   const aggregatedLevels: IOBLevel[] = [currLevel];
 
+  // Pre-compute BigNumber tick factors for fast path rounding
+  const tickSizeBN = new BigNumber(tickSize);
+  const invTickSizeBN = new BigNumber(1).dividedBy(tickSizeBN);
+
   for (let i = 0; i < levels.length; i += 1) {
     const level = levels[i];
     const levelSizeBN = new BigNumber(level.size);
     cumSizeBN = cumSizeBN.plus(levelSizeBN);
-    const roundedPrice = roundFn(level.price, tickSize);
+    // Fast path: avoid validation and duplicate toFixed
+    const roundedPrice =
+      roundFn === floorToTick
+        ? floorToTickFast(
+            new BigNumber(level.price),
+            invTickSizeBN,
+            priceDecimals,
+          )
+        : ceilToTickFast(
+            new BigNumber(level.price),
+            invTickSizeBN,
+            priceDecimals,
+          );
 
     if (currLevel.price === '0' || roundedPrice === currLevel.price) {
       // Add to current level.
       currLevel.price = roundedPrice;
       const currLevelSizeBN = new BigNumber(currLevel.size).plus(levelSizeBN);
-      currLevel.size = currLevelSizeBN.toFixed();
-      currLevel.cumSize = cumSizeBN.toFixed();
+      currLevel.size = formatWithPrecision(currLevelSizeBN, sizeDecimals);
+      currLevel.cumSize = formatWithPrecision(cumSizeBN, sizeDecimals);
     } else {
       // Create and push new level.
       currLevel = {
         price: roundedPrice,
         size: level.size,
-        cumSize: cumSizeBN.toFixed(),
+        cumSize: formatWithPrecision(cumSizeBN, sizeDecimals),
       };
       aggregatedLevels.push(currLevel);
     }
@@ -64,28 +91,42 @@ export function aggregateLevels(
 
   return {
     aggregatedLevels,
-    maxSize: maxSizeBN.toFixed(),
+    maxSize: formatWithPrecision(maxSizeBN, sizeDecimals),
   };
 }
 
-function getMaxSize(levels: IOBLevel[]) {
-  return levels
-    .reduce((maxBN, level) => {
-      const levelSizeBN = new BigNumber(level.size);
-      return BigNumber.maximum(levelSizeBN, maxBN);
-    }, new BigNumber(0))
-    .toFixed();
+function getMaxSizeFromPrefix(
+  prefixMaxSizes: string[],
+  count: number,
+  sizeDecimals: number,
+) {
+  const idx = Math.min(
+    Math.max(count - 1, 0),
+    Math.max(prefixMaxSizes.length - 1, 0),
+  );
+  return prefixMaxSizes[idx] ?? formatWithPrecision(0, sizeDecimals);
 }
 
 function sumAndSlice(
   bids: IOBLevel[],
   asks: IOBLevel[],
   maxLevelsPerSide: number,
+  sizeDecimals: number,
+  bidsPrefixMaxSizes: string[],
+  asksPrefixMaxSizes: string[],
 ) {
   const slicedBids = bids.slice(0, maxLevelsPerSide);
   const slicedAsks = asks.slice(0, maxLevelsPerSide);
-  const maxBidSize = getMaxSize(slicedBids);
-  const maxAskSize = getMaxSize(slicedAsks);
+  const maxBidSize = getMaxSizeFromPrefix(
+    bidsPrefixMaxSizes,
+    slicedBids.length,
+    sizeDecimals,
+  );
+  const maxAskSize = getMaxSizeFromPrefix(
+    asksPrefixMaxSizes,
+    slicedAsks.length,
+    sizeDecimals,
+  );
 
   return {
     bids: slicedBids,
@@ -96,18 +137,27 @@ function sumAndSlice(
 }
 
 // Convert HL.IBookLevel to IOBLevel format using BigNumber for precision
-function convertHLBookLevelsToIOBLevels(levels: IBookLevel[]): IOBLevel[] {
+function convertHLBookLevelsToIOBLevels(
+  levels: IBookLevel[],
+  priceDecimals: number,
+  sizeDecimals: number,
+): { levels: IOBLevel[]; prefixMaxSizes: string[] } {
   let cumSizeBN = new BigNumber(0);
-  return levels.map((level) => {
+  let runningMaxSizeBN = new BigNumber(0);
+  const prefixMaxSizes: string[] = [];
+  const converted: IOBLevel[] = levels.map((level) => {
     const priceBN = new BigNumber(level.px);
     const sizeBN = new BigNumber(level.sz);
     cumSizeBN = cumSizeBN.plus(sizeBN);
+    runningMaxSizeBN = BigNumber.maximum(sizeBN, runningMaxSizeBN);
+    prefixMaxSizes.push(runningMaxSizeBN.toFixed(sizeDecimals));
     return {
-      price: priceBN.toFixed(),
-      size: sizeBN.toFixed(),
-      cumSize: cumSizeBN.toFixed(),
+      price: formatWithPrecision(priceBN, priceDecimals),
+      size: formatWithPrecision(sizeBN, sizeDecimals),
+      cumSize: formatWithPrecision(cumSizeBN, sizeDecimals),
     };
   });
+  return { levels: converted, prefixMaxSizes };
 }
 
 export function useAggregatedBook(
@@ -117,22 +167,48 @@ export function useAggregatedBook(
   tickSize: number,
   maxLevelsPerSide: number,
 ) {
-  // Convert HL.IBookLevel to IOBLevel format
-  const convertedBids = convertHLBookLevelsToIOBLevels(bids);
-  const convertedAsks = convertHLBookLevelsToIOBLevels(asks);
+  // Analyze decimal places requirements from raw data
+  const { priceDecimals, sizeDecimals } = analyzeOrderBookPrecision(bids, asks);
+
+  // Convert HL.IBookLevel to IOBLevel format with dynamic decimal places
+  const { levels: convertedBids, prefixMaxSizes: bidsPrefixMaxSizes } =
+    convertHLBookLevelsToIOBLevels(bids, priceDecimals, sizeDecimals);
+  const { levels: convertedAsks, prefixMaxSizes: asksPrefixMaxSizes } =
+    convertHLBookLevelsToIOBLevels(asks, priceDecimals, sizeDecimals);
 
   const baseTickSizeStr = String(baseTickSize);
   const tickSizeStr = String(tickSize);
 
   if (new BigNumber(baseTickSizeStr).isEqualTo(tickSizeStr)) {
-    return sumAndSlice(convertedBids, convertedAsks, maxLevelsPerSide);
+    return sumAndSlice(
+      convertedBids,
+      convertedAsks,
+      maxLevelsPerSide,
+      sizeDecimals,
+      bidsPrefixMaxSizes,
+      asksPrefixMaxSizes,
+    );
   }
 
   const { aggregatedLevels: aggregatedBids, maxSize: maxBidSize } =
-    aggregateLevels(convertedBids, maxLevelsPerSide, tickSizeStr, floorToTick);
+    aggregateLevels(
+      convertedBids,
+      maxLevelsPerSide,
+      tickSizeStr,
+      floorToTick,
+      sizeDecimals,
+      priceDecimals,
+    );
 
   const { aggregatedLevels: aggregatedAsks, maxSize: maxAskSize } =
-    aggregateLevels(convertedAsks, maxLevelsPerSide, tickSizeStr, ceilToTick);
+    aggregateLevels(
+      convertedAsks,
+      maxLevelsPerSide,
+      tickSizeStr,
+      ceilToTick,
+      sizeDecimals,
+      priceDecimals,
+    );
 
   return {
     bids: aggregatedBids,
