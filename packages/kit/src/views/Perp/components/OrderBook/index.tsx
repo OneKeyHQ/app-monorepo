@@ -4,7 +4,13 @@ import { colorTokens } from '@tamagui/themes';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { IXStackProps } from '@onekeyhq/components';
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  SizableText,
+  XStack,
+  YStack,
+  useTheme,
+  useThemeName,
+} from '@onekeyhq/components';
 
 import { DefaultLoadingNode } from './DefaultLoadingNode';
 import { useAggregatedBook } from './useAggregatedBook';
@@ -87,9 +93,8 @@ const styles = StyleSheet.create({
 type IColorBlockProps = {
   color: string;
   width: DimensionValue;
-  left: number;
-  right: number;
-  theme?: 'light' | 'dark';
+  left?: number;
+  right?: number;
 };
 
 function ColorBlock({ color, width, left, right }: IColorBlockProps) {
@@ -105,20 +110,6 @@ function ColorBlock({ color, width, left, right }: IColorBlockProps) {
       }}
     />
   );
-}
-
-function GreenBlock({ theme, width, ...props }: IColorBlockProps) {
-  const colorValue = useMemo(() => {
-    return colorTokens[theme ?? 'light'].green.green3;
-  }, [theme]);
-  return <ColorBlock {...props} color={colorValue} width={width} />;
-}
-
-function RedBlock({ width, theme, ...props }: IColorBlockProps) {
-  const colorValue = useMemo(() => {
-    return colorTokens[theme ?? 'light'].red.red3;
-  }, [theme]);
-  return <ColorBlock {...props} color={colorValue} width={width} />;
 }
 
 function OrderBookVerticalRow({ item }: { item: IOBLevel }) {
@@ -165,6 +156,16 @@ function OrderBookVerticalRow({ item }: { item: IOBLevel }) {
   );
 }
 
+const useBlockColors = () => {
+  const theme = useThemeName();
+  return useMemo(() => {
+    return {
+      red: colorTokens[theme].red.red3,
+      green: colorTokens[theme].green.green3,
+    };
+  }, [theme]);
+};
+
 export function OrderBook({
   bids,
   asks,
@@ -181,6 +182,8 @@ export function OrderBook({
 
   const bidDepth = aggr.bids.at(-1)?.cumSize ?? 0;
   const askDepth = aggr.asks.at(-1)?.cumSize ?? 0;
+
+  const blockColors = useBlockColors();
 
   if (horizontal) {
     return (
@@ -217,7 +220,8 @@ export function OrderBook({
                   px="$3"
                   position="relative"
                 >
-                  <GreenBlock
+                  <ColorBlock
+                    color={blockColors.green}
                     right={0}
                     width={`${(item.cumSize / bidDepth) * 100}%`}
                   />
@@ -249,7 +253,8 @@ export function OrderBook({
                   mt={1}
                   position="relative"
                 >
-                  <RedBlock
+                  <ColorBlock
+                    color={blockColors.red}
                     left={0}
                     width={`${(item.cumSize / askDepth) * 100}%`}
                   />
@@ -299,7 +304,8 @@ export function OrderBook({
       <YStack>
         {aggr.asks.map((itemData, index) => (
           <XStack key={index} style={styles.row} disableClassName>
-            <RedBlock
+            <ColorBlock
+              color={blockColors.red}
               left={0}
               width={`${(itemData.cumSize / askDepth) * 100}%`}
             />
@@ -329,7 +335,8 @@ export function OrderBook({
 
         {aggr.bids.map((itemData, index) => (
           <XStack key={index} style={styles.row}>
-            <GreenBlock
+            <ColorBlock
+              color={blockColors.green}
               left={0}
               width={`${(itemData.cumSize / bidDepth) * 100}%`}
             />
@@ -361,6 +368,7 @@ export function OrderPairBook({
       ...aggr.bids.map((bid) => ({ data: bid, type: 'bid' })),
     ];
   }, [aggr.asks, aggr.bids, midPrice]);
+  const blockColors = useBlockColors();
   return (
     <YStack>
       <XStack pb="$1" px="$2" ai="center" jc="space-between">
@@ -389,19 +397,21 @@ export function OrderPairBook({
                 bg="$green3"
               />
               {type === 'bid' ? (
-                <GreenBlock
+                <ColorBlock
+                  color={blockColors.green}
                   left={0}
                   width={`${(itemData.cumSize / bidDepth) * 100}%`}
                 />
               ) : (
-                <RedBlock
+                <ColorBlock
+                  color={blockColors.red}
                   left={0}
                   width={`${(itemData.cumSize / askDepth) * 100}%`}
                 />
               )}
               <XStack flex={1} px="$2" jc="space-between" ai="center">
-                <Text formatter="value">{itemData.price}</Text>
-                <Text formatter="marketCap">{itemData.size}</Text>
+                <Text>{itemData.price}</Text>
+                <Text>{itemData.size}</Text>
               </XStack>
             </XStack>
           );
