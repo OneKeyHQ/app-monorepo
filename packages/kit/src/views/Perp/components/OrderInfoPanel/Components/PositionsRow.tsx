@@ -157,12 +157,10 @@ const PositionRow = memo(
       let slPrice = '--';
       let showOrder = false;
       if (tpslOrders && tpslOrders.length > 0) {
-        showOrder = tpslOrders.every(
-          (order) => !new BigNumber(order.origSz).isZero(),
-        );
+        showOrder = tpslOrders.every((order) => !order.isPositionTpsl);
         if (!showOrder) {
           tpslOrders.forEach((order) => {
-            if (order.orderType.startsWith('Take')) {
+            if (order.orderType.startsWith('Take') && order.isPositionTpsl) {
               tpPrice = `${
                 numberFormat(order.triggerPx, {
                   formatter: 'price',
@@ -171,7 +169,10 @@ const PositionRow = memo(
                   },
                 }) as string
               }`;
-            } else if (order.orderType.startsWith('Stop')) {
+            } else if (
+              order.orderType.startsWith('Stop') &&
+              order.isPositionTpsl
+            ) {
               slPrice = `${
                 numberFormat(order.triggerPx, {
                   formatter: 'price',
@@ -475,12 +476,22 @@ const PositionRow = memo(
           alignItems="center"
           gap="$2"
         >
-          <Button size="small" variant="tertiary" onPress={handleMarketClose}>
-            <SizableText size="$bodySm">Market</SizableText>
-          </Button>
-          <Button size="small" variant="tertiary" onPress={handleLimitClose}>
-            <SizableText size="$bodySm">Limit</SizableText>
-          </Button>
+          <XStack
+            cursor="pointer"
+            onPress={() => handleMarketClose({ position: pos })}
+          >
+            <SizableText color="$textSuccess" size="$bodySm">
+              Market
+            </SizableText>
+          </XStack>
+          <XStack
+            cursor="pointer"
+            onPress={() => handleLimitClose({ position: pos })}
+          >
+            <SizableText color="$textSuccess" size="$bodySm">
+              Limit
+            </SizableText>
+          </XStack>
         </XStack>
       </XStack>
     );

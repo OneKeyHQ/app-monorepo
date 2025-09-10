@@ -327,9 +327,11 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[9].align)}
           alignItems="center"
         >
-          <Button size="small" variant="tertiary" onPress={handleCancelAll}>
-            <SizableText size="$bodyMd">Cancel</SizableText>
-          </Button>
+          <XStack cursor="pointer" onPress={handleCancelAll}>
+            <SizableText color="$textSuccess" size="$bodySm">
+              Cancel
+            </SizableText>
+          </XStack>
         </XStack>
       </XStack>
     );
