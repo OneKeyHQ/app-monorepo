@@ -4,6 +4,7 @@ import {
   ListView,
   ScrollView,
   SizableText,
+  Tabs,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -58,7 +59,7 @@ export function CommonTableListView({
 
   return (
     <YStack flex={1}>
-      <ScrollView
+      <Tabs.ScrollView
         style={{
           flex: 1,
         }}
@@ -122,7 +123,7 @@ export function CommonTableListView({
             </SizableText>
           </YStack>
         )}
-      </ScrollView>
+      </Tabs.ScrollView>
     </YStack>
   );
 }

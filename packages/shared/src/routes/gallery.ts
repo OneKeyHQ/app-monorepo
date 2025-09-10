@@ -42,6 +42,7 @@ export enum EGalleryRoutes {
   ComponentNavigation = 'component-Navigation',
   ComponentNotification = 'component-Notification',
   ComponentNumberSizeableTextGallery = 'component-NumberSizeableText',
+  ComponentOrderBook = 'component-OrderBook',
   ComponentOTPInput = 'component-OTPInput',
   ComponentPasswordDemo = 'component-PasswordDemo',
   ComponentPasswordKeyboardGallery = 'component-PasswordKeyboard',
