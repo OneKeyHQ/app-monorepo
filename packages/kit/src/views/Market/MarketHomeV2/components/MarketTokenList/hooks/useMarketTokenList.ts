@@ -171,7 +171,7 @@ export function useMarketTokenList({
         setConsecutiveEmptyResponses(0);
 
         // Transform new data
-        const newTransformed = response.list.map((item, idx) =>
+        const newTransformed = response.list.map((item) =>
           transformApiItemToToken(item, {
             chainId: networkId,
             networkLogoUri,
