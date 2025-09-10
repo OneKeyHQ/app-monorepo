@@ -394,6 +394,13 @@ const NumberSizeableTextGallery = LazyLoadPage(
     ),
 );
 
+const OrderBookGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/OrderBookGallery'
+    ),
+);
+
 const TokenGallery = LazyLoadPage(
   () =>
     import(
@@ -842,6 +849,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentPerp,
     component: PerpGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentOrderBook,
+    component: OrderBookGallery,
   },
   {
     name: EGalleryRoutes.ComponentTradingViewGallery,
