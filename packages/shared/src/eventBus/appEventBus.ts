@@ -121,6 +121,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.NetworkDeriveTypeChanged]: undefined;
   [EAppEventBusNames.AccountSelectorSelectedAccountUpdate]: {
     selectedAccount: IAccountSelectorSelectedAccount;
+    selectedAccountUpdatedAt: number | undefined;
     sceneName: EAccountSelectorSceneName;
     sceneUrl?: string;
     num: number;

@@ -1708,8 +1708,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       updateItem.dataTime &&
       updateItem.dataTime >= item.dataTime;
 
+    let newDataTime = updateItem.dataTime ?? item.dataTime;
     if (isNil(updateItem.dataTime)) {
       shouldUpdate = false;
+
+      if (!item.pwdHash && updateItem.pwdHash && updateItem.data) {
+        shouldUpdate = true;
+        newDataTime = undefined;
+      }
     }
 
     if (isNil(item.dataTime)) {
@@ -1732,7 +1738,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       // update fields
       rawData: updateItem.rawData,
       data: updateItem.data,
-      dataTime: updateItem.dataTime ?? item.dataTime,
+      dataTime: newDataTime,
       isDeleted: updateItem.isDeleted,
       localSceneUpdated: updateItem.localSceneUpdated,
       serverUploaded: updateItem.serverUploaded,
@@ -3688,6 +3694,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // accountNameBuilder for watching, imported, external account
     accountNameBuilder?: (data: { nextAccountId: number }) => string;
   }): Promise<{ isOverrideAccounts: boolean; existsAccounts: IDBAccount[] }> {
+    // eslint-disable-next-line no-param-reassign
+    accounts = accounts.map((account) => {
+      const a = {
+        ...account,
+      };
+      delete a.__hwExtraInfo__;
+      return a;
+    });
     this.validateAccountsFields(accounts);
 
     const wallet = await this.getWallet({ walletId });

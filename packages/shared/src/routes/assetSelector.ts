@@ -4,6 +4,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   IAccountToken,
+  IAggregateToken,
   IToken,
   ITokenData,
   ITokenFiat,
@@ -42,6 +43,7 @@ export type ITokenSelectorParamList = {
   title?: string;
   networkId: string;
   accountId: string;
+  indexedAccountId?: string;
   activeAccountId?: string;
   activeNetworkId?: string;
   tokens?: ITokenData;
@@ -59,13 +61,22 @@ export type ITokenSelectorParamList = {
     | EModalReceiveRoutes.ReceiveSelectAggregateToken
     | EAssetSelectorRoutes.AggregateTokenSelector
     | EModalSignatureConfirmRoutes.TxSelectAggregateToken;
+  allAggregateTokenMap?: Record<
+    string,
+    {
+      tokens: IAccountToken[];
+    }
+  >;
+  allAggregateTokens?: IAccountToken[];
 };
 
 export type IAggregateTokenSelectorParams = {
   title?: string;
   searchPlaceholder?: string;
   accountId: string;
+  indexedAccountId?: string;
   aggregateToken: IAccountToken;
+  allAggregateTokenList?: IAccountToken[];
   onSelect: (token: IAccountToken) => void | Promise<void>;
   closeAfterSelect?: boolean;
 };

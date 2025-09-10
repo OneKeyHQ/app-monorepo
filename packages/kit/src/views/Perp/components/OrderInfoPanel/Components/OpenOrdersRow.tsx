@@ -7,7 +7,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { calcCellAlign } from '../utils';
+import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
 import type { FrontendOrder } from '@nktkas/hyperliquid';
@@ -18,6 +18,7 @@ interface IOpenOrdersRowProps {
   columnConfigs: IColumnConfig[];
   handleCancelAll: () => void;
   isMobile?: boolean;
+  index: number;
 }
 
 const OpenOrdersRow = memo(
@@ -27,6 +28,7 @@ const OpenOrdersRow = memo(
     handleCancelAll,
     columnConfigs,
     isMobile,
+    index,
   }: IOpenOrdersRowProps) => {
     const assetInfo = useMemo(() => {
       const assetSymbol = order.coin ?? '-';
@@ -58,15 +60,9 @@ const OpenOrdersRow = memo(
       });
       const executePriceFormatted = numberFormat(executePrice, {
         formatter: 'price',
-        formatterOptions: {
-          currency: '$',
-        },
       });
       const priceFormatted = numberFormat(price, {
         formatter: 'price',
-        formatterOptions: {
-          currency: '$',
-        },
       });
       const sizeFormatted = numberFormat(size, {
         formatter: 'balance',
@@ -171,7 +167,7 @@ const OpenOrdersRow = memo(
           >
             <SizableText size="$bodySm">Price</SizableText>
             <SizableText size="$bodySm">
-              {`$${orderBaseInfo.priceFormatted as string}`}
+              {`${orderBaseInfo.priceFormatted as string}`}
             </SizableText>
           </XStack>
           <XStack
@@ -199,22 +195,21 @@ const OpenOrdersRow = memo(
     return (
       <XStack
         flex={1}
-        py="$2"
+        py="$1.5"
         px="$3"
         alignItems="center"
         hoverStyle={{ bg: '$bgHover' }}
-        bg="$bg"
-        borderBottomWidth="$px"
-        borderBottomColor="$borderSubdued"
         minWidth={cellMinWidth}
+        {...(index % 2 === 1 && {
+          backgroundColor: '$bgSubdued',
+        })}
       >
         {/* Asset symbol */}
         <YStack
-          width={columnConfigs[0].width}
-          minWidth={columnConfigs[0].minWidth}
-          flex={columnConfigs[0].flex}
+          {...getColumnStyle(columnConfigs[0])}
           justifyContent="center"
           alignItems={calcCellAlign(columnConfigs[0].align)}
+          pl="$2"
         >
           <SizableText size="$bodySm">{assetInfo.assetSymbol}</SizableText>
           <SizableText size="$bodySm" color={assetInfo.typeColor}>
@@ -224,9 +219,7 @@ const OpenOrdersRow = memo(
 
         {/* Time */}
         <YStack
-          width={columnConfigs[1].width}
-          minWidth={columnConfigs[1].minWidth}
-          flex={columnConfigs[1].flex}
+          {...getColumnStyle(columnConfigs[1])}
           justifyContent="center"
           alignItems={calcCellAlign(columnConfigs[1].align)}
         >
@@ -238,9 +231,7 @@ const OpenOrdersRow = memo(
 
         {/* Type */}
         <XStack
-          width={columnConfigs[2].width}
-          minWidth={columnConfigs[2].minWidth}
-          flex={columnConfigs[2].flex}
+          {...getColumnStyle(columnConfigs[2])}
           justifyContent={calcCellAlign(columnConfigs[2].align)}
           alignItems="center"
         >
@@ -249,35 +240,29 @@ const OpenOrdersRow = memo(
 
         {/*  size */}
         <XStack
-          width={columnConfigs[3].width}
-          minWidth={columnConfigs[3].minWidth}
-          flex={columnConfigs[3].flex}
-          justifyContent={calcCellAlign(columnConfigs[4].align)}
+          {...getColumnStyle(columnConfigs[3])}
+          justifyContent={calcCellAlign(columnConfigs[3].align)}
           alignItems="center"
         >
           <SizableText size="$bodySm">{`${
             orderBaseInfo.sizeFormatted as string
-          }${assetInfo.assetSymbol}`}</SizableText>
+          } ${assetInfo.assetSymbol}`}</SizableText>
         </XStack>
 
         {/* Original size */}
         <XStack
-          width={columnConfigs[4].width}
-          minWidth={columnConfigs[4].minWidth}
-          flex={columnConfigs[4].flex}
-          justifyContent={calcCellAlign(columnConfigs[3].align)}
+          {...getColumnStyle(columnConfigs[4])}
+          justifyContent={calcCellAlign(columnConfigs[4].align)}
           alignItems="center"
         >
-          <SizableText size="$bodyMd">{`${
+          <SizableText size="$bodySm">{`${
             orderBaseInfo.origSizeFormatted as string
-          }${assetInfo.assetSymbol}`}</SizableText>
+          } ${assetInfo.assetSymbol}`}</SizableText>
         </XStack>
 
         {/* value */}
         <XStack
-          width={columnConfigs[5].width}
-          minWidth={columnConfigs[5].minWidth}
-          flex={columnConfigs[5].flex}
+          {...getColumnStyle(columnConfigs[5])}
           justifyContent={calcCellAlign(columnConfigs[5].align)}
           alignItems="center"
         >
@@ -288,9 +273,7 @@ const OpenOrdersRow = memo(
 
         {/* Execute price */}
         <XStack
-          width={columnConfigs[6].width}
-          minWidth={columnConfigs[6].minWidth}
-          flex={columnConfigs[6].flex}
+          {...getColumnStyle(columnConfigs[6])}
           justifyContent={calcCellAlign(columnConfigs[6].align)}
           alignItems="center"
         >
@@ -300,10 +283,8 @@ const OpenOrdersRow = memo(
         </XStack>
         {/* Trigger Condition */}
         <XStack
-          width={columnConfigs[7].width}
-          minWidth={columnConfigs[7].minWidth}
-          flex={columnConfigs[7].flex}
-          justifyContent={calcCellAlign(columnConfigs[6].align)}
+          {...getColumnStyle(columnConfigs[7])}
+          justifyContent={calcCellAlign(columnConfigs[7].align)}
           alignItems="center"
         >
           <SizableText size="$bodyMd">
@@ -312,10 +293,8 @@ const OpenOrdersRow = memo(
         </XStack>
         {/* TPSL */}
         <XStack
-          width={columnConfigs[8].width}
-          minWidth={columnConfigs[8].minWidth}
-          flex={columnConfigs[8].flex}
-          justifyContent={calcCellAlign(columnConfigs[6].align)}
+          {...getColumnStyle(columnConfigs[8])}
+          justifyContent={calcCellAlign(columnConfigs[8].align)}
           alignItems="center"
         >
           <SizableText size="$bodyMd">{tpslInfo.tpsl}</SizableText>
@@ -323,10 +302,8 @@ const OpenOrdersRow = memo(
 
         {/* Cancel All */}
         <XStack
-          width={columnConfigs[9].width}
-          minWidth={columnConfigs[9].minWidth}
-          flex={columnConfigs[9].flex}
-          justifyContent={calcCellAlign(columnConfigs[6].align)}
+          {...getColumnStyle(columnConfigs[9])}
+          justifyContent={calcCellAlign(columnConfigs[9].align)}
           alignItems="center"
         >
           <Button size="small" variant="tertiary" onPress={handleCancelAll}>
