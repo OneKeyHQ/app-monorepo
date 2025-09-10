@@ -5,7 +5,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  getListedNetworkMap,
+  getNetworkIdsMap,
+} from '@onekeyhq/shared/src/config/networkIds';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -16,6 +19,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   buildAggregateTokenListData,
+  buildAggregateTokenListMapKeyForTokenList,
   buildAggregateTokenMapKeyForAggregateConfig,
   buildHomeDefaultTokenMapKey,
   getEmptyTokenData,
@@ -987,8 +991,16 @@ class ServiceToken extends ServiceBase {
     await this.abortFetchAggregateTokenMap();
     const { tokens = {}, meta: { homeDefaults = [] } = {} } =
       await this.fetchAggregateTokenConfigMap();
+    const allAggregateTokenMap: Record<
+      string,
+      {
+        tokens: IAccountToken[];
+      }
+    > = {};
+
     const aggregateTokenConfigMap: Record<string, IAggregateToken> = {};
     const homeDefaultTokenMap: Record<string, IHomeDefaultToken> = {};
+    const listedNetworkMap = getListedNetworkMap();
     homeDefaults.forEach((homeDefault) => {
       homeDefaultTokenMap[
         buildHomeDefaultTokenMapKey({
@@ -997,28 +1009,95 @@ class ServiceToken extends ServiceBase {
         })
       ] = homeDefault;
     });
-    Object.entries(tokens).forEach(([commonSymbol, { data, logoURI }]) => {
-      data.forEach((token) => {
-        aggregateTokenConfigMap[
-          buildAggregateTokenMapKeyForAggregateConfig({
-            networkId: token.networkId,
-            tokenAddress: token.address || token.assetType || '',
-          })
-        ] = {
-          ...token,
-          logoURI,
-          commonSymbol,
-        };
-      });
-    });
-    await this.backgroundApi.simpleDb.aggregateToken.updateAggregateTokenConfigMap(
-      {
-        aggregateTokenConfigMap,
+    Object.entries(tokens).forEach(
+      ([commonSymbol, { data, logoURI, name }]) => {
+        const filteredData = data.filter(
+          (token) => listedNetworkMap[token.networkId],
+        );
+
+        if (filteredData.length > 1) {
+          filteredData.forEach((token) => {
+            const aggregateTokenKey = buildAggregateTokenListMapKeyForTokenList(
+              {
+                commonSymbol,
+              },
+            );
+
+            if (allAggregateTokenMap[aggregateTokenKey]) {
+              allAggregateTokenMap[aggregateTokenKey].tokens.push({
+                ...token,
+                $key: buildAggregateTokenListMapKeyForTokenList({
+                  commonSymbol,
+                  networkId: token.networkId,
+                }),
+                name,
+                symbol: commonSymbol,
+                isNative: false,
+                logoURI,
+                commonSymbol,
+                address: token.address || token.assetType || '',
+              });
+            } else {
+              allAggregateTokenMap[aggregateTokenKey] = {
+                tokens: [
+                  {
+                    ...token,
+                    $key: buildAggregateTokenListMapKeyForTokenList({
+                      commonSymbol,
+                      networkId: token.networkId,
+                    }),
+                    name,
+                    symbol: commonSymbol,
+                    isNative: false,
+                    logoURI,
+                    commonSymbol,
+                    address: token.address || token.assetType || '',
+                  },
+                ],
+              };
+            }
+
+            aggregateTokenConfigMap[
+              buildAggregateTokenMapKeyForAggregateConfig({
+                networkId: token.networkId,
+                tokenAddress: token.address || token.assetType || '',
+              })
+            ] = {
+              ...token,
+              name,
+              logoURI,
+              commonSymbol,
+            };
+          });
+        }
       },
     );
-    await this.backgroundApi.simpleDb.aggregateToken.updateHomeDefaultTokenMap({
-      homeDefaultTokenMap,
+
+    const allAggregateTokens: IAccountToken[] = Object.keys(
+      allAggregateTokenMap,
+    ).map((key) => {
+      const aggregateToken = allAggregateTokenMap[key].tokens[0];
+      return {
+        $key: key,
+        isAggregateToken: true,
+        commonSymbol: aggregateToken.commonSymbol,
+        name: aggregateToken.name,
+        symbol: aggregateToken.symbol,
+        networkId: '',
+        address: key,
+        isNative: false,
+        decimals: 0,
+        logoURI: aggregateToken.logoURI,
+      };
     });
+
+    await this.backgroundApi.simpleDb.aggregateToken.updateAllAggregateInfo({
+      allAggregateTokens,
+      aggregateTokenConfigMap,
+      homeDefaultTokenMap,
+      allAggregateTokenMap,
+    });
+
     return aggregateTokenConfigMap;
   }
 
@@ -1067,6 +1146,16 @@ class ServiceToken extends ServiceBase {
       networkId,
       accountId,
     });
+  }
+
+  @backgroundMethod()
+  public async getAllAggregateTokenInfo() {
+    const rawData =
+      await this.backgroundApi.simpleDb.aggregateToken.getRawData();
+    return {
+      allAggregateTokenMap: rawData?.allAggregateTokenMap ?? {},
+      allAggregateTokens: rawData?.allAggregateTokens ?? [],
+    };
   }
 }
 
