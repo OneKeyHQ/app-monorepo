@@ -14,10 +14,9 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { usePerpsAccountLoadingAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { useHyperliquidAccount } from '../../hooks';
-import { usePerpUseChainAccount } from '../../hooks/usePerpUseChainAccount';
-
-import { showDepositWithdrawModal } from './DepositWithdrawModal';
+import { useHyperliquidAccount } from '../../../hooks';
+import { usePerpUseChainAccount } from '../../../hooks/usePerpUseChainAccount';
+import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 
 function PerpAccountPanel() {
   const { activeAccount } = useActiveAccount({ num: 0 });

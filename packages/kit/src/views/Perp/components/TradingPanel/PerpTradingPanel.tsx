@@ -15,9 +15,9 @@ import {
   useHyperliquidTrading,
 } from '../../hooks';
 
-import { showOrderConfirmDialog } from './OrderConfirmModal';
+import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
+import { PerpTradingForm } from './panels/PerpTradingForm';
 import { PerpTradingButton } from './PerpTradingButton';
-import { PerpTradingForm } from './PerpTradingForm';
 
 function PerpTradingPanel() {
   const { canTrade, loading, currentUser, checkAndApproveWallet } =

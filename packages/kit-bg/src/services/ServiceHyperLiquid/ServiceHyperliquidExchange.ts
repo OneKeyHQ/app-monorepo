@@ -222,7 +222,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         b: params.isBuy,
         p: price,
         s: params.sz,
-        r: false,
+        r: params.reduceOnly || false,
         t:
           'limit' in params.orderType
             ? {
@@ -276,23 +276,27 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       orders.push(mainOrder);
 
       if (params.tpTriggerPx) {
+        const originalTpPrice = params.tpTriggerPx;
+        let executionPrice = originalTpPrice;
+
         if (isMarket) {
-          params.tpTriggerPx = this._calculateSlippagePrice({
-            markPrice: params.tpTriggerPx,
-            isBuy: true,
+          executionPrice = this._calculateSlippagePrice({
+            markPrice: originalTpPrice,
+            isBuy: !params.isBuy,
             slippage: params.slippage || this.slippage,
           });
         }
+
         const tpOrder: IOrderParams = {
           a: params.assetId,
           b: !params.isBuy,
-          p: params.tpTriggerPx,
+          p: executionPrice,
           s: params.size,
           r: true,
           t: {
             trigger: {
               isMarket,
-              triggerPx: params.tpTriggerPx,
+              triggerPx: originalTpPrice,
               tpsl: 'tp',
             },
           },
@@ -301,23 +305,27 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       }
 
       if (params.slTriggerPx) {
+        const originalSlPrice = params.slTriggerPx;
+        let executionPrice = originalSlPrice;
+
         if (isMarket) {
-          params.slTriggerPx = this._calculateSlippagePrice({
-            markPrice: params.slTriggerPx,
-            isBuy: false,
+          executionPrice = this._calculateSlippagePrice({
+            markPrice: originalSlPrice,
+            isBuy: !params.isBuy,
             slippage: params.slippage || this.slippage,
           });
         }
+
         const slOrder: IOrderParams = {
           a: params.assetId,
           b: !params.isBuy,
-          p: params.slTriggerPx,
+          p: executionPrice,
           s: params.size,
           r: true,
           t: {
             trigger: {
               isMarket,
-              triggerPx: params.slTriggerPx,
+              triggerPx: originalSlPrice,
               tpsl: 'sl',
             },
           },

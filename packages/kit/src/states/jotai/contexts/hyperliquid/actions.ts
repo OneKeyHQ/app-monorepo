@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -75,6 +76,16 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     const currentToken = get(currentTokenAtom());
     if (currentToken === coin) return;
 
+    const currentForm = get(tradingFormAtom());
+    set(tradingFormAtom(), {
+      ...currentForm,
+      size: '',
+      tpTriggerPx: '',
+      tpGainPercent: '',
+      slTriggerPx: '',
+      slLossPercent: '',
+    });
+
     set(currentTokenAtom(), coin);
     await this.updateSubscriptions.call(set);
   });
@@ -98,7 +109,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  updateSubscriptions = contextAtomMethod(async (get, set) => {
+  updateSubscriptions = contextAtomMethod(async (get, _set) => {
     const currentToken = get(currentTokenAtom());
     const currentUser = get(currentUserAtom());
     const isActive = get(subscriptionActiveAtom());
@@ -442,6 +453,100 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
     },
   );
+
+  limitOrderClose = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        isBuy: boolean;
+        size: string;
+        limitPrice: string;
+      },
+    ) => {
+      try {
+        set(tradingLoadingAtom(), true);
+
+        // Place a reduce-only limit order to close position
+        const result =
+          await backgroundApiProxy.serviceHyperliquidExchange.placeOrder({
+            assetId: params.assetId,
+            isBuy: !params.isBuy, // Opposite direction to close
+            sz: params.size,
+            limitPx: params.limitPrice,
+            orderType: { limit: { tif: 'Gtc' } },
+            reduceOnly: true, // Important: reduce-only flag for closing
+          });
+
+        return result;
+      } catch (error) {
+        console.error(
+          '[HyperliquidActions.limitOrderClose] Failed to place limit close order:',
+          error,
+        );
+        throw error;
+      } finally {
+        set(tradingLoadingAtom(), false);
+      }
+    },
+  );
+
+  cancelOrder = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        orders: Array<{
+          assetId: number;
+          oid: number;
+        }>;
+        showToast?: boolean;
+      },
+    ) => {
+      try {
+        set(tradingLoadingAtom(), true);
+
+        const result =
+          await backgroundApiProxy.serviceHyperliquidExchange.cancelOrder(
+            params.orders.map((order) => ({
+              assetId: order.assetId,
+              oid: order.oid,
+            })),
+          );
+
+        // Show success toast by default
+        if (params.showToast !== false) {
+          Toast.success({
+            title: 'Orders Canceled',
+            message: `Successfully canceled ${params.orders.length} order(s)`,
+          });
+        }
+
+        return result as { success: boolean };
+      } catch (error) {
+        console.error(
+          '[HyperliquidActions.cancelOrder] Failed to cancel orders:',
+          error,
+        );
+
+        // Show error toast by default
+        if (params.showToast !== false) {
+          Toast.error({
+            title: 'Cancel Failed',
+            message:
+              error instanceof Error
+                ? error.message
+                : 'Failed to cancel orders',
+          });
+        }
+
+        throw error;
+      } finally {
+        set(tradingLoadingAtom(), false);
+      }
+    },
+  );
 }
 
 const createActions = memoFn(() => new ContextJotaiActionsHyperliquid());
@@ -479,6 +584,8 @@ export function useHyperliquidActions() {
   const marketOrderOpen = actions.marketOrderOpen.use();
   const updateLeverage = actions.updateLeverage.use();
   const marketOrderClose = actions.marketOrderClose.use();
+  const limitOrderClose = actions.limitOrderClose.use();
+  const cancelOrder = actions.cancelOrder.use();
 
   return useRef({
     updateAllMids,
@@ -508,5 +615,7 @@ export function useHyperliquidActions() {
     marketOrderOpen,
     updateLeverage,
     marketOrderClose,
+    limitOrderClose,
+    cancelOrder,
   });
 }

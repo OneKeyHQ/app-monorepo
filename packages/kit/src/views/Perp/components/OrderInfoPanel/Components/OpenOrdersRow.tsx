@@ -16,7 +16,7 @@ interface IOpenOrdersRowProps {
   order: FrontendOrder;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
-  handleCancelAll: () => void;
+  handleCancelOrder: () => void;
   isMobile?: boolean;
   index: number;
 }
@@ -25,7 +25,7 @@ const OpenOrdersRow = memo(
   ({
     order,
     cellMinWidth,
-    handleCancelAll,
+    handleCancelOrder,
     columnConfigs,
     isMobile,
     index,
@@ -144,7 +144,11 @@ const OpenOrdersRow = memo(
                 </SizableText>
               </XStack>
             </YStack>
-            <Button size="small" variant="secondary" onPress={handleCancelAll}>
+            <Button
+              size="small"
+              variant="secondary"
+              onPress={handleCancelOrder}
+            >
               <SizableText size="$bodyMd">Cancel</SizableText>
             </Button>
           </XStack>
@@ -327,11 +331,9 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[9].align)}
           alignItems="center"
         >
-          <XStack cursor="pointer" onPress={handleCancelAll}>
-            <SizableText color="$textSuccess" size="$bodySm">
-              Cancel
-            </SizableText>
-          </XStack>
+          <Button size="small" variant="tertiary" onPress={handleCancelOrder}>
+            <SizableText size="$bodyMd">Cancel</SizableText>
+          </Button>
         </XStack>
       </XStack>
     );

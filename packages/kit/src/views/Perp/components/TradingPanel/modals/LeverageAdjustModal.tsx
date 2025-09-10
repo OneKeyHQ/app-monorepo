@@ -16,7 +16,7 @@ import {
   useCurrentTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 
-import { useTokenList } from '../../hooks/usePerpMarketData';
+import { useTokenList } from '../../../hooks/usePerpMarketData';
 
 interface ILeverageContentProps {
   initialValue: number;

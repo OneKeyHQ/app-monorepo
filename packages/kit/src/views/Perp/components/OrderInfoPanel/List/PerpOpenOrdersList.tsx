@@ -1,5 +1,8 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+
+import { useTokenList } from '../../../hooks';
 import { usePerpOrders } from '../../../hooks/usePerpOrderInfoPanel';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 
@@ -13,6 +16,9 @@ interface IPerpOpenOrdersListProps {
 
 function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   const orders = usePerpOrders();
+  const actions = useHyperliquidActions();
+  const { getTokenInfo } = useTokenList();
+
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
       { key: 'asset', title: 'Asset', width: 100, align: 'left' },
@@ -41,7 +47,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
         flex: 1,
         align: 'left',
       },
-      { key: 'TPSL', title: 'TP/SL', minWidth: 140, flex: 1, align: 'center' },
+      { key: 'TPSL', title: 'TP/SL', minWidth: 100, flex: 1, align: 'left' },
       {
         key: 'cancel',
         title: 'Cancel All',
@@ -52,9 +58,49 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
     ],
     [],
   );
-  const handleCancelAll = () => {
-    console.log('handleCancelAll');
-  };
+
+  const handleCancelOrder = useCallback(
+    (order: FrontendOrder) => {
+      const tokenInfo = getTokenInfo(order.coin);
+      if (!tokenInfo) {
+        console.warn(`Token info not found for coin: ${order.coin}`);
+        return;
+      }
+      void actions.current.cancelOrder({
+        orders: [
+          {
+            assetId: tokenInfo.assetId,
+            oid: order.oid,
+          },
+        ],
+      });
+    },
+    [getTokenInfo, actions],
+  );
+
+  const handleCancelAll = useCallback(() => {
+    const ordersToCancel = orders
+      .map((order) => {
+        const tokenInfo = getTokenInfo(order.coin);
+        if (!tokenInfo) {
+          console.warn(`Token info not found for coin: ${order.coin}`);
+          return null;
+        }
+        return {
+          assetId: tokenInfo.assetId,
+          oid: order.oid,
+        };
+      })
+      .filter(Boolean);
+
+    if (ordersToCancel.length === 0) {
+      console.warn('No valid orders to cancel or token info unavailable');
+      return;
+    }
+
+    void actions.current.cancelOrder({ orders: ordersToCancel });
+  }, [orders, getTokenInfo, actions]);
+
   const totalMinWidth = useMemo(
     () =>
       columnsConfig.reduce(
@@ -70,7 +116,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
         isMobile={isMobile}
         cellMinWidth={totalMinWidth}
         columnConfigs={columnsConfig}
-        handleCancelAll={handleCancelAll}
+        handleCancelOrder={() => handleCancelOrder(item)}
         index={_index}
       />
     );
