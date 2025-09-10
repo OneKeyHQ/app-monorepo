@@ -1,26 +1,22 @@
 import { useMemo } from 'react';
 
-import { StyleSheet, View } from 'react-native';
+import { colorTokens } from '@tamagui/themes';
+import { StyleSheet, Text, View } from 'react-native';
 
 import type { IXStackProps } from '@onekeyhq/components';
-import {
-  NumberSizeableText,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
 
 import { DefaultLoadingNode } from './DefaultLoadingNode';
 import { useAggregatedBook } from './useAggregatedBook';
 import { getMidPrice } from './utils';
 
 import type { IOBLevel } from './types';
-import type { StyleProp, ViewStyle } from 'react-native';
+import type { DimensionValue, StyleProp, ViewStyle } from 'react-native';
 
-export const rowHeight = 28;
+export const rowHeight = 24;
 
 export const defaultMidPriceNode = (midPrice: number) => (
-  <NumberSizeableText formatter="balance">{midPrice}</NumberSizeableText>
+  <Text formatter="balance">{midPrice}</Text>
 );
 
 interface IOBAggregation {
@@ -72,10 +68,9 @@ const styles = StyleSheet.create({
   },
   row: {
     height: rowHeight,
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 1,
+    position: 'relative',
   },
   cell: {
     position: 'relative',
@@ -89,69 +84,82 @@ const styles = StyleSheet.create({
   },
 });
 
-type IColorBlockProps = Omit<IXStackProps, 'width'> & {
-  width: string;
-  color?: IXStackProps['bg'];
+type IColorBlockProps = {
+  color: string;
+  width: DimensionValue;
+  left: number;
+  right: number;
+  theme?: 'light' | 'dark';
 };
 
-function ColorBlock({ color, width, ...props }: IColorBlockProps) {
+function ColorBlock({ color, width, left, right }: IColorBlockProps) {
   return (
-    <XStack
-      disableClassName
-      position="absolute"
-      right={0}
-      h="$6"
-      width={width}
-      bg={color}
-      {...props}
+    <View
+      style={{
+        position: 'absolute',
+        right,
+        left,
+        height: rowHeight,
+        width,
+        backgroundColor: color,
+      }}
     />
   );
 }
 
-function GreenBlock({ width, ...props }: IColorBlockProps) {
-  return <ColorBlock color="$green3" width={width} {...props} />;
+function GreenBlock({ theme, width, ...props }: IColorBlockProps) {
+  const colorValue = useMemo(() => {
+    return colorTokens[theme ?? 'light'].green.green3;
+  }, [theme]);
+  return <ColorBlock {...props} color={colorValue} width={width} />;
 }
 
-function RedBlock({ width, ...props }: IColorBlockProps) {
-  return <ColorBlock color="$red3" width={width} {...props} />;
+function RedBlock({ width, theme, ...props }: IColorBlockProps) {
+  const colorValue = useMemo(() => {
+    return colorTokens[theme ?? 'light'].red.red3;
+  }, [theme]);
+  return <ColorBlock {...props} color={colorValue} width={width} />;
 }
 
 function OrderBookVerticalRow({ item }: { item: IOBLevel }) {
   return (
     <XStack flex={1} px="$3" jc="space-between" disableClassName>
       <XStack width="33.33%">
-        <NumberSizeableText
+        <Text
           fontFamily="$monoRegular"
           color="$textSubdued"
           formatter="marketCap"
+          disableOptimization
           disableClassName
         >
           {item.price}
-        </NumberSizeableText>
+        </Text>
       </XStack>
-      <XStack width="33.33%">
-        <NumberSizeableText
+      <XStack width="33.33%" disableClassName>
+        <Text
+          disableOptimization
+          disableClassName
           flex={1}
           fontFamily="$monoRegular"
           color="$textSubdued"
           formatter="marketCap"
           textAlign="center"
-          disableClassName
         >
           {item.size}
-        </NumberSizeableText>
+        </Text>
       </XStack>
       <XStack width="33.33%">
-        <NumberSizeableText
+        <Text
           flex={1}
           textAlign="right"
           fontFamily="$monoRegular"
           color="$textSubdued"
           formatter="marketCap"
+          disableOptimization
           disableClassName
         >
           {item.cumSize}
-        </NumberSizeableText>
+        </Text>
       </XStack>
     </XStack>
   );
@@ -214,20 +222,20 @@ export function OrderBook({
                     width={`${(item.cumSize / bidDepth) * 100}%`}
                   />
                   <XStack flex={1} jc="space-between">
-                    <NumberSizeableText
+                    <Text
                       fontFamily="$monoRegular"
                       color="$textSubdued"
                       formatter="marketCap"
                     >
                       {item.size}
-                    </NumberSizeableText>
-                    <NumberSizeableText
+                    </Text>
+                    <Text
                       fontFamily="$monoRegular"
                       color="$green11"
                       formatter="value"
                     >
                       {item.price}
-                    </NumberSizeableText>
+                    </Text>
                   </XStack>
                 </XStack>
               ))}
@@ -246,20 +254,20 @@ export function OrderBook({
                     width={`${(item.cumSize / askDepth) * 100}%`}
                   />
                   <XStack flex={1} jc="space-between">
-                    <NumberSizeableText
+                    <Text
                       fontFamily="$monoRegular"
                       color="$red11"
                       formatter="marketCap"
                     >
                       {item.size}
-                    </NumberSizeableText>
-                    <NumberSizeableText
+                    </Text>
+                    <Text
                       fontFamily="$monoRegular"
                       color="$textSubdued"
                       formatter="value"
                     >
                       {item.price}
-                    </NumberSizeableText>
+                    </Text>
                   </XStack>
                 </XStack>
               ))}
@@ -290,19 +298,12 @@ export function OrderBook({
       </XStack>
       <YStack>
         {aggr.asks.map((itemData, index) => (
-          <XStack
-            key={index}
-            h="$6"
-            ai="center"
-            mt={1}
-            position="relative"
-            disableClassName
-          >
-            {/* <RedBlock
+          <XStack key={index} style={styles.row} disableClassName>
+            <RedBlock
               left={0}
               width={`${(itemData.cumSize / askDepth) * 100}%`}
-            /> */}
-            <OrderBookVerticalRow item={itemData} />
+            />
+            {/* <OrderBookVerticalRow item={itemData} /> */}
           </XStack>
         ))}
 
@@ -327,19 +328,12 @@ export function OrderBook({
         </XStack>
 
         {aggr.bids.map((itemData, index) => (
-          <XStack
-            key={index}
-            h="$6"
-            ai="center"
-            mt={1}
-            position="relative"
-            disableClassName
-          >
-            {/* <GreenBlock
+          <XStack key={index} style={styles.row}>
+            <GreenBlock
               left={0}
               width={`${(itemData.cumSize / bidDepth) * 100}%`}
-            /> */}
-            <OrderBookVerticalRow item={itemData} />
+            />
+            {/* <OrderBookVerticalRow item={itemData} /> */}
           </XStack>
         ))}
       </YStack>
@@ -406,12 +400,8 @@ export function OrderPairBook({
                 />
               )}
               <XStack flex={1} px="$2" jc="space-between" ai="center">
-                <NumberSizeableText formatter="value">
-                  {itemData.price}
-                </NumberSizeableText>
-                <NumberSizeableText formatter="marketCap">
-                  {itemData.size}
-                </NumberSizeableText>
+                <Text formatter="value">{itemData.price}</Text>
+                <Text formatter="marketCap">{itemData.size}</Text>
               </XStack>
             </XStack>
           );
