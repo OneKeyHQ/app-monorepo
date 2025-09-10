@@ -47,6 +47,7 @@ interface IOrderBookProps {
 
 const styles = StyleSheet.create({
   container: {
+    position: 'relative',
     padding: 8,
     width: '100%',
     height: '100%',
@@ -472,7 +473,7 @@ export function OrderBook({
         </View>
       </View>
       <View style={styles.relativeContainer}>
-        <View>
+        <View style={styles.relativeContainer}>
           {aggregatedData.asks.toReversed().map((itemData, index) => (
             <View key={index} style={styles.blockRow}>
               <ColorBlock
@@ -594,48 +595,59 @@ export function OrderPairBook({
           SIZE
         </Text>
       </View>
-      <View>
-        {aggregatedData.asks.map((itemData, index) => (
-          <View key={index} style={styles.pairBookRow}>
-            <ColorBlock
-              color={blockColors.red}
-              left={0}
-              width={`${calculatePercentage(itemData.cumSize, askDepth)}%`}
-            />
-            <OrderBookPairRow
-              item={itemData}
-              priceColor={textColor.red}
-              sizeColor={textColor.textSubdued}
-            />
-          </View>
-        ))}
-
-        <View style={styles.pairBookSpreadRow}>
-          <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
-            Spread
-          </Text>
-          <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
-            {midPrice}
-          </Text>
-          <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
-            0.002%
-          </Text>
+      <View style={styles.relativeContainer}>
+        <View style={styles.relativeContainer}>
+          {aggregatedData.asks.map((itemData, index) => (
+            <View key={index} style={styles.pairBookRow}>
+              <ColorBlock
+                color={blockColors.red}
+                left={0}
+                width={`${calculatePercentage(itemData.cumSize, askDepth)}%`}
+              />
+            </View>
+          ))}
+          <View style={styles.pairBookSpreadRow} />
+          {aggregatedData.bids.map((itemData, index) => (
+            <View key={index} style={styles.pairBookRow}>
+              <ColorBlock
+                color={blockColors.green}
+                left={0}
+                width={`${calculatePercentage(itemData.cumSize, bidDepth)}%`}
+              />
+            </View>
+          ))}
         </View>
-
-        {aggregatedData.bids.map((itemData, index) => (
-          <View key={index} style={styles.pairBookRow}>
-            <ColorBlock
-              color={blockColors.green}
-              left={0}
-              width={`${calculatePercentage(itemData.cumSize, bidDepth)}%`}
-            />
-            <OrderBookPairRow
-              item={itemData}
-              priceColor={textColor.green}
-              sizeColor={textColor.textSubdued}
-            />
+        <View style={styles.absoluteContainer}>
+          {aggregatedData.asks.map((itemData, index) => (
+            <View key={index} style={styles.pairBookRow}>
+              <OrderBookPairRow
+                item={itemData}
+                priceColor={textColor.red}
+                sizeColor={textColor.textSubdued}
+              />
+            </View>
+          ))}
+          <View style={styles.pairBookSpreadRow}>
+            <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
+              Spread
+            </Text>
+            <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
+              {midPrice}
+            </Text>
+            <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
+              0.002%
+            </Text>
           </View>
-        ))}
+          {aggregatedData.bids.map((itemData, index) => (
+            <View key={index} style={styles.pairBookRow}>
+              <OrderBookPairRow
+                item={itemData}
+                priceColor={textColor.green}
+                sizeColor={textColor.textSubdued}
+              />
+            </View>
+          ))}
+        </View>
       </View>
     </View>
   );
