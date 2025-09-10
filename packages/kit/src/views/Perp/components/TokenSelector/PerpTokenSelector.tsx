@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
 import {
   Badge,
@@ -12,17 +12,30 @@ import {
   YStack,
   usePopoverContext,
 } from '@onekeyhq/components';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useCurrentTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 
-// eslint-disable-next-line import-path/parent-depth
-import { Token } from '../../../../components/Token';
 import { usePerpTokenSelector } from '../../hooks';
 
 import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 
-function PerpTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
+function BasePerpTokenSelectorContent({
+  onLoadingChange,
+}: {
+  onLoadingChange: (isLoading: boolean) => void;
+}) {
   const { closePopover } = usePopoverContext();
-  const { searchQuery, setSearchQuery, filteredTokens, selectToken } =
-    usePerpTokenSelector();
+  const {
+    searchQuery,
+    setSearchQuery,
+    filteredTokens,
+    selectToken,
+    isLoading,
+  } = usePerpTokenSelector();
+
+  useEffect(() => {
+    onLoadingChange(isLoading);
+  }, [isLoading, onLoadingChange]);
 
   const handleSelectToken = async (symbol: string) => {
     try {
@@ -32,9 +45,7 @@ function PerpTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
       console.error('Failed to switch token:', error);
     }
   };
-  if (!isOpen) {
-    return null;
-  }
+
   return (
     <YStack>
       <XStack px="$5" pt="$5">
@@ -112,10 +123,24 @@ function PerpTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
   );
 }
 
+function PerpTokenSelectorContent({
+  isOpen,
+  onLoadingChange,
+}: {
+  isOpen: boolean;
+  onLoadingChange: (isLoading: boolean) => void;
+}) {
+  return isOpen ? (
+    <BasePerpTokenSelectorContent onLoadingChange={onLoadingChange} />
+  ) : null;
+}
+
+const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
+
 function PerpTokenSelector() {
   const [isOpen, setIsOpen] = useState(false);
-  const { currentToken, isLoading } = usePerpTokenSelector();
-
+  const [currentToken] = useCurrentTokenAtom();
+  const [isLoading, setIsLoading] = useState(false);
   return useMemo(
     () => (
       <Popover
@@ -154,9 +179,12 @@ function PerpTokenSelector() {
             {isLoading ? <Spinner size="small" /> : null}
           </Badge>
         }
-        renderContent={({ isOpen: isOpenProp }) =>
-          PerpTokenSelectorContent({ isOpen: isOpenProp ?? false })
-        }
+        renderContent={({ isOpen: isOpenProp }) => (
+          <PerpTokenSelectorContentMemo
+            isOpen={isOpenProp ?? false}
+            onLoadingChange={setIsLoading}
+          />
+        )}
       />
     ),
     [isOpen, currentToken, isLoading],
