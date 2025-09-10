@@ -178,12 +178,21 @@ function ColorBlock({ color, width, left, right }: IColorBlockProps) {
   );
 }
 
-function OrderBookVerticalRow({ item }: { item: IOBLevel }) {
+function OrderBookVerticalRow({
+  item,
+  priceColor,
+}: {
+  item: IOBLevel;
+  priceColor: string;
+}) {
   return (
     <View style={styles.verticalRowContainer}>
       <View style={styles.verticalRowCell}>
         <Text
-          style={[styles.monospaceText, { textAlign: 'left' }]}
+          style={[
+            styles.monospaceText,
+            { textAlign: 'left', color: priceColor },
+          ]}
           numberOfLines={1}
         >
           {item.price}
@@ -210,23 +219,26 @@ function OrderBookVerticalRow({ item }: { item: IOBLevel }) {
 }
 
 const useBlockColors = () => {
-  const theme = useThemeName();
+  const themeName = useThemeName();
   return useMemo(() => {
     return {
-      red: colorTokens[theme].red.red3,
-      green: colorTokens[theme].green.green3,
+      red: colorTokens[themeName].red.red3,
+      green: colorTokens[themeName].green.green3,
     };
-  }, [theme]);
+  }, [themeName]);
 };
 
 const useTextColor = () => {
   const theme = useTheme();
+  const themeName = useThemeName();
   return useMemo(() => {
     return {
       textSubdued: theme.textSubdued.val,
       text: theme.text.val,
+      red: colorTokens[themeName].red.red11,
+      green: colorTokens[themeName].green.green11,
     };
-  }, [theme]);
+  }, [theme.text.val, theme.textSubdued.val, themeName]);
 };
 
 export function OrderBook({
@@ -390,7 +402,7 @@ export function OrderBook({
               left={0}
               width={`${(itemData.cumSize / askDepth) * 100}%`}
             />
-            <OrderBookVerticalRow item={itemData} />
+            <OrderBookVerticalRow item={itemData} priceColor={textColor.red} />
           </View>
         ))}
         <View key="mid" style={styles.spreadRow}>
@@ -406,7 +418,10 @@ export function OrderBook({
               left={0}
               width={`${(itemData.cumSize / bidDepth) * 100}%`}
             />
-            <OrderBookVerticalRow item={itemData} />
+            <OrderBookVerticalRow
+              item={itemData}
+              priceColor={textColor.green}
+            />
           </View>
         ))}
       </View>
