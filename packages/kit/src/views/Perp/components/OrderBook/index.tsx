@@ -97,6 +97,7 @@ type IColorBlockProps = Omit<IXStackProps, 'width'> & {
 function ColorBlock({ color, width, ...props }: IColorBlockProps) {
   return (
     <XStack
+      disableClassName
       position="absolute"
       right={0}
       h="$6"
@@ -113,6 +114,47 @@ function GreenBlock({ width, ...props }: IColorBlockProps) {
 
 function RedBlock({ width, ...props }: IColorBlockProps) {
   return <ColorBlock color="$red3" width={width} {...props} />;
+}
+
+function OrderBookVerticalRow({ item }: { item: IOBLevel }) {
+  return (
+    <XStack flex={1} px="$3" jc="space-between" disableClassName>
+      <XStack width="33.33%">
+        <NumberSizeableText
+          fontFamily="$monoRegular"
+          color="$textSubdued"
+          formatter="marketCap"
+          disableClassName
+        >
+          {item.price}
+        </NumberSizeableText>
+      </XStack>
+      <XStack width="33.33%">
+        <NumberSizeableText
+          flex={1}
+          fontFamily="$monoRegular"
+          color="$textSubdued"
+          formatter="marketCap"
+          textAlign="center"
+          disableClassName
+        >
+          {item.size}
+        </NumberSizeableText>
+      </XStack>
+      <XStack width="33.33%">
+        <NumberSizeableText
+          flex={1}
+          textAlign="right"
+          fontFamily="$monoRegular"
+          color="$textSubdued"
+          formatter="marketCap"
+          disableClassName
+        >
+          {item.cumSize}
+        </NumberSizeableText>
+      </XStack>
+    </XStack>
+  );
 }
 
 export function OrderBook({
@@ -227,94 +269,79 @@ export function OrderBook({
       </View>
     );
   }
-
-  const data = [
-    ...aggr.asks.map((ask) => ({ data: ask, type: 'ask' })),
-    { type: 'mid', data: { price: midPrice, size: 0, cumSize: 0 } },
-    ...aggr.bids.map((bid) => ({ data: bid, type: 'bid' })),
-  ];
-
   return (
     <YStack>
-      <XStack px="$3">
-        <XStack flex={1} ai="center">
-          <SizableText size="$headingXs" color="$textSubdued">
+      <XStack px="$3" disableClassName>
+        <XStack flex={1} ai="center" disableClassName>
+          <SizableText size="$headingXs" color="$textSubdued" disableClassName>
             Price
           </SizableText>
         </XStack>
-        <XStack flex={1} ai="center" jc="center">
-          <SizableText size="$headingXs" color="$textSubdued">
+        <XStack flex={1} ai="center" jc="center" disableClassName>
+          <SizableText size="$headingXs" color="$textSubdued" disableClassName>
             SIZE
           </SizableText>
         </XStack>
         <XStack flex={1} ai="center" jc="flex-end">
-          <SizableText size="$headingXs" color="$textSubdued">
+          <SizableText size="$headingXs" color="$textSubdued" disableClassName>
             TOTAL
           </SizableText>
         </XStack>
       </XStack>
       <YStack>
-        {data.map((item, index) => {
-          const { type, data: itemData } = item;
-          if (type === 'mid') {
-            return (
-              <XStack key="mid" gap="$6" h="$6" ai="center" jc="center" mt={1}>
-                <SizableText size="$bodySm">Spread</SizableText>
-                <SizableText size="$bodySm">{itemData.price}</SizableText>
-                <SizableText size="$bodySm">0.002%</SizableText>
-              </XStack>
-            );
-          }
-          return (
-            <XStack key={index} h="$6" ai="center" mt={1} position="relative">
-              {type === 'bid' ? (
-                <GreenBlock
-                  left={0}
-                  width={`${(itemData.cumSize / bidDepth) * 100}%`}
-                />
-              ) : (
-                <RedBlock
-                  left={0}
-                  width={`${(itemData.cumSize / askDepth) * 100}%`}
-                />
-              )}
-              <XStack flex={1} px="$3" jc="space-between">
-                <XStack width="33.33%">
-                  <NumberSizeableText
-                    fontFamily="$monoRegular"
-                    color="$textSubdued"
-                    formatter="marketCap"
-                  >
-                    {itemData.price}
-                  </NumberSizeableText>
-                </XStack>
-                <XStack width="33.33%">
-                  <NumberSizeableText
-                    flex={1}
-                    fontFamily="$monoRegular"
-                    color="$textSubdued"
-                    formatter="marketCap"
-                    textAlign="center"
-                  >
-                    {itemData.size}
-                  </NumberSizeableText>
-                </XStack>
+        {aggr.asks.map((itemData, index) => (
+          <XStack
+            key={index}
+            h="$6"
+            ai="center"
+            mt={1}
+            position="relative"
+            disableClassName
+          >
+            <RedBlock
+              left={0}
+              width={`${(itemData.cumSize / askDepth) * 100}%`}
+            />
+            <OrderBookVerticalRow item={itemData} />
+          </XStack>
+        ))}
 
-                <XStack width="33.33%">
-                  <NumberSizeableText
-                    flex={1}
-                    textAlign="right"
-                    fontFamily="$monoRegular"
-                    color="$textSubdued"
-                    formatter="marketCap"
-                  >
-                    {itemData.cumSize}
-                  </NumberSizeableText>
-                </XStack>
-              </XStack>
-            </XStack>
-          );
-        })}
+        <XStack
+          key="mid"
+          gap="$6"
+          h="$6"
+          ai="center"
+          jc="center"
+          mt={1}
+          disableClassName
+        >
+          <SizableText size="$bodySm" disableClassName>
+            Spread
+          </SizableText>
+          <SizableText size="$bodySm" disableClassName>
+            {midPrice}
+          </SizableText>
+          <SizableText size="$bodySm" disableClassName>
+            0.002%
+          </SizableText>
+        </XStack>
+
+        {aggr.bids.map((itemData, index) => (
+          <XStack
+            key={index}
+            h="$6"
+            ai="center"
+            mt={1}
+            position="relative"
+            disableClassName
+          >
+            <GreenBlock
+              left={0}
+              width={`${(itemData.cumSize / bidDepth) * 100}%`}
+            />
+            <OrderBookVerticalRow item={itemData} />
+          </XStack>
+        ))}
       </YStack>
     </YStack>
   );
