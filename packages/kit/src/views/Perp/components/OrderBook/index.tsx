@@ -127,6 +127,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
+  bodySmMedium: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '500',
+  },
   spreadRow: {
     gap: 24,
     height: rowHeight,
@@ -137,9 +142,9 @@ const styles = StyleSheet.create({
   },
   pairBookHeader: {
     paddingBottom: 4,
-    paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexDirection: 'row',
   },
   pairBookRow: {
     marginTop: 1,
@@ -147,6 +152,7 @@ const styles = StyleSheet.create({
     height: 24,
   },
   pairBookSpreadRow: {
+    flexDirection: 'row',
     gap: 24,
     height: 24,
     alignItems: 'center',
@@ -429,12 +435,32 @@ export function OrderBook({
   );
 }
 
-function OrderBookPairRow({ item }: { item: IOBLevel }) {
+function OrderBookPairRow({
+  item,
+  priceColor,
+  sizeColor,
+}: {
+  item: IOBLevel;
+  priceColor: string;
+  sizeColor: string;
+}) {
   return (
-    <XStack flex={1} px="$2" mt={1} jc="space-between" ai="center">
-      <Text>{item.price}</Text>
-      <Text>{item.size}</Text>
-    </XStack>
+    <View
+      style={{
+        flex: 1,
+        flexDirection: 'row',
+        marginTop: 1,
+        justifyContent: 'space-between',
+        alignItems: 'center',
+      }}
+    >
+      <Text style={[styles.bodySmMedium, { color: priceColor }]}>
+        {item.price}
+      </Text>
+      <Text style={[styles.bodySmMedium, { color: sizeColor }]}>
+        {item.size}
+      </Text>
+    </View>
   );
 }
 
@@ -460,42 +486,61 @@ export function OrderPairBook({
     parseFloat(bids[0]?.px ?? '0'),
     parseFloat(asks[0]?.px ?? '0'),
   );
+  const textColor = useTextColor();
   const blockColors = useBlockColors();
   return (
-    <YStack>
-      <XStack style={styles.pairBookHeader}>
-        <SizableText color="$textSubdued">PRICE</SizableText>
-        <SizableText color="$textSubdued">SIZE</SizableText>
-      </XStack>
-      <YStack>
+    <View style={{ padding: 8 }}>
+      <View style={styles.pairBookHeader}>
+        <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
+          PRICE
+        </Text>
+        <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
+          SIZE
+        </Text>
+      </View>
+      <View>
         {aggregatedData.asks.map((itemData, index) => (
-          <XStack key={index} style={styles.pairBookRow}>
+          <View key={index} style={styles.pairBookRow}>
             <ColorBlock
               color={blockColors.red}
               left={0}
               width={`${(itemData.cumSize / askDepth) * 100}%`}
             />
-            <OrderBookPairRow item={itemData} />
-          </XStack>
+            <OrderBookPairRow
+              item={itemData}
+              priceColor={textColor.red}
+              sizeColor={textColor.textSubdued}
+            />
+          </View>
         ))}
 
-        <XStack style={styles.pairBookSpreadRow}>
-          <SizableText size="$bodySm">Spread</SizableText>
-          <SizableText size="$bodySm">{midPrice}</SizableText>
-          <SizableText size="$bodySm">0.002%</SizableText>
-        </XStack>
+        <View style={styles.pairBookSpreadRow}>
+          <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
+            Spread
+          </Text>
+          <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
+            {midPrice}
+          </Text>
+          <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
+            0.002%
+          </Text>
+        </View>
 
         {aggregatedData.bids.map((itemData, index) => (
-          <XStack key={index} style={styles.pairBookRow}>
+          <View key={index} style={styles.pairBookRow}>
             <ColorBlock
               color={blockColors.green}
               left={0}
               width={`${(itemData.cumSize / bidDepth) * 100}%`}
             />
-            <OrderBookPairRow item={itemData} />
-          </XStack>
+            <OrderBookPairRow
+              item={itemData}
+              priceColor={textColor.green}
+              sizeColor={textColor.textSubdued}
+            />
+          </View>
         ))}
-      </YStack>
-    </YStack>
+      </View>
+    </View>
   );
 }
