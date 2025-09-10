@@ -60,6 +60,11 @@ const styles = StyleSheet.create({
     marginTop: 1,
     position: 'relative',
   },
+  blockRow: {
+    height: rowHeight,
+    marginTop: 1,
+    position: 'relative',
+  },
   headerText: {
     fontSize: 12,
     lineHeight: 16,
@@ -140,7 +145,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     position: 'relative',
   },
-  blockContainer: {
+  relativeContainer: {
+    position: 'relative',
+    flex: 1,
+  },
+  absoluteContainer: {
     flex: 1,
     position: 'absolute',
     top: 0,
@@ -339,7 +348,7 @@ export function OrderBook({
                 </View>
               ))}
             </View>
-            <View style={styles.blockContainer}>
+            <View style={styles.absoluteContainer}>
               <View style={styles.levelListContainer}>
                 <View style={styles.levelList}>
                   {aggregatedData.bids.map((item, index) => (
@@ -382,7 +391,7 @@ export function OrderBook({
                   ))}
                 </View>
                 <View style={styles.levelList}>
-                  {aggregatedData.asks.reverse().map((item, index) => (
+                  {aggregatedData.asks.toReversed().map((item, index) => (
                     <View
                       key={index}
                       style={{
@@ -462,41 +471,57 @@ export function OrderBook({
           </Text>
         </View>
       </View>
-      <View>
-        {aggregatedData.asks.reverse().map((itemData, index) => (
-          <View key={index} style={styles.row}>
-            <ColorBlock
-              color={blockColors.red}
-              left={0}
-              width={`${calculatePercentage(itemData.cumSize, askDepth)}%`}
-            />
-            <OrderBookVerticalRow
-              item={itemData}
-              priceColor={textColor.red}
-              sizeColor={textColor.textSubdued}
-            />
-          </View>
-        ))}
-        <View key="mid" style={styles.spreadRow}>
-          <Text style={[styles.bodySm, { color: textColor.text }]}>Spread</Text>
-          <Text style={[styles.bodySm, { color: textColor.text }]}>0.1</Text>
-          <Text style={[styles.bodySm, { color: textColor.text }]}>0.002%</Text>
+      <View style={styles.relativeContainer}>
+        <View>
+          {aggregatedData.asks.toReversed().map((itemData, index) => (
+            <View key={index} style={styles.blockRow}>
+              <ColorBlock
+                color={blockColors.red}
+                left={0}
+                width={`${calculatePercentage(itemData.cumSize, askDepth)}%`}
+              />
+            </View>
+          ))}
+          <View key="mid" style={styles.spreadRow} />
+          {aggregatedData.bids.map((itemData, index) => (
+            <View key={index} style={styles.blockRow}>
+              <ColorBlock
+                color={blockColors.green}
+                left={0}
+                width={`${calculatePercentage(itemData.cumSize, bidDepth)}%`}
+              />
+            </View>
+          ))}
         </View>
-
-        {aggregatedData.bids.map((itemData, index) => (
-          <View key={index} style={styles.row}>
-            <ColorBlock
-              color={blockColors.green}
-              left={0}
-              width={`${calculatePercentage(itemData.cumSize, bidDepth)}%`}
-            />
-            <OrderBookVerticalRow
-              item={itemData}
-              priceColor={textColor.green}
-              sizeColor={textColor.textSubdued}
-            />
+        <View style={styles.absoluteContainer}>
+          {aggregatedData.asks.toReversed().map((itemData, index) => (
+            <View key={index} style={styles.blockRow}>
+              <OrderBookVerticalRow
+                item={itemData}
+                priceColor={textColor.red}
+                sizeColor={textColor.textSubdued}
+              />
+            </View>
+          ))}
+          <View key="mid" style={styles.spreadRow}>
+            <Text style={[styles.bodySm, { color: textColor.text }]}>
+              Spread
+            </Text>
+            <Text style={[styles.bodySm, { color: textColor.text }]}>0.1</Text>
+            <Text style={[styles.bodySm, { color: textColor.text }]}>
+              0.002%
+            </Text>
           </View>
-        ))}
+          {aggregatedData.bids.map((itemData, index) => (
+            <View key={index} style={styles.blockRow}>
+              <OrderBookVerticalRow
+                item={itemData}
+                priceColor={textColor.green}
+                sizeColor={textColor.textSubdued}
+              />
+            </View>
+          ))}
+        </View>
       </View>
     </View>
   );
