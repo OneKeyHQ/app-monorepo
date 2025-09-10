@@ -1600,6 +1600,7 @@
   global_windows_hello_set_error = 'global.windows_hello_set_error',
   global_withdraw = 'global.withdraw',
   global_x = 'global.x',
+  global__multichain = 'global__multichain',
   hardware_backup_completed = 'hardware.backup_completed',
   hardware_bluetooth_need_turned_on_error = 'hardware.bluetooth_need_turned_on_error',
   hardware_bluetooth_not_paired_error = 'hardware.bluetooth_not_paired_error',
