@@ -137,7 +137,7 @@ function PerpTokenSelectorContent({
 
 const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
 
-function PerpTokenSelector() {
+function BasePerpTokenSelector() {
   const [isOpen, setIsOpen] = useState(false);
   const [currentToken] = useCurrentTokenAtom();
   const [isLoading, setIsLoading] = useState(false);
@@ -191,4 +191,4 @@ function PerpTokenSelector() {
   );
 }
 
-export { PerpTokenSelector };
+export const PerpTokenSelector = memo(BasePerpTokenSelector);
