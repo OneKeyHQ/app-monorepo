@@ -298,10 +298,10 @@ export function OrderBook({
             position="relative"
             disableClassName
           >
-            <RedBlock
+            {/* <RedBlock
               left={0}
               width={`${(itemData.cumSize / askDepth) * 100}%`}
-            />
+            /> */}
             <OrderBookVerticalRow item={itemData} />
           </XStack>
         ))}
@@ -335,10 +335,10 @@ export function OrderBook({
             position="relative"
             disableClassName
           >
-            <GreenBlock
+            {/* <GreenBlock
               left={0}
               width={`${(itemData.cumSize / bidDepth) * 100}%`}
-            />
+            /> */}
             <OrderBookVerticalRow item={itemData} />
           </XStack>
         ))}
