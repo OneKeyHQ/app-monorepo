@@ -2,7 +2,13 @@ import { memo, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  IconButton,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -109,7 +115,7 @@ const PositionRow = memo(
       const pnlBn = new BigNumber(pos.unrealizedPnl || '0');
       const pnlAbs = pnlBn.abs().toFixed();
       const pnlFormatted = numberFormat(pnlAbs, {
-        formatter: 'price',
+        formatter: 'value',
         formatterOptions: {
           currency: '$',
         },
@@ -151,7 +157,7 @@ const PositionRow = memo(
       let slPrice = '--';
       let showOrder = false;
       if (tpslOrders && tpslOrders.length > 0) {
-        showOrder = tpslOrders.some(
+        showOrder = tpslOrders.every(
           (order) => !new BigNumber(order.origSz).isZero(),
         );
         if (!showOrder) {
@@ -332,10 +338,15 @@ const PositionRow = memo(
           justifyContent="center"
           alignItems={calcCellAlign(columnConfigs[1].align)}
         >
-          <SizableText size="$bodySm">
+          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
             {`${sizeInfo.sizeAbsFormatted as string}`}
           </SizableText>
-          <SizableText size="$bodySm" color="$textSubdued">
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+            color="$textSubdued"
+          >
             {`${sizeInfo.sizeValue as string}`}
           </SizableText>
         </YStack>
@@ -346,9 +357,11 @@ const PositionRow = memo(
           justifyContent={calcCellAlign(columnConfigs[2].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`${
-            priceInfo.entryPriceFormatted as string
-          }`}</SizableText>
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+          >{`${priceInfo.entryPriceFormatted as string}`}</SizableText>
         </XStack>
 
         {/* Mark Price */}
@@ -357,9 +370,11 @@ const PositionRow = memo(
           justifyContent={calcCellAlign(columnConfigs[3].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`${
-            priceInfo.markPriceFormatted as string
-          }`}</SizableText>
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+          >{`${priceInfo.markPriceFormatted as string}`}</SizableText>
         </XStack>
         {/* Liq. Price */}
         <XStack
@@ -367,9 +382,11 @@ const PositionRow = memo(
           justifyContent={calcCellAlign(columnConfigs[4].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`${
-            priceInfo.liquidationPriceFormatted as string
-          }`}</SizableText>
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+          >{`${priceInfo.liquidationPriceFormatted as string}`}</SizableText>
         </XStack>
         {/* Unrealized PnL */}
         <XStack
@@ -377,11 +394,16 @@ const PositionRow = memo(
           justifyContent={calcCellAlign(columnConfigs[5].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm" color={otherInfo.pnlColor}>{`${
-            otherInfo.pnlPlusOrMinus
-          }${otherInfo.unrealizedPnl as string}(${otherInfo.pnlPlusOrMinus}${
-            otherInfo.roiPercent
-          }%)`}</SizableText>
+          <SizableText
+            size="$bodySm"
+            color={otherInfo.pnlColor}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {`${otherInfo.pnlPlusOrMinus}${otherInfo.unrealizedPnl as string}(${
+              otherInfo.pnlPlusOrMinus
+            }${otherInfo.roiPercent}%)`}
+          </SizableText>
         </XStack>
 
         {/* Margin */}
@@ -390,9 +412,11 @@ const PositionRow = memo(
           justifyContent={calcCellAlign(columnConfigs[6].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`${
-            otherInfo.marginUsedFormatted as string
-          }`}</SizableText>
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+          >{`${otherInfo.marginUsedFormatted as string}`}</SizableText>
         </XStack>
 
         {/* Funding */}
@@ -401,9 +425,11 @@ const PositionRow = memo(
           justifyContent={calcCellAlign(columnConfigs[7].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`${
-            otherInfo.fundingFormatted as string
-          }`}</SizableText>
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+          >{`${otherInfo.fundingFormatted as string}`}</SizableText>
         </XStack>
 
         {/* TPSL */}
@@ -418,10 +444,27 @@ const PositionRow = memo(
               variant="tertiary"
               onPress={handleViewTpslOrders}
             >
-              View Order
+              <SizableText color="$textSuccess" size="$bodySm">
+                View Order
+              </SizableText>
             </Button>
           ) : (
-            <SizableText size="$bodySm">{tpslInfo.tpsl}</SizableText>
+            <XStack alignItems="center" gap="$1">
+              <IconButton
+                variant="tertiary"
+                size="small"
+                icon="HighlightOutline"
+                iconSize="$2.5"
+                onPress={setTpsl}
+              />
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+              >
+                {tpslInfo.tpsl}
+              </SizableText>
+            </XStack>
           )}
         </XStack>
 
@@ -435,12 +478,7 @@ const PositionRow = memo(
           <Button size="small" variant="tertiary" onPress={handleMarketClose}>
             <SizableText size="$bodySm">Market</SizableText>
           </Button>
-          <Button
-            size="small"
-            variant="tertiary"
-            disabled
-            onPress={handleLimitClose}
-          >
+          <Button size="small" variant="tertiary" onPress={handleLimitClose}>
             <SizableText size="$bodySm">Limit</SizableText>
           </Button>
         </XStack>
