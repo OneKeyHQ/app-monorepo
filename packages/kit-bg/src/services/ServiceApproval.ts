@@ -55,7 +55,8 @@ class ServiceApproval extends ServiceBase {
           },
         );
       queries = allNetworkAccounts.filter(
-        (i) => networksSupportBulkRevokeApproval[i.networkId],
+        (i) =>
+          networksSupportBulkRevokeApproval[i.networkId] && i.accountAddress,
       ) as {
         accountId: string;
         networkId: string;

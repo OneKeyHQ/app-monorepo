@@ -1,9 +1,17 @@
 import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
-import { Dialog } from '@onekeyhq/components';
+import {
+  Badge,
+  Dialog,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -154,55 +162,91 @@ function useBulkRevoke() {
 
       const dialog = Dialog.show({
         title: intl.formatMessage({
-          id: ETranslations.wallet_approval_bulk_revoke,
+          id: ETranslations.wallet_approval_bulk_revoke_method_title,
         }),
-        description: intl.formatMessage(
-          {
-            id: ETranslations.wallet_approval_bulk_revoke_prime_description,
-          },
-          {
-            number: unsignedTxs.length,
-          },
+
+        renderContent: (
+          <YStack gap="$3">
+            <ListItem
+              mx="$0"
+              drillIn
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor="$borderSubdued"
+              icon="HandPinchOutline"
+              onPress={async () => {
+                await dialog.close();
+
+                void navigationToOneByOneRevoke({
+                  unsignedTxs,
+                });
+              }}
+              title={intl.formatMessage({
+                id: ETranslations.wallet_approval_bulk_revoke_method_one_by_one_title,
+              })}
+              subtitle={intl.formatMessage({
+                id: ETranslations.wallet_approval_bulk_revoke_method_one_by_one_desc,
+              })}
+            />
+            <ListItem
+              mx="$0"
+              drillIn
+              icon="FlashOutline"
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor="$borderSubdued"
+              onPress={async () => {
+                await dialog.close();
+
+                if (isPrimeAvailable) {
+                  if (isPrimeUser) {
+                    void navigationToBulkRevoke({
+                      unsignedTxs,
+                      contractMap,
+                    });
+                  } else {
+                    navigation.pushFullModal(EModalRoutes.PrimeModal, {
+                      screen: EPrimePages.PrimeFeatures,
+                      params: {
+                        showAllFeatures: false,
+                        selectedFeature: EPrimeFeatures.BulkRevoke,
+                        selectedSubscriptionPeriod: 'P1Y',
+                      },
+                    });
+                  }
+                } else {
+                  void navigationToBulkRevoke({
+                    unsignedTxs,
+                    contractMap,
+                  });
+                }
+              }}
+            >
+              <ListItem.Text
+                flex={1}
+                primary={
+                  <XStack alignItems="center" gap="$2">
+                    <SizableText size="$bodyLgMedium">
+                      {intl.formatMessage({
+                        id: ETranslations.wallet_approval_bulk_revoke_method_bulk_revoke,
+                      })}
+                    </SizableText>
+                    <Badge badgeSize="sm">
+                      <Badge.Text>
+                        {intl.formatMessage({
+                          id: ETranslations.prime_status_prime,
+                        })}
+                      </Badge.Text>
+                    </Badge>
+                  </XStack>
+                }
+                secondary={intl.formatMessage({
+                  id: ETranslations.wallet_approval_bulk_revoke_method_bulk_desc,
+                })}
+              />
+            </ListItem>
+          </YStack>
         ),
-        confirmButtonProps: {
-          icon: isPrimeAvailable ? 'PrimeOutline' : undefined,
-        },
-        onConfirm: async () => {
-          await dialog.close();
-
-          if (isPrimeAvailable) {
-            if (isPrimeUser) {
-              void navigationToBulkRevoke({
-                unsignedTxs,
-                contractMap,
-              });
-            } else {
-              navigation.pushFullModal(EModalRoutes.PrimeModal, {
-                screen: EPrimePages.PrimeFeatures,
-                params: {
-                  showAllFeatures: false,
-                  selectedFeature: EPrimeFeatures.BulkRevoke,
-                  selectedSubscriptionPeriod: 'P1Y',
-                },
-              });
-            }
-          } else {
-            void navigationToBulkRevoke({
-              unsignedTxs,
-              contractMap,
-            });
-          }
-        },
-        onCancelText: intl.formatMessage({
-          id: ETranslations.wallet_approval_bulk_revoke_one_by_one,
-        }),
-        onCancel: async () => {
-          await dialog.close();
-
-          void navigationToOneByOneRevoke({
-            unsignedTxs,
-          });
-        },
+        showCancelButton: false,
+        showConfirmButton: false,
       });
     },
     [

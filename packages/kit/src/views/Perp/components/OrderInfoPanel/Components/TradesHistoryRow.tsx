@@ -8,7 +8,7 @@ import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import { calcCellAlign } from '../utils';
+import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
 
@@ -17,10 +17,17 @@ export type ITradesHistoryRowProps = {
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
   isMobile?: boolean;
+  index: number;
 };
 
 const TradesHistoryRow = memo(
-  ({ fill, cellMinWidth, columnConfigs, isMobile }: ITradesHistoryRowProps) => {
+  ({
+    fill,
+    cellMinWidth,
+    columnConfigs,
+    isMobile,
+    index,
+  }: ITradesHistoryRowProps) => {
     const assetSymbol = useMemo(() => fill.coin ?? '-', [fill.coin]);
     const dateInfo = useMemo(() => {
       const timeDate = new Date(fill.time);
@@ -51,9 +58,6 @@ const TradesHistoryRow = memo(
       const sizeBN = new BigNumber(size);
       const priceFormatted = numberFormat(price, {
         formatter: 'price',
-        formatterOptions: {
-          currency: '$',
-        },
       });
       const feeFormatted = numberFormat(fee, {
         formatter: 'value',
@@ -182,31 +186,28 @@ const TradesHistoryRow = memo(
     return (
       <XStack
         flex={1}
-        py="$2"
+        py="$1.5"
         px="$3"
         alignItems="center"
         hoverStyle={{ bg: '$bgHover' }}
-        bg="$bg"
-        borderBottomWidth="$px"
-        borderBottomColor="$borderSubdued"
         minWidth={cellMinWidth}
+        {...(index % 2 === 1 && {
+          backgroundColor: '$bgSubdued',
+        })}
       >
         {/* Asset symbol */}
         <XStack
-          width={columnConfigs[0].width}
-          minWidth={columnConfigs[0].minWidth}
-          flex={columnConfigs[0].flex}
+          {...getColumnStyle(columnConfigs[0])}
           justifyContent={calcCellAlign(columnConfigs[0].align)}
           alignItems="center"
+          pl="$2"
         >
           <SizableText size="$bodySmMedium">{assetSymbol}</SizableText>
         </XStack>
 
         {/* Time */}
         <YStack
-          width={columnConfigs[1].width}
-          minWidth={columnConfigs[1].minWidth}
-          flex={columnConfigs[1].flex}
+          {...getColumnStyle(columnConfigs[1])}
           justifyContent="center"
           alignItems={calcCellAlign(columnConfigs[1].align)}
         >
@@ -218,9 +219,7 @@ const TradesHistoryRow = memo(
 
         {/* Direction */}
         <XStack
-          width={columnConfigs[2].width}
-          minWidth={columnConfigs[2].minWidth}
-          flex={columnConfigs[2].flex}
+          {...getColumnStyle(columnConfigs[2])}
           justifyContent={calcCellAlign(columnConfigs[2].align)}
           alignItems="center"
         >
@@ -231,33 +230,27 @@ const TradesHistoryRow = memo(
 
         {/* Price */}
         <XStack
-          width={columnConfigs[3].width}
-          minWidth={columnConfigs[3].minWidth}
-          flex={columnConfigs[3].flex}
+          {...getColumnStyle(columnConfigs[3])}
           justifyContent={calcCellAlign(columnConfigs[3].align)}
           alignItems="center"
         >
-          <SizableText size="$bodyMd">{`${
+          <SizableText size="$bodySm">{`${
             tradeBaseInfo.priceFormatted as string
           }`}</SizableText>
         </XStack>
 
         {/* Position size */}
         <XStack
-          width={columnConfigs[4].width}
-          minWidth={columnConfigs[4].minWidth}
-          flex={columnConfigs[4].flex}
+          {...getColumnStyle(columnConfigs[4])}
           justifyContent={calcCellAlign(columnConfigs[4].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`${tradeBaseInfo.size}${assetSymbol}`}</SizableText>
+          <SizableText size="$bodySm">{`${tradeBaseInfo.size} ${assetSymbol}`}</SizableText>
         </XStack>
 
         {/* Trade value */}
         <XStack
-          width={columnConfigs[5].width}
-          minWidth={columnConfigs[5].minWidth}
-          flex={columnConfigs[5].flex}
+          {...getColumnStyle(columnConfigs[5])}
           justifyContent={calcCellAlign(columnConfigs[5].align)}
           alignItems="center"
         >
@@ -268,26 +261,22 @@ const TradesHistoryRow = memo(
 
         {/* Fee */}
         <XStack
-          width={columnConfigs[6].width}
-          minWidth={columnConfigs[6].minWidth}
-          flex={columnConfigs[6].flex}
+          {...getColumnStyle(columnConfigs[6])}
           justifyContent={calcCellAlign(columnConfigs[6].align)}
           alignItems="center"
         >
-          <SizableText size="$bodyMd">
+          <SizableText size="$bodySm">
             {`${tradeBaseInfo.feeFormatted as string}`}
           </SizableText>
         </XStack>
 
         {/* Close PnL */}
         <XStack
-          width={columnConfigs[7].width}
-          minWidth={columnConfigs[7].minWidth}
-          flex={columnConfigs[7].flex}
-          justifyContent={calcCellAlign(columnConfigs[6].align)}
+          {...getColumnStyle(columnConfigs[7])}
+          justifyContent={calcCellAlign(columnConfigs[7].align)}
           alignItems="center"
         >
-          <SizableText size="$bodyMd" color={closePnlInfo.closePnlColor}>
+          <SizableText size="$bodySm" color={closePnlInfo.closePnlColor}>
             {`${closePnlInfo.closePnlPlusOrMinus}${
               closePnlInfo.closePnlFormatted as string
             }`}

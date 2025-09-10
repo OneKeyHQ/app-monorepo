@@ -1785,7 +1785,9 @@ function TokenListContainer({
       withBuyAndReceive={isBuyAndReceiveEnabled}
       isBuyTokenSupported={isSupported}
       onBuyToken={handleFiatCrypto}
-      onReceiveToken={handleOnReceive}
+      onReceiveToken={() =>
+        handleOnReceive({ withAllAggregateTokens: network?.isAllNetworks })
+      }
       manageTokenEnabled={manageTokenEnabled}
       onManageToken={handleOnManageToken}
       onPressToken={handleOnPressToken}
