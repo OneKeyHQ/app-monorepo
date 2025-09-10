@@ -30,45 +30,7 @@ function validateInput(value: string | number, name: string): void {
   }
 }
 
-export function floorToTick(
-  n: string | number,
-  tickSize: string | number,
-): string {
-  validateInput(n, 'Price');
-  validateInput(tickSize, 'Tick size');
-
-  const nBN = new BigNumber(n);
-  const tickSizeBN = new BigNumber(tickSize);
-
-  if (tickSizeBN.isZero()) {
-    throw new OneKeyError('Tick size cannot be zero');
-  }
-
-  const invTickSize = new BigNumber(1).dividedBy(tickSizeBN);
-  return floorBN(nBN.multipliedBy(invTickSize), 0)
-    .dividedBy(invTickSize)
-    .toFixed();
-}
-
-export function ceilToTick(
-  n: string | number,
-  tickSize: string | number,
-): string {
-  validateInput(n, 'Price');
-  validateInput(tickSize, 'Tick size');
-
-  const nBN = new BigNumber(n);
-  const tickSizeBN = new BigNumber(tickSize);
-
-  if (tickSizeBN.isZero()) {
-    throw new OneKeyError('Tick size cannot be zero');
-  }
-
-  const invTickSize = new BigNumber(1).dividedBy(tickSizeBN);
-  return ceilBN(nBN.multipliedBy(invTickSize), 0)
-    .dividedBy(invTickSize)
-    .toFixed();
-}
+// Removed floorToTick and ceilToTick - use fast versions directly for better performance
 
 // Fast-path rounding helpers for hot loops (skip validation and reuse precomputed values)
 // Inputs are BigNumber to avoid repeated constructions; outputs are fixed-decimal strings

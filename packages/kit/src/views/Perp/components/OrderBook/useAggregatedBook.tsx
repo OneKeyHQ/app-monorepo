@@ -6,12 +6,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import {
-  ceilToTick,
-  ceilToTickFast,
-  floorToTick,
-  floorToTickFast,
-} from './utils';
+import { ceilToTickFast, floorToTickFast } from './utils';
 
 import type { IOBLevel } from './types';
 
@@ -20,7 +15,7 @@ export function aggregateLevels(
   levels: IOBLevel[],
   maxLevelsPerSide: number,
   tickSize: string | number,
-  roundFn: (n: string | number, tickSize: string | number) => string,
+  roundingMode: 'floor' | 'ceil',
   sizeDecimals: number,
   priceDecimals: number,
 ) {
@@ -50,7 +45,7 @@ export function aggregateLevels(
     cumSizeBN = cumSizeBN.plus(levelSizeBN);
     // Fast path: avoid validation and duplicate toFixed
     const roundedPrice =
-      roundFn === floorToTick
+      roundingMode === 'floor'
         ? floorToTickFast(
             new BigNumber(level.price),
             invTickSizeBN,
@@ -195,7 +190,7 @@ export function useAggregatedBook(
       convertedBids,
       maxLevelsPerSide,
       tickSizeStr,
-      floorToTick,
+      'floor',
       sizeDecimals,
       priceDecimals,
     );
@@ -205,7 +200,7 @@ export function useAggregatedBook(
       convertedAsks,
       maxLevelsPerSide,
       tickSizeStr,
-      ceilToTick,
+      'ceil',
       sizeDecimals,
       priceDecimals,
     );
