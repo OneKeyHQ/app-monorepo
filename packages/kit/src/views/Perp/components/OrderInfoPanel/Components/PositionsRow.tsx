@@ -21,16 +21,7 @@ import type { FrontendOrder } from '@nktkas/hyperliquid';
 interface IPositionRowProps {
   pos: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
   mid?: string;
-  handleMarketClose: ({
-    position,
-  }: {
-    position: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
-  }) => void;
-  handleLimitClose: ({
-    position,
-  }: {
-    position: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
-  }) => void;
+  handleClosePosition: (type: 'market' | 'limit') => void;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
   tpslOrders: FrontendOrder[];
@@ -49,8 +40,7 @@ const PositionRow = memo(
     cellMinWidth,
     columnConfigs,
     isMobile,
-    handleMarketClose,
-    handleLimitClose,
+    handleClosePosition,
     handleViewTpslOrders,
     onAllClose,
     setTpsl,
@@ -478,16 +468,13 @@ const PositionRow = memo(
         >
           <XStack
             cursor="pointer"
-            onPress={() => handleMarketClose({ position: pos })}
+            onPress={() => handleClosePosition('market')}
           >
             <SizableText color="$textSuccess" size="$bodySm">
               Market
             </SizableText>
           </XStack>
-          <XStack
-            cursor="pointer"
-            onPress={() => handleLimitClose({ position: pos })}
-          >
+          <XStack cursor="pointer" onPress={() => handleClosePosition('limit')}>
             <SizableText color="$textSuccess" size="$bodySm">
               Limit
             </SizableText>

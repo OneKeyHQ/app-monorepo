@@ -64,6 +64,7 @@ export interface IPlaceOrderParams {
   limitPx?: string;
   orderType: { limit: { tif: 'Gtc' | 'Ioc' } } | { market?: object };
   slippage?: number;
+  reduceOnly?: boolean;
 }
 
 export interface IMarketOrderOpenParams {

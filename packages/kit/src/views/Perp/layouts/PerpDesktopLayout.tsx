@@ -4,7 +4,7 @@ import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPa
 import { PerpCandles } from '../components/PerpCandles';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
-import { PerpAccountPanel } from '../components/TradingPanel/PerpAccountPanel';
+import { PerpAccountPanel } from '../components/TradingPanel/panels/PerpAccountPanel';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 
 function PerpDesktopLayout() {

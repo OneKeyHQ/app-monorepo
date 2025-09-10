@@ -18,21 +18,21 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 
-import { useCurrentTokenData } from '../../hooks';
+import { useCurrentTokenData } from '../../../hooks';
 import {
   formatPercentage,
   formatPriceToSignificantDigits,
   validatePriceInput,
-} from '../../utils/tokenUtils';
+} from '../../../utils/tokenUtils';
 
-import { LeverageAdjustModal } from './LeverageAdjustModal';
-import { MarginModeSelector } from './MarginModeSelector';
-import { OrderTypeSelector } from './OrderTypeSelector';
-import { PriceInput } from './PriceInput';
-import { SizeInput } from './SizeInput';
-import { TradeSideToggle } from './TradeSideToggle';
+import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
+import { MarginModeSelector } from '../selectors/MarginModeSelector';
+import { OrderTypeSelector } from '../selectors/OrderTypeSelector';
+import { PriceInput } from '../inputs/PriceInput';
+import { SizeInput } from '../inputs/SizeInput';
+import { TradeSideToggle } from '../selectors/TradeSideToggle';
 
-import type { ISide } from './TradeSideToggle';
+import type { ISide } from '../selectors/TradeSideToggle';
 
 interface IPerpTradingFormProps {
   isSubmitting?: boolean;
@@ -51,6 +51,8 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
   );
 
   const prevTypeRef = useRef<'market' | 'limit'>(formData.type);
+  const prevTokenRef = useRef<string>(tokenInfo?.name || '');
+
   useEffect(() => {
     const prevType = prevTypeRef.current;
     const currentType = formData.type;
@@ -66,6 +68,25 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
 
     prevTypeRef.current = currentType;
   }, [formData.type, formData.price, tokenInfo?.markPx, updateForm]);
+
+  useEffect(() => {
+    const currentTokenName = tokenInfo?.name;
+    const prevToken = prevTokenRef.current;
+
+    if (
+      prevToken &&
+      currentTokenName &&
+      prevToken !== currentTokenName &&
+      formData.type === 'limit' &&
+      tokenInfo?.markPx
+    ) {
+      updateForm({ price: tokenInfo.markPx });
+    }
+
+    if (currentTokenName) {
+      prevTokenRef.current = currentTokenName;
+    }
+  }, [tokenInfo?.name, tokenInfo?.markPx, formData.type, updateForm]);
 
   const leverage = useMemo(() => {
     return tokenInfo?.leverage?.value || tokenInfo?.maxLeverage;
@@ -219,21 +240,16 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
         </XStack>
 
         {formData.type === 'limit' ? (
-          <YStack bg="$bgSubdued" borderRadius="$3" borderWidth="$0" p="$3">
-            <SizableText size="$bodyMd" color="$textSubdued" mb="$2">
-              Limit Price
-            </SizableText>
-            <PriceInput
-              onUseMarketPrice={() => {
-                if (tokenInfo?.markPx) {
-                  updateForm({ price: tokenInfo.markPx });
-                }
-              }}
-              value={formData.price}
-              onChange={(value) => updateForm({ price: value })}
-              szDecimals={tokenInfo?.szDecimals || 2}
-            />
-          </YStack>
+          <PriceInput
+            onUseMarketPrice={() => {
+              if (tokenInfo?.markPx) {
+                updateForm({ price: tokenInfo.markPx });
+              }
+            }}
+            value={formData.price}
+            onChange={(value) => updateForm({ price: value })}
+            szDecimals={tokenInfo?.szDecimals || 2}
+          />
         ) : null}
 
         <SizeInput

@@ -12,9 +12,9 @@ import {
 } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 
-import { useHyperliquidAccount } from '../../hooks';
+import { useHyperliquidAccount } from '../../../hooks';
 
-import { showDepositWithdrawModal } from './DepositWithdrawModal';
+import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 
 function PerpAccountPanel() {
   const { activeAccount } = useActiveAccount({ num: 0 });

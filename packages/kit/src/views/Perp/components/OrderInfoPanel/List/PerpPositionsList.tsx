@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import {
   useAllMidsAtom,
@@ -6,7 +6,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import { useTokenList } from '../../../hooks';
+import { useTokenList } from '../../../hooks/usePerpMarketData';
 import {
   usePerpOrders,
   usePerpPositions,
@@ -30,6 +30,7 @@ function PerpPositionsList({
   const [allMids] = useAllMidsAtom();
   const actions = useHyperliquidActions();
   const { getTokenInfo } = useTokenList();
+
   const columnsConfig: IColumnConfig[] = useMemo(() => {
     return [
       { key: 'asset', title: 'Asset', width: 100, align: 'left' },
@@ -101,34 +102,48 @@ function PerpPositionsList({
     [columnsConfig],
   );
 
-  const onAllClose = () => {
+  const onAllClose = useCallback(() => {
     console.log('onAllClose');
-  };
-  const setTpsl = () => {
+  }, []);
+
+  const setTpsl = useCallback(() => {
     console.log('setTpsl');
-  };
-  const handleLimitClose = ({
-    position,
-  }: {
-    position: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
-  }) => {
-    // TODO: implement limit close
-  };
-  const handleMarketClose = ({
-    position,
-  }: {
-    position: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
-  }) => {
-    const tokenInfo = getTokenInfo(position.coin);
-    if (tokenInfo) {
+  }, []);
+
+  const allMidsRef = useRef(allMids);
+  useEffect(() => {
+    allMidsRef.current = allMids;
+  }, [allMids]);
+
+  const handleClosePosition = useCallback(
+    ({
+      position,
+      type,
+    }: {
+      position: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
+      type: 'market' | 'limit';
+    }) => {
+      const tokenInfo = getTokenInfo(position.coin);
+      if (!tokenInfo) {
+        console.error(
+          '[PerpPositionsList] Token info not found for',
+          position.coin,
+        );
+        return;
+      }
+
       showClosePositionDialog({
         position,
+        type,
+        szDecimals: tokenInfo.szDecimals || 2,
         assetId: tokenInfo.assetId,
-        mid: allMids?.mids?.[position.coin],
+        getMidPrice: () => allMidsRef.current?.mids?.[position.coin] || '',
         hyperliquidActions: actions,
       });
-    }
-  };
+    },
+    [getTokenInfo, actions],
+  );
+
   const renderPositionRow = (
     item: IWsWebData2['clearinghouseState']['assetPositions'][number],
     _index: number,
@@ -143,6 +158,7 @@ function PerpPositionsList({
         (order.orderType.startsWith('Take') ||
           order.orderType.startsWith('Stop')),
     );
+
     return (
       <PositionRow
         key={`${coin}_${szi}`}
@@ -152,8 +168,7 @@ function PerpPositionsList({
         tpslOrders={tpslOrders}
         cellMinWidth={totalMinWidth}
         columnConfigs={columnsConfig}
-        handleMarketClose={handleMarketClose}
-        handleLimitClose={handleLimitClose}
+        handleClosePosition={(type) => handleClosePosition({ position, type })}
         handleViewTpslOrders={handleViewTpslOrders}
         onAllClose={onAllClose}
         setTpsl={setTpsl}
@@ -161,7 +176,6 @@ function PerpPositionsList({
       />
     );
   };
-
   return (
     <CommonTableListView
       columns={columnsConfig}

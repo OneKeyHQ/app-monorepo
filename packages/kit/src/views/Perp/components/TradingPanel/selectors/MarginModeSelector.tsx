@@ -7,7 +7,7 @@ import {
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 
-import { useCurrentTokenData } from '../../hooks';
+import { useCurrentTokenData } from '../../../hooks';
 
 type IMarginMode = 'isolated' | 'cross';
 
