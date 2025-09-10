@@ -27,6 +27,7 @@ type IProps = {
   networkId: string | undefined;
   textProps?: ISizableTextProps;
   withAggregateBadge?: boolean;
+  showNetworkName?: boolean;
 } & IXStackProps;
 
 function TokenNameView(props: IProps) {
@@ -40,6 +41,7 @@ function TokenNameView(props: IProps) {
     networkId,
     textProps,
     withAggregateBadge,
+    showNetworkName,
     ...rest
   } = props;
   const intl = useIntl();
@@ -57,14 +59,18 @@ function TokenNameView(props: IProps) {
   return (
     <XStack alignItems="center" gap="$1" {...rest}>
       <SizableText minWidth={0} numberOfLines={1} {...textProps}>
-        {name}
+        {isNative && !isAggregateToken && showNetworkName
+          ? network?.name
+          : name}
       </SizableText>
       {isAllNetworks &&
       withAggregateBadge &&
       isAggregateToken &&
       (aggregateTokenList?.length > 1 || allAggregateTokenList?.length > 1) ? (
         <Badge flexShrink={1}>
-          <Badge.Text numberOfLines={1}>Multichain</Badge.Text>
+          <Badge.Text numberOfLines={1}>
+            {intl.formatMessage({ id: ETranslations.global__multichain })}
+          </Badge.Text>
         </Badge>
       ) : null}
       {withNetwork &&
@@ -79,7 +85,7 @@ function TokenNameView(props: IProps) {
           </Badge.Text>
         </Badge>
       ) : null}
-      {isNative && !isAllNetworks ? (
+      {isNative && !isAllNetworks && !showNetworkName ? (
         <Tooltip
           renderContent={intl.formatMessage({
             id: ETranslations.native_token_tooltip,

@@ -183,6 +183,7 @@ export type IAddressBadge = {
   type: IBadgeProps['badgeType'];
   tip?: string;
   icon?: IKeyOfIcons;
+  logoURI?: string;
 };
 
 export type IAddressInfo = IAddressBadge;

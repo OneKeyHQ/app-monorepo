@@ -1595,6 +1595,7 @@
   "global.windows_hello_set_error": "Imposta il fallimento di Windows Hello",
   "global.withdraw": "Preleva",
   "global.x": "X",
+  "global__multichain": "Multichain",
   "hardware.backup_completed": "Backup completato!",
   "hardware.bluetooth_need_turned_on_error": "Il Bluetooth è spento",
   "hardware.bluetooth_not_paired_error": "Bluetooth non accoppiato",

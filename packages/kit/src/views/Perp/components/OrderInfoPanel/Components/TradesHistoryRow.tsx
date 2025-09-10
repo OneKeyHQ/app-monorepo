@@ -202,7 +202,13 @@ const TradesHistoryRow = memo(
           alignItems="center"
           pl="$2"
         >
-          <SizableText size="$bodySmMedium">{assetSymbol}</SizableText>
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySmMedium"
+          >
+            {assetSymbol}
+          </SizableText>
         </XStack>
 
         {/* Time */}
@@ -223,7 +229,12 @@ const TradesHistoryRow = memo(
           justifyContent={calcCellAlign(columnConfigs[2].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm" color={directionInfo.directionColor}>
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+            color={directionInfo.directionColor}
+          >
             {directionInfo.directionStr}
           </SizableText>
         </XStack>
@@ -234,9 +245,11 @@ const TradesHistoryRow = memo(
           justifyContent={calcCellAlign(columnConfigs[3].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`${
-            tradeBaseInfo.priceFormatted as string
-          }`}</SizableText>
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+          >{`${tradeBaseInfo.priceFormatted as string}`}</SizableText>
         </XStack>
 
         {/* Position size */}
@@ -245,7 +258,11 @@ const TradesHistoryRow = memo(
           justifyContent={calcCellAlign(columnConfigs[4].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`${tradeBaseInfo.size} ${assetSymbol}`}</SizableText>
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+          >{`${tradeBaseInfo.size} ${assetSymbol}`}</SizableText>
         </XStack>
 
         {/* Trade value */}
@@ -254,7 +271,7 @@ const TradesHistoryRow = memo(
           justifyContent={calcCellAlign(columnConfigs[5].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">
+          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
             {`${tradeBaseInfo.tradeValueFormatted as string}`}
           </SizableText>
         </XStack>
@@ -265,7 +282,7 @@ const TradesHistoryRow = memo(
           justifyContent={calcCellAlign(columnConfigs[6].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">
+          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
             {`${tradeBaseInfo.feeFormatted as string}`}
           </SizableText>
         </XStack>
@@ -276,7 +293,12 @@ const TradesHistoryRow = memo(
           justifyContent={calcCellAlign(columnConfigs[7].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm" color={closePnlInfo.closePnlColor}>
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+            color={closePnlInfo.closePnlColor}
+          >
             {`${closePnlInfo.closePnlPlusOrMinus}${
               closePnlInfo.closePnlFormatted as string
             }`}

@@ -1595,6 +1595,7 @@
   "global.windows_hello_set_error": "Échec de configuration de Windows Hello",
   "global.withdraw": "Retirer",
   "global.x": "X",
+  "global__multichain": "Multichaîne",
   "hardware.backup_completed": "Sauvegarde terminée !",
   "hardware.bluetooth_need_turned_on_error": "Le Bluetooth est éteint",
   "hardware.bluetooth_not_paired_error": "Bluetooth non appairé",

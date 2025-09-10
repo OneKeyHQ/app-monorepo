@@ -123,6 +123,10 @@ function BasicTokenListItem(props: ITokenListItemProps) {
               size: '$bodyMd',
               color: '$textSubdued',
             }}
+            isNative={token.isNative}
+            isAllNetworks={isAllNetworks}
+            isAggregateToken={token.isAggregateToken}
+            showNetworkName
           />
         </YStack>
       </XStack>
