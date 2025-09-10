@@ -42,8 +42,6 @@ const OrderBookDemo = () => {
 
   const { bids, asks } = generateSampleData(basePrice, spread);
 
-  const tickSizes = [0.01, 0.1, 0.5, 1, 5, 10, 50, 100];
-
   return (
     <Stack gap="$4">
       <Stack gap="$3">
