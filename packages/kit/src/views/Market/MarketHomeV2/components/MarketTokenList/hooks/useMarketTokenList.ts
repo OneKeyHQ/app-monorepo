@@ -73,7 +73,6 @@ export function useMarketTokenList({
     [networkId, sortBy, sortType, pageSize, minLiquidity],
     {
       watchLoading: true,
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 60 }),
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
     },
