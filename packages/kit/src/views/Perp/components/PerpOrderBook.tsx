@@ -35,16 +35,8 @@ export function PerpOrderBook() {
     <YStack flex={1} bg="$bgApp">
       <OrderBook
         horizontal={false}
-        bids={l2Book.bids.map((bid) => ({
-          price: Number(bid.px),
-          size: Number(bid.sz),
-          cumSize: 0,
-        }))}
-        asks={l2Book.asks.map((ask) => ({
-          price: Number(ask.px),
-          size: Number(ask.sz),
-          cumSize: 0,
-        }))}
+        bids={l2Book.bids}
+        asks={l2Book.asks}
         maxLevelsPerSide={11}
       />
     </YStack>

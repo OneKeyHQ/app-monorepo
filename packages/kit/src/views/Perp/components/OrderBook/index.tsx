@@ -9,6 +9,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { DefaultLoadingNode } from './DefaultLoadingNode';
 import { useAggregatedBook } from './useAggregatedBook';
@@ -23,24 +24,11 @@ export const defaultMidPriceNode = (midPrice: number) => (
   <NumberSizeableText formatter="balance">{midPrice}</NumberSizeableText>
 );
 
-interface IOBAggregation {
-  /** The natural tick size of this instrument */
-  baseTickSize: number;
-  /** The currently selected tick size */
-  tickSize: number;
-  /** The possible tick sizes the user can select. You can omit
-   * this and `onTickSizeChange` if you don't want aggregation
-   * controls to be rendered */
-  tickSizes?: number[];
-  /** Called when a user selects another aggregation */
-  onTickSizeChange?: (nextTickSize: number) => void;
-}
-
 interface IOrderBookProps {
   /** The sorted best to worst (high to low) bid levels */
-  bids: IOBLevel[];
+  bids: IBookLevel[];
   /** The sorted best to worst (low to high) ask levels */
-  asks: IOBLevel[];
+  asks: IBookLevel[];
   /** The maximum price levels to render per side */
   maxLevelsPerSide?: number;
   /** Styles for the container (outer) view */
@@ -147,13 +135,22 @@ export function OrderBook({
   loadingNode = <DefaultLoadingNode />,
   horizontal = true,
 }: IOrderBookProps) {
-  const aggr = useAggregatedBook(bids, asks, 0.01, 0.1, maxLevelsPerSide);
-  const isEmpty = !aggr.bids.length && !aggr.asks.length;
+  const aggregatedData = useAggregatedBook(
+    bids,
+    asks,
+    0.01,
+    0.1,
+    maxLevelsPerSide,
+  );
+  const isEmpty = !aggregatedData.bids.length && !aggregatedData.asks.length;
 
-  const midPrice = getMidPrice(bids[0]?.price ?? 0, asks[0]?.price ?? 0);
+  const midPrice = getMidPrice(
+    parseFloat(bids[0]?.px ?? '0'),
+    parseFloat(asks[0]?.px ?? '0'),
+  );
 
-  const bidDepth = aggr.bids.at(-1)?.cumSize ?? 0;
-  const askDepth = aggr.asks.at(-1)?.cumSize ?? 0;
+  const bidDepth = aggregatedData.bids.at(-1)?.cumSize ?? 0;
+  const askDepth = aggregatedData.asks.at(-1)?.cumSize ?? 0;
 
   if (horizontal) {
     return (
@@ -181,7 +178,7 @@ export function OrderBook({
         ) : (
           <XStack gap="$1">
             <YStack style={styles.levelList}>
-              {aggr.bids.map((item, index) => (
+              {aggregatedData.bids.map((item, index) => (
                 <XStack
                   key={index}
                   h="$6"
@@ -206,7 +203,7 @@ export function OrderBook({
               ))}
             </YStack>
             <YStack style={styles.levelList}>
-              {aggr.asks.reverse().map((item, index) => (
+              {aggregatedData.asks.reverse().map((item, index) => (
                 <XStack
                   key={index}
                   h="$6"
@@ -254,7 +251,7 @@ export function OrderBook({
         </XStack>
       </XStack>
       <YStack>
-        {aggr.asks.reverse().map((itemData, index) => (
+        {aggregatedData.asks.reverse().map((itemData, index) => (
           <XStack
             key={index}
             h="$6"
@@ -291,7 +288,7 @@ export function OrderBook({
           </SizableText>
         </XStack>
 
-        {aggr.bids.map((itemData, index) => (
+        {aggregatedData.bids.map((itemData, index) => (
           <XStack
             key={index}
             h="$6"
@@ -318,20 +315,29 @@ export function OrderPairBook({
   maxLevelsPerSide = 30,
 }: {
   maxLevelsPerSide?: number;
-  bids: IOBLevel[];
-  asks: IOBLevel[];
+  bids: IBookLevel[];
+  asks: IBookLevel[];
 }) {
-  const aggr = useAggregatedBook(bids, asks, 0.01, 0.1, maxLevelsPerSide);
-  const bidDepth = aggr.bids.at(-1)?.cumSize ?? 0;
-  const askDepth = aggr.asks.at(-1)?.cumSize ?? 0;
-  const midPrice = getMidPrice(bids[0]?.price ?? 0, asks[0]?.price ?? 0);
+  const aggregatedData = useAggregatedBook(
+    bids,
+    asks,
+    0.01,
+    0.1,
+    maxLevelsPerSide,
+  );
+  const bidDepth = aggregatedData.bids.at(-1)?.cumSize ?? 0;
+  const askDepth = aggregatedData.asks.at(-1)?.cumSize ?? 0;
+  const midPrice = getMidPrice(
+    parseFloat(bids[0]?.px ?? '0'),
+    parseFloat(asks[0]?.px ?? '0'),
+  );
   const data = useMemo(() => {
     return [
-      ...aggr.asks.map((ask) => ({ data: ask, type: 'ask' })),
+      ...aggregatedData.asks.map((ask) => ({ data: ask, type: 'ask' })),
       { type: 'mid', data: { price: midPrice, size: 0, cumSize: 0 } },
-      ...aggr.bids.map((bid) => ({ data: bid, type: 'bid' })),
+      ...aggregatedData.bids.map((bid) => ({ data: bid, type: 'bid' })),
     ];
-  }, [aggr.asks, aggr.bids, midPrice]);
+  }, [aggregatedData.asks, aggregatedData.bids, midPrice]);
   return (
     <YStack>
       <XStack pb="$1" px="$2" ai="center" jc="space-between">

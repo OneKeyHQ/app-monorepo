@@ -1,6 +1,7 @@
 import { ceilToTick, floorToTick } from './utils';
 
 import type { IOBLevel } from './types';
+import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 // Aggregates in 1 iteration.
 export function aggregateLevels(
@@ -84,22 +85,40 @@ function sumAndSlice(
   };
 }
 
+// Convert HL.IBookLevel to IOBLevel format
+function convertHLBookLevelsToIOBLevels(levels: IBookLevel[]): IOBLevel[] {
+  let cumSize = 0;
+  return levels.map((level) => {
+    const price = parseFloat(level.px);
+    const size = parseFloat(level.sz);
+    cumSize += size;
+    return {
+      price,
+      size,
+      cumSize,
+    };
+  });
+}
+
 export function useAggregatedBook(
-  bids: IOBLevel[],
-  asks: IOBLevel[],
+  bids: IBookLevel[],
+  asks: IBookLevel[],
   baseTickSize: number,
   tickSize: number,
   maxLevelsPerSide: number,
 ) {
+  // Convert HL.IBookLevel to IOBLevel format
+  const convertedBids = convertHLBookLevelsToIOBLevels(bids);
+  const convertedAsks = convertHLBookLevelsToIOBLevels(asks);
   if (baseTickSize === tickSize) {
-    return sumAndSlice(bids, asks, maxLevelsPerSide);
+    return sumAndSlice(convertedBids, convertedAsks, maxLevelsPerSide);
   }
 
   const { aggregatedLevels: aggregatedBids, maxSize: maxBidSize } =
-    aggregateLevels(bids, maxLevelsPerSide, tickSize, floorToTick);
+    aggregateLevels(convertedBids, maxLevelsPerSide, tickSize, floorToTick);
 
   const { aggregatedLevels: aggregatedAsks, maxSize: maxAskSize } =
-    aggregateLevels(asks, maxLevelsPerSide, tickSize, ceilToTick);
+    aggregateLevels(convertedAsks, maxLevelsPerSide, tickSize, ceilToTick);
 
   return {
     bids: aggregatedBids,
