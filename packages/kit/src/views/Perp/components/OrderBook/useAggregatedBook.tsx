@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import {
   analyzeOrderBookPrecision,
   formatWithPrecision,
+  getPriceScaleDecimals,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
@@ -162,8 +163,12 @@ export function useAggregatedBook(
   tickSize: number,
   maxLevelsPerSide: number,
 ) {
-  // Analyze decimal places requirements from raw data
-  const { priceDecimals, sizeDecimals } = analyzeOrderBookPrecision(bids, asks);
+  // Calculate price precision using TradingView consistent logic
+  const marketPrice = bids[0]?.px || asks[0]?.px || '0';
+  const priceDecimals = getPriceScaleDecimals(marketPrice);
+
+  // Analyze size decimal places from raw data
+  const { sizeDecimals } = analyzeOrderBookPrecision(bids, asks);
 
   // Convert HL.IBookLevel to IOBLevel format with dynamic decimal places
   const { levels: convertedBids, prefixMaxSizes: bidsPrefixMaxSizes } =
