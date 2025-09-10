@@ -66,7 +66,7 @@ function ApprovalActions(props: IProps) {
       >
         <Stack
           gap="$2.5"
-          pb="$5"
+          pb="$2.5"
           $gtMd={{
             pb: '$0',
           }}

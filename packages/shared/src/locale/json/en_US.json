@@ -3156,7 +3156,7 @@
   "verify_message_address_form_description": "Supports: {networks}",
   "wallet.approval_approval_details": "Approval details",
   "wallet.approval_approved_token": "Approved token",
-  "wallet.approval_bulk_revoke": "Bulk Revoke",
+  "wallet.approval_bulk_revoke": "Bulk revoke",
   "wallet.approval_bulk_revoke_alert": "Please keep the page active. Exiting will pause the process.",
   "wallet.approval_bulk_revoke_approved_spender": "Approved spender",
   "wallet.approval_bulk_revoke_method_bulk_desc": "Bulk revoke in one click — skips high gas or failed transactions.",
