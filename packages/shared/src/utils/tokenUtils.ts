@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 import { forEach, isNil, uniqBy } from 'lodash';
 
 import { wrappedTokens } from '../../types/swap/SwapProvider.constants';
+import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
 import networkUtils from './networkUtils';
@@ -785,7 +786,7 @@ export function buildAggregateTokenListData(params: {
         commonToken: {
           ...token,
           accountId,
-          networkId: '',
+          networkId: AGGREGATE_TOKEN_MOCK_NETWORK_ID,
           address: aggregateTokenListMapKey,
           $key: aggregateTokenListMapKey,
           isAggregateToken: true,
