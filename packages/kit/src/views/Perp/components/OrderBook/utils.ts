@@ -32,28 +32,3 @@ export function getMidPrice(bestBid: number, bestAsk: number) {
 
   return (bestBid + bestAsk) / 2;
 }
-
-type IStringNumericLiteral =
-  | `${number}`
-  | 'Infinity'
-  | '-Infinity'
-  | '+Infinity';
-
-export const abbrevNumFmt = (value: number | bigint | IStringNumericLiteral) =>
-  Intl.NumberFormat(undefined, {
-    notation: 'compact',
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  }).format(value);
-
-export const priceFmt = (value: number | bigint | IStringNumericLiteral) =>
-  new Intl.NumberFormat(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
-
-export const sizeFmt = (value: number | bigint | IStringNumericLiteral) =>
-  new Intl.NumberFormat(undefined, {
-    minimumFractionDigits: 4,
-    maximumFractionDigits: 4,
-  }).format(value);
