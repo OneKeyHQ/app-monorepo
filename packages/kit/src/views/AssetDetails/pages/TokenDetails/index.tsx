@@ -115,7 +115,81 @@ function TokenDetailsView() {
 
   const [activeTabIndex, setActiveTabIndex] = useState(0);
 
-  const { vaultSettings } = useAccountData({ networkId });
+  const { vaultSettings, network } = useAccountData({ networkId });
+
+  const renderAggregateTokens = useCallback(
+    ({ closePopover }: { closePopover: () => void }) => {
+      return (
+        <YStack gap="$3" px="$3" py={10}>
+          {gtMd ? (
+            <SizableText size="$headingSm">
+              {intl.formatMessage({
+                id: ETranslations.global_contract_address,
+              })}
+            </SizableText>
+          ) : null}
+          {tokens.map((token) => (
+            <XStack
+              key={token.$key}
+              alignItems="center"
+              gap="$2"
+              justifyContent="space-between"
+            >
+              <XStack
+                gap="$2"
+                alignItems="center"
+                flex={1}
+                justifyContent="space-between"
+              >
+                <XStack gap="$2" alignItems="center">
+                  <NetworkAvatar networkId={token.networkId} size="$4" />
+                  <SizableText size="$bodyMd" numberOfLines={1}>
+                    {token.networkName}
+                  </SizableText>
+                </XStack>
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {accountUtils.shortenAddress({
+                    address: token.address,
+                  })}
+                </SizableText>
+              </XStack>
+              {token.isNative ? null : (
+                <XStack gap="$2" alignItems="center">
+                  <IconButton
+                    title={intl.formatMessage({
+                      id: ETranslations.global_copy,
+                    })}
+                    variant="tertiary"
+                    icon="Copy3Outline"
+                    iconColor="$iconSubdued"
+                    size="small"
+                    onPress={() => copyText(token.address)}
+                  />
+                  <IconButton
+                    title={intl.formatMessage({
+                      id: ETranslations.global_view_in_blockchain_explorer,
+                    })}
+                    variant="tertiary"
+                    icon="OpenOutline"
+                    iconColor="$iconSubdued"
+                    size="small"
+                    onPress={() => {
+                      closePopover();
+                      void openTokenDetailsUrl({
+                        networkId: token.networkId ?? '',
+                        tokenAddress: token.address,
+                      });
+                    }}
+                  />
+                </XStack>
+              )}
+            </XStack>
+          ))}
+        </YStack>
+      );
+    },
+    [tokens, gtMd, intl, copyText],
+  );
 
   const headerRight = useCallback(() => {
     const sections: IActionListSection[] = [];
@@ -127,71 +201,7 @@ function TokenDetailsView() {
             id: ETranslations.global_contract_address,
           })}
           renderTrigger={<HeaderIconButton icon="InfoCircleOutline" />}
-          renderContent={
-            <YStack gap="$3" px="$3" py={10}>
-              {gtMd ? (
-                <SizableText size="$headingSm">
-                  {intl.formatMessage({
-                    id: ETranslations.global_contract_address,
-                  })}
-                </SizableText>
-              ) : null}
-              {tokens.map((token) => (
-                <XStack
-                  key={token.$key}
-                  alignItems="center"
-                  gap="$2"
-                  justifyContent="space-between"
-                >
-                  <XStack
-                    gap="$2"
-                    alignItems="center"
-                    flex={1}
-                    justifyContent="space-between"
-                  >
-                    <XStack gap="$2" alignItems="center">
-                      <NetworkAvatar networkId={token.networkId} size="$4" />
-                      <SizableText size="$bodyMd" numberOfLines={1}>
-                        {token.networkName}
-                      </SizableText>
-                    </XStack>
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {accountUtils.shortenAddress({
-                        address: token.address,
-                      })}
-                    </SizableText>
-                  </XStack>
-                  <XStack gap="$2" alignItems="center">
-                    <IconButton
-                      title={intl.formatMessage({
-                        id: ETranslations.global_copy,
-                      })}
-                      variant="tertiary"
-                      icon="Copy3Outline"
-                      iconColor="$iconSubdued"
-                      size="small"
-                      onPress={() => copyText(token.address)}
-                    />
-                    <IconButton
-                      title={intl.formatMessage({
-                        id: ETranslations.global_view_in_blockchain_explorer,
-                      })}
-                      variant="tertiary"
-                      icon="OpenOutline"
-                      iconColor="$iconSubdued"
-                      size="small"
-                      onPress={() =>
-                        void openTokenDetailsUrl({
-                          networkId: token.networkId ?? '',
-                          tokenAddress: token.address,
-                        })
-                      }
-                    />
-                  </XStack>
-                </XStack>
-              ))}
-            </YStack>
-          }
+          renderContent={renderAggregateTokens}
         />
       );
     }
@@ -231,7 +241,7 @@ function TokenDetailsView() {
         sections={sections}
       />
     );
-  }, [isAggregateToken, tokens, intl, copyText, gtMd]);
+  }, [isAggregateToken, tokens, intl, renderAggregateTokens, copyText]);
 
   const { result, isLoading } = usePromiseResult(
     async () => {
@@ -407,18 +417,25 @@ function TokenDetailsView() {
     return (
       <XStack alignItems="center" gap="$2">
         <NavCloseButton onPress={() => navigation.pop()} />
-        <Token size="sm" tokenImageUri={tokens[0].logoURI} />
+        <Token
+          size="sm"
+          tokenImageUri={tokens[0].logoURI}
+          networkImageUri={
+            tokens.length <= 1 && !gtMd ? network?.logoURI : undefined
+          }
+          networkId={networkId}
+        />
         <SizableText size="$headingLg" numberOfLines={1}>
           {tokens[0].commonSymbol ?? tokens[0].symbol ?? tokens[0].name ?? ''}
         </SizableText>
-        {tokens.length <= 1 ? (
+        {tokens.length <= 1 && gtMd ? (
           <Badge badgeSize="sm">
             <Badge.Text>{tokens[0].networkName ?? ''}</Badge.Text>
           </Badge>
         ) : null}
       </XStack>
     );
-  }, [navigation, tokens]);
+  }, [tokens, gtMd, network?.logoURI, networkId, navigation]);
 
   return (
     <Page lazyLoad safeAreaEnabled={false}>

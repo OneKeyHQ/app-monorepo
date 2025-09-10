@@ -15,6 +15,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useAccountData } from '../../hooks/useAccountData';
 import { useAggregateTokensListMapAtom } from '../../states/jotai/contexts/tokenList';
 
+import { useTokenListViewContext } from './TokenListViewContext';
+
 type IProps = {
   $key: string;
   name: string;
@@ -44,8 +46,10 @@ function TokenNameView(props: IProps) {
 
   const { network } = useAccountData({ networkId });
   const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
-  const aggregateTokenList = aggregateTokensListMap[$key];
-  const firstAggregateToken = aggregateTokenList?.tokens[0];
+  const { allAggregateTokenMap } = useTokenListViewContext();
+  const allAggregateTokenList = allAggregateTokenMap?.[$key]?.tokens ?? [];
+  const aggregateTokenList = aggregateTokensListMap[$key]?.tokens ?? [];
+  const firstAggregateToken = aggregateTokenList?.[0];
   const { network: firstAggregateTokenNetwork } = useAccountData({
     networkId: firstAggregateToken?.networkId,
   });
@@ -58,8 +62,7 @@ function TokenNameView(props: IProps) {
       {isAllNetworks &&
       withAggregateBadge &&
       isAggregateToken &&
-      aggregateTokenList &&
-      aggregateTokenList.tokens.length > 1 ? (
+      (aggregateTokenList?.length > 1 || allAggregateTokenList?.length > 1) ? (
         <Badge flexShrink={1}>
           <Badge.Text numberOfLines={1}>Multichain</Badge.Text>
         </Badge>
@@ -67,7 +70,8 @@ function TokenNameView(props: IProps) {
       {withNetwork &&
       (network ||
         (firstAggregateTokenNetwork &&
-          aggregateTokenList?.tokens.length === 1)) &&
+          aggregateTokenList?.length === 1 &&
+          allAggregateTokenList.length === 0)) &&
       !isNative ? (
         <Badge flexShrink={1}>
           <Badge.Text numberOfLines={1}>

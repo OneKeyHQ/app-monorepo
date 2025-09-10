@@ -299,7 +299,9 @@ function TokenDetailsHeader(props: IProps) {
                   source: 'tokenDetails',
                   isSoftwareWalletOnlyUser,
                 });
-                handleOnReceive(tokenInfo);
+                void handleOnReceive({
+                  token: tokenInfo,
+                });
               }}
               trackID="wallet-token-details-receive"
             />
