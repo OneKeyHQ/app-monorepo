@@ -6,7 +6,13 @@ import { useTabsContext, useTabsScrollContext } from './context';
 import { useTabNameContext } from './TabNameContext';
 import { useConvertAnimatedToValue } from './useFocusedTab';
 
-export function ScrollView({ children }: { children: React.ReactNode }) {
+export function ScrollView({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: any;
+}) {
   const { width, registerChild } = useTabsScrollContext();
   const ref = useRef<Element>(null);
   const scrollTabElementsRef = useTabsContext().scrollTabElementsRef;
@@ -30,7 +36,7 @@ export function ScrollView({ children }: { children: React.ReactNode }) {
   }, [focusedTabValue, currentTabName, registerChild, scrollTabElementsRef]);
 
   return (
-    <YStack flex={1} ref={ref as any} width={width}>
+    <YStack flex={1} style={style} ref={ref as any} width={width}>
       {children}
     </YStack>
   );
