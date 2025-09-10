@@ -11,13 +11,11 @@ import {
   YStack,
 } from '@onekeyhq/components';
 
-import { AggregationControls } from './AggregationControls';
-import { defaultAggregationBtn } from './defaultAggregationBtn';
 import { DefaultLoadingNode } from './DefaultLoadingNode';
 import { useAggregatedBook } from './useAggregatedBook';
 import { getMidPrice } from './utils';
 
-import type { IAggregationBtn, IOBLevel } from './types';
+import type { IOBLevel } from './types';
 import type { StyleProp, ViewStyle } from 'react-native';
 
 export const rowHeight = 28;
