@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { colorTokens } from '@tamagui/themes';
+import BigNumber from 'bignumber.js';
 import { StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -21,9 +22,16 @@ import type { DimensionValue, StyleProp, ViewStyle } from 'react-native';
 
 export const rowHeight = 24;
 
-export const defaultMidPriceNode = (midPrice: number) => (
+export const defaultMidPriceNode = (midPrice: string) => (
   <Text>{midPrice}</Text>
 );
+
+// Helper function to calculate percentage with BigNumber precision
+function calculatePercentage(cumSize: string, totalDepth: BigNumber): number {
+  if (totalDepth.isZero()) return 0;
+  const cumSizeBN = new BigNumber(cumSize);
+  return cumSizeBN.dividedBy(totalDepth).multipliedBy(100).toNumber();
+}
 
 interface IOBAggregation {
   /** The natural tick size of this instrument */
@@ -49,7 +57,7 @@ interface IOrderBookProps {
   style?: StyleProp<ViewStyle>;
   /** A function which receives the mid price and can return a
    * custom mid price node */
-  midPriceNode?: (midPrice: number) => React.ReactNode;
+  midPriceNode?: (midPrice: string) => React.ReactNode;
   /** A custom loading node. Defaults to "Loading...". */
   loadingNode?: React.ReactNode;
   /** Whether to render the order book horizontally */
@@ -265,13 +273,10 @@ export function OrderBook({
   );
   const isEmpty = !aggregatedData.bids.length && !aggregatedData.asks.length;
 
-  const midPrice = getMidPrice(
-    parseFloat(bids[0]?.px ?? '0'),
-    parseFloat(asks[0]?.px ?? '0'),
-  );
+  const midPrice = getMidPrice(bids[0]?.px ?? '0', asks[0]?.px ?? '0');
 
-  const bidDepth = aggregatedData.bids.at(-1)?.cumSize ?? 0;
-  const askDepth = aggregatedData.asks.at(-1)?.cumSize ?? 0;
+  const bidDepth = new BigNumber(aggregatedData.bids.at(-1)?.cumSize ?? '0');
+  const askDepth = new BigNumber(aggregatedData.asks.at(-1)?.cumSize ?? '0');
 
   const blockColors = useBlockColors();
   const textColor = useTextColor();
@@ -316,7 +321,7 @@ export function OrderBook({
                   <ColorBlock
                     color={blockColors.green}
                     right={0}
-                    width={`${(item.cumSize / bidDepth) * 100}%`}
+                    width={`${calculatePercentage(item.cumSize, bidDepth)}%`}
                   />
                   <View
                     style={{
@@ -350,7 +355,7 @@ export function OrderBook({
                   <ColorBlock
                     color={blockColors.red}
                     left={0}
-                    width={`${(item.cumSize / askDepth) * 100}%`}
+                    width={`${calculatePercentage(item.cumSize, askDepth)}%`}
                   />
                   <XStack flex={1} jc="space-between">
                     <Text style={{ fontFamily: 'monospace', color: '#ef4444' }}>
@@ -406,7 +411,7 @@ export function OrderBook({
             <ColorBlock
               color={blockColors.red}
               left={0}
-              width={`${(itemData.cumSize / askDepth) * 100}%`}
+              width={`${calculatePercentage(itemData.cumSize, askDepth)}%`}
             />
             <OrderBookVerticalRow item={itemData} priceColor={textColor.red} />
           </View>
@@ -422,7 +427,7 @@ export function OrderBook({
             <ColorBlock
               color={blockColors.green}
               left={0}
-              width={`${(itemData.cumSize / bidDepth) * 100}%`}
+              width={`${calculatePercentage(itemData.cumSize, bidDepth)}%`}
             />
             <OrderBookVerticalRow
               item={itemData}
@@ -504,7 +509,7 @@ export function OrderPairBook({
             <ColorBlock
               color={blockColors.red}
               left={0}
-              width={`${(itemData.cumSize / askDepth) * 100}%`}
+              width={`${calculatePercentage(itemData.cumSize, askDepth)}%`}
             />
             <OrderBookPairRow
               item={itemData}
@@ -531,7 +536,7 @@ export function OrderPairBook({
             <ColorBlock
               color={blockColors.green}
               left={0}
-              width={`${(itemData.cumSize / bidDepth) * 100}%`}
+              width={`${calculatePercentage(itemData.cumSize, bidDepth)}%`}
             />
             <OrderBookPairRow
               item={itemData}
