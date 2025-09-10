@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
   },
   colorBlock: {
-    position: 'absolute',
+    position: 'relative',
     height: rowHeight,
   },
   verticalHeaderContainer: {
@@ -134,6 +134,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
+  },
+  levelListContainer: {
+    gap: 4,
+    flexDirection: 'row',
+    position: 'relative',
+  },
+  blockContainer: {
+    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
 });
 
@@ -288,14 +301,14 @@ export function OrderBook({
         {isEmpty ? (
           loadingNode
         ) : (
-          <View style={{ gap: 4, flexDirection: 'row' }}>
+          <View style={styles.levelListContainer}>
             <View style={styles.levelList}>
               {aggregatedData.bids.map((item, index) => (
                 <View
                   key={index}
                   style={{
                     height: 24,
-                    alignItems: 'center',
+                    alignItems: 'flex-end',
                     marginTop: 1,
                     position: 'relative',
                   }}
@@ -305,70 +318,110 @@ export function OrderBook({
                     right={0}
                     width={`${calculatePercentage(item.cumSize, bidDepth)}%`}
                   />
-                  <View
-                    style={{
-                      flex: 1,
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      width: '100%',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.monospaceText,
-                        { color: textColor.textSubdued },
-                      ]}
-                    >
-                      {item.size}
-                    </Text>
-                    <Text
-                      style={[styles.monospaceText, { color: textColor.green }]}
-                    >
-                      {item.price}
-                    </Text>
-                  </View>
                 </View>
               ))}
             </View>
             <View style={styles.levelList}>
-              {aggregatedData.asks.reverse().map((item, index) => (
+              {aggregatedData.asks.map((item, index) => (
                 <View
                   key={index}
                   style={{
                     height: 24,
-                    alignItems: 'center',
                     marginTop: 1,
                     position: 'relative',
                   }}
                 >
                   <ColorBlock
                     color={blockColors.red}
-                    left={0}
-                    width={`${calculatePercentage(item.cumSize, askDepth)}%`}
+                    right={0}
+                    width={`${calculatePercentage(item.cumSize, bidDepth)}%`}
                   />
-                  <View
-                    style={{
-                      flex: 1,
-                      alignItems: 'center',
-                      width: '100%',
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    <Text
-                      style={[styles.monospaceText, { color: textColor.red }]}
-                    >
-                      {item.price}
-                    </Text>
-                    <Text
-                      style={[styles.monospaceText, { color: textColor.text }]}
-                    >
-                      {item.size}
-                    </Text>
-                  </View>
                 </View>
               ))}
+            </View>
+            <View style={styles.blockContainer}>
+              <View style={styles.levelListContainer}>
+                <View style={styles.levelList}>
+                  {aggregatedData.bids.map((item, index) => (
+                    <View
+                      key={index}
+                      style={{
+                        height: 24,
+                        alignItems: 'center',
+                        marginTop: 1,
+                        position: 'relative',
+                      }}
+                    >
+                      <View
+                        style={{
+                          flex: 1,
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          width: '100%',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.monospaceText,
+                            { color: textColor.textSubdued },
+                          ]}
+                        >
+                          {item.size}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.monospaceText,
+                            { color: textColor.green },
+                          ]}
+                        >
+                          {item.price}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+                <View style={styles.levelList}>
+                  {aggregatedData.asks.reverse().map((item, index) => (
+                    <View
+                      key={index}
+                      style={{
+                        height: 24,
+                        alignItems: 'center',
+                        marginTop: 1,
+                        position: 'relative',
+                      }}
+                    >
+                      <View
+                        style={{
+                          flex: 1,
+                          alignItems: 'center',
+                          width: '100%',
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.monospaceText,
+                            { color: textColor.red },
+                          ]}
+                        >
+                          {item.price}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.monospaceText,
+                            { color: textColor.text },
+                          ]}
+                        >
+                          {item.size}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
             </View>
           </View>
         )}
