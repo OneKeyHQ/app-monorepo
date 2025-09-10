@@ -358,6 +358,15 @@ export function OrderBook({
   );
 }
 
+function OrderBookPairRow({ item }: { item: IOBLevel }) {
+  return (
+    <XStack flex={1} px="$2" mt={1} jc="space-between" ai="center">
+      <Text>{item.price}</Text>
+      <Text>{item.size}</Text>
+    </XStack>
+  );
+}
+
 export function OrderPairBook({
   bids,
   asks,
@@ -380,13 +389,6 @@ export function OrderPairBook({
     parseFloat(bids[0]?.px ?? '0'),
     parseFloat(asks[0]?.px ?? '0'),
   );
-  const data = useMemo(() => {
-    return [
-      ...aggregatedData.asks.map((ask) => ({ data: ask, type: 'ask' })),
-      { type: 'mid', data: { price: midPrice, size: 0, cumSize: 0 } },
-      ...aggregatedData.bids.map((bid) => ({ data: bid, type: 'bid' })),
-    ];
-  }, [aggregatedData.asks, aggregatedData.bids, midPrice]);
   const blockColors = useBlockColors();
   return (
     <YStack>
@@ -395,46 +397,33 @@ export function OrderPairBook({
         <SizableText color="$textSubdued">SIZE</SizableText>
       </XStack>
       <YStack>
-        {data.map((item, index) => {
-          const { type, data: itemData } = item;
-          if (type === 'mid') {
-            return (
-              <XStack key="mid" gap="$6" h="$6" ai="center" jc="center" mt={1}>
-                <SizableText size="$bodySm">Spread</SizableText>
-                <SizableText size="$bodySm">{itemData.price}</SizableText>
-                <SizableText size="$bodySm">0.002%</SizableText>
-              </XStack>
-            );
-          }
-          return (
-            <XStack key={index} mt={1} position="relative" h="$6">
-              <XStack
-                position="absolute"
-                left={0}
-                h="$6"
-                width={`${(itemData.cumSize / bidDepth) * 100}%`}
-                bg="$green3"
-              />
-              {type === 'bid' ? (
-                <ColorBlock
-                  color={blockColors.green}
-                  left={0}
-                  width={`${(itemData.cumSize / bidDepth) * 100}%`}
-                />
-              ) : (
-                <ColorBlock
-                  color={blockColors.red}
-                  left={0}
-                  width={`${(itemData.cumSize / askDepth) * 100}%`}
-                />
-              )}
-              <XStack flex={1} px="$2" jc="space-between" ai="center">
-                <Text formatter="value">{itemData.price}</Text>
-                <Text formatter="marketCap">{itemData.size}</Text>
-              </XStack>
-            </XStack>
-          );
-        })}
+        {aggregatedData.asks.map((itemData, index) => (
+          <XStack key={index} mt={1} position="relative" h="$6">
+            <ColorBlock
+              color={blockColors.red}
+              left={0}
+              width={`${(itemData.cumSize / askDepth) * 100}%`}
+            />
+            <OrderBookPairRow item={itemData} />
+          </XStack>
+        ))}
+
+        <XStack gap="$6" h="$6" ai="center" jc="center" mt={1}>
+          <SizableText size="$bodySm">Spread</SizableText>
+          <SizableText size="$bodySm">{midPrice}</SizableText>
+          <SizableText size="$bodySm">0.002%</SizableText>
+        </XStack>
+
+        {aggregatedData.bids.map((itemData, index) => (
+          <XStack key={index} mt={1} position="relative" h="$6">
+            <ColorBlock
+              color={blockColors.green}
+              left={0}
+              width={`${(itemData.cumSize / bidDepth) * 100}%`}
+            />
+            <OrderBookPairRow item={itemData} />
+          </XStack>
+        ))}
       </YStack>
     </YStack>
   );
