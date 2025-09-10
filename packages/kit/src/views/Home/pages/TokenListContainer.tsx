@@ -783,7 +783,7 @@ function TokenListContainer({
     }) => {
       perfTokenListView.markStart('allNetworkRequestsStarted_getRawData');
 
-      const [c, r, l, a] = await Promise.all([
+      let [c, r, l, a] = await Promise.all([
         backgroundApiProxy.simpleDb.customTokens.getRawData(),
         backgroundApiProxy.simpleDb.riskTokenManagement.getRawData(),
         backgroundApiProxy.simpleDb.localTokens.getRawData(),
@@ -791,6 +791,11 @@ function TokenListContainer({
       ]);
 
       perfTokenListView.markEnd('allNetworkRequestsStarted_getRawData');
+
+      if (!a?.aggregateTokenConfigMap) {
+        await backgroundApiProxy.serviceToken.syncAggregateTokenConfigMap();
+        a = await backgroundApiProxy.simpleDb.aggregateToken.getRawData();
+      }
 
       customTokensRawData.current = c ?? undefined;
       riskTokenManagementRawData.current = {
