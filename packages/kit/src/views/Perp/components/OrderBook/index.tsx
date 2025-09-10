@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
   },
   verticalHeaderText: {
     fontSize: 12,
-    lineHeight: 16,
+    lineHeight: 24,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
@@ -118,11 +118,14 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     flexDirection: 'row',
-    paddingHorizontal: 12,
     alignItems: 'center',
   },
   verticalRowCell: {
     width: '33.33%',
+  },
+  bodySm: {
+    fontSize: 12,
+    lineHeight: 16,
   },
   spreadRow: {
     gap: 24,
@@ -282,26 +285,39 @@ export function OrderBook({
           <XStack gap="$1">
             <YStack style={styles.levelList}>
               {aggregatedData.bids.map((item, index) => (
-                <XStack
+                <View
                   key={index}
-                  h="$6"
-                  ai="center"
-                  mt={1}
-                  px="$3"
-                  position="relative"
+                  style={{
+                    height: 24,
+                    alignItems: 'center',
+                    marginTop: 1,
+                    paddingHorizontal: 12,
+                    position: 'relative',
+                  }}
                 >
                   <ColorBlock
                     color={blockColors.green}
                     right={0}
                     width={`${(item.cumSize / bidDepth) * 100}%`}
                   />
-                  <XStack flex={1} jc="space-between">
+                  <View
+                    style={{
+                      flex: 1,
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                    }}
+                  >
                     <Text style={styles.monospaceText}>{item.size}</Text>
-                    <Text style={{ fontFamily: 'monospace', color: '#22c55e' }}>
+                    <Text
+                      style={[
+                        styles.monospaceText,
+                        { color: textColor.textSubdued },
+                      ]}
+                    >
                       {item.price}
                     </Text>
-                  </XStack>
-                </XStack>
+                  </View>
+                </View>
               ))}
             </YStack>
             <YStack style={styles.levelList}>
@@ -333,8 +349,8 @@ export function OrderBook({
     );
   }
   return (
-    <View>
-      <View style={{ flexDirection: 'row', paddingHorizontal: 12 }}>
+    <View style={{ padding: 8 }}>
+      <View style={{ flexDirection: 'row' }}>
         <View style={styles.verticalHeaderContainer}>
           <Text
             style={[
@@ -345,9 +361,7 @@ export function OrderBook({
             Price
           </Text>
         </View>
-        <View
-          style={[styles.verticalHeaderContainer, { justifyContent: 'center' }]}
-        >
+        <View style={[styles.verticalHeaderContainer]}>
           <Text
             style={[
               styles.verticalHeaderText,
@@ -357,12 +371,7 @@ export function OrderBook({
             SIZE
           </Text>
         </View>
-        <View
-          style={[
-            styles.verticalHeaderContainer,
-            { justifyContent: 'flex-end' },
-          ]}
-        >
+        <View style={[styles.verticalHeaderContainer]}>
           <Text
             style={[
               styles.verticalHeaderText,
@@ -385,15 +394,9 @@ export function OrderBook({
           </View>
         ))}
         <View key="mid" style={styles.spreadRow}>
-          <SizableText size="$bodySm" disableClassName>
-            Spread
-          </SizableText>
-          <SizableText size="$bodySm" disableClassName>
-            {midPrice}
-          </SizableText>
-          <SizableText size="$bodySm" disableClassName>
-            0.002%
-          </SizableText>
+          <Text style={[styles.bodySm, { color: textColor.text }]}>Spread</Text>
+          <Text style={[styles.bodySm, { color: textColor.text }]}>0.1</Text>
+          <Text style={[styles.bodySm, { color: textColor.text }]}>0.002%</Text>
         </View>
 
         {aggregatedData.bids.map((itemData, index) => (
