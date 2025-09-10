@@ -99,7 +99,7 @@ export function useAggregatedBook(
     aggregateLevels(bids, maxLevelsPerSide, tickSize, floorToTick);
 
   const { aggregatedLevels: aggregatedAsks, maxSize: maxAskSize } =
-    aggregateLevels(bids, maxLevelsPerSide, tickSize, ceilToTick);
+    aggregateLevels(asks, maxLevelsPerSide, tickSize, ceilToTick);
 
   return {
     bids: aggregatedBids,

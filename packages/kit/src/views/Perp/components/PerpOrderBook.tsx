@@ -1,19 +1,19 @@
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { SizableText, YStack } from '@onekeyhq/components';
 
 import { useL2Book } from '../hooks/usePerpMarketData';
 
-import { OrderBook, OrderPairBook } from './OrderBook';
+import { OrderBook } from './OrderBook';
 
 export function PerpOrderBook() {
   const {
     l2Book,
     hasOrderBook,
-    getBestBid,
-    getBestAsk,
-    getSpread,
-    getSpreadPercent,
-    getTotalBidVolume,
-    getTotalAskVolume,
+    // getBestBid,
+    // getBestAsk,
+    // getSpread,
+    // getSpreadPercent,
+    // getTotalBidVolume,
+    // getTotalAskVolume,
   } = useL2Book();
 
   if (!hasOrderBook || !l2Book) {
@@ -26,10 +26,10 @@ export function PerpOrderBook() {
     );
   }
 
-  const bestBid = getBestBid();
-  const bestAsk = getBestAsk();
-  const spread = getSpread();
-  const spreadPercent = getSpreadPercent();
+  // const bestBid = getBestBid();
+  // const bestAsk = getBestAsk();
+  // const spread = getSpread();
+  // const spreadPercent = getSpreadPercent();
 
   return (
     <YStack flex={1} bg="$bgApp">
@@ -45,7 +45,7 @@ export function PerpOrderBook() {
           size: Number(ask.sz),
           cumSize: 0,
         }))}
-        maxLevelsPerSide={10}
+        maxLevelsPerSide={11}
       />
     </YStack>
   );

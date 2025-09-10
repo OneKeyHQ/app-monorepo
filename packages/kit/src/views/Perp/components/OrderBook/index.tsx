@@ -120,38 +120,19 @@ function OrderBookVerticalRow({ item }: { item: IOBLevel }) {
   return (
     <XStack flex={1} px="$3" jc="space-between" disableClassName>
       <XStack width="33.33%">
-        <NumberSizeableText
-          fontFamily="$monoRegular"
-          color="$textSubdued"
-          formatter="marketCap"
-          disableClassName
-        >
+        <SizableText fontFamily="$monoRegular" color="$textSubdued">
           {item.price}
-        </NumberSizeableText>
+        </SizableText>
       </XStack>
       <XStack width="33.33%">
-        <NumberSizeableText
-          flex={1}
-          fontFamily="$monoRegular"
-          color="$textSubdued"
-          formatter="marketCap"
-          textAlign="center"
-          disableClassName
-        >
+        <SizableText fontFamily="$monoRegular" color="$textSubdued">
           {item.size}
-        </NumberSizeableText>
+        </SizableText>
       </XStack>
       <XStack width="33.33%">
-        <NumberSizeableText
-          flex={1}
-          textAlign="right"
-          fontFamily="$monoRegular"
-          color="$textSubdued"
-          formatter="marketCap"
-          disableClassName
-        >
+        <SizableText fontFamily="$monoRegular" color="$textSubdued">
           {item.cumSize}
-        </NumberSizeableText>
+        </SizableText>
       </XStack>
     </XStack>
   );
@@ -214,26 +195,18 @@ export function OrderBook({
                     width={`${(item.cumSize / bidDepth) * 100}%`}
                   />
                   <XStack flex={1} jc="space-between">
-                    <NumberSizeableText
-                      fontFamily="$monoRegular"
-                      color="$textSubdued"
-                      formatter="marketCap"
-                    >
+                    <SizableText fontFamily="$monoRegular" color="$textSubdued">
                       {item.size}
-                    </NumberSizeableText>
-                    <NumberSizeableText
-                      fontFamily="$monoRegular"
-                      color="$green11"
-                      formatter="value"
-                    >
+                    </SizableText>
+                    <SizableText fontFamily="$monoRegular" color="$green11">
                       {item.price}
-                    </NumberSizeableText>
+                    </SizableText>
                   </XStack>
                 </XStack>
               ))}
             </YStack>
             <YStack style={styles.levelList}>
-              {aggr.asks.map((item, index) => (
+              {aggr.asks.reverse().map((item, index) => (
                 <XStack
                   key={index}
                   h="$6"
@@ -246,20 +219,12 @@ export function OrderBook({
                     width={`${(item.cumSize / askDepth) * 100}%`}
                   />
                   <XStack flex={1} jc="space-between">
-                    <NumberSizeableText
-                      fontFamily="$monoRegular"
-                      color="$red11"
-                      formatter="marketCap"
-                    >
+                    <SizableText fontFamily="$monoRegular" color="$red11">
                       {item.size}
-                    </NumberSizeableText>
-                    <NumberSizeableText
-                      fontFamily="$monoRegular"
-                      color="$textSubdued"
-                      formatter="value"
-                    >
+                    </SizableText>
+                    <SizableText fontFamily="$monoRegular" color="$red11">
                       {item.price}
-                    </NumberSizeableText>
+                    </SizableText>
                   </XStack>
                 </XStack>
               ))}
@@ -289,7 +254,7 @@ export function OrderBook({
         </XStack>
       </XStack>
       <YStack>
-        {aggr.asks.map((itemData, index) => (
+        {aggr.asks.reverse().map((itemData, index) => (
           <XStack
             key={index}
             h="$6"
