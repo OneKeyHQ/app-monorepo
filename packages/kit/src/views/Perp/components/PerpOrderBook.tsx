@@ -2,7 +2,7 @@ import { SizableText, XStack, YStack } from '@onekeyhq/components';
 
 import { useL2Book } from '../hooks/usePerpMarketData';
 
-import { OrderPairBook } from './OrderBook';
+import { OrderBook, OrderPairBook } from './OrderBook';
 
 export function PerpOrderBook() {
   const {
@@ -54,7 +54,8 @@ export function PerpOrderBook() {
         </XStack>
       </XStack>
 
-      <OrderPairBook
+      <OrderBook
+        horizontal={false}
         bids={l2Book.bids.map((bid) => ({
           price: Number(bid.px),
           size: Number(bid.sz),
