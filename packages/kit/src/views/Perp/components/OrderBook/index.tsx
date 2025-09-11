@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { colorTokens } from '@tamagui/themes';
 import BigNumber from 'bignumber.js';
@@ -10,7 +10,6 @@ import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { DefaultLoadingNode } from './DefaultLoadingNode';
 import { type ITickParam } from './tickSizeUtils';
 import { useAggregatedBook } from './useAggregatedBook';
-import { useTickOptions } from './useTickOptions';
 import { getMidPrice } from './utils';
 
 import type { IOBLevel } from './types';
@@ -47,6 +46,18 @@ interface IOrderBookProps {
   horizontal?: boolean;
   /** The coin symbol */
   symbol?: string;
+  /** The selected tick option */
+  selectedTickOption?: ITickParam;
+  /** Callback when tick option changes */
+  onTickOptionChange?: (option: ITickParam) => void;
+  /** Available tick options */
+  tickOptions?: ITickParam[];
+  /** Whether to show tick selector */
+  showTickSelector?: boolean;
+  /** Price decimal places */
+  priceDecimals?: number;
+  /** Size decimal places */
+  sizeDecimals?: number;
 }
 
 const styles = StyleSheet.create({
@@ -259,7 +270,7 @@ const useTextColor = () => {
 };
 
 export function OrderBook({
-  symbol,
+  symbol: _symbol,
   bids,
   asks,
   maxLevelsPerSide = 30,
@@ -267,45 +278,32 @@ export function OrderBook({
   midPriceNode: _midPriceNode = defaultMidPriceNode,
   loadingNode = <DefaultLoadingNode />,
   horizontal = true,
+  selectedTickOption,
+  onTickOptionChange,
+  tickOptions = [],
+  showTickSelector = true,
+  priceDecimals = 2,
+  sizeDecimals = 4,
 }: IOrderBookProps) {
-  const [internalSelectedTickOption, setInternalSelectedTickOption] =
-    useState<ITickParam>();
-  const prevSymbolRef = useRef<string>();
-  const tickOptionsData = useTickOptions({ symbol, bids, asks });
-
-  useEffect(() => {
-    // Only reset when symbol changes or when initially setting
-    if (
-      (prevSymbolRef.current !== symbol || !internalSelectedTickOption) &&
-      tickOptionsData.defaultTickOption
-    ) {
-      setInternalSelectedTickOption(tickOptionsData.defaultTickOption);
-      prevSymbolRef.current = symbol;
-    }
-  }, [symbol, tickOptionsData.defaultTickOption, internalSelectedTickOption]);
-
   // Handle tick option change
   const handleTickOptionChange = useCallback(
     (value?: string) => {
       if (value === undefined) return;
-      const option = tickOptionsData.tickOptions.find(
-        (opt) => opt.value === value,
-      );
-      if (option) {
-        console.log('set option: ===>: ', option);
-        setInternalSelectedTickOption(option);
+      const option = tickOptions.find((opt) => opt.value === value);
+      if (option && onTickOptionChange) {
+        onTickOptionChange(option);
       }
     },
-    [tickOptionsData.tickOptions],
+    [tickOptions, onTickOptionChange],
   );
 
   const aggregatedData = useAggregatedBook(
     bids,
     asks,
     maxLevelsPerSide,
-    internalSelectedTickOption,
-    tickOptionsData.priceDecimals,
-    tickOptionsData.sizeDecimals,
+    selectedTickOption,
+    priceDecimals,
+    sizeDecimals,
   );
   const isEmpty = !aggregatedData.bids.length && !aggregatedData.asks.length;
 
@@ -543,36 +541,38 @@ export function OrderBook({
             <Text style={[styles.bodySm, { color: textColor.text }]}>
               Spread
             </Text>
-            <Select
-              title="Tick Size"
-              items={tickOptionsData.tickOptions}
-              value={internalSelectedTickOption?.value}
-              onChange={handleTickOptionChange}
-              renderTrigger={({ onPress }) => (
-                <TouchableOpacity
-                  style={{
-                    width: 56,
-                    height: 24,
-                    backgroundColor: 'rgba(255,255,255,0.1)',
-                    borderRadius: 4,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    paddingHorizontal: 8,
-                  }}
-                  onPress={onPress}
-                >
-                  <Text style={[styles.bodySm, { color: textColor.text }]}>
-                    {internalSelectedTickOption?.label}
-                  </Text>
-                  <Icon
-                    name="ChevronDownSmallOutline"
-                    size={10}
-                    color="$iconSubdued"
-                  />
-                </TouchableOpacity>
-              )}
-            />
+            {showTickSelector ? (
+              <Select
+                title="Tick Size"
+                items={tickOptions}
+                value={selectedTickOption?.value}
+                onChange={handleTickOptionChange}
+                renderTrigger={({ onPress }) => (
+                  <TouchableOpacity
+                    style={{
+                      width: 56,
+                      height: 24,
+                      backgroundColor: 'rgba(255,255,255,0.1)',
+                      borderRadius: 4,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingHorizontal: 8,
+                    }}
+                    onPress={onPress}
+                  >
+                    <Text style={[styles.bodySm, { color: textColor.text }]}>
+                      {selectedTickOption?.label}
+                    </Text>
+                    <Icon
+                      name="ChevronDownSmallOutline"
+                      size={10}
+                      color="$iconSubdued"
+                    />
+                  </TouchableOpacity>
+                )}
+              />
+            ) : null}
             <Text style={[styles.bodySm, { color: textColor.text }]}>
               0.002%
             </Text>
@@ -634,7 +634,7 @@ function OrderBookPairRow({
 }
 
 export function OrderPairBook({
-  symbol,
+  symbol: _symbol,
   bids,
   asks,
   maxLevelsPerSide = 30,
@@ -646,32 +646,13 @@ export function OrderPairBook({
   asks: IBookLevel[];
   selectedTickOption?: ITickParam;
 }) {
-  const [internalSelectedTickOption, setInternalSelectedTickOption] =
-    useState<ITickParam>();
-
-  const tickOptionsData = useTickOptions({ symbol, bids, asks });
-
-  // Handle tick option change
-  const handleTickOptionChange = useCallback(
-    (value: string) => {
-      const option = tickOptionsData.tickOptions.find(
-        (opt) => opt.targetTick.toString() === value,
-      );
-      if (option) {
-        console.log('set option: ===>: ', option);
-        setInternalSelectedTickOption(option);
-      }
-    },
-    [tickOptionsData.tickOptions],
-  );
-
   const aggregatedData = useAggregatedBook(
     bids,
     asks,
     maxLevelsPerSide,
-    internalSelectedTickOption,
-    tickOptionsData.priceDecimals,
-    tickOptionsData.sizeDecimals,
+    selectedTickOption,
+    2, // default priceDecimals
+    4, // default sizeDecimals
   );
   const bidDepth = useMemo(() => {
     return new BigNumber(aggregatedData.bids.at(-1)?.cumSize ?? '0');
