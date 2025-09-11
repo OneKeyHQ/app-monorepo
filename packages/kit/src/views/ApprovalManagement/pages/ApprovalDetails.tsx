@@ -279,6 +279,7 @@ function ApprovalDetails() {
               size="xl"
               showNetworkIcon
               networkId={approval.networkId}
+              tokenImageUri={contract.logoURI}
               fallbackIcon={contract.icon}
             />
             <YStack flex={1}>
@@ -376,6 +377,7 @@ function ApprovalDetails() {
     approval.riskReason,
     contract.icon,
     contract.label,
+    contract.logoURI,
     copyText,
     intl,
     isSelectMode,
