@@ -1,6 +1,8 @@
+import type { INotificationPushMessageInfo } from '@onekeyhq/shared/types/notification';
+
 export interface ILaunchOptionsNotificationInfo {
   fireDate: number | null;
-  userInfo: Record<string, any> | null;
+  userInfo: INotificationPushMessageInfo;
 }
 
 export interface ILaunchOptionsManagerInterface {

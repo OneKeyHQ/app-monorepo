@@ -40,7 +40,6 @@ import { FullWindowOverlayContainer } from './FullWindowOverlayContainer';
 import { GlobalErrorHandlerContainer } from './GlobalErrorHandlerContainer';
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
-import { useInitialNotification } from './hooks';
 import InAppNotification from './InAppNotification';
 import { NavigationContainer } from './NavigationContainer';
 import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
@@ -48,6 +47,7 @@ import { PortalBodyContainer } from './PortalBodyContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
+import { NotificationHandlerContainer } from './NotificationHandlerContainer';
 
 const PageTrackerContainer = LazyLoad(
   () => import('./PageTrackerContainer'),
@@ -170,8 +170,6 @@ export function ColdStartByNotification() {
     };
   }, [isVersionCompatible, showFallbackUpdateDialog]);
 
-  useInitialNotification();
-
   return null;
 }
 ColdStartByNotification.launchNotification = null;
@@ -201,6 +199,7 @@ export function Container() {
           <GlobalErrorHandlerContainer />
           <ForceFirmwareUpdateContainer />
           <ColdStartByNotification />
+          <NotificationHandlerContainer />
           <PrimeGlobalEffect />
           <WebPerformanceMonitorContainer />
           <PasswordVerifyPortalContainer />

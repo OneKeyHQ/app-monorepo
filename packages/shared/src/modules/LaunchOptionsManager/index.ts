@@ -1,3 +1,3 @@
 import LaunchOptionsManagerModule from './LaunchOptionsManager';
 
-export default launchOptionsManager
+export default LaunchOptionsManagerModule;

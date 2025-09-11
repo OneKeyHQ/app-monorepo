@@ -106,7 +106,17 @@ export async function navigateToNotificationDetailByLocalParams({
     );
   }
 }
-
+export interface INavigateToNotificationDetailParams {
+  notificationId: string;
+  notificationAccountId?: string;
+  message: INotificationPushMessageInfo | undefined;
+  isFromNotificationClick?: boolean; // click by system notification banner
+  navigation?: IAppNavigation;
+  mode?: ENotificationPushMessageMode;
+  payload?: string;
+  localParams?: Record<string, string | undefined> | undefined;
+  getEarnAccount: IGetEarnAccountFunc;
+}
 async function navigateToNotificationDetail({
   notificationId,
   notificationAccountId,
@@ -117,17 +127,7 @@ async function navigateToNotificationDetail({
   payload,
   localParams,
   getEarnAccount,
-}: {
-  notificationId: string;
-  notificationAccountId?: string;
-  message: INotificationPushMessageInfo | undefined;
-  isFromNotificationClick?: boolean; // click by system notification banner
-  navigation?: IAppNavigation;
-  mode?: ENotificationPushMessageMode;
-  payload?: string;
-  localParams?: Record<string, string | undefined> | undefined;
-  getEarnAccount: IGetEarnAccountFunc;
-}) {
+}: INavigateToNotificationDetailParams) {
   let routes: string[] = [];
   let params: any = {};
   let shouldAckRead = true;
