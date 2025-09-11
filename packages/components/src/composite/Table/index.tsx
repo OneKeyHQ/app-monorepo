@@ -14,7 +14,7 @@ import { SortableListView } from '../../layouts/SortableListView';
 import { SizableText, Stack, XStack, YStack } from '../../primitives';
 import { Haptics, ImpactFeedbackStyle } from '../../primitives/Haptics';
 
-import { Column, MemoHeaderColumn, TableSkeletonRow } from './components';
+import { Column, MemoHeaderColumn } from './components';
 
 import type { ITableProps } from './types';
 import type { IListViewRef } from '../../layouts';
@@ -453,6 +453,27 @@ function BasicTable<T>({
     </YStack>
   ) : (
     list
+  );
+}
+
+function TableSkeletonRow<T = any>({
+  columns,
+  index,
+  rowProps,
+}: {
+  columns: ITableProps<T>['columns'];
+  index: number;
+  rowProps?: ITableProps<T>['rowProps'];
+}) {
+  return (
+    <TableRow
+      columns={columns}
+      showSkeleton
+      rowProps={rowProps}
+      item={undefined as any}
+      key={index}
+      index={index}
+    />
   );
 }
 

@@ -42,8 +42,7 @@ export function useSortIcon({
               ? 'ChevronDownSmallOutline'
               : 'ChevronTopSmallOutline'
           }
-          color={isActive ? '$icon' : '$iconSubdued'}
-          opacity={isActive ? 1 : 0.4}
+          color={isActive ? '$iconActive' : '$iconSubdued'}
           size="$4"
         />
       );
