@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 
 import launchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
-import { ELaunchOptionsLaunchType } from '@onekeyhq/shared/src/modules/LaunchOptionsManager/type';
 import type { INavigateToNotificationDetailParams } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
 import type { INotificationPushMessageInfo } from '@onekeyhq/shared/types/notification';
