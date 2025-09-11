@@ -4,7 +4,6 @@ import { CommonActions, StackActions } from '@react-navigation/native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
-  HeaderIconButton,
   NavBackButton,
   Page,
   ScrollView,
@@ -16,37 +15,37 @@ import {
   useDeferredPromise,
   useIsModalPage,
   useMedia,
-  useShare,
 } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type { ITabMarketParamList } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { OpenInAppButton } from '../../../components/OpenInAppButton';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { MarketDetailOverview } from '../components/MarketDetailOverview';
-import { MarketHomeHeaderSearchBar } from '../components/MarketHomeHeaderSearchBar';
-import { MarketStar } from '../components/MarketStar';
 import { MarketTokenIcon } from '../components/MarketTokenIcon';
 import { MarketTokenPrice } from '../components/MarketTokenPrice';
 import { MarketTradeButton } from '../components/MarketTradeButton';
 import { PriceChangePercentage } from '../components/PriceChangePercentage';
 import { TokenDetailTabs } from '../components/TokenDetailTabs';
 import { TokenPriceChart } from '../components/TokenPriceChart';
-import { buildMarketFullUrl } from '../marketUtils';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
+/**
+ * Displays the header section for a market token detail view, including token name, price, price change, watchlist star, and trade button.
+ *
+ * Fetches and updates token details at regular intervals, and conditionally renders a market overview for larger screens.
+ *
+ * @param coinGeckoId - The CoinGecko identifier for the token.
+ * @param token - The initial token detail data to display before fetching updates.
+ * @returns The rendered header UI for the token detail screen.
+ */
 function TokenDetailHeader({
   coinGeckoId,
   token: responseToken,
@@ -97,12 +96,6 @@ function TokenDetailHeader({
             tokenSymbol={symbol}
             lastUpdated={lastUpdated}
           />
-          <MarketStar
-            coingeckoId={coinGeckoId}
-            mr="$-2"
-            size="medium"
-            from={EWatchlistFrom.details}
-          />
         </XStack>
         <PriceChangePercentage pt="$0.5" width="100%">
           {performance.priceChangePercentage24h}
@@ -139,6 +132,11 @@ function SkeletonHeaderOverItemItem() {
   );
 }
 
+/**
+ * Displays the detailed market information screen for a specific token.
+ *
+ * Fetches and presents token details, price chart, and related tabs. Adapts layout for modal and responsive contexts, supports pull-to-refresh, and provides sharing and navigation actions.
+ */
 function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>) {
@@ -181,45 +179,6 @@ function MarketDetail({
       </XStack>
     ),
     [tokenDetail?.image, tokenDetail?.symbol],
-  );
-  const { shareText } = useShare();
-
-  const buildDeepLinkUrl = useCallback(
-    () =>
-      uriUtils.buildDeepLinkUrl({
-        path: EOneKeyDeepLinkPath.market_detail,
-        query: {
-          coinGeckoId,
-        },
-      }),
-    [coinGeckoId],
-  );
-
-  const buildFullUrl = useCallback(
-    async () => buildMarketFullUrl({ coinGeckoId }),
-    [coinGeckoId],
-  );
-
-  const renderHeaderRight = useCallback(
-    () => (
-      <XStack gap="$6" ai="center">
-        {!platformEnv.isExtensionUiPopup && !platformEnv.isNative ? (
-          <OpenInAppButton
-            buildDeepLinkUrl={buildDeepLinkUrl}
-            buildFullUrl={buildFullUrl}
-          />
-        ) : null}
-        <HeaderIconButton
-          icon="ShareOutline"
-          onPress={async () => {
-            const url = buildMarketFullUrl({ coinGeckoId });
-            await shareText(url);
-          }}
-        />
-        {gtMd ? <MarketHomeHeaderSearchBar /> : null}
-      </XStack>
-    ),
-    [buildDeepLinkUrl, buildFullUrl, coinGeckoId, gtMd, shareText],
   );
 
   const navigation = useAppNavigation();
@@ -315,7 +274,6 @@ function MarketDetail({
     <Page>
       <Page.Header
         headerTitle={renderHeaderTitle}
-        headerRight={renderHeaderRight}
         headerLeft={renderHeaderLeft}
       />
       <Page.Body>

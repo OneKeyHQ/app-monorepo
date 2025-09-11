@@ -10,7 +10,7 @@ on:
 
 jobs:
   release-desktop-winms:
-    runs-on: macos-latest
+    runs-on: windows-latest
     strategy:
       matrix:
         node-version: [20.x]
@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Show executed time
         run: |
-          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
+          Write-Host "Executed at: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
 
       - name: Checkout Source Code
         uses: actions/checkout@v3
@@ -43,12 +43,13 @@ jobs:
 
       - name: 'Setup ENV'
         run: |
-          eval "$(node -e 'const v=require("./apps/desktop/package.json").version; console.log("pkg_version="+v)')"
-          echo '$pkg_version='$pkg_version
-          echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
+          $pkg_version = node -e "console.log(require('./apps/desktop/package.json').version)"
+          $pkg_version = $pkg_version.Trim()
+          Write-Host "pkg_version=$pkg_version"
+          "PKG_VERSION=$pkg_version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-          artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
+          $artifacts_url = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+          "ARTIFACTS_URL=$artifacts_url" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
 
       - name: Setup Node
@@ -61,7 +62,8 @@ jobs:
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
-        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+        shell: pwsh
+        run: echo "dir=$(yarn config get cacheFolder)" >> $env:GITHUB_OUTPUT
 
       - uses: actions/cache@v3
         id: yarn-cache # use this to check for `cache-hit` (`steps.yarn-cache.outputs.cache-hit != 'true'`)
@@ -80,19 +82,7 @@ jobs:
 
       - name: Setup Code Signing file
         run: |
-          echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > apps/desktop/sign.p12
-
-      - name: Publish and Sign Static Windows Installer
-        if: ${{ (github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/onekey') }}
-        env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-          APPLEID: ${{ secrets.APPLEID }}
-          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
-          ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          CSC_LINK: './sign.p12'
-        run: 'cd apps/desktop && yarn publish:winms'
+          [IO.File]::WriteAllBytes("apps/desktop/sign.p12", [Convert]::FromBase64String("${{ secrets.DESKTOP_KEYS_SECRET }}"))
 
       - name: Build and Sign Static Windows Installer
         env:
@@ -103,26 +93,18 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           CSC_LINK: './sign.p12'
-        run: 'cd apps/desktop && yarn build:winms'
+        run: |
+          cd apps/desktop
+          yarn build:winms
 
-      - name: Upload Artifacts Windows
+      - name: Upload universal Windows Store exe
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-windows
+          name: onekey-desktop-winms-universal-exe
           path: |
             ./apps/desktop/build-electron/*.exe
-
-      - name: Upload Artifacts Release
-        uses: actions/upload-artifact@v4
-        with:
-          name: release
-          path: |
-            ./apps/desktop/build-electron/*
-            !./apps/desktop/build-electron/win-unpacked
-            !./apps/desktop/build-electron/mac-arm64
-            !./apps/desktop/build-electron/mac
-            !./apps/desktop/build-electron/linux-unpacked
-            !./apps/desktop/build-electron/builder-debug.yml
+            !./apps/desktop/build-electron/*-x64.exe
+            !./apps/desktop/build-electron/*-arm64.exe
 
       - name: 'Notify to Slack'
         if: ${{ github.event.workflow_run }}

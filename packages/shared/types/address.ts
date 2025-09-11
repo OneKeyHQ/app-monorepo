@@ -20,6 +20,11 @@ export enum EDeriveAddressActionType {
   Select = 'select',
 }
 
+export enum EWalletAddressActionType {
+  Copy = 'copy',
+  ViewInExplorer = 'viewInExplorer',
+}
+
 // TODO dbAddress, baseAddress, displayAddress, utxoAddress, normalizedAddress
 export type IAddressValidation = {
   isValid: boolean;
@@ -178,6 +183,7 @@ export type IAddressBadge = {
   type: IBadgeProps['badgeType'];
   tip?: string;
   icon?: IKeyOfIcons;
+  logoURI?: string;
 };
 
 export type IAddressInfo = IAddressBadge;

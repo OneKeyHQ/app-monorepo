@@ -100,8 +100,14 @@ async function processDeepLinkUrlAccount(
                 },
               });
             }
-            defaultLogger.referral.page.enterReferralGuide(code);
+            defaultLogger.referral.page.enterReferralGuideFromDeepLink(
+              code,
+              utmSource,
+            );
           }
+          break;
+        case EOneKeyDeepLinkPath.cross_device_transfer:
+          console.log('TODO implement cross_device_transfer deeplink');
           break;
         default:
           break;

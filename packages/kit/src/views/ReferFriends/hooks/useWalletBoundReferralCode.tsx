@@ -5,6 +5,7 @@ import { StyleSheet } from 'react-native';
 
 import {
   Dialog,
+  EInPageDialogType,
   Form,
   Input,
   SizableText,
@@ -12,11 +13,11 @@ import {
   XStack,
   YStack,
   useForm,
-  useInModalDialog,
-  useInTabDialog,
+  useInPageDialog,
 } from '@onekeyhq/components';
 import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
 import { EMnemonicType } from '@onekeyhq/core/src/secret';
+import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -193,29 +194,48 @@ function InviteCode({
           walletInfo.isBtcOnlyWallet &&
           networkUtils.isBTCNetwork(walletInfo.networkId);
 
-        const signedMessage = await navigationToMessageConfirmAsync({
-          accountId: walletInfo.accountId,
-          networkId: walletInfo.networkId,
-          unsignedMessage: isBtcOnlyWallet
-            ? {
-                type: EMessageTypesBtc.ECDSA,
-                message: unsignedMessage,
-                sigOptions: {
-                  noScriptType: true,
-                },
-                payload: {
-                  isFromDApp: false,
-                },
-              }
-            : {
-                type: EMessageTypesEth.PERSONAL_SIGN,
-                message: unsignedMessage,
-                payload: [unsignedMessage, walletInfo.address],
+        const finalUnsignedMessage: IUnsignedMessage = isBtcOnlyWallet
+          ? {
+              type: EMessageTypesBtc.ECDSA,
+              message: unsignedMessage,
+              sigOptions: {
+                noScriptType: true,
               },
-          walletInternalSign: true,
-          sameModal: false,
-          skipBackupCheck: true,
-        });
+              payload: {
+                isFromDApp: false,
+              },
+            }
+          : {
+              type: EMessageTypesEth.PERSONAL_SIGN,
+              message: unsignedMessage,
+              payload: [unsignedMessage, walletInfo.address],
+            };
+
+        let signedMessage: string | null;
+
+        signedMessage =
+          await backgroundApiProxy.serviceReferralCode.autoSignBoundReferralCodeMessageByHDWallet(
+            {
+              unsignedMessage: finalUnsignedMessage,
+              networkId: walletInfo.networkId,
+              accountId: walletInfo.accountId,
+            },
+          );
+
+        if (!signedMessage) {
+          signedMessage = await navigationToMessageConfirmAsync({
+            accountId: walletInfo.accountId,
+            networkId: walletInfo.networkId,
+            unsignedMessage: finalUnsignedMessage,
+            walletInternalSign: true,
+            sameModal: false,
+            skipBackupCheck: true,
+          });
+        }
+
+        if (!signedMessage) {
+          throw new OneKeyLocalError('Failed to sign message');
+        }
 
         const bindResult =
           await backgroundApiProxy.serviceReferralCode.boundReferralCodeWithSignedMessage(
@@ -427,9 +447,11 @@ export function useWalletBoundReferralCode({
     [mnemonicType, getReferralCodeWalletInfo],
   );
 
-  const inModalDialog = useInModalDialog();
-  const inTabDialog = useInTabDialog();
-  const dialog = entry === 'modal' ? inModalDialog : inTabDialog;
+  const dialog = useInPageDialog(
+    entry === 'modal'
+      ? EInPageDialogType.inModalPage
+      : EInPageDialogType.inTabPages,
+  );
   const bindWalletInviteCode = useCallback(
     ({ wallet, onSuccess }: { wallet?: IDBWallet; onSuccess?: () => void }) => {
       dialog.show({

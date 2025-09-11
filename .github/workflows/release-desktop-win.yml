@@ -1,0 +1,154 @@
+name: release-desktop-win
+
+on:
+  workflow_run:
+    workflows:
+      - daily-build
+    types:
+      - completed
+  workflow_dispatch:
+
+jobs:
+  release-desktop-win:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
+    steps:
+      - name: Show executed time
+        run: |
+          Write-Host "Executed at: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+
+      - name: Checkout Source Code
+        uses: actions/checkout@v3
+        with:
+          lfs: true
+
+      - name: Run Shared Env Setup
+        uses: ./.github/actions/shared-env
+        with:
+          env_file_name: '.env'
+          sentry_project: 'desktop'
+          covalent_key: ${{ secrets.COVALENT_KEY }}
+          sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+          sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}
+          sentry_dsn_desktop: ${{ secrets.SENTRY_DSN_DESKTOP }}
+          sentry_dsn_mas: ${{ secrets.SENTRY_DSN_MAS }}
+          sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
+          sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
+          sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
+
+      - name: 'Setup ENV'
+        run: |
+          $pkg_version = node -e "console.log(require('./apps/desktop/package.json').version)"
+          $pkg_version = $pkg_version.Trim()
+          Write-Host "pkg_version=$pkg_version"
+          "PKG_VERSION=$pkg_version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          $artifacts_url = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+          "ARTIFACTS_URL=$artifacts_url" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          registry-url: 'https://npm.pkg.github.com'
+          always-auth: true
+          scope: '@onekeyhq'
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        shell: pwsh
+        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v3
+        id: yarn-cache
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install Dep
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          yarn
+
+      - name: Setup Code Signing file
+        run: |
+          [IO.File]::WriteAllBytes("apps/desktop/sign.p12", [Convert]::FromBase64String("${{ secrets.DESKTOP_KEYS_SECRET }}"))
+
+      - name: Build and Sign Static Windows Installer
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          APPLEID: ${{ secrets.APPLEID }}
+          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+          ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_LINK: './sign.p12'
+        run: |
+          cd apps/desktop
+          yarn build:win
+
+      - name: Upload x64 Windows exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-win-x64-exe
+          path: |
+            ./apps/desktop/build-electron/*-x64.exe
+
+      - name: Upload arm64 Windows exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-win-arm64-exe
+          path: |
+            ./apps/desktop/build-electron/*-arm64.exe
+
+      - name: Upload universal Windows exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-win-universal-exe
+          path: |
+            ./apps/desktop/build-electron/*.exe
+            !./apps/desktop/build-electron/*-x64.exe
+            !./apps/desktop/build-electron/*-arm64.exe
+      
+      - name: Upload Artifacts latest.yml
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-windows-desktop-yml
+          path: |
+            ./apps/desktop/build-electron/*.yml
+
+      - name: Upload Artifacts Release
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: |
+            ./apps/desktop/build-electron/*
+            !./apps/desktop/build-electron/win-unpacked
+            !./apps/desktop/build-electron/win-arm64-unpacked
+            !./apps/desktop/build-electron/mac-arm64
+            !./apps/desktop/build-electron/mac
+            !./apps/desktop/build-electron/linux-unpacked
+            !./apps/desktop/build-electron/builder-debug.yml
+
+      - name: 'Notify to Slack'
+        if: ${{ github.event.workflow_run }}
+        uses: onekeyhq/actions/slack-notify-webhook@main
+        with:
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+          artifact-type: Desktop
+          artifact-name: OneKey-Desktop-Win
+          artifact-bundle-id: 'so.onekey.wallet.desktop'
+          artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
+          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+

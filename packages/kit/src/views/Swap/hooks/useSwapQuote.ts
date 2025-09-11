@@ -43,6 +43,7 @@ import {
   useSwapSelectToTokenAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSlippageDialogOpeningAtom,
+  useSwapToAnotherAccountAddressAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
@@ -51,6 +52,11 @@ import { truncateDecimalPlaces } from '../utils/utils';
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 
+/**
+ * React hook that manages fetching, updating, and synchronizing swap quotes for a decentralized exchange interface.
+ *
+ * This hook coordinates state and side effects related to swap quote retrieval, token and amount changes, slippage settings, and user interactions. It integrates with Jotai atoms, event bus listeners, and debounced input handling to ensure accurate and efficient quote updates. The hook also manages cleanup and event subscriptions based on tab focus and modal state.
+ */
 export function useSwapQuote() {
   const {
     quoteAction,
@@ -63,6 +69,7 @@ export function useSwapQuote() {
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const [swapToAnotherAccountAddress] = useSwapToAnotherAccountAddressAtom();
   const [fromToken, setSwapSelectFromToken] = useSwapSelectFromTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [toToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
@@ -265,6 +272,13 @@ export function useSwapQuote() {
       return;
     }
     if (
+      !isFocusRef.current &&
+      !swapToAnotherAccountAddress?.address &&
+      settingsAtomRef.current.swapToAnotherAccountSwitchOn
+    ) {
+      return;
+    }
+    if (
       fromToken?.networkId !== activeAccountRef.current?.networkId ||
       equalTokenNoCaseSensitive({
         token1: {
@@ -322,6 +336,7 @@ export function useSwapQuote() {
       swapToAddressInfoRef.current.address,
     );
   }, [
+    swapToAnotherAccountAddress?.address,
     cleanQuoteInterval,
     quoteAction,
     swapAddressInfo.address,
@@ -369,6 +384,13 @@ export function useSwapQuote() {
       !isFocusRef.current &&
       swapToAddressInfo.address ===
         swapQuoteActionLockRef.current?.receivingAddress
+    ) {
+      return;
+    }
+    if (
+      !isFocusRef.current &&
+      !swapToAnotherAccountAddress?.address &&
+      settingsAtomRef.current.swapToAnotherAccountSwitchOn
     ) {
       return;
     }
@@ -433,6 +455,7 @@ export function useSwapQuote() {
       swapToAddressInfoRef.current.address,
     );
   }, [
+    swapToAnotherAccountAddress?.address,
     cleanQuoteInterval,
     quoteAction,
     swapAddressInfo.address,

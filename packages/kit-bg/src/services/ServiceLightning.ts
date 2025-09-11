@@ -400,7 +400,7 @@ class ServiceLightning extends ServiceBase {
       networkId,
       accountId,
     })) as LightningVault;
-    return vault.verifyMessage({
+    return vault.verifyLightningMessage({
       message,
       signature,
     });

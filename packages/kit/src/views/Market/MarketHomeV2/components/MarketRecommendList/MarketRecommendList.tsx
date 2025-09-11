@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,20 +13,19 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
+import type { IMarketBasicConfigToken } from '@onekeyhq/shared/types/marketV2';
 
 import { useWatchListV2Action } from '../../../components/watchListHooksV2';
 
 import { RecommendItem } from './RecommendItem';
 
 interface IMarketRecommendListProps {
-  recommendedTokens: IMarketTokenListItem[];
+  recommendedTokens: IMarketBasicConfigToken[];
   maxSize?: number;
-  onTokenSelect?: (token: IMarketTokenListItem) => void;
+  onTokenSelect?: (token: IMarketBasicConfigToken) => void;
   enableSelection?: boolean;
   showTitle?: boolean;
   showAddButton?: boolean;
-  networkId?: string;
 }
 
 export function MarketRecommendList({
@@ -36,58 +35,64 @@ export function MarketRecommendList({
   enableSelection = true,
   showTitle = true,
   showAddButton = true,
-  networkId,
 }: IMarketRecommendListProps) {
   const intl = useIntl();
   const actions = useWatchListV2Action();
 
-  const defaultAddresses = useMemo(
-    () => recommendedTokens?.slice(0, maxSize)?.map((i) => i.address) || [],
+  const defaultTokens = useMemo(
+    () => recommendedTokens?.slice(0, maxSize) || [],
     [recommendedTokens, maxSize],
   );
 
-  const [selectedAddresses, setSelectedAddresses] = useState<string[]>(
-    enableSelection ? defaultAddresses : [],
-  );
+  const [selectedTokens, setSelectedTokens] = useState<
+    IMarketBasicConfigToken[]
+  >(enableSelection ? defaultTokens : []);
+
+  useEffect(() => {
+    setSelectedTokens(enableSelection ? defaultTokens : []);
+  }, [enableSelection, defaultTokens]);
 
   const handleRecommendItemChange = useCallback(
     (checked: boolean, address: string) => {
       if (!enableSelection) {
-        const token = recommendedTokens.find((t) => t.address === address);
+        const token = recommendedTokens.find(
+          (t) => t.contractAddress === address,
+        );
         if (token && onTokenSelect) {
           onTokenSelect(token);
         }
         return;
       }
 
-      setSelectedAddresses((prev) =>
-        checked ? [...prev, address] : prev.filter((i) => i !== address),
+      const token = recommendedTokens.find(
+        (t) => t.contractAddress === address,
+      );
+      if (!token) return;
+
+      setSelectedTokens((prev) =>
+        checked
+          ? [...prev, token]
+          : prev.filter((i) => i.contractAddress !== address),
       );
     },
     [enableSelection, onTokenSelect, recommendedTokens],
   );
 
   const handleAddTokens = useCallback(async () => {
-    if (showAddButton && enableSelection && networkId) {
-      const items = selectedAddresses.map((address) => ({
-        chainId: networkId,
-        contractAddress: address,
+    if (showAddButton && enableSelection) {
+      const items = selectedTokens.map((token) => ({
+        chainId: token.chainId,
+        contractAddress: token.contractAddress,
+        isNative: token.isNative,
       }));
 
       actions.addIntoWatchListV2(items);
 
       setTimeout(() => {
-        setSelectedAddresses(defaultAddresses);
+        setSelectedTokens(defaultTokens);
       }, 50);
     }
-  }, [
-    actions,
-    selectedAddresses,
-    defaultAddresses,
-    showAddButton,
-    enableSelection,
-    networkId,
-  ]);
+  }, [actions, selectedTokens, defaultTokens, showAddButton, enableSelection]);
 
   const { gtMd } = useMedia();
 
@@ -97,7 +102,7 @@ export function MarketRecommendList({
         <Button
           width="100%"
           size="large"
-          disabled={!selectedAddresses.length}
+          disabled={!selectedTokens.length}
           variant="primary"
           onPress={handleAddTokens}
         >
@@ -105,12 +110,12 @@ export function MarketRecommendList({
             {
               id: ETranslations.market_add_number_tokens,
             },
-            { number: selectedAddresses.length || 0 },
+            { number: selectedTokens.length || 0 },
           )}
         </Button>
       ) : null,
     [
-      selectedAddresses.length,
+      selectedTokens.length,
       handleAddTokens,
       intl,
       showAddButton,
@@ -181,19 +186,22 @@ export function MarketRecommendList({
             >
               {new Array(2).fill(0).map((__, j) => {
                 const item = recommendedTokens?.[i * 2 + j];
+                console.log('item', item);
                 return item ? (
                   <RecommendItem
-                    key={item.address}
-                    address={item.address}
+                    key={item.contractAddress}
+                    address={item.contractAddress}
                     checked={
                       enableSelection
-                        ? selectedAddresses.includes(item.address)
+                        ? selectedTokens.some(
+                            (t) => t.contractAddress === item.contractAddress,
+                          )
                         : false
                     }
-                    icon={item.logoUrl || ''}
+                    icon={item.logo || ''}
                     symbol={item.symbol}
                     tokenName={item.name}
-                    networkId={item.networkId || item.chainId}
+                    networkId={item.chainId}
                     onChange={handleRecommendItemChange}
                   />
                 ) : null;
@@ -205,6 +213,7 @@ export function MarketRecommendList({
           ) : null}
         </YStack>
       </ScrollView>
+
       {!gtMd && confirmButton ? <YStack p="$5">{confirmButton}</YStack> : null}
     </Stack>
   );

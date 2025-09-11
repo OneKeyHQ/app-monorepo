@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -20,6 +20,10 @@ import type {
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -30,13 +34,15 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useAccountData } from '../../hooks/useAccountData';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 import { useAccountSelectorCreateAddress } from '../AccountSelector/hooks/useAccountSelectorCreateAddress';
 
 import {
-  AddressTypeSelectorContext,
-  useAddressTypeSelectorContext,
+  AddressTypeSelectorDynamicContext,
+  AddressTypeSelectorStableContext,
+  useAddressTypeSelectorDynamicContext,
 } from './AddressTypeSelectorContext';
 import AddressTypeSelectorItem from './AddressTypeSelectorItem';
 import AddressTypeSelectorTrigger from './AddressTypeSelectorTrigger';
@@ -100,7 +106,7 @@ function AddressTypeSelectorContent(
       deriveType: IAccountDeriveTypes;
     }[];
     refreshNetworkAccounts: () => Promise<void>;
-    selectorTitle: string | ReactElement;
+    selectorTitle: string | ReactNode;
   },
 ) {
   const {
@@ -125,7 +131,7 @@ function AddressTypeSelectorContent(
     setIsCreatingAddress,
     setActiveDeriveType,
     setCreatingDeriveType,
-  } = useAddressTypeSelectorContext();
+  } = useAddressTypeSelectorDynamicContext();
 
   const { createAddress } = useAccountSelectorCreateAddress();
 
@@ -229,7 +235,6 @@ function AddressTypeSelectorContent(
 
       if (!doubleConfirm) {
         if (changeDefaultAddressTypeAfterSelect) {
-          console.log('saveGlobalDeriveTypeForNetwork', networkId, deriveType);
           await backgroundApiProxy.serviceNetwork.saveGlobalDeriveTypeForNetwork(
             {
               networkId,
@@ -284,6 +289,7 @@ function AddressTypeSelectorContent(
         renderItem={({ item }) => {
           return (
             <AddressTypeSelectorItem
+              key={item.deriveType}
               data={item}
               onSelect={handleAddressTypeOnSelect}
             />
@@ -336,8 +342,77 @@ function AddressTypeSelectorContent(
   );
 }
 
-function AddressTypeSelector(props: IProps) {
+const SelectorTitle = ({
+  title,
+  helpLink,
+  closePopover,
+}: {
+  title: string | ReactElement | undefined;
+  helpLink: string;
+  closePopover: () => void;
+}) => {
   const intl = useIntl();
+  let defaultTitle = intl.formatMessage({
+    id: ETranslations.address_type_selector_title,
+  });
+
+  if (title)
+    if (typeof title === 'string') {
+      defaultTitle = title;
+    } else {
+      return title;
+    }
+
+  return (
+    <XStack alignItems="center" justifyContent="space-between">
+      <XStack
+        gap={6}
+        alignItems="center"
+        {...(helpLink && {
+          cursor: 'pointer',
+          px: '$2',
+          py: '$1',
+          mx: '$-2',
+          my: '$-1',
+          borderRadius: '$2',
+          hoverStyle: {
+            bg: '$bgHover',
+          },
+          pressStyle: {
+            bg: '$bgActive',
+          },
+          onPress: () => {
+            openUrlExternal(helpLink);
+          },
+        })}
+      >
+        <SizableText
+          size="$headingMd"
+          $gtMd={{
+            size: '$headingSm',
+          }}
+        >
+          {defaultTitle}
+        </SizableText>
+        {helpLink ? (
+          <Icon name="QuestionmarkOutline" size="$4" color="$iconSubdued" />
+        ) : null}
+      </XStack>
+      <IconButton
+        $gtMd={{
+          display: 'none',
+        }}
+        icon="CrossedSmallOutline"
+        variant="tertiary"
+        onPress={() => {
+          closePopover();
+        }}
+      />
+    </XStack>
+  );
+};
+
+function AddressTypeSelector(props: IProps) {
   const {
     walletId,
     networkId,
@@ -354,6 +429,10 @@ function AddressTypeSelector(props: IProps) {
     doubleConfirm,
     offset,
   } = props;
+
+  const { network } = useAccountData({
+    networkId,
+  });
 
   const helpLink = useMemo(() => {
     const impl = networkUtils.getNetworkImpl({ networkId });
@@ -407,90 +486,42 @@ function AddressTypeSelector(props: IProps) {
       ?.deriveInfo;
   }, [activeDeriveInfoProp, networkAccounts, activeDeriveType]);
 
-  const selectorTitle = useMemo(() => {
-    let defaultTitle = intl.formatMessage({
-      id: ETranslations.address_type_selector_title,
-    });
-
-    if (title)
-      if (typeof title === 'string') {
-        defaultTitle = title;
-      } else {
-        return title;
-      }
-
-    return (
-      <XStack alignItems="center" justifyContent="space-between">
-        <XStack
-          gap={6}
-          alignItems="center"
-          {...(helpLink && {
-            cursor: 'pointer',
-            px: '$2',
-            py: '$1',
-            mx: '$-2',
-            my: '$-1',
-            borderRadius: '$2',
-            hoverStyle: {
-              bg: '$bgHover',
-            },
-            pressStyle: {
-              bg: '$bgActive',
-            },
-            onPress: () => {
-              openUrlExternal(helpLink);
-            },
-          })}
-        >
-          <SizableText
-            size="$headingMd"
-            $gtMd={{
-              size: '$headingSm',
-            }}
-          >
-            {defaultTitle}
-          </SizableText>
-          {helpLink ? (
-            <Icon name="QuestionmarkOutline" size="$4" color="$iconSubdued" />
-          ) : null}
-        </XStack>
-        <Popover.Close>
-          <IconButton
-            $gtMd={{
-              display: 'none',
-            }}
-            icon="CrossedSmallOutline"
-            variant="tertiary"
-          />
-        </Popover.Close>
-      </XStack>
-    );
-  }, [helpLink, intl, title]);
-
-  const contextValue = useMemo(
+  const stableContextValue = useMemo(
     () => ({
       tokenMap,
+      networkId,
+      networkLogoURI: network?.logoURI,
+      isFetchingTokenMap,
+    }),
+    [tokenMap, networkId, network?.logoURI, isFetchingTokenMap],
+  );
+
+  const dynamicContextValue = useMemo(
+    () => ({
       activeDeriveType,
       creatingDeriveType,
-      networkId,
-      isFetchingTokenMap,
       isCreatingAddress,
       setIsCreatingAddress,
       setActiveDeriveType,
       setCreatingDeriveType,
     }),
     [
-      tokenMap,
       activeDeriveType,
       creatingDeriveType,
-      networkId,
-      isFetchingTokenMap,
       isCreatingAddress,
       setIsCreatingAddress,
       setActiveDeriveType,
       setCreatingDeriveType,
     ],
   );
+
+  const activeDeriveTypeRef = useRef(activeDeriveType);
+  const isCreatingAddressRef = useRef(isCreatingAddress);
+  const dynamicContextValueRef = useRef(dynamicContextValue);
+
+  activeDeriveTypeRef.current = activeDeriveType;
+  isCreatingAddressRef.current = isCreatingAddress;
+  dynamicContextValueRef.current = dynamicContextValue;
 
   useEffect(() => {
     const fetchDefaultDeriveType = async () => {
@@ -527,6 +558,7 @@ function AddressTypeSelector(props: IProps) {
             mergeTokens: true,
             networkId,
             flag: 'address-type-selector',
+            indexedAccountId,
           }),
         ),
       );
@@ -545,7 +577,66 @@ function AddressTypeSelector(props: IProps) {
     } else {
       setTokenMap(tokenMapProp);
     }
-  }, [tokenMapProp, networkAccounts, networkId]);
+  }, [tokenMapProp, networkAccounts, networkId, indexedAccountId]);
+
+  useEffect(() => {
+    const fn = () => {
+      void refreshNetworkAccounts();
+    };
+    appEventBus.on(EAppEventBusNames.AccountUpdate, fn);
+    appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AccountUpdate, fn);
+      appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
+    };
+  }, [refreshNetworkAccounts]);
+
+  const renderContent = useCallback(
+    ({
+      isOpen,
+      closePopover,
+    }: {
+      isOpen?: boolean;
+      closePopover: () => void;
+    }) => (
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
+      >
+        <AddressTypeSelectorStableContext.Provider value={stableContextValue}>
+          <AddressTypeSelectorDynamicContext.Provider
+            value={dynamicContextValueRef.current}
+          >
+            <AddressTypeSelectorContent
+              isOpen={isOpen}
+              closePopover={closePopover}
+              networkAccounts={networkAccounts}
+              refreshNetworkAccounts={refreshNetworkAccounts}
+              selectorTitle={
+                <SelectorTitle
+                  title={title}
+                  helpLink={helpLink}
+                  closePopover={closePopover}
+                />
+              }
+              {...props}
+            />
+          </AddressTypeSelectorDynamicContext.Provider>
+        </AddressTypeSelectorStableContext.Provider>
+      </AccountSelectorProviderMirror>
+    ),
+    [
+      stableContextValue,
+      networkAccounts,
+      refreshNetworkAccounts,
+      helpLink,
+      title,
+      props,
+    ],
+  );
 
   if (isSelectorDisabled) {
     return showTriggerWhenDisabled
@@ -569,26 +660,7 @@ function AddressTypeSelector(props: IProps) {
           <AddressTypeSelectorTrigger activeDeriveInfo={activeDeriveInfo} />
         )
       }
-      renderContent={({ isOpen, closePopover }) => (
-        <AccountSelectorProviderMirror
-          config={{
-            sceneName: EAccountSelectorSceneName.home,
-            sceneUrl: '',
-          }}
-          enabledNum={[0]}
-        >
-          <AddressTypeSelectorContext.Provider value={contextValue}>
-            <AddressTypeSelectorContent
-              isOpen={isOpen}
-              closePopover={closePopover}
-              networkAccounts={networkAccounts}
-              refreshNetworkAccounts={refreshNetworkAccounts}
-              selectorTitle={selectorTitle}
-              {...props}
-            />
-          </AddressTypeSelectorContext.Provider>
-        </AccountSelectorProviderMirror>
-      )}
+      renderContent={renderContent}
       onOpenChange={(open) => {
         if (!open && doubleConfirm) {
           void backgroundApiProxy.serviceNetwork

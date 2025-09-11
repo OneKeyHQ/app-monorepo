@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
@@ -45,6 +46,13 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     set(networkIdAtom(), payload);
   });
 
+  clearTokenDetail = contextAtomMethod((_, set) => {
+    set(tokenDetailAtom(), undefined);
+    set(tokenDetailLoadingAtom(), false);
+    set(tokenAddressAtom(), '');
+    set(networkIdAtom(), '');
+  });
+
   // ShowWatchlistOnly Actions
   setShowWatchlistOnly = contextAtomMethod((_, set, payload: boolean) => {
     set(showWatchlistOnlyAtom(), payload);
@@ -65,7 +73,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   });
 
   fetchTokenDetail = contextAtomMethod(
-    async (_, set, tokenAddress: string, networkId: string) => {
+    async (get, set, tokenAddress: string, networkId: string) => {
       try {
         set(tokenDetailLoadingAtom(), true);
 
@@ -75,8 +83,29 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
             networkId,
           );
 
-        set(tokenDetailAtom(), response);
-        return response;
+        if (typeof response?.name === 'undefined' || response.name === '') {
+          console.warn('Token detail is not available');
+          return;
+        }
+
+        // Always preserve K-line updated price if it exists, fallback to API price
+        const currentTokenDetail = get(tokenDetailAtom());
+        const hasKLinePrice = currentTokenDetail?.lastUpdated;
+
+        const finalResponse = hasKLinePrice
+          ? {
+              ...response,
+              price: currentTokenDetail.price, // Always use K-line price
+              lastUpdated: currentTokenDetail.lastUpdated,
+            }
+          : {
+              ...response,
+              // Use API price as fallback when no K-line price available
+            };
+
+        set(tokenDetailAtom(), finalResponse);
+
+        return finalResponse;
       } catch (error) {
         console.error('Failed to fetch token detail:', error);
         set(tokenDetailAtom(), undefined);
@@ -95,17 +124,20 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
-  refreshWatchListV2 = contextAtomMethod(async (get, set) => {
+  refreshWatchListV2 = contextAtomMethod(async (_get, set) => {
     const data =
       await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
     return this.flushWatchListV2Atom.call(set, data.data);
   });
 
   isInWatchListV2 = contextAtomMethod(
-    (get, set, chainId: string, contractAddress: string) => {
+    (get, _set, chainId: string, contractAddress: string) => {
       const prev = get(marketWatchListV2Atom());
-      return !!prev.data?.find(
-        (i) => i.chainId === chainId && i.contractAddress === contractAddress,
+      return !!prev.data?.find((i) =>
+        equalTokenNoCaseSensitive({
+          token1: { networkId: chainId, contractAddress },
+          token2: { networkId: i.chainId, contractAddress: i.contractAddress },
+        }),
       );
     },
   );
@@ -120,9 +152,13 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
-      // Immediately update local state
-      const newData = [...prev.data, ...params];
-      set(marketWatchListV2Atom(), { ...prev, data: newData });
+      // Immediately update local state with proper sorting
+      const sortedNewData = sortUtils.buildSortedList({
+        oldList: prev.data,
+        saveItems: params,
+        uniqByFn: (i) => `${i.chainId}:${i.contractAddress}`,
+      });
+      set(marketWatchListV2Atom(), { ...prev, data: sortedNewData });
 
       // Asynchronously call API without waiting for result
       void backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
@@ -138,12 +174,16 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
-      // Immediately update local state
+      // Immediately update local state using proper token matching
       const newData = prev.data.filter(
         (item) =>
-          !(
-            item.chainId === chainId && item.contractAddress === contractAddress
-          ),
+          !equalTokenNoCaseSensitive({
+            token1: { networkId: chainId, contractAddress },
+            token2: {
+              networkId: item.chainId,
+              contractAddress: item.contractAddress,
+            },
+          }),
       );
       set(marketWatchListV2Atom(), { ...prev, data: newData });
 
@@ -198,10 +238,23 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   );
 
   saveWatchListV2 = contextAtomMethod(
-    (get, set, payload: IMarketWatchListItemV2[]) => {
+    (_get, set, payload: IMarketWatchListItemV2[]) => {
       void this.addIntoWatchListV2.call(set, payload);
     },
   );
+
+  clearAllWatchListV2 = contextAtomMethod(async (get, set) => {
+    const prev = get(marketWatchListV2Atom());
+    if (!prev.isMounted) {
+      return;
+    }
+
+    // Immediately update local state
+    set(marketWatchListV2Atom(), { ...prev, data: [] });
+
+    // Asynchronously call API without waiting for result
+    await backgroundApiProxy.serviceMarketV2.clearAllMarketWatchListV2();
+  });
 }
 
 const createActions = memoFn(() => new ContextJotaiActionsMarketV2());
@@ -214,6 +267,7 @@ export function useWatchListV2Actions() {
   const saveWatchListV2 = actions.saveWatchListV2.use();
   const refreshWatchListV2 = actions.refreshWatchListV2.use();
   const sortWatchListV2Items = actions.sortWatchListV2Items.use();
+  const clearAllWatchListV2 = actions.clearAllWatchListV2.use();
   return useRef({
     isInWatchListV2,
     addIntoWatchListV2,
@@ -221,6 +275,7 @@ export function useWatchListV2Actions() {
     saveWatchListV2,
     refreshWatchListV2,
     sortWatchListV2Items,
+    clearAllWatchListV2,
   });
 }
 
@@ -231,6 +286,7 @@ export function useTokenDetailActions() {
   const setTokenAddress = actions.setTokenAddress.use();
   const setNetworkId = actions.setNetworkId.use();
   const fetchTokenDetail = actions.fetchTokenDetail.use();
+  const clearTokenDetail = actions.clearTokenDetail.use();
 
   return useRef({
     setTokenDetail,
@@ -238,6 +294,7 @@ export function useTokenDetailActions() {
     setTokenAddress,
     setNetworkId,
     fetchTokenDetail,
+    clearTokenDetail,
   });
 }
 

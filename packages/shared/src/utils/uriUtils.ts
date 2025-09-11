@@ -14,7 +14,7 @@ import type {
   EOneKeyDeepLinkPath,
   IEOneKeyDeepLinkParams,
 } from '../consts/deeplinkConsts';
-import type { Web3WalletTypes } from '@walletconnect/web3wallet';
+import type { IWalletKit, WalletKitTypes } from '@reown/walletkit';
 
 const DOMAIN_REGEXP =
   /(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/;
@@ -254,7 +254,7 @@ const NameToUrlMapForInvalidDapp: Record<string, string> = {
   'Algorand Governance--Governance platform for Algorand':
     'https://governance.algorand.foundation',
 };
-function safeGetWalletConnectOrigin(proposal: Web3WalletTypes.SessionProposal) {
+function safeGetWalletConnectOrigin(proposal: WalletKitTypes.SessionProposal) {
   try {
     const { origin } = new URL(proposal.params.proposer.metadata.url);
     return origin;

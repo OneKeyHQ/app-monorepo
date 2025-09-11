@@ -1,0 +1,316 @@
+import { memo, useMemo } from 'react';
+
+import BigNumber from 'bignumber.js';
+
+import { Divider, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
+
+import { calcCellAlign, getColumnStyle } from '../utils';
+
+import type { IColumnConfig } from '../List/CommonTableListView';
+
+export type ITradesHistoryRowProps = {
+  fill: IFill;
+  cellMinWidth: number;
+  columnConfigs: IColumnConfig[];
+  isMobile?: boolean;
+  index: number;
+};
+
+const TradesHistoryRow = memo(
+  ({
+    fill,
+    cellMinWidth,
+    columnConfigs,
+    isMobile,
+    index,
+  }: ITradesHistoryRowProps) => {
+    const assetSymbol = useMemo(() => fill.coin ?? '-', [fill.coin]);
+    const dateInfo = useMemo(() => {
+      const timeDate = new Date(fill.time);
+      const date = formatTime(timeDate, {
+        formatTemplate: 'yyyy-LL-dd',
+      });
+      const time = formatTime(timeDate, {
+        formatTemplate: 'HH:mm:ss',
+      });
+      return { date, time };
+    }, [fill.time]);
+
+    const directionInfo = useMemo(() => {
+      const directionStr = fill.dir;
+      const side = fill.side;
+      let directionColor = '#18794E';
+      if (side === 'A') {
+        directionColor = '#C62A2F';
+      }
+      return { directionStr, directionColor };
+    }, [fill.dir, fill.side]);
+
+    const tradeBaseInfo = useMemo(() => {
+      const price = fill.px;
+      const size = fill.sz;
+      const fee = fill.fee;
+      const priceBN = new BigNumber(price);
+      const sizeBN = new BigNumber(size);
+      const priceFormatted = numberFormat(price, {
+        formatter: 'price',
+      });
+      const feeFormatted = numberFormat(fee, {
+        formatter: 'value',
+        formatterOptions: {
+          currency: '$',
+        },
+      });
+
+      const tradeValue = priceBN.times(sizeBN).toFixed();
+      const tradeValueFormatted = numberFormat(tradeValue, {
+        formatter: 'value',
+        formatterOptions: {
+          currency: '$',
+        },
+      });
+      return { priceFormatted, size, feeFormatted, tradeValueFormatted };
+    }, [fill.fee, fill.px, fill.sz]);
+
+    const closePnlInfo = useMemo(() => {
+      const closePnl = fill.closedPnl;
+      const closePnlBN = new BigNumber(closePnl);
+      let closePnlPlusOrMinus = '';
+      let closePnlColor = '#18794E';
+      if (closePnlBN.lt(0)) {
+        closePnlColor = '#C62A2F';
+        closePnlPlusOrMinus = '-';
+      }
+      const closePnlStr = closePnlBN.abs().toFixed();
+      const closePnlFormatted = numberFormat(closePnlStr, {
+        formatter: 'value',
+        formatterOptions: {
+          currency: '$',
+        },
+      });
+      return { closePnlFormatted, closePnlColor, closePnlPlusOrMinus };
+    }, [fill.closedPnl]);
+
+    if (isMobile) {
+      return (
+        <ListItem
+          mx="$5"
+          my="$2"
+          p="$0"
+          backgroundColor="$bgSubdued"
+          flexDirection="column"
+          alignItems="flex-start"
+          borderRadius="$3"
+        >
+          <XStack
+            px="$3"
+            pt="$3"
+            justifyContent="space-between"
+            alignItems="center"
+            width="100%"
+          >
+            <YStack gap="$2">
+              <XStack gap="$2">
+                <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
+                <SizableText
+                  size="$bodySm"
+                  color={directionInfo.directionColor}
+                >
+                  {directionInfo.directionStr}
+                </SizableText>
+              </XStack>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {dateInfo.date} {dateInfo.time}
+              </SizableText>
+            </YStack>
+            <YStack gap="$2" alignItems="flex-end">
+              <SizableText size="$bodySm" color="$textSubdued">
+                Close PnL
+              </SizableText>
+              <SizableText size="$bodySm" color={closePnlInfo.closePnlColor}>
+                {`${closePnlInfo.closePnlPlusOrMinus}${
+                  closePnlInfo.closePnlFormatted as string
+                }`}
+              </SizableText>
+            </YStack>
+          </XStack>
+          <Divider width="100%" borderColor="$borderSubdued" />
+          <XStack
+            px="$3"
+            pb="$3"
+            width="100%"
+            flex={1}
+            alignItems="center"
+            justifyContent="space-around"
+          >
+            <YStack gap="$1" flex={1} alignItems="flex-start">
+              <SizableText size="$bodySm" color="$textSubdued">
+                Price
+              </SizableText>
+              <SizableText size="$bodySm">
+                {`${tradeBaseInfo.priceFormatted as string}`}
+              </SizableText>
+            </YStack>
+            <YStack gap="$1" flex={1} alignItems="flex-start">
+              <SizableText size="$bodySm" color="$textSubdued">
+                Size
+              </SizableText>
+              <SizableText size="$bodySm">
+                {`${tradeBaseInfo.size}`}
+              </SizableText>
+            </YStack>
+            <YStack gap="$1" flex={1} alignItems="flex-start">
+              <SizableText size="$bodySm" color="$textSubdued">
+                Value
+              </SizableText>
+              <SizableText size="$bodySm">
+                {`${tradeBaseInfo.tradeValueFormatted as string}`}
+              </SizableText>
+            </YStack>
+            <YStack gap="$1" flex={1} alignItems="flex-end">
+              <SizableText size="$bodySm" color="$textSubdued">
+                Fee
+              </SizableText>
+              <SizableText size="$bodySm">
+                {`${tradeBaseInfo.feeFormatted as string}`}
+              </SizableText>
+            </YStack>
+          </XStack>
+        </ListItem>
+      );
+    }
+    return (
+      <XStack
+        flex={1}
+        py="$1.5"
+        px="$3"
+        alignItems="center"
+        hoverStyle={{ bg: '$bgHover' }}
+        minWidth={cellMinWidth}
+        {...(index % 2 === 1 && {
+          backgroundColor: '$bgSubdued',
+        })}
+      >
+        {/* Asset symbol */}
+        <XStack
+          {...getColumnStyle(columnConfigs[0])}
+          justifyContent={calcCellAlign(columnConfigs[0].align)}
+          alignItems="center"
+          pl="$2"
+        >
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySmMedium"
+          >
+            {assetSymbol}
+          </SizableText>
+        </XStack>
+
+        {/* Time */}
+        <YStack
+          {...getColumnStyle(columnConfigs[1])}
+          justifyContent="center"
+          alignItems={calcCellAlign(columnConfigs[1].align)}
+        >
+          <SizableText size="$bodySm">{dateInfo.date}</SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {dateInfo.time}
+          </SizableText>
+        </YStack>
+
+        {/* Direction */}
+        <XStack
+          {...getColumnStyle(columnConfigs[2])}
+          justifyContent={calcCellAlign(columnConfigs[2].align)}
+          alignItems="center"
+        >
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+            color={directionInfo.directionColor}
+          >
+            {directionInfo.directionStr}
+          </SizableText>
+        </XStack>
+
+        {/* Price */}
+        <XStack
+          {...getColumnStyle(columnConfigs[3])}
+          justifyContent={calcCellAlign(columnConfigs[3].align)}
+          alignItems="center"
+        >
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+          >{`${tradeBaseInfo.priceFormatted as string}`}</SizableText>
+        </XStack>
+
+        {/* Position size */}
+        <XStack
+          {...getColumnStyle(columnConfigs[4])}
+          justifyContent={calcCellAlign(columnConfigs[4].align)}
+          alignItems="center"
+        >
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+          >{`${tradeBaseInfo.size} ${assetSymbol}`}</SizableText>
+        </XStack>
+
+        {/* Trade value */}
+        <XStack
+          {...getColumnStyle(columnConfigs[5])}
+          justifyContent={calcCellAlign(columnConfigs[5].align)}
+          alignItems="center"
+        >
+          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+            {`${tradeBaseInfo.tradeValueFormatted as string}`}
+          </SizableText>
+        </XStack>
+
+        {/* Fee */}
+        <XStack
+          {...getColumnStyle(columnConfigs[6])}
+          justifyContent={calcCellAlign(columnConfigs[6].align)}
+          alignItems="center"
+        >
+          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+            {`${tradeBaseInfo.feeFormatted as string}`}
+          </SizableText>
+        </XStack>
+
+        {/* Close PnL */}
+        <XStack
+          {...getColumnStyle(columnConfigs[7])}
+          justifyContent={calcCellAlign(columnConfigs[7].align)}
+          alignItems="center"
+        >
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+            color={closePnlInfo.closePnlColor}
+          >
+            {`${closePnlInfo.closePnlPlusOrMinus}${
+              closePnlInfo.closePnlFormatted as string
+            }`}
+          </SizableText>
+        </XStack>
+      </XStack>
+    );
+  },
+  (_prevProps) => {
+    return false;
+  },
+);
+
+TradesHistoryRow.displayName = 'TradesHistoryRow';
+export { TradesHistoryRow };

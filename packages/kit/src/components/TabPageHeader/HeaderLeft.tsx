@@ -40,9 +40,11 @@ export function HeaderLeftCloseButton() {
 function AccountSelectorTriggerWithSpotlight({
   isFocus,
   linkNetworkId,
+  hideAddress,
 }: {
   isFocus: boolean;
   linkNetworkId?: string;
+  hideAddress?: boolean;
 }) {
   const intl = useIntl();
   const { tourTimes, tourVisited } = useSpotlight(
@@ -59,6 +61,7 @@ function AccountSelectorTriggerWithSpotlight({
       num={0}
       key="accountSelectorTrigger"
       linkNetworkId={linkNetworkId}
+      hideAddress={hideAddress}
       spotlightProps={{
         visible: spotlightVisible,
         content: (
@@ -126,14 +129,20 @@ export function HeaderLeft({
     }
 
     let linkNetworkId: string | undefined;
-    if (tabRoute === ETabRoutes.WebviewPerpTrade) {
+    let hideAddress: boolean | undefined;
+    if (
+      tabRoute === ETabRoutes.WebviewPerpTrade ||
+      tabRoute === ETabRoutes.Perp
+    ) {
       linkNetworkId = presetNetworksMap.arbitrum.id;
+      hideAddress = false;
     }
 
     const accountSelectorTrigger = (
       <MemoizedAccountSelectorTriggerWithSpotlight
         isFocus={isFocus}
         linkNetworkId={linkNetworkId}
+        hideAddress={hideAddress}
       />
     );
 

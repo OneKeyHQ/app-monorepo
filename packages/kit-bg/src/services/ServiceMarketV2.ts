@@ -170,9 +170,13 @@ class ServiceMarketV2 extends ServiceBase {
   async fetchMarketTokenTransactions({
     tokenAddress,
     networkId,
+    offset,
+    limit,
   }: {
     tokenAddress: string;
     networkId: string;
+    offset?: number;
+    limit?: number;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
@@ -183,6 +187,8 @@ class ServiceMarketV2 extends ServiceBase {
       params: {
         tokenAddress,
         networkId,
+        ...(offset !== undefined && { offset }),
+        ...(limit !== undefined && { limit }),
       },
     });
     const { data } = response.data;
@@ -367,6 +373,24 @@ class ServiceMarketV2 extends ServiceBase {
       });
     }
     return this.getMarketWatchListV2();
+  }
+
+  @backgroundMethod()
+  async clearAllMarketWatchListV2({
+    skipSaveLocalSyncItem,
+    skipEventEmit,
+  }: {
+    skipSaveLocalSyncItem?: boolean;
+    skipEventEmit?: boolean;
+  } = {}) {
+    return this.withMarketWatchListV2CloudSync({
+      watchList: [],
+      isDeleted: true,
+      skipSaveLocalSyncItem,
+      skipEventEmit,
+      fn: () =>
+        this.backgroundApi.simpleDb.marketWatchListV2.clearAllMarketWatchListV2(),
+    });
   }
 
   /**

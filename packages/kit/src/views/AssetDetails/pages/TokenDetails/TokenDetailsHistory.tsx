@@ -1,5 +1,6 @@
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
+import type { SectionList } from '@onekeyhq/components';
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListView';
@@ -13,11 +14,15 @@ import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { POLLING_INTERVAL_FOR_HISTORY } from '@onekeyhq/shared/src/consts/walletConsts';
+import {
+  POLLING_DEBOUNCE_INTERVAL,
+  POLLING_INTERVAL_FOR_HISTORY,
+} from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
@@ -30,17 +35,29 @@ function TokenDetailsHistory(props: IProps) {
   const {
     accountId,
     networkId,
+    walletId,
+    indexedAccountId,
     tokenInfo,
     ListHeaderComponent,
     isTabView,
     inTabList,
   } = props;
 
+  const ListComponentRef = useRef<typeof SectionList>(null);
+
+  const recomputeLayout = useCallback(() => {
+    if (!platformEnv.isNative) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      (ListComponentRef.current as any)?.recomputeLayout?.();
+    }
+  }, []);
+
   const [historyInit, setHistoryInit] = useState(false);
   const { isFocused } = useTabIsRefreshingFocused();
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
-  const { updateAddressesInfo } = useHistoryListActions().current;
+  const { updateAddressesInfo, setHasMoreOnChainHistory } =
+    useHistoryListActions().current;
 
   /**
    * since some tokens are slow to load history,
@@ -49,24 +66,31 @@ function TokenDetailsHistory(props: IProps) {
    */
   const {
     result: tokenHistory,
-    isLoading: isLoadingTokenHistory,
     run,
+    isLoading,
   } = usePromiseResult(
     async () => {
-      const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-        accountId,
-        networkId,
-        tokenIdOnNetwork: tokenInfo.address,
-        filterScam: settings.isFilterScamHistoryEnabled,
-        filterLowValue: settings.isFilterLowValueHistoryEnabled,
-        sourceCurrency: settings.currencyInfo.id,
-        currencyMap,
-      });
-      setHistoryInit(true);
-      updateAddressesInfo({
-        data: r.addressMap ?? {},
-      });
-      return r.txs;
+      try {
+        const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+          accountId,
+          networkId,
+          tokenIdOnNetwork: tokenInfo.address,
+          filterScam: settings.isFilterScamHistoryEnabled,
+          filterLowValue: settings.isFilterLowValueHistoryEnabled,
+          sourceCurrency: settings.currencyInfo.id,
+          currencyMap,
+        });
+        updateAddressesInfo({
+          data: r.addressMap ?? {},
+        });
+        setHasMoreOnChainHistory(!!r.hasMoreOnChainHistory);
+        setTimeout(() => {
+          recomputeLayout();
+        }, 300);
+        return r.txs;
+      } finally {
+        setHistoryInit(true);
+      }
     },
     [
       accountId,
@@ -77,12 +101,15 @@ function TokenDetailsHistory(props: IProps) {
       settings.currencyInfo.id,
       currencyMap,
       updateAddressesInfo,
+      setHasMoreOnChainHistory,
+      recomputeLayout,
     ],
     {
-      watchLoading: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
+      debounced: POLLING_DEBOUNCE_INTERVAL,
       overrideIsFocused: (isPageFocused) =>
         isPageFocused && (isTabView ? isFocused : true),
+      watchLoading: true,
     },
   );
 
@@ -133,13 +160,20 @@ function TokenDetailsHistory(props: IProps) {
 
   return (
     <TxHistoryListView
+      ref={ListComponentRef}
       hideValue
+      showFooter
+      walletId={walletId}
+      accountId={accountId}
+      networkId={networkId}
+      indexedAccountId={indexedAccountId}
       inTabList={inTabList}
       initialized={historyInit}
-      isLoading={isLoadingTokenHistory}
+      isLoading={isLoading}
       data={tokenHistory ?? []}
       onPressHistory={handleHistoryItemPress}
       ListHeaderComponent={ListHeaderComponent as React.ReactElement}
+      isSingleAccount
     />
   );
 }

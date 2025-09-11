@@ -92,6 +92,7 @@ class ServiceUniversalSearch extends ServiceBase {
     searchTypes,
     tokenListCache,
     tokenListCacheMap,
+    aggregateTokenListCacheMap,
   }: {
     input: string;
     networkId?: string;
@@ -100,6 +101,7 @@ class ServiceUniversalSearch extends ServiceBase {
     searchTypes: EUniversalSearchType[];
     tokenListCache?: IAccountToken[];
     tokenListCacheMap?: Record<string, ITokenFiat>;
+    aggregateTokenListCacheMap?: Record<string, { tokens: IAccountToken[] }>;
   }): Promise<IUniversalSearchBatchResult> {
     const result: IUniversalSearchBatchResult = {};
     const promiseResults = await Promise.allSettled([
@@ -123,6 +125,7 @@ class ServiceUniversalSearch extends ServiceBase {
             indexedAccountId,
             tokenListCache,
             tokenListCacheMap,
+            aggregateTokenListCacheMap,
           })
         : Promise.resolve({
             tokens: [],
@@ -219,6 +222,7 @@ class ServiceUniversalSearch extends ServiceBase {
     indexedAccountId,
     tokenListCache,
     tokenListCacheMap,
+    aggregateTokenListCacheMap,
   }: {
     input: string;
     networkId: string;
@@ -226,6 +230,7 @@ class ServiceUniversalSearch extends ServiceBase {
     indexedAccountId: string;
     tokenListCache?: IAccountToken[];
     tokenListCacheMap?: Record<string, ITokenFiat>;
+    aggregateTokenListCacheMap?: Record<string, { tokens: IAccountToken[] }>;
   }) {
     if (tokenListCache && tokenListCacheMap) {
       return {
@@ -234,6 +239,7 @@ class ServiceUniversalSearch extends ServiceBase {
             tokens: tokenListCache,
             searchKey: input,
             allowEmptyWhenBelowMinLength: true,
+            aggregateTokenListMap: aggregateTokenListCacheMap,
           }),
           map: tokenListCacheMap,
         }),
@@ -278,6 +284,7 @@ class ServiceUniversalSearch extends ServiceBase {
           allNetworksNetworkId: networkId,
           saveToLocal: true,
           customTokensRawData,
+          indexedAccountId,
         });
       });
 
@@ -307,6 +314,7 @@ class ServiceUniversalSearch extends ServiceBase {
           tokens: getFilteredTokenBySearchKey({
             tokens,
             searchKey: input,
+            aggregateTokenListMap: aggregateTokenListCacheMap,
           }),
           map: tokenMap,
         }),
@@ -333,6 +341,7 @@ class ServiceUniversalSearch extends ServiceBase {
             networkId,
             flag: 'universal-search',
             saveToLocal: true,
+            indexedAccountId,
           }),
         ),
       );
@@ -351,6 +360,7 @@ class ServiceUniversalSearch extends ServiceBase {
         networkId,
         flag: 'universal-search',
         saveToLocal: true,
+        indexedAccountId,
       });
 
       tokens = r.allTokens?.data ?? [];
@@ -362,6 +372,7 @@ class ServiceUniversalSearch extends ServiceBase {
         tokens: getFilteredTokenBySearchKey({
           tokens,
           searchKey: input,
+          aggregateTokenListMap: aggregateTokenListCacheMap,
         }),
         map: tokenMap,
       }),

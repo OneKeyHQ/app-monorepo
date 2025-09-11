@@ -1,12 +1,12 @@
 import type { IMarketTokenSecurityData } from '@onekeyhq/shared/types/marketV2';
 
-export type ISecurityStatus = 'safe' | 'warning';
+export type ISecurityStatus = 'safe' | 'caution' | 'risk';
 
 export type ISecurityKeyValue = {
   key: string;
   label: string;
-  value: string;
-  isWarning: boolean;
+  value: string | number | boolean;
+  riskType: 'safe' | 'caution' | 'normal' | 'risk';
 };
 
 export type IUseTokenSecurityParams = {
@@ -17,6 +17,7 @@ export type IUseTokenSecurityParams = {
 export type IUseTokenSecurityResult = {
   securityData: IMarketTokenSecurityData | null;
   securityStatus: ISecurityStatus | null;
-  warningCount: number;
+  riskCount: number;
+  cautionCount: number;
   formattedData: ISecurityKeyValue[];
 };

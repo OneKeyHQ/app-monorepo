@@ -1387,19 +1387,6 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
       'isPopular': true,
       'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/fantom.png',
     },
-    {
-      'networkId': 'evm--250',
-      'contractAddress': '0x049d68029688eabf473097a2fc38ef61633a3c7a',
-      'name': 'Frapped USDT',
-      'symbol': 'fUSDT',
-      'decimals': 6,
-      'logoURI':
-        'https://uni.onekey-asset.com/server-service-onchain/evm--250/tokens/0x049d68029688eabf473097a2fc38ef61633a3c7a.png',
-
-      'isNative': false,
-      'isPopular': true,
-      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/fantom.png',
-    },
   ],
   'tron--0x2b6653dc': [
     {

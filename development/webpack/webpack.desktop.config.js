@@ -63,6 +63,9 @@ module.exports = ({
       // Exclude the entire BLE transport package to prevent Node.js modules from leaking to renderer
       '@onekeyfe/hd-transport-electron':
         'commonjs @onekeyfe/hd-transport-electron',
+      '@stoprocent/noble': 'commonjs @stoprocent/noble',
+      '@stoprocent/bluetooth-hci-socket':
+        'commonjs @stoprocent/bluetooth-hci-socket',
     },
   };
 

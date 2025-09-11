@@ -1,9 +1,8 @@
 import { memo, useCallback, useEffect } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { InputAccessoryView } from 'react-native';
 
-import { IconButton, SizableText, Stack, YStack } from '@onekeyhq/components';
+import { IconButton, Stack, YStack } from '@onekeyhq/components';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
@@ -28,7 +27,6 @@ import {
 import {
   ESwapDirectionType,
   ESwapTabSwitchType,
-  SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
@@ -233,12 +231,6 @@ const SwapQuoteInput = ({
         onSelectToken={onSelectToken}
         balance={toTokenBalance}
       />
-
-      {platformEnv.isNativeIOS ? (
-        <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
-          <SizableText h="$0" />
-        </InputAccessoryView>
-      ) : null}
     </YStack>
   );
 };

@@ -15,7 +15,6 @@ import {
   SizableText,
   XStack,
   YStack,
-  useClipboard,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -69,6 +68,7 @@ function ReceiveToken() {
     walletId,
     token,
     onDeriveTypeChange,
+    disableSelector,
   } = route.params;
 
   const { account, network, wallet, vaultSettings, deriveType, deriveInfo } =
@@ -97,8 +97,6 @@ function ReceiveToken() {
   );
 
   const [hardwareUiState] = useHardwareUiStateAtom();
-
-  const { copyText } = useClipboard();
 
   const copyAddressWithDeriveType = useCopyAddressWithDeriveType();
 
@@ -278,6 +276,7 @@ function ReceiveToken() {
               accountId: accounts[0].id,
             });
           setCurrentDeriveInfo(deriveResp.deriveInfo);
+          setCurrentDeriveType(deriveResp.deriveType);
           setCurrentAccount(accounts[0]);
         }
       }
@@ -482,6 +481,9 @@ function ReceiveToken() {
                 offset={{
                   mainAxis: 8,
                 }}
+                disableSelector={disableSelector}
+                activeDeriveType={currentDeriveType}
+                activeDeriveInfo={currentDeriveInfo}
                 showTriggerWhenDisabled
                 walletId={walletId}
                 networkId={networkId}
@@ -529,6 +531,8 @@ function ReceiveToken() {
     addressState,
     bottom,
     currentAccount,
+    currentDeriveInfo,
+    currentDeriveType,
     intl,
     network,
     networkId,
@@ -537,6 +541,7 @@ function ReceiveToken() {
     renderCopyAddressButton,
     renderVerifyAddressButton,
     shouldShowAddress,
+    disableSelector,
     token?.symbol,
     vaultSettings?.mergeDeriveAssetsEnabled,
     wallet,

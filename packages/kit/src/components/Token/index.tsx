@@ -28,6 +28,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAccountData } from '../../hooks/useAccountData';
+import { useAggregateTokensListMapAtom } from '../../states/jotai/contexts/tokenList';
 import { NetworkAvatar, NetworkAvatarBase } from '../NetworkAvatar';
 
 import type { ImageURISource } from 'react-native';
@@ -85,11 +86,14 @@ export function Token({
     }
     return '$full';
   }, [isNFT]);
+  const source = useMemo(() => {
+    return tokenImageUri ? { uri: tokenImageUri } : undefined;
+  }, [tokenImageUri]);
   const tokenImage = (
     <Image
       size={tokenImageSize}
       borderRadius={borderRadius}
-      source={tokenImageUri ? { uri: tokenImageUri } : undefined}
+      source={source}
       fallback={
         <Stack
           bg="$gray5"
@@ -153,31 +157,62 @@ export function Token({
 }
 
 export function TokenName({
+  $key,
   name,
   isNative,
   isAllNetworks,
   withNetwork,
   networkId,
   textProps,
+  isAggregateToken,
+  withAggregateBadge,
   ...rest
 }: {
+  $key: string;
   name: string;
   isNative?: boolean;
   isAllNetworks?: boolean;
   withNetwork?: boolean;
   networkId: string | undefined;
   textProps?: ISizableTextProps;
+  isAggregateToken?: boolean;
+  withAggregateBadge?: boolean;
 } & IXStackProps) {
   const { network } = useAccountData({ networkId });
   const intl = useIntl();
+
+  const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
+  const aggregateTokenList = aggregateTokensListMap[$key];
+  const firstAggregateToken = aggregateTokenList?.tokens[0];
+  const { network: firstAggregateTokenNetwork } = useAccountData({
+    networkId: firstAggregateToken?.networkId,
+  });
+
   return (
     <XStack alignItems="center" gap="$1" {...rest}>
       <SizableText minWidth={0} numberOfLines={1} {...textProps}>
         {name}
       </SizableText>
-      {withNetwork && network ? (
+      {isAllNetworks &&
+      withAggregateBadge &&
+      isAggregateToken &&
+      aggregateTokenList &&
+      aggregateTokenList.tokens.length > 1 ? (
         <Badge flexShrink={1}>
-          <Badge.Text numberOfLines={1}>{network.name}</Badge.Text>
+          <Badge.Text numberOfLines={1}>
+            {intl.formatMessage({ id: ETranslations.global__multichain })}
+          </Badge.Text>
+        </Badge>
+      ) : null}
+      {withNetwork &&
+      (network ||
+        (firstAggregateTokenNetwork &&
+          aggregateTokenList?.tokens.length === 1)) &&
+      !isNative ? (
+        <Badge flexShrink={1}>
+          <Badge.Text numberOfLines={1}>
+            {network?.name || firstAggregateTokenNetwork?.name}
+          </Badge.Text>
         </Badge>
       ) : null}
       {isNative && !isAllNetworks ? (

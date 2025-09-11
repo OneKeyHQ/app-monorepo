@@ -1,0 +1,9 @@
+import type { IHex } from './sdk';
+
+export const FALLBACK_BUILDER_ADDRESS =
+  '0x9b12E858dA780a96876E3018780CF0D83359b0bb' as IHex;
+
+export const FALLBACK_MAX_BUILDER_FEE = 40;
+
+export const ZERO_ADDRESS =
+  '0x0000000000000000000000000000000000000000' as IHex;

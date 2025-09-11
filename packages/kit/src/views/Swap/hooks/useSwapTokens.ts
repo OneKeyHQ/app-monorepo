@@ -314,6 +314,14 @@ export function useSwapTokenList(
   };
 }
 
+/**
+ * Manages and updates detailed information for a selected swap token, including balance and status, in response to swap transaction events and focus changes.
+ *
+ * Triggers token detail reloads when relevant swap transaction history updates occur, and manages event listeners based on modal and tab focus state.
+ *
+ * @param token - The swap token to manage details for
+ * @param type - The swap direction type (`FROM` or `TO`)
+ */
 export function useSwapSelectedTokenInfo({
   token,
   type,

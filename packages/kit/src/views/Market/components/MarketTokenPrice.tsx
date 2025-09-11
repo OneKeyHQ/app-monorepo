@@ -33,19 +33,26 @@ class MarketTokenPriceEvent {
     lastUpdated: number;
   }) {
     const cacheKey = this.buildKey(tokenName, tokenSymbol);
-    const { lastUpdated = 0 } = this.tokenPriceMap.get(cacheKey) || {};
+    const cachedData = this.tokenPriceMap.get(cacheKey);
+    const { lastUpdated = 0 } = cachedData || {};
+
     if (tokenLastUpdated > lastUpdated) {
       this.tokenPriceMap.set(cacheKey, {
         price: tokenPrice,
         lastUpdated: tokenLastUpdated,
       });
-      (this.priceChangedListenerMap.get(cacheKey) || []).forEach((i) => i());
+
+      const listeners = this.priceChangedListenerMap.get(cacheKey) || [];
+      listeners.forEach((i) => i());
     }
   }
 
   public getTokenPrice(tokenName: string, tokenSymbol: string) {
     const cacheKey = this.buildKey(tokenName, tokenSymbol);
-    return this.tokenPriceMap.get(cacheKey)?.price || '-';
+    const cachedData = this.tokenPriceMap.get(cacheKey);
+    const price = cachedData?.price || '-';
+
+    return price;
   }
 
   public onPriceChange(
@@ -100,11 +107,17 @@ export const useTokenPrice = ({
         setCount((i) => i + 1);
       },
     );
-    return removeListener;
+
+    return () => {
+      removeListener();
+    };
   }, [tokenLastUpdated, tokenName, tokenPrice, tokenSymbol]);
 
   return useMemo(
-    () => marketTokenPriceEvent.getTokenPrice(tokenName, tokenSymbol),
+    () => {
+      const price = marketTokenPriceEvent.getTokenPrice(tokenName, tokenSymbol);
+      return price;
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [tokenName, tokenSymbol, count],
   );
@@ -125,16 +138,27 @@ export function MarketTokenPrice({
 } & ISizableTextProps) {
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
-  const lastUpdateDate = useMemo(
-    () => (lastUpdated ? new Date(lastUpdated).getTime() : Date.now()),
-    [lastUpdated],
-  );
+
+  const lastUpdateDate = useMemo(() => {
+    if (
+      typeof lastUpdated === 'string' &&
+      lastUpdated.length === '1757498100000'.length
+    ) {
+      return Number(lastUpdated);
+    }
+
+    return lastUpdated ? new Date(lastUpdated).getTime() : Date.now();
+  }, [lastUpdated]);
+
+  console.log('lastUpdated', lastUpdated, lastUpdateDate);
+
   const tokenPrice = useTokenPrice({
     name: tokenName,
     price,
     symbol: tokenSymbol,
     lastUpdated: lastUpdateDate,
   });
+
   return (
     <NumberSizeableText
       userSelect="none"
@@ -144,6 +168,34 @@ export function MarketTokenPrice({
       {...props}
     >
       {tokenPrice}
+    </NumberSizeableText>
+  );
+}
+
+export function BaseMarketTokenPrice({
+  price,
+  tokenName,
+  tokenSymbol,
+  lastUpdated,
+  size,
+  ...props
+}: {
+  price: string;
+  tokenSymbol: string;
+  tokenName: string;
+  lastUpdated?: string;
+} & ISizableTextProps) {
+  const [settings] = useSettingsPersistAtom();
+  const currency = settings.currencyInfo.symbol;
+  return (
+    <NumberSizeableText
+      userSelect="none"
+      formatter="price"
+      size={size}
+      formatterOptions={{ currency }}
+      {...props}
+    >
+      {price}
     </NumberSizeableText>
   );
 }

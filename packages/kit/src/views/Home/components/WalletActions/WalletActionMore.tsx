@@ -18,6 +18,7 @@ import { WalletActionCopy } from './WalletActionCopy';
 import { WalletActionExport } from './WalletActionExport';
 import { WalletActionRewardCenter } from './WalletActionRewardCenter';
 import { WalletActionSell } from './WalletActionSell';
+import { WalletActionSignAndVerify } from './WalletActionSignAndVerify';
 import { WalletActionViewInExplorer } from './WalletActionViewInExplorer';
 
 export function WalletActionMore() {
@@ -38,6 +39,10 @@ export function WalletActionMore() {
     });
     return settings;
   }, [network?.id]).result;
+
+  const displaySignAndVerify = usePromiseResult(async () => {
+    return vaultSettings?.enabledInternalSignAndVerify;
+  }, [vaultSettings]);
 
   const renderItemsAsync = useCallback(
     async ({
@@ -72,6 +77,9 @@ export function WalletActionMore() {
             {!vaultSettings?.copyAddressDisabled ? (
               <WalletActionCopy onClose={handleActionListClose} />
             ) : null}
+            {displaySignAndVerify.result ? (
+              <WalletActionSignAndVerify onClose={handleActionListClose} />
+            ) : null}
             {rewardCenterConfig ? (
               <WalletActionRewardCenter
                 onClose={handleActionListClose}
@@ -95,6 +103,7 @@ export function WalletActionMore() {
       show,
       vaultSettings?.copyAddressDisabled,
       vaultSettings?.hideBlockExplorer,
+      displaySignAndVerify,
     ],
   );
 

@@ -8,7 +8,7 @@ import type {
   IVerifyMessageArgs,
 } from '../../types/lightning/webln';
 import type { IAddCustomTokenRouteParams } from '../../types/token';
-import type { Web3WalletTypes } from '@walletconnect/web3wallet';
+import type { IWalletKit, WalletKitTypes } from '@reown/walletkit';
 
 export enum EDAppConnectionModal {
   'ConnectionModal' = 'ConnectionModal',
@@ -31,7 +31,7 @@ export type IDAppConnectionModalParamList = {
   [EDAppConnectionModal.ConnectionModal]: undefined;
   [EDAppConnectionModal.ConnectionList]: undefined;
   [EDAppConnectionModal.WalletConnectSessionProposalModal]: {
-    proposal: Web3WalletTypes.SessionProposal;
+    proposal: WalletKitTypes.SessionProposal;
   };
   [EDAppConnectionModal.SignMessageModal]: {
     unsignedMessage: IUnsignedMessage;

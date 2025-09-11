@@ -1,17 +1,11 @@
 import { useIntl } from 'react-intl';
 
-import {
-  Heading,
-  Markdown,
-  Page,
-  ScrollView,
-  SizableText,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, Markdown, Page, ScrollView } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppChangeLog } from '../../../components/UpdateReminder/hooks';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
 
 function WhatsNew() {
@@ -19,6 +13,7 @@ function WhatsNew() {
   const { version = '' } = platformEnv;
   const response = useAppChangeLog(version);
   const { changeLog } = response ?? {};
+  const navigation = useAppNavigation();
   return (
     <Page>
       <Page.Header
@@ -39,6 +34,12 @@ function WhatsNew() {
             <ViewUpdateHistory />
           </ScrollView>
         ) : null}
+        <Page.Footer
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.global_done,
+          })}
+          onConfirm={navigation.pop}
+        />
       </Page.Body>
     </Page>
   );

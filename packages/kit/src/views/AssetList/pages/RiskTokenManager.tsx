@@ -304,7 +304,7 @@ function RiskTokenManager() {
         accountId: token.accountId ?? accountId,
         networkId: token.networkId ?? networkId,
         walletId,
-        tokenInfo: token,
+        tokens: [token],
         isBlocked: token.isBlocked,
         deriveInfo,
         deriveType,
@@ -377,7 +377,9 @@ function RiskTokenManager() {
                 />
                 <YStack flex={1}>
                   <TokenNameView
+                    $key={token.$key}
                     name={token.symbol}
+                    isAggregateToken={token.isAggregateToken}
                     isNative={token.isNative}
                     isAllNetworks={isAllNetworks}
                     networkId={token.networkId}

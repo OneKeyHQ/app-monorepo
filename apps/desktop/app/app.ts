@@ -63,6 +63,7 @@ let mainWindow: BrowserWindow | null;
 
 // static path
 const preloadJsUrl = path.join(staticPath, 'preload.js');
+// const preloadJsUrl = path.join(staticPath, 'preload-webview-test.js');
 
 const sdkConnectSrc = isDev
   ? `file://${path.join(staticPath, 'js-sdk/')}`

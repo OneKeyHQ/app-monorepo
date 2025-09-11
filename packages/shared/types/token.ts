@@ -23,8 +23,13 @@ export type IToken = {
   // for all networks
   order?: number;
   networkId?: string;
+  networkName?: string;
   accountId?: string;
   mergeAssets?: boolean;
+
+  // for aggregate token
+  isAggregateToken?: boolean;
+  commonSymbol?: string;
 };
 
 export type ITokenFiat = {
@@ -60,6 +65,7 @@ export type ICustomTokenItem = IAccountToken;
 export type IFetchAccountTokensParams = {
   accountId: string;
   networkId: string;
+  indexedAccountId?: string;
   cursor?: string;
   limit?: number;
   hideSmallBalanceTokens?: boolean;
@@ -78,6 +84,7 @@ export type IFetchAccountTokensParams = {
   customTokensRawData?: ICustomTokenDBStruct;
   blockedTokensRawData?: IRiskTokenManagementDBStruct['blockedTokens'];
   unblockedTokensRawData?: IRiskTokenManagementDBStruct['unblockedTokens'];
+  aggregateTokenConfigMapRawData?: Record<string, IAggregateToken>;
 };
 
 export type ITokenData = {
@@ -95,6 +102,13 @@ export type IFetchAccountTokensResp = {
   accountId?: string;
   networkId?: string;
   isSameAllNetworksAccountData?: boolean;
+  aggregateTokenListMap?: Record<
+    string,
+    {
+      tokens: IAccountToken[];
+    }
+  >;
+  aggregateTokenMap?: Record<string, ITokenFiat>;
 };
 
 export type IFetchTokenDetailParams = {
@@ -160,4 +174,65 @@ type IWatchAssetOptions = {
   symbol?: string;
   decimals?: number;
   image?: string;
+};
+
+/**
+ * Token aggregate map
+ */
+
+export enum EAggregateTokenStatus {
+  Active = 'active',
+  Inactive = 'inactive',
+  Deprecated = 'deprecated',
+}
+
+export enum EAggregateTokenStandard {
+  ERC20 = 'ERC-20',
+  TRC20 = 'TRC-20',
+  SPL = 'SPL',
+  NEP141 = 'NEP-141',
+  APTOS = 'APTOS',
+  SUI = 'SUI',
+  NATIVE = 'NATIVE',
+}
+
+export interface IAggregateToken {
+  networkId: string;
+  chainKey: string;
+  vmType: string;
+  decimals: number;
+  tokenStandard: EAggregateTokenStandard;
+  isOfficial: boolean;
+  whyIncluded: string;
+  supportedByWallet: boolean;
+  status: EAggregateTokenStatus;
+  address?: string;
+  assetType?: string;
+  commonSymbol: string;
+  order: number;
+  logoURI?: string;
+  name: string;
+}
+
+export type IHomeDefaultToken = {
+  symbol: string;
+  networkId: string;
+  logoURI: string;
+  order: number;
+};
+
+export type IFetchAggregateTokenConfigMapResp = {
+  data: {
+    meta: {
+      homeDefaults: IHomeDefaultToken[];
+    };
+    tokens: Record<
+      string,
+      {
+        logoURI: string;
+        name: string;
+        data: IAggregateToken[];
+      }
+    >;
+  };
 };

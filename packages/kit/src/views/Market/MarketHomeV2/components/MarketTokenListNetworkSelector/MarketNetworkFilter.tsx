@@ -123,6 +123,8 @@ const MarketNetworkFilter = forwardRef<
                   networkImageUri={network.logoURI}
                   isSelected={network?.id === selectedNetwork?.id}
                   onPress={() => onSelectNetwork(network)}
+                  onTouchStart={() => onSelectNetwork(network)}
+                  onMouseDown={() => onSelectNetwork(network)}
                 />
               ))}
             </XStack>

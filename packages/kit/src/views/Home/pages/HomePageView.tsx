@@ -12,6 +12,7 @@ import {
   YStack,
   useTabContainerWidth,
 } from '@onekeyhq/components';
+import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -19,9 +20,13 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EContractApprovalAlertType } from '@onekeyhq/shared/types/approval';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
@@ -29,16 +34,22 @@ import { NetworkAlert } from '../../../components/NetworkAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WalletBackupAlert } from '../../../components/WalletBackup';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 
+import { ApprovalListContainerWithProvider } from './ApprovalListContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
+
+const networksSupportBulkRevokeApproval =
+  getNetworksSupportBulkRevokeApproval();
 
 export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -61,6 +72,10 @@ export function HomePageView({
       indexedAccount,
     },
   } = useActiveAccount({ num: 0 });
+
+  const navigation = useAppNavigation();
+
+  const { updateApprovalsInfo } = useAccountOverviewActions().current;
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addressType = deriveInfo?.labelKey
@@ -96,11 +111,68 @@ export function HomePageView({
     };
   }, [network, indexedAccount]);
 
+  usePromiseResult(async () => {
+    if (network?.id && account?.id) {
+      const resp =
+        await backgroundApiProxy.serviceApproval.fetchAccountApprovals({
+          networkId: network.id,
+          accountId: account.id,
+          indexedAccountId: indexedAccount?.id,
+          accountAddress: account.address,
+        });
+
+      if (
+        approvalUtils.checkIsExistRiskApprovals({
+          contractApprovals: resp.contractApprovals,
+        })
+      ) {
+        updateApprovalsInfo({ hasRiskApprovals: true });
+        const shouldShowRiskApprovalsRevokeSuggestion =
+          await backgroundApiProxy.serviceApproval.shouldShowRiskApprovalsRevokeSuggestion(
+            {
+              networkId: network.id,
+              accountId: account.id,
+            },
+          );
+
+        if (shouldShowRiskApprovalsRevokeSuggestion) {
+          await timerUtils.wait(2000);
+          navigation.pushModal(EModalRoutes.ApprovalManagementModal, {
+            screen: EModalApprovalManagementRoutes.RevokeSuggestion,
+            params: {
+              approvals: resp.contractApprovals.filter(
+                (item) => item.isRiskContract,
+              ),
+              contractMap: resp.contractMap,
+              tokenMap: resp.tokenMap,
+              alertType: EContractApprovalAlertType.Risk,
+              accountId: account.id,
+              networkId: network.id,
+              autoShow: true,
+            },
+          });
+        }
+      }
+    }
+  }, [
+    network?.id,
+    indexedAccount?.id,
+    navigation,
+    account,
+    updateApprovalsInfo,
+  ]);
+
   const { vaultSettings, networkAccounts } = result.result ?? {};
 
   const isNFTEnabled =
     vaultSettings?.NFTEnabled &&
     getEnabledNFTNetworkIds().includes(network?.id ?? '');
+
+  const isBulkRevokeApprovalEnabled =
+    (network?.isAllNetworks ||
+      networksSupportBulkRevokeApproval[network?.id ?? '']) ??
+    false;
+
   const isRequiredValidation = vaultSettings?.validationRequired;
   const softwareAccountDisabled = vaultSettings?.softwareAccountDisabled;
   const supportedDeviceTypes = vaultSettings?.supportedDeviceTypes;
@@ -135,7 +207,7 @@ export function HomePageView({
   const tabs = useMemo(() => {
     const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
       network?.id ?? ''
-    }-${isNFTEnabled ? '1' : '0'}`;
+    }-${isNFTEnabled ? '1' : '0'}-${isBulkRevokeApprovalEnabled ? '1' : '0'}`;
     const tabConfigs = [
       {
         name: intl.formatMessage({
@@ -157,6 +229,14 @@ export function HomePageView({
         }),
         component: <TxHistoryListContainerWithProvider />,
       },
+      isBulkRevokeApprovalEnabled
+        ? {
+            name: intl.formatMessage({
+              id: ETranslations.global_approval,
+            }),
+            component: <ApprovalListContainerWithProvider />,
+          }
+        : undefined,
     ].filter(Boolean);
     return (
       <Tabs.Container
@@ -184,6 +264,7 @@ export function HomePageView({
     account?.id,
     account?.indexedAccountId,
     intl,
+    isBulkRevokeApprovalEnabled,
     isNFTEnabled,
     network?.id,
     renderHeader,

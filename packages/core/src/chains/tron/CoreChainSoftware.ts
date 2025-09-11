@@ -2,8 +2,10 @@ import { keccak256 } from '@ethersproject/keccak256';
 import TronWeb from 'tronweb';
 
 import { decryptAsync, uncompressPublicKey } from '@onekeyhq/core/src/secret';
-import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import { EMessageTypesTron } from '@onekeyhq/shared/types/message';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import {
@@ -15,6 +17,7 @@ import {
   type ICoreApiGetExportedSecretKey,
   type ICoreApiPrivateKeysMap,
   type ICoreApiSignBasePayload,
+  type ICoreApiSignMsgPayload,
   type ICoreApiSignTxPayload,
   type ICurveName,
   type ISignedTxPro,
@@ -22,8 +25,11 @@ import {
 } from '../../types';
 import { ECoreApiExportedSecretKeyType } from '../../types';
 
+import { TRON_MESSAGE_PREFIX } from './constants';
+
 import type { IEncodedTxTron } from './types';
 import type { ISigner } from '../../base/ChainSigner';
+import type { IUnsignedMessageTron } from '../../types/coreTypesMessage';
 
 const curve: ICurveName = 'secp256k1';
 
@@ -113,8 +119,36 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return signTransaction(unsignedTx, signer);
   }
 
-  override async signMessage(): Promise<string> {
-    throw new NotImplemented();
+  override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
+    const unsignedMsg = payload.unsignedMsg as IUnsignedMessageTron;
+    const signer = await this.baseGetSingleSigner({
+      payload,
+      curve,
+    });
+    if (unsignedMsg.type === EMessageTypesTron.SIGN_MESSAGE) {
+      return TronWeb.Trx.signString(
+        unsignedMsg.message,
+        await signer.getPrvkeyHex(),
+      );
+    }
+    if (unsignedMsg.type === EMessageTypesTron.SIGN_MESSAGE_V2) {
+      const message = Buffer.from(unsignedMsg.message, 'hex');
+      const hash = keccak256(
+        Buffer.concat([
+          bufferUtils.toBuffer(TRON_MESSAGE_PREFIX, 'utf8'),
+          bufferUtils.toBuffer(String(message.length), 'utf8'),
+          message,
+        ]),
+      );
+      const [sig, recoveryParam] = await signer.sign(
+        Buffer.from(hexUtils.stripHexPrefix(hash), 'hex'),
+      );
+      return hexUtils.addHexPrefix(
+        Buffer.concat([sig, Buffer.from([recoveryParam + 27])]).toString('hex'),
+      );
+    }
+
+    throw new OneKeyLocalError(`Unsupported message type`);
   }
 
   override async getAddressFromPrivate(
@@ -138,6 +172,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return Promise.resolve({
       address,
       publicKey,
+      __hwExtraInfo__: undefined,
     });
   }
 

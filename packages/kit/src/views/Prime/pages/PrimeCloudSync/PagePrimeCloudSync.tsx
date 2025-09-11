@@ -4,15 +4,14 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
-  Button,
   Dialog,
-  Divider,
   ESwitchSize,
   Page,
   ScrollView,
   SizableText,
   Stack,
   Switch,
+  startViewTransition,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -25,6 +24,7 @@ import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -77,9 +77,11 @@ function AutoLockUpdateDialogContent({
         })}
         onConfirm={async () => {
           try {
-            await backgroundApiProxy.servicePassword.setAppLockDuration(
-              Number(selectedValue),
-            );
+            startViewTransition(async () => {
+              await backgroundApiProxy.servicePassword.setAppLockDuration(
+                Number(selectedValue),
+              );
+            });
             onContinue();
           } catch (error) {
             onError(error as Error);
@@ -207,6 +209,9 @@ function EnableOneKeyCloudSwitchListItem() {
               if (shouldChangePasswordAutoLock) {
                 await new Promise<void>((resolve, reject) => {
                   Dialog.show({
+                    isAsync: true,
+                    disableDrag: true,
+                    dismissOnOverlayPress: true,
                     title: intl.formatMessage({
                       id: ETranslations.settings_auto_lock,
                     }),
@@ -233,11 +238,17 @@ function EnableOneKeyCloudSwitchListItem() {
                 });
               }
               await runEnableCloudSync();
+              defaultLogger.prime.usage.onekeyCloudToggle({
+                status: 'on',
+              });
             } else {
               // disable cloud sync
               await backgroundApiProxy.servicePrimeCloudSync.setCloudSyncEnabled(
                 false,
               );
+              defaultLogger.prime.usage.onekeyCloudToggle({
+                status: 'off',
+              });
             }
           } catch (error) {
             // disable cloud sync

@@ -77,6 +77,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               buildResultAccount: ({ account }) => ({
                 path: account.path,
                 address: account.payload?.address || '',
+                __hwExtraInfo__: undefined,
               }),
               hwSdkNetwork: this.hwSdkNetwork,
             });
@@ -106,7 +107,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         const addressRelPath = '0/0';
         for (let i = 0; i < addresses.length; i += 1) {
           const item = addresses[i];
-          const { path, address } = item;
+          const { path, address, __hwExtraInfo__ } = item;
           const addressInfo: ICoreApiGetAddressItem = {
             address: address ?? '',
             publicKey: '',
@@ -115,6 +116,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             addresses: {
               [addressRelPath]: address ?? '',
             },
+            __hwExtraInfo__,
           };
           ret.push(addressInfo);
         }

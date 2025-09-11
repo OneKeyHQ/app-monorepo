@@ -7,6 +7,7 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
 import { ModalAddressBookRouter } from '../../views/AddressBook/router';
+import { ModalApprovalManagementStack } from '../../views/ApprovalManagement/router';
 import { AppUpdateRouter } from '../../views/AppUpdate/router';
 import { AssetSelectorRouter } from '../../views/AssetSelector/router';
 import { BulkCopyAddressesModalRouter } from '../../views/BulkCopyAddresses/router';
@@ -19,15 +20,18 @@ import { ModalFiatCryptoRouter } from '../../views/FiatCrypto/router';
 import { ModalFirmwareUpdateStack } from '../../views/FirmwareUpdate/router';
 import { KeyTagModalRouter } from '../../views/KeyTag/router';
 import { LiteCardPages } from '../../views/LiteCard/router';
+import { ManualBackupRouter } from '../../views/ManualBackup/router';
 import { ModalMarketStack } from '../../views/Market/router';
 import { ModalNotificationsRouter } from '../../views/Notifications/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
+import { ModalPerpStack } from '../../views/Perp/router';
 import { PrimeRouter } from '../../views/Prime/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
 import { ReferFriendsRouter } from '../../views/ReferFriends/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
 import { ModalSendStack } from '../../views/Send/router';
 import { ShortcutsModalRouter } from '../../views/Shortcuts/router';
+import { ModalSignAndVerifyRouter } from '../../views/SignAndVerifyMessage/router';
 import { ModalSignatureConfirmStack } from '../../views/SignatureConfirm/router';
 import { StakingModalRouter } from '../../views/Staking/router';
 import { ModalSwapStack } from '../../views/Swap/router';
@@ -73,6 +77,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.SwapModal,
     children: ModalSwapStack,
+  },
+  {
+    name: EModalRoutes.PerpModal,
+    children: ModalPerpStack,
   },
   {
     name: EModalRoutes.MarketModal,
@@ -138,6 +146,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     children: LiteCardPages,
   },
   {
+    name: EModalRoutes.ManualBackupModal,
+    children: ManualBackupRouter,
+  },
+  {
     name: EModalRoutes.CloudBackupModal,
     children: CloudBackupPages,
   },
@@ -192,6 +204,14 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.BulkCopyAddressesModal,
     children: BulkCopyAddressesModalRouter,
+  },
+  {
+    name: EModalRoutes.ApprovalManagementModal,
+    children: ModalApprovalManagementStack,
+  },
+  {
+    name: EModalRoutes.SignAndVerifyModal,
+    children: ModalSignAndVerifyRouter,
   },
 ];
 

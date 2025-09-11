@@ -15,6 +15,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { ISimpleDBAggregateToken } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAggregateToken';
 import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
 import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
@@ -36,6 +37,7 @@ import {
   EModalReceiveRoutes,
   EModalRoutes,
   EModalSendRoutes,
+  EModalSignatureConfirmRoutes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -45,16 +47,18 @@ import perfUtils, {
 import {
   getEmptyTokenData,
   getMergedDeriveTokenData,
+  mergeAggregateTokenListMap,
+  mergeAggregateTokenMap,
   mergeDeriveTokenList,
   mergeDeriveTokenListMap,
   sortTokensByFiatValue,
   sortTokensByOrder,
+  sortTokensCommon,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
   IAccountToken,
   IFetchAccountTokensResp,
-  IToken,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
@@ -71,7 +75,11 @@ import {
   useAllNetworksStateStateAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
+import {
+  useAggregateTokensListMapAtom,
+  useAllTokenListMapAtom,
+  useTokenListActions,
+} from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 
@@ -130,6 +138,10 @@ function TokenListContainer({
     map: {},
   });
 
+  const aggregateTokenMapRef = useRef<{
+    [key: string]: ITokenFiat;
+  }>({});
+
   const riskTokenManagementRawData = useRef<IRiskTokenManagementDBStruct>({
     unblockedTokens: {},
     blockedTokens: {},
@@ -140,6 +152,10 @@ function TokenListContainer({
   );
 
   const localTokensRawData = useRef<ISimpleDBLocalTokens | undefined>(
+    undefined,
+  );
+
+  const aggregateTokenRawData = useRef<ISimpleDBAggregateToken | undefined>(
     undefined,
   );
 
@@ -174,11 +190,11 @@ function TokenListContainer({
 
     if (
       // @ts-ignore
-      (modalRoutes?.params?.screen === EModalRoutes.SendModal &&
+      (modalRoutes?.params?.screen === EModalRoutes.SignatureConfirmModal &&
         // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         modalRoutes?.params?.params?.screen ===
-          EModalSendRoutes.SendSelectToken) ||
+          EModalSignatureConfirmRoutes.TxSelectToken) ||
       // @ts-ignore
       (modalRoutes?.params?.screen === EModalRoutes.ReceiveModal &&
         // @ts-ignore
@@ -202,10 +218,14 @@ function TokenListContainer({
     refreshSmallBalanceTokenList,
     refreshSmallBalanceTokenListMap,
     refreshSmallBalanceTokensFiatValue,
+    refreshAggregateTokensListMap,
+    refreshAggregateTokensMap,
     updateTokenListState,
     updateSearchKey,
   } = useTokenListActions().current;
 
+  const [aggregateTokenListMapAtom] = useAggregateTokensListMapAtom();
+  const [allTokenListMapAtom] = useAllTokenListMapAtom();
   const {
     updateAccountWorth,
     updateAccountOverviewState,
@@ -255,6 +275,7 @@ function TokenListContainer({
                 networkId: network.id,
                 flag: 'home-token-list',
                 saveToLocal: true,
+                indexedAccountId: indexedAccount?.id,
               }),
             ),
           );
@@ -335,6 +356,7 @@ function TokenListContainer({
             networkId: network.id,
             flag: 'home-token-list',
             saveToLocal: true,
+            indexedAccountId: indexedAccount?.id,
           });
 
           let accountWorth = new BigNumber(0);
@@ -472,7 +494,10 @@ function TokenListContainer({
       keys: tokenListRef.current.keys,
       tokens: tokenListRef.current.tokens,
       merge: true,
-      map: tokenListRef.current.map,
+      map: {
+        ...tokenListRef.current.map,
+        ...aggregateTokenMapRef.current,
+      },
       mergeDerive: true,
       split: true,
     });
@@ -492,6 +517,8 @@ function TokenListContainer({
     riskyTokenListRef.current.tokens = [];
     riskyTokenListRef.current.keys = '';
     riskyTokenListRef.current.map = {};
+
+    aggregateTokenMapRef.current = {};
   }, 1000);
 
   const handleAllNetworkRequests = useCallback(
@@ -510,6 +537,7 @@ function TokenListContainer({
         dbAccount,
         networkId,
         accountId,
+        indexedAccountId: indexedAccount?.id,
         flag: 'home-token-list',
         isAllNetworks: true,
         isManualRefresh: isAllNetworkManualRefresh.current,
@@ -521,6 +549,8 @@ function TokenListContainer({
         blockedTokensRawData: riskTokenManagementRawData.current.blockedTokens,
         unblockedTokensRawData:
           riskTokenManagementRawData.current.unblockedTokens,
+        aggregateTokenConfigMapRawData:
+          aggregateTokenRawData.current?.aggregateTokenConfigMap,
       });
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
@@ -597,6 +627,23 @@ function TokenListContainer({
           ...riskyTokenListRef.current.map,
         };
 
+        if (r.aggregateTokenListMap) {
+          refreshAggregateTokensListMap({
+            tokens: r.aggregateTokenListMap,
+            merge: true,
+          });
+        }
+
+        if (r.aggregateTokenMap) {
+          aggregateTokenMapRef.current = mergeAggregateTokenMap({
+            sourceMap: r.aggregateTokenMap,
+            targetMap: aggregateTokenMapRef.current,
+          });
+          refreshAggregateTokensMap({
+            tokens: aggregateTokenMapRef.current,
+          });
+        }
+
         refreshTokenListMap({
           tokens: mergedMap,
           merge: true,
@@ -641,7 +688,10 @@ function TokenListContainer({
     [
       account?.createAtNetwork,
       account?.id,
+      indexedAccount?.id,
       network?.id,
+      refreshAggregateTokensListMap,
+      refreshAggregateTokensMap,
       refreshAllTokenList,
       refreshAllTokenListMap,
       refreshRiskyTokenListMap,
@@ -737,13 +787,19 @@ function TokenListContainer({
     }) => {
       perfTokenListView.markStart('allNetworkRequestsStarted_getRawData');
 
-      const [c, r, l] = await Promise.all([
-        backgroundApiProxy.serviceToken.getCustomTokensRawData(),
-        backgroundApiProxy.serviceToken.getRiskTokenManagementRawData(),
+      let [c, r, l, a] = await Promise.all([
+        backgroundApiProxy.simpleDb.customTokens.getRawData(),
+        backgroundApiProxy.simpleDb.riskTokenManagement.getRawData(),
         backgroundApiProxy.simpleDb.localTokens.getRawData(),
+        backgroundApiProxy.simpleDb.aggregateToken.getRawData(),
       ]);
 
       perfTokenListView.markEnd('allNetworkRequestsStarted_getRawData');
+
+      if (!a?.aggregateTokenConfigMap) {
+        await backgroundApiProxy.serviceToken.syncAggregateTokenConfigMap();
+        a = await backgroundApiProxy.simpleDb.aggregateToken.getRawData();
+      }
 
       customTokensRawData.current = c ?? undefined;
       riskTokenManagementRawData.current = {
@@ -751,6 +807,7 @@ function TokenListContainer({
         blockedTokens: r?.blockedTokens ?? {},
       };
       localTokensRawData.current = l ?? undefined;
+      aggregateTokenRawData.current = a ?? undefined;
 
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
@@ -817,7 +874,7 @@ function TokenListContainer({
   );
 
   const handleAllNetworkCacheData = useCallback(
-    ({
+    async ({
       data,
       accountId,
       networkId,
@@ -837,6 +894,18 @@ function TokenListContainer({
       networkId: string;
     }) => {
       perfTokenListView.markStart('handleAllNetworkCacheData');
+
+      const localAggregateTokenMap =
+        await backgroundApiProxy.serviceToken.getLocalAggregateTokenMap({
+          accountId,
+          networkId,
+        });
+
+      const localAggregateTokenListMap =
+        await backgroundApiProxy.serviceToken.getLocalAggregateTokenListMap({
+          accountId,
+          networkId,
+        });
 
       const tokenList: IAccountToken[] = [];
       const riskyTokenList: IAccountToken[] = [];
@@ -858,6 +927,14 @@ function TokenListContainer({
             networkId: item.networkId,
           })]: item.tokenListValue,
         };
+      });
+
+      refreshAggregateTokensMap({
+        tokens: localAggregateTokenMap,
+      });
+
+      refreshAggregateTokensListMap({
+        tokens: localAggregateTokenListMap,
       });
 
       refreshTokenListMap({
@@ -888,7 +965,10 @@ function TokenListContainer({
         keys: `${accountId}_${networkId}_local_all`,
         tokens: tokenList,
         merge: true,
-        map: tokenListMap,
+        map: {
+          ...tokenListMap,
+          ...localAggregateTokenMap,
+        },
         mergeDerive: true,
         split: true,
       });
@@ -897,14 +977,20 @@ function TokenListContainer({
         keys: `${accountId}_${networkId}_local_all`,
         riskyTokens: riskyTokenList,
         merge: true,
-        map: tokenListMap,
+        map: {
+          ...tokenListMap,
+          ...localAggregateTokenMap,
+        },
         mergeDerive: true,
       });
 
       refreshAllTokenList({
         keys: `${accountId}_${networkId}_local_all`,
         tokens: [...tokenList, ...riskyTokenList],
-        map: tokenListMap,
+        map: {
+          ...tokenListMap,
+          ...localAggregateTokenMap,
+        },
         merge: true,
         mergeDerive: true,
         accountId: account?.id,
@@ -942,6 +1028,8 @@ function TokenListContainer({
       account?.createAtNetwork,
       account?.id,
       network?.id,
+      refreshAggregateTokensListMap,
+      refreshAggregateTokensMap,
       refreshAllTokenList,
       refreshAllTokenListMap,
       refreshRiskyTokenList,
@@ -1031,6 +1119,16 @@ function TokenListContainer({
     let createAtNetworkWorth = new BigNumber(0);
     let smallBalanceTokensFiatValue = new BigNumber(0);
 
+    let aggregateTokenListMap: {
+      [key: string]: {
+        tokens: IAccountToken[];
+      };
+    } = {};
+
+    let aggregateTokenMap: {
+      [key: string]: ITokenFiat;
+    } = {};
+
     if (allNetworksResult) {
       for (const r of allNetworksResult) {
         let mergeDeriveAssetsEnabled;
@@ -1047,6 +1145,20 @@ function TokenListContainer({
           mergeDeriveAssetsEnabled = false;
         }
 
+        if (r.aggregateTokenListMap) {
+          aggregateTokenListMap = mergeAggregateTokenListMap({
+            sourceMap: r.aggregateTokenListMap,
+            targetMap: aggregateTokenListMap,
+          });
+        }
+
+        if (r.aggregateTokenMap) {
+          aggregateTokenMap = mergeAggregateTokenMap({
+            sourceMap: r.aggregateTokenMap,
+            targetMap: aggregateTokenMap,
+          });
+        }
+
         tokenList.tokens = mergeDeriveTokenList({
           sourceTokens: r.tokens.data,
           targetTokens: tokenList.tokens,
@@ -1054,7 +1166,6 @@ function TokenListContainer({
         });
 
         tokenList.keys = `${tokenList.keys}_${r.tokens.keys}`;
-
         tokenListMap = mergeDeriveTokenListMap({
           sourceMap: r.tokens.map,
           targetMap: tokenListMap,
@@ -1117,9 +1228,32 @@ function TokenListContainer({
         }
       }
 
+      void backgroundApiProxy.serviceToken.updateLocalAggregateTokenMap({
+        networkId: network?.id ?? '',
+        accountId: account?.id ?? '',
+        aggregateTokenMap,
+      });
+
+      void backgroundApiProxy.serviceToken.updateLocalAggregateTokenListMap({
+        networkId: network?.id ?? '',
+        accountId: account?.id ?? '',
+        aggregateTokenListMap,
+      });
+
+      tokenList.tokens = uniqBy(tokenList.tokens, (item) => item.$key);
+      smallBalanceTokenList.smallBalanceTokens = uniqBy(
+        smallBalanceTokenList.smallBalanceTokens,
+        (item) => item.$key,
+      );
+      riskyTokenList.riskyTokens = uniqBy(
+        riskyTokenList.riskyTokens,
+        (item) => item.$key,
+      );
+
       const mergeTokenListMap = {
         ...tokenListMap,
         ...smallBalanceTokenListMap,
+        ...aggregateTokenMap,
       };
 
       let mergedTokens = sortTokensByFiatValue({
@@ -1171,6 +1305,14 @@ function TokenListContainer({
         createAtNetworkWorth: createAtNetworkWorth.toFixed(),
       });
 
+      refreshAggregateTokensListMap({
+        tokens: aggregateTokenListMap,
+      });
+
+      refreshAggregateTokensMap({
+        tokens: aggregateTokenMap,
+      });
+
       refreshTokenList(tokenList);
 
       refreshTokenListMap({
@@ -1209,6 +1351,8 @@ function TokenListContainer({
     network?.id,
     refreshAllTokenList,
     refreshAllTokenListMap,
+    refreshAggregateTokensListMap,
+    refreshAggregateTokensMap,
     refreshRiskyTokenList,
     refreshRiskyTokenListMap,
     refreshSmallBalanceTokenList,
@@ -1473,20 +1617,34 @@ function TokenListContainer({
   ]);
 
   const handleOnPressToken = useCallback(
-    (token: IToken) => {
+    (token: IAccountToken) => {
       if (!network || !wallet || !deriveInfo || !deriveType) return;
+
+      let sortedTokens = [token];
+
+      if (token.isAggregateToken) {
+        const tokens = aggregateTokenListMapAtom[token.$key]?.tokens;
+
+        sortedTokens = sortTokensCommon({
+          tokens,
+          tokenListMap: allTokenListMapAtom,
+        });
+      }
+
+      if (sortedTokens.length === 0) {
+        return;
+      }
 
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.TokenDetails,
         params: {
-          accountId: token.accountId ?? account?.id ?? '',
-          networkId: token.networkId ?? network.id,
+          accountId: sortedTokens[0]?.accountId ?? account?.id ?? '',
+          networkId: sortedTokens[0]?.networkId ?? network.id,
           walletId: wallet.id,
-          deriveInfo,
-          deriveType,
-          tokenInfo: token,
           isAllNetworks: network.isAllNetworks,
           indexedAccountId: indexedAccount?.id ?? '',
+          tokens: sortedTokens,
+          isAggregateToken: token.isAggregateToken,
         },
       });
     },
@@ -1498,6 +1656,8 @@ function TokenListContainer({
       navigation,
       network,
       wallet,
+      aggregateTokenListMapAtom,
+      allTokenListMapAtom,
     ],
   );
 
@@ -1655,7 +1815,9 @@ function TokenListContainer({
       withBuyAndReceive={isBuyAndReceiveEnabled}
       isBuyTokenSupported={isSupported}
       onBuyToken={handleFiatCrypto}
-      onReceiveToken={handleOnReceive}
+      onReceiveToken={() =>
+        handleOnReceive({ withAllAggregateTokens: network?.isAllNetworks })
+      }
       manageTokenEnabled={manageTokenEnabled}
       onManageToken={handleOnManageToken}
       onPressToken={handleOnPressToken}

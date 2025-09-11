@@ -21,7 +21,6 @@ import {
 } from '@onekeyhq/components';
 import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -42,6 +41,7 @@ import { ListItem } from '../../../components/ListItem';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
+  useAggregateTokensListMapAtom,
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '../../../states/jotai/contexts/tokenList';
@@ -67,24 +67,21 @@ interface IUniversalSection {
   showMore?: boolean;
 }
 
-const getSearchTypes = (enableMarketV2: boolean) => [
+const getSearchTypes = () => [
   EUniversalSearchType.Address,
   EUniversalSearchType.MarketToken,
-  ...(enableMarketV2 ? [EUniversalSearchType.V2MarketToken] : []),
+  EUniversalSearchType.V2MarketToken,
   EUniversalSearchType.AccountAssets,
   EUniversalSearchType.Dapp,
 ];
 
-const getTabIndexForSearchType = (
-  searchType: EUniversalSearchType,
-  enableMarketV2: boolean,
-): number => {
+const getTabIndexForSearchType = (searchType: EUniversalSearchType): number => {
   const baseTabMapping = {
     [EUniversalSearchType.Address]: 1, // Wallets tab
-    [EUniversalSearchType.MarketToken]: enableMarketV2 ? 3 : 2, // Tokens tab (shifts when Market V2 exists)
-    [EUniversalSearchType.V2MarketToken]: 2, // Market tab (only when V2 enabled)
-    [EUniversalSearchType.AccountAssets]: enableMarketV2 ? 4 : 3, // My Assets tab
-    [EUniversalSearchType.Dapp]: enableMarketV2 ? 5 : 4, // DApps tab
+    [EUniversalSearchType.MarketToken]: 3, // Tokens tab
+    [EUniversalSearchType.V2MarketToken]: 2, // Market tab
+    [EUniversalSearchType.AccountAssets]: 4, // My Assets tab
+    [EUniversalSearchType.Dapp]: 5, // DApps tab
   };
 
   return baseTabMapping[searchType];
@@ -127,12 +124,7 @@ export function UniversalSearch({
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [allTokenList] = useAllTokenListAtom();
   const [allTokenListMap] = useAllTokenListMapAtom();
-  const [devSettings] = useDevSettingsPersistAtom();
-
-  const enableMarketV2 = useMemo(
-    () => devSettings.settings?.enableMarketV2 ?? false,
-    [devSettings.settings?.enableMarketV2],
-  );
+  const [aggregateTokenListMap] = useAggregateTokensListMapAtom();
 
   const [sections, setSections] = useState<IUniversalSection[]>([]);
   const [searchStatus, setSearchStatus] = useState<ESearchStatus>(
@@ -156,11 +148,9 @@ export function UniversalSearch({
       intl.formatMessage({
         id: ETranslations.global_universal_search_tabs_wallets,
       }),
-      enableMarketV2
-        ? intl.formatMessage({
-            id: ETranslations.global_market,
-          })
-        : null,
+      intl.formatMessage({
+        id: ETranslations.global_market,
+      }),
       intl.formatMessage({
         id: ETranslations.global_universal_search_tabs_tokens,
       }),
@@ -171,7 +161,7 @@ export function UniversalSearch({
         id: ETranslations.global_universal_search_tabs_dapps,
       }),
     ].filter(Boolean);
-  }, [intl, enableMarketV2]);
+  }, [intl]);
   const [filterType, setFilterType] = useState(tabTitles[0]);
   const focusedTab = useSharedValue(tabTitles[0]);
   const handleTabPress = useCallback(
@@ -202,12 +192,14 @@ export function UniversalSearch({
     return (
       allTokenList &&
       allTokenListMap &&
+      aggregateTokenListMap &&
       allTokenList.accountId === activeAccount?.account?.id &&
       allTokenList.networkId === activeAccount?.network?.id
     );
   }, [
     allTokenList,
     allTokenListMap,
+    aggregateTokenListMap,
     activeAccount?.account?.id,
     activeAccount?.network?.id,
   ]);
@@ -249,12 +241,15 @@ export function UniversalSearch({
           networkId: activeAccount?.network?.id,
           accountId: activeAccount?.account?.id,
           indexedAccountId: activeAccount?.indexedAccount?.id,
-          searchTypes: getSearchTypes(enableMarketV2),
+          searchTypes: getSearchTypes(),
           tokenListCache: shouldUseTokensCacheData
             ? allTokenList?.tokens
             : undefined,
           tokenListCacheMap: shouldUseTokensCacheData
             ? allTokenListMap
+            : undefined,
+          aggregateTokenListCacheMap: shouldUseTokensCacheData
+            ? aggregateTokenListMap
             : undefined,
         });
       const generateDataFn = (data: IUniversalSearchResultItem[]) => {
@@ -300,10 +295,7 @@ export function UniversalSearch({
         const data = result?.[EUniversalSearchType.Address]
           ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
-          tabIndex: getTabIndexForSearchType(
-            EUniversalSearchType.Address,
-            enableMarketV2,
-          ),
+          tabIndex: getTabIndexForSearchType(EUniversalSearchType.Address),
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_wallets,
           }),
@@ -311,17 +303,13 @@ export function UniversalSearch({
         });
       }
 
-      // Show V2 market tokens only when V2 is enabled
-      if (
-        enableMarketV2 &&
-        result?.[EUniversalSearchType.V2MarketToken]?.items?.length
-      ) {
+      // Show V2 market tokens
+      if (result?.[EUniversalSearchType.V2MarketToken]?.items?.length) {
         const data = result?.[EUniversalSearchType.V2MarketToken]
           ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
           tabIndex: getTabIndexForSearchType(
             EUniversalSearchType.V2MarketToken,
-            enableMarketV2,
           ),
           title: intl.formatMessage({
             id: ETranslations.global_market,
@@ -334,10 +322,7 @@ export function UniversalSearch({
         const data = result?.[EUniversalSearchType.MarketToken]
           ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
-          tabIndex: getTabIndexForSearchType(
-            EUniversalSearchType.MarketToken,
-            enableMarketV2,
-          ),
+          tabIndex: getTabIndexForSearchType(EUniversalSearchType.MarketToken),
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_tokens,
           }),
@@ -351,7 +336,6 @@ export function UniversalSearch({
         searchResultSections.push({
           tabIndex: getTabIndexForSearchType(
             EUniversalSearchType.AccountAssets,
-            enableMarketV2,
           ),
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_my_assets,
@@ -364,10 +348,7 @@ export function UniversalSearch({
         const data = result?.[EUniversalSearchType.Dapp]
           ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
-          tabIndex: getTabIndexForSearchType(
-            EUniversalSearchType.Dapp,
-            enableMarketV2,
-          ),
+          tabIndex: getTabIndexForSearchType(EUniversalSearchType.Dapp),
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_dapps,
           }),
@@ -484,6 +465,32 @@ export function UniversalSearch({
     [activeAccount?.network?.id, searchStatus],
   );
 
+  const keyExtractor = useCallback(
+    (item: IUniversalSearchResultItem, index: number) => {
+      switch (item.type) {
+        case EUniversalSearchType.Address:
+          return `${item.type}-${
+            item.payload.account?.id || item.payload.wallet?.id || index
+          }`;
+        case EUniversalSearchType.MarketToken:
+          return `${item.type}-${item.payload.coingeckoId || index}`;
+        case EUniversalSearchType.V2MarketToken:
+          return `${item.type}-${
+            item.payload.address || item.payload.symbol
+          }-${index}`;
+        case EUniversalSearchType.AccountAssets:
+          return `${item.type}-${
+            item.payload.token.address || item.payload.token.symbol
+          }-${index}`;
+        case EUniversalSearchType.Dapp:
+          return `${item.type}-${item.payload.dappId || index}`;
+        default:
+          return `${index}`;
+      }
+    },
+    [],
+  );
+
   const filterSections = useMemo(() => {
     if (isInAllTab) {
       const sectionsWithSliceData = sections.map((i) => ({
@@ -521,6 +528,7 @@ export function UniversalSearch({
             renderSectionHeader={renderSectionHeader}
             sections={recommendSections}
             renderItem={renderItem}
+            keyExtractor={keyExtractor}
             ListHeaderComponent={
               <RecentSearched
                 filterTypes={filterTypes}
@@ -572,6 +580,7 @@ export function UniversalSearch({
                 />
               }
               renderItem={renderItem}
+              keyExtractor={keyExtractor}
               estimatedItemSize="$16"
               ListFooterComponent={<Stack h="$16" />}
               keyboardShouldPersistTaps="handled"
@@ -586,6 +595,7 @@ export function UniversalSearch({
     renderSectionHeader,
     recommendSections,
     renderItem,
+    keyExtractor,
     filterTypes,
     handleSearchTextFill,
     tabTitles,
@@ -628,17 +638,13 @@ const UniversalSearchWithHomeTokenListProvider = ({
   EUniversalSearchPages.UniversalSearch
 >) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const [devSettings] = useDevSettingsPersistAtom();
-  const enableMarketV2 = devSettings.settings?.enableMarketV2 ?? false;
 
   return (
     <HomeTokenListProviderMirrorWrapper
       accountId={activeAccount?.account?.id ?? ''}
     >
       <UniversalSearch
-        filterTypes={
-          route?.params?.filterTypes || getSearchTypes(enableMarketV2)
-        }
+        filterTypes={route?.params?.filterTypes || getSearchTypes()}
       />
     </HomeTokenListProviderMirrorWrapper>
   );
