@@ -155,33 +155,7 @@ const PreSwapConfirmResult = ({
           ) : null}
         </YStack>
       </YStack>
-      {lastStep.status === ESwapStepStatus.FAILED ? (
-        <XStack alignItems="center" justifyContent="center">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.swap_review_tx_failed_1,
-            })}
-          </SizableText>
-          <SizableText
-            size="$bodyMd"
-            hoverStyle={{
-              color: '$text',
-            }}
-            textDecorationLine="underline"
-            textDecorationColor="$textSubdued"
-            textDecorationStyle="dotted"
-            color="$textSubdued"
-            cursor="pointer"
-            onPress={() => {
-              openUrlExternal(SUPPORT_URL);
-            }}
-          >
-            {intl.formatMessage({
-              id: ETranslations.settings_submit_request,
-            })}
-          </SizableText>
-        </XStack>
-      ) : null}
+
       {lastStep.status === ESwapStepStatus.PENDING ? (
         <XStack alignItems="center" justifyContent="center" mt="$4">
           <SizableText size="$bodyMd" color="$textSubdued">
@@ -200,13 +174,23 @@ const PreSwapConfirmResult = ({
           </SizableText>
         </XStack>
       ) : null}
-      <XStack
-        alignItems="center"
-        justifyContent="center"
-        gap="$2"
-        w="100%"
-        mt="$4"
-      >
+      <XStack alignItems="center" justifyContent="center" gap="$2" w="100%">
+        {supportUrl && lastStep.status === ESwapStepStatus.FAILED ? (
+          <Button
+            flexGrow={1}
+            flexBasis={0}
+            variant="secondary"
+            onPress={() => {
+              if (supportUrl?.includes(SUPPORT_URL)) {
+                void showIntercom();
+              } else {
+                openUrlExternal(supportUrl ?? '');
+              }
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.swap_review_tx_failed_2 })}
+          </Button>
+        ) : null}
         <Button
           flexGrow={1}
           flexBasis={0}
@@ -221,23 +205,34 @@ const PreSwapConfirmResult = ({
                 : ETranslations.global_done,
           })}
         </Button>
-        {supportUrl && lastStep.status === ESwapStepStatus.FAILED ? (
-          <Button
-            flexGrow={1}
-            flexBasis={0}
-            variant="secondary"
+      </XStack>
+      {lastStep.status === ESwapStepStatus.FAILED ? (
+        <XStack alignItems="center" justifyContent="flex-start" mt="$3">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.global_still_have_issues,
+            })}{' '}
+          </SizableText>
+          <SizableText
+            size="$bodySm"
+            hoverStyle={{
+              color: '$text',
+            }}
+            textDecorationLine="underline"
+            textDecorationColor="$textSubdued"
+            textDecorationStyle="dotted"
+            color="$textSubdued"
+            cursor="pointer"
             onPress={() => {
-              if (supportUrl?.includes(SUPPORT_URL)) {
-                void showIntercom();
-              } else {
-                openUrlExternal(supportUrl ?? '');
-              }
+              openUrlExternal(SUPPORT_URL);
             }}
           >
-            {intl.formatMessage({ id: ETranslations.global_support })}
-          </Button>
-        ) : null}
-      </XStack>
+            {intl.formatMessage({
+              id: ETranslations.settings_submit_request,
+            })}
+          </SizableText>
+        </XStack>
+      ) : null}
     </YStack>
   );
 };
