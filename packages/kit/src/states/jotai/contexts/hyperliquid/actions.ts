@@ -547,6 +547,66 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
     },
   );
+
+  setPositionTpsl = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        positionSize: string;
+        isBuy: boolean;
+        tpTriggerPx?: string;
+        slTriggerPx?: string;
+        slippage?: number;
+        showToast?: boolean;
+      },
+    ) => {
+      try {
+        set(tradingLoadingAtom(), true);
+
+        const result =
+          await backgroundApiProxy.serviceHyperliquidExchange.setPositionTpsl({
+            assetId: params.assetId,
+            positionSize: params.positionSize,
+            isBuy: params.isBuy,
+            tpTriggerPx: params.tpTriggerPx,
+            slTriggerPx: params.slTriggerPx,
+            slippage: params.slippage || 0.08,
+          });
+
+        // Show success toast by default
+        if (params.showToast !== false) {
+          Toast.success({
+            title: 'TP/SL Set Successfully',
+            message: 'Position TP/SL orders have been placed',
+          });
+        }
+
+        return result;
+      } catch (error) {
+        console.error(
+          '[HyperliquidActions.setPositionTpsl] Failed to set position TP/SL:',
+          error,
+        );
+
+        // Show error toast by default
+        if (params.showToast !== false) {
+          Toast.error({
+            title: 'Set TP/SL Failed',
+            message:
+              error instanceof Error
+                ? error.message
+                : 'Failed to set position TP/SL',
+          });
+        }
+
+        throw error;
+      } finally {
+        set(tradingLoadingAtom(), false);
+      }
+    },
+  );
 }
 
 const createActions = memoFn(() => new ContextJotaiActionsHyperliquid());
@@ -586,6 +646,7 @@ export function useHyperliquidActions() {
   const marketOrderClose = actions.marketOrderClose.use();
   const limitOrderClose = actions.limitOrderClose.use();
   const cancelOrder = actions.cancelOrder.use();
+  const setPositionTpsl = actions.setPositionTpsl.use();
 
   return useRef({
     updateAllMids,
@@ -617,5 +678,6 @@ export function useHyperliquidActions() {
     marketOrderClose,
     limitOrderClose,
     cancelOrder,
+    setPositionTpsl,
   });
 }

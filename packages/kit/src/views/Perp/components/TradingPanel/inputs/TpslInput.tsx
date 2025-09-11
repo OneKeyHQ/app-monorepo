@@ -14,6 +14,7 @@ interface ITpslInputProps {
   price: string;
   side: 'long' | 'short';
   szDecimals: number;
+  leverage?: number;
   tpsl: {
     tpPrice: string;
     slPrice: string;
@@ -27,6 +28,7 @@ export const TpslInput = memo(
     price,
     side,
     szDecimals,
+    leverage = 1,
     tpsl,
     onChange,
     disabled = false,
@@ -42,154 +44,165 @@ export const TpslInput = memo(
       return new BigNumber(price || 0);
     }, [price]);
 
-    const calculateTpPrice = useCallback(
-      (gainPercent: string) => {
-        if (!gainPercent || referencePrice.isZero()) return '';
-        const gain = new BigNumber(gainPercent).dividedBy(100);
+    const calculatePrice = useCallback(
+      (percent: string, isTP: boolean) => {
+        if (!percent || referencePrice.isZero()) return '';
+        const percentNum = new BigNumber(percent).dividedBy(100);
+        // Adjust percentage by leverage: actual price change is percentage / leverage
+        const adjustedPercent = percentNum.dividedBy(leverage);
         const multiplier =
-          side === 'long'
-            ? new BigNumber(1).plus(gain)
-            : new BigNumber(1).minus(gain);
-        const result = referencePrice.multipliedBy(multiplier);
-        return formatPriceToSignificantDigits(result.toNumber(), szDecimals);
+          (side === 'long') === isTP
+            ? new BigNumber(1).plus(adjustedPercent)
+            : new BigNumber(1).minus(adjustedPercent);
+        return formatPriceToSignificantDigits(
+          referencePrice.multipliedBy(multiplier).toNumber(),
+          szDecimals,
+        );
       },
-      [referencePrice, side, szDecimals],
+      [referencePrice, side, szDecimals, leverage],
     );
 
-    const calculateSlPrice = useCallback(
-      (lossPercent: string) => {
-        if (!lossPercent || referencePrice.isZero()) return '';
-        const loss = new BigNumber(lossPercent).dividedBy(100);
-        const multiplier =
-          side === 'long'
-            ? new BigNumber(1).minus(loss)
-            : new BigNumber(1).plus(loss);
-        const result = referencePrice.multipliedBy(multiplier);
-        return formatPriceToSignificantDigits(result.toNumber(), szDecimals);
-      },
-      [referencePrice, side, szDecimals],
-    );
-
-    const calculateTpPercent = useCallback(
-      (tpPrice: string) => {
-        if (!tpPrice || referencePrice.isZero()) return '';
-        const tp = new BigNumber(tpPrice);
+    const calculatePercent = useCallback(
+      (priceValue: string, isTP: boolean) => {
+        if (!priceValue || referencePrice.isZero()) return '';
+        const priceNum = new BigNumber(priceValue);
         const diff =
-          side === 'long' ? tp.minus(referencePrice) : referencePrice.minus(tp);
-        const percent = diff.dividedBy(referencePrice).multipliedBy(100);
-        return formatPercentage(percent.toNumber());
+          (side === 'long') === isTP
+            ? priceNum.minus(referencePrice)
+            : referencePrice.minus(priceNum);
+        return formatPercentage(
+          diff
+            .dividedBy(referencePrice)
+            .multipliedBy(leverage)
+            .multipliedBy(100)
+            .toNumber(),
+        );
       },
-      [referencePrice, side],
-    );
-
-    const calculateSlPercent = useCallback(
-      (slPrice: string) => {
-        if (!slPrice || referencePrice.isZero()) return '';
-        const sl = new BigNumber(slPrice);
-        const diff =
-          side === 'long' ? referencePrice.minus(sl) : sl.minus(referencePrice);
-        const percent = diff.dividedBy(referencePrice).multipliedBy(100);
-        return formatPercentage(percent.toNumber());
-      },
-      [referencePrice, side],
+      [referencePrice, side, leverage],
     );
 
     useEffect(() => {
-      setInternalState((prev) => ({
-        ...prev,
-        tpTriggerPx: tpsl.tpPrice,
-        slTriggerPx: tpsl.slPrice,
-      }));
+      const newTpPercent = tpsl.tpPrice
+        ? calculatePercent(tpsl.tpPrice, true)
+        : '';
+      const newSlPercent = tpsl.slPrice
+        ? calculatePercent(tpsl.slPrice, false)
+        : '';
 
-      const tpPercent = calculateTpPercent(tpsl.tpPrice);
-      const slPercent = calculateSlPercent(tpsl.slPrice);
-      setInternalState((prev) => ({
-        ...prev,
-        tpGainPercent: tpPercent,
-        slLossPercent: slPercent,
-      }));
-    }, [tpsl.tpPrice, tpsl.slPrice, calculateTpPercent, calculateSlPercent]);
+      setInternalState((prev) => {
+        const shouldUpdateTp = prev.tpTriggerPx !== tpsl.tpPrice;
+        const shouldUpdateSl = prev.slTriggerPx !== tpsl.slPrice;
+
+        if (!shouldUpdateTp && !shouldUpdateSl) {
+          return prev;
+        }
+
+        return {
+          tpTriggerPx: tpsl.tpPrice,
+          slTriggerPx: tpsl.slPrice,
+          tpGainPercent: shouldUpdateTp ? newTpPercent : prev.tpGainPercent,
+          slLossPercent: shouldUpdateSl ? newSlPercent : prev.slLossPercent,
+        };
+      });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tpsl.tpPrice, tpsl.slPrice, side]);
 
     const handleTpPriceChange = useCallback(
       (value: string) => {
         const _value = value.replace(/。/g, '.');
         if (!validatePriceInput(_value, szDecimals)) return;
-        const percent = calculateTpPercent(_value);
+        const percent = calculatePercent(_value, true);
         setInternalState((prev) => ({
           ...prev,
           tpTriggerPx: _value,
           tpGainPercent: percent,
         }));
-
         onChange({
           tpPrice: _value,
           slPrice: internalState.slTriggerPx,
         });
       },
-      [calculateTpPercent, onChange, internalState.slTriggerPx, szDecimals],
+      [calculatePercent, onChange, internalState.slTriggerPx, szDecimals],
+    );
+
+    const isValidPercent = useCallback(
+      (value: string) =>
+        value === '' || value === '-' || /^-?(\d+\.?\d*|\d*\.\d+)$/.test(value),
+      [],
+    );
+
+    const canCalculate = useCallback(
+      (value: string) =>
+        value !== '' && value !== '-' && !Number.isNaN(Number(value)),
+      [],
     );
 
     const handleTpPercentChange = useCallback(
       (value: string) => {
-        if (!/^-?[0-9]*\.?[0-9]*$/.test(value) && value !== '') return;
-        const calculatedPrice = calculateTpPrice(value);
-        const formattedPrice = formatPriceToSignificantDigits(
-          Number(calculatedPrice),
-          szDecimals,
-        );
+        if (!isValidPercent(value)) return;
+        const calculatedPrice = canCalculate(value)
+          ? calculatePrice(value, true)
+          : '';
         setInternalState((prev) => ({
           ...prev,
-          tpTriggerPx: formattedPrice,
+          tpTriggerPx: calculatedPrice,
           tpGainPercent: value,
         }));
-
         onChange({
-          tpPrice: formattedPrice,
+          tpPrice: calculatedPrice,
           slPrice: internalState.slTriggerPx,
         });
       },
-      [calculateTpPrice, onChange, internalState.slTriggerPx, szDecimals],
+      [
+        calculatePrice,
+        onChange,
+        internalState.slTriggerPx,
+        isValidPercent,
+        canCalculate,
+      ],
     );
 
     const handleSlPriceChange = useCallback(
       (value: string) => {
         const _value = value.replace(/。/g, '.');
         if (!validatePriceInput(_value, szDecimals)) return;
-        const percent = calculateSlPercent(_value);
+        const percent = calculatePercent(_value, false);
         setInternalState((prev) => ({
           ...prev,
           slTriggerPx: _value,
           slLossPercent: percent,
         }));
-
         onChange({
           tpPrice: internalState.tpTriggerPx,
           slPrice: _value,
         });
       },
-      [calculateSlPercent, onChange, internalState.tpTriggerPx, szDecimals],
+      [calculatePercent, onChange, internalState.tpTriggerPx, szDecimals],
     );
 
     const handleSlPercentChange = useCallback(
       (value: string) => {
-        if (!/^-?[0-9]*\.?[0-9]*$/.test(value) && value !== '') return;
-        const calculatedPrice = calculateSlPrice(value);
-        const formattedPrice = formatPriceToSignificantDigits(
-          Number(calculatedPrice),
-          szDecimals,
-        );
+        if (!isValidPercent(value)) return;
+        const calculatedPrice = canCalculate(value)
+          ? calculatePrice(value, false)
+          : '';
         setInternalState((prev) => ({
           ...prev,
-          slTriggerPx: formattedPrice,
+          slTriggerPx: calculatedPrice,
           slLossPercent: value,
         }));
-
         onChange({
           tpPrice: internalState.tpTriggerPx,
-          slPrice: formattedPrice,
+          slPrice: calculatedPrice,
         });
       },
-      [calculateSlPrice, onChange, internalState.tpTriggerPx, szDecimals],
+      [
+        calculatePrice,
+        onChange,
+        internalState.tpTriggerPx,
+        isValidPercent,
+        canCalculate,
+      ],
     );
 
     return (

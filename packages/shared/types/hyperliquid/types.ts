@@ -122,3 +122,12 @@ export interface IAgentApprovalRequest {
   agent: IHex;
   authorize: boolean;
 }
+
+export interface IPositionTpslOrderParams {
+  assetId: number;
+  positionSize: string;
+  isBuy: boolean;
+  tpTriggerPx?: string;
+  slTriggerPx?: string;
+  slippage?: number;
+}

@@ -14,7 +14,6 @@ import {
   useHyperliquidAccount,
   useHyperliquidTrading,
 } from '../../hooks';
-import { getTradingButtonStyleProps } from '../../utils/styleUtils';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 import { PerpTradingForm } from './panels/PerpTradingForm';
@@ -69,10 +68,6 @@ function PerpTradingPanel() {
     return 'Place order';
   }, [isSubmitting, isNoEnoughMargin]);
 
-  const buttonStyleProps = useMemo(() => {
-    return getTradingButtonStyleProps(formData.side, buttonDisabled);
-  }, [formData.side, buttonDisabled]);
-
   const actions = useHyperliquidActions();
   const handleShowConfirm = useCallback(() => {
     if (!tokenInfo) {
@@ -119,56 +114,16 @@ function PerpTradingPanel() {
   return (
     <YStack gap="$2" p="$4">
       <PerpTradingForm isSubmitting={isSubmitting} />
-
-      {loading ? (
-        <Button size="meduium" borderRadius="$2" disabled>
-          <Spinner />
-        </Button>
-      ) : (
-        <>
-          {!currentUser ? (
-            <Button size="meduium" borderRadius="$2" onPress={() => {}}>
-              <SizableText>Connect wallet</SizableText>
-            </Button>
-          ) : null}
-
-          {!canTrade ? (
-            <Button
-              size="meduium"
-              borderRadius="$2"
-              onPress={() => {
-                void checkAndApproveWallet();
-              }}
-            >
-              <SizableText>Enable trading</SizableText>
-            </Button>
-          ) : null}
-
-          {canTrade ? (
-            <Button
-              bg="$green11"
-              hoverStyle={{ bg: '$green10' }}
-              pressStyle={{
-                bg: '$green10',
-              }}
-              onPress={() => {
-                if (!canTrade) {
-                  void checkAndApproveWallet();
-                } else {
-                  handleShowConfirm();
-                }
-              }}
-              disabled={buttonDisabled}
-              size="meduium"
-              borderRadius="$2"
-            >
-              <SizableText color="$textOnColor" size="$bodyMdMedium">
-                {buttonText}
-              </SizableText>
-            </Button>
-          ) : null}
-        </>
-      )}
+      <PerpTradingButton
+        userWebData2={userWebData2}
+        loading={universalLoading}
+        canTrade={canTrade}
+        checkAndApproveWallet={checkAndApproveWallet}
+        handleShowConfirm={handleShowConfirm}
+        formData={formData}
+        isSubmitting={isSubmitting}
+        isNoEnoughMargin={isNoEnoughMargin}
+      />
     </YStack>
   );
 }

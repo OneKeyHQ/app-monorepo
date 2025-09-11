@@ -58,69 +58,59 @@ function formatPriceWithRules(
 ): string {
   const parsed = parseNumberString(priceStr);
 
-  // Apply szDecimals constraint first if provided
-  if (szDecimals !== undefined && parsed.decimalDigits > 0) {
-    const maxDecimalPlaces = Math.max(0, 6 - szDecimals);
-    if (parsed.decimalDigits > maxDecimalPlaces) {
-      const truncatedDecimal = parsed.decimalPart.substring(
-        0,
-        maxDecimalPlaces,
-      );
-      let result = `${parsed.integerPart}.${truncatedDecimal}`;
-      result = result.replace(/\.?0+$/, '');
-      return result;
-    }
-  }
+  // Step 1: Apply 5 significant digits rule first
+  let result: string;
 
   // If integer part >= 5 digits, don't allow decimals
   if (parsed.integerDigits >= 5) {
-    return parsed.integerPart;
-  }
+    result = parsed.integerPart;
+  } else {
+    // Calculate remaining digits for decimal part
+    const remainingDigits = maxSignificantDigits - parsed.integerDigits;
 
-  // Calculate remaining digits for decimal part
-  const remainingDigits = maxSignificantDigits - parsed.integerDigits;
+    if (remainingDigits <= 0) {
+      result = parsed.integerPart;
+    } else if (parsed.trimmedInteger === '0') {
+      // For numbers like 0.012345, count significant digits after leading zeros
+      const leadingZeros = parsed.decimalPart.match(/^0*/)?.[0].length || 0;
+      const significantDecimalPart = parsed.decimalPart.substring(leadingZeros);
 
-  if (remainingDigits <= 0) {
-    return parsed.integerPart;
-  }
-
-  // For numbers like 0.012345, count significant digits after leading zeros
-  if (parsed.trimmedInteger === '0') {
-    const leadingZeros = parsed.decimalPart.match(/^0*/)?.[0].length || 0;
-    const significantDecimalPart = parsed.decimalPart.substring(leadingZeros);
-
-    // Check total decimal places limit first (max 5 decimal places for 0.0 prefix cases)
-    if (parsed.decimalDigits > 5) {
-      const truncatedDecimal = parsed.decimalPart.substring(0, 5);
-      let result = `0.${truncatedDecimal}`;
-      result = result.replace(/\.?0+$/, '');
-      return result;
-    }
-
-    if (significantDecimalPart.length <= maxSignificantDigits) {
-      let result = priceStr;
-      if (result.includes('.')) {
-        result = result.replace(/\.?0+$/, '');
+      // Check total decimal places limit first (max 5 decimal places for 0.0 prefix cases)
+      if (parsed.decimalDigits > 5) {
+        const truncatedDecimal = parsed.decimalPart.substring(0, 5);
+        result = `0.${truncatedDecimal}`;
+      } else if (significantDecimalPart.length <= maxSignificantDigits) {
+        result = priceStr;
+      } else {
+        const truncated = significantDecimalPart.substring(0, maxSignificantDigits);
+        result = `0.${'0'.repeat(leadingZeros)}${truncated}`;
       }
-      return result;
+    } else {
+      // For cases like 123.45 (integer + decimal)
+      const allowedDecimalDigits = Math.min(remainingDigits, 6); // Max 6 decimal places
+      const truncatedDecimalPart = parsed.decimalPart.substring(
+        0,
+        allowedDecimalDigits,
+      );
+      result = `${parsed.integerPart}.${truncatedDecimalPart}`;
     }
-
-    const truncated = significantDecimalPart.substring(0, maxSignificantDigits);
-    let result = `0.${'0'.repeat(leadingZeros)}${truncated}`;
-    result = result.replace(/\.?0+$/, '');
-    return result;
   }
 
-  // For cases like 123.45 (integer + decimal)
-  const allowedDecimalDigits = Math.min(remainingDigits, 6); // Max 6 decimal places
-  const truncatedDecimalPart = parsed.decimalPart.substring(
-    0,
-    allowedDecimalDigits,
-  );
+  // Step 2: Apply szDecimals constraint after significant digits
+  if (szDecimals !== undefined && result.includes('.')) {
+    const resultParts = result.split('.');
+    const currentDecimalDigits = resultParts[1].length;
+    const maxDecimalPlaces = Math.max(0, 6 - szDecimals);
+    
+    if (currentDecimalDigits > maxDecimalPlaces) {
+      const truncatedDecimal = resultParts[1].substring(0, maxDecimalPlaces);
+      result = `${resultParts[0]}.${truncatedDecimal}`;
+    }
+  }
 
-  let result = `${parsed.integerPart}.${truncatedDecimalPart}`;
-  result = result.replace(/\.?0+$/, '');
-
+  // Clean up trailing zeros
+  result = result.replace(/\.0*$/, '');
+  
   return result;
 }
 
@@ -260,5 +250,5 @@ export function formatPercentage(percent: number): string {
   }
 
   // Otherwise, show up to 2 decimal places and remove trailing zeros
-  return rounded.toFixed(2).replace(/\.?0+$/, '');
+  return rounded.toFixed(2).replace(/\.0*$/, '');
 }

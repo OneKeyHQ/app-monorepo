@@ -4,7 +4,6 @@ import { Stack } from '@onekeyhq/components';
 import { TradingViewPerpsV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/TradingViewPerpsV2';
 
 import { useCurrentTokenAtom } from '../../../states/jotai/contexts/hyperliquid';
-import { useHyperliquidAccount } from '../hooks';
 import { usePerpUseChainAccount } from '../hooks/usePerpUseChainAccount';
 
 export function PerpCandles() {

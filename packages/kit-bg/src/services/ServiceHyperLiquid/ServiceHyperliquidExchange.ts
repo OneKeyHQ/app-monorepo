@@ -22,6 +22,7 @@ import type {
   IMarketOrderOpenParams,
   IMultiOrderParams,
   IPlaceOrderParams,
+  IPositionTpslOrderParams,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import ServiceBase from '../ServiceBase';
@@ -420,6 +421,90 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     } catch (error) {
       throw new OneKeyLocalError(
         `Failed to place multi orders: ${String(error)}`,
+      );
+    }
+  }
+
+  @backgroundMethod()
+  async setPositionTpsl(
+    params: IPositionTpslOrderParams,
+  ): Promise<IOrderResponse> {
+    this._ensureSetup();
+
+    try {
+      const {
+        assetId,
+        positionSize,
+        isBuy,
+        tpTriggerPx,
+        slTriggerPx,
+        slippage,
+      } = params;
+      const orders: IOrderParams[] = [];
+
+      // Take Profit order
+      if (tpTriggerPx) {
+        const tpExecutionPrice = this._calculateSlippagePrice({
+          markPrice: tpTriggerPx,
+          isBuy: !isBuy,
+          slippage: slippage || this.slippage,
+        });
+
+        const tpOrder: IOrderParams = {
+          a: assetId,
+          b: !isBuy,
+          p: tpExecutionPrice,
+          s: positionSize,
+          r: true,
+          t: {
+            trigger: {
+              isMarket: true,
+              triggerPx: tpTriggerPx,
+              tpsl: 'tp',
+            },
+          },
+        };
+        orders.push(tpOrder);
+      }
+
+      // Stop Loss order
+      if (slTriggerPx) {
+        const slExecutionPrice = this._calculateSlippagePrice({
+          markPrice: slTriggerPx,
+          isBuy: !isBuy,
+          slippage: slippage || this.slippage,
+        });
+
+        const slOrder: IOrderParams = {
+          a: assetId,
+          b: !isBuy,
+          p: slExecutionPrice,
+          s: positionSize,
+          r: true,
+          t: {
+            trigger: {
+              isMarket: true,
+              triggerPx: slTriggerPx,
+              tpsl: 'sl',
+            },
+          },
+        };
+        orders.push(slOrder);
+      }
+
+      if (orders.length === 0) {
+        throw new OneKeyLocalError(
+          'At least one TP or SL price must be provided',
+        );
+      }
+
+      return await this._exchangeClient!.order({
+        orders,
+        grouping: 'positionTpsl',
+      });
+    } catch (error) {
+      throw new OneKeyLocalError(
+        `Failed to set position TP/SL: ${String(error)}`,
       );
     }
   }

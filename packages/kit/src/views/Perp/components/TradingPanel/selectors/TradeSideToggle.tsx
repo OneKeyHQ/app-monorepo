@@ -56,7 +56,7 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
         label: (
           <Button
             {...commonButtonStyle}
-            bg={isLongActive ? '$green11' : '$transparent'}
+            bg={isLongActive ? longStyleProps.bg : '$transparent'}
             color={isLongActive ? '$textOnColor' : '$textSubdued'}
             onPress={() => onChange('long')}
             disabled={disabled}
@@ -70,7 +70,7 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
         label: (
           <Button
             {...commonButtonStyle}
-            bg={isShortActive ? '$red11' : '$transparent'}
+            bg={isShortActive ? shortStyleProps.bg : '$transparent'}
             color={isShortActive ? '$textOnColor' : '$textSubdued'}
             onPress={() => onChange('short')}
             disabled={disabled}

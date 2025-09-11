@@ -13,6 +13,7 @@ import {
 } from '../../../hooks/usePerpOrderInfoPanel';
 import { showClosePositionDialog } from '../ClosePositionModal';
 import { PositionRow } from '../Components/PositionsRow';
+import { showSetTpslDialog } from '../SetTpslModal';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -106,9 +107,28 @@ function PerpPositionsList({
     console.log('onAllClose');
   }, []);
 
-  const setTpsl = useCallback(() => {
-    console.log('setTpsl');
-  }, []);
+  const handleSetTpsl = useCallback(
+    (
+      position: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'],
+    ) => {
+      const tokenInfo = getTokenInfo(position.coin);
+      if (!tokenInfo) {
+        console.error(
+          '[PerpPositionsList] Token info not found for',
+          position.coin,
+        );
+        return;
+      }
+
+      showSetTpslDialog({
+        position,
+        szDecimals: tokenInfo.szDecimals || 2,
+        assetId: tokenInfo.assetId,
+        hyperliquidActions: actions,
+      });
+    },
+    [getTokenInfo, actions],
+  );
 
   const allMidsRef = useRef(allMids);
   useEffect(() => {
@@ -137,7 +157,6 @@ function PerpPositionsList({
         type,
         szDecimals: tokenInfo.szDecimals || 2,
         assetId: tokenInfo.assetId,
-        getMidPrice: () => allMidsRef.current?.mids?.[position.coin] || '',
         hyperliquidActions: actions,
       });
     },
@@ -171,7 +190,7 @@ function PerpPositionsList({
         handleClosePosition={(type) => handleClosePosition({ position, type })}
         handleViewTpslOrders={handleViewTpslOrders}
         onAllClose={onAllClose}
-        setTpsl={setTpsl}
+        setTpsl={() => handleSetTpsl(position)}
         index={_index}
       />
     );

@@ -181,6 +181,7 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
               price={referencePrice.toFixed()}
               side={formData.side}
               szDecimals={tokenInfo?.szDecimals || 2}
+              leverage={leverage}
               tpsl={{
                 tpPrice: formData.tpTriggerPx,
                 slPrice: formData.slTriggerPx,
