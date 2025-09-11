@@ -1,23 +1,42 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { Empty, NumberSizeableText, Page } from '@onekeyhq/components';
+import {
+  Empty,
+  Icon,
+  NumberSizeableText,
+  Page,
+  Spinner,
+  Stack,
+  Toast,
+} from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getListedNetworkMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EAssetSelectorRoutes,
   IAssetSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
-import { sortTokensCommon } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  sortTokensByOrder,
+  sortTokensCommon,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
+import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { EmptySearch } from '../../../components/Empty';
 import { ListItem } from '../../../components/ListItem';
 import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useAggregateTokensListMapAtom,
   useAllTokenListMapAtom,
@@ -26,6 +45,8 @@ import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTo
 
 import type { RouteProp } from '@react-navigation/core';
 
+const listedNetworkMap = getListedNetworkMap();
+
 function AggregateTokenListItem({
   token,
   onPress,
@@ -33,24 +54,109 @@ function AggregateTokenListItem({
   token: IAccountToken;
   onPress: (token: IAccountToken) => void;
 }) {
+  const [loading, setLoading] = useState(false);
+  const intl = useIntl();
+
   const [allTokenListMapAtom] = useAllTokenListMapAtom();
   const [settings] = useSettingsPersistAtom();
   const tokenInfo = allTokenListMapAtom[token.$key];
+  const {
+    activeAccount: { wallet, indexedAccount },
+  } = useActiveAccount({ num: 0 });
 
-  const { network } = useAccountData({
-    networkId: token.networkId,
-  });
+  const network = listedNetworkMap[token.networkId ?? ''];
+
+  const { createAddress } = useAccountSelectorCreateAddress();
+
+  const { result: accountId } = usePromiseResult(async () => {
+    if (token.accountId) {
+      return token.accountId;
+    }
+
+    const deriveType =
+      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId: token.networkId ?? '',
+      });
+    try {
+      const account = await backgroundApiProxy.serviceAccount.getNetworkAccount(
+        {
+          accountId: undefined,
+          indexedAccountId: indexedAccount?.id ?? '',
+          networkId: token.networkId ?? '',
+          deriveType,
+        },
+      );
+
+      return account?.id;
+    } catch {
+      return undefined;
+    }
+  }, [indexedAccount?.id, token.networkId, token.accountId]);
+
+  const handleOnPress = useCallback(async () => {
+    if (accountId) {
+      onPress({
+        ...token,
+        accountId,
+      });
+    } else {
+      try {
+        setLoading(true);
+        const globalDeriveType =
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId: network?.id ?? '',
+          });
+
+        const createAddressResult = await createAddress({
+          account: {
+            walletId: wallet?.id,
+            networkId: network?.id ?? '',
+            indexedAccountId: indexedAccount?.id,
+            deriveType: globalDeriveType,
+          },
+          selectAfterCreate: false,
+          num: 0,
+        });
+        if (createAddressResult) {
+          await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+            enabledNetworks: { [network?.id ?? '']: true },
+          });
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.swap_page_toast_address_generated,
+            }),
+            message: intl.formatMessage({
+              id: ETranslations.network_also_enabled,
+            }),
+          });
+          onPress({
+            ...token,
+            accountId: createAddressResult.accounts[0]?.id,
+          });
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+  }, [
+    accountId,
+    network?.id,
+    onPress,
+    token,
+    createAddress,
+    wallet?.id,
+    indexedAccount?.id,
+    intl,
+  ]);
 
   return (
     <ListItem
       key={token.$key}
-      title={token.networkName}
+      title={token.networkName || network?.name}
       avatarProps={{
         src: network?.logoURI,
       }}
-      onPress={() => {
-        onPress(token);
-      }}
+      onPress={handleOnPress}
     >
       <ListItem.Text
         align="right"
@@ -60,7 +166,7 @@ function AggregateTokenListItem({
             formatter="balance"
             textAlign="right"
           >
-            {tokenInfo.balanceParsed}
+            {tokenInfo?.balanceParsed}
           </NumberSizeableText>
         }
         secondary={
@@ -71,10 +177,18 @@ function AggregateTokenListItem({
             formatterOptions={{ currency: settings.currencyInfo.symbol }}
             textAlign="right"
           >
-            {tokenInfo.fiatValue}
+            {tokenInfo?.fiatValue}
           </NumberSizeableText>
         }
       />
+      {loading ? (
+        <Stack p="$0.5">
+          <Spinner />
+        </Stack>
+      ) : null}
+      {!accountId && !loading ? (
+        <Icon name="PlusLargeOutline" color="$iconSubdued" />
+      ) : null}
     </ListItem>
   );
 }
@@ -94,6 +208,7 @@ function AggregateTokenSelector() {
     searchPlaceholder,
     onSelect,
     closeAfterSelect,
+    allAggregateTokenList,
   } = route.params;
 
   const intl = useIntl();
@@ -103,15 +218,17 @@ function AggregateTokenSelector() {
   const navigation = useAppNavigation();
 
   const [aggregateTokensListMapAtom] = useAggregateTokensListMapAtom();
-  const aggregateTokens =
-    aggregateTokensListMapAtom[aggregateToken.$key]?.tokens;
+
+  const aggregateTokens = useMemo(() => {
+    return aggregateTokensListMapAtom[aggregateToken.$key]?.tokens ?? [];
+  }, [aggregateTokensListMapAtom, aggregateToken.$key]);
 
   const handleSearchTextChange = useDebouncedCallback((text: string) => {
     setSearchKey(text);
   }, 500);
 
   const handleOnPressToken = useCallback(
-    (token: IAccountToken) => {
+    async (token: IAccountToken) => {
       void onSelect(token);
       navigation.pop();
     },
@@ -119,22 +236,34 @@ function AggregateTokenSelector() {
   );
 
   const sortedAggregateTokens = useMemo(() => {
-    return sortTokensCommon({
+    const tokens = sortTokensCommon({
       tokens: aggregateTokens,
       tokenListMap: allTokenListMapAtom,
     });
-  }, [aggregateTokens, allTokenListMapAtom]);
+
+    return uniqBy(
+      [
+        ...tokens,
+        ...sortTokensByOrder({ tokens: allAggregateTokenList ?? [] }),
+      ],
+      (token) => token.networkId,
+    );
+  }, [aggregateTokens, allTokenListMapAtom, allAggregateTokenList]);
 
   const filteredAggregateTokens = useMemo(() => {
     if (searchKey) {
       const lowerSearchKey = searchKey.toLowerCase();
 
-      return aggregateTokens?.filter((token) =>
-        token.networkName?.toLowerCase().includes(lowerSearchKey),
-      );
+      return sortedAggregateTokens?.filter((token) => {
+        const network = listedNetworkMap[token.networkId ?? ''];
+        return (
+          network?.name?.toLowerCase().includes(lowerSearchKey) ||
+          network?.symbol?.toLowerCase().includes(lowerSearchKey)
+        );
+      });
     }
     return sortedAggregateTokens;
-  }, [searchKey, sortedAggregateTokens, aggregateTokens]);
+  }, [searchKey, sortedAggregateTokens]);
 
   const renderAggregateTokensList = useCallback(() => {
     if (!filteredAggregateTokens || filteredAggregateTokens.length === 0) {
@@ -154,7 +283,7 @@ function AggregateTokenSelector() {
   }, [filteredAggregateTokens, handleOnPressToken, searchKey]);
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={
           title ||
@@ -187,9 +316,17 @@ function AggregateTokenSelectorWithProvider() {
 
   const { accountId } = route.params;
   return (
-    <HomeTokenListProviderMirrorWrapper accountId={accountId}>
-      <AggregateTokenSelector />
-    </HomeTokenListProviderMirrorWrapper>
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <HomeTokenListProviderMirrorWrapper accountId={accountId}>
+        <AggregateTokenSelector />
+      </HomeTokenListProviderMirrorWrapper>
+    </AccountSelectorProviderMirror>
   );
 }
 

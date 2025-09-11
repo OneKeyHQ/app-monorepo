@@ -116,10 +116,12 @@ function ApprovalList() {
           toggleIsBulkRevokeMode();
         }}
       >
-        {intl.formatMessage({ id: ETranslations.global_bulk })}
+        {isBulkRevokeMode
+          ? intl.formatMessage({ id: ETranslations.global_done })
+          : intl.formatMessage({ id: ETranslations.global_edit })}
       </Button>
     );
-  }, [intl, toggleIsBulkRevokeMode]);
+  }, [intl, toggleIsBulkRevokeMode, isBulkRevokeMode]);
 
   const handleSearchTextChange = useDebouncedCallback((text: string) => {
     updateSearchKey(text);
@@ -188,11 +190,12 @@ function ApprovalList() {
     );
   };
   const handleOnClose = useCallback(() => {
+    updateSearchKey('');
     updateIsBulkRevokeMode(false);
     updateSelectedTokens({
       selectedTokens: {},
     });
-  }, [updateIsBulkRevokeMode, updateSelectedTokens]);
+  }, [updateIsBulkRevokeMode, updateSelectedTokens, updateSearchKey]);
 
   return (
     <Page onClose={handleOnClose}>

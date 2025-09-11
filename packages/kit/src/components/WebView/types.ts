@@ -70,6 +70,11 @@ export interface IInpageProviderWebViewProps
    * @default true
    */
   useInjectedNativeCode?: boolean;
+  /** @platform ios
+   * @description Whether to allow back/forward navigation gestures (swipe to go back/forward)
+   * @default true
+   */
+  allowsBackForwardNavigationGestures?: boolean;
 }
 
 export type IWebViewRef = {

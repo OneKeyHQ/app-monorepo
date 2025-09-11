@@ -1,4 +1,5 @@
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketWatchListDataV2,
   IMarketWatchListItemV2,
@@ -50,17 +51,29 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
     items: Array<{ chainId: string; contractAddress: string }>;
   }) {
     await this.setRawData((data) => {
+      const oldList = data?.data ?? [];
+
+      // Fixed: Use equalTokenNoCaseSensitive from shared utils for proper token matching
+      const filteredData = oldList.filter(
+        (i) =>
+          !items.some((item) =>
+            equalTokenNoCaseSensitive({
+              token1: {
+                networkId: item.chainId,
+                contractAddress: item.contractAddress,
+              },
+              token2: {
+                networkId: i.chainId,
+                contractAddress: i.contractAddress,
+              },
+            }),
+          ),
+      );
+
       const newData: IMarketWatchListDataV2 | undefined | null = {
-        data:
-          data?.data.filter(
-            (i) =>
-              !items.some(
-                (item) =>
-                  item.chainId === i.chainId &&
-                  item.contractAddress === i.contractAddress,
-              ),
-          ) ?? [],
+        data: filteredData,
       };
+
       return newData;
     });
   }

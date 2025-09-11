@@ -1,6 +1,9 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { keyBy } from 'lodash';
+
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { ENetworkStatus, IServerNetwork } from '../../types';
 import { memoFn } from '../utils/cacheUtils';
 
 import { getPresetNetworks } from './presetNetworks';
@@ -94,3 +97,11 @@ export const getNetworkIdsMap = memoFn(() => {
 });
 
 export const getNetworkIds = memoFn(() => Object.keys(getNetworkIdsMap()));
+
+export const getListedNetworkMap = memoFn(() => {
+  const networks = getPresetNetworks();
+  return keyBy(
+    networks.filter((n) => n.status === ENetworkStatus.LISTED),
+    'id',
+  );
+});

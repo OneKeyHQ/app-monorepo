@@ -199,11 +199,6 @@ function BulkRevoke() {
           accountAddress,
         });
 
-        if (isAborted.current) {
-          break;
-        }
-        await waitUntilInProgress();
-
         const feeInfo: IFeeInfoUnit = {
           common: {
             baseFee: resp.common.baseFee,
@@ -224,6 +219,38 @@ function BulkRevoke() {
           txSize: tx.txSize,
           estimateFeeParams,
         });
+        if (isAborted.current) {
+          break;
+        }
+        await waitUntilInProgress();
+
+        const isFeeInfoOverflow =
+          await backgroundApiProxy.serviceSend.preCheckIsFeeInfoOverflow({
+            encodedTx: tx.encodedTx,
+            feeAmount: feeResult.totalNative,
+            feeTokenSymbol: feeInfo.common.nativeSymbol,
+            networkId: tx.networkId,
+            accountAddress,
+          });
+
+        if (isAborted.current) {
+          break;
+        }
+        await waitUntilInProgress();
+
+        if (isFeeInfoOverflow) {
+          setRevokeTxsStatusMap((prev) => ({
+            ...prev,
+            [uuid]: {
+              status: ERevokeTxStatus.Skipped,
+              skippedReason: intl.formatMessage({
+                id: ETranslations.fee_alert_dialog_description,
+              }),
+            },
+          }));
+          // eslint-disable-next-line no-continue
+          continue;
+        }
 
         let updatedTx = tx;
 
@@ -461,7 +488,13 @@ function BulkRevoke() {
                 justifyContent: 'space-between',
               }}
             >
-              <SizableText size="$bodyMd" color="$textSubdued">
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                $md={{
+                  width: '$72',
+                }}
+              >
                 {intl.formatMessage({
                   id: ETranslations.global_process,
                 })}

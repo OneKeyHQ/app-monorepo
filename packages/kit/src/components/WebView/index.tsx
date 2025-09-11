@@ -35,6 +35,7 @@ export interface IWebViewProps
   onNavigationStateChange?: (event: WebViewNavigation) => void;
   onShouldStartLoadWithRequest?: (event: WebViewNavigation) => boolean;
   allowpopups?: boolean;
+  allowsBackForwardNavigationGestures?: boolean;
   containerProps?: ComponentProps<typeof Stack>;
   customReceiveHandler?: IJsBridgeReceiveHandler;
   nativeWebviewSource?: WebViewSource | undefined;

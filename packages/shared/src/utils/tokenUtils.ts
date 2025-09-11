@@ -108,7 +108,10 @@ export function getFilteredTokenBySearchKey({
     );
 
     const filteredSearchTokenList = searchTokenList.filter(
-      (token) => !aggregateTokens.find((t) => t.$key === token.$key),
+      (token) =>
+        !aggregateTokens.find(
+          (t) => t.address === token.address && t.networkId === token.networkId,
+        ),
     );
 
     mergedTokens = mergedTokens.concat(filteredSearchTokenList);
@@ -726,9 +729,10 @@ export function buildAggregateTokenMapKeyForAggregateConfig(params: {
 
 export function buildAggregateTokenListMapKeyForTokenList(params: {
   commonSymbol: string;
+  networkId?: string;
 }) {
-  const { commonSymbol } = params;
-  return `aggregate_${commonSymbol}`;
+  const { commonSymbol, networkId } = params;
+  return `aggregate_${commonSymbol}_${networkId ?? ''}`;
 }
 
 export function buildAggregateTokenListData(params: {
@@ -781,10 +785,13 @@ export function buildAggregateTokenListData(params: {
         commonToken: {
           ...token,
           accountId,
+          networkId: '',
+          address: aggregateTokenListMapKey,
           $key: aggregateTokenListMapKey,
           isAggregateToken: true,
           commonSymbol: aggregateToken.commonSymbol,
           logoURI: aggregateToken.logoURI,
+          name: aggregateToken.name,
         },
         tokens: [
           {
@@ -835,8 +842,8 @@ export function buildHomeDefaultTokenMapKey({
 }
 
 export function sortTokensCommon({
-  tokens,
-  tokenListMap,
+  tokens = [],
+  tokenListMap = {},
 }: {
   tokens: IAccountToken[];
   tokenListMap: {

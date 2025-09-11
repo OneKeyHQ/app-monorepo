@@ -12,7 +12,7 @@ module.exports = {
   // generate extensionId in local
   // 'key': process.env.NODE_ENV !== 'production' ? extensionIdKey : undefined,
   version,
-  'name': 'OneKey',
+  'name': 'OneKey: Secure Crypto Wallet',
   'description':
     'Anti-scam crypto wallet for every chain. Supports major blockchains like Bitcoin, Ethereum, Solana, Tron and more.',
   /*

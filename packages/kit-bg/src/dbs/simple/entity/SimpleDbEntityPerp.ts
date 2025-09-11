@@ -12,6 +12,13 @@ export interface ISimpleDbPerpConfig {
   hyperliquidMaxBuilderFee?: number;
   hyperliquidCustomSettings?: IHyperliquidCustomSettings;
   hyperliquidCustomLocalStorage?: Record<string, any>;
+  hyperliquidCustomLocalStorageV2?: Record<
+    string,
+    {
+      value: any;
+      skipIfExists?: boolean;
+    }
+  >;
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpConfig> {

@@ -28,4 +28,47 @@ export class AccountSelectorStorageScene extends BaseScene {
       { oldSelectedAccount, newSelectedAccount },
     ]);
   }
+
+  @LogToConsole()
+  public syncFromScene({
+    sceneName,
+    num,
+    sceneUrl,
+  }: {
+    sceneName: EAccountSelectorSceneName | undefined;
+    num: number;
+    sceneUrl: string | undefined;
+  }) {
+    return cloneDeep([sceneName, num, sceneUrl]);
+  }
+
+  @LogToConsole()
+  public autoSelectNextAccount({
+    sceneName,
+    num,
+    sceneUrl,
+  }: {
+    sceneName: EAccountSelectorSceneName | undefined;
+    num: number;
+    sceneUrl: string | undefined;
+  }) {
+    return cloneDeep([sceneName, num, sceneUrl]);
+  }
+
+  @LogToConsole()
+  public syncSceneData({
+    selectedAccount,
+    eventPayloadUpdatedAt,
+    currentUpdatedAt,
+  }: {
+    selectedAccount: IAccountSelectorSelectedAccount;
+    eventPayloadUpdatedAt: number | undefined;
+    currentUpdatedAt: number | undefined;
+  }) {
+    return cloneDeep({
+      selectedAccount,
+      eventPayloadUpdatedAt,
+      currentUpdatedAt,
+    });
+  }
 }

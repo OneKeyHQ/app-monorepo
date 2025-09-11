@@ -29,6 +29,7 @@ import {
 } from '@onekeyhq/shared/types/approval';
 
 import { Token } from '../../../components/Token';
+import { openExplorerAddressUrl } from '../../../utils/explorerUtils';
 
 import type { IntlShape } from 'react-intl';
 
@@ -199,6 +200,7 @@ function BulkRevokeItem(props: IProps) {
         borderTopWidth={0}
         borderLeftWidth={0}
         borderRightWidth={0}
+        borderColor="$neutral3"
         minHeight="108"
         px="$5"
       >
@@ -260,9 +262,10 @@ function BulkRevokeItem(props: IProps) {
           animation="quick"
           exitStyle={{ opacity: 0 }}
           backgroundColor="$bgSubdued"
+          padding="$0"
         >
-          <YStack gap="$4" px="$5" py="$4">
-            <XStack alignItems="center" justifyContent="space-between">
+          <YStack gap="$4" px="$5" py="$5">
+            <XStack alignItems="flex-start" justifyContent="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
                 {intl.formatMessage({
                   id: ETranslations.wallet_approval_bulk_revoke_approved_spender,
@@ -282,6 +285,9 @@ function BulkRevokeItem(props: IProps) {
                   </SizableText>
                 </YStack>
                 <IconButton
+                  title={intl.formatMessage({
+                    id: ETranslations.global_copy,
+                  })}
                   icon="Copy3Outline"
                   variant="tertiary"
                   size="small"
@@ -306,6 +312,25 @@ function BulkRevokeItem(props: IProps) {
                     })}
                   </SizableText>
                   <IconButton
+                    title={intl.formatMessage({
+                      id: ETranslations.global_view_in_blockchain_explorer,
+                    })}
+                    variant="tertiary"
+                    icon="OpenOutline"
+                    iconColor="$iconSubdued"
+                    size="small"
+                    onPress={() =>
+                      openExplorerAddressUrl({
+                        networkId: unsignedTx.networkId,
+                        address: status.txId,
+                        openInExternal: true,
+                      })
+                    }
+                  />
+                  <IconButton
+                    title={intl.formatMessage({
+                      id: ETranslations.global_copy,
+                    })}
                     icon="Copy3Outline"
                     variant="tertiary"
                     size="small"

@@ -11,6 +11,7 @@ import { IconButton } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { useMarketWatchListV2Atom } from '../../../states/jotai/contexts/marketV2';
 
@@ -30,11 +31,17 @@ export const useStarV2Checked = ({
 
   // Calculate checked state based on atom data
   const checked = useMemo(() => {
-    if (!isMounted || watchListData.length === 0) return false;
-    return !!watchListData?.find(
-      (item) =>
-        item.chainId === chainId &&
-        item.contractAddress.toLowerCase() === contractAddress.toLowerCase(),
+    if (!isMounted || watchListData.length === 0) {
+      return false;
+    }
+    return !!watchListData?.find((item) =>
+      equalTokenNoCaseSensitive({
+        token1: { networkId: chainId, contractAddress },
+        token2: {
+          networkId: item.chainId,
+          contractAddress: item.contractAddress,
+        },
+      }),
     );
   }, [watchListData, isMounted, chainId, contractAddress]);
 

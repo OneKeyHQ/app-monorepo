@@ -40,6 +40,7 @@ import type {
 } from '../../types/swap/types';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
+import type { IWalletConnectSession } from '../walletConnect/types';
 import type { FuseResult } from 'fuse.js';
 
 // Supported hardware error types for dialog display
@@ -120,6 +121,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.NetworkDeriveTypeChanged]: undefined;
   [EAppEventBusNames.AccountSelectorSelectedAccountUpdate]: {
     selectedAccount: IAccountSelectorSelectedAccount;
+    selectedAccountUpdatedAt: number | undefined;
     sceneName: EAccountSelectorSceneName;
     sceneUrl?: string;
     num: number;
@@ -145,6 +147,12 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.WalletConnectCloseModal]: undefined;
   [EAppEventBusNames.WalletConnectModalState]: {
     open: boolean;
+  };
+  [EAppEventBusNames.WalletConnectConnectSuccess]: {
+    session: IWalletConnectSession;
+  };
+  [EAppEventBusNames.WalletConnectConnectError]: {
+    error: IOneKeyError;
   };
   [EAppEventBusNames.ShowToast]: IEventBusPayloadShowToast;
   [EAppEventBusNames.ShowAirGapQrcode]: {

@@ -32,37 +32,49 @@ function PerpPositionsList({
   const { getTokenInfo } = useTokenList();
   const columnsConfig: IColumnConfig[] = useMemo(() => {
     return [
-      { key: 'asset', title: 'Asset', width: 100 },
-      { key: 'size', title: 'Position Size', width: 100 },
+      { key: 'asset', title: 'Asset', width: 100, align: 'left' },
+      {
+        key: 'size',
+        title: 'Position Size',
+        minWidth: 100,
+        align: 'left',
+        flex: 1,
+      },
       {
         key: 'entryPrice',
         title: 'Entry Price',
-        minWidth: 80,
+        minWidth: 100,
         align: 'left',
         flex: 1,
       },
       {
         key: 'markPrice',
         title: 'Mark Price',
-        minWidth: 80,
+        minWidth: 100,
         align: 'left',
         flex: 1,
       },
       {
         key: 'liqPrice',
         title: 'Liq. Price',
-        minWidth: 80,
+        minWidth: 100,
         align: 'left',
         flex: 1,
       },
       {
         key: 'pnl',
         title: 'PnL (ROE %)',
+        minWidth: 140,
+        align: 'left',
+        flex: 1,
+      },
+      {
+        key: 'margin',
+        title: 'Margin',
         minWidth: 100,
         align: 'left',
         flex: 1,
       },
-      { key: 'margin', title: 'Margin', minWidth: 100, align: 'left', flex: 1 },
       {
         key: 'funding',
         title: 'Funding',
@@ -70,8 +82,14 @@ function PerpPositionsList({
         align: 'left',
         flex: 1,
       },
-      { key: 'TPSL', title: 'TP/SL', minWidth: 100, align: 'left', flex: 1 },
-      { key: 'actions', title: 'Close', width: 100, align: 'center' },
+      { key: 'TPSL', title: 'TP/SL', minWidth: 140, align: 'center', flex: 1 },
+      {
+        key: 'actions',
+        title: 'Close',
+        minWidth: 100,
+        align: 'right',
+        flex: 1,
+      },
     ];
   }, []);
   const totalMinWidth = useMemo(
@@ -120,7 +138,10 @@ function PerpPositionsList({
     const szi = position?.szi;
     const midValue = allMids?.mids?.[coin];
     const tpslOrders = openOrders.filter(
-      (order) => order.coin === coin && order.isPositionTpsl,
+      (order) =>
+        order.coin === coin &&
+        (order.orderType.startsWith('Take') ||
+          order.orderType.startsWith('Stop')),
     );
     return (
       <PositionRow
@@ -136,6 +157,7 @@ function PerpPositionsList({
         handleViewTpslOrders={handleViewTpslOrders}
         onAllClose={onAllClose}
         setTpsl={setTpsl}
+        index={_index}
       />
     );
   };
