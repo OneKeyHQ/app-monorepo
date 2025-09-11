@@ -62,19 +62,52 @@ RCT_EXPORT_METHOD(getLaunchOptions:(RCTPromiseResolveBlock)resolve
         // Get local notification if exists
         id localNotification = launchOptions[UIApplicationLaunchOptionsLocalNotificationKey];
         if (localNotification) {
-            result[@"localNotification"] = localNotification;
+            if ([localNotification isKindOfClass:[UILocalNotification class]]) {
+                UILocalNotification *notification = (UILocalNotification *)localNotification;
+                NSMutableDictionary *notificationInfo = [NSMutableDictionary dictionary];
+                notificationInfo[@"fireDate"] = notification.fireDate ? @([notification.fireDate timeIntervalSince1970]) : [NSNull null];
+                notificationInfo[@"userInfo"] = notification.userInfo ?: [NSNull null];
+                result[@"localNotification"] = notificationInfo;
+            }
         }
         
         // Get remote notification if exists 
         id remoteNotification = launchOptions[UIApplicationLaunchOptionsRemoteNotificationKey];
         if (remoteNotification) {
-            result[@"remoteNotification"] = remoteNotification;
+            if ([remoteNotification isKindOfClass:[NSDictionary class]]) {
+                NSMutableDictionary *notificationInfo = [NSMutableDictionary dictionary];
+                notificationInfo[@"fireDate"] = remoteNotification[@"fireDate"] ? @([remoteNotification[@"fireDate"] timeIntervalSince1970]) : [NSNull null];
+                notificationInfo[@"userInfo"] = remoteNotification[@"userInfo"] ?: [NSNull null];
+                result[@"remoteNotification"] = notificationInfo;
+            }
         }
         // Get manual launch notification if exists
-        id manualNotification = launchOptions[UIApplicationLaunchOptionsSourceApplicationKey];
-        if (manualNotification) {
-            result[@"sourceApplication"] = manualNotification;
+        // Check if app was launched from local notification
+        if (launchOptions[UIApplicationLaunchOptionsLocalNotificationKey]) {
+            result[@"launchType"] = @"localNotification";
         }
+        // Check if app was launched from remote notification 
+        else if (launchOptions[UIApplicationLaunchOptionsRemoteNotificationKey]) {
+            result[@"launchType"] = @"remoteNotification";
+        }
+        // Otherwise normal launch
+        else {
+            result[@"launchType"] = @"normal";
+        }
+        // Show alert with launch options on main thread
+        dispatch_async(dispatch_get_main_queue(), ^{
+            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Launch Options 2"
+                                                                         message:[NSString stringWithFormat:@"%@", result]
+                                                                  preferredStyle:UIAlertControllerStyleAlert];
+            
+            UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"OK"
+                                                             style:UIAlertActionStyleDefault
+                                                           handler:nil];
+            [alert addAction:okAction];
+            
+            UIViewController *rootViewController = [UIApplication sharedApplication].delegate.window.rootViewController;
+            [rootViewController presentViewController:alert animated:YES completion:nil];
+        });
         resolve(result);
     } else {
         resolve(@{});
