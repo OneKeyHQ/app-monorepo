@@ -7,6 +7,7 @@
 
 #import "LaunchOptionsManager.h"
 #import <React/RCTLog.h>
+#import <CocoaLumberjack/CocoaLumberjack.h>
 
 @interface LaunchOptionsManager ()
 @property (nonatomic, strong) NSDictionary *launchOptions;
@@ -56,6 +57,8 @@ RCT_EXPORT_MODULE();
 RCT_EXPORT_METHOD(getLaunchOptions:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
     NSDictionary *launchOptions = [self getLaunchOptions];
+
+    DDLogDebug(@"getLaunchOptions: has launch options %@", launchOptions ? @"YES" : @"NO");
     if (launchOptions) {
         NSMutableDictionary *result = [NSMutableDictionary dictionary];
         
@@ -94,6 +97,7 @@ RCT_EXPORT_METHOD(getLaunchOptions:(RCTPromiseResolveBlock)resolve
         else {
             result[@"launchType"] = @"normal";
         }
+        DDLogDebug(@"getLaunchOptions: %@", result);
         resolve(result);
     } else {
         resolve(@{});
