@@ -221,7 +221,6 @@ class ServiceToken extends ServiceBase {
             ),
           ];
         }
-        return t;
       });
     }
 
