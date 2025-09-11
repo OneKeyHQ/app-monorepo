@@ -41,7 +41,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
         flex: 1,
         align: 'left',
       },
-      { key: 'TPSL', title: 'TP/SL', minWidth: 100, flex: 1, align: 'left' },
+      { key: 'TPSL', title: 'TP/SL', minWidth: 140, flex: 1, align: 'center' },
       {
         key: 'cancel',
         title: 'Cancel All',
