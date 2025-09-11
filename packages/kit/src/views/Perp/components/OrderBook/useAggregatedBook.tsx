@@ -1,12 +1,9 @@
 import BigNumber from 'bignumber.js';
 
-import {
-  analyzeOrderBookPrecision,
-  formatWithPrecision,
-  getPriceScaleDecimals,
-} from '@onekeyhq/shared/src/utils/perpsUtils';
+import { formatWithPrecision } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { type ITickParam } from './tickSizeUtils';
 import { ceilToTickFast, floorToTickFast } from './utils';
 
 import type { IOBLevel } from './types';
@@ -159,27 +156,32 @@ function convertHLBookLevelsToIOBLevels(
 export function useAggregatedBook(
   bids: IBookLevel[],
   asks: IBookLevel[],
-  baseTickSize: number,
-  tickSize: number,
   maxLevelsPerSide: number,
+  activeTickOption: ITickParam | undefined,
+  priceDecimals: number,
+  sizeDecimals: number,
 ) {
-  // Calculate price precision using TradingView consistent logic
-  const marketPrice = bids[0]?.px || asks[0]?.px || '0';
-  const priceDecimals = getPriceScaleDecimals(marketPrice);
-
-  // Analyze size decimal places from raw data
-  const { sizeDecimals } = analyzeOrderBookPrecision(bids, asks);
-
   // Convert HL.IBookLevel to IOBLevel format with dynamic decimal places
   const { levels: convertedBids, prefixMaxSizes: bidsPrefixMaxSizes } =
     convertHLBookLevelsToIOBLevels(bids, priceDecimals, sizeDecimals);
   const { levels: convertedAsks, prefixMaxSizes: asksPrefixMaxSizes } =
     convertHLBookLevelsToIOBLevels(asks, priceDecimals, sizeDecimals);
 
-  const baseTickSizeStr = String(baseTickSize);
-  const tickSizeStr = String(tickSize);
+  if (!activeTickOption) {
+    return {
+      bids: convertedBids,
+      asks: convertedAsks,
+      maxBidSize: '0',
+      maxAskSize: '0',
+    };
+  }
 
-  if (new BigNumber(baseTickSizeStr).isEqualTo(tickSizeStr)) {
+  // Check if aggregation is needed
+  const needsAggregation =
+    activeTickOption.exact === false ||
+    activeTickOption.targetTick !== activeTickOption.apiTick;
+
+  if (!needsAggregation) {
     return sumAndSlice(
       convertedBids,
       convertedAsks,
@@ -194,7 +196,7 @@ export function useAggregatedBook(
     aggregateLevels(
       convertedBids,
       maxLevelsPerSide,
-      tickSizeStr,
+      activeTickOption.apiTick,
       'floor',
       sizeDecimals,
       priceDecimals,
@@ -204,7 +206,7 @@ export function useAggregatedBook(
     aggregateLevels(
       convertedAsks,
       maxLevelsPerSide,
-      tickSizeStr,
+      activeTickOption.apiTick,
       'ceil',
       sizeDecimals,
       priceDecimals,

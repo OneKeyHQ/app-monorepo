@@ -1,14 +1,16 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { colorTokens } from '@tamagui/themes';
 import BigNumber from 'bignumber.js';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { useTheme, useThemeName } from '@onekeyhq/components';
+import { Icon, Select, useTheme, useThemeName } from '@onekeyhq/components';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { DefaultLoadingNode } from './DefaultLoadingNode';
+import { type ITickParam } from './tickSizeUtils';
 import { useAggregatedBook } from './useAggregatedBook';
+import { useTickOptions } from './useTickOptions';
 import { getMidPrice } from './utils';
 
 import type { IOBLevel } from './types';
@@ -263,16 +265,43 @@ export function OrderBook({
   loadingNode = <DefaultLoadingNode />,
   horizontal = true,
 }: IOrderBookProps) {
+  const [internalSelectedTickOption, setInternalSelectedTickOption] =
+    useState<ITickParam>();
+  const tickOptionsData = useTickOptions(bids, asks);
+
+  useEffect(() => {
+    if (internalSelectedTickOption) {
+      return;
+    }
+    if (tickOptionsData.defaultTickOption) {
+      setInternalSelectedTickOption(tickOptionsData.defaultTickOption);
+    }
+  }, [tickOptionsData.defaultTickOption, internalSelectedTickOption]);
+
+  // Handle tick option change
+  const handleTickOptionChange = useCallback(
+    (value?: string) => {
+      if (value === undefined) return;
+      const option = tickOptionsData.tickOptions.find(
+        (opt) => opt.value === value,
+      );
+      if (option) {
+        console.log('set option: ===>: ', option);
+        setInternalSelectedTickOption(option);
+      }
+    },
+    [tickOptionsData.tickOptions],
+  );
+
   const aggregatedData = useAggregatedBook(
     bids,
     asks,
-    0.01,
-    0.1,
     maxLevelsPerSide,
+    internalSelectedTickOption,
+    tickOptionsData.priceDecimals,
+    tickOptionsData.sizeDecimals,
   );
   const isEmpty = !aggregatedData.bids.length && !aggregatedData.asks.length;
-
-  const midPrice = getMidPrice(bids[0]?.px ?? '0', asks[0]?.px ?? '0');
 
   const bidDepth = new BigNumber(aggregatedData.bids.at(-1)?.cumSize ?? '0');
   const askDepth = new BigNumber(aggregatedData.asks.at(-1)?.cumSize ?? '0');
@@ -508,7 +537,36 @@ export function OrderBook({
             <Text style={[styles.bodySm, { color: textColor.text }]}>
               Spread
             </Text>
-            <Text style={[styles.bodySm, { color: textColor.text }]}>0.1</Text>
+            <Select
+              title="Tick Size"
+              items={tickOptionsData.tickOptions}
+              value={internalSelectedTickOption?.value}
+              onChange={handleTickOptionChange}
+              renderTrigger={({ onPress }) => (
+                <TouchableOpacity
+                  style={{
+                    width: 56,
+                    height: 24,
+                    backgroundColor: 'rgba(255,255,255,0.1)',
+                    borderRadius: 4,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingHorizontal: 8,
+                  }}
+                  onPress={onPress}
+                >
+                  <Text style={[styles.bodySm, { color: textColor.text }]}>
+                    {internalSelectedTickOption?.label}
+                  </Text>
+                  <Icon
+                    name="ChevronDownSmallOutline"
+                    size={10}
+                    color="$iconSubdued"
+                  />
+                </TouchableOpacity>
+              )}
+            />
             <Text style={[styles.bodySm, { color: textColor.text }]}>
               0.002%
             </Text>
@@ -573,17 +631,39 @@ export function OrderPairBook({
   bids,
   asks,
   maxLevelsPerSide = 30,
+  selectedTickOption,
 }: {
   maxLevelsPerSide?: number;
   bids: IBookLevel[];
   asks: IBookLevel[];
+  selectedTickOption?: ITickParam;
 }) {
+  const [internalSelectedTickOption, setInternalSelectedTickOption] =
+    useState<ITickParam>();
+
+  const tickOptionsData = useTickOptions(bids, asks);
+
+  // Handle tick option change
+  const handleTickOptionChange = useCallback(
+    (value: string) => {
+      const option = tickOptionsData.tickOptions.find(
+        (opt) => opt.targetTick.toString() === value,
+      );
+      if (option) {
+        console.log('set option: ===>: ', option);
+        setInternalSelectedTickOption(option);
+      }
+    },
+    [tickOptionsData.tickOptions],
+  );
+
   const aggregatedData = useAggregatedBook(
     bids,
     asks,
-    0.01,
-    0.1,
     maxLevelsPerSide,
+    internalSelectedTickOption,
+    tickOptionsData.priceDecimals,
+    tickOptionsData.sizeDecimals,
   );
   const bidDepth = useMemo(() => {
     return new BigNumber(aggregatedData.bids.at(-1)?.cumSize ?? '0');
