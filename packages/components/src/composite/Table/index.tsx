@@ -473,7 +473,6 @@ function TableSkeleton<T>({
           columns={columns}
           key={index}
           rowProps={rowProps}
-          TableRowComponent={TableRow}
         />
       ))}
     </YStack>
