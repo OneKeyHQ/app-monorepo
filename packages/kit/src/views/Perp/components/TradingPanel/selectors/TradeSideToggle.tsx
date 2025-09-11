@@ -7,7 +7,12 @@ import {
   SegmentControl,
 } from '@onekeyhq/components';
 
-export type ISide = 'long' | 'short';
+import {
+  type ITradeSide,
+  getTradingButtonStyleProps,
+} from '../../../utils/styleUtils';
+
+export type ISide = ITradeSide;
 
 interface ITradeSideToggleProps {
   value: ISide;
@@ -42,13 +47,16 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
     const isLongActive = value === 'long';
     const isShortActive = value === 'short';
 
+    const longStyleProps = getTradingButtonStyleProps('long', disabled);
+    const shortStyleProps = getTradingButtonStyleProps('short', disabled);
+
     const options = [
       {
         value: 'long',
         label: (
           <Button
             {...commonButtonStyle}
-            bg={isLongActive ? '$buttonSuccess' : '$transparent'}
+            bg={isLongActive ? longStyleProps.bg : '$transparent'}
             color={isLongActive ? '$textOnColor' : '$textSubdued'}
             onPress={() => onChange('long')}
             disabled={disabled}
@@ -62,7 +70,7 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
         label: (
           <Button
             {...commonButtonStyle}
-            bg={isShortActive ? '$buttonCritical' : '$transparent'}
+            bg={isShortActive ? shortStyleProps.bg : '$transparent'}
             color={isShortActive ? '$textOnColor' : '$textSubdued'}
             onPress={() => onChange('short')}
             disabled={disabled}

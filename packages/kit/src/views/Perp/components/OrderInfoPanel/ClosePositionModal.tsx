@@ -119,15 +119,17 @@ const ClosePositionForm = memo(
 
     const handlePercentageChange = useCallback(
       (percentage: number) => {
-        const amountBN = positionSize.multipliedBy(percentage).dividedBy(100);
-        const amount = formatPriceToSignificantDigits(amountBN.toNumber());
+        const amount = positionSize
+          .multipliedBy(percentage)
+          .dividedBy(100)
+          .toFixed(szDecimals);
         setFormData((prev) => ({
           ...prev,
           percentage,
           amount,
         }));
       },
-      [positionSize],
+      [positionSize, szDecimals],
     );
 
     const handleAmountChange = useCallback(
