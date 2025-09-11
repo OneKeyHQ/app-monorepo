@@ -187,57 +187,55 @@ async function navigateToNotificationDetail({
   };
 
   // For new versions with mode set, handle the mode properly
-  if (!isFromNotificationClick) {
-    if (shouldAckRead) {
-      void appGlobals?.$backgroundApiProxy?.serviceNotification.ackNotificationMessage(
-        {
-          msgId: notificationId,
-          action: ENotificationPushMessageAckAction.readed,
-        },
-      );
-    }
+  if (shouldAckRead) {
+    void appGlobals?.$backgroundApiProxy?.serviceNotification.ackNotificationMessage(
+      {
+        msgId: notificationId,
+        action: ENotificationPushMessageAckAction.readed,
+      },
+    );
+  }
 
-    if (mode) {
-      switch (mode) {
-        case ENotificationPushMessageMode.page:
-          try {
-            const payloadObj = JSON.parse(payload || '');
-            await navigateToNotificationDetailByLocalParams({
-              payload: payloadObj,
-              localParams: localParams || {},
-              getEarnAccount,
-            });
-          } catch (error) {
-            showFallbackUpdateDialog();
-          }
-          break;
-        case ENotificationPushMessageMode.dialog:
-          try {
-            const payloadObj = JSON.parse(payload || '');
-            appEventBus.emit(EAppEventBusNames.ShowNotificationViewDialog, {
-              payload: payloadObj,
-              localParams: localParams || {},
-            });
-          } catch (error) {
-            showFallbackUpdateDialog();
-          }
+  if (mode) {
+    switch (mode) {
+      case ENotificationPushMessageMode.page:
+        try {
+          const payloadObj = JSON.parse(payload || '');
+          await navigateToNotificationDetailByLocalParams({
+            payload: payloadObj,
+            localParams: localParams || {},
+            getEarnAccount,
+          });
+        } catch (error) {
+          showFallbackUpdateDialog();
+        }
+        break;
+      case ENotificationPushMessageMode.dialog:
+        try {
+          const payloadObj = JSON.parse(payload || '');
+          appEventBus.emit(EAppEventBusNames.ShowNotificationViewDialog, {
+            payload: payloadObj,
+            localParams: localParams || {},
+          });
+        } catch (error) {
+          showFallbackUpdateDialog();
+        }
 
-          break;
-        case ENotificationPushMessageMode.openInBrowser:
-          if (payload) {
-            openUrlExternal(payload);
-          }
-          break;
-        case ENotificationPushMessageMode.openInApp:
-          if (payload) {
-            openUrlInApp(payload);
-          }
-          break;
-        default:
-          break;
-      }
-      return;
+        break;
+      case ENotificationPushMessageMode.openInBrowser:
+        if (payload) {
+          openUrlExternal(payload);
+        }
+        break;
+      case ENotificationPushMessageMode.openInApp:
+        if (payload) {
+          openUrlInApp(payload);
+        }
+        break;
+      default:
+        break;
     }
+    return;
   }
 
   // For backward compatibility with older versions:
