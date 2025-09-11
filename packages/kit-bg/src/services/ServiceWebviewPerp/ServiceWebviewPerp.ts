@@ -9,6 +9,7 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
+  HYPER_LIQUID_CUSTOM_LOCAL_STORAGE_V2_PRESET,
   HYPER_LIQUID_ORIGIN,
   HYPER_LIQUID_WEBVIEW_TRADE_URL,
 } from '@onekeyhq/shared/src/consts/perp';
@@ -158,11 +159,19 @@ class ServiceWebviewPerp extends ServiceBase {
     fee,
     customSettings,
     customLocalStorage,
+    customLocalStorageV2,
   }: {
     address?: string;
     fee?: number;
     customSettings?: IHyperliquidCustomSettings;
     customLocalStorage?: Record<string, any>;
+    customLocalStorageV2?: Record<
+      string,
+      {
+        value: any;
+        skipIfExists?: boolean;
+      }
+    >;
   }) {
     let shouldNotifyToDapp = false;
     await this.backgroundApi.simpleDb.perp.setPerpConfig(
@@ -177,6 +186,8 @@ class ServiceWebviewPerp extends ServiceBase {
             customSettings || prev?.hyperliquidCustomSettings,
           hyperliquidCustomLocalStorage:
             customLocalStorage || prev?.hyperliquidCustomLocalStorage,
+          hyperliquidCustomLocalStorageV2:
+            customLocalStorageV2 || prev?.hyperliquidCustomLocalStorageV2,
         };
         if (isEqual(newConfig, prev)) {
           return prev || {};
@@ -603,6 +614,13 @@ class ServiceWebviewPerp extends ServiceBase {
         referrerRate: number;
         customSettings: IHyperliquidCustomSettings;
         customLocalStorage: Record<string, any>;
+        customLocalStorageV2: Record<
+          string,
+          {
+            value: any;
+            skipIfExists?: boolean;
+          }
+        >;
       }>
     >('/utility/v1/perp-config');
     const resData = resp.data;
@@ -623,6 +641,10 @@ class ServiceWebviewPerp extends ServiceBase {
       fee: resData?.data?.referrerRate,
       customSettings: resData?.data?.customSettings,
       customLocalStorage: resData?.data?.customLocalStorage,
+      customLocalStorageV2: {
+        ...HYPER_LIQUID_CUSTOM_LOCAL_STORAGE_V2_PRESET,
+        ...resData?.data?.customLocalStorageV2,
+      },
     });
     return resData;
   }
@@ -658,8 +680,11 @@ class ServiceWebviewPerp extends ServiceBase {
     // Need to check this formula returns an integer in the browser: 1e5 * (num/1e5)
     let expectMaxBuilderFee =
       (await this.backgroundApi.simpleDb.perp.getExpectMaxBuilderFee()) || 0; // 1e5 * (num/1e5)
-    const { hyperliquidCustomSettings, hyperliquidCustomLocalStorage } =
-      await this.backgroundApi.simpleDb.perp.getPerpConfig();
+    const {
+      hyperliquidCustomSettings,
+      hyperliquidCustomLocalStorage,
+      hyperliquidCustomLocalStorageV2,
+    } = await this.backgroundApi.simpleDb.perp.getPerpConfig();
     if (expectMaxBuilderFee < 0) {
       expectMaxBuilderFee = 0;
     }
@@ -688,6 +713,10 @@ class ServiceWebviewPerp extends ServiceBase {
       locale: localeStr,
       storedLocale,
       customLocalStorage,
+      customLocalStorageV2: {
+        ...HYPER_LIQUID_CUSTOM_LOCAL_STORAGE_V2_PRESET,
+        ...hyperliquidCustomLocalStorageV2,
+      },
       expectBuilderAddress,
       expectMaxBuilderFee,
       shouldModifyPlaceOrderPayload,

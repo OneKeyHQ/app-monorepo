@@ -147,13 +147,14 @@ export function AccountSelectorAccountListItem({
       !allowEmptyAddress
     ) {
       // TODO custom style
-      return {
+      const r = {
         linkedNetworkId,
         address: '',
         isEmptyAddress: true,
       };
+      return r;
     }
-    return {
+    const r = {
       linkedNetworkId: undefined,
       address: address
         ? accountUtils.shortenAddress({
@@ -163,6 +164,7 @@ export function AccountSelectorAccountListItem({
       isEmptyAddress: false,
       hideAddress: isOthersUniversal ? false : hideAddress,
     };
+    return r;
   }, [
     account?.address,
     indexedAccount?.associateAccount,
@@ -295,21 +297,11 @@ export function AccountSelectorAccountListItem({
           linkedNetworkId={avatarNetworkId ?? network?.id}
           mergeDeriveAssetsEnabled={mergeDeriveAssetsEnabled}
         />
-        {subTitleInfo.address && !subTitleInfo.hideAddress ? (
-          <Stack
-            mx="$1.5"
-            w="$1"
-            h="$1"
-            bg="$iconSubdued"
-            borderRadius="$full"
-          />
-        ) : null}
       </>
     );
   }, [
     linkNetwork,
     subTitleInfo.address,
-    subTitleInfo.hideAddress,
     isOthersUniversal,
     index,
     accountValue,
@@ -319,6 +311,28 @@ export function AccountSelectorAccountListItem({
     avatarNetworkId,
     network?.id,
     mergeDeriveAssetsEnabled,
+  ]);
+
+  const renderAccountAddress = useCallback(() => {
+    return (
+      <AccountAddress
+        num={num}
+        linkedNetworkId={subTitleInfo.linkedNetworkId}
+        address={accountUtils.shortenAddress({
+          address: subTitleInfo.address,
+          leadingLength: 6,
+          trailingLength: 4,
+        })}
+        isEmptyAddress={subTitleInfo.isEmptyAddress}
+        hideAddress={subTitleInfo.hideAddress}
+      />
+    );
+  }, [
+    num,
+    subTitleInfo.address,
+    subTitleInfo.hideAddress,
+    subTitleInfo.isEmptyAddress,
+    subTitleInfo.linkedNetworkId,
   ]);
 
   return (
@@ -353,17 +367,7 @@ export function AccountSelectorAccountListItem({
                 alignItems="center"
               >
                 {renderAccountValue()}
-                <AccountAddress
-                  num={num}
-                  linkedNetworkId={subTitleInfo.linkedNetworkId}
-                  address={accountUtils.shortenAddress({
-                    address: subTitleInfo.address,
-                    leadingLength: 6,
-                    trailingLength: 4,
-                  })}
-                  isEmptyAddress={subTitleInfo.isEmptyAddress}
-                  hideAddress={subTitleInfo.hideAddress}
-                />
+                {renderAccountAddress()}
               </XStack>
             }
           />
