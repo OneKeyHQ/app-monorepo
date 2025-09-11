@@ -57,6 +57,7 @@ function TokenManagerModal() {
   } = useTokenManagement({
     networkId,
     accountId,
+    indexedAccountId,
   });
   const {
     searchValue,
@@ -120,35 +121,47 @@ function TokenManagerModal() {
     async (token: IAccountToken) => {
       let currentNetworkDeriveType = deriveType;
 
-      if (token?.networkId) {
-        currentNetworkDeriveType =
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId: token.networkId,
-          });
-      }
-
-      const { accountIdForNetwork } = await findAccountInfoForNetwork({
-        accountId,
-        networkId,
-        isOthersWallet,
-        indexedAccountId,
-        deriveType: currentNetworkDeriveType,
-        selectedNetworkId: token.networkId ?? networkId,
-      });
-      const accountXpubOrAddress =
-        await backgroundApiProxy.serviceAccount.getAccountXpubOrAddress({
-          accountId: accountIdForNetwork,
-          networkId: token.networkId ?? networkId,
+      if (token.isAggregateToken) {
+        await backgroundApiProxy.serviceCustomToken.hideToken({
+          token: {
+            ...token,
+            accountXpubOrAddress: indexedAccountId ?? '',
+            tokenStatus: ECustomTokenStatus.Hidden,
+          },
         });
+      } else {
+        if (token?.networkId) {
+          currentNetworkDeriveType =
+            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+              {
+                networkId: token.networkId,
+              },
+            );
+        }
 
-      await backgroundApiProxy.serviceCustomToken.hideToken({
-        token: {
-          ...token,
-          networkId: token.networkId ?? networkId,
-          accountXpubOrAddress: accountXpubOrAddress || '',
-          tokenStatus: ECustomTokenStatus.Hidden,
-        },
-      });
+        const { accountIdForNetwork } = await findAccountInfoForNetwork({
+          accountId,
+          networkId,
+          isOthersWallet,
+          indexedAccountId,
+          deriveType: currentNetworkDeriveType,
+          selectedNetworkId: token.networkId ?? networkId,
+        });
+        const accountXpubOrAddress =
+          await backgroundApiProxy.serviceAccount.getAccountXpubOrAddress({
+            accountId: accountIdForNetwork,
+            networkId: token.networkId ?? networkId,
+          });
+
+        await backgroundApiProxy.serviceCustomToken.hideToken({
+          token: {
+            ...token,
+            networkId: token.networkId ?? networkId,
+            accountXpubOrAddress: accountXpubOrAddress || '',
+            tokenStatus: ECustomTokenStatus.Hidden,
+          },
+        });
+      }
       isEditRef.current = true;
       setTimeout(() => {
         void refreshTokenLists();

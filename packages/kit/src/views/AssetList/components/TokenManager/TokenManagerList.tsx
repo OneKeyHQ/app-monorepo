@@ -17,7 +17,6 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import TokenIconView from '@onekeyhq/kit/src/components/TokenListView/TokenIconView';
-import { useAggregateTokensListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -179,33 +178,24 @@ function TokenManagerList({
 }) {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
-  const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
 
   const renderItemBadge = useCallback(
     (item: IAccountToken) => {
-      if (!isAllNetwork) return null;
-
       if (item.isAggregateToken) {
-        if (aggregateTokensListMap?.[item.$key]?.tokens.length > 1) {
-          return (
-            <Badge>
-              {intl.formatMessage({ id: ETranslations.global__multichain })}
-            </Badge>
-          );
-        }
-
         return (
           <Badge>
-            {networkMaps?.[
-              aggregateTokensListMap?.[item.$key]?.tokens?.[0]?.networkId ?? ''
-            ]?.name ?? ''}
+            {intl.formatMessage({ id: ETranslations.global__multichain })}
           </Badge>
         );
       }
 
-      return <Badge>{networkMaps?.[item.networkId ?? '']?.name ?? ''}</Badge>;
+      if (isAllNetwork) {
+        return <Badge>{networkMaps?.[item.networkId ?? '']?.name ?? ''}</Badge>;
+      }
+
+      return null;
     },
-    [aggregateTokensListMap, intl, isAllNetwork, networkMaps],
+    [intl, isAllNetwork, networkMaps],
   );
 
   if (isLoadingRemoteData || !dataSource) {

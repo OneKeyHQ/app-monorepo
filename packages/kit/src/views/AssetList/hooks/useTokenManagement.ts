@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useAllTokenListAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -15,9 +16,11 @@ import type { ICustomTokenItem } from '@onekeyhq/shared/types/token';
 export function useTokenManagement({
   networkId,
   accountId,
+  indexedAccountId,
 }: {
   networkId: string;
   accountId: string;
+  indexedAccountId?: string;
 }) {
   const intl = useIntl();
   const isAllNetwork = networkId === getNetworkIdsMap().onekeyall;
@@ -32,6 +35,7 @@ export function useTokenManagement({
       const pair: {
         accountId: string;
         networkId: string;
+        accountXpubOrAddress?: string;
       }[] = [];
       if (isAllNetwork) {
         const { accountsInfo } =
@@ -57,16 +61,26 @@ export function useTokenManagement({
       } else {
         pair.push({ accountId, networkId });
       }
+
+      // for aggregate token
+      pair.push({
+        accountId: indexedAccountId ?? '',
+        accountXpubOrAddress: indexedAccountId,
+        networkId: AGGREGATE_TOKEN_MOCK_NETWORK_ID,
+      });
+
       const hiddenTokens = flatten(
         await Promise.all(
           pair.map((item) =>
             backgroundApiProxy.serviceCustomToken.getHiddenTokens({
               accountId: item.accountId,
               networkId: item.networkId,
+              accountXpubOrAddress: item.accountXpubOrAddress,
             }),
           ),
         ),
       );
+
       const customTokens = flatten(
         await Promise.all(
           pair.map((item) =>
@@ -128,7 +142,14 @@ export function useTokenManagement({
         addedTokens,
       };
     },
-    [tokenList, accountId, networkId, isAllNetwork, intl],
+    [
+      isAllNetwork,
+      indexedAccountId,
+      tokenList.tokens,
+      intl,
+      accountId,
+      networkId,
+    ],
     {
       checkIsFocused: false,
       watchLoading: true,
