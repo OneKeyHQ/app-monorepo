@@ -44,7 +44,6 @@ browsers.forEach((browser) => {
   const developmentBuildCmd = `
   cd ${browserFolder}
   cp -rf ${developmentImgFolder}/* ${browserFolder}/
-  sed -i.bak 's/"name": "OneKey"/"name": "OneKey (DEVELOPMENT BUILD)"/g' ${manifestPath}
 `;
   devUtils.execSync(developmentBuildCmd);
   const json = fs.readFileSync(manifestPath, 'utf8');
@@ -66,7 +65,9 @@ browsers.forEach((browser) => {
   } else {
     versionArray.push('1', '1');
   }
+  jsonObj.name = `${jsonObj.name} (DEVELOPMENT BUILD)`;
   jsonObj.version = versionArray.join('.');
+  console.log('OneKey Development Build', jsonObj.name);
   console.log('OneKey Development Build', jsonObj.version);
   fs.writeFileSync(manifestPath, JSON.stringify(jsonObj, null, 2));
   const zipCmd = `
