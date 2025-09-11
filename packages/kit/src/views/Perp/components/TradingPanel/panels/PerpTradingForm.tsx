@@ -19,13 +19,9 @@ import {
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 
 import { useCurrentTokenData } from '../../../hooks';
-import {
-  formatPercentage,
-  formatPriceToSignificantDigits,
-  validatePriceInput,
-} from '../../../utils/tokenUtils';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
+import { TpslInput } from '../inputs/TpslInput';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
 import { OrderTypeSelector } from '../selectors/OrderTypeSelector';
@@ -111,110 +107,14 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
     return totalValue.dividedBy(leverage);
   }, [totalValue, leverage]);
 
-  const calculateTpPrice = useCallback(
-    (gainPercent: string) => {
-      if (!gainPercent || referencePrice.isZero()) return '';
-      const gain = new BigNumber(gainPercent).dividedBy(100);
-      const multiplier =
-        formData.side === 'long'
-          ? new BigNumber(1).plus(gain)
-          : new BigNumber(1).minus(gain);
-      const price = referencePrice.multipliedBy(multiplier);
-      return formatPriceToSignificantDigits(price.toNumber());
-    },
-    [referencePrice, formData.side],
-  );
-
-  const calculateSlPrice = useCallback(
-    (lossPercent: string) => {
-      if (!lossPercent || referencePrice.isZero()) return '';
-      const loss = new BigNumber(lossPercent).dividedBy(100);
-      const multiplier =
-        formData.side === 'long'
-          ? new BigNumber(1).minus(loss)
-          : new BigNumber(1).plus(loss);
-      const price = referencePrice.multipliedBy(multiplier);
-      return formatPriceToSignificantDigits(price.toNumber());
-    },
-    [referencePrice, formData.side],
-  );
-
-  const calculateTpPercent = useCallback(
-    (tpPrice: string) => {
-      if (!tpPrice || referencePrice.isZero()) return '';
-      const tp = new BigNumber(tpPrice);
-      const diff =
-        formData.side === 'long'
-          ? tp.minus(referencePrice)
-          : referencePrice.minus(tp);
-      const percent = diff.dividedBy(referencePrice).multipliedBy(100);
-      return formatPercentage(percent.toNumber());
-    },
-    [referencePrice, formData.side],
-  );
-
-  const calculateSlPercent = useCallback(
-    (slPrice: string) => {
-      if (!slPrice || referencePrice.isZero()) return '';
-      const sl = new BigNumber(slPrice);
-      const diff =
-        formData.side === 'long'
-          ? referencePrice.minus(sl)
-          : sl.minus(referencePrice);
-      const percent = diff.dividedBy(referencePrice).multipliedBy(100);
-      return formatPercentage(percent.toNumber());
-    },
-    [referencePrice, formData.side],
-  );
-
-  const handleTpPriceChange = useCallback(
-    (value: string) => {
-      if (!validatePriceInput(value)) return;
-      const percent = calculateTpPercent(value);
+  const handleTpslChange = useCallback(
+    (data: { tpPrice: string; slPrice: string }) => {
       updateForm({
-        tpTriggerPx: value,
-        tpGainPercent: percent,
+        tpTriggerPx: data.tpPrice,
+        slTriggerPx: data.slPrice,
       });
     },
-    [calculateTpPercent, updateForm],
-  );
-
-  const handleTpPercentChange = useCallback(
-    (value: string) => {
-      // Allow negative values and decimal for percentage
-      if (!/^-?[0-9]*\.?[0-9]*$/.test(value) && value !== '') return;
-      const price = calculateTpPrice(value);
-      updateForm({
-        tpTriggerPx: price,
-        tpGainPercent: value,
-      });
-    },
-    [calculateTpPrice, updateForm],
-  );
-
-  const handleSlPriceChange = useCallback(
-    (value: string) => {
-      if (!validatePriceInput(value)) return;
-      const percent = calculateSlPercent(value);
-      updateForm({
-        slTriggerPx: value,
-        slLossPercent: percent,
-      });
-    },
-    [calculateSlPercent, updateForm],
-  );
-
-  const handleSlPercentChange = useCallback(
-    (value: string) => {
-      // Allow negative values and decimal for percentage
-      if (!/^-?[0-9]*\.?[0-9]*$/.test(value) && value !== '') return;
-      const price = calculateSlPrice(value);
-      updateForm({
-        slTriggerPx: price,
-        slLossPercent: value,
-      });
-    },
-    [calculateSlPrice, updateForm],
+    [updateForm],
   );
 
   return (
@@ -277,107 +177,17 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
           />
 
           {formData.hasTpsl ? (
-            <YStack gap="$3">
-              <XStack gap="$3">
-                <YStack flex={1}>
-                  <Input
-                    h={40}
-                    placeholder="TP Price"
-                    value={formData.tpTriggerPx}
-                    onChangeText={handleTpPriceChange}
-                    disabled={isSubmitting}
-                    keyboardType="decimal-pad"
-                    size="small"
-                    borderWidth={0}
-                    containerProps={{
-                      bg: '$bgSubdued',
-                      borderRadius: '$2',
-                      borderWidth: 0,
-                    }}
-                  />
-                </YStack>
-                <YStack width={100}>
-                  <Input
-                    h={40}
-                    placeholder="Gain"
-                    value={formData.tpGainPercent}
-                    onChangeText={handleTpPercentChange}
-                    disabled={isSubmitting}
-                    keyboardType="decimal-pad"
-                    size="small"
-                    containerProps={{
-                      bg: '$bgSubdued',
-                      borderRadius: '$2',
-                      borderWidth: 0,
-                    }}
-                    addOns={[
-                      {
-                        renderContent: (
-                          <XStack
-                            alignItems="center"
-                            justifyContent="center"
-                            pr="$2"
-                          >
-                            <SizableText size="$bodyMd" color="$textSubdued">
-                              %
-                            </SizableText>
-                          </XStack>
-                        ),
-                      },
-                    ]}
-                  />
-                </YStack>
-              </XStack>
-              <XStack gap="$2">
-                <YStack flex={1}>
-                  <Input
-                    h={40}
-                    placeholder="SL Price"
-                    value={formData.slTriggerPx}
-                    onChangeText={handleSlPriceChange}
-                    disabled={isSubmitting}
-                    keyboardType="decimal-pad"
-                    size="small"
-                    containerProps={{
-                      bg: '$bgSubdued',
-                      borderRadius: '$2',
-                      borderWidth: 0,
-                    }}
-                  />
-                </YStack>
-                <YStack width={100}>
-                  <Input
-                    h={40}
-                    placeholder="Loss"
-                    value={formData.slLossPercent}
-                    onChangeText={handleSlPercentChange}
-                    disabled={isSubmitting}
-                    keyboardType="decimal-pad"
-                    size="small"
-                    containerProps={{
-                      bg: '$bgSubdued',
-                      borderRadius: '$2',
-                      borderWidth: 0,
-                    }}
-                    addOns={[
-                      {
-                        renderContent: (
-                          <XStack
-                            alignItems="center"
-                            justifyContent="center"
-                            pr="$2"
-                          >
-                            <SizableText size="$bodyMd" color="$textSubdued">
-                              %
-                            </SizableText>
-                          </XStack>
-                        ),
-                      },
-                    ]}
-                  />
-                </YStack>
-              </XStack>
-            </YStack>
+            <TpslInput
+              price={referencePrice.toFixed()}
+              side={formData.side}
+              szDecimals={tokenInfo?.szDecimals || 2}
+              tpsl={{
+                tpPrice: formData.tpTriggerPx,
+                slPrice: formData.slTriggerPx,
+              }}
+              onChange={handleTpslChange}
+              disabled={isSubmitting}
+            />
           ) : null}
         </YStack>
       </YStack>

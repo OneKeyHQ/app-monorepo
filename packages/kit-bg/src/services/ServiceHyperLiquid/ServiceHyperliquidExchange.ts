@@ -198,7 +198,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       ? new BigNumber(1).plus(params.slippage)
       : new BigNumber(1).minus(params.slippage);
     const adjustedPrice = price.multipliedBy(slippageMultiplier);
-    return formatPriceToSignificantDigits(adjustedPrice.toNumber(), 5);
+    return formatPriceToSignificantDigits(adjustedPrice.toNumber());
   }
 
   @backgroundMethod()

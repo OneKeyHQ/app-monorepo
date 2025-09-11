@@ -4,8 +4,8 @@ import { validateSizeInput } from '../../../utils/tokenUtils';
 
 import { TradingFormInput } from './TradingFormInput';
 
-import type { ISide } from '../selectors/TradeSideToggle';
 import type { ICurrentTokenData } from '../../../hooks/usePerpMarketData';
+import type { ISide } from '../selectors/TradeSideToggle';
 
 interface ISizeInputProps {
   value: string;

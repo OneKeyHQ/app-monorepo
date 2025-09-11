@@ -1,56 +1,5 @@
-import { BigNumber } from 'bignumber.js';
-
-export function formatTokenPrice(
-  price: string | number,
-  priceDecimals: number,
-): string {
-  if (!price || Number.isNaN(Number(price))) return '0';
-  return new BigNumber(price).toFixed(priceDecimals);
-}
-
 export function getPriceDecimals(szDecimals: number): number {
   return Math.abs(szDecimals - 5);
-}
-
-export function calculateSlippagePrice(
-  markPrice: string | number,
-  side: 'long' | 'short',
-  slippage: number,
-  szDecimals: number,
-): string {
-  const price = new BigNumber(markPrice || 0);
-  const slippageDirection = side === 'long' ? 1 : -1;
-  const priceWithSlippage = price.multipliedBy(
-    1 + slippageDirection * slippage,
-  );
-  const priceDecimals = getPriceDecimals(szDecimals);
-  return formatTokenPrice(priceWithSlippage.toFixed(), priceDecimals);
-}
-
-export function validatePricePrecision(
-  price: string | number,
-  szDecimals: number,
-): boolean {
-  const priceStr = price.toString();
-  const decimalIndex = priceStr.indexOf('.');
-  if (decimalIndex === -1) return true;
-
-  const decimalPlaces = priceStr.length - decimalIndex - 1;
-  const maxPriceDecimals = getPriceDecimals(szDecimals);
-  return decimalPlaces <= maxPriceDecimals;
-}
-
-export function getPriceTickSize(szDecimals: number): string {
-  const priceDecimals = getPriceDecimals(szDecimals);
-  return new BigNumber(10).exponentiatedBy(-priceDecimals).toFixed();
-}
-
-export function displayPrice(
-  price: string | number,
-  szDecimals: number,
-): string {
-  const priceDecimals = getPriceDecimals(szDecimals);
-  return new BigNumber(price || 0).toFormat(priceDecimals);
 }
 
 export function validateSizeInput(input: string, szDecimals: number): boolean {
@@ -71,98 +20,241 @@ export function validateSizeInput(input: string, szDecimals: number): boolean {
   return true;
 }
 
+interface IParsedNumber {
+  integerPart: string;
+  decimalPart: string;
+  trimmedInteger: string;
+  integerDigits: number;
+  decimalDigits: number;
+}
+
+interface IPriceValidationResult {
+  isValid: boolean;
+  formatted?: string;
+  error?: string;
+}
+
+function parseNumberString(numStr: string): IParsedNumber {
+  const parts = numStr.split('.');
+  const integerPart = parts[0] || '';
+  const decimalPart = parts.length > 1 ? parts[1] : '';
+  const trimmedInteger = integerPart.replace(/^0+/, '') || '0';
+  const integerDigits = trimmedInteger === '0' ? 0 : trimmedInteger.length;
+  const decimalDigits = decimalPart.length;
+
+  return {
+    integerPart,
+    decimalPart,
+    trimmedInteger,
+    integerDigits,
+    decimalDigits,
+  };
+}
+
+function formatPriceWithRules(
+  priceStr: string,
+  szDecimals?: number,
+  maxSignificantDigits = 5,
+): string {
+  const parsed = parseNumberString(priceStr);
+
+  // Apply szDecimals constraint first if provided
+  if (szDecimals !== undefined && parsed.decimalDigits > 0) {
+    const maxDecimalPlaces = Math.max(0, 6 - szDecimals);
+    if (parsed.decimalDigits > maxDecimalPlaces) {
+      const truncatedDecimal = parsed.decimalPart.substring(
+        0,
+        maxDecimalPlaces,
+      );
+      let result = `${parsed.integerPart}.${truncatedDecimal}`;
+      result = result.replace(/\.?0+$/, '');
+      return result;
+    }
+  }
+
+  // If integer part >= 5 digits, don't allow decimals
+  if (parsed.integerDigits >= 5) {
+    return parsed.integerPart;
+  }
+
+  // Calculate remaining digits for decimal part
+  const remainingDigits = maxSignificantDigits - parsed.integerDigits;
+
+  if (remainingDigits <= 0) {
+    return parsed.integerPart;
+  }
+
+  // For numbers like 0.012345, count significant digits after leading zeros
+  if (parsed.trimmedInteger === '0') {
+    const leadingZeros = parsed.decimalPart.match(/^0*/)?.[0].length || 0;
+    const significantDecimalPart = parsed.decimalPart.substring(leadingZeros);
+
+    // Check total decimal places limit first (max 5 decimal places for 0.0 prefix cases)
+    if (parsed.decimalDigits > 5) {
+      const truncatedDecimal = parsed.decimalPart.substring(0, 5);
+      let result = `0.${truncatedDecimal}`;
+      result = result.replace(/\.?0+$/, '');
+      return result;
+    }
+
+    if (significantDecimalPart.length <= maxSignificantDigits) {
+      let result = priceStr;
+      if (result.includes('.')) {
+        result = result.replace(/\.?0+$/, '');
+      }
+      return result;
+    }
+
+    const truncated = significantDecimalPart.substring(0, maxSignificantDigits);
+    let result = `0.${'0'.repeat(leadingZeros)}${truncated}`;
+    result = result.replace(/\.?0+$/, '');
+    return result;
+  }
+
+  // For cases like 123.45 (integer + decimal)
+  const allowedDecimalDigits = Math.min(remainingDigits, 6); // Max 6 decimal places
+  const truncatedDecimalPart = parsed.decimalPart.substring(
+    0,
+    allowedDecimalDigits,
+  );
+
+  let result = `${parsed.integerPart}.${truncatedDecimalPart}`;
+  result = result.replace(/\.?0+$/, '');
+
+  return result;
+}
+
+function validateAndFormatPrice(
+  input: string | number,
+  options?: {
+    szDecimals?: number;
+    maxSignificantDigits?: number;
+    formatOnly?: boolean;
+  },
+): IPriceValidationResult {
+  const {
+    szDecimals,
+    maxSignificantDigits = 5,
+    formatOnly = false,
+  } = options || {};
+
+  if (typeof input === 'number') {
+    if (!input || Number.isNaN(input)) {
+      return { isValid: false, formatted: '0' };
+    }
+
+    const formatted = formatPriceWithRules(
+      input.toString(),
+      szDecimals,
+      maxSignificantDigits,
+    );
+    return { isValid: true, formatted };
+  }
+
+  // Handle string input (validation + formatting)
+  if (!input) return { isValid: true, formatted: formatOnly ? '0' : undefined };
+
+  const processedInput = input.replace(/。/g, '.');
+
+  if (!/^[0-9]*\.?[0-9]*$/.test(processedInput)) {
+    return { isValid: false, error: 'Invalid characters' };
+  }
+
+  if (processedInput.split('.').length > 2) {
+    return { isValid: false, error: 'Multiple decimal points' };
+  }
+
+  const parsed = parseNumberString(processedInput);
+
+  // Allow incomplete input like "123."
+  if (processedInput.endsWith('.') && parsed.decimalPart === '') {
+    return { isValid: true };
+  }
+
+  // Apply szDecimals constraint if provided
+  if (szDecimals !== undefined && parsed.decimalDigits > 0) {
+    const maxDecimalPlaces = Math.max(0, 6 - szDecimals);
+    if (parsed.decimalDigits > maxDecimalPlaces) {
+      return {
+        isValid: false,
+        error: `Max ${maxDecimalPlaces} decimal places`,
+      };
+    }
+  }
+
+  // For pure integers, allow any length
+  if (!processedInput.includes('.')) {
+    const formatted = formatOnly
+      ? formatPriceWithRules(processedInput, szDecimals, maxSignificantDigits)
+      : undefined;
+    return { isValid: true, formatted };
+  }
+
+  // If integer part >= 6 digits, don't allow decimals
+  if (
+    parsed.integerDigits >= 6 &&
+    parsed.trimmedInteger !== '0' &&
+    parsed.decimalDigits > 0
+  ) {
+    return { isValid: false, error: 'Too many digits' };
+  }
+
+  // Apply significant digits rule for decimals
+  if (parsed.decimalDigits > 0) {
+    if (parsed.integerDigits === 0) {
+      if (parsed.decimalDigits > 6) {
+        return { isValid: false, error: 'Max 6 decimal places for 0.xxx' };
+      }
+      const leadingZeros = parsed.decimalPart.match(/^0*/)?.[0].length || 0;
+      const significantDecimalDigits = parsed.decimalDigits - leadingZeros;
+      if (significantDecimalDigits > maxSignificantDigits) {
+        return {
+          isValid: false,
+          error: `Max ${maxSignificantDigits} significant digits`,
+        };
+      }
+    } else if (
+      parsed.integerDigits + parsed.decimalDigits >
+      maxSignificantDigits
+    ) {
+      return {
+        isValid: false,
+        error: `Max ${maxSignificantDigits} significant digits`,
+      };
+    }
+  }
+
+  const formatted = formatOnly
+    ? formatPriceWithRules(processedInput, szDecimals, maxSignificantDigits)
+    : undefined;
+  return { isValid: true, formatted };
+}
+
 export function validatePriceInput(
   input: string,
   szDecimals?: number,
 ): boolean {
-  if (!input) return true;
-
-  const processedInput = input.replace(/。/g, '.');
-
-  if (!/^[0-9]*\.?[0-9]*$/.test(processedInput)) return false;
-
-  const parts = processedInput.split('.');
-  if (parts.length > 2) return false;
-
-  const integerPart = parts[0] || '';
-  const decimalPart = parts.length > 1 ? parts[1] : '';
-  const trimmedInteger = integerPart.replace(/^0+/, '') || '0';
-
-  if (parts.length === 2 && decimalPart === '') return true;
-
-  if (szDecimals !== undefined && decimalPart.length > 0) {
-    const maxDecimalPlaces = Math.max(0, 6 - szDecimals);
-    if (decimalPart.length > maxDecimalPlaces) return false;
-  }
-
-  if (parts.length === 1) {
-    if (trimmedInteger !== '0' && trimmedInteger.length > 5) return false;
-    return true;
-  }
-
-  if (
-    trimmedInteger.length >= 5 &&
-    trimmedInteger !== '0' &&
-    decimalPart.length > 0
-  )
-    return false;
-
-  if (decimalPart.length > 0) {
-    const integerDigits = trimmedInteger === '0' ? 0 : trimmedInteger.length;
-    const decimalDigits = decimalPart.length;
-
-    if (integerDigits === 0) {
-      const leadingZeros = decimalPart.match(/^0*/)?.[0].length || 0;
-      const significantDecimalDigits = decimalPart.length - leadingZeros;
-      return significantDecimalDigits <= 5;
-    }
-
-    return integerDigits + decimalDigits <= 5;
-  }
-
-  return true;
-}
-
-export function formatSizeInput(input: string, szDecimals: number): string {
-  if (!validateSizeInput(input, szDecimals)) return input;
-  return input;
-}
-
-export function formatPriceInput(input: string, szDecimals?: number): string {
-  if (!validatePriceInput(input, szDecimals)) return input;
-  return input;
+  const result = validateAndFormatPrice(input, { szDecimals });
+  return result.isValid;
 }
 
 export function formatPriceToSignificantDigits(
   price: number,
-  maxDigits = 5,
+  szDecimals?: number,
 ): string {
-  if (!price || Number.isNaN(price)) return '0';
-
-  // Convert to significant digits using toPrecision
-  const precision = price.toPrecision(maxDigits);
-
-  // Convert back to number to handle scientific notation
-  const num = Number(precision);
-
-  // Convert to string and remove trailing zeros
-  let result = num.toString();
-
-  // Remove trailing zeros after decimal point
-  if (result.includes('.')) {
-    result = result.replace(/\.?0+$/, '');
-  }
-
-  return result;
+  const result = validateAndFormatPrice(price, {
+    szDecimals,
+    maxSignificantDigits: 5,
+    formatOnly: true,
+  });
+  return result.formatted || '0';
 }
 
 export function formatPercentage(percent: number): string {
   if (!percent || Number.isNaN(percent)) return '0';
 
-  // Round to 2 decimal places
   const rounded = Math.round(percent * 100) / 100;
 
-  // If it's a whole number, don't show decimal places
   if (Number.isInteger(rounded)) {
     return rounded.toString();
   }
