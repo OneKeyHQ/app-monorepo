@@ -155,7 +155,7 @@ export function getFilteredTokenBySearchKey({
 }
 
 export function sortTokensByFiatValue({
-  tokens,
+  tokens = [],
   map = {},
   sortDirection = 'desc',
 }: {
@@ -165,7 +165,7 @@ export function sortTokensByFiatValue({
   };
   sortDirection?: 'desc' | 'asc';
 }) {
-  return [...tokens].sort((a, b) => {
+  return tokens?.sort((a, b) => {
     const aFiat = new BigNumber(map[a.$key]?.fiatValue ?? 0);
     const bFiat = new BigNumber(map[b.$key]?.fiatValue ?? 0);
 
