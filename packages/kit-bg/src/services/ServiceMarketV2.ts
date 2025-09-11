@@ -343,6 +343,7 @@ class ServiceMarketV2 extends ServiceBase {
       chainId: item.chainId,
       contractAddress: item.contractAddress,
       sortIndex: undefined,
+      isNative: false,
     }));
     return this.withMarketWatchListV2CloudSync({
       watchList,

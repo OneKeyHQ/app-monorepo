@@ -105,7 +105,7 @@ export function useMarketTokenList({
       transformApiItemToToken(item, {
         chainId: networkId,
         networkLogoUri,
-        index: idx,
+        sortIndex: idx,
       }),
     );
 
@@ -178,7 +178,7 @@ export function useMarketTokenList({
           transformApiItemToToken(item, {
             chainId: networkId,
             networkLogoUri,
-            index: transformedData.length + idx,
+            sortIndex: transformedData.length + idx,
           }),
         );
 

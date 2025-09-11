@@ -206,6 +206,7 @@ function MarketTokenListBase({
                           symbol: item.symbol,
                           tokenAddress: item.address,
                           networkId: item.networkId,
+                          isNative: item.isNative,
                         }),
                     })
               }
