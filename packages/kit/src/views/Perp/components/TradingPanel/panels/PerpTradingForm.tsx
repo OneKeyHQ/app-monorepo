@@ -24,12 +24,11 @@ import {
   formatPriceToSignificantDigits,
   validatePriceInput,
 } from '../../../utils/tokenUtils';
-
+import { PriceInput } from '../inputs/PriceInput';
+import { SizeInput } from '../inputs/SizeInput';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
 import { OrderTypeSelector } from '../selectors/OrderTypeSelector';
-import { PriceInput } from '../inputs/PriceInput';
-import { SizeInput } from '../inputs/SizeInput';
 import { TradeSideToggle } from '../selectors/TradeSideToggle';
 
 import type { ISide } from '../selectors/TradeSideToggle';
