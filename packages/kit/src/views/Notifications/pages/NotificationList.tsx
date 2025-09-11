@@ -549,10 +549,18 @@ function BaseNotificationList() {
   const handleRenderItem = useCallback(
     (props: ITabBarItemProps) => {
       const tabId = tabs.find((i) => i.name === props.name)?.id;
+      let unreadCount = 0;
+      if (tabId === ENotificationPushTopicTypes.all) {
+        unreadCount = tabs.reduce((acc, tab) => {
+          return acc + (unreadMap[tab.id as keyof typeof unreadMap] || 0);
+        }, 0);
+      } else {
+        unreadCount = unreadMap[tabId as keyof typeof unreadMap];
+      }
       return (
         <XStack position="relative">
           <TabBarItem {...props} />
-          {unreadMap[tabId as keyof typeof unreadMap] > 0 ? (
+          {unreadCount > 0 ? (
             <Stack
               position="absolute"
               right={-6}
