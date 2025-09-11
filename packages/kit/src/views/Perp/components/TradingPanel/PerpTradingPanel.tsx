@@ -6,6 +6,8 @@ import {
   useTradingFormAtom,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsAccountLoadingAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   useCurrentTokenData,
@@ -14,15 +16,21 @@ import {
 } from '../../hooks';
 
 import { showOrderConfirmDialog } from './OrderConfirmModal';
+import { PerpTradingButton } from './PerpTradingButton';
 import { PerpTradingForm } from './PerpTradingForm';
 
 function PerpTradingPanel() {
   const { canTrade, loading, currentUser, checkAndApproveWallet } =
     useHyperliquidTrading();
-  const { accountSummary } = useHyperliquidAccount();
+  const [perpsAccountLoading] = usePerpsAccountLoadingAtom();
+  const { userWebData2, accountSummary } = useHyperliquidAccount();
   const tokenInfo = useCurrentTokenData();
   const [formData] = useTradingFormAtom();
   const [isSubmitting] = useTradingLoadingAtom();
+
+  const universalLoading = useMemo(() => {
+    return perpsAccountLoading || loading;
+  }, [perpsAccountLoading, loading]);
 
   const leverage = useMemo(() => {
     return tokenInfo?.leverage?.value || tokenInfo?.maxLeverage || 1;
@@ -49,39 +57,6 @@ function PerpTradingPanel() {
     formData.price,
     leverage,
   ]);
-
-  const buttonDisabled = useMemo(() => {
-    return !canTrade || isSubmitting || isNoEnoughMargin;
-  }, [canTrade, isSubmitting, isNoEnoughMargin]);
-
-  const buttonText = useMemo(() => {
-    if (isSubmitting) return 'Placing...';
-    if (isNoEnoughMargin) return 'No Enough Margin';
-    return 'Place order';
-  }, [isSubmitting, isNoEnoughMargin]);
-
-  const buttonStyles = useMemo(() => {
-    const isLong = formData.side === 'long';
-
-    const getBgColor = () => {
-      return isLong ? '$buttonSuccess' : '$buttonCritical';
-    };
-
-    const getHoverBgColor = () => {
-      return isLong ? '$green7' : '$red7';
-    };
-
-    const getPressBgColor = () => {
-      return isLong ? '$green9' : '$red9';
-    };
-
-    return {
-      bg: getBgColor(),
-      hoverBg: getHoverBgColor(),
-      pressBg: getPressBgColor(),
-      textColor: buttonDisabled ? '$textDisabled' : '$textOnColor',
-    };
-  }, [formData.side, buttonDisabled]);
 
   const actions = useHyperliquidActions();
   const handleShowConfirm = useCallback(() => {
@@ -130,57 +105,16 @@ function PerpTradingPanel() {
     <YStack gap="$4" p="$4">
       <PerpTradingForm isSubmitting={isSubmitting} />
 
-      {loading ? (
-        <Button size="large" borderRadius="$3" disabled>
-          <Spinner />
-        </Button>
-      ) : (
-        <>
-          {!currentUser ? (
-            <Button size="large" borderRadius="$3" onPress={() => {}}>
-              <SizableText>Connect wallet</SizableText>
-            </Button>
-          ) : null}
-
-          {!canTrade ? (
-            <Button
-              size="large"
-              borderRadius="$3"
-              onPress={() => {
-                void checkAndApproveWallet();
-              }}
-            >
-              <SizableText>Enable trading</SizableText>
-            </Button>
-          ) : null}
-
-          {canTrade ? (
-            <Button
-              bg={buttonStyles.bg}
-              hoverStyle={{ bg: buttonStyles.hoverBg }}
-              pressStyle={{ bg: buttonStyles.pressBg }}
-              onPress={() => {
-                if (!canTrade) {
-                  void checkAndApproveWallet();
-                } else {
-                  handleShowConfirm();
-                }
-              }}
-              disabled={buttonDisabled}
-              size="large"
-              borderRadius="$3"
-            >
-              <SizableText
-                color={buttonStyles.textColor}
-                fontWeight="600"
-                size="$bodyLgMedium"
-              >
-                {buttonText}
-              </SizableText>
-            </Button>
-          ) : null}
-        </>
-      )}
+      <PerpTradingButton
+        userWebData2={userWebData2}
+        loading={universalLoading}
+        canTrade={canTrade}
+        checkAndApproveWallet={checkAndApproveWallet}
+        handleShowConfirm={handleShowConfirm}
+        formData={formData}
+        isSubmitting={isSubmitting}
+        isNoEnoughMargin={isNoEnoughMargin}
+      />
     </YStack>
   );
 }

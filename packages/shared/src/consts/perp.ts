@@ -9,3 +9,9 @@ export enum EHyperLiquidAgentName {
   Web = 'OneKey-Web',
   Extension = 'OneKey-Extension',
 }
+export const HYPER_LIQUID_CUSTOM_LOCAL_STORAGE_V2_PRESET = {
+  'hyperliquid.pending_referral_code': {
+    value: `"1KGO"`, // 1KGO
+    skipIfExists: false,
+  },
+};
