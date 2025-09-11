@@ -155,15 +155,15 @@ const PreSwapConfirmResult = ({
           ) : null}
         </YStack>
       </YStack>
-      {supportUrl && lastStep.status === ESwapStepStatus.FAILED ? (
+      {lastStep.status === ESwapStepStatus.FAILED ? (
         <XStack alignItems="center" justifyContent="center">
-          <SizableText size="$bodySm" color="$textSubdued">
+          <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.swap_review_tx_failed_1,
             })}
           </SizableText>
           <SizableText
-            size="$bodySm"
+            size="$bodyMd"
             hoverStyle={{
               color: '$text',
             }}
@@ -173,27 +173,18 @@ const PreSwapConfirmResult = ({
             color="$textSubdued"
             cursor="pointer"
             onPress={() => {
-              if (supportUrl?.includes(SUPPORT_URL)) {
-                void showIntercom();
-              } else {
-                openUrlExternal(supportUrl ?? '');
-              }
+              openUrlExternal(SUPPORT_URL);
             }}
           >
-            {intl.formatMessage(
-              {
-                id: ETranslations.swap_review_tx_failed_2,
-              },
-              {
-                url: supportUrl,
-              },
-            )}
+            {intl.formatMessage({
+              id: ETranslations.settings_submit_request,
+            })}
           </SizableText>
         </XStack>
       ) : null}
       {lastStep.status === ESwapStepStatus.PENDING ? (
         <XStack alignItems="center" justifyContent="center" mt="$4">
-          <SizableText size="$bodySm" color="$textSubdued">
+          <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.swap_review_tx_pending,
             })}
@@ -202,27 +193,51 @@ const PreSwapConfirmResult = ({
       ) : null}
       {lastStep.status === ESwapStepStatus.SUCCESS ? (
         <XStack alignItems="center" justifyContent="center" mt="$4">
-          <SizableText size="$bodySm" color="$textSubdued">
+          <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.swap_review_tx_success,
             })}
           </SizableText>
         </XStack>
       ) : null}
-      <Button
+      <XStack
+        alignItems="center"
+        justifyContent="center"
+        gap="$2"
+        w="100%"
         mt="$4"
-        variant="primary"
-        onPress={onConfirm}
-        size="medium"
-        width="100%"
       >
-        {intl.formatMessage({
-          id:
-            lastStep.status === ESwapStepStatus.FAILED
-              ? ETranslations.global_retry
-              : ETranslations.global_done,
-        })}
-      </Button>
+        <Button
+          flexGrow={1}
+          flexBasis={0}
+          variant="primary"
+          onPress={onConfirm}
+          size="medium"
+        >
+          {intl.formatMessage({
+            id:
+              lastStep.status === ESwapStepStatus.FAILED
+                ? ETranslations.global_retry
+                : ETranslations.global_done,
+          })}
+        </Button>
+        {supportUrl && lastStep.status === ESwapStepStatus.FAILED ? (
+          <Button
+            flexGrow={1}
+            flexBasis={0}
+            variant="secondary"
+            onPress={() => {
+              if (supportUrl?.includes(SUPPORT_URL)) {
+                void showIntercom();
+              } else {
+                openUrlExternal(supportUrl ?? '');
+              }
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.global_support })}
+          </Button>
+        ) : null}
+      </XStack>
     </YStack>
   );
 };
