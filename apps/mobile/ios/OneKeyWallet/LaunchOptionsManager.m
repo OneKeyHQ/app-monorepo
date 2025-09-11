@@ -57,7 +57,25 @@ RCT_EXPORT_METHOD(getLaunchOptions:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
     NSDictionary *launchOptions = [self getLaunchOptions];
     if (launchOptions) {
-        resolve(launchOptions);
+        NSMutableDictionary *result = [NSMutableDictionary dictionary];
+        
+        // Get local notification if exists
+        id localNotification = launchOptions[UIApplicationLaunchOptionsLocalNotificationKey];
+        if (localNotification) {
+            result[@"localNotification"] = localNotification;
+        }
+        
+        // Get remote notification if exists 
+        id remoteNotification = launchOptions[UIApplicationLaunchOptionsRemoteNotificationKey];
+        if (remoteNotification) {
+            result[@"remoteNotification"] = remoteNotification;
+        }
+        // Get manual launch notification if exists
+        id manualNotification = launchOptions[UIApplicationLaunchOptionsSourceApplicationKey];
+        if (manualNotification) {
+            result[@"sourceApplication"] = manualNotification;
+        }
+        resolve(result);
     } else {
         resolve(@{});
     }
