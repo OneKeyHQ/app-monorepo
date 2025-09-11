@@ -13,6 +13,7 @@ import {
 export function useAccountSelectorTrigger({
   num,
   showConnectWalletModalInDappMode,
+  linkNetworkId,
   ...others
 }: {
   num: number;
@@ -42,9 +43,11 @@ export function useAccountSelectorTrigger({
       sceneName,
       sceneUrl,
       showConnectWalletModalInDappMode,
+      linkNetworkId,
       ...others,
     });
   }, [
+    linkNetworkId,
     actions,
     activeAccount.wallet,
     others,

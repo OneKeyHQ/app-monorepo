@@ -8,8 +8,8 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
 import { useHyperliquidSession } from '../hooks';
-import { usePerpNetworkLock } from '../hooks/usePerpNetworkLock';
 import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
 import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
 
@@ -22,7 +22,6 @@ function PerpLayout() {
 }
 
 function PerpContent() {
-  usePerpNetworkLock();
   useHyperliquidSession();
 
   return (
@@ -52,6 +51,7 @@ export default function Perp() {
       enabledNum={[0]}
     >
       <ProviderJotaiContextHyperliquid>
+        <PerpsGlobalEffects />
         <PerpContent />
       </ProviderJotaiContextHyperliquid>
     </AccountSelectorProviderMirror>

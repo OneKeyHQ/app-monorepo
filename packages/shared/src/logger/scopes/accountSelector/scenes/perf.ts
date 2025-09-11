@@ -37,6 +37,9 @@ export class AccountSelectorPerfScene extends BaseScene {
     sceneName: EAccountSelectorSceneName;
     sceneUrl?: string;
     num: number;
+    linkNetwork?: boolean;
+    linkNetworkId?: string;
+    linkNetworkDeriveType?: IAccountDeriveTypes;
   }) {
     return [params];
   }

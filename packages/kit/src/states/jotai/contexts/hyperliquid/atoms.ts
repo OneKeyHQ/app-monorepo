@@ -167,6 +167,11 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
 export const { atom: tradingLoadingAtom, use: useTradingLoadingAtom } =
   contextAtom<boolean>(false);
 
+export const {
+  atom: perpsAccountLoadingAtom,
+  use: usePerpsAccountLoadingAtom,
+} = contextAtom<boolean>(false);
+
 export const { atom: currentTokenPriceAtom, use: useCurrentTokenPriceAtom } =
   contextAtomComputed((get) => {
     const activeAssetCtx = get(activeAssetCtxAtom());
