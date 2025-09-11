@@ -42,7 +42,7 @@ function allowedPairs(price: number) {
     { n: 2 as const, step: 10 ** (e - (2 - 1)) }, // 10^(e-1)
     { n: 3 as const, step: 10 ** (e - (3 - 1)) }, // 10^(e-2)
     { n: 4 as const, step: 10 ** (e - (4 - 1)) }, // 10^(e-3)
-    { n: 5 as const, m: 1 as IMantissa, step: 1 * 10 ** (e - 4) },
+    { n: 5 as const, step: 1 * 10 ** (e - 4) }, // Changed: removed mantissa: 1, use null instead
     { n: 5 as const, m: 2 as IMantissa, step: 2 * 10 ** (e - 4) },
     { n: 5 as const, m: 5 as IMantissa, step: 5 * 10 ** (e - 4) },
   ];
@@ -190,13 +190,14 @@ export function formatTickSize(tickSize: number): string {
  */
 export function isValidTickParam(param: ITickParam): boolean {
   const validNSigFigs: INSig[] = [2, 3, 4, 5, null];
-  const validMantissa: IMantissa[] = [1, 2, 5];
+  const validMantissa: IMantissa[] = [2, 5]; // Removed 1 to avoid WebSocket connection issues
 
   if (!validNSigFigs.includes(param.nSigFigs)) return false;
 
   if (param.nSigFigs === 5) {
+    // Allow both mantissa values (2, 5) and undefined/null for nSigFigs=5
     return (
-      param.mantissa !== undefined && validMantissa.includes(param.mantissa)
+      param.mantissa === undefined || validMantissa.includes(param.mantissa)
     );
   }
 
