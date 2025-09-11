@@ -75,12 +75,31 @@ function TokenManagerModal() {
     if (isSearchMode && Array.isArray(searchResult)) {
       return [{ title: '', data: searchResult }];
     }
+
     return sectionTokens;
   }, [isSearchMode, searchResult, sectionTokens]);
 
   const isEditRef = useRef(false);
   const onAddCustomToken = useCallback(
     async (token?: ICustomTokenItem) => {
+      if (token?.isAggregateToken) {
+        await backgroundApiProxy.serviceCustomToken.addCustomToken({
+          token: {
+            ...token,
+            accountXpubOrAddress: indexedAccountId ?? '',
+            tokenStatus: ECustomTokenStatus.Custom,
+          },
+        });
+        void refreshTokenLists();
+        isEditRef.current = true;
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.address_book_add_address_toast_add_success,
+          }),
+        });
+        return;
+      }
+
       let currentNetworkDeriveType = deriveType;
 
       if (token?.networkId) {
@@ -105,14 +124,15 @@ function TokenManagerModal() {
       });
     },
     [
+      deriveType,
       navigation,
       walletId,
       isOthersWallet,
       indexedAccountId,
       networkId,
       accountId,
-      deriveType,
       refreshTokenLists,
+      intl,
     ],
   );
 

@@ -17,13 +17,13 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import TokenIconView from '@onekeyhq/kit/src/components/TokenListView/TokenIconView';
-import { useAggregateTokensListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IAccountToken,
+  IAggregateToken,
   ICustomTokenItem,
 } from '@onekeyhq/shared/types/token';
 
@@ -176,6 +176,7 @@ function TokenManagerList({
   searchValue: string;
   searchResult: ICustomTokenItem[] | null;
   showListHeader?: boolean;
+  aggregateTokenConfigMap?: Record<string, IAggregateToken>;
 }) {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
