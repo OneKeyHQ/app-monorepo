@@ -108,7 +108,10 @@ export function getFilteredTokenBySearchKey({
     );
 
     const filteredSearchTokenList = searchTokenList.filter(
-      (token) => !aggregateTokens.find((t) => t.$key === token.$key),
+      (token) =>
+        !aggregateTokens.find(
+          (t) => t.address === token.address && t.networkId === token.networkId,
+        ),
     );
 
     mergedTokens = mergedTokens.concat(filteredSearchTokenList);
@@ -839,8 +842,8 @@ export function buildHomeDefaultTokenMapKey({
 }
 
 export function sortTokensCommon({
-  tokens,
-  tokenListMap,
+  tokens = [],
+  tokenListMap = {},
 }: {
   tokens: IAccountToken[];
   tokenListMap: {

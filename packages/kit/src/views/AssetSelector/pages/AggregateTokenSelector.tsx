@@ -15,6 +15,7 @@ import {
   Toast,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getListedNetworkMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EAssetSelectorRoutes,
@@ -44,6 +45,8 @@ import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTo
 
 import type { RouteProp } from '@react-navigation/core';
 
+const listedNetworkMap = getListedNetworkMap();
+
 function AggregateTokenListItem({
   token,
   onPress,
@@ -61,9 +64,7 @@ function AggregateTokenListItem({
     activeAccount: { wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
 
-  const { network } = useAccountData({
-    networkId: token.networkId,
-  });
+  const network = listedNetworkMap[token.networkId ?? ''];
 
   const { createAddress } = useAccountSelectorCreateAddress();
 
@@ -139,9 +140,9 @@ function AggregateTokenListItem({
     }
   }, [
     accountId,
+    network?.id,
     onPress,
     token,
-    network?.id,
     createAddress,
     wallet?.id,
     indexedAccount?.id,
@@ -253,12 +254,16 @@ function AggregateTokenSelector() {
     if (searchKey) {
       const lowerSearchKey = searchKey.toLowerCase();
 
-      return aggregateTokens?.filter((token) =>
-        token.networkName?.toLowerCase().includes(lowerSearchKey),
-      );
+      return sortedAggregateTokens?.filter((token) => {
+        const network = listedNetworkMap[token.networkId ?? ''];
+        return (
+          network?.name?.toLowerCase().includes(lowerSearchKey) ||
+          network?.symbol?.toLowerCase().includes(lowerSearchKey)
+        );
+      });
     }
     return sortedAggregateTokens;
-  }, [searchKey, sortedAggregateTokens, aggregateTokens]);
+  }, [searchKey, sortedAggregateTokens]);
 
   const renderAggregateTokensList = useCallback(() => {
     if (!filteredAggregateTokens || filteredAggregateTokens.length === 0) {

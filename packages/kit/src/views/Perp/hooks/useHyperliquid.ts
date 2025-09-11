@@ -196,9 +196,10 @@ export function useHyperliquidAccount() {
 
 export function useHyperliquidTrading() {
   const { currentUser, hasUserData } = useHyperliquidAccount();
+  const { userAddress } = usePerpUseChainAccount();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const currentAccount = activeAccount?.account?.id;
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [canTrade, setCanTrade] = useState(false);
 
   const checkWalletStatus = useCallback(async () => {
@@ -214,62 +215,72 @@ export function useHyperliquidTrading() {
   }, [currentUser]);
 
   const checkAndApproveWallet = useCallback(async () => {
-    if (!currentAccount) return;
-    const { maxBuilderFee, extraAgents } = await checkWalletStatus();
-    let needApproveAgent = true;
+    try {
+      setLoading(true);
+      if (!currentAccount) return;
+      const { maxBuilderFee, extraAgents } = await checkWalletStatus();
+      let needApproveAgent = true;
 
-    const proxyWalletAddress =
-      await backgroundApiProxy.serviceHyperliquidWallet.getProxyWalletAddress({
-        userAddress: currentUser as IHex,
-      });
-    if (extraAgents.length > 0) {
-      extraAgents.forEach((agent: any) => {
-        try {
-          const agentObj = agent as { address?: string };
-          if (
-            agentObj &&
-            typeof agentObj === 'object' &&
-            'address' in agentObj &&
-            typeof agentObj.address === 'string'
-          ) {
-            const agentAddress = agentObj.address.toLowerCase();
-            if (agentAddress === proxyWalletAddress.toLowerCase()) {
-              needApproveAgent = false;
+      const proxyWalletAddress =
+        await backgroundApiProxy.serviceHyperliquidWallet.getProxyWalletAddress(
+          {
+            userAddress: currentUser as IHex,
+          },
+        );
+      if (extraAgents.length > 0) {
+        extraAgents.forEach((agent: any) => {
+          try {
+            const agentObj = agent as { address?: string };
+            if (
+              agentObj &&
+              typeof agentObj === 'object' &&
+              'address' in agentObj &&
+              typeof agentObj.address === 'string'
+            ) {
+              const agentAddress = agentObj.address.toLowerCase();
+              if (agentAddress === proxyWalletAddress.toLowerCase()) {
+                needApproveAgent = false;
+              }
             }
+          } catch (error) {
+            // Ignore invalid agent objects
           }
-        } catch (error) {
-          // Ignore invalid agent objects
-        }
-      });
-    }
-    if (!maxBuilderFee || needApproveAgent) {
-      await backgroundApiProxy.serviceHyperliquid.enableTrading({
-        userAccountId: currentAccount,
-        userAddress: currentUser as IHex,
-        approveAgent: needApproveAgent,
-        approveBuilderFee: !maxBuilderFee,
-      });
-    } else {
-      await backgroundApiProxy.serviceHyperliquidExchange.setup({
-        userAddress: currentUser as IHex,
-        userAccountId: currentAccount,
-      });
+        });
+      }
+      if (!maxBuilderFee || needApproveAgent) {
+        await backgroundApiProxy.serviceHyperliquid.enableTrading({
+          userAccountId: currentAccount,
+          userAddress: currentUser as IHex,
+          approveAgent: needApproveAgent,
+          approveBuilderFee: !maxBuilderFee,
+        });
+      } else {
+        await backgroundApiProxy.serviceHyperliquidExchange.setup({
+          userAddress: currentUser as IHex,
+          userAccountId: currentAccount,
+        });
+      }
+    } finally {
+      setLoading(false);
+      setCanTrade(true);
     }
   }, [currentUser, currentAccount, checkWalletStatus]);
 
   useEffect(() => {
-    if (currentUser && !canTrade) {
-      setLoading(true);
-      void checkAndApproveWallet().finally(() => {
-        setLoading(false);
-      });
-      setCanTrade(true);
-    }
+    void (async () => {
+      if (currentUser && !canTrade) {
+        const cachedPassword =
+          await backgroundApiProxy.servicePassword.getCachedPassword();
+        if (cachedPassword) {
+          await checkAndApproveWallet();
+        }
+      }
+    })();
   }, [currentUser, canTrade, checkAndApproveWallet]);
 
   return {
     loading,
-    canTrade,
+    canTrade: Boolean(canTrade && currentUser),
     currentUser,
     hasUserData,
     checkWalletStatus,

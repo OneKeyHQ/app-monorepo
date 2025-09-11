@@ -92,9 +92,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     await this.updateSubscriptions.call(set);
   });
 
-  setCurrentAccount = contextAtomMethod(async (get, set, accountId: string) => {
-    set(currentAccountAtom(), accountId);
-  });
+  setCurrentAccount = contextAtomMethod(
+    async (get, set, accountId: string | null) => {
+      set(currentAccountAtom(), accountId);
+    },
+  );
 
   updateSubscriptions = contextAtomMethod(async (get, set) => {
     const currentToken = get(currentTokenAtom());

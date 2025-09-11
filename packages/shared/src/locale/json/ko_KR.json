@@ -1595,6 +1595,7 @@
   "global.windows_hello_set_error": "Windows Hello 설정 실패",
   "global.withdraw": "인출",
   "global.x": "X",
+  "global__multichain": "다중체인",
   "hardware.backup_completed": "백업 완료!",
   "hardware.bluetooth_need_turned_on_error": "블루투스가 꺼져 있습니다",
   "hardware.bluetooth_not_paired_error": "블루투스가 페어링되지 않았습니다",
