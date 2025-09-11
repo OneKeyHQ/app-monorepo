@@ -20,12 +20,12 @@
 		C274DAC12AE2644400755275 /* NotificationService.m in Sources */ = {isa = PBXBuildFile; fileRef = C274DAC02AE2644400755275 /* NotificationService.m */; };
 		C274DAC52AE2644400755275 /* ServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C274DABD2AE2644400755275 /* ServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C28C89F82C85D3A700D9A657 /* JPushManager.m in Sources */ = {isa = PBXBuildFile; fileRef = C28C89F62C85D3A600D9A657 /* JPushManager.m */; };
-		LAUNCH0012E85D3A700D9A657 /* LaunchOptionsManager.m in Sources */ = {isa = PBXBuildFile; fileRef = LAUNCH0012E85D3A600D9A657 /* LaunchOptionsManager.m */; };
 		EA73E1F22C3EAEAD000E9398 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = EA73E1F12C3EAEAD000E9398 /* GoogleService-Info.plist */; };
 		EA7A13F42D9EEC2C002BD82F /* RCTRootViewBackground.m in Sources */ = {isa = PBXBuildFile; fileRef = EA7A13F32D9EEC2B002BD82F /* RCTRootViewBackground.m */; };
 		EA9B87EC2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = EA9B87EB2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy */; };
 		EA9FF4ED2BDFFDBB00AC618A /* web-embed in Resources */ = {isa = PBXBuildFile; fileRef = EA9FF4EC2BDFFDBB00AC618A /* web-embed */; };
 		F42739F92D24DABD0072EBA9 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F42739F82D24DABD0072EBA9 /* StoreKit.framework */; };
+		LAUNCH0012E85D3A700D9A657 /* LaunchOptionsManager.m in Sources */ = {isa = PBXBuildFile; fileRef = LAUNCH0012E85D3A600D9A657 /* LaunchOptionsManager.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -75,8 +75,6 @@
 		C274DAC22AE2644400755275 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C28C89F62C85D3A600D9A657 /* JPushManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = JPushManager.m; path = OneKeyWallet/JPushManager.m; sourceTree = "<group>"; };
 		C28C89F72C85D3A700D9A657 /* JPushManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = JPushManager.h; path = OneKeyWallet/JPushManager.h; sourceTree = "<group>"; };
-		LAUNCH0012E85D3A600D9A657 /* LaunchOptionsManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = LaunchOptionsManager.m; path = OneKeyWallet/LaunchOptionsManager.m; sourceTree = "<group>"; };
-		LAUNCH0012E85D3A700D9A658 /* LaunchOptionsManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LaunchOptionsManager.h; path = OneKeyWallet/LaunchOptionsManager.h; sourceTree = "<group>"; };
 		C2D12C012B32FF2100DB502A /* OneKeyWallet.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = OneKeyWallet.entitlements; path = OneKeyWallet/OneKeyWallet.entitlements; sourceTree = "<group>"; };
 		D7AF803390CE7CF8ECC3DBAB /* Pods_OneKeyWallet.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_OneKeyWallet.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		E386ED442C7889E000B1E360 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -101,6 +99,8 @@
 		EA9FF4EC2BDFFDBB00AC618A /* web-embed */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "web-embed"; path = "OneKeyWallet/web-embed"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F42739F82D24DABD0072EBA9 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
+		LAUNCH0012E85D3A600D9A657 /* LaunchOptionsManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = LaunchOptionsManager.m; path = OneKeyWallet/LaunchOptionsManager.m; sourceTree = "<group>"; };
+		LAUNCH0012E85D3A700D9A658 /* LaunchOptionsManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LaunchOptionsManager.h; path = OneKeyWallet/LaunchOptionsManager.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -740,10 +740,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "$(inherited)";
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -816,10 +813,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = "$(inherited)";
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;
