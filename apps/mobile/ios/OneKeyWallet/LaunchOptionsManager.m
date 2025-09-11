@@ -94,20 +94,6 @@ RCT_EXPORT_METHOD(getLaunchOptions:(RCTPromiseResolveBlock)resolve
         else {
             result[@"launchType"] = @"normal";
         }
-        // Show alert with launch options on main thread
-        dispatch_async(dispatch_get_main_queue(), ^{
-            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Launch Options 2"
-                                                                         message:[NSString stringWithFormat:@"%@", result]
-                                                                  preferredStyle:UIAlertControllerStyleAlert];
-            
-            UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"OK"
-                                                             style:UIAlertActionStyleDefault
-                                                           handler:nil];
-            [alert addAction:okAction];
-            
-            UIViewController *rootViewController = [UIApplication sharedApplication].delegate.window.rootViewController;
-            [rootViewController presentViewController:alert animated:YES completion:nil];
-        });
         resolve(result);
     } else {
         resolve(@{});
