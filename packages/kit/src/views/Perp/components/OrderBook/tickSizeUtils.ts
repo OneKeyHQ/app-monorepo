@@ -124,6 +124,21 @@ export function buildTickOptions(
     // When decimals = 0, treat it as 1 for calculation but use special multipliers
     const baseValue = decimals === 0 ? 1 : decimals;
     const target = baseValue * mul;
+
+    // Special handling for BTC decimals=0, targetTick=1 case
+    if (decimals === 0 && target === 1) {
+      return {
+        targetTick: target,
+        nSigFigs: null,
+        mantissa: undefined,
+        apiTick: target,
+        exact: true,
+        multiplier: mul,
+        label: target.toString(),
+        value: target.toString(),
+      };
+    }
+
     const mapped = mapTickToParams(price, target);
     mapped.multiplier = mul;
     return mapped;

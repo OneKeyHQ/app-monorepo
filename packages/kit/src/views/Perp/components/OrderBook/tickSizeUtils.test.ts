@@ -28,6 +28,42 @@ const fixtures = {
       { targetTick: 100, nSigFigs: 2, mantissa: null },
     ],
   },
+  SOL: {
+    price: 223.24,
+    decimals: 2,
+    options: [
+      { targetTick: 0.01, nSigFigs: 5, mantissa: 1 },
+      { targetTick: 0.02, nSigFigs: 5, mantissa: 2 },
+      { targetTick: 0.05, nSigFigs: 5, mantissa: 5 },
+      { targetTick: 0.1, nSigFigs: 4, mantissa: null },
+      { targetTick: 1, nSigFigs: 3, mantissa: null },
+      { targetTick: 10, nSigFigs: 2, mantissa: null },
+    ],
+  },
+  HYPE: {
+    price: 55.362,
+    decimals: 3,
+    options: [
+      { targetTick: 0.001, nSigFigs: 5, mantissa: 1 },
+      { targetTick: 0.002, nSigFigs: 5, mantissa: 2 },
+      { targetTick: 0.005, nSigFigs: 5, mantissa: 5 },
+      { targetTick: 0.01, nSigFigs: 4, mantissa: null },
+      { targetTick: 0.1, nSigFigs: 3, mantissa: null },
+      { targetTick: 1, nSigFigs: 2, mantissa: null },
+    ],
+  },
+  ATOM: {
+    price: 4.6754,
+    decimals: 4,
+    options: [
+      { targetTick: 0.0001, nSigFigs: 5, mantissa: 1 },
+      { targetTick: 0.0002, nSigFigs: 5, mantissa: 2 },
+      { targetTick: 0.0005, nSigFigs: 5, mantissa: 5 },
+      { targetTick: 0.001, nSigFigs: 4, mantissa: null },
+      { targetTick: 0.01, nSigFigs: 3, mantissa: null },
+      { targetTick: 0.1, nSigFigs: 2, mantissa: null },
+    ],
+  },
 };
 
 describe('fixtures map', () => {
