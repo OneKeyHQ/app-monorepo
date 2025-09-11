@@ -3,12 +3,8 @@ import { useEffect } from 'react';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
-
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
-
-import type {
-   IJPushRemotePushMessageInfo,
-} from '@onekeyhq/shared/types/notification';
+import type { IJPushRemotePushMessageInfo } from '@onekeyhq/shared/types/notification';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
@@ -32,12 +28,12 @@ import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalCon
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import InAppNotification from './InAppNotification';
 import { NavigationContainer } from './NavigationContainer';
+import { NotificationHandlerContainer } from './NotificationHandlerContainer';
 import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
-import { NotificationHandlerContainer } from './NotificationHandlerContainer';
 
 const PageTrackerContainer = LazyLoad(
   () => import('./PageTrackerContainer'),
@@ -98,7 +94,7 @@ export function ColdStartByNotification() {
     }
   }, [isVersionCompatible, showFallbackUpdateDialog]);
 
-  return null;
+  return <NotificationHandlerContainer />;
 }
 ColdStartByNotification.launchNotification = null;
 
@@ -127,7 +123,6 @@ export function Container() {
           <GlobalErrorHandlerContainer />
           <ForceFirmwareUpdateContainer />
           <ColdStartByNotification />
-          <NotificationHandlerContainer />
           <PrimeGlobalEffect />
           <WebPerformanceMonitorContainer />
           <PasswordVerifyPortalContainer />
