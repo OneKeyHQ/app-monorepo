@@ -5,7 +5,7 @@ import {
 } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
-import { isNaN } from 'lodash';
+import { isEmpty, isNaN } from 'lodash';
 import TonWeb from 'tonweb';
 
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
@@ -40,7 +40,25 @@ enum ETonNetwork {
 
 const TonResponseError = {
   BadRequest: 1,
+  InvalidManifestUrl: 2,
+  ContentManifest: 3,
 } as const;
+
+export declare interface TonAddressItem {
+  name: 'ton_addr';
+}
+
+export declare interface TonProofItem {
+  name: 'ton_proof';
+  payload: string;
+}
+
+export type ConnectItem = TonAddressItem | TonProofItem;
+
+export interface ConnectRequest {
+  manifestUrl: string;
+  items: ConnectItem[];
+}
 
 @backgroundClass()
 class ProviderApiTon extends ProviderApiBase {
@@ -100,6 +118,71 @@ class ProviderApiTon extends ProviderApiBase {
 
   @providerApiMethod()
   public async connect(request: IJsBridgeMessagePayload, params: string[]) {
+    if (
+      !request?.data ||
+      typeof request?.data !== 'object' ||
+      !('params' in request?.data)
+    ) {
+      throw new Web3RpcError(
+        TonResponseError.InvalidManifestUrl,
+        'App manifest not found',
+      );
+    }
+
+    if (!Array.isArray(request?.data?.params)) {
+      throw new Web3RpcError(
+        TonResponseError.InvalidManifestUrl,
+        'App manifest not found',
+      );
+    }
+
+    const [_, connectRequest] = request?.data?.params as [
+      string,
+      ConnectRequest,
+    ];
+
+    if (!connectRequest.manifestUrl || isEmpty(connectRequest.manifestUrl)) {
+      throw new Web3RpcError(
+        TonResponseError.InvalidManifestUrl,
+        'App manifest not found',
+      );
+    }
+
+    const manifest = await fetch(connectRequest.manifestUrl).then(
+      async (res) => {
+        if (res.status !== 200) {
+          throw new Web3RpcError(
+            TonResponseError.InvalidManifestUrl,
+            'App manifest not found',
+          );
+        }
+        return res.json();
+      },
+    );
+
+    if (isEmpty(manifest.name) || isEmpty(manifest.url)) {
+      throw new Web3RpcError(
+        TonResponseError.ContentManifest,
+        'App manifest content error',
+      );
+    }
+    try {
+      const manifestUrl = new URL(manifest.url);
+      const originUrl = new URL(request.origin ?? '');
+
+      if (manifestUrl.host !== originUrl.host) {
+        throw new Web3RpcError(
+          TonResponseError.ContentManifest,
+          'App manifest content error',
+        );
+      }
+    } catch {
+      throw new Web3RpcError(
+        TonResponseError.ContentManifest,
+        'App manifest content error',
+      );
+    }
+
     let accounts =
       await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
         request,
@@ -172,6 +255,8 @@ class ProviderApiTon extends ProviderApiBase {
       valid_until: number;
     },
   ): Promise<any> {
+    console.log('sendTransaction ========>>>>> encodedTx: ', encodedTx);
+
     const validUntil = encodedTx.validUntil || encodedTx.valid_until;
     if (
       validUntil !== undefined &&
@@ -214,7 +299,7 @@ class ProviderApiTon extends ProviderApiBase {
       // @ts-expect-error
       encodedTx.network !== ETonNetwork.Mainnet
     ) {
-      throw new Web3RpcError(TonResponseError.BadRequest, 'network is error');
+      throw new Web3RpcError(TonResponseError.BadRequest, 'Wrong network');
     }
 
     // check messages
@@ -268,19 +353,53 @@ class ProviderApiTon extends ProviderApiBase {
       } catch {
         throw new Web3RpcError(TonResponseError.BadRequest, 'Invalid address');
       }
+      // payload
+      if (message.payload) {
+        try {
+          void TonWeb.boc.Cell.oneFromBoc(
+            Buffer.from(message.payload, 'base64').toString('hex'),
+          );
+        } catch {
+          throw new Web3RpcError(
+            TonResponseError.BadRequest,
+            'Payload is invalid',
+          );
+        }
+      }
+
+      // init
+      if (message.stateInit) {
+        try {
+          void TonWeb.boc.Cell.oneFromBoc(
+            Buffer.from(message.stateInit, 'base64').toString('hex'),
+          );
+        } catch {
+          throw new Web3RpcError(
+            TonResponseError.BadRequest,
+            'stateInit is invalid',
+          );
+        }
+      }
     }
 
     const accounts = await this.getAccountsInfo(request);
     const account = accounts[0];
     if (encodedTx.from) {
-      const fromAddr = new TonWeb.Address(encodedTx.from);
-      if (
-        fromAddr.toString(false, false, false) !==
-        account.account.addressDetail.baseAddress
-      ) {
+      try {
+        const fromAddr = new TonWeb.Address(encodedTx.from);
+        if (
+          fromAddr.toString(false, false, false) !==
+          account.account.addressDetail.baseAddress
+        ) {
+          throw new Web3RpcError(
+            TonResponseError.BadRequest,
+            'Wrong from address',
+          );
+        }
+      } catch (error) {
         throw new Web3RpcError(
           TonResponseError.BadRequest,
-          'Wrong from address',
+          'Wrong from address format',
         );
       }
     } else {
