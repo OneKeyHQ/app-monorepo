@@ -117,25 +117,25 @@ function PerpTradingPanel() {
   }, [tokenInfo, formData, actions]);
 
   return (
-    <YStack gap="$4" p="$4">
+    <YStack gap="$2" p="$4">
       <PerpTradingForm isSubmitting={isSubmitting} />
 
       {loading ? (
-        <Button size="large" borderRadius="$3" disabled>
+        <Button size="meduium" borderRadius="$2" disabled>
           <Spinner />
         </Button>
       ) : (
         <>
           {!currentUser ? (
-            <Button size="large" borderRadius="$3" onPress={() => {}}>
+            <Button size="meduium" borderRadius="$2" onPress={() => {}}>
               <SizableText>Connect wallet</SizableText>
             </Button>
           ) : null}
 
           {!canTrade ? (
             <Button
-              size="large"
-              borderRadius="$3"
+              size="meduium"
+              borderRadius="$2"
               onPress={() => {
                 void checkAndApproveWallet();
               }}
@@ -146,9 +146,11 @@ function PerpTradingPanel() {
 
           {canTrade ? (
             <Button
-              bg={buttonStyleProps.bg}
-              hoverStyle={buttonStyleProps.hoverStyle}
-              pressStyle={buttonStyleProps.pressStyle}
+              bg="$green11"
+              hoverStyle={{ bg: '$green10' }}
+              pressStyle={{
+                bg: '$green10',
+              }}
               onPress={() => {
                 if (!canTrade) {
                   void checkAndApproveWallet();
@@ -157,14 +159,10 @@ function PerpTradingPanel() {
                 }
               }}
               disabled={buttonDisabled}
-              size="large"
-              borderRadius="$3"
+              size="meduium"
+              borderRadius="$2"
             >
-              <SizableText
-                color={buttonStyleProps.textColor}
-                fontWeight="600"
-                size="$bodyLgMedium"
-              >
+              <SizableText color="$textOnColor" size="$bodyMdMedium">
                 {buttonText}
               </SizableText>
             </Button>
