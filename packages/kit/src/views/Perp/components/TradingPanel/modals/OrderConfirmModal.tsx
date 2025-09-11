@@ -8,6 +8,11 @@ import {
 } from '@onekeyhq/components';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 
+import {
+  getTradingButtonStyleProps,
+  getTradingSideTextColor,
+} from '../../../utils/styleUtils';
+
 interface IShowOrderConfirmParams {
   formData: ITradingFormData;
   tokenName?: string;
@@ -21,7 +26,8 @@ export function showOrderConfirmDialog({
   liquidationPrice,
   onConfirm,
 }: IShowOrderConfirmParams) {
-  const actionColor = formData.side === 'long' ? '$green10' : '$red10';
+  const actionColor = getTradingSideTextColor(formData.side);
+  const buttonStyleProps = getTradingButtonStyleProps(formData.side, false);
   const actionText = formData.side === 'long' ? 'Long' : 'Short';
 
   const getSizeDisplay = () => {
@@ -50,7 +56,7 @@ export function showOrderConfirmDialog({
           <SizableText size="$bodyMd" color="$textSubdued">
             Position Size
           </SizableText>
-          <SizableText size="$bodyMd" fontWeight="500">
+          <SizableText size="$bodyMd" fontWeight="500" color={actionColor}>
             {sizeDisplay}
           </SizableText>
         </XStack>
@@ -105,23 +111,26 @@ export function showOrderConfirmDialog({
     description:
       'You pay no gas. The order will be confirmed within a few seconds.',
     renderContent: <OrderContent />,
+    confirmButtonProps: {
+      bg: buttonStyleProps.bg,
+      hoverStyle: buttonStyleProps.hoverStyle,
+      pressStyle: buttonStyleProps.pressStyle,
+      color: buttonStyleProps.textColor,
+    },
     onConfirm: async () => {
       try {
         await onConfirm();
-
-        // Show success notification
         Toast.success({
           title: 'Order Placed Successfully',
           message: `${actionText} order for ${sizeDisplay} has been submitted`,
         });
       } catch (error) {
-        // Show error notification
         Toast.error({
           title: 'Order Failed',
           message:
             error instanceof Error ? error.message : 'Failed to place order',
         });
-        throw error; // Re-throw to let Dialog handle it
+        throw error;
       }
     },
   });

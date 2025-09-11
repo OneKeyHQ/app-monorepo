@@ -12,6 +12,7 @@ import {
   useHyperliquidAccount,
   useHyperliquidTrading,
 } from '../../hooks';
+import { getTradingButtonStyleProps } from '../../utils/styleUtils';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 import { PerpTradingForm } from './panels/PerpTradingForm';
@@ -60,27 +61,8 @@ function PerpTradingPanel() {
     return 'Place order';
   }, [isSubmitting, isNoEnoughMargin]);
 
-  const buttonStyles = useMemo(() => {
-    const isLong = formData.side === 'long';
-
-    const getBgColor = () => {
-      return isLong ? '$buttonSuccess' : '$buttonCritical';
-    };
-
-    const getHoverBgColor = () => {
-      return isLong ? '$green7' : '$red7';
-    };
-
-    const getPressBgColor = () => {
-      return isLong ? '$green9' : '$red9';
-    };
-
-    return {
-      bg: getBgColor(),
-      hoverBg: getHoverBgColor(),
-      pressBg: getPressBgColor(),
-      textColor: buttonDisabled ? '$textDisabled' : '$textOnColor',
-    };
+  const buttonStyleProps = useMemo(() => {
+    return getTradingButtonStyleProps(formData.side, buttonDisabled);
   }, [formData.side, buttonDisabled]);
 
   const actions = useHyperliquidActions();
@@ -156,9 +138,9 @@ function PerpTradingPanel() {
 
           {canTrade ? (
             <Button
-              bg={buttonStyles.bg}
-              hoverStyle={{ bg: buttonStyles.hoverBg }}
-              pressStyle={{ bg: buttonStyles.pressBg }}
+              bg={buttonStyleProps.bg}
+              hoverStyle={buttonStyleProps.hoverStyle}
+              pressStyle={buttonStyleProps.pressStyle}
               onPress={() => {
                 if (!canTrade) {
                   void checkAndApproveWallet();
@@ -171,7 +153,7 @@ function PerpTradingPanel() {
               borderRadius="$3"
             >
               <SizableText
-                color={buttonStyles.textColor}
+                color={buttonStyleProps.textColor}
                 fontWeight="600"
                 size="$bodyLgMedium"
               >
