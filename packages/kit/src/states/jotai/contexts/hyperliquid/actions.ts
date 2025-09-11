@@ -120,6 +120,49 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
   });
 
+  updateL2BookSubscription = contextAtomMethod(
+    async (
+      get,
+      set,
+      options?: {
+        nSigFigs?: number | null;
+        mantissa?: number;
+      },
+    ) => {
+      const currentToken = get(currentTokenAtom());
+      const currentUser = get(currentUserAtom());
+      const isActive = get(subscriptionActiveAtom());
+
+      if (!isActive) {
+        await backgroundApiProxy.serviceHyperliquidSubscription.connect();
+      }
+
+      try {
+        // TODO: Backend service needs to be updated to support l2BookParams
+        // For now, we'll use the existing API and log the parameters for debugging
+        if (options) {
+          console.log('L2Book subscription parameters:', {
+            currentSymbol: currentToken,
+            nSigFigs: options.nSigFigs,
+            mantissa: options.mantissa,
+          });
+        }
+
+        await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions(
+          {
+            currentSymbol: currentToken,
+            currentUser,
+          },
+        );
+      } catch (error) {
+        console.error(
+          '[HyperliquidActions.updateL2BookSubscription] Failed to update L2 book subscription:',
+          error,
+        );
+      }
+    },
+  );
+
   startSubscriptions = contextAtomMethod(async (get, set) => {
     set(subscriptionActiveAtom(), true);
 
@@ -458,6 +501,7 @@ export function useHyperliquidActions() {
   const setCurrentUser = actions.setCurrentUser.use();
   const setCurrentAccount = actions.setCurrentAccount.use();
   const updateSubscriptions = actions.updateSubscriptions.use();
+  const updateL2BookSubscription = actions.updateL2BookSubscription.use();
   const startSubscriptions = actions.startSubscriptions.use();
   const stopSubscriptions = actions.stopSubscriptions.use();
   const reconnectSubscriptions = actions.reconnectSubscriptions.use();
@@ -489,6 +533,7 @@ export function useHyperliquidActions() {
     setCurrentUser,
     setCurrentAccount,
     updateSubscriptions,
+    updateL2BookSubscription,
     startSubscriptions,
     stopSubscriptions,
     reconnectSubscriptions,

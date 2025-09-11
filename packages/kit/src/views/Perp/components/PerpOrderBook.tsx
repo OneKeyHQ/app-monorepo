@@ -21,7 +21,10 @@ export function PerpOrderBook() {
     // getSpreadPercent,
     // getTotalBidVolume,
     // getTotalAskVolume,
-  } = useL2Book();
+  } = useL2Book({
+    nSigFigs: selectedTickOption?.nSigFigs || null,
+    mantissa: selectedTickOption?.mantissa,
+  });
 
   const tickOptionsData = useTickOptions({
     symbol: l2Book?.coin,

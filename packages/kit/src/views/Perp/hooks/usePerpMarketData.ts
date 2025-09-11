@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import {
   useActiveAssetCtxAtom,
   useActiveAssetDataAtom,
   useAllMidsAtom,
   useCurrentTokenAtom,
+  useHyperliquidActions,
   useL2BookAtom,
   useTradingPanelDataAtom,
   useWebData2Atom,
@@ -184,7 +185,10 @@ export interface IL2BookData extends HL.IBook {
   asks: HL.IBookLevel[];
 }
 
-export function useL2Book(): {
+export function useL2Book(options?: {
+  nSigFigs?: number | null;
+  mantissa?: number;
+}): {
   l2Book: IL2BookData | null;
   hasOrderBook: boolean;
   getBestBid: () => string | null;
@@ -196,6 +200,56 @@ export function useL2Book(): {
 } {
   const [l2BookData] = useL2BookAtom();
   const [currentToken] = useCurrentTokenAtom();
+  const actions = useHyperliquidActions();
+  const prevOptionsRef = useRef<typeof options>(undefined);
+
+  // Monitor precision parameter changes and trigger resubscription
+  useEffect(() => {
+    const currentOptions = options;
+    const prevOptions = prevOptionsRef.current;
+
+    // Check if nSigFigs or mantissa have changed
+    const hasChanged =
+      currentOptions?.nSigFigs !== prevOptions?.nSigFigs ||
+      currentOptions?.mantissa !== prevOptions?.mantissa;
+
+    if (hasChanged && currentToken) {
+      console.log('L2Book precision parameters changed, resubscribing:', {
+        from: prevOptions,
+        to: currentOptions,
+        token: currentToken,
+      });
+
+      // Cancel current subscription and establish new one with updated parameters
+      const resubscribe = async () => {
+        try {
+          // Update subscription with new precision parameters
+          await actions.current.updateL2BookSubscription(
+            currentOptions || undefined,
+          );
+        } catch (error) {
+          console.error('Failed to update L2Book subscription:', error);
+          // Fallback to general subscription update
+          await actions.current.updateSubscriptions();
+        }
+      };
+
+      void resubscribe();
+    }
+
+    prevOptionsRef.current = currentOptions;
+  }, [options?.nSigFigs, options?.mantissa, currentToken, actions, options]);
+
+  // Cleanup effect for component unmount
+  useEffect(() => {
+    return () => {
+      // Reset to default subscription when component unmounts
+      if (currentToken) {
+        console.log('L2Book hook cleanup, reverting to default subscription');
+        void actions.current.updateSubscriptions();
+      }
+    };
+  }, [currentToken, actions]);
 
   const l2Book = useMemo((): IL2BookData | null => {
     if (!l2BookData || !currentToken) return null;
