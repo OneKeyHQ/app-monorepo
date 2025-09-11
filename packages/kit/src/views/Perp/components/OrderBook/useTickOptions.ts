@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -21,12 +21,37 @@ interface ITickOptionsResult {
   sizeDecimals: number;
 }
 
-export function useTickOptions(
-  bids: IBookLevel[],
-  asks: IBookLevel[],
-): ITickOptionsResult {
-  return useMemo(() => {
-    const marketPrice = bids[0]?.px || asks[0]?.px || '0';
+export function useTickOptions({
+  symbol,
+  bids,
+  asks,
+}: {
+  symbol?: string;
+  bids: IBookLevel[];
+  asks: IBookLevel[];
+}): ITickOptionsResult {
+  // Use ref to cache tick options calculation results by symbol
+  const tickOptionsCache = useRef<{
+    symbol: string;
+    tickOptions: ITickParam[];
+    defaultTickOption: ITickParam;
+    priceDecimals: number;
+  } | null>(null);
+
+  const topBidPrice = bids[0]?.px;
+  const topAskPrice = asks[0]?.px;
+
+  const tickOptionsData = useMemo(() => {
+    if (!symbol) return null;
+
+    // Return cached result if symbol hasn't changed and cache exists
+    if (tickOptionsCache.current?.symbol === symbol) {
+      return tickOptionsCache.current;
+    }
+
+    const marketPrice = topBidPrice || topAskPrice || '0';
+    if (marketPrice === '0') return null;
+
     const priceDecimals = getPriceScaleDecimals(marketPrice);
 
     // Handle edge case: when priceDecimals = 0, use 1 as base decimal
@@ -39,14 +64,47 @@ export function useTickOptions(
     // Use selected option or default
     const defaultTickOption = getDefaultTickOption(tickOptions);
 
-    // Analyze size decimal places from raw data
-    const { sizeDecimals } = analyzeOrderBookPrecision(bids, asks);
-
-    return {
+    const result = {
+      symbol,
       tickOptions,
       defaultTickOption,
       priceDecimals,
+    };
+
+    // Cache the result
+    tickOptionsCache.current = result;
+
+    return result;
+  }, [symbol, topBidPrice, topAskPrice]);
+
+  // Calculate size decimals separately as it may need to update more frequently
+  const sizeDecimals = useMemo(() => {
+    const { sizeDecimals: calculatedSizeDecimals } = analyzeOrderBookPrecision(
+      bids,
+      asks,
+    );
+    return calculatedSizeDecimals;
+  }, [bids, asks]);
+
+  return useMemo(() => {
+    // Fallback when no data available
+    if (!tickOptionsData) {
+      const priceDecimals = 0;
+      const decimalsArg = 0;
+      const tickOptions = buildTickOptions(1, decimalsArg);
+      const defaultTickOption = getDefaultTickOption(tickOptions);
+
+      return {
+        tickOptions,
+        defaultTickOption,
+        priceDecimals,
+        sizeDecimals,
+      };
+    }
+
+    return {
+      ...tickOptionsData,
       sizeDecimals,
     };
-  }, [bids, asks]);
+  }, [tickOptionsData, sizeDecimals]);
 }

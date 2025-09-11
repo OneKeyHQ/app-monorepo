@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { colorTokens } from '@tamagui/themes';
 import BigNumber from 'bignumber.js';
@@ -45,6 +45,8 @@ interface IOrderBookProps {
   loadingNode?: React.ReactNode;
   /** Whether to render the order book horizontally */
   horizontal?: boolean;
+  /** The coin symbol */
+  symbol?: string;
 }
 
 const styles = StyleSheet.create({
@@ -257,6 +259,7 @@ const useTextColor = () => {
 };
 
 export function OrderBook({
+  symbol,
   bids,
   asks,
   maxLevelsPerSide = 30,
@@ -267,16 +270,19 @@ export function OrderBook({
 }: IOrderBookProps) {
   const [internalSelectedTickOption, setInternalSelectedTickOption] =
     useState<ITickParam>();
-  const tickOptionsData = useTickOptions(bids, asks);
+  const prevSymbolRef = useRef<string>();
+  const tickOptionsData = useTickOptions({ symbol, bids, asks });
 
   useEffect(() => {
-    if (internalSelectedTickOption) {
-      return;
-    }
-    if (tickOptionsData.defaultTickOption) {
+    // Only reset when symbol changes or when initially setting
+    if (
+      (prevSymbolRef.current !== symbol || !internalSelectedTickOption) &&
+      tickOptionsData.defaultTickOption
+    ) {
       setInternalSelectedTickOption(tickOptionsData.defaultTickOption);
+      prevSymbolRef.current = symbol;
     }
-  }, [tickOptionsData.defaultTickOption, internalSelectedTickOption]);
+  }, [symbol, tickOptionsData.defaultTickOption, internalSelectedTickOption]);
 
   // Handle tick option change
   const handleTickOptionChange = useCallback(
@@ -628,11 +634,13 @@ function OrderBookPairRow({
 }
 
 export function OrderPairBook({
+  symbol,
   bids,
   asks,
   maxLevelsPerSide = 30,
   selectedTickOption,
 }: {
+  symbol?: string;
   maxLevelsPerSide?: number;
   bids: IBookLevel[];
   asks: IBookLevel[];
@@ -641,7 +649,7 @@ export function OrderPairBook({
   const [internalSelectedTickOption, setInternalSelectedTickOption] =
     useState<ITickParam>();
 
-  const tickOptionsData = useTickOptions(bids, asks);
+  const tickOptionsData = useTickOptions({ symbol, bids, asks });
 
   // Handle tick option change
   const handleTickOptionChange = useCallback(

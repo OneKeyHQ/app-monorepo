@@ -34,6 +34,7 @@ export function PerpOrderBook() {
   return (
     <YStack flex={1} bg="$bgApp">
       <OrderBook
+        symbol={l2Book.coin}
         horizontal={false}
         bids={l2Book.bids}
         asks={l2Book.asks}
