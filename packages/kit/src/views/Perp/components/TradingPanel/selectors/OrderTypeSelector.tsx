@@ -29,22 +29,23 @@ export const OrderTypeSelector = memo<IOrderTypeSelectorProps>(
             cursor="pointer"
             onPress={onPress}
             disabled={disabledTrigger}
-            width={100}
             height={30}
             bg="$bgSubdued"
             borderRadius="$2"
             alignItems="center"
             justifyContent="space-between"
             px="$3"
+            flex={1}
           >
-            <SizableText>{label}</SizableText>
+            <SizableText size="$bodyMdMedium">{label}</SizableText>
             <Icon
               name="ChevronTriangleDownSmallOutline"
-              color="$iconSubdued"
+              color="$icon"
               size="$5"
             />
           </XStack>
         )}
+        placement="bottom-start"
         floatingPanelProps={{
           width: 120,
         }}

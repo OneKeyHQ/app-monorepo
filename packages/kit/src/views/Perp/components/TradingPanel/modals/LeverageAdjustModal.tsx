@@ -1,6 +1,7 @@
 import { memo, useCallback, useState } from 'react';
 
 import {
+  Badge,
   Button,
   Dialog,
   Input,
@@ -59,7 +60,7 @@ const LeverageContent = memo(
     );
 
     return (
-      <YStack space="$4">
+      <YStack>
         <XStack justifyContent="space-between" alignItems="center">
           <SizableText size="$bodyMd" color="$color11">
             Leverage
@@ -140,20 +141,25 @@ export const LeverageAdjustModal = memo(() => {
   }
 
   return (
-    <Button
-      size="small"
-      variant="tertiary"
+    <Badge
       borderRadius="$2"
       bg="$bgSubdued"
       onPress={showLeverageDialog}
-      px="$3"
-      py="$1"
-      mr="$1"
+      px="$3.5"
+      h={30}
+      alignItems="center"
+      hoverStyle={{
+        bg: '$bgStrongHover',
+      }}
+      pressStyle={{
+        bg: '$bgStrongActive',
+      }}
+      cursor="pointer"
     >
-      <SizableText size="$bodyMd" fontWeight="500">
+      <SizableText size="$bodyMdMedium">
         {activeAssetData?.leverage?.value || tokenInfo.maxLeverage || 1}x
       </SizableText>
-    </Button>
+    </Badge>
   );
 });
 

@@ -1,6 +1,12 @@
 import { memo, useCallback } from 'react';
 
-import { Input, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Input,
+  SizableText,
+  XStack,
+  YStack,
+  getFontSize,
+} from '@onekeyhq/components';
 
 interface IInputAction {
   label: string;
@@ -25,6 +31,7 @@ interface ITradingFormInputProps {
   helper?: IInputHelper;
   validator?: (value: string) => boolean;
   keyboardType?: 'default' | 'numeric' | 'decimal-pad';
+  readonly?: boolean;
 }
 
 export const TradingFormInput = memo(
@@ -55,8 +62,8 @@ export const TradingFormInput = memo(
       if (suffix) {
         addOns.push({
           renderContent: (
-            <XStack alignItems="center" pr="$2">
-              <SizableText size="$bodyMd" color="$textSubdued">
+            <XStack alignItems="center">
+              <SizableText size="$bodyLg" color="$textSubdued">
                 {suffix}
               </SizableText>
             </XStack>
@@ -73,9 +80,8 @@ export const TradingFormInput = memo(
                 cursor="pointer"
                 onPress={action.onPress}
                 opacity={action.disabled ? 0.5 : 1}
-                pr="$2"
               >
-                <SizableText size="$bodyMd" color="$textSubdued">
+                <SizableText size="$bodyLg" color="$textSubdued">
                   {action.label}
                 </SizableText>
               </XStack>
@@ -88,8 +94,8 @@ export const TradingFormInput = memo(
     };
 
     return (
-      <YStack bg="$bgSubdued" borderRadius="$3" borderWidth="$0" p="$3">
-        <SizableText size="$bodyMd" color="$textSubdued" mb="$2">
+      <YStack bg="$bgSubdued" borderRadius="$3" borderWidth="$0" p="$3" pb="$2">
+        <SizableText size="$bodySm" color="$textSubdued" mb="$1">
           {label}
         </SizableText>
         <YStack>
@@ -101,6 +107,7 @@ export const TradingFormInput = memo(
             placeholder={placeholder}
             keyboardType={keyboardType}
             disabled={disabled}
+            fontSize={getFontSize('$headingMd')}
             containerProps={{
               flex: 1,
               borderWidth: 0,

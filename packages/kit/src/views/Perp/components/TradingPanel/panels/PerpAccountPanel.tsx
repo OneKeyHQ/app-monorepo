@@ -58,35 +58,33 @@ function PerpAccountPanel() {
   }
 
   return (
-    <YStack flex={1} gap="$3">
+    <YStack flex={1} gap="$2">
       {/* Header */}
       <XStack p="$4" justifyContent="space-between" alignItems="center">
-        <SizableText size="$headingLg" fontWeight="600">
-          ACCOUNT OVERVIEW
-        </SizableText>
+        <SizableText size="$headingXs">ACCOUNT OVERVIEW</SizableText>
       </XStack>
 
-      <YStack flex={1} px="$4">
+      <YStack flex={1} px="$4" gap="$2.5">
         {/* Available Balance */}
         <XStack justifyContent="space-between">
-          <SizableText size="$bodyMd" color="$textSubdued">
+          <SizableText size="$bodySm" color="$textSubdued">
             Available to Trade
           </SizableText>
           <NumberSizeableText
-            size="$bodyMd"
-            formatter="price"
+            size="$bodySmMedium"
+            formatter="value"
             formatterOptions={{ currency: '$' }}
           >
             {availableBalance}
           </NumberSizeableText>
         </XStack>
         <XStack justifyContent="space-between">
-          <SizableText size="$bodyMd" color="$textSubdued">
+          <SizableText size="$bodySm" color="$textSubdued">
             Current Position
           </SizableText>
           <NumberSizeableText
-            size="$bodyMd"
-            formatter="price"
+            size="$bodySmMedium"
+            formatter="value"
             formatterOptions={{ currency: '$' }}
           >
             {currentPositionValue.toNumber()}
@@ -95,22 +93,26 @@ function PerpAccountPanel() {
       </YStack>
 
       {/* Action Buttons */}
-      <XStack px="$4" pb="$4" space="$2" mt="$4">
+      <XStack px="$4" pb="$4" gap="$2.5" mt="$3">
         <Button
           flex={1}
           size="medium"
           variant="secondary"
           onPress={handleDepositOrWithdraw}
+          alignItems="center"
+          justifyContent="center"
         >
-          <SizableText size="$bodySm">Withdraw</SizableText>
+          <SizableText size="$bodySmMedium">Withdraw</SizableText>
         </Button>
         <Button
           flex={1}
           size="medium"
           variant="secondary"
           onPress={handleDepositOrWithdraw}
+          alignItems="center"
+          justifyContent="center"
         >
-          <SizableText size="$bodySm">Deposit</SizableText>
+          <SizableText size="$bodySmMedium">Deposit</SizableText>
         </Button>
       </XStack>
     </YStack>

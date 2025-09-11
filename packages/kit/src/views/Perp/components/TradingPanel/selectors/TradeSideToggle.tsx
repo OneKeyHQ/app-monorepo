@@ -16,7 +16,7 @@ interface ITradeSideToggleProps {
 }
 
 const commonButtonStyle: IButtonProps = {
-  height: '$10',
+  height: '$8',
   borderRadius: '$2',
   borderWidth: 0,
   hoverStyle: {
@@ -48,7 +48,7 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
         label: (
           <Button
             {...commonButtonStyle}
-            bg={isLongActive ? '$buttonSuccess' : '$transparent'}
+            bg={isLongActive ? '$green11' : '$transparent'}
             color={isLongActive ? '$textOnColor' : '$textSubdued'}
             onPress={() => onChange('long')}
             disabled={disabled}
@@ -62,7 +62,7 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
         label: (
           <Button
             {...commonButtonStyle}
-            bg={isShortActive ? '$buttonCritical' : '$transparent'}
+            bg={isShortActive ? '$red11' : '$transparent'}
             color={isShortActive ? '$textOnColor' : '$textSubdued'}
             onPress={() => onChange('short')}
             disabled={disabled}

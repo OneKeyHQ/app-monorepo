@@ -63,7 +63,6 @@ export const SizeInput = memo(
         error={error}
         validator={validator}
         suffix={tokenInfo?.name || ''}
-        helper={helper}
       />
     );
   },
