@@ -7,6 +7,7 @@ import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
 import type { INotificationPushMessageInfo } from '@onekeyhq/shared/types/notification';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
@@ -15,6 +16,7 @@ export const useInitialNotification = (
   activeAccountRef: RefObject<IAccountSelectorActiveAccountInfo>,
 ) => {
   const coldStartRef = useRef(true);
+  const { isVersionCompatible } = useVersionCompatible();
   const handleShowNotificationDetail = useCallback(
     async (
       params: Omit<
@@ -22,6 +24,9 @@ export const useInitialNotification = (
         'getEarnAccount' | 'localParams'
       >,
     ) => {
+      if (!isVersionCompatible(params.message?.extras?.miniBundlerVersion)) {
+        return;
+      }
       await whenAppUnlocked();
       const localParams = {
         accountId: activeAccountRef.current?.account?.id,
@@ -39,7 +44,7 @@ export const useInitialNotification = (
           backgroundApiProxy.serviceStaking.getEarnAccount(props),
       });
     },
-    [activeAccountRef],
+    [activeAccountRef, isVersionCompatible],
   );
   useEffect(() => {
     setTimeout(async () => {
