@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
-import { Spinner, Stack, Table, useMedia } from '@onekeyhq/components';
+import {
+  ETableSortType,
+  Spinner,
+  Stack,
+  Table,
+  useMedia,
+} from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
@@ -29,6 +35,8 @@ export type IMarketTokenListResult = {
   loadMore?: () => void | Promise<void>;
   setSortBy: (sortBy: string | undefined) => void;
   setSortType: (sortType: 'asc' | 'desc' | undefined) => void;
+  initialSortBy?: string;
+  initialSortType?: 'asc' | 'desc';
 };
 
 type IMarketTokenListBaseProps = {
@@ -60,6 +68,8 @@ function MarketTokenListBase({
     loadMore,
     setSortBy,
     setSortType,
+    initialSortBy,
+    initialSortType,
   } = result;
 
   // Listen to MarketWatchlistOnlyChanged event to update sort settings
@@ -93,10 +103,16 @@ function MarketTokenListBase({
 
   const handleSortChange = useCallback(
     (sortBy: string, sortType: 'asc' | 'desc' | undefined) => {
-      setSortBy(sortBy);
-      setSortType(sortType);
+      console.log('handleSortChange', sortBy, sortType);
+      if (sortType === undefined) {
+        setSortBy(initialSortBy);
+        setSortType(initialSortType);
+      } else {
+        setSortBy(sortBy);
+        setSortType(sortType);
+      }
     },
-    [setSortBy, setSortType],
+    [setSortBy, setSortType, initialSortBy, initialSortType],
   );
 
   const handleHeaderRow = useCallback(
@@ -110,12 +126,13 @@ function MarketTokenListBase({
           onSortTypeChange: (order: 'asc' | 'desc' | undefined) => {
             handleSortChange(sortKey, order);
           },
+          disableSort: isWatchlistMode ? [] : [ETableSortType.ASC],
         };
       }
 
       return undefined;
     },
-    [handleSortChange],
+    [handleSortChange, isWatchlistMode],
   );
 
   const handleEndReached = useCallback(() => {
