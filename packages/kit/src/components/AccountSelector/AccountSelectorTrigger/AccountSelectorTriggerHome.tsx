@@ -8,10 +8,12 @@ export function AccountSelectorTriggerHome({
   num,
   spotlightProps,
   linkNetworkId,
+  hideAddress,
 }: {
   num: number;
   spotlightProps?: ISpotlightViewProps;
   linkNetworkId?: string;
+  hideAddress?: boolean;
 }) {
   const {
     activeAccount: { network, vaultSettings },
@@ -28,7 +30,7 @@ export function AccountSelectorTriggerHome({
       showWalletName={false}
       num={num}
       linkNetwork={!network?.isAllNetworks}
-      hideAddress={vaultSettings?.mergeDeriveAssetsEnabled}
+      hideAddress={hideAddress ?? vaultSettings?.mergeDeriveAssetsEnabled}
       linkNetworkId={linkNetworkId}
       keepAllOtherAccounts
       allowSelectEmptyAccount
