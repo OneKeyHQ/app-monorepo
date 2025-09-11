@@ -1137,11 +1137,20 @@ class ServiceToken extends ServiceBase {
   public async fetchAggregateTokenConfigMap() {
     const controller = new AbortController();
     this._fetchAggregateTokenMapControllers.push(controller);
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.get<IFetchAggregateTokenConfigMapResp>(
-      '/wallet/v1/tokens/aggregate-chains',
-    );
-    return resp.data.data;
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.get<IFetchAggregateTokenConfigMapResp>(
+        '/wallet/v1/tokens/aggregate-chains',
+      );
+      return resp.data.data;
+    } catch (e) {
+      return {
+        tokens: {},
+        meta: {
+          homeDefaults: [],
+        },
+      };
+    }
   }
 
   @backgroundMethod()
