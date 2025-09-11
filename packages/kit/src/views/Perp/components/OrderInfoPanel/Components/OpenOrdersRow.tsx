@@ -211,8 +211,15 @@ const OpenOrdersRow = memo(
           alignItems={calcCellAlign(columnConfigs[0].align)}
           pl="$2"
         >
-          <SizableText size="$bodySm">{assetInfo.assetSymbol}</SizableText>
-          <SizableText size="$bodySm" color={assetInfo.typeColor}>
+          <SizableText size="$bodySm" numberOfLines={1} ellipsizeMode="tail">
+            {assetInfo.assetSymbol}
+          </SizableText>
+          <SizableText
+            size="$bodySm"
+            color={assetInfo.typeColor}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             {assetInfo.type}
           </SizableText>
         </YStack>
@@ -235,7 +242,9 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[2].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{assetInfo.orderType}</SizableText>
+          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+            {assetInfo.orderType}
+          </SizableText>
         </XStack>
 
         {/*  size */}
@@ -244,9 +253,13 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[3].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`${
-            orderBaseInfo.sizeFormatted as string
-          } ${assetInfo.assetSymbol}`}</SizableText>
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+          >{`${orderBaseInfo.sizeFormatted as string} ${
+            assetInfo.assetSymbol
+          }`}</SizableText>
         </XStack>
 
         {/* Original size */}
@@ -255,9 +268,13 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[4].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`${
-            orderBaseInfo.origSizeFormatted as string
-          } ${assetInfo.assetSymbol}`}</SizableText>
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+          >{`${orderBaseInfo.origSizeFormatted as string} ${
+            assetInfo.assetSymbol
+          }`}</SizableText>
         </XStack>
 
         {/* value */}
@@ -266,9 +283,11 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[5].align)}
           alignItems="center"
         >
-          <SizableText size="$bodySm">{`${
-            orderBaseInfo.valueFormatted as string
-          }`}</SizableText>
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+          >{`${orderBaseInfo.valueFormatted as string}`}</SizableText>
         </XStack>
 
         {/* Execute price */}
@@ -277,7 +296,7 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[6].align)}
           alignItems="center"
         >
-          <SizableText size="$bodyMd">
+          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
             {orderBaseInfo.executePriceFormatted as string}
           </SizableText>
         </XStack>
@@ -287,7 +306,7 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[7].align)}
           alignItems="center"
         >
-          <SizableText size="$bodyMd">
+          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
             {orderBaseInfo.triggerCondition}
           </SizableText>
         </XStack>
@@ -297,7 +316,9 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[8].align)}
           alignItems="center"
         >
-          <SizableText size="$bodyMd">{tpslInfo.tpsl}</SizableText>
+          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+            {tpslInfo.tpsl}
+          </SizableText>
         </XStack>
 
         {/* Cancel All */}
@@ -306,9 +327,11 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[9].align)}
           alignItems="center"
         >
-          <Button size="small" variant="tertiary" onPress={handleCancelAll}>
-            <SizableText size="$bodyMd">Cancel</SizableText>
-          </Button>
+          <XStack cursor="pointer" onPress={handleCancelAll}>
+            <SizableText color="$textSuccess" size="$bodySm">
+              Cancel
+            </SizableText>
+          </XStack>
         </XStack>
       </XStack>
     );

@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -15,11 +17,15 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import TokenIconView from '@onekeyhq/kit/src/components/TokenListView/TokenIconView';
+import { useAggregateTokensListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
-import type { ICustomTokenItem } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  ICustomTokenItem,
+} from '@onekeyhq/shared/types/token';
 
 function ListHeaderComponent({
   onAddCustomToken,
@@ -173,6 +179,35 @@ function TokenManagerList({
 }) {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
+  const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
+
+  const renderItemBadge = useCallback(
+    (item: IAccountToken) => {
+      if (!isAllNetwork) return null;
+
+      if (item.isAggregateToken) {
+        if (aggregateTokensListMap?.[item.$key]?.tokens.length > 1) {
+          return (
+            <Badge>
+              {intl.formatMessage({ id: ETranslations.global__multichain })}
+            </Badge>
+          );
+        }
+
+        return (
+          <Badge>
+            {networkMaps?.[
+              aggregateTokensListMap?.[item.$key]?.tokens?.[0]?.networkId ?? ''
+            ]?.name ?? ''}
+          </Badge>
+        );
+      }
+
+      return <Badge>{networkMaps?.[item.networkId ?? '']?.name ?? ''}</Badge>;
+    },
+    [aggregateTokensListMap, intl, isAllNetwork, networkMaps],
+  );
+
   if (isLoadingRemoteData || !dataSource) {
     return <SkeletonList />;
   }
@@ -216,9 +251,7 @@ function TokenManagerList({
               >
                 {item.symbol}
               </SizableText>
-              {isAllNetwork ? (
-                <Badge>{networkMaps?.[item.networkId ?? '']?.name ?? ''}</Badge>
-              ) : null}
+              {renderItemBadge(item)}
             </XStack>
             <SizableText
               size="$bodyMd"

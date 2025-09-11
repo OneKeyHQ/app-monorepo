@@ -1012,7 +1012,7 @@ class ServiceToken extends ServiceBase {
     Object.entries(tokens).forEach(
       ([commonSymbol, { data, logoURI, name }]) => {
         const filteredData = data.filter(
-          (token) => listedNetworkMap[token.networkId],
+          (token) => !!listedNetworkMap[token.networkId],
         );
 
         if (filteredData.length > 1) {
@@ -1146,6 +1146,44 @@ class ServiceToken extends ServiceBase {
       networkId,
       accountId,
     });
+  }
+
+  @backgroundMethod()
+  public async getLocalAggregateTokenListMap({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    return this.backgroundApi.simpleDb.aggregateToken.getAggregateTokenListMap({
+      networkId,
+      accountId,
+    });
+  }
+
+  @backgroundMethod()
+  public async updateLocalAggregateTokenListMap({
+    accountId,
+    networkId,
+    aggregateTokenListMap,
+  }: {
+    accountId: string;
+    networkId: string;
+    aggregateTokenListMap: Record<
+      string,
+      {
+        tokens: IAccountToken[];
+      }
+    >;
+  }) {
+    return this.backgroundApi.simpleDb.aggregateToken.updateAggregateTokenListMap(
+      {
+        accountId,
+        networkId,
+        aggregateTokenListMap,
+      },
+    );
   }
 
   @backgroundMethod()

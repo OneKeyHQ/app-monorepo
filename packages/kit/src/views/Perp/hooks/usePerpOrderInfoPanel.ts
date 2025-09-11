@@ -25,10 +25,12 @@ export function usePerpTradesHistory() {
         const trades =
           await backgroundApiProxy.serviceHyperliquidInfo.getUserFillsByTime({
             user: userAddress,
-            startTime: Date.now() - 1000 * 60 * 60 * 24 * 12, // 12 天前
+            startTime: Date.now() - 1000 * 60 * 60 * 24 * 300, // 300 天前
             aggregateByTime: true,
           });
-        return trades;
+
+        const sortedTrades = trades.sort((a, b) => b.time - a.time);
+        return sortedTrades;
       }
       return [];
     },
