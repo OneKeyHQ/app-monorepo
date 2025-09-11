@@ -71,6 +71,7 @@ export type ISortableSectionListProps<T> = Omit<
   }) => void;
   initialScrollIndex?: { sectionIndex: number; itemIndex?: number };
   allowCrossSection?: boolean;
+  isDragDisabled?: (layoutItem: ISectionLayoutItem) => boolean;
 };
 
 type IScrollToLocationParams = {
@@ -85,14 +86,14 @@ export type ISortableSectionListRef<T> = ISortableListViewRef<T> & {
   scrollToLocation: (info: IScrollToLocationParams) => void;
 };
 
-enum ESectionLayoutType {
+export enum ESectionLayoutType {
   Header = 'sectionHeader',
   SectionSeparator = 'sectionSeparator',
   Item = 'item',
   Footer = 'sectionFooter',
 }
 
-type ISectionLayoutItem = {
+export type ISectionLayoutItem = {
   index: number;
   type: ESectionLayoutType;
   value: any;
@@ -113,6 +114,7 @@ function BaseSortableSectionList<T>(
     onDragEnd,
     initialScrollIndex,
     allowCrossSection = false,
+    isDragDisabled,
     ...restProps
   }: ISortableSectionListProps<T>,
   parentRef: ForwardedRef<ISortableListViewRef<T>>,
@@ -346,6 +348,7 @@ function BaseSortableSectionList<T>(
       keyExtractor={reloadKeyExtractor}
       onDragEnd={reloadOnDragEnd}
       initialScrollIndex={reloadInitialScrollIndex}
+      isDragDisabled={isDragDisabled as any}
       {...restProps}
     />
   );
