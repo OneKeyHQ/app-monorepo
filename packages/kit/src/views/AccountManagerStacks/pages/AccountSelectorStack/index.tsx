@@ -48,12 +48,23 @@ export default function AccountSelectorStackPage({
   IAccountManagerStacksParamList,
   EAccountManagerStacksRoutes.AccountSelectorStack
 >) {
-  const { num, sceneName, sceneUrl, hideNonBackedUpWallet } = route.params;
+  const {
+    num,
+    sceneName,
+    sceneUrl,
+    hideNonBackedUpWallet,
+    linkNetworkId,
+    linkNetworkDeriveType,
+    linkNetwork,
+  } = route.params;
 
   defaultLogger.accountSelector.perf.renderAccountSelectorModal({
     num,
     sceneName,
     sceneUrl,
+    linkNetworkId,
+    linkNetworkDeriveType,
+    linkNetwork,
   });
 
   return (
