@@ -247,16 +247,16 @@ function TokenDetailsHeader(props: IProps) {
             <Stack flex={1}>
               {showLoadingState ? (
                 <Skeleton.Group show>
-                  <Skeleton.Heading3Xl />
+                  <Skeleton.Heading4Xl />
                   <Skeleton.BodyLg />
                 </Skeleton.Group>
               ) : (
                 <>
                   <NumberSizeableTextWrapper
                     hideValue
-                    size="$heading3xl"
+                    size="$heading4xl"
                     formatter="balance"
-                    formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
+                    fontWeight="bold"
                   >
                     {tokenDetails?.balanceParsed ?? '0'}
                   </NumberSizeableTextWrapper>
@@ -267,7 +267,7 @@ function TokenDetailsHeader(props: IProps) {
                       currency: settings.currencyInfo.symbol,
                     }}
                     color="$textSubdued"
-                    size="$bodyLgMedium"
+                    size="$bodyLg"
                   >
                     {tokenDetails?.fiatValue ?? '0'}
                   </NumberSizeableTextWrapper>
@@ -359,6 +359,7 @@ function TokenDetailsHeader(props: IProps) {
           <>
             <Divider />
             <YStack
+              userSelect="none"
               onPress={() =>
                 copyAccountAddress({
                   accountId,
@@ -395,7 +396,7 @@ function TokenDetailsHeader(props: IProps) {
                     </SizableText>
                   )}
                 </YStack>
-                <Icon name="Copy3Outline" color="$iconSubdued" />
+                <Icon name="Copy3Outline" color="$iconSubdued" size="$5" />
               </XStack>
             </YStack>
           </>
