@@ -9,6 +9,8 @@
 #import <React/RCTLog.h>
 #import <CocoaLumberjack/CocoaLumberjack.h>
 
+static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
+
 @interface LaunchOptionsManager ()
 @property (nonatomic, strong) NSDictionary *launchOptions;
 @end
