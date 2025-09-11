@@ -21,18 +21,16 @@ interface IUseMarketTokenListParams {
 
 export function useMarketTokenList({
   networkId,
-  initialSortBy,
-  initialSortType,
+  initialSortBy = 'v24hUSD',
+  initialSortType = 'desc',
   pageSize = 20,
 }: IUseMarketTokenListParams) {
   // Get minLiquidity from market config
   const { minLiquidity } = useMarketBasicConfig();
   const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
-  const [sortBy, setSortBy] = useState<string | undefined>(
-    initialSortBy || 'v24hUSD',
-  );
+  const [sortBy, setSortBy] = useState<string | undefined>(initialSortBy);
   const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
-    initialSortType || 'desc',
+    initialSortType,
   );
 
   // Pagination states
@@ -101,11 +99,10 @@ export function useMarketTokenList({
       return;
     }
 
-    const transformed = apiResult.list.map((item, idx) =>
+    const transformed = apiResult.list.map((item) =>
       transformApiItemToToken(item, {
         chainId: networkId,
         networkLogoUri,
-        index: idx,
       }),
     );
 
@@ -174,11 +171,10 @@ export function useMarketTokenList({
         setConsecutiveEmptyResponses(0);
 
         // Transform new data
-        const newTransformed = response.list.map((item, idx) =>
+        const newTransformed = response.list.map((item) =>
           transformApiItemToToken(item, {
             chainId: networkId,
             networkLogoUri,
-            index: transformedData.length + idx,
           }),
         );
 
@@ -216,7 +212,6 @@ export function useMarketTokenList({
     sortType,
     minLiquidity,
     networkLogoUri,
-    transformedData.length,
   ]);
 
   const canLoadMore =
@@ -227,6 +222,8 @@ export function useMarketTokenList({
     isLoading,
     isLoadingMore,
     isNetworkSwitching,
+    initialSortBy,
+    initialSortType,
     totalPages,
     totalCount,
     currentPage,

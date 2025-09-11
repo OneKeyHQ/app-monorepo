@@ -44,12 +44,10 @@ export function transformApiItemToToken(
   {
     chainId,
     networkLogoUri,
-    index,
     sortIndex,
   }: {
     chainId: string;
     networkLogoUri: string;
-    index?: number;
     sortIndex?: number;
   },
 ): IMarketToken {
