@@ -184,7 +184,7 @@ function BaseSortableListView<T>(
     contentContainerStyle = {},
     stickyHeaderIndices = [],
     ListHeaderComponent,
-    isDragDisabled,
+    getItemDragDisabled,
     ...restProps
   }: ISortableListViewProps<T>,
   ref: ForwardedRef<ISortableListViewRef<T>> | undefined,
@@ -272,7 +272,9 @@ function BaseSortableListView<T>(
           key={draggableId}
           draggableId={draggableId}
           index={index}
-          isDragDisabled={!enabled || (isDragDisabled?.(item, index) ?? false)}
+          isDragDisabled={
+            !enabled || (getItemDragDisabled?.(item, index) ?? false)
+          }
         >
           {(provided) => {
             lastIndexHeight = undefined;
@@ -331,7 +333,7 @@ function BaseSortableListView<T>(
       enabled,
       contentPaddingTop,
       renderItem,
-      isDragDisabled,
+      getItemDragDisabled,
     ],
   );
 

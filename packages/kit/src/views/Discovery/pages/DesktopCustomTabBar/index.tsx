@@ -342,9 +342,12 @@ function DesktopCustomTabBar() {
         SectionSeparatorComponent={null}
         onDragEnd={onDragEnd}
         allowCrossSection
-        isDragDisabled={(layoutItem: ISectionLayoutItem) => {
+        getItemDragDisabled={(layoutItem) => {
           // Disable dragging for section headers (which includes the new tab button)
-          return layoutItem.type === ESectionLayoutType.Header;
+          return (
+            (layoutItem as ISectionLayoutItem).type ===
+            ESectionLayoutType.Header
+          );
         }}
         renderSectionHeader={({ index }) =>
           index === 1 ? (
