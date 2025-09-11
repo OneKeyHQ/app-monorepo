@@ -5,6 +5,7 @@ import launchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsMana
 import { ELaunchOptionsLaunchType } from '@onekeyhq/shared/src/modules/LaunchOptionsManager/type';
 import type { INavigateToNotificationDetailParams } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
+import type { INotificationPushMessageInfo } from '@onekeyhq/shared/types/notification';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
@@ -46,57 +47,21 @@ export const useInitialNotification = (
       if (coldStartRef.current) {
         coldStartRef.current = false;
         const launchOptions = await launchOptionsManager.getLaunchOptions();
-        switch (launchOptions?.launchType) {
-          case ELaunchOptionsLaunchType.localNotification:
-            {
-              // locationNotification exmaple
-              // {
-              //   "userInfo": {
-              //       "extras": {
-              //           "payload": "{\n  \"screen\": \"modal\",\n  \"params\": {\n      \"screen\": \"StakingModal\",\n      \"params\": {\n          \"screen\": \"ProtocolDetailsV2\",\n          \"params\": {\n              \"accountId\": \"{local_accountId}\",\n              \"networkId\": \"evm--1\",\n              \"indexedAccountId\": \"{local_indexedAccountId}\",\n              \"provider\": \"ethena\",\n              \"symbol\": \"USDe\"\n           }\n       }\n   }\n}",
-              //           "msgId": "865b0498-7fd2-4dea-88b1-76cb34b6bc4b",
-              //           "topic": "announcement",
-              //           "params": {
-              //               "createdAt": "2025-09-12T10:07:20.219Z",
-              //               "instanceId": "de7cc9bd-d4fc-4718-88bc-16005a4263dc",
-              //               "msgId": "865b0498-7fd2-4dea-88b1-76cb34b6bc4b",
-              //               "announcementId": "272f9c01-a5fd-419a-94da-5bf394a30c08_1757585240229"
-              //           },
-              //           "mode": 1,
-              //           "badge": 8
-              //       },
-              //       "content": "content",
-              //       "title": "title",
-              //       "messageID": "865b0498-7fd2-4dea-88b1-76cb34b6bc4b"
-              //   },
-              //   "fireDate": 1757585240.350214
-              // }
-              const localNotification = launchOptions?.localNotification;
-              if (localNotification) {
-                const { userInfo } = localNotification;
-                if (userInfo) {
-                  await handleShowNotificationDetail({
-                    message: localNotification.userInfo,
-                    notificationAccountId: userInfo?.extras?.params?.accountId,
-                    mode: userInfo?.extras?.mode,
-                    payload: userInfo?.extras?.payload,
-                    notificationId:
-                      userInfo?.extras?.params?.msgId ||
-                      userInfo?.extras?.msgId ||
-                      '',
-                  });
-                }
-              }
-            }
-            break;
-          case ELaunchOptionsLaunchType.remoteNotification:
-            {
-              const remoteNotification = launchOptions?.remoteNotification;
-            }
-            break;
-          case ELaunchOptionsLaunchType.normal:
-          default:
-            break;
+        let userInfo: INotificationPushMessageInfo | undefined;
+        if (launchOptions?.localNotification) {
+          userInfo = launchOptions.localNotification.userInfo;
+        } else if (launchOptions?.remoteNotification) {
+          userInfo = launchOptions.remoteNotification.userInfo;
+        }
+        if (userInfo) {
+          await handleShowNotificationDetail({
+            message: userInfo,
+            notificationAccountId: userInfo?.extras?.params?.accountId,
+            mode: userInfo?.extras?.mode,
+            payload: userInfo?.extras?.payload,
+            notificationId:
+              userInfo?.extras?.params?.msgId || userInfo?.extras?.msgId || '',
+          });
         }
       }
     }, 350);
