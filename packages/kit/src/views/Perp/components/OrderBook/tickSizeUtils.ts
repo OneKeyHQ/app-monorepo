@@ -5,6 +5,8 @@
  * based on price and decimal precision requirements.
  */
 
+import BigNumber from 'bignumber.js';
+
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 
 type INSig = 2 | 3 | 4 | 5 | null;
@@ -121,22 +123,31 @@ export function buildTickOptions(
   const actualMultipliers = multipliers ?? defaultMultipliers;
 
   return actualMultipliers.map((mul) => {
-    // When decimals = 0, treat it as 1 for calculation but use special multipliers
-    const baseValue = decimals === 0 ? 1 : decimals;
-    const target = baseValue * mul;
+    let target: number;
 
-    // Special handling for BTC decimals=0, targetTick=1 case
-    if (decimals === 0 && target === 1) {
-      return {
-        targetTick: target,
-        nSigFigs: null,
-        mantissa: undefined,
-        apiTick: target,
-        exact: true,
-        multiplier: mul,
-        label: target.toString(),
-        value: target.toString(),
-      };
+    if (decimals === 0) {
+      // Special case for integer-only tokens (like BTC)
+      target = mul;
+
+      // Special handling for BTC decimals=0, targetTick=1 case
+      if (target === 1) {
+        return {
+          targetTick: target,
+          nSigFigs: null,
+          mantissa: undefined,
+          apiTick: target,
+          exact: true,
+          multiplier: mul,
+          label: target.toString(),
+          value: target.toString(),
+        };
+      }
+    } else {
+      // Use BigNumber for precise calculation to avoid floating point errors
+      const decimalsBN = new BigNumber(decimals);
+      const mulBN = new BigNumber(mul);
+      const targetBN = decimalsBN.multipliedBy(mulBN);
+      target = targetBN.toNumber();
     }
 
     const mapped = mapTickToParams(price, target);

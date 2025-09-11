@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import {
   analyzeOrderBookPrecision,
   getPriceScaleDecimals,
@@ -28,8 +30,11 @@ export function useTickOptions(
     const priceDecimals = getPriceScaleDecimals(marketPrice);
 
     // Handle edge case: when priceDecimals = 0, use 1 as base decimal
-    const baseDecimal = priceDecimals > 0 ? 10 ** -priceDecimals : 1;
-    const tickOptions = buildTickOptions(parseFloat(marketPrice), baseDecimal);
+    const decimalsArg =
+      priceDecimals === 0
+        ? 0
+        : new BigNumber(10).pow(-priceDecimals).toNumber();
+    const tickOptions = buildTickOptions(parseFloat(marketPrice), decimalsArg);
 
     // Use selected option or default
     const defaultTickOption = getDefaultTickOption(tickOptions);

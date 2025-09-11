@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import { getPriceScaleDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { buildTickOptions } from './tickSizeUtils';
@@ -71,7 +73,10 @@ describe('fixtures map', () => {
     it(`${symbol} options should match fixtures`, () => {
       const priceDecimals = getPriceScaleDecimals(cfg.price);
       expect(cfg.decimals).toBe(priceDecimals);
-      const decimalsArg = priceDecimals === 0 ? 0 : 10 ** -priceDecimals;
+      const decimalsArg =
+        priceDecimals === 0
+          ? 0
+          : new BigNumber(10).pow(-priceDecimals).toNumber();
       const built = buildTickOptions(cfg.price, decimalsArg);
 
       // targetTick sequence should match
