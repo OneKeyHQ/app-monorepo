@@ -53,42 +53,24 @@ export function useMarketTokenList({
     run: fetchMarketTokenList,
   } = usePromiseResult(
     async () => {
-      // Default to fetch first 2 pages, or all loaded pages if user has manually loaded more
-      const pagesToFetch = currentPage === 1 ? 2 : currentPage;
-      const pageNumbers = Array.from({ length: pagesToFetch }, (_, i) => i + 1);
-
-      const promises = pageNumbers.map((page) =>
-        backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
+      const response =
+        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
           networkId,
           sortBy,
           sortType,
-          page,
+          page: 1,
           limit: pageSize,
           minLiquidity,
-        }),
-      );
-
-      const responses = await Promise.all(promises);
-
-      // Update currentPage to reflect the pages we actually fetched (avoid triggering another fetch)
-      if (currentPage === 1 && pagesToFetch === 2) {
-        // Use setTimeout to avoid triggering usePromiseResult again immediately
-        setTimeout(() => setCurrentPage(2), 0);
-      }
-
-      // Combine all pages into a single response
-      const combinedList = responses.flatMap((response) => response.list);
-      const totalCount = responses[0]?.total || 0;
+        });
 
       return {
-        list: combinedList,
-        total: totalCount,
+        list: response.list,
+        total: response.total,
       };
     },
-    [networkId, sortBy, sortType, pageSize, minLiquidity, currentPage],
+    [networkId, sortBy, sortType, pageSize, minLiquidity],
     {
       watchLoading: true,
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 60 }),
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
     },
