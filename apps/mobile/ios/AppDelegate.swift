@@ -14,21 +14,6 @@ public class AppDelegate: ExpoAppDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
-    if let options = launchOptions {
-        let alert = UIAlertController(
-            title: "Launch Options",
-            message: "\(options)",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        
-        // Present alert on main thread after a short delay to ensure window is ready
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            if let rootViewController = self.window?.rootViewController {
-                rootViewController.present(alert, animated: true)
-            }
-        }
-    }
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
