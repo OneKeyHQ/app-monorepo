@@ -65,6 +65,7 @@ export type ICustomTokenItem = IAccountToken;
 export type IFetchAccountTokensParams = {
   accountId: string;
   networkId: string;
+  indexedAccountId?: string;
   cursor?: string;
   limit?: number;
   hideSmallBalanceTokens?: boolean;

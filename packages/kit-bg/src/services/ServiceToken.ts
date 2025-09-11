@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { debounce, isNil } from 'lodash';
+import { debounce, isNil, uniq } from 'lodash';
 
 import {
   backgroundClass,
@@ -49,6 +49,7 @@ import ServiceBase from './ServiceBase';
 import type { IDBAccount } from '../dbs/local/types';
 import type { ISimpleDBLocalTokens } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '../dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
+import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
 
 @backgroundClass()
 class ServiceToken extends ServiceBase {
@@ -109,6 +110,7 @@ class ServiceToken extends ServiceBase {
       mergeTokens,
       flag,
       accountId,
+      indexedAccountId,
       dbAccount,
       isAllNetworks,
       isManualRefresh,
@@ -165,13 +167,15 @@ class ServiceToken extends ServiceBase {
         getAccountAddressFn: async () => accountAddress,
       });
 
-    const [
+    let [
       customTokens,
       hiddenTokens,
       unblockedTokens,
       blockedTokens,
       vaultSettings,
       network,
+      aggregateHiddenTokens,
+      allAggregateTokenInfo,
     ] = await Promise.all([
       this.backgroundApi.serviceCustomToken.getCustomTokens({
         ...accountParams,
@@ -191,6 +195,14 @@ class ServiceToken extends ServiceBase {
       }),
       this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
       this.backgroundApi.serviceNetwork.getNetworkSafe({ networkId }),
+      // get aggregate hidden tokens
+      this.backgroundApi.serviceCustomToken.getHiddenTokens({
+        accountId: indexedAccountId ?? '',
+        accountXpubOrAddress: indexedAccountId,
+        networkId: AGGREGATE_TOKEN_MOCK_NETWORK_ID,
+        customTokensRawData,
+      }),
+      this.backgroundApi.serviceToken.getAllAggregateTokenInfo(),
     ]);
 
     rest.contractList = [
@@ -198,7 +210,22 @@ class ServiceToken extends ServiceBase {
       ...customTokens.map((t) => t.address),
     ];
 
-    rest.hiddenTokens = hiddenTokens.map((t) => t.address);
+    if (aggregateHiddenTokens?.length > 0) {
+      aggregateHiddenTokens.forEach((t) => {
+        if (allAggregateTokenInfo.allAggregateTokenMap[t.$key]) {
+          // @ts-ignore
+          hiddenTokens = [
+            ...hiddenTokens,
+            ...allAggregateTokenInfo.allAggregateTokenMap[t.$key].tokens.filter(
+              (token) => token.networkId === networkId,
+            ),
+          ];
+        }
+        return t;
+      });
+    }
+
+    rest.hiddenTokens = uniq(hiddenTokens.map((t) => t.address));
 
     rest.unblockedTokens = unblockedTokens;
     rest.blockedTokens = blockedTokens;
