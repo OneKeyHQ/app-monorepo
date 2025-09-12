@@ -224,7 +224,6 @@ export async function generateUploadNFTParams({
       zoomData?.arrayBuffer as Uint8Array,
     ),
     nftMetaData,
-    blurDataHex: '',
   };
 
   return params;

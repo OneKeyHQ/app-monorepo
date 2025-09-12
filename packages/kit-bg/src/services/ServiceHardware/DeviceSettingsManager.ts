@@ -255,7 +255,6 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             dataHex: finallyScreenHex,
             thumbnailDataHex: finallyThumbnailHex,
             nftMetaData: '',
-            blurDataHex: '',
           };
           // upload wallpaper resource will automatically set the home screen
           await convertDeviceResponse(() =>
