@@ -14,6 +14,8 @@ import type {
 import {
   ActionList,
   Badge,
+  Button,
+  Icon,
   IconButton,
   Page,
   Popover,
@@ -26,16 +28,12 @@ import {
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
-import {
-  HeaderIconButton,
-  NavCloseButton,
-} from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import type {
@@ -109,8 +107,6 @@ function TokenDetailsView() {
     isAggregateToken,
   } = route.params;
 
-  const navigation = useAppNavigation();
-
   const { gtMd } = useMedia();
 
   const [activeTabIndex, setActiveTabIndex] = useState(0);
@@ -120,14 +116,26 @@ function TokenDetailsView() {
   const renderAggregateTokens = useCallback(
     ({ closePopover }: { closePopover: () => void }) => {
       return (
-        <YStack gap="$3" px="$3" py={10}>
-          {gtMd ? (
-            <SizableText size="$headingSm">
-              {intl.formatMessage({
-                id: ETranslations.global_contract_address,
-              })}
-            </SizableText>
-          ) : null}
+        <YStack
+          gap="$3"
+          px="$5"
+          pt="$2"
+          pb="$5"
+          $gtMd={{
+            px: '$3',
+            py: '$2.5',
+          }}
+        >
+          <SizableText
+            $md={{
+              display: 'none',
+            }}
+            size="$headingSm"
+          >
+            {intl.formatMessage({
+              id: ETranslations.global_contract_address,
+            })}
+          </SizableText>
           {tokens.map((token) => (
             <XStack
               key={token.$key}
@@ -142,20 +150,42 @@ function TokenDetailsView() {
                 justifyContent="space-between"
               >
                 <XStack gap="$2" alignItems="center">
-                  <NetworkAvatar networkId={token.networkId} size="$4" />
+                  <NetworkAvatar
+                    networkId={token.networkId}
+                    size={gtMd ? '$4' : '$5'}
+                  />
                   <SizableText size="$bodyMd" numberOfLines={1}>
                     {token.networkName}
                   </SizableText>
                 </XStack>
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {accountUtils.shortenAddress({
-                    address: token.address,
-                  })}
-                </SizableText>
               </XStack>
-              {token.isNative ? null : (
-                <XStack gap="$2" alignItems="center">
-                  <IconButton
+              {!token.address ? null : (
+                <XStack gap="$3" alignItems="center">
+                  <Button
+                    size="small"
+                    variant="tertiary"
+                    onPress={() => copyText(token.address)}
+                  >
+                    <XStack alignItems="center" gap="$2">
+                      <SizableText
+                        fontFamily="$monoRegular"
+                        size="$bodyMd"
+                        color="$textSubdued"
+                      >
+                        {accountUtils.shortenAddress({
+                          address: token.address,
+                          leadingLength: 6,
+                          trailingLength: 4,
+                        })}
+                      </SizableText>
+                      <Icon
+                        name="Copy3Outline"
+                        size="$4"
+                        color="$iconSubdued"
+                      />
+                    </XStack>
+                  </Button>
+                  {/* <IconButton
                     title={intl.formatMessage({
                       id: ETranslations.global_copy,
                     })}
@@ -164,11 +194,12 @@ function TokenDetailsView() {
                     iconColor="$iconSubdued"
                     size="small"
                     onPress={() => copyText(token.address)}
-                  />
+                  /> */}
                   <IconButton
                     title={intl.formatMessage({
                       id: ETranslations.global_view_in_blockchain_explorer,
                     })}
+                    iconSize="$4"
                     variant="tertiary"
                     icon="OpenOutline"
                     iconColor="$iconSubdued"
@@ -188,7 +219,7 @@ function TokenDetailsView() {
         </YStack>
       );
     },
-    [tokens, gtMd, intl, copyText],
+    [intl, tokens, gtMd, copyText],
   );
 
   const headerRight = useCallback(() => {
@@ -202,6 +233,9 @@ function TokenDetailsView() {
           })}
           renderTrigger={<HeaderIconButton icon="InfoCircleOutline" />}
           renderContent={renderAggregateTokens}
+          floatingPanelProps={{
+            width: 320,
+          }}
         />
       );
     }
@@ -413,10 +447,9 @@ function TokenDetailsView() {
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
 
-  const headerLeft = useCallback(() => {
+  const headerTitle = useCallback(() => {
     return (
       <XStack alignItems="center" gap="$2">
-        <NavCloseButton onPress={() => navigation.pop()} />
         <Token
           size="sm"
           tokenImageUri={tokens[0].logoURI}
@@ -435,11 +468,11 @@ function TokenDetailsView() {
         ) : null}
       </XStack>
     );
-  }, [tokens, gtMd, network?.logoURI, networkId, navigation]);
+  }, [tokens, gtMd, network?.logoURI, networkId]);
 
   return (
     <Page lazyLoad safeAreaEnabled={false}>
-      <Page.Header headerRight={headerRight} headerLeft={headerLeft} />
+      <Page.Header headerRight={headerRight} headerTitle={headerTitle} />
       <Page.Body>{tokenDetailsViewElement}</Page.Body>
       <TokenDetailsFooter networkId={networkId} />
     </Page>
