@@ -212,12 +212,6 @@ export function useL2Book(options?: IL2BookOptions): {
       currentOptions?.mantissa !== prevOptions?.mantissa;
 
     if (hasChanged && currentToken) {
-      console.log('L2Book precision parameters changed, resubscribing:', {
-        from: prevOptions,
-        to: currentOptions,
-        token: currentToken,
-      });
-
       // Cancel current subscription and establish new one with updated parameters
       const resubscribe = async () => {
         try {

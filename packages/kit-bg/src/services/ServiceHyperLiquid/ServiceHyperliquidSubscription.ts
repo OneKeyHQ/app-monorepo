@@ -232,11 +232,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     toSubscribe: ISubscriptionSpec[],
   ): Promise<void> {
     if (toSubscribe.length) {
-      console.log(
-        `[HyperLiquid WebSocket] Subscribing to ${toSubscribe.length} subscriptions:`,
-        toSubscribe.map((s) => ({ key: s.key, params: s.params })),
-      );
-
       // Process subscriptions sequentially to avoid overwhelming the connection
       for (const spec of toSubscribe) {
         try {

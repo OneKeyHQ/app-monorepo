@@ -235,10 +235,6 @@ export function validateSubscriptionParams(
 export function calculateRequiredSubscriptions(
   state: ISubscriptionState,
 ): ISubscriptionSpec[] {
-  console.log(
-    '[HyperLiquid] calculateRequiredSubscriptions called with state:',
-    state,
-  );
   const specs: ISubscriptionSpec[] = [];
 
   specs.push({
@@ -263,15 +259,10 @@ export function calculateRequiredSubscriptions(
       coin: state.currentSymbol,
       ...(state.l2BookOptions || {}),
     };
-    console.log(
-      '[HyperLiquid] Creating L2_BOOK subscription with params:',
-      l2BookParams,
-    );
     const l2BookKey = generateSubscriptionKey(
       ESubscriptionType.L2_BOOK,
       l2BookParams,
     );
-    console.log('[HyperLiquid] Generated L2_BOOK subscription key:', l2BookKey);
     specs.push({
       type: ESubscriptionType.L2_BOOK,
       key: l2BookKey,
@@ -324,18 +315,6 @@ export function calculateSubscriptionDiff(
   const toUnsubscribe = currentSpecs.filter((spec) => !newKeys.has(spec.key));
   const toSubscribe = sortSubscriptionsByPriority(
     newSpecs.filter((spec) => !currentKeys.has(spec.key)),
-  );
-
-  console.log('[HyperLiquid] Subscription diff calculation:');
-  console.log('  Current keys:', Array.from(currentKeys));
-  console.log('  New keys:', Array.from(newKeys));
-  console.log(
-    '  To unsubscribe:',
-    toUnsubscribe.map((s) => s.key),
-  );
-  console.log(
-    '  To subscribe:',
-    toSubscribe.map((s) => s.key),
   );
 
   return {
