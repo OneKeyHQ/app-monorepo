@@ -30,11 +30,6 @@ import { b2t, toHumanReadable } from '../libs/utils';
 
 import type { IDependencies } from '.';
 import type { IInstallUpdateParams, IVerifyUpdateParams } from '../preload';
-
-autoUpdater.autoDownload = false;
-autoUpdater.autoInstallOnAppQuit = false;
-autoUpdater.logger = logger;
-
 interface ILatestVersion {
   version: string;
   releaseDate: string;

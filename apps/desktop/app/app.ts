@@ -773,7 +773,7 @@ function createMainWindow() {
 }
 
 function initChildProcess() {
-  return initProcess({ mainWindow: mainWindow as BrowserWindow, store });
+  return initProcess();
 }
 
 const singleInstance = app.requestSingleInstanceLock();

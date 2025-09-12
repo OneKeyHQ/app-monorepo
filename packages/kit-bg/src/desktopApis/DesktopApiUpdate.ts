@@ -15,6 +15,8 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IDesktopApi } from './base/types';
 import type { BrowserWindow } from 'electron';
 
+const isMas = !!process.mas;
+
 function isNetworkError(errorObject: Error) {
   return (
     errorObject.message === 'net::ERR_NETWORK_CHANGED' ||
@@ -34,6 +36,12 @@ export interface ILatestVersion {
   isManualCheck: boolean;
 }
 
+if (isMas) {
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
+  autoUpdater.logger = logger;
+}
+
 class DesktopApiUpdate {
   desktopApi: IDesktopApi;
 
@@ -45,14 +53,17 @@ class DesktopApiUpdate {
     this.desktopApi = desktopApi;
     this.isManualCheck = false;
     this.latestVersion = {} as ILatestVersion;
-    this.initEvents();
+    if (!isMas) {
+      this.initAppAutoUpdateEvents();
+      this.initBundleAutoUpdateEvents();
+    }
   }
 
   getMainWindow(): BrowserWindow | undefined {
     return globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
   }
 
-  initEvents(): void {
+  initAppAutoUpdateEvents(): void {
     autoUpdater.on('checking-for-update', () => {
       logger.info('auto-updater', 'Checking for update');
       this.getMainWindow()?.webContents.send(ipcMessageKeys.UPDATE_CHECKING);
@@ -189,6 +200,8 @@ class DesktopApiUpdate {
       },
     );
   }
+
+  initBundleAutoUpdateEvents(): void {}
 
   async checkForUpdates(isManual: boolean): Promise<void> {
     if (isManual) {
