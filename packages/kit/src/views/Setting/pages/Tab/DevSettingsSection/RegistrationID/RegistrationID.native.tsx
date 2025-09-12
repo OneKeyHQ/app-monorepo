@@ -5,10 +5,14 @@ import JPush from 'jpush-react-native';
 import { SectionPressItem } from '../SectionPressItem';
 
 export function RegistrationID() {
-  const [registrationID, setRegistrationID] = useState('');
+  const [registrationID, setRegistrationID] = useState(
+    'RegistrationID is empty',
+  );
   useEffect(() => {
     JPush.getRegistrationID((res) => {
-      setRegistrationID(res.registerID);
+      if (res.registerID) {
+        setRegistrationID(res.registerID);
+      }
     });
   }, []);
   return (

@@ -5,10 +5,12 @@ import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsMana
 import { SectionPressItem } from '../SectionPressItem';
 
 export function DeviceToken() {
-  const [deviceToken, setDeviceToken] = useState('');
+  const [deviceToken, setDeviceToken] = useState('DeviceToken is empty');
   useEffect(() => {
     void LaunchOptionsManager.getDeviceToken().then((token) => {
-      setDeviceToken(token || '');
+      if (token) {
+        setDeviceToken(token);
+      }
     });
   }, []);
   return (
@@ -16,7 +18,7 @@ export function DeviceToken() {
       icon="CodeOutline"
       copyable
       title={deviceToken}
-      subtitle="RegistrationID"
+      subtitle="iOS DeviceToken"
     />
   );
 }
