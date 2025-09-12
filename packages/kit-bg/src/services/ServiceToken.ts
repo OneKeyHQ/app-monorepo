@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { debounce, isNil } from 'lodash';
+import { debounce, isNil, uniq } from 'lodash';
 
 import {
   backgroundClass,
@@ -9,6 +9,7 @@ import {
   getListedNetworkMap,
   getNetworkIdsMap,
 } from '@onekeyhq/shared/src/config/networkIds';
+import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -109,6 +110,7 @@ class ServiceToken extends ServiceBase {
       mergeTokens,
       flag,
       accountId,
+      indexedAccountId,
       dbAccount,
       isAllNetworks,
       isManualRefresh,
@@ -165,13 +167,15 @@ class ServiceToken extends ServiceBase {
         getAccountAddressFn: async () => accountAddress,
       });
 
-    const [
+    let [
       customTokens,
       hiddenTokens,
       unblockedTokens,
       blockedTokens,
       vaultSettings,
       network,
+      aggregateHiddenTokens,
+      allAggregateTokenInfo,
     ] = await Promise.all([
       this.backgroundApi.serviceCustomToken.getCustomTokens({
         ...accountParams,
@@ -191,6 +195,14 @@ class ServiceToken extends ServiceBase {
       }),
       this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
       this.backgroundApi.serviceNetwork.getNetworkSafe({ networkId }),
+      // get aggregate hidden tokens
+      this.backgroundApi.serviceCustomToken.getHiddenTokens({
+        accountId: indexedAccountId ?? '',
+        accountXpubOrAddress: indexedAccountId,
+        networkId: AGGREGATE_TOKEN_MOCK_NETWORK_ID,
+        customTokensRawData,
+      }),
+      this.backgroundApi.serviceToken.getAllAggregateTokenInfo(),
     ]);
 
     rest.contractList = [
@@ -198,7 +210,21 @@ class ServiceToken extends ServiceBase {
       ...customTokens.map((t) => t.address),
     ];
 
-    rest.hiddenTokens = hiddenTokens.map((t) => t.address);
+    if (aggregateHiddenTokens?.length > 0) {
+      aggregateHiddenTokens.forEach((t) => {
+        if (allAggregateTokenInfo.allAggregateTokenMap[t.$key]) {
+          // @ts-ignore
+          hiddenTokens = [
+            ...hiddenTokens,
+            ...allAggregateTokenInfo.allAggregateTokenMap[t.$key].tokens.filter(
+              (token) => token.networkId === networkId,
+            ),
+          ];
+        }
+      });
+    }
+
+    rest.hiddenTokens = uniq(hiddenTokens.map((t) => t.address));
 
     rest.unblockedTokens = unblockedTokens;
     rest.blockedTokens = blockedTokens;
@@ -1110,11 +1136,20 @@ class ServiceToken extends ServiceBase {
   public async fetchAggregateTokenConfigMap() {
     const controller = new AbortController();
     this._fetchAggregateTokenMapControllers.push(controller);
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.get<IFetchAggregateTokenConfigMapResp>(
-      '/wallet/v1/tokens/aggregate-chains',
-    );
-    return resp.data.data;
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.get<IFetchAggregateTokenConfigMapResp>(
+        '/wallet/v1/tokens/aggregate-chains',
+      );
+      return resp.data.data;
+    } catch (e) {
+      return {
+        tokens: {},
+        meta: {
+          homeDefaults: [],
+        },
+      };
+    }
   }
 
   @backgroundMethod()

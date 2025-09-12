@@ -275,6 +275,7 @@ function TokenListContainer({
                 networkId: network.id,
                 flag: 'home-token-list',
                 saveToLocal: true,
+                indexedAccountId: indexedAccount?.id,
               }),
             ),
           );
@@ -355,6 +356,7 @@ function TokenListContainer({
             networkId: network.id,
             flag: 'home-token-list',
             saveToLocal: true,
+            indexedAccountId: indexedAccount?.id,
           });
 
           let accountWorth = new BigNumber(0);
@@ -535,6 +537,7 @@ function TokenListContainer({
         dbAccount,
         networkId,
         accountId,
+        indexedAccountId: indexedAccount?.id,
         flag: 'home-token-list',
         isAllNetworks: true,
         isManualRefresh: isAllNetworkManualRefresh.current,
@@ -685,6 +688,7 @@ function TokenListContainer({
     [
       account?.createAtNetwork,
       account?.id,
+      indexedAccount?.id,
       network?.id,
       refreshAggregateTokensListMap,
       refreshAggregateTokensMap,

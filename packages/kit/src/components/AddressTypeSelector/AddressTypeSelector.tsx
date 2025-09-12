@@ -558,6 +558,7 @@ function AddressTypeSelector(props: IProps) {
             mergeTokens: true,
             networkId,
             flag: 'address-type-selector',
+            indexedAccountId,
           }),
         ),
       );
@@ -576,7 +577,7 @@ function AddressTypeSelector(props: IProps) {
     } else {
       setTokenMap(tokenMapProp);
     }
-  }, [tokenMapProp, networkAccounts, networkId]);
+  }, [tokenMapProp, networkAccounts, networkId, indexedAccountId]);
 
   useEffect(() => {
     const fn = () => {

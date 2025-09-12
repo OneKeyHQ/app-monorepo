@@ -154,11 +154,110 @@ function formatPriceToValid(marketPrice: string | number): string {
   return price.toFixed(validDecimals).replace(/\.?0+$/, '');
 }
 
+/**
+ * Count decimal places in a string number
+ */
+function countDecimalPlaces(value: string): number {
+  const decimalIndex = value.indexOf('.');
+  if (decimalIndex === -1) return 0;
+  return value.length - decimalIndex - 1;
+}
+
+/**
+ * Get the most frequent decimal place count from an array of values
+ */
+function getMostFrequentDecimalPlaces(values: string[]): number {
+  if (values.length === 0) return 2; // Default fallback
+
+  const decimalCounts = values.map(countDecimalPlaces);
+  const frequency: { [key: number]: number } = {};
+
+  // Count frequency of each decimal place count
+  decimalCounts.forEach((count) => {
+    frequency[count] = (frequency[count] || 0) + 1;
+  });
+
+  // Find the decimal place count with highest frequency
+  let maxFrequency = 0;
+  let mostFrequentDecimals = 2; // Default
+
+  Object.entries(frequency).forEach(([decimals, freq]) => {
+    if (freq > maxFrequency) {
+      maxFrequency = freq;
+      mostFrequentDecimals = parseInt(decimals, 10);
+    }
+  });
+
+  // If no clear winner (all have same frequency), use the first decimal count encountered
+  if (maxFrequency === 1 && Object.keys(frequency).length > 1) {
+    mostFrequentDecimals = decimalCounts[0];
+  }
+
+  return mostFrequentDecimals;
+}
+
+/**
+ * Analyze decimal places requirements from order book data
+ *
+ * Takes the first 2 levels from bids and asks (up to 4 total levels) and analyzes:
+ * - Price decimal places from px values
+ * - Size decimal places from sz values (applies to both size and cumSize)
+ *
+ * @param bids - Array of bid levels
+ * @param asks - Array of ask levels
+ * @returns Object containing price and size decimal places
+ */
+function analyzeOrderBookPrecision(
+  bids: Array<{ px: string; sz: string }>,
+  asks: Array<{ px: string; sz: string }>,
+): {
+  priceDecimals: number;
+  sizeDecimals: number;
+} {
+  // Take first 2 levels from each side (up to 4 total)
+  const bidSample = bids.slice(0, 2);
+  const askSample = asks.slice(0, 2);
+  const allSamples = [...bidSample, ...askSample];
+
+  if (allSamples.length === 0) {
+    return { priceDecimals: 2, sizeDecimals: 4 }; // Default fallback
+  }
+
+  // Extract px and sz values
+  const priceValues = allSamples.map((level) => level.px);
+  const sizeValues = allSamples.map((level) => level.sz);
+
+  // Analyze decimal places for each type
+  const priceDecimals = getMostFrequentDecimalPlaces(priceValues);
+  const sizeDecimals = getMostFrequentDecimalPlaces(sizeValues);
+
+  return {
+    priceDecimals,
+    sizeDecimals,
+  };
+}
+
+/**
+ * Format value to specified decimal places using BigNumber precision
+ */
+function formatWithPrecision(
+  value: string | number | BigNumber,
+  decimals: number,
+): string {
+  const bn = value instanceof BigNumber ? value : new BigNumber(value);
+  if (!bn.isFinite()) return '0';
+  return bn.toFixed(decimals);
+}
+
 export {
   getValidPriceDecimals,
   getPriceScaleDecimals,
   calculatePriceScale,
   formatPriceToValid,
+  analyzeOrderBookPrecision,
+  formatWithPrecision,
+  countDecimalPlaces,
+  getMostFrequentDecimalPlaces,
 };
 
 export default {
@@ -166,4 +265,8 @@ export default {
   getPriceScaleDecimals,
   calculatePriceScale,
   formatPriceToValid,
+  analyzeOrderBookPrecision,
+  formatWithPrecision,
+  countDecimalPlaces,
+  getMostFrequentDecimalPlaces,
 };

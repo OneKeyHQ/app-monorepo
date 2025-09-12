@@ -202,8 +202,8 @@ function TxHistoryListViewSectionHeader(
   if (data[0] && data[0].decodedTx.status === EDecodedTxStatus.Pending) {
     return (
       <XStack
-        h="$9"
         px="$5"
+        py="$2"
         alignItems="center"
         bg="$bgApp"
         gap="$2"
@@ -215,7 +215,7 @@ function TxHistoryListViewSectionHeader(
           backgroundColor="$textCaution"
           borderRadius="$full"
         />
-        <SizableText numberOfLines={1} size="$headingSm" color="$textCaution">
+        <SizableText numberOfLines={1} size="$headingXs" color="$textCaution">
           {intl.formatMessage({ id: ETranslations.global_pending })}
         </SizableText>
       </XStack>
@@ -223,10 +223,11 @@ function TxHistoryListViewSectionHeader(
   }
 
   return (
-    <SectionList.SectionHeader
-      title={titleText}
-      mt={index === 0 ? '$0' : '$5'}
-    />
+    <Stack py="$2" px="$5" mt={index === 0 ? '$0' : '$5'}>
+      <SizableText size="$headingXs" color="$textSubdued">
+        {titleText}
+      </SizableText>
+    </Stack>
   );
 }
 

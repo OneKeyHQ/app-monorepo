@@ -5,6 +5,7 @@ import {
   IconButton,
   Input,
   ListView,
+  ScrollView,
   SizableText,
   Tabs,
   XStack,
@@ -236,84 +237,103 @@ export function CommonTableListView({
           flexGrow: 1,
         }}
       >
-        <YStack flex={1} minWidth={minTableWidth} width="100%" cursor="default">
-          <ListView
-            data={paginatedData}
-            renderItem={({ item, index }) => {
-              return renderRow(item, index);
-            }}
-            ListHeaderComponent={
-              <XStack
-                py="$2"
-                px="$3"
-                display="flex"
-                minWidth={minTableWidth}
-                width="100%"
-                borderBottomWidth="$px"
-                borderBottomColor={borderColor}
-                bg={headerBgColor}
-              >
-                {columns.map((column, index) => {
-                  return (
-                    <XStack
-                      key={column.key}
-                      {...getColumnStyle(column)}
-                      justifyContent={calcCellAlign(column.align) as any}
-                      {...(index === 0 && {
-                        pl: '$2',
-                      })}
+        <ScrollView
+          style={{
+            flex: 1,
+          }}
+          horizontal
+          showsHorizontalScrollIndicator
+          nestedScrollEnabled
+          contentContainerStyle={{
+            minWidth: minTableWidth,
+            flexGrow: 1,
+          }}
+        >
+          <YStack
+            flex={1}
+            minWidth={minTableWidth}
+            width="100%"
+            cursor="default"
+          >
+            <XStack
+              py="$2"
+              px="$3"
+              display="flex"
+              minWidth={minTableWidth}
+              width="100%"
+              borderBottomWidth="$px"
+              borderBottomColor={borderColor}
+              bg={headerBgColor}
+            >
+              {columns.map((column, index) => {
+                return (
+                  <XStack
+                    key={column.key}
+                    {...getColumnStyle(column)}
+                    justifyContent={calcCellAlign(column.align) as any}
+                    {...(index === 0 && {
+                      pl: '$2',
+                    })}
+                  >
+                    <SizableText
+                      size="$bodySm"
+                      color={headerTextColor}
+                      fontWeight="600"
+                      textAlign={column.align || 'left'}
                     >
-                      <SizableText
-                        size="$bodySm"
-                        color={headerTextColor}
-                        fontWeight="600"
-                        textAlign={column.align || 'left'}
-                      >
-                        {column.title}
-                      </SizableText>
-                    </XStack>
-                  );
-                })}
-              </XStack>
-            }
-            ListEmptyComponent={
-              <YStack
-                flex={1}
-                justifyContent="center"
-                alignItems="center"
-                p="$6"
-              >
-                <SizableText
-                  size="$bodyMd"
-                  color="$textSubdued"
-                  textAlign="center"
+                      {column.title}
+                    </SizableText>
+                  </XStack>
+                );
+              })}
+            </XStack>
+            <ListView
+              style={{
+                maxHeight: 254,
+              }}
+              data={paginatedData}
+              renderItem={({ item, index }) => {
+                return renderRow(item, index);
+              }}
+              ListEmptyComponent={
+                <YStack
+                  flex={1}
+                  justifyContent="center"
+                  alignItems="center"
+                  p="$6"
                 >
-                  {emptyMessage}
-                </SizableText>
-                <SizableText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  textAlign="center"
-                  mt="$2"
-                >
-                  {emptySubMessage}
-                </SizableText>
-              </YStack>
-            }
-          />
-          {enablePagination && totalPages > 1 ? (
-            <PaginationFooter
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPreviousPage={handlePreviousPage}
-              onNextPage={handleNextPage}
-              onPageChange={handlePageChange}
-              isMobile={isMobile}
-              headerBgColor={headerBgColor}
-              headerTextColor={headerTextColor}
+                  <SizableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    textAlign="center"
+                  >
+                    {emptyMessage}
+                  </SizableText>
+                  <SizableText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    textAlign="center"
+                    mt="$2"
+                  >
+                    {emptySubMessage}
+                  </SizableText>
+                </YStack>
+              }
             />
-          ) : null}
-        </YStack>
+            {enablePagination && totalPages > 1 ? (
+              <PaginationFooter
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPreviousPage={handlePreviousPage}
+                onNextPage={handleNextPage}
+                onPageChange={handlePageChange}
+                isMobile={isMobile}
+                headerBgColor={headerBgColor}
+                headerTextColor={headerTextColor}
+              />
+            ) : null}
+          </YStack>
+        </ScrollView>
       </Tabs.ScrollView>
     </YStack>
   );

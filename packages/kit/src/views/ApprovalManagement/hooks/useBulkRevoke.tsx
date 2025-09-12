@@ -203,7 +203,7 @@ function useBulkRevoke() {
                       contractMap,
                     });
                   } else {
-                    navigation.pushFullModal(EModalRoutes.PrimeModal, {
+                    navigation.pushModal(EModalRoutes.PrimeModal, {
                       screen: EPrimePages.PrimeFeatures,
                       params: {
                         showAllFeatures: false,
