@@ -25,6 +25,7 @@
 		EA9B87EC2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = EA9B87EB2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy */; };
 		EA9FF4ED2BDFFDBB00AC618A /* web-embed in Resources */ = {isa = PBXBuildFile; fileRef = EA9FF4EC2BDFFDBB00AC618A /* web-embed */; };
 		F42739F92D24DABD0072EBA9 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F42739F82D24DABD0072EBA9 /* StoreKit.framework */; };
+		LAUNCH0012E85D3A700D9A657 /* LaunchOptionsManager.m in Sources */ = {isa = PBXBuildFile; fileRef = LAUNCH0012E85D3A600D9A657 /* LaunchOptionsManager.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -98,6 +99,8 @@
 		EA9FF4EC2BDFFDBB00AC618A /* web-embed */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "web-embed"; path = "OneKeyWallet/web-embed"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F42739F82D24DABD0072EBA9 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
+		LAUNCH0012E85D3A600D9A657 /* LaunchOptionsManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = LaunchOptionsManager.m; path = OneKeyWallet/LaunchOptionsManager.m; sourceTree = "<group>"; };
+		LAUNCH0012E85D3A700D9A658 /* LaunchOptionsManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LaunchOptionsManager.h; path = OneKeyWallet/LaunchOptionsManager.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -137,6 +140,8 @@
 				0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */,
 				C28C89F72C85D3A700D9A657 /* JPushManager.h */,
 				C28C89F62C85D3A600D9A657 /* JPushManager.m */,
+				LAUNCH0012E85D3A700D9A658 /* LaunchOptionsManager.h */,
+				LAUNCH0012E85D3A600D9A657 /* LaunchOptionsManager.m */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				EA73E1F12C3EAEAD000E9398 /* GoogleService-Info.plist */,
@@ -443,6 +448,7 @@
 				"${PODS_CONFIGURATION_BUILD_DIR}/Sentry/Sentry.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/TOCropViewController/TOCropViewControllerBundle.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/boost/boost_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/glog/glog_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/lottie-ios/LottiePrivacyInfo.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/lottie-react-native/Lottie_React_Native_Privacy.bundle",
 			);
@@ -473,6 +479,7 @@
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Sentry.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/TOCropViewControllerBundle.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/boost_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/glog_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/LottiePrivacyInfo.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Lottie_React_Native_Privacy.bundle",
 			);
@@ -527,6 +534,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C28C89F82C85D3A700D9A657 /* JPushManager.m in Sources */,
+				LAUNCH0012E85D3A700D9A657 /* LaunchOptionsManager.m in Sources */,
 				31ADF8BB30114AF196CCBDE4 /* noop-file.swift in Sources */,
 				0799B7702E162F7D001ADEC8 /* AppDelegate.swift in Sources */,
 				EA7A13F42D9EEC2C002BD82F /* RCTRootViewBackground.m in Sources */,
@@ -734,10 +742,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "$(inherited)";
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -810,10 +815,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = "$(inherited)";
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;
