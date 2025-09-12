@@ -264,11 +264,17 @@ function BulkRevokeItem(props: IProps) {
           backgroundColor="$bgSubdued"
           padding="$0"
         >
-          <YStack gap="$4" px="$5" py="$5">
+          <YStack
+            gap="$4"
+            px="$5"
+            py="$5"
+            borderBottomWidth={1}
+            borderColor="$neutral3"
+          >
             <XStack alignItems="flex-start" justifyContent="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
                 {intl.formatMessage({
-                  id: ETranslations.wallet_approval_bulk_revoke_approved_spender,
+                  id: ETranslations.global_contract_address,
                 })}
               </SizableText>
               <XStack alignItems="center" gap="$2">
