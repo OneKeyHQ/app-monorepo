@@ -20,7 +20,7 @@ import { useTokenDetail } from '../hooks/useTokenDetail';
 
 import type { LayoutChangeEvent } from 'react-native';
 
-export function DesktopLayout() {
+export function DesktopLayout({ isNative = false }: { isNative?: boolean }) {
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
   const [, setLeftColumnWidth] = useLeftColumnWidthAtom();
 
@@ -35,7 +35,7 @@ export function DesktopLayout() {
   return (
     <>
       {/* Header */}
-      <TokenDetailHeader />
+      <TokenDetailHeader isNative={isNative} />
 
       {/* Main Content */}
       <XStack flex={1}>
@@ -53,7 +53,7 @@ export function DesktopLayout() {
           </Stack>
 
           {/* Info tabs */}
-          {tokenDetail?.address ? (
+          {!isNative ? (
             <Stack h="30vh">
               <DesktopInformationTabs />
             </Stack>
@@ -61,7 +61,7 @@ export function DesktopLayout() {
         </YStack>
 
         {/* Right column */}
-        {tokenDetail?.address ? (
+        {!isNative ? (
           <Stack w={320}>
             <ScrollView>
               <Stack w={320}>
