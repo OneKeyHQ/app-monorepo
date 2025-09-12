@@ -21,10 +21,12 @@ export const useStarV2Checked = ({
   chainId,
   contractAddress,
   from,
+  isNative = false,
 }: {
   chainId: string;
   contractAddress: string;
   from: EWatchlistFrom;
+  isNative?: boolean;
 }) => {
   const actions = useWatchListV2Action();
   const [{ data: watchListData, isMounted }] = useMarketWatchListV2Atom();
@@ -53,13 +55,13 @@ export const useStarV2Checked = ({
         removeWatchlistFrom: from,
       });
     } else {
-      actions.addIntoWatchListV2([{ chainId, contractAddress }]);
+      actions.addIntoWatchListV2([{ chainId, contractAddress, isNative }]);
       defaultLogger.market.token.addToWatchList({
         tokenSymbol: `${chainId}:${contractAddress}`,
         addWatchlistFrom: from,
       });
     }
-  }, [checked, actions, chainId, contractAddress, from]);
+  }, [checked, actions, chainId, contractAddress, from, isNative]);
 
   return useMemo(
     () => ({
@@ -75,18 +77,21 @@ function BasicMarketStarV2({
   contractAddress,
   size,
   from,
+  isNative = false,
   ...props
 }: {
   size?: IIconButtonProps['size'];
   chainId: string;
   contractAddress: string;
   from: EWatchlistFrom;
+  isNative?: boolean;
 } & IStackProps) {
   const intl = useIntl();
   const { onPress, checked } = useStarV2Checked({
     chainId,
     contractAddress,
     from,
+    isNative,
   });
 
   return (

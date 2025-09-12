@@ -10,6 +10,7 @@ import type {
   IFill,
   IHex,
   IUserFillsByTimeParameters,
+  IUserFillsParameters,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import ServiceBase from '../ServiceBase';
@@ -68,6 +69,18 @@ export default class ServiceHyperliquidInfo extends ServiceBase {
     const infoClient = await this._ensureInfoClient();
     try {
       return await infoClient.userFillsByTime(params);
+    } catch (error) {
+      throw new OneKeyLocalError(
+        `Failed to get user fills by time: ${String(error)}`,
+      );
+    }
+  }
+
+  @backgroundMethod()
+  async getUserFills(params: IUserFillsParameters): Promise<IFill[]> {
+    const infoClient = await this._ensureInfoClient();
+    try {
+      return await infoClient.userFills(params);
     } catch (error) {
       throw new OneKeyLocalError(
         `Failed to get user fills by time: ${String(error)}`,

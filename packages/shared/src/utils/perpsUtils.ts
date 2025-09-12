@@ -238,6 +238,48 @@ function analyzeOrderBookPrecision(
 }
 
 /**
+ * Calculate bid-ask spread percentage
+ *
+ * Formula: ((bestAsk - bestBid) / midPrice) * 100
+ *
+ * @param bestBid - Best bid price
+ * @param bestAsk - Best ask price
+ * @returns Formatted spread percentage string (e.g., "0.025%")
+ */
+function calculateSpreadPercentage(
+  bestBid: string | number,
+  bestAsk: string | number,
+): string {
+  const bestBidBN = new BigNumber(bestBid);
+  const bestAskBN = new BigNumber(bestAsk);
+
+  if (
+    bestBidBN.isZero() ||
+    bestAskBN.isZero() ||
+    !bestBidBN.isFinite() ||
+    !bestAskBN.isFinite()
+  ) {
+    return '0.000%';
+  }
+
+  // Ensure ask >= bid to avoid negative spreads
+  if (bestAskBN.isLessThan(bestBidBN)) {
+    return '0.000%';
+  }
+
+  const spread = bestAskBN.minus(bestBidBN);
+  const midPrice = bestBidBN.plus(bestAskBN).dividedBy(2);
+
+  if (midPrice.isZero()) {
+    return '0.000%';
+  }
+
+  const spreadPercentage = spread.dividedBy(midPrice).multipliedBy(100);
+
+  return `${spreadPercentage.toFixed(3)}%`;
+}
+
+/**
  * Format value to specified decimal places using BigNumber precision
  */
 function formatWithPrecision(
@@ -258,6 +300,7 @@ export {
   formatWithPrecision,
   countDecimalPlaces,
   getMostFrequentDecimalPlaces,
+  calculateSpreadPercentage,
 };
 
 export default {
@@ -269,4 +312,5 @@ export default {
   formatWithPrecision,
   countDecimalPlaces,
   getMostFrequentDecimalPlaces,
+  calculateSpreadPercentage,
 };

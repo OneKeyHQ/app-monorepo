@@ -40,7 +40,7 @@ function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
   };
 
   return (
-    <YStack flex={1} minHeight={300} overflow="hidden">
+    <YStack overflow="hidden">
       <Tabs.Container
         ref={tabsRef as any}
         headerHeight={80}

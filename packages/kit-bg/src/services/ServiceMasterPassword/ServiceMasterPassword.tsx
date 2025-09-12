@@ -341,11 +341,13 @@ class ServiceMasterPassword extends ServiceBase {
     masterPasswordUUID: string;
     encryptedSecurityPasswordR1: string;
   }) {
-    // primeMasterPasswordPersistAtom
-    await primeMasterPasswordPersistAtom.set({
-      masterPasswordUUID,
-      encryptedSecurityPasswordR1,
-    });
+    await primeMasterPasswordPersistAtom.set(
+      (v): IPrimeMasterPasswordPersistAtomData => ({
+        ...v,
+        masterPasswordUUID,
+        encryptedSecurityPasswordR1,
+      }),
+    );
   }
 
   @backgroundMethod()

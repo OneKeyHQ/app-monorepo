@@ -4,7 +4,6 @@ import {
   useAllMidsAtom,
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useTokenList } from '../../../hooks';
 import {
@@ -15,6 +14,8 @@ import { showClosePositionDialog } from '../ClosePositionModal';
 import { PositionRow } from '../Components/PositionsRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
+
+import type { AssetPosition } from '@nktkas/hyperliquid';
 
 interface IPerpPositionsListProps {
   handleViewTpslOrders: () => void;
@@ -32,11 +33,11 @@ function PerpPositionsList({
   const { getTokenInfo } = useTokenList();
   const columnsConfig: IColumnConfig[] = useMemo(() => {
     return [
-      { key: 'asset', title: 'Asset', width: 100, align: 'left' },
+      { key: 'asset', title: 'Asset', width: 120, align: 'left' },
       {
         key: 'size',
         title: 'Position Size',
-        minWidth: 100,
+        minWidth: 120,
         align: 'left',
         flex: 1,
       },
@@ -64,7 +65,7 @@ function PerpPositionsList({
       {
         key: 'pnl',
         title: 'PnL (ROE %)',
-        minWidth: 140,
+        minWidth: 160,
         align: 'left',
         flex: 1,
       },
@@ -100,6 +101,13 @@ function PerpPositionsList({
       ),
     [columnsConfig],
   );
+  const positionSort = useMemo<AssetPosition[]>(() => {
+    return positions.sort(
+      (a, b) =>
+        parseFloat(b.position.positionValue || '0') -
+        parseFloat(a.position.positionValue || '0'),
+    );
+  }, [positions]);
 
   const onAllClose = () => {
     console.log('onAllClose');
@@ -110,14 +118,14 @@ function PerpPositionsList({
   const handleLimitClose = ({
     position,
   }: {
-    position: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
+    position: AssetPosition['position'];
   }) => {
     // TODO: implement limit close
   };
   const handleMarketClose = ({
     position,
   }: {
-    position: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
+    position: AssetPosition['position'];
   }) => {
     const tokenInfo = getTokenInfo(position.coin);
     if (tokenInfo) {
@@ -129,10 +137,7 @@ function PerpPositionsList({
       });
     }
   };
-  const renderPositionRow = (
-    item: IWsWebData2['clearinghouseState']['assetPositions'][number],
-    _index: number,
-  ) => {
+  const renderPositionRow = (item: AssetPosition, _index: number) => {
     const position = item.position;
     const coin = position?.coin;
     const szi = position?.szi;
@@ -166,7 +171,7 @@ function PerpPositionsList({
     <CommonTableListView
       columns={columnsConfig}
       minTableWidth={totalMinWidth}
-      data={positions}
+      data={positionSort}
       isMobile={isMobile}
       renderRow={renderPositionRow}
       emptyMessage="No open positions"

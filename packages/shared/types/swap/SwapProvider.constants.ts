@@ -319,11 +319,10 @@ export const swapDefaultSetTokens: Record<
       'networkId': 'evm--10',
       'contractAddress': '',
       'name': 'Ethereum',
-      'symbol': 'ETH',
+      'symbol': 'OP_ETH',
       'decimals': 18,
       'logoURI':
-        'https://uni.onekey-asset.com/server-service-indexer/evm--10/tokens/address--1721283262262.png',
-
+        'https://uni.onekey-asset.com/server-service-indexer/evm--10/tokens/address--1757572896508.png',
       'isNative': true,
       'networkLogoURI':
         'https://uni.onekey-asset.com/static/chain/optimism.png',
@@ -346,10 +345,10 @@ export const swapDefaultSetTokens: Record<
       'networkId': 'evm--42161',
       'contractAddress': '',
       'name': 'Ethereum',
-      'symbol': 'ETH',
+      'symbol': 'ARB_ETH',
       'decimals': 18,
       'logoURI':
-        'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address--1720669989878.png',
+        'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address--1757572071995.png',
       'isNative': true,
       'networkLogoURI':
         'https://uni.onekey-asset.com/static/chain/arbitrum.png',
@@ -396,10 +395,10 @@ export const swapDefaultSetTokens: Record<
       'networkId': 'evm--8453',
       'contractAddress': '',
       'name': 'Ethereum',
-      'symbol': 'ETH',
+      'symbol': 'BASE_ETH',
       'decimals': 18,
       'logoURI':
-        'https://uni.onekey-asset.com/server-service-indexer/evm--8453/tokens/address--1721283653512.png',
+        'https://uni.onekey-asset.com/server-service-indexer/evm--8453/tokens/address--1757573722872.png',
       'isNative': true,
       'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/base.png',
     },
@@ -467,10 +466,10 @@ export const swapDefaultSetTokens: Record<
       'networkId': 'evm--324',
       'contractAddress': '',
       'name': 'Ethereum',
-      'symbol': 'ETH',
+      'symbol': 'ERA_ETH',
       'decimals': 18,
       'logoURI':
-        'https://uni.onekey-asset.com/server-service-onchain/evm--324/tokens/native.png',
+        'https://uni.onekey-asset.com/dashboard/logo/upload_1757574760755.0.964469242103166.0.png',
       'isNative': true,
       'networkLogoURI':
         'https://uni.onekey-asset.com/static/chain/zksync-era-mainnet.png',
@@ -516,11 +515,11 @@ export const swapDefaultSetTokens: Record<
     fromToken: {
       'networkId': 'evm--534352',
       'contractAddress': '',
-      'name': 'Ethereum',
-      'symbol': 'ETH',
+      'name': 'Ether',
+      'symbol': 'SCROLL_ETH',
       'decimals': 18,
       'logoURI':
-        'https://uni-test.onekey-asset.com/server-service-onchain/evm--534352/tokens/native.png',
+        'https://uni.onekey-asset.com/dashboard/logo/upload_1757574859610.0.3458294388024681.0.png',
       'isNative': true,
       'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/scr.png',
     },
@@ -565,10 +564,10 @@ export const swapDefaultSetTokens: Record<
       'networkId': 'evm--81457',
       'contractAddress': '',
       'name': 'Ethereum',
-      'symbol': 'ETH',
+      'symbol': 'BLAST_ETH',
       'decimals': 18,
       'logoURI':
-        'https://uni-test.onekey-asset.com/server-service-onchain/evm--81457/tokens/native.png',
+        'https://uni.onekey-asset.com/dashboard/logo/upload_1757573771771.0.8754318534235737.0.png',
       'isNative': true,
       'networkLogoURI': 'https://uni.onekey-asset.com/static/logo/blast.png',
     },
@@ -969,11 +968,10 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
       'networkId': 'evm--42161',
       'contractAddress': '',
       'name': 'Ethereum',
-      'symbol': 'ETH',
+      'symbol': 'ARB_ETH',
       'decimals': 18,
       'logoURI':
-        'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address--1720669989878.png',
-
+        'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address--1757572071995.png',
       'isNative': true,
       'isPopular': true,
       'networkLogoURI':
@@ -1041,11 +1039,10 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
       'networkId': 'evm--8453',
       'contractAddress': '',
       'name': 'Ethereum',
-      'symbol': 'ETH',
+      'symbol': 'BASE_ETH',
       'decimals': 18,
       'logoURI':
-        'https://uni.onekey-asset.com/server-service-indexer/evm--8453/tokens/address--1721283653512.png',
-
+        'https://uni.onekey-asset.com/server-service-indexer/evm--8453/tokens/address--1757573722872.png',
       'isNative': true,
       'isPopular': true,
       'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/base.png',
@@ -1283,11 +1280,10 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
       'networkId': 'evm--10',
       'contractAddress': '',
       'name': 'Ethereum',
-      'symbol': 'ETH',
+      'symbol': 'OP_ETH',
       'decimals': 18,
       'logoURI':
-        'https://uni.onekey-asset.com/server-service-indexer/evm--10/tokens/address--1721283262262.png',
-
+        'https://uni.onekey-asset.com/server-service-indexer/evm--10/tokens/address--1757572896508.png',
       'isNative': true,
       'isPopular': true,
       'networkLogoURI':
@@ -1434,11 +1430,10 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
       'networkId': 'evm--324',
       'contractAddress': '',
       'name': 'Ethereum',
-      'symbol': 'ETH',
+      'symbol': 'ERA_ETH',
       'decimals': 18,
       'logoURI':
-        'https://uni.onekey-asset.com/server-service-onchain/evm--324/tokens/native.png',
-
+        'https://uni.onekey-asset.com/dashboard/logo/upload_1757574760755.0.964469242103166.0.png',
       'isNative': true,
       'isPopular': true,
       'networkLogoURI':

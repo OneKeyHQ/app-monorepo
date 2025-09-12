@@ -132,14 +132,28 @@ const OpenOrdersRow = memo(
             alignItems="center"
           >
             <YStack gap="$2">
-              <SizableText size="$bodyMdMedium">
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodyMdMedium"
+              >
                 {assetInfo.assetSymbol}
               </SizableText>
               <XStack gap="$2">
-                <SizableText size="$bodySm" color={assetInfo.typeColor}>
+                <SizableText
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  size="$bodySm"
+                  color={assetInfo.typeColor}
+                >
                   {`${assetInfo.orderType} / ${assetInfo.type}`}
                 </SizableText>
-                <SizableText size="$bodySm" color="$textSubdued">
+                <SizableText
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  size="$bodySm"
+                  color="$textSubdued"
+                >
                   {`${dateInfo.date} ${dateInfo.time}`}
                 </SizableText>
               </XStack>
@@ -166,7 +180,7 @@ const OpenOrdersRow = memo(
             justifyContent="space-between"
           >
             <SizableText size="$bodySm">Price</SizableText>
-            <SizableText size="$bodySm">
+            <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
               {`${orderBaseInfo.priceFormatted as string}`}
             </SizableText>
           </XStack>
@@ -176,7 +190,7 @@ const OpenOrdersRow = memo(
             justifyContent="space-between"
           >
             <SizableText size="$bodySm">Trigger Condition</SizableText>
-            <SizableText size="$bodySm">
+            <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
               {`${orderBaseInfo.triggerCondition}`}
             </SizableText>
           </XStack>
@@ -186,7 +200,11 @@ const OpenOrdersRow = memo(
             justifyContent="space-between"
           >
             <SizableText size="$bodySm">TP/SL</SizableText>
-            <SizableText size="$bodySm">{`${tpslInfo.tpsl}`}</SizableText>
+            <SizableText
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              size="$bodySm"
+            >{`${tpslInfo.tpsl}`}</SizableText>
           </XStack>
         </ListItem>
       );
@@ -230,8 +248,15 @@ const OpenOrdersRow = memo(
           justifyContent="center"
           alignItems={calcCellAlign(columnConfigs[1].align)}
         >
-          <SizableText size="$bodySm">{dateInfo.date}</SizableText>
-          <SizableText size="$bodySm" color="$textSubdued">
+          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+            {dateInfo.date}
+          </SizableText>
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+            color="$textSubdued"
+          >
             {dateInfo.time}
           </SizableText>
         </YStack>

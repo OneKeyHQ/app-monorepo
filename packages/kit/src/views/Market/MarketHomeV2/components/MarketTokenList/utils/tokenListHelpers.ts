@@ -40,7 +40,7 @@ function safeNumber(value: string | undefined, fallback = 0): number {
  * Convert raw api item to component token shape
  */
 export function transformApiItemToToken(
-  item: IMarketTokenListItem,
+  item: IMarketTokenListItem & { isNative?: boolean },
   {
     chainId,
     networkLogoUri,
@@ -51,14 +51,11 @@ export function transformApiItemToToken(
     sortIndex?: number;
   },
 ): IMarketToken {
-  // Normalize address: treat short addresses (< 10 chars) as empty strings for native tokens
-  const normalizedAddress = item.address.length < 10 ? '' : item.address;
-
   return {
     id: `${item.address}${item.name}${networkLogoUri}${item.symbol}`,
     name: item.name,
     symbol: item.symbol,
-    address: normalizedAddress,
+    address: item.address,
     price: safeNumber(item.price),
     change24h: safeNumber(item.priceChange24hPercent),
     marketCap: safeNumber(item.marketCap),
@@ -72,6 +69,7 @@ export function transformApiItemToToken(
     networkId: item.networkId || chainId,
     chainId,
     sortIndex,
+    isNative: item.isNative,
     walletInfo: {
       buy: safeNumber(item.buy24hCount),
       sell: safeNumber(item.sell24hCount),

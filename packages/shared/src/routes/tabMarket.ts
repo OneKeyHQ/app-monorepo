@@ -13,5 +13,6 @@ export type ITabMarketParamList = {
     tokenAddress: string;
     networkId: string;
     symbol?: string;
+    isNative?: boolean;
   };
 };

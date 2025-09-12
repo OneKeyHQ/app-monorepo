@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { Icon, Select, useTheme, useThemeName } from '@onekeyhq/components';
+import { calculateSpreadPercentage } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { DefaultLoadingNode } from './DefaultLoadingNode';
@@ -95,7 +96,10 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   monospaceText: {
-    fontFamily: 'monospace',
+    fontFamily: 'SFMono-Regular',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '500',
   },
   colorBlock: {
     position: 'relative',
@@ -334,6 +338,18 @@ export function OrderBook({
   const blockColors = useBlockColors();
   const textColor = useTextColor();
   const spreadColor = useSpreadColor();
+
+  // Calculate spread percentage from best bid/ask
+  const spreadPercentage = useMemo(() => {
+    const bestBid = aggregatedData.bids[0]?.price;
+    const bestAsk = aggregatedData.asks[0]?.price;
+
+    if (!bestBid || !bestAsk) {
+      return '0.000%';
+    }
+
+    return calculateSpreadPercentage(bestBid, bestAsk);
+  }, [aggregatedData.bids, aggregatedData.asks]);
 
   if (horizontal) {
     return (
@@ -609,7 +625,7 @@ export function OrderBook({
               />
             ) : null}
             <Text style={[styles.bodySm, { color: textColor.text }]}>
-              0.002%
+              {spreadPercentage}
             </Text>
           </View>
           {aggregatedData.bids.map((itemData, index) => (
@@ -646,22 +662,10 @@ function OrderBookPairRow({
         alignItems: 'center',
       }}
     >
-      <Text
-        style={[
-          styles.monospaceText,
-          styles.bodySmMedium,
-          { color: priceColor },
-        ]}
-      >
+      <Text style={[styles.monospaceText, { color: priceColor }]}>
         {item.price}
       </Text>
-      <Text
-        style={[
-          styles.monospaceText,
-          styles.bodySmMedium,
-          { color: sizeColor },
-        ]}
-      >
+      <Text style={[styles.monospaceText, { color: sizeColor }]}>
         {item.size}
       </Text>
     </View>
@@ -701,6 +705,18 @@ export function OrderPairBook({
   );
   const textColor = useTextColor();
   const blockColors = useBlockColors();
+
+  // Calculate spread percentage from best bid/ask
+  const spreadPercentage = useMemo(() => {
+    const bestBid = aggregatedData.bids[0]?.price;
+    const bestAsk = aggregatedData.asks[0]?.price;
+
+    if (!bestBid || !bestAsk) {
+      return '0.000%';
+    }
+
+    return calculateSpreadPercentage(bestBid, bestAsk);
+  }, [aggregatedData.bids, aggregatedData.asks]);
   return (
     <View style={{ padding: 8 }}>
       <View style={styles.pairBookHeader}>
@@ -751,7 +767,7 @@ export function OrderPairBook({
               {midPrice}
             </Text>
             <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
-              0.002%
+              {spreadPercentage}
             </Text>
           </View>
           {aggregatedData.bids.map((itemData, index) => (

@@ -243,6 +243,7 @@ export interface IMarketWatchListItemV2 {
   chainId: string;
   contractAddress: string;
   sortIndex?: number;
+  isNative?: boolean;
 }
 
 export interface IMarketWatchListDataV2 {
