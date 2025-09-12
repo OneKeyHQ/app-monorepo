@@ -158,7 +158,7 @@ runs:
         else
           # Generate build number ------- start
           DATE=`date "+%Y%m%d"`
-          run_number=$(($workflow_run_number % 100))
+          run_number=$((${workflow_run_number:-1000} % 100))
           run_number=$(printf "%02d" $run_number)
           build_number="${DATE}${run_number}"
           echo '$build_number='$build_number
