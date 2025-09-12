@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import {
   useAppExitPrevent,
@@ -36,6 +37,7 @@ export function PrimeTransferExitPrevent({
       console.error('onConfirmCallback handleLeaveRoom error', error);
     }
     try {
+      await timerUtils.wait(600);
       await backgroundApiProxy.servicePrimeTransfer.refreshQrcodeHook();
     } catch (error) {
       console.error('onConfirmCallback refreshQrcodeHook error', error);
