@@ -1,5 +1,5 @@
-import type { PropsWithChildren, ReactElement, RefObject } from 'react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { RefObject } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 import { globalRef } from 'react-native-draggable-flatlist/src/context/globalRef';
@@ -11,19 +11,15 @@ import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import { IconButton } from '../../actions/IconButton';
 import { ListView } from '../../layouts/ListView';
 import { SortableListView } from '../../layouts/SortableListView';
-import { Icon, SizableText, Stack, XStack, YStack } from '../../primitives';
+import { SizableText, Stack, XStack, YStack } from '../../primitives';
 import { Haptics, ImpactFeedbackStyle } from '../../primitives/Haptics';
 
-import type { IListViewProps, IListViewRef } from '../../layouts';
-import type {
-  IRenderItemParams,
-  ISortableListViewProps,
-} from '../../layouts/SortableListView';
-import type {
-  ISizableTextProps,
-  IStackProps,
-  IXStackProps,
-} from '../../primitives';
+import { Column, MemoHeaderColumn } from './components';
+
+import type { ITableProps } from './types';
+import type { IListViewRef } from '../../layouts';
+import type { IRenderItemParams } from '../../layouts/SortableListView';
+import type { IXStackProps } from '../../primitives';
 import type {
   ListRenderItemInfo,
   NativeScrollEvent,
@@ -32,110 +28,11 @@ import type {
 
 const DEFAULT_ROW_HEIGHT = 60;
 
-export enum ETableSortType {
-  ASC = 'asc',
-  DESC = 'desc',
-}
-
-function Column<T>({
-  children,
-  width,
-  showSortIcon,
-  order,
-  onPress,
-  cursor,
-  name,
-  align = 'left',
-  ...props
-}: PropsWithChildren<
-  {
-    name: string;
-    showSortIcon?: boolean;
-    order?: 'asc' | 'desc' | undefined;
-    align?: ITableColumn<T>['align'];
-    onPress?: () => void;
-  } & Omit<IXStackProps, 'onPress'>
->) {
-  const jc = useMemo(() => {
-    if (align === 'left') {
-      return 'flex-start';
-    }
-    if (align === 'right') {
-      return 'flex-end';
-    }
-    return 'center';
-  }, [align]);
-
-  const renderSortIcon = useCallback(() => {
-    if (showSortIcon) {
-      if (order) {
-        return (
-          <Icon
-            cursor={cursor}
-            name={
-              order === 'desc'
-                ? 'ChevronDownSmallOutline'
-                : 'ChevronTopSmallOutline'
-            }
-            color="$iconSubdued"
-            size="$4"
-          />
-        );
-      }
-      return (
-        <Icon
-          cursor={cursor}
-          name="ChevronGrabberVerOutline"
-          color="$iconSubdued"
-          size="$4"
-        />
-      );
-    }
-    return null;
-  }, [cursor, order, showSortIcon]);
-  return (
-    <XStack
-      key={name}
-      testID={`list-column-${name}`}
-      jc={jc}
-      ai="center"
-      alignItems="center"
-      width={width}
-      onPress={onPress}
-      cursor={cursor}
-      userSelect="none"
-      {...props}
-    >
-      {jc === 'flex-end' ? renderSortIcon() : null}
-      {typeof children === 'string' ? (
-        <SizableText color="$textSubdued" size="$bodySmMedium">
-          {children}
-        </SizableText>
-      ) : (
-        children
-      )}
-      {jc === 'flex-start' ? renderSortIcon() : null}
-    </XStack>
-  );
-}
-
 const renderContent = (text?: string) => (
   <SizableText size="$bodyMd" color="$textSubdued" userSelect="none">
     {text ?? '-'}
   </SizableText>
 );
-
-export interface ITableColumn<T> {
-  title: string;
-  dataIndex: string;
-  titleProps?: ISizableTextProps;
-  columnProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
-  columnWidth?: IStackProps['width'];
-  renderSkeleton?: () => ReactElement;
-  render?: (text: any, record: T, index: number) => ReactElement;
-  // The specify which way that column is aligned. default value is left
-  align?: 'left' | 'right' | 'center';
-}
 
 function TableRow<T>({
   columns,
@@ -263,190 +160,6 @@ function TableRow<T>({
     </XStack>
   );
 }
-
-function TableSkeletonRow<T = any>({
-  columns,
-  index,
-  rowProps,
-}: {
-  columns: ITableProps<T>['columns'];
-  index: number;
-  rowProps?: ITableProps<T>['rowProps'];
-}) {
-  return (
-    <TableRow
-      columns={columns}
-      showSkeleton
-      rowProps={rowProps}
-      item={undefined as any}
-      key={index}
-      index={index}
-    />
-  );
-}
-export interface ITableProps<T> {
-  useFlashList?: boolean;
-  scrollEnabled?: boolean;
-  showHeader?: boolean;
-  showBackToTopButton?: boolean;
-  showSkeleton?: boolean;
-  skeletonCount?: number;
-  dataSource: T[];
-  columns: ITableColumn<T>[];
-  contentContainerStyle?: IListViewProps<T>['contentContainerStyle'];
-  renderScrollComponent?: IListViewProps<T>['renderScrollComponent'];
-  TableHeaderComponent?: IListViewProps<T>['ListHeaderComponent'];
-  TableFooterComponent?: IListViewProps<T>['ListFooterComponent'];
-  TableEmptyComponent?: IListViewProps<T>['ListEmptyComponent'];
-  extraData?: IListViewProps<T>['extraData'];
-  stickyHeader?: boolean;
-  stickyHeaderHiddenOnScroll?: IListViewProps<T>['stickyHeaderHiddenOnScroll'];
-  estimatedListSize?: { width: number; height: number };
-  estimatedItemSize?: IListViewProps<T>['estimatedItemSize'];
-  rowProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
-  headerRowProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
-  // Whether the column can be dragged to reorder. default value is false
-  draggable?: boolean;
-  onDragBegin?: ISortableListViewProps<T>['onDragBegin'];
-  onDragEnd?: ISortableListViewProps<T>['onDragEnd'];
-  keyExtractor: (item: T, index: number) => string;
-  onHeaderRow?: (
-    column: ITableColumn<T>,
-    index: number,
-  ) =>
-    | {
-        onPress?: () => void;
-        onSortTypeChange?: (sortOrder: 'asc' | 'desc' | undefined) => void;
-        disableSort?: ETableSortType[];
-      }
-    | undefined;
-  onRow?: (
-    record: T,
-    index: number,
-  ) =>
-    | {
-        onPress?: () => void;
-        onLongPress?: () => void;
-      }
-    | undefined;
-  // Infinite scroll support
-  onEndReached?: IListViewProps<T>['onEndReached'];
-  onEndReachedThreshold?: IListViewProps<T>['onEndReachedThreshold'];
-}
-
-function HeaderColumn<T>({
-  column,
-  index,
-  onHeaderRow,
-  selectedColumnName,
-  onChangeSelectedName,
-}: {
-  column: ITableColumn<T>;
-  index: number;
-  selectedColumnName: string;
-  onChangeSelectedName: (columnName: string) => void;
-  onHeaderRow?: ITableProps<T>['onHeaderRow'];
-}) {
-  const {
-    title,
-    dataIndex,
-    columnWidth = 40,
-    align,
-    columnProps,
-    titleProps,
-  } = column;
-  const events = onHeaderRow?.(column, index);
-  const enableSortType = !!events?.onSortTypeChange;
-  const [sortOrder, setSortOrder] = useState<ETableSortType | undefined>();
-
-  useEffect(() => {
-    if (selectedColumnName !== dataIndex) {
-      setSortOrder(undefined);
-    }
-  }, [dataIndex, selectedColumnName]);
-  const handleColumnPress = useCallback(() => {
-    events?.onPress?.();
-    if (!enableSortType) {
-      return;
-    }
-    const disabledSorts = events?.disableSort || [];
-
-    const getNextSortOrder = (
-      current: ETableSortType | undefined,
-      disabled: ETableSortType[],
-    ): ETableSortType | undefined => {
-      const isDisabled = (sort: ETableSortType | undefined) =>
-        sort !== undefined && disabled.includes(sort);
-
-      if (current === ETableSortType.DESC) {
-        return isDisabled(ETableSortType.ASC) ? undefined : ETableSortType.ASC;
-      }
-
-      if (current === ETableSortType.ASC) {
-        return undefined;
-      }
-
-      // current is undefined, find first available sort
-      if (!isDisabled(ETableSortType.DESC)) return ETableSortType.DESC;
-      if (!isDisabled(ETableSortType.ASC)) return ETableSortType.ASC;
-      return undefined;
-    };
-
-    const order = getNextSortOrder(sortOrder, disabledSorts);
-
-    // When resetting to undefined, clear the selected column to allow default sorting
-    if (order === undefined) {
-      setTimeout(() => {
-        onChangeSelectedName('');
-      });
-    } else {
-      setTimeout(() => {
-        onChangeSelectedName(dataIndex);
-      });
-    }
-
-    setSortOrder(order);
-    setTimeout(() => {
-      events?.onSortTypeChange?.(order);
-    });
-  }, [dataIndex, enableSortType, events, onChangeSelectedName, sortOrder]);
-  const cursor = enableSortType ? 'pointer' : undefined;
-  const showSortIcon = enableSortType;
-  const currentSortOrder =
-    dataIndex === selectedColumnName ? sortOrder : undefined;
-
-  const textAlign = useMemo(() => {
-    if (align === 'right') {
-      return 'right';
-    }
-    return undefined;
-  }, [align]);
-
-  return (
-    <Column
-      align={align}
-      showSortIcon={showSortIcon}
-      key={dataIndex}
-      name={dataIndex}
-      width={columnWidth}
-      order={currentSortOrder}
-      onPress={handleColumnPress as any}
-      cursor={cursor}
-      {...(columnProps as IXStackProps)}
-    >
-      <SizableText
-        color="$textSubdued"
-        size="$bodySmMedium"
-        textAlign={textAlign}
-        {...titleProps}
-      >
-        {title}
-      </SizableText>
-    </Column>
-  );
-}
-
-const MemoHeaderColumn = memo(HeaderColumn);
 
 function TableHeaderRow<T>({
   columns,
@@ -743,6 +456,27 @@ function BasicTable<T>({
   );
 }
 
+function TableSkeletonRow<T = any>({
+  columns,
+  index,
+  rowProps,
+}: {
+  columns: ITableProps<T>['columns'];
+  index: number;
+  rowProps?: ITableProps<T>['rowProps'];
+}) {
+  return (
+    <TableRow
+      columns={columns}
+      showSkeleton
+      rowProps={rowProps}
+      item={undefined as any}
+      key={index}
+      index={index}
+    />
+  );
+}
+
 function TableSkeleton<T>({
   count,
   columns,
@@ -771,3 +505,7 @@ export const Table = withStaticProperties(BasicTable, {
   Skeleton: TableSkeleton,
   SkeletonRow: TableSkeletonRow,
 });
+
+// Export types
+export type { ITableProps, ITableColumn } from './types';
+export { ETableSortType } from './types';

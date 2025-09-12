@@ -39,12 +39,14 @@ interface ITokenDetailHeaderRightProps {
   tokenDetail?: IMarketTokenDetail;
   networkId?: string;
   showStats: boolean;
+  isNative?: boolean;
 }
 
 export function TokenDetailHeaderRight({
   tokenDetail,
   networkId,
   showStats,
+  isNative = false,
 }: ITokenDetailHeaderRightProps) {
   const intl = useIntl();
   const [settingsPersistAtom] = useSettingsPersistAtom();
@@ -65,6 +67,7 @@ export function TokenDetailHeaderRight({
       contractAddress={address}
       size="medium"
       from={EWatchlistFrom.details}
+      isNative={isNative}
     />
   ) : null;
 

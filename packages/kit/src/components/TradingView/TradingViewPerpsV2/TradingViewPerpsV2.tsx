@@ -5,6 +5,7 @@ import type { IStackStyle } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import { useTradingViewUrl } from '../hooks';
 
@@ -97,6 +98,7 @@ export function TradingViewPerpsV2(
   const isLandscape = useOrientation();
   const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
   const webRef = useRef<IWebViewRef | null>(null);
+  const theme = useThemeVariant();
 
   const { symbol, userAddress, onLoadEnd, onTradeUpdate, tradingViewUrl } =
     props;
@@ -135,6 +137,7 @@ export function TradingViewPerpsV2(
   return (
     <Stack position="relative" flex={1}>
       <WebViewMemoized
+        key={theme}
         src={staticTradingViewUrl}
         customReceiveHandler={customReceiveHandler}
         onWebViewRef={onWebViewRef}
