@@ -11,25 +11,24 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
-import type { FrontendOrder } from '@nktkas/hyperliquid';
+import type { AssetPosition, FrontendOrder } from '@nktkas/hyperliquid';
 
 interface IPositionRowProps {
-  pos: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
+  pos: AssetPosition['position'];
   mid?: string;
   handleMarketClose: ({
     position,
   }: {
-    position: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
+    position: AssetPosition['position'];
   }) => void;
   handleLimitClose: ({
     position,
   }: {
-    position: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
+    position: AssetPosition['position'];
   }) => void;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
@@ -70,18 +69,18 @@ const PositionRow = memo(
     const priceInfo = useMemo(() => {
       const entryPrice = new BigNumber(pos.entryPx || '0').toFixed();
       const markPrice = new BigNumber(mid || '0').toFixed();
-      const liquidationPrice = new BigNumber(
-        pos.liquidationPx || '0',
-      ).toFixed();
+      const liquidationPrice = new BigNumber(pos.liquidationPx || '0');
       const entryPriceFormatted = numberFormat(entryPrice, {
         formatter: 'price',
       });
       const markPriceFormatted = numberFormat(markPrice, {
         formatter: 'price',
       });
-      const liquidationPriceFormatted = numberFormat(liquidationPrice, {
-        formatter: 'price',
-      });
+      const liquidationPriceFormatted = liquidationPrice.isZero()
+        ? 'N/A'
+        : numberFormat(liquidationPrice.toFixed(), {
+            formatter: 'price',
+          });
       return {
         entryPriceFormatted,
         markPriceFormatted,
@@ -325,10 +324,20 @@ const PositionRow = memo(
           gap="$2"
           pl="$2"
         >
-          <SizableText size="$bodySmMedium" color={assetInfo.assetColor}>
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySmMedium"
+            color={assetInfo.assetColor}
+          >
             {assetInfo.assetSymbol}
           </SizableText>
-          <SizableText size="$bodySm" color={assetInfo.assetColor}>
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+            color={assetInfo.assetColor}
+          >
             {assetInfo.leverage}X
           </SizableText>
         </XStack>
