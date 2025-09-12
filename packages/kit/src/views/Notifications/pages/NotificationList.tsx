@@ -345,6 +345,10 @@ function BaseNotificationList() {
     return tabs.map((tab) => tab.name);
   }, [tabs]);
   const focusedTab = useSharedValue<string>(tabs[0].name);
+  const [
+    shouldShowMaxAccountLimitWarning,
+    setShouldShowMaxAccountLimitWarning,
+  ] = useState(false);
   const [unreadMap, setUnreadMap] = useState<{
     [key: string]: number;
   }>({
@@ -360,6 +364,9 @@ function BaseNotificationList() {
       noop(lastReceivedTime);
       void backgroundApiProxy.serviceNotification.refreshBadgeFromServer();
       const topicType = tabs.find((tab) => tab.name === focusedTab.value)?.id;
+      setShouldShowMaxAccountLimitWarning(
+        topicType !== ENotificationPushTopicTypes.system,
+      );
       const r = await backgroundApiProxy.serviceNotification.fetchMessageList(
         !topicType || topicType === ENotificationPushTopicTypes.all
           ? undefined
@@ -594,7 +601,7 @@ function BaseNotificationList() {
           }}
         />
         <YStack pt="$2" flex={1}>
-          <MaxAccountLimitWarning />
+          {shouldShowMaxAccountLimitWarning ? <MaxAccountLimitWarning /> : null}
           {contentView}
         </YStack>
       </Page.Body>
