@@ -88,12 +88,12 @@ export function useWalletConnection({
 
     if (shouldShowDialogLoading) {
       dialogRef.current = Dialog.show({
-        title: `3367610-${intl.formatMessage(
+        title: intl.formatMessage(
           { id: ETranslations.global_connect_to_wallet },
           {
             wallet: name || 'Wallet', // name || 'Wallet'
           },
-        )}`,
+        ),
         showFooter: false,
         dismissOnOverlayPress: false,
         onClose() {

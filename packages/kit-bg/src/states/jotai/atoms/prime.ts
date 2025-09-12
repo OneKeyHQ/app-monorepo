@@ -60,6 +60,18 @@ export const {
   },
 });
 
+export const {
+  target: primeServerMasterPasswordStatusAtom,
+  use: usePrimeServerMasterPasswordStatusAtom,
+} = globalAtom<{
+  isServerMasterPasswordSet: boolean;
+}>({
+  name: EAtomNames.primeServerMasterPasswordStatusAtom,
+  initialValue: {
+    isServerMasterPasswordSet: false,
+  },
+});
+
 export type IPrimeInitAtomData = {
   isReady: boolean;
 };
