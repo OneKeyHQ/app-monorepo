@@ -133,9 +133,19 @@ runs:
       if: ${{ !github.event.workflow_run }}
       shell: bash
       run: |
-        # Generate build number ------- start
-        echo "BUILD_NUMBER=1" >> $GITHUB_ENV
-        # Generate build number ------- end
+        echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
+        if [ ! -z "${{ env.WORKFLOW_BUILD_NUMBER }}" ]; then
+          echo "BUILD_NUMBER=${{ env.WORKFLOW_BUILD_NUMBER }}" >> $GITHUB_ENV
+        else
+          # Generate build number ------- start
+          DATE=`date "+%Y%m%d"`
+          run_number=$(($workflow_run_number % 100))
+          run_number=$(printf "%02d" $run_number)
+          build_number="${DATE}${run_number}"
+          echo '$build_number='$build_number
+          echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
+          # Generate build number ------- end
+        fi
 
 
     - name: Setup ENV BUILD_NUMBER by workflow_run
